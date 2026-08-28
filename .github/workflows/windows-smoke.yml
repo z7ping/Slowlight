@@ -1,0 +1,81 @@
+name: Windows Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'client/**'
+      - '.github/workflows/dogfood.yml'
+      - '.github/workflows/windows-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-package:
+    name: Build and package Windows
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        working-directory: client
+        run: flutter pub get
+      - name: Verify lockfile is committed
+        working-directory: client
+        run: git diff --exit-code -- pubspec.lock
+      - name: Build Windows release
+        working-directory: client
+        run: flutter build windows --release
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+      - name: Compile installer
+        shell: powershell
+        run: |
+          $versionLine = Select-String -Path 'client\pubspec.yaml' -Pattern '^version:\s*(.+)$'
+          $version = ($versionLine.Matches[0].Groups[1].Value -split '\+')[0]
+          $env:SLOWLIGHT_WINDOWS_VERSION = $version
+
+          Remove-Item 'dist\windows' -Recurse -Force -ErrorAction SilentlyContinue
+
+          $iscc = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if ($null -eq $iscc) {
+            $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+            if ($null -ne $command) {
+              $iscc = Get-Item $command.Source
+            }
+          }
+          if ($null -eq $iscc) {
+            throw 'Inno Setup compiler ISCC.exe was not found.'
+          }
+
+          & $iscc.FullName 'client\windows\installer\slowlight.iss'
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE."
+          }
+
+          $package = "dist\windows\Slowlight-v$version-windows-x64-setup.exe"
+          if (-not (Test-Path $package)) {
+            throw "Windows installer was not generated: $package"
+          }
+      - name: Upload smoke installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: slowlight-windows-smoke
+          path: dist/windows/Slowlight-*-windows-x64-setup.exe
+          if-no-files-found: error
+          retention-days: 7
