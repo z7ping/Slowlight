@@ -1,0 +1,67 @@
+# 编译产物
+slowlight
+*.exe
+*.dll
+
+# 环境变量与本地配置
+.env
+.env.*
+!.env.example
+server/.env.test.local
+**/credentials.json
+**/service-account.json
+**/service_account.json
+**/secrets.json
+**/secret.json
+
+# Android / 桌面签名与证书
+**/key.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.pfx
+**/*.pem
+**/*.key
+**/*.mobileprovision
+**/id_rsa
+**/id_ed25519
+**/slowlight-release-base64.txt
+
+# 本地数据库、备份与转储
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.bak
+
+# Flutter / Dart 生成文件
+**/generated_plugin_registrant.cc
+**/generated_plugin_registrant.h
+**/generated_plugins.cmake
+**/GeneratedPluginRegistrant.swift
+**/.dart_tool/
+client/build/
+client/.flutter-plugins-dependencies
+
+# Python 缓存；不要忽略正常的 .py 源文件
+**/__pycache__/
+*.py[cod]
+
+# 日志、覆盖率与测试产物
+*.log
+**/coverage/
+coverage.out
+slowlight-test
+slowlight.bak
+build.log
+
+# IDE / 本地 Agent 工件
+*.iml
+.claude/
+.codegraph/
+agent-swe/
+
+# 本地临时脚本
+scripts/restart_tmp.bat
+check_braces.py

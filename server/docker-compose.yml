@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  slowlight:
+    build: .
+    container_name: slowlight-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: host=slowlight-db user=slowlight password=${SLOWLIGHT_DB_PASSWORD:?set SLOWLIGHT_DB_PASSWORD} dbname=slowlight port=5432 sslmode=disable
+      PORT: "8080"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY:?set CONFIG_ENCRYPTION_KEY}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000,http://localhost:8080}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: slowlight-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: slowlight
+      POSTGRES_USER: slowlight
+      POSTGRES_PASSWORD: ${SLOWLIGHT_DB_PASSWORD:?set SLOWLIGHT_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slowlight -d slowlight"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

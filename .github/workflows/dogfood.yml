@@ -1,0 +1,142 @@
+name: Preview Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: 'API server URL (optional; otherwise use repository variable or localhost)'
+        required: false
+        default: ''
+  workflow_call:
+    inputs:
+      server_url:
+        description: 'API server URL'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      SLOWLIGHT_ANDROID_KEYSTORE_BASE64:
+        required: true
+      SLOWLIGHT_ANDROID_KEY_ALIAS:
+        required: true
+      SLOWLIGHT_ANDROID_STORE_PASSWORD:
+        required: true
+      SLOWLIGHT_ANDROID_KEY_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  android:
+    name: Android preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SERVER_URL: ${{ inputs.server_url || vars.SLOWLIGHT_DOGFOOD_SERVER_URL || 'http://localhost:8080/api' }}
+      SLOWLIGHT_ANDROID_KEYSTORE_BASE64: ${{ secrets.SLOWLIGHT_ANDROID_KEYSTORE_BASE64 }}
+      SLOWLIGHT_ANDROID_KEY_ALIAS: ${{ secrets.SLOWLIGHT_ANDROID_KEY_ALIAS }}
+      SLOWLIGHT_ANDROID_STORE_PASSWORD: ${{ secrets.SLOWLIGHT_ANDROID_STORE_PASSWORD }}
+      SLOWLIGHT_ANDROID_KEY_PASSWORD: ${{ secrets.SLOWLIGHT_ANDROID_KEY_PASSWORD }}
+      SLOWLIGHT_ANDROID_KEYSTORE_PATH: slowlight-release.jks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+      - name: Verify Android signing secrets
+        shell: bash
+        run: |
+          required=(
+            SLOWLIGHT_ANDROID_KEYSTORE_BASE64
+            SLOWLIGHT_ANDROID_KEY_ALIAS
+            SLOWLIGHT_ANDROID_STORE_PASSWORD
+            SLOWLIGHT_ANDROID_KEY_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required Android signing secret: $name"
+              exit 1
+            fi
+          done
+      - name: Restore Android release keystore
+        shell: bash
+        run: |
+          printf '%s' "$SLOWLIGHT_ANDROID_KEYSTORE_BASE64" | base64 --decode > client/android/app/slowlight-release.jks
+          test -s client/android/app/slowlight-release.jks
+      - name: Resolve dependencies
+        working-directory: client
+        run: flutter pub get
+      - name: Verify lockfile is committed
+        working-directory: client
+        run: git diff --exit-code -- pubspec.lock
+      - name: Build APK
+        working-directory: client
+        run: flutter build apk --release --dart-define=SERVER_URL="$SERVER_URL"
+      - name: Package APK
+        shell: bash
+        run: |
+          version="$(awk '/^version:/ {print $2}' client/pubspec.yaml | cut -d+ -f1)"
+          cp client/build/app/outputs/flutter-apk/app-release.apk "Slowlight-v${version}-android-preview.apk"
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: slowlight-preview-android
+          path: Slowlight-*-android-preview.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Windows preview package
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      SERVER_URL: ${{ inputs.server_url || vars.SLOWLIGHT_DOGFOOD_SERVER_URL || 'http://localhost:8080/api' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        working-directory: client
+        run: flutter pub get
+      - name: Verify lockfile is committed
+        working-directory: client
+        run: git diff --exit-code -- pubspec.lock
+      - name: Build Windows
+        working-directory: client
+        run: flutter build windows --release --dart-define=SERVER_URL="$env:SERVER_URL"
+      - name: Package Windows
+        shell: powershell
+        run: |
+          $versionLine = Select-String -Path 'client\pubspec.yaml' -Pattern '^version:\s*(.+)$'
+          $version = ($versionLine.Matches[0].Groups[1].Value -split '\+')[0]
+          $package = "Slowlight-v$version-windows-x64.zip"
+          $stage = 'windows-package'
+          Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item 'client\build\windows\x64\runner\Release\*' $stage -Recurse
+          Copy-Item 'LICENSE' "$stage\LICENSE"
+          Copy-Item 'THIRD_PARTY_NOTICES.md' "$stage\THIRD_PARTY_NOTICES.md"
+          Compress-Archive -Path "$stage\*" -DestinationPath $package
+          "SLOWLIGHT_WINDOWS_PACKAGE=$package" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: slowlight-preview-windows
+          path: ${{ env.SLOWLIGHT_WINDOWS_PACKAGE }}
+          if-no-files-found: error
+          retention-days: 30

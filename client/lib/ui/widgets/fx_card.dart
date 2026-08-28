@@ -1,0 +1,55 @@
+import 'fx_cursor.dart';
+import 'package:flutter/material.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
+
+/// FxCard — 卡片组件
+class FxCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+  final VoidCallback? onTap;
+  final Color? color;
+  final double? borderRadius;
+  final EdgeInsets? margin;
+  final Border? border;
+  final Key? _deprecatedCardKey;
+
+  const FxCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.onTap,
+    this.color,
+    this.borderRadius,
+    this.margin,
+    this.border,
+    @Deprecated('Pass key directly to FxCard constructor instead')
+    Key? cardKey,
+  }) : _deprecatedCardKey = cardKey;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget card = ShadCard(
+      key: _deprecatedCardKey,
+      padding: padding ?? const EdgeInsets.all(16),
+      backgroundColor: color,
+      radius: borderRadius != null
+          ? BorderRadius.circular(borderRadius!)
+          : null,
+      border: border,
+      columnMainAxisAlignment: MainAxisAlignment.start,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: child,
+      ),
+    );
+
+    if (margin != null) {
+      card = Padding(padding: margin!, child: card);
+    }
+
+    if (onTap != null) {
+      return FxGestureDetector(onTap: onTap, child: card);
+    }
+    return card;
+  }
+}

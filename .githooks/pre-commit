@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --config=.gitleaks.toml --no-banner
+else
+  echo "warning: gitleaks 未安装，跳过本地敏感信息扫描；GitHub CI 与 Push Protection 仍会执行远端硬门禁。" >&2
+fi

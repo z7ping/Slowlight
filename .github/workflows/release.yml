@@ -1,0 +1,191 @@
+name: Release Preview
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  quality-gate:
+    name: Reuse GitHub quality gate
+    uses: ./.github/workflows/ci.yml
+
+  secret-gate:
+    name: Reuse sensitive information guard
+    uses: ./.github/workflows/secret-guard.yml
+
+  release-metadata:
+    name: Verify release metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check version, tag and changelog consistency
+        run: python scripts/docs/release_check.py "${{ github.ref_name }}"
+
+  client-packages:
+    name: Build Android and Windows
+    needs:
+      - quality-gate
+      - secret-gate
+      - release-metadata
+    uses: ./.github/workflows/dogfood.yml
+    with:
+      server_url: ${{ vars.SLOWLIGHT_DOGFOOD_SERVER_URL }}
+    secrets: inherit
+
+  build-server:
+    name: Build Linux server (${{ matrix.goarch }})
+    needs:
+      - quality-gate
+      - secret-gate
+      - release-metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch:
+          - amd64
+          - arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+          cache-dependency-path: server/go.sum
+      - name: Download dependencies
+        working-directory: server
+        run: go mod download
+      - name: Build server
+        working-directory: server
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -trimpath -ldflags="-s -w" -o "slowlight-server-linux-${GOARCH}" ./cmd
+      - name: Package server
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ {print $2}' client/pubspec.yaml | cut -d+ -f1)"
+          arch="${{ matrix.goarch }}"
+          stage="server-package-${arch}"
+          rm -rf "$stage"
+          mkdir -p "$stage"
+          cp "server/slowlight-server-linux-${arch}" "$stage/"
+          cp .env.example "$stage/.env.example"
+          cp server/README.md "$stage/README.md"
+          cp LICENSE "$stage/LICENSE"
+          cp THIRD_PARTY_NOTICES.md "$stage/THIRD_PARTY_NOTICES.md"
+          tar czf "Slowlight-Server-v${version}-linux-${arch}.tar.gz" -C "$stage" .
+      - name: Upload server package
+        uses: actions/upload-artifact@v4
+        with:
+          name: slowlight-server-${{ matrix.goarch }}
+          path: Slowlight-Server-*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  build-web:
+    name: Build web package (non-blocking for preview)
+    needs:
+      - quality-gate
+      - secret-gate
+      - release-metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        working-directory: client
+        run: flutter pub get
+      - name: Build web
+        working-directory: client
+        run: flutter build web --release
+      - name: Package web
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ {print $2}' client/pubspec.yaml | cut -d+ -f1)"
+          stage="web-package"
+          rm -rf "$stage"
+          mkdir -p "$stage"
+          cp -R client/build/web/. "$stage/"
+          cp LICENSE "$stage/LICENSE"
+          cp THIRD_PARTY_NOTICES.md "$stage/THIRD_PARTY_NOTICES.md"
+          tar czf "Slowlight-v${version}-web.tar.gz" -C "$stage" .
+      - name: Upload web package
+        uses: actions/upload-artifact@v4
+        with:
+          name: slowlight-web
+          path: Slowlight-*-web.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Create GitHub prerelease
+    needs:
+      - client-packages
+      - build-server
+      - build-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Add license documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp LICENSE dist/LICENSE
+          cp THIRD_PARTY_NOTICES.md dist/THIRD_PARTY_NOTICES.md
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          shopt -s nullglob
+          files=(*.zip *.apk *.tar.gz)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No release artifacts found for checksum generation."
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS
+      - name: Create or refresh GitHub prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No release artifacts found."
+            exit 1
+          fi
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Slowlight $GITHUB_REF_NAME · 预览版" \
+              --prerelease \
+              --generate-notes
+          fi

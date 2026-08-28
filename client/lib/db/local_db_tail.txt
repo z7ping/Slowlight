@@ -1,0 +1,250 @@
+        entity_type TEXT NOT NULL,
+        entity_local_id INTEGER NOT NULL,
+        entity_server_id INTEGER,
+        operation TEXT NOT NULL,
+        payload TEXT,
+        retry_count INTEGER DEFAULT 0,
+        last_error TEXT DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_sync_queue_entity ON sync_queue(entity_type, entity_local_id)');
+    await db.execute('CREATE INDEX idx_sync_queue_retry ON sync_queue(retry_count)');
+
+    // version 3 索引
+    await db.execute('CREATE INDEX idx_tasks_sync_status ON tasks(sync_status)');
+    await db.execute('CREATE INDEX idx_habits_sync_status ON habits(sync_status)');
+  }
+
+Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // 休息提醒会话表
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS reminder_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          server_id INTEGER,
+          type TEXT NOT NULL,
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          duration_seconds INTEGER DEFAULT 0,
+          skipped INTEGER DEFAULT 0,
+          device TEXT DEFAULT '',
+          synced INTEGER DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_reminder_sessions_synced ON reminder_sessions(synced)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_reminder_sessions_date ON reminder_sessions(started_at)');
+
+      // 休息提醒配置表
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS reminder_config (
+          id INTEGER PRIMARY KEY DEFAULT 1,
+          work_minutes INTEGER DEFAULT 25,
+          micro_rest_seconds INTEGER DEFAULT 20,
+          long_rest_minutes INTEGER DEFAULT 5,
+          micro_rests_before_long INTEGER DEFAULT 2,
+          lock_screen INTEGER DEFAULT 0,
+          notify_before_seconds INTEGER DEFAULT 10,
+          auto_loop INTEGER DEFAULT 1,
+          auto_start_on_launch INTEGER DEFAULT 1,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+
+      // 休息提醒今日统计（本地缓存）
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS reminder_daily_stats (
+          date TEXT PRIMARY KEY,
+          total_work_seconds INTEGER DEFAULT 0,
+          total_rest_seconds INTEGER DEFAULT 0,
+          session_count INTEGER DEFAULT 0,
+          skip_count INTEGER DEFAULT 0
+        )
+      ''');
+    }
+
+    if (oldVersion < 3) {
+      // ═══ 同步字段扩展 ═══
+      final syncTables = ['lists', 'tasks', 'subtasks', 'tags', 'system_tags', 'habits', 'habit_logs'];
+      for (final table in syncTables) {
+        await db.execute('ALTER TABLE $table ADD COLUMN version INTEGER DEFAULT 1');
+        await db.execute("ALTER TABLE $table ADD COLUMN sync_status TEXT DEFAULT 'synced'");
+        await db.execute("ALTER TABLE $table ADD COLUMN last_modified TEXT DEFAULT ''");
+        await db.execute("ALTER TABLE $table ADD COLUMN device_id TEXT DEFAULT ''");
+      }
+
+      // ═══ 同步队列表 ═══
+      await db.execute('''
+        CREATE TABLE sync_queue (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          entity_type TEXT NOT NULL,
+          entity_local_id INTEGER NOT NULL,
+          entity_server_id INTEGER,
+          operation TEXT NOT NULL,
+          payload TEXT,
+          retry_count INTEGER DEFAULT 0,
+          last_error TEXT DEFAULT '',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('CREATE INDEX idx_sync_queue_entity ON sync_queue(entity_type, entity_local_id)');
+      await db.execute('CREATE INDEX idx_sync_queue_retry ON sync_queue(retry_count)');
+
+      // 索引
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_tasks_sync_status ON tasks(sync_status)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_habits_sync_status ON habits(sync_status)');
+    }
+
+    if (oldVersion < 4) {
+      // ═══ 习惯字段扩展：specific_time + reminder_at ═══
+      await db.execute("ALTER TABLE habits ADD COLUMN specific_time TEXT DEFAULT ''");
+      await db.execute("ALTER TABLE habits ADD COLUMN reminder_at TEXT DEFAULT '{}'");
+    }
+
+    if (oldVersion < 5) {
+      // ═══ 休息提醒自循环配置 ═══
+      // 兼容：老数据库可能没有 reminder_config 表（version 2 前创建的），先检查
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='reminder_config'");
+      if (tables.isNotEmpty) {
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN auto_loop INTEGER DEFAULT 1");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN auto_start_on_launch INTEGER DEFAULT 1");
+      } else {
+        await db.execute('''
+          CREATE TABLE reminder_config (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            work_minutes INTEGER DEFAULT 25,
+            micro_rest_seconds INTEGER DEFAULT 20,
+            long_rest_minutes INTEGER DEFAULT 5,
+            micro_rests_before_long INTEGER DEFAULT 2,
+            lock_screen INTEGER DEFAULT 0,
+            notify_before_seconds INTEGER DEFAULT 10,
+            auto_loop INTEGER DEFAULT 1,
+            auto_start_on_launch INTEGER DEFAULT 1,
+            updated_at TEXT NOT NULL
+          )
+        ''');
+      }
+    }
+
+    if (oldVersion < 6) {
+      // ═══ 清理重复的系统标签 ═══
+      // 保留每组同名标签中 id 最小的一条，删除其余
+      await db.execute('''
+        DELETE FROM system_tags WHERE id NOT IN (
+          SELECT MIN(id) FROM system_tags GROUP BY name
+        )
+      ''');
+    }
+
+    if (oldVersion < 7) {
+      // ═══ 休息提醒：小憩/长休息分离 ═══
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='reminder_config'");
+      if (tables.isNotEmpty) {
+        // 添加新字段
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN micro_rest_seconds INTEGER DEFAULT 20");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN long_rest_minutes INTEGER DEFAULT 5");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN micro_rests_before_long INTEGER DEFAULT 2");
+        // 更新默认值
+        await db.execute("UPDATE reminder_config SET work_minutes = 25 WHERE work_minutes = 50");
+        await db.execute("UPDATE reminder_config SET notify_before_seconds = 10 WHERE notify_before_seconds = 60");
+      }
+    }
+
+    if (oldVersion < 8) {
+      // ═══ 休息提醒：严格模式+锁屏模式+延后选项 ═══
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='reminder_config'");
+      if (tables.isNotEmpty) {
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN lock_screen_mode TEXT DEFAULT 'window'");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN micro_rest_strict INTEGER DEFAULT 0");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN long_rest_strict INTEGER DEFAULT 0");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN allow_postpone_micro INTEGER DEFAULT 1");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN allow_postpone_long INTEGER DEFAULT 1");
+        // 更新提前提醒为30秒
+        await db.execute("UPDATE reminder_config SET notify_before_seconds = 30 WHERE notify_before_seconds = 10");
+      }
+    }
+
+    if (oldVersion < 9) {
+      // ═══ 修复：确保休息提醒所有相关表存在（修复早期数据库缺失问题） ═══
+    }
+
+    if (oldVersion < 10) {
+      // ═══ 习惯：打卡弹窗设置 ═══
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='habits'");
+      if (tables.isNotEmpty) {
+        await db.execute("ALTER TABLE habits ADD COLUMN show_checkin_dialog INTEGER DEFAULT 0");
+      }
+    }
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS reminder_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          server_id INTEGER,
+          type TEXT NOT NULL,
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          duration_seconds INTEGER DEFAULT 0,
+          skipped INTEGER DEFAULT 0,
+          device TEXT DEFAULT '',
+          synced INTEGER DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_reminder_sessions_synced ON reminder_sessions(synced)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_reminder_sessions_date ON reminder_sessions(started_at)');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS reminder_config (
+          id INTEGER PRIMARY KEY DEFAULT 1,
+          work_minutes INTEGER DEFAULT 25,
+          micro_rest_seconds INTEGER DEFAULT 20,
+          long_rest_minutes INTEGER DEFAULT 5,
+          micro_rests_before_long INTEGER DEFAULT 2,
+          lock_screen INTEGER DEFAULT 0,
+          notify_before_seconds INTEGER DEFAULT 10,
+          auto_loop INTEGER DEFAULT 1,
+          auto_start_on_launch INTEGER DEFAULT 1,
+          lock_screen_mode TEXT DEFAULT 'window',
+          micro_rest_strict INTEGER DEFAULT 0,
+          long_rest_strict INTEGER DEFAULT 0,
+          allow_postpone_micro INTEGER DEFAULT 1,
+          allow_postpone_long INTEGER DEFAULT 1,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS reminder_daily_stats (
+          date TEXT PRIMARY KEY,
+          total_work_seconds INTEGER DEFAULT 0,
+          total_rest_seconds INTEGER DEFAULT 0,
+          session_count INTEGER DEFAULT 0,
+          skip_count INTEGER DEFAULT 0
+        )
+      ''');
+    }
+  }
+
+  /// 关闭数据库
+  Future<void> close() async {
+    if (_db != null) {
+      await _db!.close();
+      _db = null;
+    }
+  }
+
+  /// 清空所有数据（用于重置）
+  Future<void> clearAll() async {
+    final db = await database;
+    await db.delete('habit_logs');
+    await db.delete('task_tags');
+    await db.delete('subtasks');
+    await db.delete('tasks');
+    await db.delete('tags');
+    await db.delete('system_tags');
+    await db.delete('habits');
+    await db.delete('lists');
+  }
+}

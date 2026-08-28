@@ -1,0 +1,109 @@
+title = "Slowlight secret scanning rules"
+
+[extend]
+useDefault = true
+
+# 目录扫描只针对当前工作树，并跳过 Git 元数据。
+[[allowlists]]
+description = "Ignore Git metadata during worktree scan"
+paths = [
+  '''(^|/)\.git(?:/|$)''',
+]
+
+# 只放行明确的示例、测试值和环境变量引用，不按整个文件或变量名放行。
+[[allowlists]]
+description = "Slowlight test and example placeholders"
+regexTarget = "match"
+regexes = [
+  '''(?i)change[_-]?me(?:[_-][a-z0-9]+)*''',
+  '''(?i)your[_-][a-z0-9_-]+''',
+  '''(?i)(?:example|placeholder|dummy)[_-]?[a-z0-9_-]*''',
+  '''(?i)slowlight-ci-[a-z0-9_-]+''',
+  '''postgres://postgres:postgres@127\.0\.0\.1:5432/slowlight_test\?sslmode=disable''',
+  '''password=change_me''',
+  '''\$\{[A-Z][A-Z0-9_]*(?::[^}]*)?\}''',
+]
+
+[[allowlists]]
+description = "Docker Compose runtime secret references"
+regexTarget = "match"
+regexes = [
+  '''JWT_SECRET:[ \t]*\$\{JWT_SECRET:\?set JWT_SECRET\}''',
+  '''CONFIG_ENCRYPTION_KEY:[ \t]*\$\{CONFIG_ENCRYPTION_KEY:\?set CONFIG_ENCRYPTION_KEY\}''',
+  '''DATABASE_URL:[^\r\n]*password=\$\{SLOWLIGHT_DB_PASSWORD:\?set SLOWLIGHT_DB_PASSWORD\}''',
+]
+
+[[rules]]
+id = "slowlight-sensitive-env-assignment"
+description = "Slowlight sensitive environment variable assigned a literal value"
+regex = '''(?i)(?:JWT_SECRET|CONFIG_ENCRYPTION_KEY|SLOWLIGHT_ANDROID_KEYSTORE_BASE64|SLOWLIGHT_ANDROID_STORE_PASSWORD|SLOWLIGHT_ANDROID_KEY_PASSWORD|FEISHU_APP_SECRET|APP_SECRET)[ \t]*[:=][ \t]*["']?(\$\{\{[^\r\n]+\}\}|\$\{[^}\r\n]+\}|[^\s"']{8,})'''
+secretGroup = 1
+keywords = [
+  "JWT_SECRET",
+  "CONFIG_ENCRYPTION_KEY",
+  "SLOWLIGHT_ANDROID_KEYSTORE_BASE64",
+  "SLOWLIGHT_ANDROID_STORE_PASSWORD",
+  "SLOWLIGHT_ANDROID_KEY_PASSWORD",
+  "FEISHU_APP_SECRET",
+  "APP_SECRET",
+]
+
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [
+  '''(?i)change[_-]?me(?:[_-][a-z0-9]+)*''',
+  '''(?i)your[_-][a-z0-9_-]+''',
+  '''(?i)(?:example|placeholder|dummy|test)[_-]?[a-z0-9_-]*''',
+  '''(?i)slowlight-ci-[a-z0-9_-]+''',
+  '''\$\{\{.*\}\}''',
+  '''\$\{[A-Z][A-Z0-9_]*(?::[^}]*)?\}''',
+  '''\$\{[A-Z][A-Z0-9_]*:\?[^}]+\}''',
+  '''\$\{[0-9]+:-\}''',
+]
+
+[[rules.allowlists]]
+description = "Docker Compose requires runtime secret injection"
+regexTarget = "match"
+regexes = [
+  '''JWT_SECRET:[ \t]*\$\{JWT_SECRET:\?set JWT_SECRET\}''',
+  '''CONFIG_ENCRYPTION_KEY:[ \t]*\$\{CONFIG_ENCRYPTION_KEY:\?set CONFIG_ENCRYPTION_KEY\}''',
+]
+
+[[rules]]
+id = "slowlight-database-credential"
+description = "Database connection string containing an embedded password"
+regex = '''(?i)(?:(?:postgres(?:ql)?|mysql|mariadb)://[^\s:/@]+:[^\s/@]+@[^\s]+|(?:DATABASE_URL|TEST_DATABASE_URL)[ \t]*[:=][ \t]*[^\r\n]*password=(?:\$\{[^}\r\n]+\}|[^\s]+))'''
+keywords = ["postgres://", "postgresql://", "mysql://", "mariadb://", "DATABASE_URL", "TEST_DATABASE_URL"]
+
+[[rules.allowlists]]
+regexTarget = "match"
+regexes = [
+  '''postgres://postgres:postgres@127\.0\.0\.1:5432/slowlight_test\?sslmode=disable''',
+  '''(?i)password=change_me''',
+  '''(?i)password=(?:example|placeholder|dummy|test)''',
+  '''password=\$\{[A-Z][A-Z0-9_]*(?::[^}]*)?\}''',
+  '''password=\$\{[A-Z][A-Z0-9_]*:\?[^}]+\}''',
+  '''postgres://invalid:invalid@127\.0\.0\.1:1/invalid''',
+  '''DATABASE_URL:[^\r\n]*password=\$\{SLOWLIGHT_DB_PASSWORD:\?set SLOWLIGHT_DB_PASSWORD\}''',
+]
+
+[[rules]]
+id = "slowlight-private-key"
+description = "Private key material"
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'''
+keywords = ["PRIVATE KEY"]
+
+[[rules]]
+id = "slowlight-bearer-token"
+description = "Hard-coded Bearer token"
+regex = '''(?i)authorization\s*[:=]\s*["']?bearer\s+([a-z0-9._~+/=-]{16,})'''
+secretGroup = 1
+keywords = ["bearer", "authorization"]
+
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = [
+  '''(?i)(?:example|placeholder|dummy|test)[a-z0-9._~+/=-]*''',
+  '''\$\{\{.*\}\}''',
+  '''\$\{[A-Z][A-Z0-9_]*(?::[^}]*)?\}''',
+]

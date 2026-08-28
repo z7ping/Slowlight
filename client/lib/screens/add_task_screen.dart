@@ -1,0 +1,528 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../models/todo_list.dart';
+import '../services/data_service.dart';
+import '../theme/app_theme.dart';
+import '../ui/fx.dart';
+import '../widgets/high_fidelity/hf_page_header.dart';
+import '../widgets/high_fidelity/high_fidelity_ui.dart';
+
+class AddTaskScreen extends StatefulWidget {
+  final List<TodoList> lists;
+  final int? selectedListId;
+  final DateTime? defaultDueDate;
+  final String initialTitle;
+  final String initialPriority;
+  final int? systemTagId;
+  final bool isEdit;
+  final bool embedded;
+
+  const AddTaskScreen({
+    super.key,
+    required this.lists,
+    this.selectedListId,
+    this.defaultDueDate,
+    this.initialTitle = '',
+    this.initialPriority = 'none',
+    this.systemTagId,
+    this.isEdit = false,
+    this.embedded = false,
+  });
+
+  @override
+  State<AddTaskScreen> createState() => _AddTaskScreenState();
+}
+
+class _AddTaskScreenState extends State<AddTaskScreen> {
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
+  int? _selectedListId;
+  late String _priority;
+  DateTime? _dueDate;
+  TimeOfDay? _dueTime;
+  String _repeatType = 'none';
+  final Set<int> _selectedWeekdays = {};
+  int _reminderAdvanceMinutes = -1;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController.text = widget.initialTitle;
+    _selectedListId = widget.selectedListId ??
+        (widget.lists.isEmpty ? null : widget.lists.first.id);
+    _priority = widget.initialPriority;
+    _dueDate = widget.defaultDueDate;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      _message('请输入任务标题');
+      return;
+    }
+    final listId = _selectedListId;
+    if (listId == null) {
+      _message('请先创建一个清单');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final dueTime = _dueTime == null
+          ? null
+          : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}';
+      final reminderAt = _buildReminderAt();
+      final repeatDays = _repeatType == 'weekly' && _selectedWeekdays.isNotEmpty
+          ? (_selectedWeekdays.toList()..sort()).join(',')
+          : '';
+
+      await DataService().createTask(
+        listId: listId,
+        title: title,
+        description: _descController.text.trim().isEmpty
+            ? null
+            : _descController.text.trim(),
+        priority: _priority,
+        dueDate: _dueDate,
+        dueTime: dueTime,
+        repeatType: _repeatType,
+        repeatInterval: 1,
+        repeatDays: repeatDays,
+        reminderAt: reminderAt,
+        reminderAdvanceMinutes:
+            _reminderAdvanceMinutes < 0 ? 0 : _reminderAdvanceMinutes,
+        systemTagId: widget.systemTagId,
+        taskType: 'daily',
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      _message('保存失败：$e');
+    }
+  }
+
+  DateTime? _buildReminderAt() {
+    if (_reminderAdvanceMinutes < 0 || _dueDate == null) return null;
+    final time = _dueTime ?? const TimeOfDay(hour: 9, minute: 0);
+    final due = DateTime(
+      _dueDate!.year,
+      _dueDate!.month,
+      _dueDate!.day,
+      time.hour,
+      time.minute,
+    );
+    return due.subtract(Duration(minutes: _reminderAdvanceMinutes));
+  }
+
+  void _message(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return _editorShell(showBack: false);
+    }
+    return Scaffold(
+      body: SafeArea(child: _editorShell(showBack: true)),
+    );
+  }
+
+  Widget _editorShell({required bool showBack}) {
+    return Column(
+      children: [
+        if (showBack)
+          HfPageHeader(
+            title: '新建任务',
+            onBack: () => Navigator.maybePop(context),
+          )
+        else
+          _dialogHeader(),
+        Expanded(
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+            child: _form(),
+          ),
+        ),
+        Divider(height: 1, color: hfDivider(context)),
+        _footer(),
+      ],
+    );
+  }
+
+  Widget _dialogHeader() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '新建任务',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton(
+                  tooltip: '关闭',
+                  onPressed: _isSaving ? null : () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: hfDivider(context)),
+      ],
+    );
+  }
+
+  Widget _form() {
+    final desktop = MediaQuery.sizeOf(context).width >= 600;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _titleController,
+          autofocus: true,
+          enabled: !_isSaving,
+          textInputAction: TextInputAction.next,
+          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          decoration: const InputDecoration(hintText: '任务标题'),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _descController,
+          enabled: !_isSaving,
+          minLines: 1,
+          maxLines: 3,
+          style: const TextStyle(fontSize: 13),
+          decoration: const InputDecoration(hintText: '描述（可选）'),
+        ),
+        const SizedBox(height: 14),
+        if (desktop)
+          Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _listField()),
+                  const SizedBox(width: 12),
+                  Expanded(child: _priorityField()),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _dateField()),
+                  const SizedBox(width: 12),
+                  Expanded(child: _timeField()),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _repeatField()),
+                  const SizedBox(width: 12),
+                  Expanded(child: _reminderField()),
+                ],
+              ),
+            ],
+          )
+        else ...[
+          _listField(),
+          const SizedBox(height: 12),
+          _priorityField(),
+          const SizedBox(height: 12),
+          _dateField(),
+          const SizedBox(height: 12),
+          _timeField(),
+          const SizedBox(height: 12),
+          _repeatField(),
+          const SizedBox(height: 12),
+          _reminderField(),
+        ],
+        if (_repeatType == 'weekly') ...[
+          const SizedBox(height: 12),
+          _fieldLabel('每周重复'),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: List.generate(7, (index) {
+              final day = index + 1;
+              const labels = ['一', '二', '三', '四', '五', '六', '日'];
+              final selected = _selectedWeekdays.contains(day);
+              return ChoiceChip(
+                label: Text(labels[index]),
+                labelStyle: const TextStyle(fontSize: AppTheme.textXs),
+                showCheckmark: false,
+                selected: selected,
+                selectedColor: activePalette.accent.withValues(alpha: .12),
+                onSelected: (_) => setState(() {
+                  selected
+                      ? _selectedWeekdays.remove(day)
+                      : _selectedWeekdays.add(day);
+                }),
+              );
+            }),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _listField() {
+    return _field(
+      label: '清单',
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: widget.lists.map((list) {
+          final selected = _selectedListId == list.id;
+          return ChoiceChip(
+            label: Text('${list.icon} ${list.name}'),
+            labelStyle: const TextStyle(fontSize: AppTheme.textXs),
+            showCheckmark: false,
+            selected: selected,
+            selectedColor: activePalette.accent.withValues(alpha: .12),
+            onSelected: (_) => setState(() => _selectedListId = list.id),
+          );
+        }).toList(growable: false),
+      ),
+    );
+  }
+
+  Widget _priorityField() {
+    return _field(
+      label: '优先级',
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          _priorityChip('urgent_important', '🔴 高'),
+          _priorityChip('important', '🔵 中'),
+          _priorityChip('urgent', '⚪ 低'),
+        ],
+      ),
+    );
+  }
+
+  Widget _priorityChip(String value, String label) {
+    final selected = _priority == value;
+    return ChoiceChip(
+      label: Text(label),
+      labelStyle: const TextStyle(fontSize: AppTheme.textXs),
+      showCheckmark: false,
+      selected: selected,
+      selectedColor: activePalette.accent.withValues(alpha: .12),
+      onSelected: (on) => setState(() => _priority = on ? value : 'none'),
+    );
+  }
+
+  Widget _dateField() {
+    return _field(
+      label: '到期日期',
+      child: _picker(
+        text: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
+        icon: LucideIcons.calendarDays,
+        onTap: () async {
+          final date = await showFxDatePicker(
+            context: context,
+            initialDate: _dueDate ?? DateTime.now(),
+            firstDate: DateTime.now().subtract(const Duration(days: 365)),
+            lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+          );
+          if (date != null && mounted) setState(() => _dueDate = date);
+        },
+      ),
+    );
+  }
+
+  Widget _timeField() {
+    return _field(
+      label: '时间',
+      child: _picker(
+        text: _dueTime == null
+            ? '未设置'
+            : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}',
+        icon: LucideIcons.clock3,
+        onTap: () async {
+          final time = await showFxTimePicker(
+            context: context,
+            initialTime: _dueTime ?? TimeOfDay.now(),
+          );
+          if (time != null && mounted) setState(() => _dueTime = time);
+        },
+      ),
+    );
+  }
+
+  Widget _repeatField() {
+    const labels = {
+      'none': '不重复',
+      'daily': '每天',
+      'weekly': '每周',
+      'monthly': '每月',
+      'yearly': '每年',
+    };
+    return _field(
+      label: '重复',
+      child: DropdownButtonFormField<String>(
+        value: _repeatType,
+        isExpanded: true,
+        decoration: const InputDecoration(isDense: true),
+        items: labels.entries
+            .map(
+              (entry) => DropdownMenuItem(
+                value: entry.key,
+                child: Text(entry.value, style: const TextStyle(fontSize: 12.5)),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: _isSaving
+            ? null
+            : (value) => setState(() {
+                  _repeatType = value ?? 'none';
+                  if (_repeatType != 'weekly') _selectedWeekdays.clear();
+                }),
+      ),
+    );
+  }
+
+  Widget _reminderField() {
+    const values = <int, String>{
+      -1: '不提醒',
+      0: '准时',
+      5: '提前 5 分钟',
+      15: '提前 15 分钟',
+      30: '提前 30 分钟',
+      60: '提前 1 小时',
+    };
+    return _field(
+      label: '提醒',
+      child: DropdownButtonFormField<int>(
+        value: _reminderAdvanceMinutes,
+        isExpanded: true,
+        decoration: const InputDecoration(isDense: true),
+        items: values.entries
+            .map(
+              (entry) => DropdownMenuItem(
+                value: entry.key,
+                child: Text(entry.value, style: const TextStyle(fontSize: 12.5)),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: _isSaving
+            ? null
+            : (value) => setState(() => _reminderAdvanceMinutes = value ?? -1),
+      ),
+    );
+  }
+
+  Widget _field({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _fieldLabel(label),
+        child,
+      ],
+    );
+  }
+
+  Widget _fieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: AppTheme.textXs,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Widget _picker({
+    required String text,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: _isSaving ? null : onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          border: Border.all(color: hfBorder(context)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(text, style: const TextStyle(fontSize: 12.5)),
+            ),
+            Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _footer() {
+    final theme = Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (widget.isEdit)
+              FxButton(
+                label: '删除',
+                variant: FxButtonVariant.ghost,
+                onPressed: _isSaving
+                    ? null
+                    : () => Navigator.pop(context, 'delete'),
+              ),
+            if (widget.isEdit) const SizedBox(width: 8),
+            FxButton(
+              label: _isSaving ? '保存中…' : '保存',
+              onPressed: _isSaving ? null : _save,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _dateLabel(DateTime value) {
+    final now = DateTime.now();
+    if (value.year == now.year && value.month == now.month && value.day == now.day) {
+      return '今天';
+    }
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  }
+}

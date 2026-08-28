@@ -1,0 +1,10 @@
+# 编译产物
+slowlight
+slowlight.exe
+cmd.exe
+
+# 日志
+*.log
+
+# 环境变量（本地配置）
+.env.test.local

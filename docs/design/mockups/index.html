@@ -1,0 +1,2170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slowlight UI/UX 设计原型</title>
+<style>
+:root{
+  --bg:#FAFAFA; --card:#FFFFFF; --raised:#FFFFFF;
+  --text:#18181B; --text2:#71717A; --text3:#A1A1AA;
+  --border:#E4E4E7; --divider:#F4F4F5;
+  --primary:#18181B; --primary-fg:#FAFAFA;
+  --accent:#3B82F6; --accent-soft:rgba(59,130,246,.12);
+  --success:#22C55E; --success-soft:rgba(34,197,94,.14);
+  --warn:#F97316; --error:#EF4444;
+  --p-urgent:#EF4444; --p-important:#3B82F6; --p-normal:#F97316;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 18px rgba(0,0,0,.05);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.10);
+}
+html.dark{
+  --bg:#09090B; --card:#111113; --raised:#1C1C1F;
+  --text:#FAFAFA; --text2:#A1A1AA; --text3:#71717A;
+  --border:#27272A; --divider:#1F1F23;
+  --primary:#FAFAFA; --primary-fg:#18181B;
+  --accent:#60A5FA; --accent-soft:rgba(96,165,250,.16);
+  --success-soft:rgba(34,197,94,.18);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 18px rgba(0,0,0,.35);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.5);
+}
+html[data-pal="slate"]{--primary:#0F172A;--accent:#3B82F6}
+html[data-pal="stone"]{--primary:#1C1917;--accent:#78716C;--accent-soft:rgba(120,113,108,.14)}
+html[data-pal="rose"]{--primary:#9F1239;--accent:#E11D48;--accent-soft:rgba(225,29,72,.12)}
+html[data-pal="orange"]{--primary:#9A3412;--accent:#EA580C;--accent-soft:rgba(234,88,12,.12)}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+mark{background:var(--accent-soft);color:var(--accent);padding:0 2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--text);transition:background .25s,color .25s;font-size:14px;line-height:1.5}
+
+/* ── 顶部导航 ── */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:8px;padding:10px 20px;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin-right:12px}
+.logo-mark{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;overflow:hidden}
+.logo-mark img{width:100%;height:100%;object-fit:contain}
+.nav{display:flex;gap:2px;flex-wrap:wrap}
+.nav button{border:none;background:none;color:var(--text2);font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;font-family:inherit;transition:.15s}
+.nav button:hover{background:var(--divider);color:var(--text)}
+.nav button.on{background:var(--primary);color:var(--primary-fg);font-weight:600}
+.nav-sep{width:1px;height:18px;background:var(--border);margin:auto 6px}
+.btn:active{transform:translateY(1px) scale(.98);filter:brightness(.94)}
+.pick:active,.iconbtn:active{transform:scale(.95)}
+.lnk{cursor:pointer;color:var(--text3);font-weight:400;font-size:12px;transition:.15s}
+.lnk:hover{color:var(--accent)}
+.ctxmenu>div:hover{background:var(--divider)}
+
+/* ── 模态 Bottom Sheet（对应 showModalBottomSheet）── */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:150}
+.modal.open{display:flex}
+.modal .sheet{width:560px;max-width:94%;margin-bottom:0;background:var(--raised);border-radius:18px 18px 0 0;padding:14px 20px 20px;box-shadow:var(--shadow-lg);animation:sheetUp .22s ease}
+@keyframes sheetUp{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);background:var(--primary);color:var(--primary-fg);padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:300;box-shadow:var(--shadow-lg)}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.tabbar{display:inline-flex;background:var(--divider);border-radius:8px;padding:3px;gap:2px}
+.tab{border:none;background:none;padding:6px 12px;border-radius:6px;font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;transition:.15s}
+.tab.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:var(--shadow)}
+.topbar .sp{flex:1}
+.theme-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:15px;display:grid;place-items:center;transition:.15s}
+.theme-btn:hover{border-color:var(--text3)}
+
+/* ── 页面容器 ── */
+.page{display:none;padding:28px 20px 80px;max-width:1280px;margin:0 auto}
+.page.on{display:block;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.page-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.page-sub{color:var(--text2);font-size:13px;margin-bottom:24px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
+
+/* ── 设备框 ── */
+.device{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.device-bar{height:32px;display:grid;grid-template-columns:232px 1fr auto;align-items:center;padding:0;border-bottom:1px solid var(--divider);background:var(--card)}
+.device-bar::before{content:'所行映我 · Slowlight';align-self:stretch;display:flex;align-items:center;padding-left:42px;border-right:1px solid var(--divider);background:url('../../../client/assets/slowlight_logo.png') 14px center/20px 20px no-repeat;font-size:12px;font-weight:700;color:var(--text)}
+.device-bar::after{content:'─   □   ×';padding:0 14px;color:var(--text2);font:12px/1 system-ui;letter-spacing:2px}
+.dot{display:none}
+.device-url{margin:0;height:100%;border-radius:0;background:transparent;font-size:11px;color:var(--text3);display:flex;align-items:center;padding:0 12px}
+.phone-wrap{display:flex;gap:20px;flex-wrap:wrap}
+.phone{width:390px;background:var(--card);border:1px solid var(--border);border-radius:46px;padding:14px;box-shadow:var(--shadow)}
+.phone-screen{display:flex;flex-direction:column;height:816px;border-radius:32px;overflow:hidden;background:var(--bg);border:1px solid var(--divider)}
+.phone-notch{height:24px;display:grid;place-items:center}
+.phone-notch::after{content:'';width:80px;height:5px;border-radius:3px;background:var(--border)}
+
+/* ── 应用内通用 ── */
+.app{display:flex;min-height:600px;font-size:13px}
+.app-m{display:flex;flex-direction:column;min-height:640px}
+/* ── 真实窗口尺寸（Win 初始 1280x720，main.cpp:94）── */
+.device.win{width:1280px;max-width:100%}
+.app-real{width:1244px;height:684px}
+
+.sidebar{width:232px;flex-shrink:0;border-right:1px solid var(--divider);background:var(--card);display:flex;flex-direction:column}
+.side-logo{display:flex;align-items:center;gap:8px;padding:14px 18px 10px;font-weight:800;font-size:14px}
+.side-search{display:flex;align-items:center;gap:9px;min-height:38px;margin:0 10px 10px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer;font-size:12px;transition:.12s}
+.side-search:hover,.side-search.on{border-color:var(--text3);color:var(--text);background:var(--raised)}
+.side-search kbd{margin-left:auto;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text3);font:10px/1.5 inherit}
+.side-body{flex:1;display:flex;flex-direction:column;gap:2px;padding:0 10px;overflow-y:auto}
+.side-item{display:flex;align-items:center;gap:11px;min-height:44px;padding:0 10px;border-radius:8px;color:var(--text2);cursor:pointer;transition:.12s;font-size:12px}
+.side-item:hover{background:var(--divider)}
+.side-item.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.side-gap{height:8px}
+.side-section-label{padding:14px 10px 5px;color:var(--text3);font-size:10.5px;font-weight:600;letter-spacing:.04em}
+.side-toggle{display:flex;align-items:center;min-height:44px;padding:0 10px;border-radius:8px;color:var(--text3);font-size:12px;cursor:pointer}
+.side-toggle:hover{background:var(--divider);color:var(--text2)}
+.side-foot{padding:9px 10px 11px;border-top:1px solid var(--divider)}
+.side-sync{width:max-content;display:flex;align-items:center;gap:7px;min-height:28px;margin:0 6px 6px;padding:0 9px;border:1px solid var(--border);border-radius:8px;background:var(--raised);color:var(--text2);font-size:10.5px;font-weight:500}
+.side-sync .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 14%,transparent)}
+.side-actions{display:flex;align-items:center;gap:4px}
+.side-actions .side-item{flex:1}
+.side-help{width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--text3);cursor:pointer}
+.side-help:hover{background:var(--divider);color:var(--text)}
+.main{flex:1;min-width:0;padding:20px 24px;overflow:auto}
+.task-workspace{display:grid;grid-template-columns:minmax(360px,430px) minmax(360px,1fr);gap:14px;align-items:stretch;min-height:500px}
+.task-list-card{height:100%;padding:0;overflow:hidden}
+.task-detail-empty{min-height:500px;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center}
+.task-empty-inner{max-width:340px;display:flex;flex-direction:column;align-items:center}
+.task-empty-mark{width:104px;height:104px;margin-bottom:18px;color:var(--accent);opacity:.88}
+.task-empty-title{font-size:15px;font-weight:700;color:var(--text)}
+.task-empty-copy{margin-top:7px;color:var(--text3);font-size:11.5px;line-height:1.7}
+.task-empty-keys{display:flex;gap:12px;margin-top:18px;color:var(--text3);font-size:10.5px}
+.task-empty-keys kbd{padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:var(--raised);font:inherit;color:var(--text2)}
+@media(max-width:900px){.task-workspace{grid-template-columns:1fr}.task-detail-empty{display:none}}
+.cal-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.cal-toolbar .cal-month{font-size:16px;font-weight:700;margin-left:4px}
+.cal-filter{margin-left:auto;display:inline-flex;padding:3px;background:var(--divider);border-radius:8px}
+.cal-filter button{border:0;background:transparent;color:var(--text2);font:12px/1.4 inherit;padding:5px 10px;border-radius:6px;cursor:pointer}
+.cal-filter button.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:var(--shadow)}
+.cal-shell{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card)}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--border);background:var(--raised)}
+.cal-weekdays span{padding:8px 10px;font-size:11px;color:var(--text2);font-weight:600}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-cell{position:relative;min-width:0;height:112px;padding:6px 7px;border-right:1px solid var(--divider);border-bottom:1px solid var(--divider);background:var(--card);cursor:pointer;overflow:hidden}
+.cal-cell:nth-child(7n){border-right:0}
+.cal-cell:hover{background:color-mix(in srgb,var(--accent-soft) 35%,var(--card))}
+.cal-cell.outside{background:var(--bg);color:var(--text3)}
+.cal-cell.selected{box-shadow:inset 0 0 0 1.5px var(--accent);background:color-mix(in srgb,var(--accent-soft) 45%,var(--card))}
+.cal-date{height:22px;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--text2)}
+.cal-date.today span:first-child{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:var(--accent);color:white}
+.cal-add{margin-left:auto;opacity:0;border:0;background:none;color:var(--text3);font-size:17px;line-height:1;cursor:pointer}
+.cal-cell:hover .cal-add{opacity:1}
+.cal-record{height:21px;display:flex;align-items:center;gap:4px;margin-top:3px;padding:0 6px;border-radius:4px;font-size:10.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid transparent}
+.cal-record.task{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.08)}
+.cal-record.habit{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.08)}
+.cal-record.focus{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.08)}
+.cal-record.reflection{background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.08)}
+.cal-record.completed{color:var(--text2)}
+.cal-more{margin:3px 0 0 5px;font-size:10px;color:var(--text3);cursor:pointer}
+.cal-popover{position:fixed;z-index:180;width:360px;display:none;padding:18px;background:var(--raised);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg)}
+.cal-popover.open{display:block;animation:fadein .16s ease}
+.cal-pop-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.cal-pop-head b{flex:1;font-size:15px;line-height:1.45}
+.cal-pop-row{display:grid;grid-template-columns:72px 1fr;gap:8px;padding:6px 0;font-size:12px}
+.cal-pop-row span:first-child{color:var(--text3)}
+.day-panel{margin-top:14px;padding:14px 16px}
+.day-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.day-summary{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.day-columns{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:18px}
+.day-section-title{font-size:11px;color:var(--text3);font-weight:700;margin-bottom:5px}
+.day-row{min-height:46px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--divider);padding:6px 2px;cursor:pointer}
+.day-row:last-child{border-bottom:0}
+.day-type{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.day-row-main{min-width:0;flex:1}
+.day-row-title{font-size:12.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day-row-meta{font-size:10.5px;color:var(--text3);margin-top:1px}
+.day-empty{padding:18px 0;color:var(--text3);font-size:12px}
+@media(max-width:900px){.cal-cell{height:92px}.cal-record{font-size:9.5px}.day-columns{grid-template-columns:1fr}.cal-filter{display:none}}
+.appbar-m{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--divider);background:var(--card)}
+.appbar-m b{font-size:15px}
+.bottomnav{margin-top:auto;display:flex;border-top:1px solid var(--divider);background:var(--card)}
+.bottomnav div{flex:1;text-align:center;padding:8px 0 10px;font-size:11px;color:var(--text3)}
+.bottomnav div.on{color:var(--accent);font-weight:600}
+.bottomnav span{display:block;font-size:17px;margin-bottom:2px}
+
+/* ── 移动端左滑抽屉 ── */
+.mdrawer{position:absolute;inset:0;z-index:6}
+.mdrawer .scrim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.mdrawer .panel{position:absolute;left:0;top:0;bottom:0;width:78%;background:var(--card);border-right:1px solid var(--divider);padding:14px 10px;display:flex;flex-direction:column;transform:translateX(-102%);transition:transform .25s ease;box-shadow:var(--shadow-lg)}
+.mdrawer.open .panel{transform:none}
+.mdrawer{pointer-events:none}
+.mdrawer.open{pointer-events:auto}
+.mdrawer .scrim{transition:opacity .25s}
+.mdrawer:not(.open) .scrim{opacity:0}
+.hamb{cursor:pointer;padding:2px 4px}
+.fab{position:absolute;z-index:3;touch-action:none;user-select:none}
+
+/* ── 移动端左滑抽屉 ── */
+
+/* 卡片与组件 */
+.card{background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:16px}
+.card h4{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.muted{color:var(--text2)}.faint{color:var(--text3)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;height:36px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+.btn.primary{background:var(--primary);color:var(--primary-fg)}
+.btn.accent{background:var(--accent);color:#fff}
+.btn.outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn.ghost{background:transparent;color:var(--text2)}
+.btn.sm{height:32px;padding:0 10px;font-size:12px}
+.btn.lg{height:40px;padding:0 18px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border-radius:99px;background:var(--divider);color:var(--text2)}
+.chip.acc{background:var(--accent-soft);color:var(--accent)}
+.input{width:100%;border:1px solid var(--border);background:var(--bg);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit}
+.input::placeholder{color:var(--text3)}
+
+/* 任务行 */
+.task{display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--divider)}
+.task:last-child{border-bottom:none}
+.cb{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--text3);flex-shrink:0;margin-top:1px;cursor:pointer;transition:.15s}
+.cb.done{background:var(--success);border-color:var(--success);position:relative}
+.cb.done::after{content:'✓';color:#fff;font-size:11px;position:absolute;inset:0;display:grid;place-items:center}
+.task .t-body{flex:1;min-width:0}
+.task .t-title{font-size:13.5px;font-weight:500}
+.task.done .t-title{text-decoration:line-through;color:var(--text3)}
+.task .t-meta{font-size:11.5px;color:var(--text2);margin-top:2px;display:flex;gap:8px;align-items:center}
+.prio{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0}
+.p-urgent{background:var(--p-urgent)}.p-important{background:var(--p-important)}.p-normal{background:var(--p-normal)}
+
+/* 习惯行 */
+.habit-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--divider)}
+.habit-row:last-child{border-bottom:none}
+.h-icon{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.weekdots{display:flex;gap:4px}
+.wd{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--border)}
+.wd.f{border-color:var(--hc,#52C41A);background:var(--hc,#52C41A)}
+.wd.today{box-shadow:0 0 0 2px color-mix(in srgb,var(--hc,#52C41A) 30%,transparent)}
+.streak{font-size:11.5px;color:var(--text3);white-space:nowrap}
+.checkbtn{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);display:grid;place-items:center;cursor:pointer;color:var(--text3);font-size:13px;flex-shrink:0;transition:.15s}
+.checkbtn.on{background:var(--hc,#52C41A);border-color:var(--hc,#52C41A);color:#fff}
+
+/* 四维环 */
+.ring-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0}
+.dims{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.dim{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--divider)}
+.dim .nm{font-size:12px;font-weight:600}
+.dim .ds{font-size:10.5px;color:var(--text3)}
+.dim-dots{display:flex;gap:3px;margin-left:auto}
+.dd{width:7px;height:7px;border-radius:50%;background:var(--divider)}
+.dd.f{background:var(--dimc,var(--accent))}
+
+/* 统计 */
+.statrow{display:flex;gap:10px}
+.stat{flex:1;background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.stat .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .l{font-size:11.5px;color:var(--text3);margin-top:2px}
+.bars{display:flex;align-items:flex-end;gap:8px;height:110px;padding-top:8px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bar i{width:100%;max-width:30px;border-radius:6px 6px 3px 3px;background:var(--accent);opacity:.85}
+.bar em{font-style:normal;font-size:10.5px;color:var(--text3)}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.quad{border-radius:12px;border:1px dashed var(--border);padding:12px;min-height:120px;background:var(--bg)}
+.quad h5{font-size:12px;display:flex;align-items:center;gap:8px;color:var(--text2);margin-bottom:8px}
+.quad .qn{font-size:10px;background:var(--divider);border-radius:99px;padding:1px 7px}
+.quad-add{margin-left:auto;width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--text3);font-size:18px;cursor:pointer;display:grid;place-items:center;transition:.15s}
+.quad-add:hover{background:var(--raised);color:var(--accent)}
+.quad-empty-add{width:100%;min-height:82px;border:0;border-radius:9px;background:transparent;color:var(--text3);cursor:pointer;font-family:inherit}
+.quad-empty-add:hover{background:var(--raised);color:var(--text2)}
+.mini-task{font-size:12px;padding:6px 8px;background:var(--raised);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;display:flex;gap:6px;align-items:center}
+
+/* 番茄钟 */
+.pomo{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 20px;gap:22px}
+.pomo-ring{width:230px;height:230px;border-radius:50%;display:grid;place-items:center;position:relative;background:
+  radial-gradient(closest-side,var(--card) 78%,transparent 79%),
+  conic-gradient(var(--accent) 0 68%,var(--divider) 68% 100%)}
+.pomo-time{font-size:46px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.pomo-state{font-size:12px;color:var(--accent);font-weight:600;letter-spacing:2px;margin-top:2px}
+.pomo-actions{display:flex;gap:10px}
+.timeline{position:relative;padding-left:20px}
+.timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--divider)}
+.tl-item{position:relative;padding:0 0 16px 8px}
+.tl-item::before{content:'';position:absolute;left:-19px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--tlc,var(--accent));box-shadow:0 0 0 3px color-mix(in srgb,var(--tlc,var(--accent)) 20%,transparent)}
+.tl-time{font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums}
+.tl-title{font-size:13px;font-weight:500;margin-top:1px}
+.tl-note{font-size:12px;color:var(--text2);margin-top:2px}
+
+/* token 展示 */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+.sw{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--raised)}
+.sw .c{height:56px}
+.sw .m{padding:8px 10px;font-size:11px}
+.sw .m b{display:block;font-size:12px}
+.type-spec{display:flex;flex-direction:column;gap:12px}
+.note{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--text2)}
+.note b{color:var(--accent)}
+.sec-h{font-size:15px;font-weight:700;margin:30px 0 12px;display:flex;align-items:center;gap:8px}
+.sec-h:first-child{margin-top:0}
+.tag{font-size:10.5px;padding:2px 8px;border-radius:99px;font-weight:600}
+.tag.p0{background:rgba(239,68,68,.12);color:var(--error)}
+.tag.p1{background:rgba(249,115,22,.12);color:var(--warn)}
+.tag.p2{background:var(--divider);color:var(--text2)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--divider)}
+th{color:var(--text3);font-weight:600;font-size:11.5px}
+td code{background:var(--divider);padding:1px 6px;border-radius:5px;font-size:11.5px}
+
+/* ── 设置页功能面板 ── */
+.set-row{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:.12s}
+.set-row:hover{background:var(--divider)}
+.set-row+.set-panel,.set-row{border-bottom:1px solid var(--divider)}
+.card>.set-row:last-of-type:not(:has(+ .set-panel.open)){}
+.set-panel{display:none;padding:14px 16px;background:var(--bg);border-bottom:1px solid var(--divider)}
+.set-panel.open{display:block}
+.set-row .chev{color:var(--text3);font-size:12px;width:12px;text-align:center}
+.seg{display:inline-flex;background:var(--divider);border-radius:8px;padding:3px;gap:2px}
+.seg button{border:none;background:none;padding:6px 12px;border-radius:6px;font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;transition:.15s}
+.seg button.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:var(--shadow)}
+.pal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:8px}
+.pal{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;background:var(--raised);transition:.15s}
+.pal.on{border-color:var(--accent);background:var(--accent-soft)}
+.pal-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;border:1px solid rgba(0,0,0,.08)}
+.switch{width:36px;height:20px;border-radius:99px;background:var(--divider);position:relative;cursor:pointer;transition:.2s;flex-shrink:0;border:none}
+.switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch.on{background:var(--success)}
+.switch.on::after{left:18px}
+.fld{margin-bottom:10px}
+.fld:last-child{margin-bottom:0}
+.fld label{display:block;font-size:11.5px;color:var(--text2);margin-bottom:4px}
+.set-line{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px}
+.set-line .sub{font-size:11px;color:var(--text3);margin-top:1px}
+input[type=range]{accent-color:var(--accent)}
+
+/* ── 推送页统一页头（专注/搜索/休息提醒等 Navigator.push 页面）── */
+.pagehead{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--divider);background:var(--card)}
+.pagehead b{font-size:14.5px;font-weight:700}
+.iconbtn{width:30px;height:30px;border-radius:8px;border:none;background:none;color:var(--text2);display:grid;place-items:center;cursor:pointer;transition:.15s;font-size:15px;font-family:inherit}
+.iconbtn:hover{background:var(--divider);color:var(--text)}
+
+/* ── 品牌图标（fl-* 线性集）── */
+.ico{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* 选择胶囊（打卡弹窗时长/时段） */
+.pick{display:inline-flex;align-items:baseline;gap:3px;padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);transition:.15s;user-select:none}
+.pick small{font-size:10.5px;font-weight:400;color:var(--text3)}
+.pick.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.pick.on small{color:var(--accent);opacity:.85}
+</style>
+</head>
+<body>
+
+<!-- ═══ fl-* 品牌图标 Sprite（24×24 / stroke 1.75 / round / currentColor）═══ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M21 6H8a4 4 0 0 0-4 4v2M7 22l-4-4 4-4M3 18h13a4 4 0 0 0 4-4v-2"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M10 2h4"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20v-7M11 20V5M17 20v-10M2.5 20h19"/></symbol>
+  <symbol id="i-quad" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V5a2 2 0 0 1 2-2h8l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r=".6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-calrange" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M7.5 14.5h4M13 14.5h3.5M7.5 17.5h2"/></symbol>
+  <symbol id="i-pieclock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 12V3.5A8.5 8.5 0 0 1 20.5 12z"/></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M17 9h1.5a2.75 2.75 0 0 1 0 5.5H17M3 9h14v5a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5zM7 2.5v3M11 2.5v3"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.25"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.6 2.1c-.9.5-1.4 1.1-1.4 2.1M12 17h.01"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 0 0 .34-8.99A6 6 0 0 0 6.2 11.5 4.25 4.25 0 0 0 6.75 19z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-7 4.5 14 2.5-7H21"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M11 4a2.5 2.5 0 0 0-5 0v.3A3 3 0 0 0 4 7.2c0 .6.17 1.16.47 1.63A3 3 0 0 0 3 11.4c0 1.2.7 2.23 1.72 2.72A3 3 0 0 0 7 18.8V19a2 2 0 0 0 4 0zM13 4a2.5 2.5 0 0 1 5 0v.3a3 3 0 0 1 2 2.9c0 .6-.17 1.16-.47 1.63A3 3 0 0 1 21 11.4c0 1.2-.7 2.23-1.72 2.72A3 3 0 0 1 17 18.8V19a2 2 0 0 1-4 0zM12 6v13"/></symbol>
+  <symbol id="i-output" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0M16 4.6a3.5 3.5 0 0 1 0 6.8M21 20a6 6 0 0 0-4.5-5.8"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-chevleft" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></g></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2.5S6 8 6 13.5a6 6 0 0 0 12 0C18 8 12 2.5 12 2.5zM12 21.5a3 3 0 0 0 3-3c0-2.4-3-4.9-3-4.9s-3 2.5-3 4.9a3 3 0 0 0 3 3z"/></symbol>
+  <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+</svg>
+
+<div class="topbar">
+  <div class="logo"><div class="logo-mark"><img src="../../../client/web/icons/Icon-192.png" alt=""></div>Slowlight <span class="faint" style="font-weight:400;font-size:11px">高保真原型 v1.7</span></div>
+  <div class="nav" id="nav">
+    <button data-p="today">今天</button>
+    <button data-p="review">回顾</button>
+    <button data-p="tasks">任务</button>
+    <button data-p="habits">习惯</button>
+    <button data-p="pomodoro">专注</button>
+    <button data-p="calendar">日历</button>
+    <button data-p="search">搜索</button>
+    <button data-p="stats">统计</button>
+    <button data-p="quadrant">四象限</button>
+    <button data-p="rest">休息提醒</button>
+    <button data-p="settings">设置</button>
+    <span class="nav-sep"></span>
+    <button data-p="mobile">移动端</button>
+    <button data-p="dialogs">弹窗·二级页</button>
+    <button data-p="components">组件库</button>
+    <button data-p="icons">图标</button>
+    <button data-p="tokens">Tokens</button>
+  </div>
+  <div class="sp"></div>
+  <button class="theme-btn" id="themeBtn" title="切换明暗">🌙</button>
+</div>
+
+<!-- ═══════════ TOKENS ═══════════ -->
+<div class="page" id="page-tokens">
+  <div class="page-title">Design Tokens</div>
+  <div class="page-sub">基于现有 AppTheme（zinc 默认配色）收敛，新增语义层。点击右上角 🌙 查看暗色适配。</div>
+
+  <div class="sec-h">色彩 · 基础</div>
+  <div class="swatches" id="sw-basic"></div>
+
+  <div class="sec-h">色彩 · 语义</div>
+  <div class="swatches" id="sw-sem"></div>
+
+  <div class="sec-h">字体（最小 12px，倍率 0.85–1.25）</div>
+  <div class="type-spec card">
+    <div style="font-size:24px;font-weight:700">text3Xl / 24 · 页面大标题</div>
+    <div style="font-size:20px;font-weight:700">text2Xl / 20 · 区块标题</div>
+    <div style="font-size:18px;font-weight:600">textXl / 18 · 卡片标题</div>
+    <div style="font-size:16px">textLg / 16 · 正文强调</div>
+    <div style="font-size:14px">textMd / 14 · 正文（默认）</div>
+    <div style="font-size:12px;color:var(--text2)">textXs / 12 · 辅助信息、时间戳、单位 —— 下限</div>
+  </div>
+
+  <div class="sec-h">间距 / 圆角 / 断点</div>
+  <div class="card">
+    <table>
+      <tr><th>Token</th><th>值</th><th>用途</th></tr>
+      <tr><td><code>spaceXs→Xl</code></td><td>4 / 8 / 12 / 16 / 24</td><td>所有间距，禁止 magic number</td></tr>
+      <tr><td><code>radiusSm→Xl</code></td><td>4 / 8 / 12 / <b>16(新)</b></td><td>radiusXl 用于底部弹层与大卡</td></tr>
+      <tr><td><code>touchMin</code></td><td>44px</td><td>最小可点击热区（规范已有，需审计执行）</td></tr>
+      <tr><td><code>断点</code></td><td>600 / 1024</td><td>统一三套私有断点（900/920/1000）到标准值</td></tr>
+    </table>
+  </div>
+
+  <div class="note" style="margin-top:20px"><b>原则映射</b>：中性色为主 + 单一 accent，是「镜子不是教练」的视觉表达——界面不催促、不评判；四维色仅用于维度标识，不用红绿表达好坏。</div>
+</div>
+
+<!-- ═══════════ COMPONENTS ═══════════ -->
+<div class="page" id="page-components">
+  <div class="page-title">组件库</div>
+  <div class="page-sub">Fx 层核心组件的目标形态。现有 14 个 Fx 组件保留，修复 API 缺陷并补齐使用。</div>
+
+  <div class="grid2">
+    <div class="card"><h4>FxButton</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn primary">主要操作</button>
+        <button class="btn accent">强调操作</button>
+        <button class="btn outline">次要</button>
+        <button class="btn ghost">幽灵</button>
+        <button class="btn primary sm">小按钮</button>
+      </div>
+      <p class="faint" style="font-size:11.5px;margin-top:10px">修复项：settings/quadrant 等 5 处原生按钮统一替换为 FxButton</p>
+    </div>
+    <div class="card"><h4>FxInput / FxSelect</h4>
+      <input class="input" placeholder="记录一下感受或收获...">
+      <div style="height:8px"></div>
+      <input class="input" value="带标签输入" style="border-color:var(--accent)">
+      <div style="height:8px"></div>
+      <div class="input" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer"><span>Ollama (本地)</span><span class="faint">▾</span></div>
+      <p class="faint" style="font-size:11.5px;margin-top:10px">FxInput 保持原生 TextField（桌面中文 IME 稳定性），此为合理例外</p>
+    </div>
+    <div class="card"><h4>任务行 TaskTile（重排层级）</h4>
+      <div class="task"><div class="prio p-urgent"></div><div class="cb"></div><div class="t-body"><div class="t-title">提交季度报告</div><div class="t-meta"><span>工作</span>·<span>今天 14:00</span>·<span>⏱ 预计 45 分钟</span></div></div></div>
+      <div class="task done"><div class="prio p-important"></div><div class="cb done"></div><div class="t-body"><div class="t-title">晨跑 30 分钟</div><div class="t-meta"><span>健康</span>·<span>08:30 完成</span></div></div></div>
+      <p class="faint" style="font-size:11.5px;margin-top:10px">优先级改为左侧 3px 色条；元信息降为 text3 色；完成态划线+降透明</p>
+    </div>
+    <div class="card"><h4>习惯行 HabitRow（本周圆点内联）</h4>
+      <div class="habit-row" style="--hc:#fa8c16"><div class="h-icon" style="background:rgba(250,140,22,.12)">🌅</div><div style="flex:1"><div style="font-weight:600;font-size:13px">早起</div><div class="weekdots" style="margin-top:5px"><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f today"></i></div></div><span class="streak">🔥 5</span><div class="checkbtn on">✓</div></div>
+      <div class="habit-row" style="--hc:#1890ff"><div class="h-icon" style="background:rgba(24,144,255,.12)">💧</div><div style="flex:1"><div style="font-weight:600;font-size:13px">喝水</div><div class="weekdots" style="margin-top:5px"><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f today"></i></div></div><span class="streak">🔥 12</span><div class="checkbtn on">✓</div></div>
+      <p class="faint" style="font-size:11.5px;margin-top:10px">今日已打卡 → 点击弹确认取消；未打卡 → 直接打卡或长按填日志</p>
+    </div>
+    <div class="card"><h4>打卡日志条目（本次修复后）</h4>
+      <div class="timeline">
+        <div class="tl-item" style="--tlc:#fa8c16"><div class="tl-time">08-21 07:32 · <b style="color:var(--text2)">30 分钟</b> · ☀️ 早晨</div><div class="tl-title">早起</div><div class="tl-note">比闹钟早醒了十分钟，状态不错</div></div>
+        <div class="tl-item" style="--tlc:#1890ff"><div class="tl-time">08-20 15:10 · <b style="color:var(--text2)">15 分钟</b></div><div class="tl-title">喝水打卡</div></div>
+      </div>
+      <p class="faint" style="font-size:11.5px;margin-top:6px">时间(created_at) + 时长(duration_min) + 时段(period) + 备注(note)，全部展示</p>
+    </div>
+    <div class="card"><h4>打卡弹窗 HabitCheckinDialog（重设计后）</h4>
+      <div style="border:1px solid var(--border);border-bottom:none;border-radius:14px 14px 0 0;padding:14px;background:var(--raised)">
+        <div style="width:36px;height:4px;border-radius:2px;background:var(--divider);margin:0 auto 12px"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span style="font-size:18px">🌅</span><b style="font-size:14px">早起</b></div>
+        <div class="faint" style="font-size:11.5px;font-weight:600;margin-bottom:6px">实际时长</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px">
+          <span class="pick">5<small>分钟</small></span><span class="pick">10<small>分钟</small></span><span class="pick">15<small>分钟</small></span><span class="pick">20<small>分钟</small></span><span class="pick on">30<small>分钟</small></span><span class="pick">45<small>分钟</small></span><span class="pick">60<small>分钟</small></span><span class="pick">90<small>分钟</small></span><span class="pick">120<small>分钟</small></span>
+        </div>
+        <div class="faint" style="font-size:11.5px;font-weight:600;margin-bottom:6px">时间段</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px">
+          <span class="pick">不限</span><span class="pick on">☀️ 早晨</span><span class="pick">下午</span><span class="pick">傍晚</span><span class="pick">🌙 晚间</span>
+        </div>
+        <input class="input" placeholder="记录一下感受或收获..." style="font-size:12.5px;margin-bottom:12px">
+        <div style="display:flex;gap:10px">
+          <button class="btn outline" style="flex:1">取消</button>
+          <button class="btn primary" style="flex:2">记录打卡</button>
+        </div>
+      </div>
+      <p class="faint" style="font-size:11.5px;margin-top:10px">修复项：时长胶囊显示「数字+单位」；时长与时段统一交互样式；选中态 accent 高亮</p>
+    </div>
+    <div class="card"><h4>取消打卡确认（FxDialog.confirm）</h4>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised);max-width:300px">
+        <div style="font-weight:700;font-size:14px">取消打卡</div>
+        <div class="muted" style="font-size:12.5px;margin:6px 0 12px">确定取消今天「早起」的打卡？连续天数将重新计算。</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn outline sm">取消</button><button class="btn primary sm">取消打卡</button></div>
+      </div>
+      <p class="faint" style="font-size:11.5px;margin-top:10px">Today 页点击已打卡习惯、习惯页当日日志 ✕ 均走此确认。<br><b style="color:var(--warn)">流程缺口（现有代码）</b>：长按已打卡习惯仍弹打卡窗，后端只会返回 already_checked → 设计见下卡</p>
+    </div>
+    <div class="card"><h4>长按已打卡习惯 → 编辑当日日志 <span class="tag p2">提案</span></h4>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--raised);max-width:300px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span>🌅</span><b style="font-size:13px">早起 · 今天</b><span class="chip" style="margin-left:auto">已打卡 07:32</span></div>
+        <div class="faint" style="font-size:11.5px;font-weight:600;margin-bottom:5px">实际时长</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <span class="pick">15<small>分钟</small></span><span class="pick on">30<small>分钟</small></span><span class="pick">45<small>分钟</small></span><span class="pick">60<small>分钟</small></span>
+        </div>
+        <input class="input" value="比闹钟早醒了十分钟，状态不错" style="font-size:12.5px;margin-bottom:10px">
+        <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn primary sm">更新日志</button></div>
+      </div>
+      <p class="faint" style="font-size:11.5px;margin-top:8px">预填当日 log（时长/时段/备注），提交需后端补充单条日志更新接口（现有 API 只有创建/删除，无 PUT）</p>
+    </div>
+    <div class="card"><h4>空状态 / SnackBar 规范</h4>
+      <div style="text-align:center;padding:18px 0 10px">
+        <div style="font-size:30px">🌱</div>
+        <div style="font-weight:600;margin-top:6px">还没有习惯记录</div>
+        <div class="faint" style="font-size:12px;margin-top:2px">从一个小习惯开始，比如每天喝一杯水</div>
+        <button class="btn outline sm" style="margin-top:10px">添加第一个习惯</button>
+      </div>
+      <p class="faint" style="font-size:11.5px;margin-top:8px">SnackBar：floating + 底部 24px + 图标前缀；禁用评判性文案</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ TODAY ═══════════ -->
+<div class="page on" id="page-today">
+  <div class="page-title">今天 · Today</div>
+  <div class="page-sub">核心改造：问候语开场 + 四维平衡环前置 + 双栏信息流。<span class="tag p0">P0 改版</span></div>
+
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">Slowlight — 今天</div></div>
+    <div class="app app-real">
+      <aside class="sidebar" data-active="today"></aside>
+      <div class="main">
+        <!-- 问候头部 -->
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+          <div>
+            <div style="font-size:21px;font-weight:700">早上好 👋</div>
+            <div class="faint" style="font-size:12.5px;margin-top:2px">8 月 21 日 星期四 · 你有 3 个任务和 5 个习惯在今天</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn outline sm" data-open="mObs">✍️ 写下观察</button>
+            <button class="btn primary sm" data-open="mTask">＋ 记录任务</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:280px 1fr;gap:16px">
+          <!-- 左栏 -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <h4>四维足迹 <span class="chip">近 7 天</span></h4>
+              <div class="dims">
+                <div class="dim" style="--dimc:#52C41A"><div class="nm">身体</div><div class="dim-dots"><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd"></i></div></div>
+                <div class="dim" style="--dimc:#722ED1"><div class="nm">认知</div><div class="dim-dots"><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd"></i><i class="dd"></i><i class="dd"></i><i class="dd"></i></div></div>
+                <div class="dim" style="--dimc:#1890FF"><div class="nm">产出</div><div class="dim-dots"><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd f"></i><i class="dd"></i><i class="dd"></i></div></div>
+                <div class="dim" style="--dimc:#FAAD14"><div class="nm">关系</div><div class="dim-dots"><i class="dd f"></i><i class="dd"></i><i class="dd"></i><i class="dd"></i><i class="dd"></i><i class="dd"></i><i class="dd"></i></div></div>
+              </div>
+            </div>
+            <div class="card">
+              <h4>专注 <span class="faint" style="font-weight:400;font-size:11.5px">今日</span></h4>
+              <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:24px;font-weight:700;font-variant-numeric:tabular-nums">2</span><span class="faint" style="font-size:12px">次 · 50 分钟</span></div>
+              <button class="btn outline sm" style="margin-top:10px;width:100%" data-nav="pomodoro">🍅 开始专注</button>
+            </div>
+            <div class="card" style="border-style:dashed;cursor:pointer" data-nav="review">
+              <div class="chip acc" style="margin-bottom:8px">今日提问</div>
+              <div style="font-size:14.5px;font-weight:600;line-height:1.55">最近什么让你分心？<br>它出现了几次？</div>
+              <div class="faint" style="font-size:11.5px;margin-top:8px">点击去回应 →</div>
+            </div>
+          </div>
+          <!-- 右栏 -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <h4>今日任务 <span class="lnk" data-nav="tasks">1/3 完成 · 查看全部 →</span></h4>
+              <div class="task"><div class="prio p-urgent"></div><div class="cb"></div><div class="t-body"><div class="t-title">提交季度报告</div><div class="t-meta"><span>工作</span>·<span>14:00 前</span></div></div></div>
+              <div class="task done"><div class="prio p-important"></div><div class="cb done"></div><div class="t-body"><div class="t-title">晨跑 30 分钟</div><div class="t-meta"><span>健康</span>·<span>08:30 完成</span></div></div></div>
+              <div class="task"><div class="prio p-normal"></div><div class="cb"></div><div class="t-body"><div class="t-title">回复合作邮件</div><div class="t-meta"><span>工作</span>·<span>随时</span></div></div></div>
+            </div>
+            <div class="card">
+              <h4>习惯 <span class="lnk" data-nav="habits">2/5 已打卡 · 查看全部 →</span></h4>
+              <div class="habit-row" style="--hc:#fa8c16"><div class="h-icon" style="background:rgba(250,140,22,.12)">🌅</div><div style="flex:1"><div style="font-weight:600;font-size:13px">早起</div><div class="weekdots" style="margin-top:5px"><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f today"></i></div></div><span class="streak">🔥 5</span><div class="checkbtn on">✓</div></div>
+              <div class="habit-row" style="--hc:#52c41a"><div class="h-icon" style="background:rgba(82,196,26,.12)">💪</div><div style="flex:1"><div style="font-weight:600;font-size:13px">运动</div><div class="weekdots" style="margin-top:5px"><i class="wd f"></i><i class="wd"></i><i class="wd f"></i><i class="wd"></i><i class="wd f"></i><i class="wd"></i><i class="wd today"></i></div></div><span class="streak">🔥 2</span><div class="checkbtn">✓</div></div>
+              <div class="habit-row" style="--hc:#1890ff"><div class="h-icon" style="background:rgba(24,144,255,.12)">📚</div><div style="flex:1"><div style="font-weight:600;font-size:13px">阅读</div><div class="weekdots" style="margin-top:5px"><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd today"></i></div></div><span class="streak">🔥 9</span><div class="checkbtn">✓</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-h">移动端</div>
+  <div class="phone-wrap">
+    <div class="phone"><div class="phone-screen" style="position:relative">
+      <div class="phone-notch"></div>
+      <div class="appbar-m"><span class="hamb" data-drawer><svg class="ico" style="width:19px;height:19px;vertical-align:middle"><use href="#i-menu"/></svg></span><b>今天</b><span class="faint" style="font-size:13px"><span data-open="mObs" style="cursor:pointer">✍️</span> <span data-open="mTask" style="cursor:pointer">＋</span></span></div>
+      <div class="mdrawer" data-active="today"></div>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+        <div><div style="font-size:18px;font-weight:700">早上好 👋</div><div class="faint" style="font-size:11.5px">8 月 21 日 周四</div></div>
+        <div class="card" style="padding:12px"><h4 style="margin-bottom:8px">四维足迹 <span class="faint" style="font-weight:400;font-size:10.5px">近 7 天</span></h4><div class="dims" style="grid-template-columns:1fr 1fr;gap:6px"><div class="dim" style="--dimc:#52C41A;padding:6px 8px"><div class="nm" style="font-size:11px">身体</div><div class="ds" style="font-size:9.5px">6/7 天</div></div><div class="dim" style="--dimc:#722ED1;padding:6px 8px"><div class="nm" style="font-size:11px">认知</div><div class="ds" style="font-size:9.5px">3/7 天</div></div><div class="dim" style="--dimc:#1890FF;padding:6px 8px"><div class="nm" style="font-size:11px">产出</div><div class="ds" style="font-size:9.5px">5/7 天</div></div><div class="dim" style="--dimc:#FAAD14;padding:6px 8px"><div class="nm" style="font-size:11px">关系</div><div class="ds" style="font-size:9.5px">2/7 天</div></div></div></div>
+        <div class="card" style="padding:12px"><h4 style="margin-bottom:4px">今日任务 <span class="faint" style="font-weight:400;font-size:11px">1/3</span></h4>
+          <div class="task"><div class="cb"></div><div class="t-body"><div class="t-title" style="font-size:13px">提交季度报告</div><div class="t-meta">14:00 前</div></div></div>
+          <div class="task done"><div class="cb done"></div><div class="t-body"><div class="t-title" style="font-size:13px">晨跑 30 分钟</div></div></div>
+        </div>
+        <div class="card" style="padding:12px"><h4 style="margin-bottom:4px">习惯 <span class="faint" style="font-weight:400;font-size:11px">2/5</span></h4>
+          <div class="habit-row" style="--hc:#fa8c16"><div class="h-icon" style="background:rgba(250,140,22,.12);width:30px;height:30px">🌅</div><div style="flex:1;font-weight:600;font-size:12.5px">早起</div><span class="streak">🔥5</span><div class="checkbtn on" style="width:24px;height:24px">✓</div></div>
+          <div class="habit-row" style="--hc:#1890ff"><div class="h-icon" style="background:rgba(24,144,255,.12);width:30px;height:30px">📚</div><div style="flex:1;font-weight:600;font-size:12.5px">阅读</div><span class="streak">🔥9</span><div class="checkbtn" style="width:24px;height:24px">✓</div></div>
+        </div>
+        <div class="card" style="padding:10px 12px;border-style:dashed">
+          <div class="chip acc" style="margin-bottom:5px">今日提问</div>
+          <div style="font-size:12.5px;font-weight:600;line-height:1.5">最近什么让你分心？</div>
+        </div>
+        <div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:8px">
+          <span>🍅</span><div style="flex:1;font-size:12.5px">专注 <b>2 次 · 50 分钟</b></div><button class="btn outline sm" data-nav="pomodoro">开始</button>
+        </div>
+      </div>
+      <div style="position:absolute;right:14px;bottom:74px;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:22px;box-shadow:var(--shadow-lg);cursor:grab" title="快速记录任务（按住可拖动）" id="fabDrag" class="fab">＋</div>
+      <div class="bottomnav"><div class="on"><span>☀️</span>今天</div><div><span>📖</span>回顾</div></div>
+    </div></div></div>
+    <div style="max-width:420px">
+      <div class="note"><b>移动端要点</b><br>· 底部双 Tab（今天/回顾），工具页经顶栏菜单进入<br>· FAB 快速记录任务<br>· 四维卡压缩为 2×2 色点矩阵，保持差异化元素可见</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ REVIEW ═══════════ -->
+<div class="page" id="page-review">
+  <div class="page-title">回顾 · Review</div>
+  <div class="page-sub">看事实 → 回应问题 → 留下解释。时间轴化 Facts，问题回答内联化。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">Slowlight — 回顾</div></div>
+    <div class="app app-real">
+      <aside class="sidebar" data-active="review"></aside>
+      <div class="main">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+          <div class="tabbar">
+            <button class="tab on">概览</button><button class="tab" data-nav="stats">统计</button><button class="tab" data-toast="时间分配作为 Review 二级视图">时间分配</button>
+          </div>
+          <div class="tabbar" data-tabs>
+            <button class="tab on">今天</button><button class="tab">本周</button><button class="tab">本月</button>
+          </div>
+        </div>
+        <div class="faint" style="font-size:12px;text-align:right;margin-bottom:12px">8 月 21 日 · 共 14 条行为记录</div>
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px">
+          <div class="card">
+            <h4>事实 · Facts</h4>
+            <div class="timeline">
+              <div class="tl-item" style="--tlc:#fa8c16"><div class="tl-time">07:32</div><div class="tl-title">🌅 打卡「早起」</div><div class="tl-note">30 分钟 · ☀️ 早晨 · "比闹钟早醒十分钟"</div></div>
+              <div class="tl-item" style="--tlc:#52C41A"><div class="tl-time">08:30</div><div class="tl-title">✅ 完成「晨跑 30 分钟」</div></div>
+              <div class="tl-item" style="--tlc:#3B82F6"><div class="tl-time">09:15 – 10:05</div><div class="tl-title">🍅 专注 50 分钟</div><div class="tl-note">关联任务：写周报</div></div>
+              <div class="tl-item" style="--tlc:#722ED1"><div class="tl-time">14:20</div><div class="tl-title">📝 写下观察</div><div class="tl-note">#认知 「开会时容易走神，尤其在下午」</div></div>
+              <div class="tl-item" style="--tlc:#1890ff"><div class="tl-time">21:40</div><div class="tl-title">📚 打卡「阅读」</div><div class="tl-note">45 分钟 · 🌙 晚间</div></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <h4>回应问题 · Questions</h4>
+              <div style="padding:10px;background:var(--bg);border:1px solid var(--divider);border-radius:10px;margin-bottom:10px">
+                <div style="font-size:13px;font-weight:600">这周什么让你分心？</div>
+                <input class="input" placeholder="直接在这里写下你的回应…" style="margin-top:8px;font-size:12.5px">
+                <div style="text-align:right;margin-top:6px"><button class="btn primary sm">保存回应</button></div>
+              </div>
+              <div data-exp style="padding:10px;background:var(--bg);border:1px solid var(--divider);border-radius:10px;cursor:pointer">
+                <div style="font-size:13px;font-weight:600">下午的状态和上午有什么不同？</div>
+                <div class="faint" style="font-size:11.5px;margin-top:6px">尚未回应 · 点击展开</div>
+                <div class="exp-body" hidden style="margin-top:8px">
+                  <input class="input" placeholder="直接在这里写下你的回应…" style="font-size:12.5px">
+                  <div style="text-align:right;margin-top:6px"><button class="btn primary sm">保存回应</button></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h4>模式 · Patterns <span class="chip">近 30 天</span></h4>
+              <div style="font-size:12.5px;color:var(--text2);line-height:1.7">
+                · 「专注」多发生在上午 9–11 点<br>
+                · 「早起」连续 5 天，超过上次的 3 天<br>
+                · 下午的观察里 #分心 出现了 4 次
+              </div>
+            </div>
+            <div class="card" style="cursor:pointer" data-nav="rest">
+              <h4>🧘 休息 <span class="faint" style="font-weight:400;font-size:11.5px">今日 · 来自休息提醒</span></h4>
+              <div style="font-size:12.5px;color:var(--text2)">工作 <b style="color:var(--text)">3.2h</b> · 休息 <b style="color:var(--text)">26 分</b> · 跳过率 <b style="color:var(--text)">12%</b></div>
+              <div class="lnk" style="font-size:11.5px;margin-top:6px">查看休息回顾（日志 / 7天 / 30天 / 分析）→</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ HABITS ═══════════ -->
+<div class="page" id="page-habits">
+  <div class="page-title">习惯 · Habits</div>
+  <div class="page-sub">卡片式列表 + 展开详情（热力图 / 日志含时长时段备注）。详情面板字段 bug 已在代码中修复。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">习惯</div></div>
+    <div class="app app-real">
+      <aside class="sidebar" data-active="habits"></aside>
+      <div class="main" style="max-width:720px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-size:16px;font-weight:700">我的习惯 <span class="faint" style="font-weight:400;font-size:12.5px">5 个</span></div>
+          <button class="btn primary sm" data-open="mHabit">＋ 添加习惯</button>
+        </div>
+        <!-- 展开的习惯卡 -->
+        <div class="card" style="border-left:3px solid #fa8c16;margin-bottom:12px">
+          <div class="habit-row" style="border:none;padding:0 0 4px">
+            <div class="h-icon" style="background:rgba(250,140,22,.12)">🌅</div>
+            <div style="flex:1"><div style="font-weight:600">早起</div><div class="faint" style="font-size:11.5px">每天 · 目标 06:30 · 连续 🔥 5 天</div></div>
+            <div class="checkbtn on">✓</div>
+          </div>
+          <div style="background:rgba(250,140,22,.05);border:1px solid rgba(250,140,22,.15);border-radius:10px;padding:12px;margin-top:8px">
+            <div class="statrow" style="margin-bottom:10px">
+              <div class="stat" style="padding:8px"><div class="v" style="font-size:16px">5</div><div class="l">连续</div></div>
+              <div class="stat" style="padding:8px"><div class="v" style="font-size:16px">42</div><div class="l">总计</div></div>
+              <div class="stat" style="padding:8px"><div class="v" style="font-size:16px">87%</div><div class="l">本月完成率</div></div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div style="display:grid;grid-template-columns:repeat(7,16px);gap:3px;font-size:9px;color:var(--text3);text-align:center;margin-bottom:3px"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+              <div id="hm" style="display:grid;grid-template-columns:repeat(7,16px);gap:3px"></div>
+            </div>
+            <div class="faint" style="font-size:11.5px;font-weight:600;margin-bottom:6px">最近打卡</div>
+            <div class="timeline">
+              <div class="tl-item" style="--tlc:#fa8c16;padding-bottom:10px"><div class="tl-time">08-21 07:32 · <b style="color:var(--text2)">30 分钟</b> · ☀️ 早晨　<span style="color:var(--error);cursor:pointer">✕ 取消</span></div><div class="tl-note">比闹钟早醒了十分钟，状态不错</div></div>
+              <div class="tl-item" style="--tlc:#fa8c16;padding-bottom:10px"><div class="tl-time">08-20 07:05 · <b style="color:var(--text2)">25 分钟</b> · ☀️ 早晨</div></div>
+              <div class="tl-item" style="--tlc:#fa8c16;padding-bottom:0"><div class="tl-time">08-19 06:48 · ☀️ 早晨</div><div class="tl-note">下雨天也起来了</div></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn ghost sm" data-open="mHabit" data-edit="早起">✏️ 编辑</button>
+              <button class="btn ghost sm" data-menu="habit">⋯ 更多 <span class="faint" style="font-size:10.5px">补卡 · 删除</span></button>
+            </div>
+          </div>
+        </div>
+        <!-- 收起的习惯卡 -->
+        <div class="card" style="border-left:3px solid #1890ff;margin-bottom:12px"><div class="habit-row" style="border:none;padding:0"><div class="h-icon" style="background:rgba(24,144,255,.12)">📚</div><div style="flex:1"><div style="font-weight:600">阅读</div><div class="faint" style="font-size:11.5px">每天 · 连续 🔥 9 天</div></div><div class="weekdots"><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd f"></i><i class="wd today"></i></div><div class="checkbtn">✓</div></div></div>
+        <div class="card" style="border-left:3px solid #52c41a"><div class="habit-row" style="border:none;padding:0"><div class="h-icon" style="background:rgba(82,196,26,.12)">💪</div><div style="flex:1"><div style="font-weight:600">运动</div><div class="faint" style="font-size:11.5px">每周 3 次 · 连续 🔥 2 天</div></div><div class="weekdots"><i class="wd f"></i><i class="wd"></i><i class="wd f"></i><i class="wd"></i><i class="wd f"></i><i class="wd"></i><i class="wd today"></i></div><div class="checkbtn">✓</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ TASKS ═══════════ -->
+<div class="page" id="page-tasks">
+  <div class="page-title">任务 · Tasks</div>
+  <div class="page-sub">L1 内嵌工具（侧边栏第 3 项）· 任务页信息层级重排：优先级左色条 + 元信息降级。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">任务</div></div>
+    <div class="app app-real">
+      <aside class="sidebar" data-active="tasks"></aside>
+      <div class="main">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="tabbar" data-tabs>
+            <button class="tab on">今天</button><button class="tab">全部</button><button class="tab">已完成</button>
+          </div>
+          <button class="btn primary sm" data-open="mTaskFull">＋ 新建任务</button>
+        </div>
+        <div class="task-workspace">
+          <div class="card task-list-card">
+            <div class="task"><div class="prio p-urgent"></div><div class="cb"></div><div class="t-body"><div class="t-title">提交季度报告</div><div class="t-meta"><span>工作</span>·<span>今天 14:00</span>·<span>⏱ 45 分钟</span></div></div><span class="chip acc">进行中</span></div>
+            <div class="task"><div class="prio p-important"></div><div class="cb"></div><div class="t-body"><div class="t-title">准备明天评审的材料</div><div class="t-meta"><span>工作</span>·<span>明天 10:00</span></div></div></div>
+            <div class="task"><div class="prio p-normal"></div><div class="cb"></div><div class="t-body"><div class="t-title">给妈妈打电话</div><div class="t-meta"><span>生活</span>·<span>随时</span></div></div></div>
+            <div class="task done"><div class="prio p-important"></div><div class="cb done"></div><div class="t-body"><div class="t-title">晨跑 30 分钟</div><div class="t-meta"><span>健康</span>·<span>08:30 完成</span></div></div></div>
+          </div>
+          <div class="card task-detail-empty">
+            <div class="task-empty-inner">
+              <svg class="task-empty-mark" viewBox="0 0 104 104" aria-hidden="true">
+                <path d="M19 70C34 43 54 41 82 24" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" opacity=".22"/>
+                <path d="M24 74C39 49 57 45 80 30" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>
+                <circle cx="82" cy="28" r="6" fill="currentColor"/>
+                <circle cx="18" cy="79" r="2.5" fill="currentColor" opacity=".35"/>
+                <circle cx="10" cy="87" r="1.8" fill="currentColor" opacity=".2"/>
+              </svg>
+              <div class="task-empty-title">选择一个任务查看详情</div>
+              <div class="task-empty-copy">你可以在这里调整日期、优先级、提醒和所属清单，任务信息不会挤占列表空间。</div>
+              <button class="btn outline sm" data-open="mTaskFull" style="margin-top:16px">＋ 新建任务</button>
+              <div class="task-empty-keys"><span><kbd>Enter</kbd> 打开</span><span><kbd>N</kbd> 新建</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ QUADRANT ═══════════ -->
+<div class="page" id="page-quadrant">
+  <div class="page-title">四象限 · Quadrant</div>
+  <div class="page-sub">高频任务决策视图，提升到「记录工具」并紧跟任务。每个象限可直接添加任务，优先级自动带入；原有拖拽移动继续保留。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">四象限</div></div>
+    <div class="app app-real">
+      <aside class="sidebar" data-active="quadrant"></aside>
+      <div class="main">
+        <div class="qgrid" data-quadrant-grid>
+          <div class="quad" data-quadrant="urgent_important" style="border-color:rgba(239,68,68,.35)"><h5><span>重要 · 紧急</span><span class="qn">2</span><button class="quad-add" data-open="mTask" data-quadrant-add data-quadrant-key="urgent_important" data-quadrant-label="重要 · 紧急" data-priority-label="🔴 重要 · 紧急" aria-label="在重要紧急象限添加任务">＋</button></h5><div class="mini-task"><span style="color:var(--p-urgent)">●</span> 提交季度报告</div><div class="mini-task"><span style="color:var(--p-urgent)">●</span> 处理线上故障</div></div>
+          <div class="quad" data-quadrant="important" style="border-color:rgba(59,130,246,.35)"><h5><span>重要 · 不紧急</span><span class="qn">3</span><button class="quad-add" data-open="mTask" data-quadrant-add data-quadrant-key="important" data-quadrant-label="重要 · 不紧急" data-priority-label="🔵 重要 · 不紧急" aria-label="在重要不紧急象限添加任务">＋</button></h5><div class="mini-task"><span style="color:var(--p-important)">●</span> 准备评审材料</div><div class="mini-task"><span style="color:var(--p-important)">●</span> 学习 Rust 异步</div></div>
+          <div class="quad" data-quadrant="urgent" style="border-color:rgba(249,115,22,.35)"><h5><span>不重要 · 紧急</span><span class="qn">1</span><button class="quad-add" data-open="mTask" data-quadrant-add data-quadrant-key="urgent" data-quadrant-label="不重要 · 紧急" data-priority-label="🟠 不重要 · 紧急" aria-label="在不重要紧急象限添加任务">＋</button></h5><div class="mini-task"><span style="color:var(--p-normal)">●</span> 回复合作邮件</div></div>
+          <div class="quad" data-quadrant="none"><h5><span>不重要 · 不紧急</span><span class="qn">0</span><button class="quad-add" data-open="mTask" data-quadrant-add data-quadrant-key="none" data-quadrant-label="不重要 · 不紧急" data-priority-label="🍃 不重要 · 不紧急" aria-label="在不重要不紧急象限添加任务">＋</button></h5><button class="quad-empty-add" data-open="mTask" data-quadrant-add data-quadrant-key="none" data-quadrant-label="不重要 · 不紧急" data-priority-label="🍃 不重要 · 不紧急"><span style="font-size:20px">🍃</span><br><span style="font-size:11.5px">这里是空的 · 添加任务</span></button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ STATS ═══════════ -->
+<div class="page" id="page-stats">
+  <div class="page-title">统计 · Stats</div>
+  <div class="page-sub">图表色统一引用 chart* token；数字用 tabular-nums；注解只陈述事实。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">数据统计</div></div>
+    <div class="app app-real">
+      <aside class="sidebar" data-active="stats"></aside>
+    <div class="main">
+      <div class="statrow" style="margin-bottom:16px">
+        <div class="stat"><div class="v">14</div><div class="l">本周完成任务</div></div>
+        <div class="stat"><div class="v">31</div><div class="l">习惯打卡次数</div></div>
+        <div class="stat"><div class="v">6.2<span style="font-size:13px">h</span></div><div class="l">专注总时长</div></div>
+        <div class="stat"><div class="v">5</div><div class="l">写下观察</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px">
+        <div class="card">
+          <h4>每日专注时长 <span class="faint" style="font-weight:400;font-size:11.5px">分钟</span></h4>
+          <div class="bars">
+            <div class="bar"><i style="height:40%"></i><em>一</em></div>
+            <div class="bar"><i style="height:65%"></i><em>二</em></div>
+            <div class="bar"><i style="height:30%"></i><em>三</em></div>
+            <div class="bar"><i style="height:85%"></i><em>四</em></div>
+            <div class="bar"><i style="height:55%"></i><em>五</em></div>
+            <div class="bar"><i style="height:20%;opacity:.4"></i><em>六</em></div>
+            <div class="bar"><i style="height:70%"></i><em>日</em></div>
+          </div>
+          <div class="faint" style="font-size:11.5px;margin-top:10px">↳ 比上周多 3 次 · 周四是高峰（事实陈述，不做评价）</div>
+        </div>
+        <div class="card">
+          <h4>时间分配 · 近 7 天</h4>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-top:4px">
+            <div><div style="display:flex;justify-content:space-between;font-size:12px"><span>🧠 认知</span><span class="faint">2.4h</span></div><div style="height:7px;border-radius:4px;background:var(--divider);margin-top:4px"><div style="width:62%;height:100%;border-radius:4px;background:#722ED1"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px"><span>💻 产出</span><span class="faint">1.8h</span></div><div style="height:7px;border-radius:4px;background:var(--divider);margin-top:4px"><div style="width:47%;height:100%;border-radius:4px;background:#1890FF"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px"><span>🏃 身体</span><span class="faint">1.2h</span></div><div style="height:7px;border-radius:4px;background:var(--divider);margin-top:4px"><div style="width:31%;height:100%;border-radius:4px;background:#52C41A"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px"><span>💬 关系</span><span class="faint">0.8h</span></div><div style="height:7px;border-radius:4px;background:var(--divider);margin-top:4px"><div style="width:21%;height:100%;border-radius:4px;background:#FAAD14"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ═══════════ POMODORO ═══════════ -->
+<div class="page" id="page-pomodoro">
+  <div class="page-title">专注 · Pomodoro</div>
+  <div class="page-sub">沉浸模式：运行时其余元素降至 40% 透明度；完成反馈用柔和波纹而非奖杯烟花。侧边栏名称为「专注」（push 打开番茄钟页）。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">专注</div></div>
+    <div class="main app-real" style="padding:0;display:flex;flex-direction:column">
+      <div class="pagehead">
+        <button class="iconbtn" title="返回"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button>
+        <b>专注</b><span style="flex:1"></span>
+        <button class="iconbtn" title="专注设置"><svg class="ico" style="width:18px;height:18px"><use href="#i-gear"/></svg></button>
+      </div>
+      <div class="pomo" style="flex:1">
+      <div class="chip acc">专注中 · 写周报</div>
+      <div class="pomo-ring">
+        <div style="text-align:center">
+          <div class="pomo-time">08:00</div>
+          <div class="pomo-state">FOCUS</div>
+        </div>
+      </div>
+        <div class="pomo-actions">
+          <button class="btn outline" id="pPause">暂停</button>
+          <button class="btn accent lg" id="pEnd">结束专注</button>
+        </div>
+      <div class="faint" style="font-size:12px">今日第 3 个番茄钟 · 已专注 75 分钟</div>
+    </div></div>
+  </div>
+  <div class="note" style="margin-top:16px;max-width:720px"><b>完成反馈规范</b>：一圈 800ms 柔和波纹扩散 + 文案「专注了 25 分钟」。不放烟花、不发勋章、不弹连击——符合「记录优先不施压」原则。fontSize 26/36 的 magic number 收敛进 text2Xl/text3Xl Token。</div>
+</div>
+
+<!-- ═══════════ REST REMINDER ═══════════ -->
+<div class="page" id="page-rest">
+  <div class="page-title">休息提醒 · Rest</div>
+  <div class="page-sub"><b>重要修正</b>：休息提醒不只是设置——它是行为数据源，工作/休息日志写入 BehaviorEvent 并进入回顾事实链。本页含运行态、今日统计、休息回顾（日志/汇总/分析）与全屏休息遮罩。</div>
+
+  <div class="grid2">
+    <!-- 运行态 + 今日统计 -->
+    <div class="device">
+      <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">休息提醒</div></div>
+      <div class="main" style="padding:0;display:flex;flex-direction:column">
+        <div class="pagehead">
+          <button class="iconbtn" title="返回"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button>
+          <b>休息提醒</b><span style="flex:1"></span>
+          <button class="iconbtn" title="提醒设置"><svg class="ico" style="width:18px;height:18px"><use href="#i-gear"/></svg></button>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;padding:26px 20px">
+        <span class="chip acc">● 工作中 · 第 2 轮</span>
+        <div class="pomo-ring" style="width:150px;height:150px;background:radial-gradient(closest-side,var(--card) 76%,transparent 77%),conic-gradient(var(--success) 0 55%,var(--divider) 55% 100%)">
+          <div style="text-align:center"><div style="font-size:24px;font-weight:700;font-variant-numeric:tabular-nums">32:00</div><div class="faint" style="font-size:10.5px;margin-top:1px">距小憩 · 小憩 1/4</div></div>
+        </div>
+        <div class="pomo-actions">
+          <button class="btn primary sm" data-toast="已进入小憩 · 20 秒">☕ 开始小憩</button>
+          <button class="btn outline sm" data-toast="已延后 5 分钟">延后 5 分钟</button>
+          <button class="btn ghost sm" data-toast="已跳过本轮（计入跳过率）">跳过</button>
+        </div>
+        <div class="card" style="width:100%;padding:12px">
+          <h4 style="margin-bottom:8px">今日统计 <span class="faint" style="font-weight:400;font-size:10.5px">→ 写入行为事件</span></h4>
+          <div class="statrow">
+            <div class="stat" style="padding:9px 6px"><div class="v" style="font-size:15px">3.2h</div><div class="l">工作</div></div>
+            <div class="stat" style="padding:9px 6px"><div class="v" style="font-size:15px">26分</div><div class="l">休息</div></div>
+            <div class="stat" style="padding:9px 6px"><div class="v" style="font-size:15px">12%</div><div class="l">跳过率</div></div>
+            <div class="stat" style="padding:9px 6px"><div class="v" style="font-size:15px">5</div><div class="l">连续不跳过</div></div>
+          </div>
+        </div>
+        <div class="card" style="width:100%;padding:12px">
+          <h4 style="margin-bottom:8px">系统行为规则 <span class="tag p2">新增需求</span></h4>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.95">
+            · 🖥️ 仅桌面端 · 休息默认<b style="color:var(--text)">霸屏</b>全屏接管<br>
+            · 💤 电脑睡眠 → 计时自动暂停，休眠时长不计入工作<br>
+            · 🔒 锁屏 → 重置本轮计时，解锁后从零开始
+          </div>
+        </div>
+        <div class="faint" style="font-size:11px;text-align:center">每轮工作/小憩/跳过都记录为事实 · 在「回顾 → 休息数据」中查看</div>
+      </div></div>
+    </div>
+
+    <!-- 休息回顾 -->
+    <div class="device">
+      <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">休息回顾</div></div>
+      <div class="main" style="padding:0">
+        <div class="pagehead">
+          <button class="iconbtn" title="返回"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button>
+          <b>休息回顾</b><span style="flex:1"></span>
+          <span class="chip">来自回顾 · 只读</span>
+        </div>
+        <div style="padding:16px 20px">
+        <div class="tabbar" data-tabs style="margin-bottom:14px">
+          <button class="tab on">日志</button>
+          <button class="tab">7天</button>
+          <button class="tab">30天</button>
+          <button class="tab">分析</button>
+        </div>
+        <div class="card">
+          <h4>8 月 21 日 周四 <span class="chip" style="margin-left:auto">工作 3.2h · 休息 26 分</span></h4>
+          <div class="timeline">
+            <div class="tl-item" style="--tlc:#22C55E"><div class="tl-time">09:15 – 10:05</div><div class="tl-title">工作 50 分钟 <span class="chip" style="background:var(--success-soft);color:var(--success)">小憩 ✓</span></div></div>
+            <div class="tl-item" style="--tlc:#22C55E"><div class="tl-time">10:25 – 11:10</div><div class="tl-title">工作 45 分钟 <span class="chip" style="background:rgba(239,68,68,.1);color:var(--error)">跳过 ✗</span></div></div>
+            <div class="tl-item" style="--tlc:#F97316"><div class="tl-time">11:10 – 11:12</div><div class="tl-title">长休息 5 分钟 <span class="faint" style="font-size:11px">· 小憩满 4 次触发</span></div></div>
+            <div class="tl-item" style="--tlc:#22C55E;padding-bottom:0"><div class="tl-time">14:00 – 14:32</div><div class="tl-title">工作中… <span class="faint" style="font-size:11px">距小憩 13 分钟</span></div></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h4>分析 · 近 30 天</h4>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.8">
+            日均工作 <b style="color:var(--text)">4.1h</b> · 日均休息 <b style="color:var(--text)">31 分</b><br>
+            跳过率比上月低 6% · 周五下午跳过最多
+          </div>
+          <div class="faint" style="font-size:11px;margin-top:6px">↳ 只陈述事实与变化，不做评价（产品原则）</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 全屏休息遮罩（桌面霸屏，默认开启） -->
+  <div class="sec-h">全屏休息遮罩 · 桌面霸屏（默认开启）</div>
+  <div class="device">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">霸屏休息中 · 已接管全屏</div></div>
+    <div style="min-height:360px;background:linear-gradient(160deg,#0F2027,#203A43 60%,#2C5364);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:30px;position:relative">
+      <div style="position:absolute;top:14px;left:18px;font-size:11px;letter-spacing:3px;opacity:.55">MICRO BREAK</div>
+      <div class="pomo-ring" style="width:190px;height:190px;background:radial-gradient(closest-side,#16272e 77%,transparent 78%),conic-gradient(#4ADE80 0 78%,rgba(255,255,255,.14) 78% 100%)">
+        <div style="text-align:center"><div style="font-size:38px;font-weight:700;font-variant-numeric:tabular-nums">00:14</div></div>
+      </div>
+      <div style="font-size:14.5px;opacity:.9">眨眨眼，看看六米外的地方</div>
+      <div style="position:absolute;bottom:14px;right:18px;font-size:11px;opacity:.45">严格模式 · 不可跳过</div>
+    </div>
+  </div>
+  <div class="note" style="margin-top:14px;max-width:760px"><b>设计要点</b><br>
+  · <b>仅桌面端</b>，移动端无此功能；霸屏（全屏接管）默认开启<br>
+  · 深色渐变 + 大倒计时环，fontSize 48 收敛进 Token；文案给具体动作指令，不说教<br>
+  · 严格模式隐藏跳过；非严格模式右下角弱化入口<br>
+  · <b>系统睡眠 → 计时暂停</b>（休眠时长不计入工作）；<b>锁屏 → 重置本轮计时</b>，解锁后从零开始，防止虚增工作时长<br>
+  · 结束后自动回到工作态并写入本轮记录</div>
+</div>
+
+<!-- ═══════════ SETTINGS ═══════════ -->
+<div class="page" id="page-settings">
+  <div class="page-title">设置 · Settings</div>
+  <div class="page-sub">手风琴式功能面板（点击行展开）· 功能项已对照现有代码核实，标 <span class="tag p2">提案</span> 者为新增设计 · 开关/分段/色板均可点击。</div>
+  <div class="device" style="max-width:640px">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">设置</div></div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;background:var(--bg)">
+
+      <!-- 外观 -->
+      <div class="card" style="padding:0">
+        <div class="set-row" data-toggle="s-look"><span style="font-size:16px">🎨</span><span style="flex:1;font-size:13.5px;font-weight:600">外观</span><span class="faint" style="font-size:12px">跟随系统 · zinc</span><span class="chev">▾</span></div>
+        <div id="s-look" class="set-panel open">
+          <div class="fld"><label>主题模式</label>
+            <div class="seg" data-seg id="segTheme"><button class="on">跟随系统</button><button>浅色</button><button>深色</button></div>
+          </div>
+          <div class="fld"><label>配色方案</label>
+            <div class="pal-grid">
+              <div class="pal on"><span class="pal-dot" style="background:linear-gradient(135deg,#18181B 60%,#3B82F6 60%)"></span>zinc</div>
+              <div class="pal"><span class="pal-dot" style="background:linear-gradient(135deg,#0F172A 60%,#3B82F6 60%)"></span>slate</div>
+              <div class="pal"><span class="pal-dot" style="background:linear-gradient(135deg,#1C1917 60%,#78716C 60%)"></span>stone</div>
+              <div class="pal"><span class="pal-dot" style="background:linear-gradient(135deg,#9F1239 60%,#E11D48 60%)"></span>rose</div>
+              <div class="pal"><span class="pal-dot" style="background:linear-gradient(135deg,#9A3412 60%,#EA580C 60%)"></span>orange</div>
+            </div>
+          </div>
+          <div class="fld"><label>字号大小 <span id="fsVal" style="color:var(--accent)">100%</span></label>
+            <input type="range" id="fsRange" min="85" max="125" step="5" value="100" style="width:100%">
+            <div style="margin-top:8px;padding:10px 12px;border:1px dashed var(--border);border-radius:9px;background:var(--raised)">
+              <div id="fsPreview" style="font-size:14px">Slowlight · 记录你的每一天 Aa</div>
+              <div class="faint" style="font-size:11px;margin-top:2px">预览 · 随滑杆实时缩放（0.85–1.25 倍，8 档）</div>
+            </div>
+          </div>
+          <div class="fld" style="display:flex;justify-content:space-between;align-items:center">
+            <label style="margin:0">字体</label>
+            <div class="input" id="fontSel" style="width:180px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:7px 12px;font-size:12.5px"><span>系统默认</span><span class="faint">▾</span></div>
+          </div>
+          <button class="btn ghost sm">↺ 恢复默认配色</button>
+        </div>
+      </div>
+
+      <!-- 数据同步 -->
+      <div class="card" style="padding:0">
+        <div class="set-row" data-toggle="s-sync"><span style="font-size:16px">☁️</span><span style="flex:1;font-size:13.5px;font-weight:600">数据同步</span><span class="chip" style="background:var(--success-soft);color:var(--success)">已同步</span><span class="chev">›</span></div>
+        <div id="s-sync" class="set-panel">
+          <div class="fld"><label>数据模式</label>
+            <div class="seg" data-seg><button class="on">本地优先</button><button>云同步</button></div>
+            <div class="faint" style="font-size:11px;margin-top:6px">本地优先：数据存本机，可随时开启云同步；两者正交于 AI 模式</div>
+          </div>
+          <div class="set-line"><span class="chip" style="background:var(--success-soft);color:var(--success)">✓</span><div style="flex:1">同步状态<div class="sub">顶栏 SyncStatusBadge 常显 · 上次同步时间/设备列表为<span class="tag p2" style="margin-left:2px">提案</span></div></div><button class="btn outline sm">立即同步</button></div>
+          <div class="set-line"><div style="flex:1">同步冲突<div class="sub">无待处理冲突</div></div><button class="btn ghost sm" disabled style="opacity:.5">查看冲突 (0)</button></div>
+        </div>
+      </div>
+
+      <!-- AI 服务 -->
+      <div class="card" style="padding:0">
+        <div class="set-row" data-toggle="s-ai"><span style="font-size:16px">🤖</span><span style="flex:1;font-size:13.5px;font-weight:600">AI 服务</span><span class="faint" style="font-size:12px">Ollama · 本地</span><span class="chev">›</span></div>
+        <div id="s-ai" class="set-panel">
+          <div class="set-line"><div style="flex:1">启用 AI<div class="sub">提问引擎与回顾洞察</div></div><button class="switch on" aria-label="启用 AI"></button></div>
+          <div class="fld" style="margin-top:6px"><label>Provider</label>
+            <div class="seg" data-seg><button class="on">Ollama</button><button>OpenAI</button><button>DeepSeek</button></div>
+          </div>
+          <div class="fld"><label>Base URL</label><input class="input" value="http://localhost:11434" style="padding:8px 12px;font-size:12.5px"></div>
+          <div class="fld"><label>模型</label><input class="input" value="qwen2.5:7b" style="padding:8px 12px;font-size:12.5px"></div>
+          <div class="fld"><label>API Key <span class="faint">· 仅云端 Provider 需要</span></label><input class="input" type="password" placeholder="本地模式无需填写" style="padding:8px 12px;font-size:12.5px"></div>
+          <div class="note" style="font-size:11.5px">🔒 本地 Ollama：数据不出设备。Data Mode 与 AI Mode 正交组合。</div>
+        </div>
+      </div>
+
+      <!-- 休息提醒 -->
+      <div class="card" style="padding:0">
+        <div class="set-row" data-toggle="s-rest"><span style="font-size:16px">🔔</span><span style="flex:1;font-size:13.5px;font-weight:600">休息提醒 <span class="chip" style="margin-left:4px">仅桌面端</span></span><span class="faint" style="font-size:12px">每 45 分钟 · 霸屏</span><span class="chev">›</span></div>
+        <div id="s-rest" class="set-panel">
+          <div class="set-line"><div style="flex:1">微休息提醒<div class="sub">每 45 分钟小憩一次（时长可配置）</div></div><button class="switch on"></button></div>
+          <div class="set-line"><div style="flex:1">长休息提醒<div class="sub">小憩满 N 次后进入长休息（microRestsBeforeLong）</div></div><button class="switch on"></button></div>
+          <div class="set-line"><div style="flex:1">霸屏休息<span class="tag p2" style="margin-left:6px">提案</span><div class="sub">休息触发时全屏接管桌面，默认开启</div></div><button class="switch on"></button></div>
+          <div class="set-line"><div style="flex:1">睡眠暂停计时<span class="tag p2" style="margin-left:6px">提案</span><div class="sub">检测系统睡眠/休眠，期间不累计工作时长</div></div><button class="switch on"></button></div>
+          <div class="set-line"><div style="flex:1">锁屏重置本轮<span class="tag p2" style="margin-left:6px">提案</span><div class="sub">锁屏视为离开，解锁后本轮从零开始</div></div><button class="switch on"></button></div>
+          <div class="set-line"><div style="flex:1">严格模式<div class="sub">现有实现为两个独立开关：小憩严格 / 休息严格</div></div><button class="switch"></button></div>
+          <div class="set-line"><div style="flex:1">免打扰时段<span class="tag p2" style="margin-left:6px">提案</span><div class="sub">现有代码无此功能 · 设计建议：22:00 – 08:00 不提醒</div></div><button class="switch on"></button></div>
+        </div>
+      </div>
+
+      <!-- 关于 -->
+      <div class="card" style="padding:0">
+        <div class="set-row" data-toggle="s-about"><span style="font-size:16px">ℹ️</span><span style="flex:1;font-size:13.5px;font-weight:600">关于 Slowlight</span><span class="faint" style="font-size:12px">v0.1.8</span><span class="chev">›</span></div>
+        <div id="s-about" class="set-panel">
+          <div class="set-line"><span class="faint" style="flex:1">版本</span><span style="font-size:12.5px">0.1.8+1</span></div>
+          <div class="set-line"><span class="faint" style="flex:1">检查更新</span><button class="btn outline sm">检查</button></div>
+          <div class="set-line"><span class="faint" style="flex:1">开源许可</span><span class="faint" style="font-size:12px">MIT ›</span></div>
+        </div>
+      </div>
+
+      <div class="faint" style="text-align:center;font-size:11.5px;padding:4px 0 8px">本地数据 · 你的记录属于你</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CALENDAR ═══════════ -->
+<div class="page" id="page-calendar">
+  <div class="page-title">日历 · Calendar</div>
+  <div class="page-sub">参考飞书的高密度月视图：先扫一整月的行为事实，再在下方完整查看选中日期。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">日历</div></div>
+    <div class="app app-real">
+      <aside class="sidebar" data-active="calendar"></aside>
+      <div class="main" id="calMain">
+        <div class="cal-toolbar">
+          <button class="btn outline sm" id="calToday">今天</button>
+          <button class="btn ghost sm" id="calPrev" title="上个月">‹</button>
+          <button class="btn ghost sm" id="calNext" title="下个月">›</button>
+          <span class="cal-month" id="calLabel">2026 年 8 月</span>
+          <div class="cal-filter" aria-label="日历记录筛选">
+            <button class="on" data-cal-mode="all">全部</button>
+            <button data-cal-mode="plan">计划</button>
+            <button data-cal-mode="actual">实际</button>
+          </div>
+        </div>
+        <div class="cal-shell">
+          <div class="cal-weekdays">
+            <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
+          </div>
+          <div id="cal" class="cal-grid"></div>
+        </div>
+        <div class="card day-panel" id="dayPanel">
+          <div class="day-head">
+            <div>
+              <b id="dayTitle">8 月 21 日 · 周五</b>
+              <div class="faint" id="dayCaption" style="font-size:10.5px;margin-top:2px">计划与实际 · 完整记录</div>
+            </div>
+            <div class="day-summary" id="daySummary"></div>
+            <button class="btn accent sm" id="dayAdd">＋ 新建任务</button>
+          </div>
+          <div class="day-columns">
+            <section>
+              <div class="day-section-title">当日任务</div>
+              <div id="dayTasks"></div>
+            </section>
+            <section>
+              <div class="day-section-title">当日足迹</div>
+              <div id="dayActivities"></div>
+            </section>
+          </div>
+        </div>
+        <div class="cal-popover" id="calPopover" role="dialog" aria-label="日历记录详情"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SEARCH ═══════════ -->
+<div class="page" id="page-search">
+  <div class="page-title">搜索 · Search</div>
+  <div class="page-sub">300ms 防抖、最近搜索、按类型分组 + 关键词高亮（accent 底 30%）。</div>
+  <div class="device win">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">搜索</div></div>
+    <div class="pagehead">
+      <button class="iconbtn" title="返回"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button>
+      <b>搜索</b>
+    </div>
+    <div style="padding:20px 24px;background:var(--bg)">
+      <input class="input" id="searchInput" value="周报" style="font-size:15px;padding:11px 14px">
+      <div style="display:flex;gap:6px;align-items:center;margin:12px 0 18px;flex-wrap:wrap">
+        <span class="faint" style="font-size:11.5px">最近：</span>
+        <span class="chip">四象限</span><span class="chip"><mark>周报</mark></span><span class="chip">早起</span>
+      </div>
+      <div class="faint" style="font-size:11.5px;font-weight:600;margin-bottom:6px">任务 · 2 条</div>
+      <div class="card" style="padding:4px 12px;margin-bottom:14px">
+        <div class="task"><div class="prio p-important"></div><div class="cb"></div><div class="t-body"><div class="t-title">提交季度<mark>周报</mark></div><div class="t-meta">工作 · 今天 14:00</div></div></div>
+        <div class="task"><div class="prio p-normal"></div><div class="cb"></div><div class="t-body"><div class="t-title">收集<mark>周报</mark>素材</div><div class="t-meta">工作 · 明天</div></div></div>
+      </div>
+      <div class="faint" style="font-size:11.5px;font-weight:600;margin-bottom:6px">习惯 · 1 条</div>
+      <div class="card" style="padding:10px 14px;margin-bottom:14px">
+        <div style="font-size:13px">📚 阅读 <span class="chip">🔥 9</span></div>
+        <div class="faint" style="font-size:11px;margin-top:3px">最近备注：摘录三条，作<mark>周报</mark>素材 · 昨天 21:40</div>
+      </div>
+      <div class="faint" style="font-size:11.5px;font-weight:600;margin-bottom:6px">回顾 · 1 条</div>
+      <div class="card" style="padding:10px 14px">
+        <div style="font-size:13px">📝 观察「开会时容易走神，尤其在写<mark>周报</mark>的下午」</div>
+        <div class="faint" style="font-size:11px;margin-top:3px">8 月 20 日 · #认知</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 取消打卡确认（全局演示用） -->
+<div id="confirmDlg" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:18px;max-width:320px;width:90%;box-shadow:var(--shadow-lg)">
+    <div style="font-weight:700;font-size:14px">取消打卡</div>
+    <div class="muted" style="font-size:12.5px;margin:6px 0 14px">确定取消今天「早起」的打卡？连续天数将重新计算。</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn outline sm" id="dlgCancel">取消</button>
+      <button class="btn primary sm" id="dlgOk">取消打卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MOBILE ═══════════ -->
+<div class="page" id="page-mobile">
+  <div class="page-title">移动端交互设计</div>
+  <div class="page-sub">功能可用性：除休息提醒（桌面门控）外全部可用。导航改为<b>左侧滑出抽屉</b>；FAB 可按住拖动、点按快速记录。</div>
+
+  <div class="phone-wrap">
+    <!-- D 左滑抽屉导航（新交互） -->
+    <div class="phone"><div class="phone-screen" style="position:relative">
+      <div class="phone-notch"></div>
+      <div class="appbar-m"><span class="hamb"><svg class="ico" style="width:19px;height:19px;vertical-align:middle"><use href="#i-menu"/></svg></span><b>今天</b><span class="faint" style="font-size:12px">✍️ ＋</span></div>
+      <div style="flex:1;padding:14px 16px;filter:blur(1px);opacity:.4">
+        <div style="font-size:18px;font-weight:700">早上好 👋</div>
+        <div class="card" style="padding:10px;margin-top:10px"><div style="height:8px;border-radius:4px;background:var(--divider)"></div><div style="height:8px;width:70%;border-radius:4px;background:var(--divider);margin-top:6px"></div></div>
+        <div class="card" style="padding:10px;margin-top:8px"><div style="height:8px;border-radius:4px;background:var(--divider)"></div></div>
+      </div>
+      <div class="mdrawer open" data-active="today"></div>
+      <div class="bottomnav"><div class="on"><span>☀️</span>今天</div><div><span>📖</span>回顾</div></div>
+    </div></div>
+    <div style="max-width:300px">
+      <div class="note" style="margin-bottom:12px"><b>抽屉导航（替代自下而上面板）</b><br>· 顶栏 ☰ 自<b>左向右</b>滑出，承载全部工具入口<br>· 主线仍由底部 [今天][回顾] Tab 承担<br>· 休息提醒为桌面专属，不在移动抽屉中<br>· 遮罩点击 / 选择条目即收起</div>
+    </div>
+
+    <!-- A 任务滑动操作 -->
+    <div class="phone"><div class="phone-screen">
+      <div class="phone-notch"></div>
+      <div class="appbar-m"><span class="hamb" data-drawer><svg class="ico" style="width:19px;height:19px;vertical-align:middle"><use href="#i-menu"/></svg></span><b>今天</b><span class="faint" style="font-size:12px">✍️ 🔍</span></div>
+      <div class="mdrawer" data-active="today"></div>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <div class="faint" style="font-size:11px">任务行 · 左滑露出操作（替代桌面 hover）</div>
+        <div style="position:relative;border-radius:12px;overflow:hidden">
+          <div style="position:absolute;inset:0;display:flex;justify-content:flex-end">
+            <div style="width:70px;background:var(--warn);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11.5px;cursor:pointer" data-toast="已顺延到明天">⏱ 顺延</div>
+            <div style="width:70px;background:var(--success);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11.5px;cursor:pointer" data-toast="✓ 已完成">✓ 完成</div>
+          </div>
+          <div style="position:relative;background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:11px 12px;transform:translateX(-64px)">
+            <div style="font-size:13px;font-weight:500">提交季度报告</div>
+            <div class="faint" style="font-size:11px;margin-top:2px">工作 · 14:00 前</div>
+          </div>
+        </div>
+        <div class="card" style="padding:4px 12px">
+          <div class="task"><div class="cb done"></div><div class="t-body"><div class="t-title" style="font-size:13px">晨跑 30 分钟</div></div></div>
+          <div class="task"><div class="cb"></div><div class="t-body"><div class="t-title" style="font-size:13px">回复合作邮件</div><div class="t-meta">随时</div></div></div>
+        </div>
+        <div class="note" style="font-size:11.5px">iOS 边缘返回手势冲突 → 滑动区限定在 tile 内，屏幕边缘留白</div>
+      </div>
+      <div class="bottomnav"><div class="on"><span>☀️</span>今天</div><div><span>📖</span>回顾</div></div>
+    </div></div>
+
+    <!-- B 习惯打卡 bottom sheet -->
+    <div class="phone"><div class="phone-screen" style="position:relative">
+      <div class="phone-notch"></div>
+      <div class="appbar-m"><span class="hamb" data-drawer><svg class="ico" style="width:19px;height:19px;vertical-align:middle"><use href="#i-menu"/></svg></span><b>今天</b><span class="faint" style="font-size:12px">✍️ 🔍</span></div>
+      <div class="mdrawer" data-active="today"></div>
+      <div style="flex:1;padding:14px 16px;filter:blur(1px);opacity:.5">
+        <div class="habit-row" style="--hc:#fa8c16"><div class="h-icon" style="background:rgba(250,140,22,.12);width:30px;height:30px">🌅</div><div style="flex:1;font-weight:600;font-size:12.5px">早起</div><div class="checkbtn">✓</div></div>
+        <div class="habit-row" style="--hc:#1890ff"><div class="h-icon" style="background:rgba(24,144,255,.12);width:30px;height:30px">📚</div><div style="flex:1;font-weight:600;font-size:12.5px">阅读</div><div class="checkbtn">✓</div></div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;background:var(--raised);border-radius:18px 18px 0 0;padding:10px 16px 18px;box-shadow:var(--shadow-lg)">
+        <div style="width:36px;height:4px;border-radius:2px;background:var(--divider);margin:0 auto 10px"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span>🌅</span><b style="font-size:13.5px">早起</b><span class="faint" style="font-size:11px;margin-left:auto">下滑关闭</span></div>
+        <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:5px">实际时长</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <span class="pick" style="padding:6px 10px;font-size:12px">15<small>分</small></span><span class="pick on" style="padding:6px 10px;font-size:12px">30<small>分</small></span><span class="pick" style="padding:6px 10px;font-size:12px">45<small>分</small></span><span class="pick" style="padding:6px 10px;font-size:12px">60<small>分</small></span>
+        </div>
+        <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:5px">时间段</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <span class="pick" style="padding:6px 10px;font-size:12px">不限</span><span class="pick on" style="padding:6px 10px;font-size:12px">☀️ 早晨</span><span class="pick" style="padding:6px 10px;font-size:12px">下午</span>
+        </div>
+        <input class="input" placeholder="备注…" style="font-size:12.5px;padding:8px 12px;margin-bottom:10px">
+        <button class="btn primary" style="width:100%">记录打卡</button>
+        <div class="faint" style="font-size:10.5px;text-align:center;margin-top:8px">键盘弹出时 sheet 整体上移（viewInsets 避让）</div>
+      </div>
+    </div></div>
+
+    <!-- C 四象限 action sheet -->
+    <div class="phone"><div class="phone-screen" style="position:relative">
+      <div class="phone-notch"></div>
+      <div class="appbar-m"><svg class="ico" style="width:18px;height:18px;cursor:pointer"><use href="#i-chevleft"/></svg><b style="margin-left:8px">四象限</b><span style="flex:1"></span></div>
+      <div style="flex:1;padding:14px 16px;filter:blur(1px);opacity:.5">
+        <div class="qgrid">
+          <div class="quad" style="min-height:90px;border-color:rgba(239,68,68,.35)"><h5>重要·紧急 <span class="qn">2</span></h5><div class="mini-task">提交季度报告</div></div>
+          <div class="quad" style="min-height:90px;border-color:rgba(59,130,246,.35)"><h5>重要·不紧急 <span class="qn">3</span></h5></div>
+        </div>
+      </div>
+      <button class="btn outline sm" id="qsReopen" style="position:absolute;top:76px;right:16px;z-index:2;display:none">移动任务演示 ↺</button>
+      <div id="qsSheet" style="position:absolute;left:0;right:0;bottom:0;background:var(--raised);border-radius:18px 18px 0 0;padding:12px 16px 18px;box-shadow:var(--shadow-lg)">
+        <div style="width:36px;height:4px;border-radius:2px;background:var(--divider);margin:0 auto 10px"></div>
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:8px">「提交季度报告」移动到…</div>
+        <div class="set-line qsOpt" data-q="重要 · 紧急" style="padding:9px 0;border-bottom:1px solid var(--divider);cursor:pointer"><span>🔴</span><span style="flex:1;font-size:13px">重要 · 紧急</span><span class="chip acc">当前</span></div>
+        <div class="set-line qsOpt" data-q="重要 · 不紧急" style="padding:9px 0;border-bottom:1px solid var(--divider);cursor:pointer"><span>🔵</span><span style="flex:1;font-size:13px">重要 · 不紧急</span></div>
+        <div class="set-line qsOpt" data-q="不重要 · 紧急" style="padding:9px 0;border-bottom:1px solid var(--divider);cursor:pointer"><span>🟠</span><span style="flex:1;font-size:13px">不重要 · 紧急</span></div>
+        <div class="set-line qsOpt" data-q="不重要 · 不紧急" style="padding:9px 0;cursor:pointer"><span>🍃</span><span style="flex:1;font-size:13px">不重要 · 不紧急</span></div>
+        <button class="btn ghost sm" id="qsCancel" style="width:100%;margin-top:4px">取消</button>
+      </div>
+    </div></div>
+
+    <!-- 全局规则 -->
+    <div style="max-width:430px;display:flex;flex-direction:column;gap:12px">
+      <div class="note"><b>全局规则</b><br>
+      · 底部 [今天][回顾] 双主线；工具经顶栏全屏面板进入<br>
+      · bottom sheet 优先于 dialog；下滑关闭 + 键盘 viewInsets 避让<br>
+      · 手势词典：任务左滑操作 / 日历横滑翻月 / 长按多选与日志<br>
+      · 热区 ≥44px，主操作落拇指区；FAB 快速记录<br>
+      · 打卡/完成给轻触觉反馈（HapticFeedback.lightImpact），无奖励动画</div>
+      <div class="note"><b>休息提醒策略</b><br>
+      采集仅在桌面（平台门控）；移动端回顾页<b>只读展示</b>云同步来的工作/休息事实——查看随处，采集归位。</div>
+      <div class="note"><b>待验证风险</b><br>
+      · iOS 返回手势 vs 列表左滑（需方向锁）<br>
+      · wakelock 权限与耗电<br>
+      · 平板（600–1024）建议直接复用桌面双栏而非拉伸手机布局</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ICONS ═══════════ -->
+<div class="page" id="page-icons">
+  <div class="page-title">图标规范 · fl-*</div>
+  <div class="page-sub">品牌线性图标集：24×24 viewBox · stroke 1.75 · 圆头圆角 · currentColor（自动适配明暗）。生产环境优先复用已有依赖 lucide_icons_flutter，本集为领域定制与兜底。</div>
+
+  <div class="sec-h">规格</div>
+  <div class="card" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+    <svg class="ico" style="width:48px;height:48px"><use href="#i-flame"/></svg>
+    <svg class="ico" style="width:32px;height:32px"><use href="#i-flame"/></svg>
+    <svg class="ico"><use href="#i-flame"/></svg>
+    <svg class="ico" style="width:16px;height:16px"><use href="#i-flame"/></svg>
+    <div style="font-size:12px;color:var(--text2)">尺寸阶梯 16 / 20 / 24 / 32 · 导航 20 · 列表元信息 16<br>命名 <code>fl_sun / fl_repeat / fl_output…</code>（snake_case 对应 Flutter IconData 扩展）</div>
+  </div>
+
+  <div class="sec-h">导航（侧边栏 / 底部 Tab / 工具面板）</div>
+  <div class="swatches" id="ic-nav"></div>
+  <div class="sec-h">四维足迹</div>
+  <div class="swatches" id="ic-dim"></div>
+  <div class="sec-h">操作 / 状态</div>
+  <div class="swatches" id="ic-act"></div>
+
+  <div class="note" style="margin-top:20px"><b>使用规则</b>：图标只表达功能不表达情绪；禁止彩色填充（维度色仅用于足迹圆点）；emoji 全部迁移至 fl-* 集；同一语义全局唯一图标（如「取消打卡」只用 i-x，不用 ✕ 字符）。</div>
+</div>
+
+<!-- ═══════════ DIALOGS & SECONDARY PAGES ═══════════ -->
+<div class="page" id="page-dialogs">
+  <div class="page-title">弹窗与二级页 · 全量覆盖</div>
+  <div class="page-sub">对照代码逐一核实的补全。弹窗统一规则：确认类走 FxDialog；表单类走 ShadDialog；移动端记录类走 bottom sheet。</div>
+
+  <div class="sec-h">弹窗 / 浮层</div>
+  <div class="grid2">
+
+    <div class="card"><h4>快速记录 · TaskCreateSheet（FAB/顶栏）</h4>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised)">
+        <input class="input" placeholder="例如：整理今天的会议记录" style="margin-bottom:10px">
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          <span class="pick on" style="padding:5px 10px;font-size:12px">工作</span><span class="pick" style="padding:5px 10px;font-size:12px">生活</span><span class="pick" style="padding:5px 10px;font-size:12px">今天</span><span class="pick" style="padding:5px 10px;font-size:12px">高优</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn outline sm" style="flex:1">更多设置</button>
+          <button class="btn primary sm" style="flex:2">记录任务</button>
+        </div>
+      </div>
+      <p class="faint" style="font-size:11px;margin-top:8px">只填标题即可落库，快捷 chips 为清单/日期/优先级捷径；「更多设置」跳完整表单</p>
+    </div>
+
+    <div class="card"><h4>任务详情 · TaskDetailSheet + 删除确认</h4>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised);flex:1;min-width:180px">
+          <div style="font-size:13.5px;font-weight:600">提交季度报告</div>
+          <div class="faint" style="font-size:11px;margin:4px 0 10px">工作 · 今天 14:00 · 高优先</div>
+          <div class="fld"><label>备注</label><input class="input" value="含 Q3 数据附录" style="font-size:12px;padding:7px 10px"></div>
+          <div style="display:flex;gap:6px;margin-top:10px">
+            <button class="btn outline sm">编辑</button>
+            <button class="btn ghost sm" style="color:var(--error)">删除</button>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised);flex:1;min-width:170px">
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:6px">删除任务</div>
+          <div class="muted" style="font-size:12px;margin-bottom:12px">确定删除「提交季度报告」？可在 4 秒内撤销。</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn outline sm">取消</button><button class="btn sm" style="background:var(--error);color:#fff">删除</button></div>
+          <div style="margin-top:12px;background:var(--divider);border-radius:8px;padding:8px 10px;font-size:11.5px;display:flex;justify-content:space-between;align-items:center">🗑 已删除「提交季度报告」<b style="color:var(--accent);cursor:pointer">撤销</b></div>
+        </div>
+      </div>
+      <p class="faint" style="font-size:11px;margin-top:8px">桌面宽屏为右侧面板，窄屏为 bottom sheet；删除走乐观更新+撤销 SnackBar（4s）</p>
+    </div>
+
+    <div class="card"><h4>新建习惯 · 模板库（首个 bug 修复处）</h4>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised)">
+        <b style="font-size:13.5px">添加习惯</b>
+        <div class="faint" style="font-size:11px;font-weight:600;margin:10px 0 6px">⚡ 快速添加</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:6px">
+          <span class="pick on" style="padding:5px 9px;font-size:12px">🌅 早起</span><span class="pick" style="padding:5px 9px;font-size:12px">💧 喝水</span><span class="pick" style="padding:5px 9px;font-size:12px">💪 运动</span><span class="pick" style="padding:5px 9px;font-size:12px">📚 阅读</span><span class="pick" style="padding:5px 9px;font-size:12px">🧘 冥想</span><span class="pick" style="padding:5px 9px;font-size:12px">💤 早睡</span><span class="pick" style="padding:5px 9px;font-size:12px">✍️ 写作</span><span class="pick" style="padding:5px 9px;font-size:12px">🏃 跑步</span>
+          <span class="btn outline sm" style="padding:5px 9px">自定义 →</span>
+        </div>
+        <div style="border-top:1px dashed var(--border);margin-top:12px;padding-top:10px">
+          <div class="fld"><label>习惯名称</label><input class="input" value="早起" style="font-size:12.5px;padding:7px 10px"></div>
+          <div style="display:flex;gap:8px;align-items:center"><span class="faint" style="font-size:11.5px">频率</span><span class="chip acc">每天</span><span class="chip">每周</span><span class="chip">每月</span></div>
+        </div>
+        <button class="btn primary sm" style="width:100%;margin-top:10px">✓ 创建习惯</button>
+      </div>
+      <p class="faint" style="font-size:11px;margin-top:8px">选模板→填名称→创建；自定义展开完整表单（图标/颜色/目标天数/打卡弹窗开关等）</p>
+    </div>
+
+    <div class="card"><h4>写下观察 · ObservationSheet</h4>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised)">
+        <input class="input" placeholder="此刻的观察，只描述事实…" style="margin-bottom:10px;font-size:12.5px">
+        <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:5px">归属维度（可选）</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <span class="pick" style="padding:5px 9px;font-size:12px">🏃 身体</span><span class="pick on" style="padding:5px 9px;font-size:12px">🧠 认知</span><span class="pick" style="padding:5px 9px;font-size:12px">💻 产出</span><span class="pick" style="padding:5px 9px;font-size:12px">💬 关系</span>
+        </div>
+        <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:5px">标签</div>
+        <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          <span class="pick on" style="padding:5px 9px;font-size:12px">#分心</span><span class="pick" style="padding:5px 9px;font-size:12px">#心流</span><span class="pick" style="padding:5px 9px;font-size:12px">#精力低谷</span><span class="pick" style="padding:5px 9px;font-size:12px">+ 新建</span>
+        </div>
+        <button class="btn primary sm" style="width:100%">保存观察</button>
+      </div>
+      <p class="faint" style="font-size:11px;margin-top:8px">顶栏「写下观察」/ 移动端 ✍️ 入口；描述事实不评判，维度与标签均可留空</p>
+    </div>
+
+    <div class="card"><h4>日期选择器 · FxDatePicker（自绘月历）</h4>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised);max-width:260px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-size:13px">2026 年 8 月</b><span class="faint" style="font-size:12px">‹ ›</span></div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px;color:var(--text3);text-align:center;margin-bottom:4px"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span style="color:var(--error)">六</span><span style="color:var(--error)">日</span></div>
+        <div id="dpGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button class="btn ghost sm" id="dpToday">今天</button><button class="btn primary sm" data-toast="已选择日期">确定</button></div>
+      </div>
+      <p class="faint" style="font-size:11px;margin-top:8px">周一起始、周末红色（现有实现特征）；用于新建任务到期日 / 习惯补卡</p>
+    </div>
+
+    <div class="card"><h4>番茄钟设置 · PomodoroSettings</h4>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--raised);max-width:300px">
+        <b style="font-size:13.5px">🍅 番茄钟设置</b>
+        <div class="set-line"><div style="flex:1">专注时长<div class="sub">每轮工作分钟数</div></div><div class="seg" data-seg><button>25</button><button class="on">45</button><button>60</button></div></div>
+        <div class="set-line"><div style="flex:1">自动开始下一轮<div class="sub">短休息后直接进入专注</div></div><button class="switch on"></button></div>
+        <div class="set-line"><div style="flex:1">结束音效<div class="sub">铃声提醒本轮结束</div></div><button class="switch on"></button></div>
+        <div class="set-line"><div style="flex:1">关联任务<div class="sub">产出计入该任务</div></div><span class="chip acc">写周报 ▾</span></div>
+      </div>
+      <p class="faint" style="font-size:11px;margin-top:8px">与休息提醒相互独立（两套服务）；结束写入 BehaviorEvent</p>
+    </div>
+
+    <div class="card"><h4>休息提醒 · 系统集成（已裁撤托盘入口）</h4>
+      <p class="faint" style="font-size:11.5px;line-height:1.8">代码中已移除托盘快捷图标与后台驻留：应用即普通窗口，关闭即退出。<br>提醒触达方式收敛为<b style="color:var(--text)">应用内霸屏遮罩</b>（见「休息提醒」页），不再依赖托盘菜单做跳过/暂停等操作。</p>
+      <p class="faint" style="font-size:11px;margin-top:8px;color:var(--warn)">原型同步移除 TrayPopup 卡片 · v2.0</p>
+    </div>
+  </div>
+
+  <div class="sec-h">二级页面</div>
+
+  <!-- 登录 -->
+  <div class="device" style="max-width:520px;margin-bottom:20px">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">登录</div></div>
+    <div style="padding:36px 40px;background:var(--bg);text-align:center">
+      <div class="logo-mark" style="width:52px;height:52px;border-radius:16px;margin:0 auto 14px"><img src="../../../client/web/icons/Icon-192.png" alt=""></div>
+      <div style="font-size:19px;font-weight:700">Slowlight</div>
+      <div class="faint" style="font-size:12.5px;margin:4px 0 22px">了解自己的系统 · 先记着，以后再同步</div>
+      <button class="btn primary lg" style="width:100%">📱 使用本地数据（无需服务端）</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0"><div style="flex:1;height:1px;background:var(--border)"></div><span class="faint" style="font-size:11px">或使用云同步</span><div style="flex:1;height:1px;background:var(--border)"></div></div>
+      <input class="input" placeholder="邮箱" style="margin-bottom:8px;text-align:left">
+      <input class="input" type="password" placeholder="密码" style="margin-bottom:12px;text-align:left">
+      <button class="btn accent" style="width:100%">登录</button>
+      <div class="faint" style="font-size:11.5px;margin-top:10px">还没有账号？<b style="color:var(--accent);cursor:pointer" data-toast="切换到注册（演示）">注册</b></div>
+    </div>
+  </div>
+
+  <!-- 新建任务 -->
+  <div class="device" style="max-width:560px;margin-bottom:20px">
+    <div class="device-bar"><i class="dot" style="background:#FF5F57"></i><i class="dot" style="background:#FEBC2E"></i><i class="dot" style="background:#28C840"></i><div class="device-url">新建任务</div></div>
+    <div style="padding:18px 22px;background:var(--bg)">
+      <input class="input" placeholder="任务标题" style="font-size:15px;font-weight:600;margin-bottom:8px">
+      <input class="input" placeholder="描述（可选）" style="margin-bottom:14px">
+      <div class="fld"><label>清单</label><div data-pick style="display:flex;gap:6px;flex-wrap:wrap"><span class="pick on" style="padding:5px 10px;font-size:12px">📁 工作</span><span class="pick" style="padding:5px 10px;font-size:12px">🏠 生活</span><span class="pick" style="padding:5px 10px;font-size:12px">💪 健康</span></div></div>
+      <div class="fld"><label>优先级</label><div data-pick style="display:flex;gap:6px;flex-wrap:wrap"><span class="pick on" style="padding:5px 10px;font-size:12px;color:var(--p-urgent)">🔴 高</span><span class="pick" style="padding:5px 10px;font-size:12px">🔵 中</span><span class="pick" style="padding:5px 10px;font-size:12px">⚪ 低</span></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fld"><label>到期日期</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between">今天<span class="faint">📅</span></div></div>
+        <div class="fld"><label>时间</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between">14:00<span class="faint">🕐</span></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="fld"><label>重复</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between">不重复<span class="faint">▾</span></div></div>
+        <div class="fld"><label>提醒</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between">准时<span class="faint">🔔</span></div></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" style="color:var(--error)">删除</button>
+        <span style="flex:1"></span>
+        <button class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 每周回顾 + 清单 + 标签 + 冲突 -->
+  <div class="device" style="max-width:720px;margin-bottom:20px">
+    <div class="pagehead"><button class="iconbtn"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button><b>每周回顾</b><span style="flex:1"></span><span class="chip">2026-08-17 ~ 08-23</span></div>
+    <div style="padding:18px 22px;background:var(--bg);display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="card">
+        <h4>本周记录</h4>
+        <div class="statrow"><div class="stat"><div class="v">23</div><div class="l">完成任务</div></div><div class="stat"><div class="v">31</div><div class="l">打卡</div></div></div>
+        <div class="bars" style="height:80px;margin-top:10px"><div class="bar"><i style="height:45%"></i><em>一</em></div><div class="bar"><i style="height:70%"></i><em>二</em></div><div class="bar"><i style="height:35%"></i><em>三</em></div><div class="bar"><i style="height:90%"></i><em>四</em></div><div class="bar"><i style="height:55%"></i><em>五</em></div><div class="bar"><i style="height:25%"></i><em>六</em></div><div class="bar"><i style="height:60%"></i><em>日</em></div></div>
+      </div>
+      <div class="card">
+        <h4>和上周比</h4>
+        <div style="font-size:12.5px;color:var(--text2);line-height:2">任务完成 <b style="color:var(--text)">+5</b> · 习惯打卡 <b style="color:var(--text)">+4</b><br>专注时长 <b style="color:var(--text)">+48 分</b> · 观察笔记 <b style="color:var(--text)">+2</b><br><span class="faint">↳ 只陈述变化，不做评价</span></div>
+        <div class="chip acc" style="margin-top:10px;cursor:pointer">生成 AI 周报 →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="device">
+      <div class="pagehead"><button class="iconbtn"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button><b>清单管理</b><span style="flex:1"></span><button class="iconbtn" title="新建清单"><svg class="ico" style="width:18px;height:18px"><use href="#i-plus"/></svg></button></div>
+      <div style="padding:14px 18px;background:var(--bg)">
+        <div class="mini-task" style="padding:10px 12px"><span class="pal-dot" style="background:#3B82F6;width:12px;height:12px"></span><span style="flex:1;font-size:13px">📁 工作</span><span class="faint" style="font-size:11.5px">8 条</span><button class="btn ghost sm">✏️</button></div>
+        <div class="mini-task" style="padding:10px 12px"><span class="pal-dot" style="background:#52C41A;width:12px;height:12px"></span><span style="flex:1;font-size:13px">💪 健康</span><span class="faint" style="font-size:11.5px">3 条</span><button class="btn ghost sm">✏️</button></div>
+        <div class="note" style="margin-top:10px;font-size:11.5px">新建/编辑弹窗：清单名称 + 图标选择 + 颜色选择（与代码一致）；删除需确认且提示任务去向</div>
+      </div>
+    </div>
+    <div class="device">
+      <div class="pagehead"><button class="iconbtn"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button><b>观察标签</b><span style="flex:1"></span><button class="iconbtn"><svg class="ico" style="width:18px;height:18px"><use href="#i-plus"/></svg></button></div>
+      <div style="padding:14px 18px;background:var(--bg)">
+        <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:6px">认知</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"><span class="chip acc">#分心 · 4 次</span><span class="chip">#心流 · 2 次</span></div>
+        <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:6px">未归类 · 仅分析</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip">#精力低谷 · 1 次</span><span class="chip" style="border:1px dashed var(--border)">+ 新建</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="device" style="max-width:640px;margin-bottom:8px">
+    <div class="pagehead"><button class="iconbtn"><svg class="ico" style="width:18px;height:18px"><use href="#i-chevleft"/></svg></button><b>同步冲突</b><span style="flex:1"></span><span class="chip" style="background:rgba(239,68,68,.12);color:var(--error)">1 项待处理</span></div>
+    <div style="padding:18px 22px;background:var(--bg)">
+      <div class="card" style="margin-bottom:14px">
+        <h4>提交季度报告 <span class="faint" style="font-weight:400;font-size:11px">版本 v3(本地) vs v4(云端)</span></h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0">
+          <div style="border:1.5px solid var(--accent);border-radius:10px;padding:10px;background:var(--accent-soft);cursor:pointer">
+            <div class="chip acc" style="margin-bottom:6px">保留本地</div>
+            <div style="font-size:12.5px;font-weight:500">提交季度报告<mark>（含附录）</mark></div>
+            <div class="faint" style="font-size:11px;margin-top:2px">今天 13:58 · 本机修改</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--raised);cursor:pointer">
+            <div class="chip" style="margin-bottom:6px">使用服务端版本</div>
+            <div style="font-size:12.5px;font-weight:500">提交季度报告</div>
+            <div class="faint" style="font-size:11px;margin-top:2px">今天 14:02 · 另一设备修改</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end"><button class="btn primary sm">解决冲突</button></div>
+      </div>
+      <div class="faint" style="font-size:11.5px">↳ 字段级对比卡片 + 单选保留策略；解决后写回并清除冲突标记</div>
+    </div>
+  </div>
+</div>
+
+<!-- 模态：快速记录 -->
+<div class="modal" id="mTask">
+  <div class="sheet">
+    <div style="width:36px;height:4px;border-radius:2px;background:var(--divider);margin:0 auto 12px"></div>
+    <div id="mTaskTitle" style="font-size:13.5px;font-weight:700;margin-bottom:10px">记录任务</div>
+    <input class="input" id="mTaskInput" placeholder="例如：整理今天的会议记录" style="margin-bottom:10px">
+    <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+      <span class="pick on" style="padding:5px 10px;font-size:12px">📁 工作</span><span class="pick" style="padding:5px 10px;font-size:12px">🏠 生活</span><span class="pick" style="padding:5px 10px;font-size:12px">今天</span><span class="pick" id="mTaskPriority" style="padding:5px 10px;font-size:12px">🔴 高优</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn outline" data-close data-nav="tasks">更多设置</button>
+      <button class="btn primary" id="mTaskSubmit" style="flex:1">记录任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- 模态：写下观察 -->
+<div class="modal" id="mObs">
+  <div class="sheet">
+    <div style="width:36px;height:4px;border-radius:2px;background:var(--divider);margin:0 auto 12px"></div>
+    <div style="font-size:13.5px;font-weight:700;margin-bottom:10px">写下观察</div>
+    <input class="input" placeholder="此刻的观察，只描述事实…" style="margin-bottom:10px">
+    <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:5px">归属维度（可选）</div>
+    <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <span class="pick" style="padding:5px 9px;font-size:12px">🏃 身体</span><span class="pick" style="padding:5px 9px;font-size:12px">🧠 认知</span><span class="pick" style="padding:5px 9px;font-size:12px">💻 产出</span><span class="pick" style="padding:5px 9px;font-size:12px">💬 关系</span>
+    </div>
+    <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:5px">标签</div>
+    <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+      <span class="pick on" style="padding:5px 9px;font-size:12px">#分心</span><span class="pick" style="padding:5px 9px;font-size:12px">#心流</span><span class="pick" style="padding:5px 9px;font-size:12px">+ 新建</span>
+    </div>
+    <button class="btn primary" style="width:100%">保存观察</button>
+  </div>
+</div>
+
+<!-- 模态：新建/编辑习惯 -->
+<div class="modal" id="mHabit">
+  <div class="sheet">
+    <div style="width:36px;height:4px;border-radius:2px;background:var(--divider);margin:0 auto 12px"></div>
+    <div style="font-size:13.5px;font-weight:700;margin-bottom:10px" id="habitTitle">添加习惯</div>
+    <div class="faint" style="font-size:11px;font-weight:600;margin-bottom:6px">⚡ 快速添加</div>
+    <div data-pick style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+      <span class="pick on" style="padding:5px 9px;font-size:12px">🌅 早起</span><span class="pick" style="padding:5px 9px;font-size:12px">💧 喝水</span><span class="pick" style="padding:5px 9px;font-size:12px">💪 运动</span><span class="pick" style="padding:5px 9px;font-size:12px">📚 阅读</span><span class="pick" style="padding:5px 9px;font-size:12px">🧘 冥想</span><span class="pick" style="padding:5px 9px;font-size:12px">💤 早睡</span>
+    </div>
+    <input class="input" id="habitName" placeholder="习惯名称" value="" style="margin-bottom:10px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px"><span class="faint" style="font-size:11.5px">频率</span><div data-pick style="display:flex;gap:6px"><span class="pick on" style="padding:5px 10px;font-size:12px">每天</span><span class="pick" style="padding:5px 10px;font-size:12px">每周</span><span class="pick" style="padding:5px 10px;font-size:12px">每月</span></div></div>
+    <button class="btn primary" id="habitSave" style="width:100%">✓ 创建习惯</button>
+  </div>
+</div>
+
+<!-- 模态：新建任务（完整表单，居中对话框）-->
+<div class="modal center" id="mTaskFull">
+  <div class="sheet" style="border-radius:16px;width:640px;max-width:94%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <b style="font-size:15px">新建任务</b>
+      <button class="iconbtn" data-close><svg class="ico" style="width:16px;height:16px"><use href="#i-x"/></svg></button>
+    </div>
+    <input class="input" placeholder="任务标题" style="font-size:14.5px;font-weight:600;margin-bottom:8px">
+    <input class="input" placeholder="描述（可选）" style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="fld"><label>清单</label><div data-pick style="display:flex;gap:6px;flex-wrap:wrap"><span class="pick on" style="padding:5px 10px;font-size:12px">📁 工作</span><span class="pick" style="padding:5px 10px;font-size:12px">🏠 生活</span></div></div>
+      <div class="fld"><label>优先级</label><div data-pick style="display:flex;gap:6px;flex-wrap:wrap"><span class="pick on" style="padding:5px 10px;font-size:12px;color:var(--p-urgent)">🔴 高</span><span class="pick" style="padding:5px 10px;font-size:12px">🔵 中</span><span class="pick" style="padding:5px 10px;font-size:12px">⚪ 低</span></div></div>
+      <div class="fld"><label>到期日期</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between;align-items:center">今天<span class="faint">📅</span></div></div>
+      <div class="fld"><label>时间</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between;align-items:center">14:00<span class="faint">🕐</span></div></div>
+      <div class="fld"><label>重复</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between;align-items:center">不重复<span class="faint">▾</span></div></div>
+      <div class="fld"><label>提醒</label><div class="input" style="cursor:pointer;font-size:12.5px;display:flex;justify-content:space-between;align-items:center">准时<span class="faint">🔔</span></div></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn ghost" style="color:var(--error)">删除</button>
+      <button class="btn primary" style="min-width:96px">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 右键式小菜单（习惯 ⋯ 更多）-->
+<div id="ctxMenu" hidden style="position:fixed;z-index:200;background:var(--raised);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:6px;min-width:130px">
+  <div data-act="backfill" style="padding:8px 10px;border-radius:7px;font-size:12.5px;cursor:pointer">📅 补卡…</div>
+  <div data-act="del" style="padding:8px 10px;border-radius:7px;font-size:12.5px;cursor:pointer;color:var(--error)">🗑 删除习惯</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toastBar"></div>
+
+<script>
+// 图标库渲染
+const icoItem=(id,cn)=>`<div class="sw" style="text-align:center"><div style="padding:14px 0;display:grid;place-items:center;color:var(--text)"><svg class="ico"><use href="#i-${id}"/></svg></div><div class="m" style="border-top:1px solid var(--divider)"><b>fl_${id}</b>${cn}</div></div>`;
+document.getElementById('ic-nav').innerHTML=[
+ ['sun','今天'],['book','回顾'],['task','任务'],['repeat','习惯'],['timer','专注'],
+ ['calendar','日历'],['search','搜索'],['chart','统计'],['quad','四象限'],['folder','清单'],
+ ['tag','观察标签'],['calrange','每周回顾'],['pieclock','时间分配'],['coffee','休息提醒'],
+].map(x=>icoItem(...x)).join('');
+document.getElementById('ic-dim').innerHTML=[
+ ['pulse','身体 body'],['brain','认知 cognition'],['output','产出 output'],['users','关系 relationship'],
+].map(x=>icoItem(...x)).join('');
+document.getElementById('ic-act').innerHTML=[
+ ['plus','新建/记录'],['pencil','编辑'],['x','关闭/取消打卡'],['chevleft','返回'],['chevdown','展开'],
+ ['check','完成/确认'],['dots','更多'],['flame','连续天数'],['maximize','霸屏/全屏'],['moon','夜间/晚间'],
+ ['gear','设置'],['cloud','同步'],['alert','同步冲突'],
+].map(x=>icoItem(...x)).join('');
+
+// ═══ 左侧导航优化提案：主线 → 全局搜索 → 记录工具 → 组织工具 ═══
+function sideHTML(active,moreOpen){
+  const primaryActive=['stats','weekly','timedist'].includes(active)?'review':active;
+  const it=(i,l,k)=>`<div class="side-item${k===primaryActive?' on':''}" data-side-key="${k}"><svg class="ico" style="width:18px;height:18px"><use href="#i-${i}"/></svg>${l}</div>`;
+  const ORGANIZE=[['folder','清单','lists'],['tag','观察标签','tags']];
+  const exp=moreOpen!==null?moreOpen:ORGANIZE.some(m=>m[2]===active);
+  let h=`<div class="side-search${active==='search'?' on':''}" data-side-search style="margin-top:10px"><svg class="ico" style="width:16px;height:16px"><use href="#i-search"/></svg><span>搜索</span><kbd>Ctrl K</kbd></div>`;
+  h+=`<div class="side-body">`;
+  h+=it('sun','今天','today')+it('book','回顾','review');
+  h+=`<div class="side-section-label">记录工具</div>`;
+  h+=it('task','任务','tasks')+it('quad','四象限','quadrant')+it('repeat','习惯','habits')+it('timer','专注','focus')+it('coffee','休息提醒','rest')+it('calendar','日历','calendar');
+  h+=`<div class="side-toggle" data-more>组织工具<svg class="ico" style="width:14px;height:14px;margin-left:auto;transform:rotate(${exp?180:0}deg);transition:.15s"><use href="#i-chevdown"/></svg></div>`;
+  h+=`<div data-moregroup style="${exp?'':'display:none'}">`;
+  ORGANIZE.forEach(m=>h+=it(...m));
+  h+=`</div></div><div class="side-foot"><div class="side-sync"><span class="sync-dot"></span>本地数据 · 正常</div><div class="side-actions">${it('gear','设置','settings')}<button class="side-help" aria-label="关于"><svg class="ico" style="width:18px;height:18px"><use href="#i-help"/></svg></button></div></div>`;
+  return h;
+}
+document.querySelectorAll('aside.sidebar').forEach(el=>el.innerHTML=sideHTML(el.dataset.active||'',el.dataset.more==='1'?true:(el.dataset.more==='0'?false:null)));
+
+// 导航
+const nav=document.getElementById('nav');
+nav.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  showPage(b.dataset.p);
+});
+// 明暗切换
+const tb=document.getElementById('themeBtn');
+tb.addEventListener('click',()=>{
+  const dark=document.documentElement.classList.toggle('dark');
+  tb.textContent=dark?'☀️':'🌙';
+});
+// 色板渲染
+function sw(el,items){document.getElementById(el).innerHTML=items.map(([n,v,d])=>`<div class="sw"><div class="c" style="background:${v};border-bottom:1px solid var(--border)"></div><div class="m"><b>${n}</b>${d}</div></div>`).join('')}
+sw('sw-basic',[
+ ['bg','var(--bg)','页面背景'],['card','var(--card)','卡片背景'],['raised','var(--raised)','浮起表面(新)'],
+ ['text','var(--text)','主文字'],['text2','var(--text2)','次级文字'],['text3','var(--text3)','三级文字(新)'],
+ ['border','var(--border)','边框'],['divider','var(--divider)','分隔线'],
+]);
+sw('sw-sem',[
+ ['primary','var(--primary)','品牌主色'],['accent','var(--accent)','交互强调'],
+ ['success','var(--success)','完成态'],['warn','var(--warn)','警告'],['error','var(--error)','错误/异常'],
+ ['p-urgent','var(--p-urgent)','紧急重要'],['p-important','var(--p-important)','重要'],['p-normal','var(--p-normal)','普通优先'],
+]);
+
+// 习惯详情：月度热力图（4 周 × 7 天，末格=今日）
+const hm=document.getElementById('hm');
+if(hm){
+  const cells=[.2,.45,.65,null,.45,.85,.95, .45,.65,.2,null,null,.65,.45, .65,.2,.45,.85,.2,null,.75, .3,.5,.2,.65,.45,.85,'today'];
+  cells.forEach(a=>{
+    const d=document.createElement('div');
+    d.style.cssText='aspect-ratio:1;border-radius:3px;'+
+      (a==='today'?'background:rgba(250,140,22,.95);outline:2px solid rgba(250,140,22,.4);outline-offset:1px'
+      :a===null?'background:var(--divider)':`background:rgba(250,140,22,${a})`);
+    hm.appendChild(d);
+  });
+}
+
+// ═══ 日历：月度行为事实 + 选中日完整明细 ═══
+let calY=2026,calM=8,calSel={y:2026,m:8,d:21},calMode='all';
+const CAL_TYPE={
+  task:{label:'任务',color:'#EF4444'},habit:{label:'习惯',color:'#22C55E'},
+  focus:{label:'专注',color:'#8B5CF6'},reflection:{label:'观察',color:'#F97316'}
+};
+const CAL_SPECIAL={
+  3:[{type:'task',kind:'plan',title:'【关系·沟通】一周一群闲聊',time:'19:30',priority:'P2 重要不紧急',dimension:'关系',description:'主动和老朋友聊聊近况，不设具体结果。'}],
+  5:[{type:'task',kind:'plan',title:'【输出·公众号】整理飞书日历参考',time:'14:00 前',priority:'P0 重要且紧急',dimension:'产出',description:'梳理高密度月视图的可取之处，形成 Slowlight 日历方案。'}],
+  7:[{type:'task',kind:'actual',title:'【输出·工具】去修家里的电脑',time:'20:40 完成',priority:'P1 紧急不重要',dimension:'产出',description:'处理开机缓慢与系统更新问题。',completed:true}],
+  11:[{type:'task',kind:'plan',title:'【环境·搭建】hermes-wiki 初始化',time:'10:00',priority:'P2 重要不紧急',dimension:'认知',description:'整理知识库目录和首页导航。'}],
+  17:[
+    {type:'task',kind:'actual',title:'【输出·公众号】整理飞书参考',time:'16:20 完成',priority:'P0 重要且紧急',dimension:'产出',description:'提炼月视图、详情浮层与日明细联动。',completed:true},
+    {type:'task',kind:'actual',title:'【输出·工具】调试 RSS 抓取',time:'18:10 完成',priority:'P2 重要不紧急',dimension:'产出',description:'修复两条订阅源的解析兼容。',completed:true}
+  ],
+  18:[{type:'task',kind:'actual',title:'【关系·沟通】和一群闲聊',time:'21:00 完成',priority:'P3 不重要不紧急',dimension:'关系',description:'轻松交流，本次没有待办结果。',completed:true}],
+  21:[
+    {type:'task',kind:'plan',title:'提交季度报告',time:'14:00 前',priority:'P0 重要且紧急',dimension:'产出',description:'补齐数据摘要、风险和下一阶段计划。'},
+    {type:'task',kind:'plan',title:'回复合作邮件',time:'随时',priority:'P2 重要不紧急',dimension:'关系',description:'确认下周评审时间与参会人。'}
+  ],
+  23:[{type:'task',kind:'plan',title:'更新日历高保真原型',time:'今天',priority:'P2 重要不紧急',dimension:'产出',description:'把月度行为事实与选中日完整明细串成同一条浏览路径。'}],
+  26:[{type:'task',kind:'plan',title:'复盘本月时间去向',time:'20:00',priority:'P2 重要不紧急',dimension:'认知',description:'只描述事实和变化，不做价值评判。'}]
+};
+const calEsc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const calDateKey=(y,m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+function calRecordsFor(y,m,d){
+  if(y!==2026||m!==8)return [];
+  const key=calDateKey(y,m,d),records=(CAL_SPECIAL[d]||[]).map((r,i)=>({...r,id:`${key}-task-${i}`}));
+  if(d!==2&&d!==9&&d!==16&&d!==30){
+    records.push({id:`${key}-habit-rise`,type:'habit',kind:'actual',title:'06:30 起床洗漱',time:'06:30',duration:15,dimension:'身体',description:'晨间日常记录。',completed:true});
+    if(d%4!==0)records.push({id:`${key}-habit-read`,type:'habit',kind:'actual',title:'06:45 阅读',time:'06:45',duration:30,dimension:'认知',description:'阅读与摘录。',completed:true});
+    if(d%3!==1)records.push({id:`${key}-habit-train`,type:'habit',kind:'actual',title:'07:20 肌肉锻炼',time:'07:20',duration:30,dimension:'身体',description:'居家力量训练。',completed:true});
+  }
+  if(d%3===0)records.push({id:`${key}-focus`,type:'focus',kind:'actual',title:'深度专注',time:'上午',duration:50+d%4*10,dimension:'产出',description:'来自专注计时的实际记录。',completed:true});
+  if(d%5===0||d===21)records.push({id:`${key}-reflection`,type:'reflection',kind:'actual',title:d===21?'下午切换任务较频繁':'记录当天的状态变化',time:'晚间回顾',dimension:'认知',description:d===21?'连续工作块偏短，几次切换都发生在即时消息之后。':'一条来自当日回顾的主观观察。',completed:true});
+  return records;
+}
+function calFiltered(records){return calMode==='all'?records:records.filter(r=>r.kind===calMode)}
+function calRecordHtml(r){
+  const suffix=r.duration?` · ${r.duration}min`:'';
+  return `<div class="cal-record ${r.type}${r.completed?' completed':''}" data-cal-record="${calEsc(r.id)}" title="${calEsc(r.title)}">${calEsc(r.title)}${suffix}</div>`;
+}
+function renderDayPanel(){
+  const records=calRecordsFor(calSel.y,calSel.m,calSel.d),tasks=records.filter(r=>r.type==='task'),activities=records.filter(r=>r.type!=='task');
+  const wd=['日','一','二','三','四','五','六'][new Date(calSel.y,calSel.m-1,calSel.d).getDay()];
+  const title=document.getElementById('dayTitle'),caption=document.getElementById('dayCaption'),summary=document.getElementById('daySummary');
+  if(title)title.textContent=`${calSel.m} 月 ${calSel.d} 日 · 周${wd}`;
+  if(caption)caption.textContent=`计划与实际 · 共 ${records.length} 条完整记录`;
+  const done=tasks.filter(r=>r.completed).length,habits=activities.filter(r=>r.type==='habit').length,focus=activities.filter(r=>r.type==='focus').reduce((n,r)=>n+(r.duration||0),0),reflections=activities.filter(r=>r.type==='reflection').length;
+  if(summary)summary.innerHTML=`<span class="chip">任务 ${done}/${tasks.length}</span><span class="chip">习惯 ${habits}</span><span class="chip">专注 ${focus}min</span><span class="chip">观察 ${reflections}</span>`;
+  const row=r=>`<div class="day-row" data-day-record="${calEsc(r.id)}"><span class="day-type" style="background:${CAL_TYPE[r.type].color}"></span><div class="day-row-main"><div class="day-row-title">${calEsc(r.title)}</div><div class="day-row-meta">${calEsc(r.time||'全天')} · ${calEsc(r.dimension||CAL_TYPE[r.type].label)}${r.duration?` · ${r.duration}min`:''}</div></div><span class="faint" style="font-size:11px">${r.completed?'已记录':'待完成'} ›</span></div>`;
+  const taskEl=document.getElementById('dayTasks'),activityEl=document.getElementById('dayActivities');
+  if(taskEl)taskEl.innerHTML=tasks.length?tasks.map(row).join(''):'<div class="day-empty">当天没有任务计划，仍可查看右侧的实际行为。</div>';
+  if(activityEl)activityEl.innerHTML=activities.length?activities.map(row).join(''):'<div class="day-empty">当天还没有习惯、专注或观察记录。</div>';
+}
+function renderCal(){
+  const lbl=document.getElementById('calLabel');if(lbl)lbl.textContent=`${calY} 年 ${calM} 月`;
+  const g=document.getElementById('cal');if(!g)return;g.innerHTML='';
+  const first=new Date(calY,calM-1,1),offset=(first.getDay()+6)%7,start=new Date(calY,calM-1,1-offset);
+  for(let i=0;i<42;i++){
+    const date=new Date(start);date.setDate(start.getDate()+i);
+    const y=date.getFullYear(),m=date.getMonth()+1,d=date.getDate(),outside=m!==calM;
+    const records=calFiltered(calRecordsFor(y,m,d)),shown=records.slice(0,3),more=records.length-shown.length;
+    const selected=calSel.y===y&&calSel.m===m&&calSel.d===d,today=y===2026&&m===8&&d===23;
+    g.insertAdjacentHTML('beforeend',`<div class="cal-cell${outside?' outside':''}${selected?' selected':''}" data-cal-cell data-y="${y}" data-m="${m}" data-d="${d}"><div class="cal-date${today?' today':''}"><span>${d}</span><button class="cal-add" data-cal-add title="在这天新建任务">＋</button></div>${shown.map(calRecordHtml).join('')}${more>0?`<div class="cal-more" data-cal-more>还有 ${more} 条记录</div>`:''}</div>`);
+  }
+  renderDayPanel();
+}
+function calRecordById(id){
+  for(let d=1;d<=31;d++){const r=calRecordsFor(calSel.y,calSel.m,d).find(x=>x.id===id);if(r)return r}
+  return null;
+}
+function showCalPopover(record,anchor){
+  const pop=document.getElementById('calPopover');if(!pop||!record)return;
+  const type=CAL_TYPE[record.type],state=record.completed?'已记录':'待完成';
+  pop.innerHTML=`<div class="cal-pop-head"><span class="day-type" style="background:${type.color};margin-top:7px"></span><b>${calEsc(record.title)}</b><button class="iconbtn" data-cal-close title="关闭">×</button></div><div class="faint" style="font-size:12px;line-height:1.65;margin-bottom:10px">${calEsc(record.description||'暂无补充说明。')}</div><div class="cal-pop-row"><span>类型</span><b>${type.label} · ${record.kind==='plan'?'计划':'实际'}</b></div><div class="cal-pop-row"><span>状态</span><b>${state}</b></div><div class="cal-pop-row"><span>时间</span><b>${calEsc(record.time||'全天')}${record.duration?` · ${record.duration} 分钟`:''}</b></div><div class="cal-pop-row"><span>观察维度</span><b>${calEsc(record.dimension||'未归类')}</b></div>${record.priority?`<div class="cal-pop-row"><span>优先级</span><b>${calEsc(record.priority)}</b></div>`:''}<button class="btn outline sm" style="margin-top:10px" data-toast="打开完整记录（原型演示）">查看完整记录</button>`;
+  pop.classList.add('open');
+  const rect=anchor.getBoundingClientRect(),w=360,h=pop.offsetHeight;
+  pop.style.left=`${Math.max(12,Math.min(rect.left,window.innerWidth-w-12))}px`;
+  pop.style.top=`${Math.max(12,Math.min(rect.bottom+6,window.innerHeight-h-12))}px`;
+}
+function selectCalCell(cell){
+  calSel={y:+cell.dataset.y,m:+cell.dataset.m,d:+cell.dataset.d};
+  if(calY!==calSel.y||calM!==calSel.m){calY=calSel.y;calM=calSel.m}
+}
+renderCal();
+document.getElementById('calPrev')?.addEventListener('click',()=>{calM--;if(calM<1){calM=12;calY--}renderCal()});
+document.getElementById('calNext')?.addEventListener('click',()=>{calM++;if(calM>12){calM=1;calY++}renderCal()});
+document.getElementById('calToday')?.addEventListener('click',()=>{calY=2026;calM=8;calSel={y:2026,m:8,d:23};renderCal()});
+document.querySelectorAll('[data-cal-mode]').forEach(btn=>btn.addEventListener('click',()=>{
+  calMode=btn.dataset.calMode;document.querySelectorAll('[data-cal-mode]').forEach(b=>b.classList.toggle('on',b===btn));renderCal();
+}));
+document.getElementById('cal')?.addEventListener('click',e=>{
+  const cell=e.target.closest('[data-cal-cell]');if(!cell)return;selectCalCell(cell);
+  if(e.target.closest('[data-cal-add]')){renderCal();toast(`新建任务 · ${calSel.m} 月 ${calSel.d} 日（日期已预填）`);return}
+  const recordEl=e.target.closest('[data-cal-record]');
+  if(recordEl){document.querySelectorAll('.cal-cell.selected').forEach(c=>c.classList.remove('selected'));cell.classList.add('selected');renderDayPanel();showCalPopover(calRecordById(recordEl.dataset.calRecord),recordEl);return}
+  renderCal();
+  if(e.target.closest('[data-cal-more]'))document.getElementById('dayPanel')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+});
+document.getElementById('dayPanel')?.addEventListener('click',e=>{
+  const row=e.target.closest('[data-day-record]');if(row)showCalPopover(calRecordById(row.dataset.dayRecord),row);
+});
+document.getElementById('dayAdd')?.addEventListener('click',()=>toast(`新建任务 · ${calSel.m} 月 ${calSel.d} 日（日期已预填）`));
+document.getElementById('calPopover')?.addEventListener('click',e=>{if(e.target.closest('[data-cal-close]'))e.currentTarget.classList.remove('open')});
+document.addEventListener('click',e=>{const pop=document.getElementById('calPopover');if(pop?.classList.contains('open')&&!e.target.closest('#calPopover')&&!e.target.closest('[data-cal-record]')&&!e.target.closest('[data-day-record]'))pop.classList.remove('open')});
+
+// ═══ FxDatePicker 弹窗月历：点选日期 ═══
+let dpSel=21;
+function renderDp(){
+  const dp=document.getElementById('dpGrid');if(!dp)return;
+  dp.innerHTML='';
+  for(let i=0;i<5;i++){dp.insertAdjacentHTML('beforeend','<div></div>')}
+  for(let d=1;d<=31;d++){
+    dp.insertAdjacentHTML('beforeend',
+      `<div data-d="${d}" style="aspect-ratio:1;display:grid;place-items:center;font-size:11px;border-radius:50%;cursor:pointer;${d===dpSel?'background:var(--accent);color:#fff;font-weight:600':d===21?'box-shadow:inset 0 0 0 1.5px var(--accent);color:var(--accent)':'color:var(--text2)'}">${d}</div>`);
+  }
+}
+renderDp();
+document.getElementById('dpGrid')?.addEventListener('click',e=>{
+  const c=e.target.closest('[data-d]');if(!c)return;
+  dpSel=+c.dataset.d;renderDp();
+});
+
+// 交互演示：checkbox 与打卡按钮可切换
+document.querySelectorAll('.cb').forEach(c=>c.addEventListener('click',()=>c.classList.toggle('done')));
+// 打卡按钮：未打卡→直接勾选；已打卡→弹确认（对齐真实流程，不再静默切换）
+const dlg=document.getElementById('confirmDlg');let pendingBtn=null;
+document.querySelectorAll('.checkbtn').forEach(b=>b.addEventListener('click',()=>{
+  if(b.classList.contains('on')){pendingBtn=b;dlg.style.display='flex'}
+  else b.classList.add('on');
+}));
+if(dlg){
+  document.getElementById('dlgCancel').addEventListener('click',()=>dlg.style.display='none');
+  document.getElementById('dlgOk').addEventListener('click',()=>{if(pendingBtn)pendingBtn.classList.remove('on');dlg.style.display='none'});
+  dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.style.display='none'});
+}
+
+// 设置页：手风琴
+document.querySelectorAll('[data-toggle]').forEach(r=>r.addEventListener('click',()=>{
+  const p=document.getElementById(r.dataset.toggle);
+  const open=p.classList.toggle('open');
+  r.querySelector('.chev').textContent=open?'▾':'›';
+}));
+// 开关
+document.querySelectorAll('.switch').forEach(s=>s.addEventListener('click',e=>{e.stopPropagation();s.classList.toggle('on')}));
+// 分段控件
+document.querySelectorAll('[data-seg]').forEach(g=>g.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  g.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+}));
+// 配色选择
+document.querySelectorAll('.pal').forEach(p=>p.addEventListener('click',()=>{
+  document.querySelectorAll('.pal').forEach(x=>x.classList.remove('on'));p.classList.add('on');
+}));
+// 字号滑杆 → 预览实时缩放
+const fsR=document.getElementById('fsRange');
+if(fsR){fsR.addEventListener('input',()=>{
+  document.getElementById('fsVal').textContent=fsR.value+'%';
+  document.getElementById('fsPreview').style.fontSize=(14*fsR.value/100)+'px';
+});}
+
+// 打卡弹窗胶囊选择（时长/时段）
+document.querySelectorAll('[data-pick]').forEach(g=>g.addEventListener('click',e=>{
+  const p=e.target.closest('.pick');if(!p)return;
+  g.querySelectorAll('.pick').forEach(x=>x.classList.remove('on'));p.classList.add('on');
+}));
+
+// 外观-主题模式分段：真实切换明暗
+const segTheme=document.getElementById('segTheme');
+if(segTheme){segTheme.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const i=[...segTheme.querySelectorAll('button')].indexOf(b);
+  if(i===1)document.documentElement.classList.remove('dark');
+  else if(i===2)document.documentElement.classList.add('dark');
+  else document.documentElement.classList.toggle('dark',matchMedia('(prefers-color-scheme: dark)').matches);
+  tb.textContent=document.documentElement.classList.contains('dark')?'☀️':'🌙';
+});}
+
+// ═══ 页面切换（meta 导航与侧边栏共用）═══
+function showPage(key){
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===key));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  const pg=document.getElementById('page-'+key);
+  if(pg){pg.classList.add('on');window.scrollTo({top:0,behavior:'smooth'})}
+}
+
+// ═══ Toast ═══
+let toastTimer;
+function toast(msg){
+  const t=document.getElementById('toastBar');if(!t)return;
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
+}
+const TOAST_OK=new Set(['记录任务','记录打卡','保存观察','创建习惯','保存回应','更新日志','保存','解决冲突','立即同步','恢复默认配色','检查','生成 AI 周报','开始小憩','确定']);
+const normTxt=s=>s.replace(/^[^一-龥a-zA-Z0-9]+/,'').trim();
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.btn');
+  if(!b||b.closest('#nav')||b.classList.contains('tab'))return;
+  if(b.dataset.toast){toast(b.dataset.toast);return}
+  const t=normTxt(b.textContent);
+  if(TOAST_OK.has(t))toast(`✓ ${t}`);
+});
+
+// ═══ 四象限内直接添加任务：自动带入象限优先级 ═══
+const taskModal=document.getElementById('mTask');
+const taskModalTitle=document.getElementById('mTaskTitle');
+const taskModalInput=document.getElementById('mTaskInput');
+const taskModalPriority=document.getElementById('mTaskPriority');
+document.addEventListener('click',e=>{
+  const opener=e.target.closest('[data-open="mTask"]');if(!opener)return;
+  const quadrantOpener=opener.closest('[data-quadrant-add]');
+  if(quadrantOpener){
+    taskModal.dataset.quadrant=quadrantOpener.dataset.quadrantKey;
+    taskModalTitle.textContent=`添加任务 · ${quadrantOpener.dataset.quadrantLabel}`;
+    taskModalPriority.textContent=quadrantOpener.dataset.priorityLabel;
+  }else{
+    delete taskModal.dataset.quadrant;
+    taskModalTitle.textContent='记录任务';
+    taskModalPriority.textContent='🔴 高优';
+  }
+  taskModalInput.value='';
+});
+document.getElementById('mTaskSubmit')?.addEventListener('click',()=>{
+  const title=taskModalInput.value.trim()||'整理会议记录';
+  const quadrant=taskModal.dataset.quadrant;
+  if(quadrant){
+    const card=document.querySelector(`.quad[data-quadrant="${quadrant}"]`);
+    card?.querySelector('.quad-empty-add')?.remove();
+    if(card){
+      const row=document.createElement('div');
+      row.className='mini-task';
+      const colors={urgent_important:'var(--p-urgent)',important:'var(--p-important)',urgent:'var(--p-normal)',none:'var(--text3)'};
+      row.innerHTML=`<span style="color:${colors[quadrant]}">●</span>`;
+      row.append(document.createTextNode(' '+title));
+      card.appendChild(row);
+      const count=card.querySelector('.qn');
+      count.textContent=String(Number(count.textContent||0)+1);
+    }
+    toast(`✓ 已添加到「${taskModalTitle.textContent.replace('添加任务 · ','')}」`);
+  }else{
+    toast('✓ 已记录任务');
+  }
+  taskModal.classList.remove('open');
+});
+
+// ═══ 模态 sheet 开合 + data-nav 跳转 ═══
+document.addEventListener('click',e=>{
+  const op=e.target.closest('[data-open]');
+  if(op){document.getElementById(op.dataset.open)?.classList.add('open');return}
+  const nv=e.target.closest('[data-nav]');
+  if(nv){showPage(nv.dataset.nav);return}
+  const cl=e.target.closest('[data-close]');
+  if(cl){cl.closest('.modal')?.classList.remove('open');return}
+});
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{
+  if(e.target===m)m.classList.remove('open');
+}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'))});
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+    e.preventDefault();showPage('search');syncSideActive('搜索');
+  }
+});
+
+// ═══ 侧边栏点击 → 全局激活态 + 页面跳转 ═══
+const SIDE_PAGE={'今天':'today','回顾':'review','任务':'tasks','习惯':'habits','专注':'pomodoro','日历':'calendar','搜索':'search','统计':'stats','四象限':'quadrant','设置':'settings','休息提醒':'rest'};
+document.addEventListener('click',e=>{
+  // 品牌 logo → 回今天
+  if(e.target.closest('[data-home]')){showPage('today');syncSideActive('今天');return}
+  // 全局搜索
+  if(e.target.closest('[data-side-search]')){showPage('search');syncSideActive('搜索');return}
+  if(e.target.closest('.side-help')){showPage('settings');syncSideActive('');return}
+  // 组织工具折叠切换
+  const tg=e.target.closest('[data-more]');
+  if(tg){
+    const body=tg.parentElement,grp=body.querySelector('[data-moregroup]');
+    const open=grp.style.display==='none';
+    grp.style.display=open?'':'none';
+    tg.querySelector('svg').style.transform=`rotate(${open?180:0}deg)`;
+    return;
+  }
+  const si=e.target.closest('.side-item');if(!si)return;
+  const label=si.textContent.trim();
+  const moreKeys=['清单','观察标签'];
+  if(moreKeys.includes(label)){toast(`「${label}」工具页见「弹窗·二级页」`);return}
+  showPage(SIDE_PAGE[label]||'today');
+  syncSideActive(label);
+});
+function syncSideActive(label){
+  document.querySelectorAll('aside.sidebar .side-item,aside.sidebar .side-search').forEach(x=>x.classList.toggle('on',x.textContent.trim().replace('Ctrl K','').trim()===label));
+}
+
+// ═══ Tab 组（data-tabs）═══
+document.querySelectorAll('[data-tabs]').forEach(g=>g.addEventListener('click',e=>{
+  const b=e.target.closest('.tab');if(!b)return;
+  g.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+}));
+
+// ═══ 移动端底部导航 ═══
+document.querySelectorAll('.bottomnav').forEach(n=>n.addEventListener('click',e=>{
+  const d=[...n.children].find(c=>c.contains(e.target));if(!d)return;
+  [...n.children].forEach(c=>c.classList.toggle('on',c===d));
+}));
+
+// ═══ 兜底：任何未接线的按钮也给反馈（演示不哑火）═══
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.btn,[data-toast]');
+  if(!b||b.closest('#nav')||b.classList.contains('tab'))return;
+  if(['calToday','calPrev','calNext','dayAdd'].includes(b.id))return;
+  if(b.dataset.toast){toast(b.dataset.toast);return}
+  if(b.tagName!=='BUTTON')return;
+  if(b.dataset.open||b.dataset.nav||b.dataset.close||b.dataset.menu)return;
+  if(TOAST_OK.has(normTxt(b.textContent)))return;
+  const t=normTxt(b.textContent)||'按钮';
+  toast(`「${t}」点击（演示）`);
+},true);
+
+// ═══ 习惯：新建/编辑 + ⋯ 菜单 + 周圆点 ═══
+document.addEventListener('click',e=>{
+  const op=e.target.closest('[data-open="mHabit"]');
+  if(op){
+    const edit=op.dataset.edit;
+    document.getElementById('habitTitle').textContent=edit?`编辑习惯 · ${edit}`:'添加习惯';
+    document.getElementById('habitName').value=edit||'';
+    document.getElementById('mHabit').classList.add('open');
+  }
+  const mb=e.target.closest('[data-menu]');
+  if(mb){
+    const m=document.getElementById('ctxMenu');
+    m.hidden=false;
+    const r=mb.getBoundingClientRect();
+    m.style.top=Math.min(r.bottom+6,innerHeight-120)+'px';
+    m.style.left=Math.min(r.left,innerWidth-150)+'px';
+    e.stopPropagation();
+  }
+});
+document.addEventListener('click',e=>{
+  const m=document.getElementById('ctxMenu');if(!m||m.hidden)return;
+  if(!m.contains(e.target)&&!e.target.closest('[data-menu]'))m.hidden=true;
+});
+document.querySelector('#ctxMenu [data-act="backfill"]')?.addEventListener('click',()=>{toast('补卡：选择日期（演示）');document.getElementById('ctxMenu').hidden=true});
+document.querySelector('#ctxMenu [data-act="del"]')?.addEventListener('click',()=>{toast('已删除「早起」（演示，可撤销）');document.getElementById('ctxMenu').hidden=true});
+document.addEventListener('click',e=>{
+  const wd=e.target.closest('.weekdots .wd');if(!wd)return;
+  wd.classList.toggle('f');
+  toast(wd.classList.contains('f')?'已打卡该天（演示）':'已取消该天打卡（演示）');
+});
+
+// ═══ 回顾：问题二点击展开 ═══
+document.querySelectorAll('[data-exp]').forEach(c=>c.addEventListener('click',e=>{
+  if(e.target.closest('.exp-body'))return;
+  const body=c.querySelector('.exp-body');if(!body)return;
+  body.hidden=!body.hidden;
+  c.querySelector('.faint').textContent=body.hidden?'尚未回应 · 点击展开':'收起';
+}));
+
+// ═══ 搜索：实时过滤三个分组 ═══
+const sInput=document.getElementById('searchInput');
+if(sInput)sInput.addEventListener('input',()=>{
+  const q=sInput.value.trim();
+  const page=document.getElementById('page-search');
+  const cards=[...page.querySelectorAll('.card')].filter(c=>c.previousElementSibling&&c.previousElementSibling.classList.contains('faint'));
+  cards.forEach(card=>{
+    const hit=!q||card.textContent.includes(q);
+    card.style.display=hit?'':'none';
+    card.previousElementSibling.style.display=hit?'':'none';
+  });
+});
+
+// ═══ 专注页：真实倒计时 ═══
+(function(){
+  const total=25*60;let remain=8*60,running=null;
+  const timeEl=document.getElementById('pTime'),ring=document.getElementById('pRing'),btn=document.getElementById('pPause'),stateEl=document.getElementById('pState');
+  if(!timeEl)return;
+  function draw(){
+    const m=String(Math.floor(remain/60)).padStart(2,'0'),s=String(remain%60).padStart(2,'0');
+    timeEl.textContent=`${m}:${s}`;
+    const pct=((total-remain)/total*100).toFixed(1);
+    ring.style.background=`radial-gradient(closest-side,var(--card) 78%,transparent 79%),conic-gradient(var(--accent) 0 ${pct}%,var(--divider) ${pct}% 100%)`;
+  }
+  btn?.addEventListener('click',()=>{
+    if(running){clearInterval(running);running=null;btn.textContent='继续';stateEl.textContent='PAUSED'}
+    else{running=setInterval(()=>{if(remain>0){remain--;draw()}else{clearInterval(running);running=null}},1000);btn.textContent='暂停';stateEl.textContent='FOCUS'}
+  });
+  document.getElementById('pEnd')?.addEventListener('click',()=>{
+    clearInterval(running);running=null;remain=total;draw();
+    btn.textContent='开始专注';stateEl.textContent='READY';
+    toast(`本轮已结束并写入行为事件 · 共 ${Math.round((total)/60)} 分钟档`);
+  });
+  draw();
+})();
+
+// ═══ 设置：恢复默认配色真重置 / 字体循环 ═══
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.btn');if(!b)return;
+  if(normTxt(b.textContent)==='恢复默认配色'){
+    document.documentElement.dataset.pal='';
+    document.querySelectorAll('.pal').forEach((x,i)=>x.classList.toggle('on',i===0));
+  }
+});
+const FONTS=['系统默认','Inter','宋体','黑体'];
+document.getElementById('fontSel')?.addEventListener('click',function(){
+  const cur=this.querySelector('span').textContent;
+  const next=FONTS[(FONTS.indexOf(cur)+1)%FONTS.length];
+  this.querySelector('span').textContent=next;
+  toast(`字体已切换为「${next}」`);
+});
+document.getElementById('dpToday')?.addEventListener('click',()=>{dpSel=21;renderDp()});
+
+// ═══ 移动端抽屉导航（左滑出）═══
+function drawerHTML(active){
+  const it=(i,l,k)=>`<div class="side-item${k===active?' on':''}" data-mi="${l}"><svg class="ico" style="width:18px;height:18px"><use href="#i-${i}"/></svg>${l}</div>`;
+  let h=`<div class="side-logo"><div class="logo-mark">F</div>Slowlight</div><div class="side-body" style="padding:0 6px">`;
+  h+=it('sun','今天','today')+it('book','回顾','review')+'<div class="side-gap"></div>';
+  h+=it('task','任务','tasks')+it('repeat','习惯','habits')+it('timer','专注','focus')+it('calendar','日历','calendar')+it('search','搜索','search')+it('chart','统计','stats');
+  h+=`<div class="side-toggle" style="cursor:default;margin-top:6px">更多工具</div>`;
+  [['quad','四象限','quadrant'],['folder','清单','lists'],['tag','观察标签','tags'],['calrange','每周回顾','weekly'],['pieclock','时间分配','timedist']].forEach(s=>{const[a,b,c]=s.split('|');h+=it(a,b,c)});
+  h+=`</div><div class="side-foot">${it('gear','设置','settings')}</div>`;
+  return h;
+}
+document.querySelectorAll('.mdrawer').forEach(m=>{
+  m.innerHTML=`<div class="scrim"></div><div class="panel">${drawerHTML(m.dataset.active||'today')}</div>`;
+});
+document.addEventListener('click',e=>{
+  const tg=e.target.closest('[data-drawer]');
+  if(tg){tg.closest('.phone-screen').querySelector('.mdrawer').classList.add('open');return}
+  if(e.target.classList.contains('scrim')){e.target.closest('.mdrawer').classList.remove('open');return}
+  const mi=e.target.closest('.mdrawer .side-item');
+  if(mi){mi.closest('.mdrawer').classList.remove('open');toast(`「${mi.dataset.mi}」（移动端演示）`)}
+});
+
+// ═══ FAB 可拖动（拖动不触发打开，点按打开快速记录）═══
+(function(){
+  const f=document.getElementById('fabDrag');if(!f)return;
+  const host=f.closest('.phone-screen');
+  let sx,sy,l0,t0,moved=false;
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+  f.addEventListener('pointerdown',e=>{
+    const hr=host.getBoundingClientRect(),fr=f.getBoundingClientRect();
+    f.style.left=(fr.left-hr.left)+'px';f.style.top=(fr.top-hr.top)+'px';
+    f.style.right='auto';f.style.bottom='auto';
+    sx=e.clientX;sy=e.clientY;l0=parseFloat(f.style.left);t0=parseFloat(f.style.top);moved=false;
+    f.setPointerCapture(e.pointerId);
+  });
+  f.addEventListener('pointermove',e=>{
+    if(sx===undefined)return;
+    const dx=e.clientX-sx,dy=e.clientY-sy;
+    if(Math.abs(dx)+Math.abs(dy)>4)moved=true;
+    if(!moved)return;
+    f.style.left=clamp(l0+dx,8,host.clientWidth-f.offsetWidth-8)+'px';
+    f.style.top=clamp(t0+dy,8,host.clientHeight-f.offsetHeight-8)+'px';
+  });
+  f.addEventListener('pointerup',()=>{
+    if(!moved)document.getElementById('mTask')?.classList.add('open');
+    sx=undefined;
+  });
+})();
+const qsSheet=document.getElementById('qsSheet');
+document.getElementById('qsCancel')?.addEventListener('click',()=>{
+  if(qsSheet)qsSheet.style.display='none';
+  const r=document.getElementById('qsReopen');if(r)r.style.display='';
+});
+document.getElementById('qsReopen')?.addEventListener('click',()=>{
+  if(qsSheet)qsSheet.style.display='';
+  const r=document.getElementById('qsReopen');if(r)r.style.display='none';
+});
+document.querySelectorAll('.qsOpt').forEach(o=>o.addEventListener('click',()=>{
+  document.querySelectorAll('.qsOpt .chip.acc').forEach(c=>{c.remove();});
+  const chip=document.createElement('span');chip.className='chip acc';chip.textContent='当前';
+  o.appendChild(chip);
+  toast(`已移动到「${o.dataset.q}」`);
+  setTimeout(()=>{if(qsSheet)qsSheet.style.display='none';const r=document.getElementById('qsReopen');if(r)r.style.display=''},600);
+}));
+
+// ═══ 配色方案真实切换 ═══
+const PAL_KEYS=['zinc','slate','stone','rose','orange'];
+document.querySelectorAll('.pal').forEach(p=>p.addEventListener('click',()=>{
+  document.querySelectorAll('.pal').forEach(x=>x.classList.remove('on'));
+  p.classList.add('on');
+  const name=p.textContent.trim().toLowerCase();
+  if(PAL_KEYS.includes(name))document.documentElement.dataset.pal=name==='zinc'?'':name;
+}));
+</script>
+</body>
+</html>

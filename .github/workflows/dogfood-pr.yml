@@ -1,0 +1,22 @@
+name: Preview Packages for Release PR
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'client/**'
+      - '.github/workflows/dogfood.yml'
+      - '.github/workflows/dogfood-pr.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    name: Build release PR packages
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.head_ref, 'release/')
+    uses: ./.github/workflows/dogfood.yml
+    secrets: inherit
