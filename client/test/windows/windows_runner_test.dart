@@ -14,22 +14,29 @@ void main() {
     );
   });
 
-  test('Windows runner refreshes the Slowlight taskbar identity shortcut', () {
+  test('Windows identity keeps debug isolated and installer owns shortcut', () {
     final main = File('windows/runner/main.cpp').readAsStringSync();
     final identity = File('windows/runner/app_identity.cpp').readAsStringSync();
     final cmake = File('windows/runner/CMakeLists.txt').readAsStringSync();
+    final installer =
+        File('windows/installer/slowlight.iss').readAsStringSync();
 
     expect(main, contains('ConfigureWindowsAppIdentity();'));
+    expect(identity, contains('#ifdef _DEBUG'));
     expect(identity, contains('SetCurrentProcessExplicitAppUserModelID'));
-    expect(identity, contains('FOLDERID_Programs'));
     expect(identity, contains('kAppUserModelId[] = L"Slowlight"'));
-    expect(identity, contains('kDisplayName[]'));
-    expect(identity, contains('std::wstring(kDisplayName) + L".lnk"'));
-    expect(identity, contains('SetPath(executable.c_str())'));
-    expect(identity, contains('SetIconLocation(executable.c_str(), 0)'));
-    expect(identity, contains('PKEY_AppUserModel_ID'));
+    expect(identity, isNot(contains('FOLDERID_Programs')));
+    expect(identity, isNot(contains('PKEY_AppUserModel_ID')));
+    expect(identity, isNot(contains('SetPath(executable.c_str())')));
+
+    expect(installer, contains('AppUserModelID: "{#MyAppUserModelId}"'));
+    expect(installer, contains('Name: "{userprograms}\\所行映我"'));
+    expect(installer, contains('Filename: "{app}\\{#MyExeName}"'));
+    expect(installer, contains('SetupIconFile=..\\runner\\resources\\app_icon.ico'));
+
     expect(cmake, contains('"app_identity.cpp"'));
-    expect(cmake, contains('"propsys.lib"'));
+    expect(cmake, contains('"shell32.lib"'));
+    expect(cmake, isNot(contains('"propsys.lib"')));
   });
 
   test('Windows runner assigns large and small icons directly to each HWND',
