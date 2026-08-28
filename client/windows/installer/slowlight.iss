@@ -1,4 +1,6 @@
-#ifndef MyAppVersion
+#if GetEnv("SLOWLIGHT_WINDOWS_VERSION") != ""
+  #define MyAppVersion GetEnv("SLOWLIGHT_WINDOWS_VERSION")
+#else
   #define MyAppVersion "0.0.0"
 #endif
 
