@@ -35,6 +35,9 @@ jobs:
       - name: Verify lockfile is committed
         working-directory: client
         run: git diff --exit-code -- pubspec.lock
+      - name: Build Windows debug
+        working-directory: client
+        run: flutter build windows --debug
       - name: Build Windows release
         working-directory: client
         run: flutter build windows --release
