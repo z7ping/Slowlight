@@ -311,15 +311,8 @@ func TestGetSubtaskProgress_NonExistentTask(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/tasks/99999/subtasks/progress", nil)
 	r.ServeHTTP(w, req)
 
-	// 非存在的任务仍返回 200，但 total=0, completed=0
-	if w.Code != http.StatusOK {
-		t.Fatalf("GetSubtaskProgress 返回 %d, 期望 200", w.Code)
-	}
-
-	var result map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &result)
-
-	if result["total"].(float64) != 0 {
-		t.Errorf("非存在任务 total 应为 0, 实际 %v", result["total"])
+	// 与其他子任务接口保持一致：不存在或无权访问的父任务不暴露进度信息。
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("GetSubtaskProgress 返回 %d, 期望 404", w.Code)
 	}
 }
