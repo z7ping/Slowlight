@@ -127,6 +127,7 @@ jobs:
         run: |
           $versionLine = Select-String -Path 'client\pubspec.yaml' -Pattern '^version:\s*(.+)$'
           $version = ($versionLine.Matches[0].Groups[1].Value -split '\+')[0]
+          $env:SLOWLIGHT_WINDOWS_VERSION = $version
 
           Remove-Item 'dist\windows' -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -143,7 +144,7 @@ jobs:
             throw 'Inno Setup compiler ISCC.exe was not found.'
           }
 
-          & $iscc.FullName "/DMyAppVersion=$version" 'client\windows\installer\slowlight.iss'
+          & $iscc.FullName 'client\windows\installer\slowlight.iss'
           if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup failed with exit code $LASTEXITCODE."
           }
