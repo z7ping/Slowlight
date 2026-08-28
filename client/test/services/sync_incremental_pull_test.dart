@@ -127,6 +127,8 @@ void main() {
       'server_id': 301,
       'name': '专注',
       'dimension_key': 'output',
+      'icon': '🎯',
+      'color': '#722ed1',
       'created_at': now,
       'updated_at': now,
       'sync_status': 'pending',

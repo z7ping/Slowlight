@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -68,6 +69,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.ReminderConfig{},
 		&model.ReminderSession{},
 		&model.CalDAVSyncState{},
+		&model.MigrationReport{},
 		&model.Webhook{},
 	)
 	return db
@@ -112,6 +114,7 @@ func createTestUser(t *testing.T, db *gorm.DB) model.User {
 		Email:    name + "@example.com",
 		Password: "$2a$10$fakehashedpassword",
 		Nickname: "测试用户",
+		Timezone: time.Local.String(),
 	}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("创建测试用户失败: %v", err)

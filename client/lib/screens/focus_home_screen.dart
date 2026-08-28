@@ -216,7 +216,6 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
         await _reload();
         return;
       }
-
       int? durationMin;
       String? period;
       String note = '';
@@ -586,14 +585,17 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 children: [
                   const SlowlightLogo(size: 28),
                   const SizedBox(width: 9),
-                  Text(
-                    '所行映我 · Slowlight',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  Expanded(
+                    child: Text(
+                      '所行映我 · Slowlight',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  if (closeDrawer) ...[
-                    const Spacer(),
+                  if (closeDrawer)
                     SizedBox(
                       width: 44,
                       height: 44,
@@ -603,7 +605,6 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),
