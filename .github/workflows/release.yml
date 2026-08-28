@@ -163,7 +163,7 @@ jobs:
           set -euo pipefail
           cd dist
           shopt -s nullglob
-          files=(*.zip *.apk *.tar.gz)
+          files=(*.exe *.zip *.apk *.tar.gz)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "::error::No release artifacts found for checksum generation."
             exit 1
