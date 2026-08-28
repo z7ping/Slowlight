@@ -68,6 +68,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.ReminderConfig{},
 		&model.ReminderSession{},
 		&model.CalDAVSyncState{},
+		&model.MigrationReport{},
 		&model.Webhook{},
 	)
 	return db
