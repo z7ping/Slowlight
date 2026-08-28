@@ -99,7 +99,7 @@ jobs:
 
   windows:
     name: Windows preview package
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 45
     env:
       SERVER_URL: ${{ inputs.server_url || vars.SLOWLIGHT_DOGFOOD_SERVER_URL || 'http://localhost:8080/api' }}
