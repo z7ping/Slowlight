@@ -26,7 +26,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 13,
+        version: 14,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -36,7 +36,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -131,6 +131,7 @@ class LocalDb {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         server_id INTEGER,
         name TEXT NOT NULL,
+        dimension_key TEXT,
         icon TEXT NOT NULL,
         color TEXT NOT NULL,
         created_at TEXT NOT NULL,
@@ -472,6 +473,15 @@ class LocalDb {
 
     if (oldVersion < 13) {
       await _createWorkSessionsTable(db);
+    }
+
+    if (oldVersion < 14) {
+      final columns = await db.rawQuery('PRAGMA table_info(system_tags)');
+      final hasDimensionKey =
+          columns.any((column) => column['name'] == 'dimension_key');
+      if (!hasDimensionKey) {
+        await db.execute('ALTER TABLE system_tags ADD COLUMN dimension_key TEXT');
+      }
     }
   }
 
