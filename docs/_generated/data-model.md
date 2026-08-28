@@ -66,6 +66,7 @@
 | ReminderConfig | `server/internal/handler/test_helper.go` |
 | ReminderSession | `server/internal/handler/test_helper.go` |
 | CalDAVSyncState | `server/internal/handler/test_helper.go` |
+| MigrationReport | `server/internal/handler/test_helper.go` |
 | Webhook | `server/internal/handler/test_helper.go` |
 
-共扫描到 35 个 Model/位置组合。
+共扫描到 36 个 Model/位置组合。
