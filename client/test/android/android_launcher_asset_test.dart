@@ -24,15 +24,16 @@ void main() {
 
   test('Android launcher PNG assets are decodable and have expected sizes', () async {
     for (final entry in assets.entries) {
-      late ui.Codec codec;
+      ui.Codec? codec;
+      ui.FrameInfo? frame;
       try {
         codec = await _decodePng(entry.key);
+        frame = await codec.getNextFrame();
       } catch (error) {
         fail('${entry.key}: $error');
       }
-      addTearDown(codec.dispose);
-      final frame = await codec.getNextFrame();
-      expect(frame.image.width, entry.value.$1, reason: entry.key);
+      addTearDown(codec!.dispose);
+      expect(frame!.image.width, entry.value.$1, reason: entry.key);
       expect(frame.image.height, entry.value.$2, reason: entry.key);
       frame.image.dispose();
     }
