@@ -1,6 +1,7 @@
 #include "app_identity.h"
 
 #include <windows.h>
+#include <shobjidl.h>
 
 namespace {
 
