@@ -36,7 +36,7 @@ void main() {
     expect(SlowlightTypography.heroLineHeight, 32);
 
     expect(
-      [
+      <double>[
         SlowlightTypography.captionSize,
         SlowlightTypography.secondarySize,
         SlowlightTypography.buttonSize,
@@ -44,7 +44,7 @@ void main() {
         SlowlightTypography.pageTitleSize,
         SlowlightTypography.heroSize,
       ],
-      orderedEquals(<double>[12, 14, 15, 16, 20, 24]),
+      <double>[12, 14, 15, 16, 20, 24],
     );
   });
 
