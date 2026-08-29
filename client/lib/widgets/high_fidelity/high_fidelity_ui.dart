@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import '../../ui/widgets/fx_card.dart';
+import '../../ui/widgets/fx_chip.dart';
+import '../../ui/widgets/fx_empty_state.dart';
 import '../../ui/widgets/fx_section_header.dart';
 import '../../ui/widgets/fx_segmented.dart';
 import '../../ui/widgets/fx_stat_cell.dart';
@@ -150,6 +152,8 @@ class HfStatCell extends StatelessWidget {
   }
 }
 
+/// 兼容旧高保真调用；新代码请直接使用 FxChip。
+@Deprecated('Use FxChip instead')
 class HfChip extends StatelessWidget {
   final String label;
   final bool accent;
@@ -159,24 +163,15 @@ class HfChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    return FxChip(
+      label: label,
+      backgroundColor: accent
+          ? activePalette.accent.withValues(alpha: .12)
+          : hfSubtleSurface(context),
+      foregroundColor:
+          accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
+      borderRadius: 999,
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-      decoration: BoxDecoration(
-        color: accent
-            ? activePalette.accent.withValues(alpha: .12)
-            : hfSubtleSurface(context),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: AppTheme.textXs,
-          fontWeight: FontWeight.w500,
-          color: accent
-              ? activePalette.accent
-              : theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
     );
   }
 }
@@ -264,6 +259,8 @@ class HfTimelineItem extends StatelessWidget {
   }
 }
 
+/// 兼容旧高保真调用；新代码请直接使用 FxEmptyState。
+@Deprecated('Use FxEmptyState instead')
 class HfEmptyState extends StatelessWidget {
   final String emoji;
   final String title;
@@ -280,33 +277,13 @@ class HfEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
+    return FxEmptyState(
+      emoji: emoji,
+      title: title,
+      subtitle: subtitle,
+      action: action,
       padding: const EdgeInsets.symmetric(vertical: 54),
-      child: Column(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 30)),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: AppTheme.textSm,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          if (action != null) ...[
-            const SizedBox(height: 12),
-            action!,
-          ],
-        ],
-      ),
+      emojiSize: 30,
     );
   }
 }
