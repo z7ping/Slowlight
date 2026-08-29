@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+
+import '../typography_tokens.dart';
 
 /// FxButton — 按钮组件
 enum FxButtonVariant { primary, secondary, outline, ghost, destructive, link }
@@ -25,7 +27,8 @@ class FxButton extends StatelessWidget {
     this.expanded = false,
   });
 
-  Widget _buildChild() {
+  Widget _buildChild(BuildContext context) {
+    final text = Text(label, style: SlowlightTypography.button(context));
     if (icon != null) {
       return Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
@@ -33,11 +36,11 @@ class FxButton extends StatelessWidget {
         children: [
           Icon(icon, size: 16),
           const SizedBox(width: 8),
-          Text(label),
+          text,
         ],
       );
     }
-    return Text(label);
+    return text;
   }
 
   ShadButtonSize get _shadSize {
@@ -53,7 +56,7 @@ class FxButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _buildChild();
+    final child = _buildChild(context);
     final Widget button;
     switch (variant) {
       case FxButtonVariant.primary:
