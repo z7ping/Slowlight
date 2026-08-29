@@ -34,6 +34,18 @@ void main() {
     expect(SlowlightTypography.cardTitleLineHeight, 24);
     expect(SlowlightTypography.pageTitleLineHeight, 28);
     expect(SlowlightTypography.heroLineHeight, 32);
+
+    expect(
+      [
+        SlowlightTypography.captionSize,
+        SlowlightTypography.secondarySize,
+        SlowlightTypography.buttonSize,
+        SlowlightTypography.bodySize,
+        SlowlightTypography.pageTitleSize,
+        SlowlightTypography.heroSize,
+      ],
+      orderedEquals([12, 14, 15, 16, 20, 24]),
+    );
   });
 
   test('按钮排版不覆盖按钮变体提供的前景色', () {
