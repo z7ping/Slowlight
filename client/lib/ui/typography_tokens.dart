@@ -41,12 +41,13 @@ abstract final class SlowlightTypography {
             height: _height(secondarySize, secondaryLineHeight),
           );
 
-  static TextStyle button(BuildContext context) =>
-      Theme.of(context).textTheme.labelLarge!.copyWith(
-            fontSize: buttonSize,
-            height: _height(buttonSize, buttonLineHeight),
-            fontWeight: FontWeight.w600,
-          );
+  /// 按钮仅规定字号、行高和字重，不指定颜色。
+  /// 颜色继续由 ShadButton / 当前 variant 的 DefaultTextStyle 决定。
+  static TextStyle get button => TextStyle(
+        fontSize: buttonSize,
+        height: _height(buttonSize, buttonLineHeight),
+        fontWeight: FontWeight.w600,
+      );
 
   static TextStyle body(BuildContext context) =>
       Theme.of(context).textTheme.bodyLarge!.copyWith(
