@@ -5,7 +5,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 /// FxCard — 卡片组件
 class FxCard extends StatelessWidget {
   final Widget child;
-  final EdgeInsets? padding;
+  final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
   final Color? color;
   final double? borderRadius;
