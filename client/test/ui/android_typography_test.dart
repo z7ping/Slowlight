@@ -44,7 +44,7 @@ void main() {
         SlowlightTypography.pageTitleSize,
         SlowlightTypography.heroSize,
       ],
-      orderedEquals([12, 14, 15, 16, 20, 24]),
+      orderedEquals(<double>[12, 14, 15, 16, 20, 24]),
     );
   });
 
