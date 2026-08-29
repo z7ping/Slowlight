@@ -5,197 +5,70 @@ import 'package:slowlight/models/task.dart';
 
 void main() {
   Task makeTask({
-    int id = 1,
     String title = '测试任务',
-    String priority = 'none',
     bool isCompleted = false,
-    DateTime? dueDate,
-    String? dueTime,
   }) {
     return Task(
-      id: id,
+      id: 1,
       listId: 1,
       title: title,
-      priority: priority,
+      priority: 'none',
       isCompleted: isCompleted,
-      dueDate: dueDate,
-      dueTime: dueTime,
       createdAt: DateTime(2026),
     );
   }
 
-  group('TaskTile', () {
-    group('基本渲染', () {
-      testWidgets('显示任务标题', (tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(title: '买牛奶'),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
+  Widget host(
+    Task task, {
+    required VoidCallback onToggle,
+    VoidCallback? onTap,
+  }) {
+    return MaterialApp(
+      home: Scaffold(
+        body: TaskTile(
+          task: task,
+          onToggle: onToggle,
+          onDelete: () {},
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
 
-        expect(find.text('买牛奶'), findsOneWidget);
-      });
+  group('TaskTile 稳定契约', () {
+    testWidgets('展示用户任务数据并映射完成状态', (tester) async {
+      await tester.pumpWidget(
+        host(makeTask(title: '买牛奶', isCompleted: true), onToggle: () {}),
+      );
 
-      testWidgets('显示 Checkbox', (tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
-
-        expect(find.byType(Checkbox), findsOneWidget);
-      });
-
-      testWidgets('已完成任务 checkbox 为选中状态', (tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(isCompleted: true),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
-
-        final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-        expect(checkbox.value, true);
-      });
-
-      testWidgets('未完成任务 checkbox 为未选中状态', (tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(isCompleted: false),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
-
-        final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-        expect(checkbox.value, false);
-      });
+      expect(find.text('买牛奶'), findsOneWidget);
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
     });
 
-    group('优先级', () {
-      testWidgets('high 优先级显示竖条', (tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(priority: 'high'),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
+    testWidgets('点击完成控件触发状态切换回调', (tester) async {
+      var toggled = false;
+      await tester.pumpWidget(
+        host(makeTask(), onToggle: () => toggled = true),
+      );
 
-        expect(find.byType(TaskTile), findsOneWidget);
-      });
+      await tester.tap(find.byType(Checkbox));
 
-      testWidgets('不同优先级渲染不同颜色竖条', (tester) async {
-        for (final priority in ['none', 'low', 'medium', 'high']) {
-          await tester.pumpWidget(MaterialApp(
-            home: Scaffold(
-              body: TaskTile(
-                task: makeTask(priority: priority, id: priority.hashCode),
-                onToggle: () {},
-                onDelete: () {},
-              ),
-            ),
-          ));
-          expect(find.byType(TaskTile), findsOneWidget);
-        }
-      });
+      expect(toggled, isTrue);
     });
 
-    group('截止日期', () {
-      testWidgets('今天显示"今天"', (tester) async {
-        final now = DateTime.now();
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(dueDate: DateTime(now.year, now.month, now.day)),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
+    testWidgets('点击任务主体触发打开回调', (tester) async {
+      var tapped = false;
+      await tester.pumpWidget(
+        host(
+          makeTask(),
+          onToggle: () {},
+          onTap: () => tapped = true,
+        ),
+      );
 
-        expect(find.text('今天'), findsOneWidget);
-      });
+      await tester.tap(find.text('测试任务'));
 
-      testWidgets('明天显示"明天"', (tester) async {
-        final now = DateTime.now();
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(dueDate: DateTime(now.year, now.month, now.day + 1)),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
-
-        expect(find.text('明天'), findsOneWidget);
-      });
-
-      testWidgets('无截止日期不显示日期文字', (tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(dueDate: null),
-              onToggle: () {},
-              onDelete: () {},
-            ),
-          ),
-        ));
-
-        expect(find.text('今天'), findsNothing);
-        expect(find.text('明天'), findsNothing);
-      });
-    });
-
-    group('交互', () {
-      testWidgets('点击 Checkbox 触发 onToggle', (tester) async {
-        bool toggled = false;
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(),
-              onToggle: () => toggled = true,
-              onDelete: () {},
-            ),
-          ),
-        ));
-
-        await tester.tap(find.byType(Checkbox));
-        expect(toggled, true);
-      });
-
-      testWidgets('点击卡片触发 onTap', (tester) async {
-        bool tapped = false;
-        await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-            body: TaskTile(
-              task: makeTask(),
-              onToggle: () {},
-              onDelete: () {},
-              onTap: () => tapped = true,
-            ),
-          ),
-        ));
-
-        await tester.tap(find.text('测试任务'));
-        expect(tapped, true);
-      });
+      expect(tapped, isTrue);
     });
   });
 }

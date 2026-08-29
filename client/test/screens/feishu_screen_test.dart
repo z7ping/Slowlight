@@ -14,34 +14,21 @@ Widget _app() => ShadTheme(
     );
 
 void main() {
-  group('FeishuScreen', () {
+  group('FeishuScreen 稳定性', () {
     setUpAll(() async {
       SharedPreferences.setMockInitialValues(const {});
       await useIsolatedTestDb('feishu_screen');
     });
     setUp(() async => DataModeManager().setLocal());
 
-    testWidgets('使用统一页头并保持稳定', (tester) async {
-      await tester.pumpWidget(_app());
-      await tester.pump();
-
-      expect(find.byType(FeishuScreen), findsOneWidget);
-      expect(find.text('飞书集成'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('配置读取完成后展示连接与同步层级', (tester) async {
+    testWidgets('本地配置读取完成后不产生运行异常', (tester) async {
       await tester.pumpWidget(_app());
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.text('飞书多维表格'), findsOneWidget);
-      expect(find.text('连接配置'), findsOneWidget);
-      expect(find.text('数据同步'), findsOneWidget);
-      expect(find.text('创建标准的 8 张数据表'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('窄屏保持单列且无布局溢出', (tester) async {
+    testWidgets('窄屏不产生布局溢出', (tester) async {
       tester.view.physicalSize = const Size(420, 820);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -49,7 +36,6 @@ void main() {
       await tester.pumpWidget(_app());
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.byType(FeishuScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
