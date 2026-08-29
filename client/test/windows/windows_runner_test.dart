@@ -14,7 +14,7 @@ void main() {
     );
   });
 
-  test('Windows release identity is owned by the installer shortcut', () {
+  test('Windows release identity declares an explicit taskbar icon', () {
     final main = File('windows/runner/main.cpp').readAsStringSync();
     final identity = File('windows/runner/app_identity.cpp').readAsStringSync();
     final cmake = File('windows/runner/CMakeLists.txt').readAsStringSync();
@@ -34,14 +34,15 @@ void main() {
       identity.indexOf('#include <shobjidl.h>'),
       lessThan(identity.indexOf('#ifdef _DEBUG')),
     );
-    expect(identity, contains('#ifndef _DEBUG'));
     expect(
       identity,
-      matches(RegExp(r'return true;\r?\n#else\r?\n  IPropertyStore\* store')),
+      matches(RegExp(r'IPropertyStore\* store = nullptr;')),
     );
     expect(identity, contains('PKEY_AppUserModel_ID'));
     expect(identity, contains('PKEY_AppUserModel_RelaunchIconResource'));
     expect(identity, contains('kAppIconResourceSuffix[] = L",-101"'));
+    expect(identity, contains('std::wstring(kAppUserModelId)'));
+    expect(identity, contains('store->Commit()'));
     expect(identity, isNot(contains('FOLDERID_Programs')));
     expect(identity, isNot(contains('SetPath(executable.c_str())')));
 

@@ -5,19 +5,18 @@
 
 #include <string>
 
-#ifdef _DEBUG
 #include <propkey.h>
 #include <propvarutil.h>
 #include <propsys.h>
-#endif
 
 namespace {
 
 constexpr wchar_t kAppUserModelId[] = L"z7ping.Slowlight";
+constexpr wchar_t kAppIconResourceSuffix[] = L",-101";
 
 #ifdef _DEBUG
 constexpr wchar_t kDebugAppUserModelId[] = L"z7ping.Slowlight.Debug";
-constexpr wchar_t kAppIconResourceSuffix[] = L",-101";
+#endif
 
 bool SetStringProperty(IPropertyStore* store,
                        REFPROPERTYKEY key,
@@ -46,7 +45,6 @@ std::wstring ExecutableIconResource() {
   icon_resource.append(kAppIconResourceSuffix);
   return icon_resource;
 }
-#endif
 
 }  // namespace
 
@@ -69,12 +67,6 @@ bool ConfigureWindowsWindowIdentity(HWND window) {
     return false;
   }
 
-#ifndef _DEBUG
-  // Do not set release window-level AppUserModel properties here. Windows
-  // should resolve the matching installer-owned shortcut for taskbar identity
-  // instead of mixing shortcut metadata with Relaunch* window properties.
-  return true;
-#else
   IPropertyStore* store = nullptr;
   const HRESULT store_result =
       ::SHGetPropertyStoreForWindow(window, IID_PPV_ARGS(&store));
@@ -85,23 +77,32 @@ bool ConfigureWindowsWindowIdentity(HWND window) {
   }
 
   const std::wstring icon_resource = ExecutableIconResource();
+#ifdef _DEBUG
   const bool id_set = SetStringProperty(
       store, PKEY_AppUserModel_ID, std::wstring(kDebugAppUserModelId));
+#else
+  const bool id_set = SetStringProperty(
+      store, PKEY_AppUserModel_ID, std::wstring(kAppUserModelId));
+#endif
   const bool icon_set = !icon_resource.empty() &&
                         SetStringProperty(store,
                                           PKEY_AppUserModel_RelaunchIconResource,
                                           icon_resource);
+  const bool committed = SUCCEEDED(store->Commit());
 
   store->Release();
 
   if (!id_set) {
     ::OutputDebugStringW(
-        L"Slowlight: failed to set debug taskbar window AppUserModelID.\n");
+        L"Slowlight: failed to set taskbar window AppUserModelID.\n");
   }
   if (!icon_set) {
     ::OutputDebugStringW(
-        L"Slowlight: failed to set debug taskbar relaunch icon resource.\n");
+        L"Slowlight: failed to set taskbar relaunch icon resource.\n");
   }
-  return id_set && icon_set;
-#endif
+  if (!committed) {
+    ::OutputDebugStringW(
+        L"Slowlight: failed to commit taskbar window properties.\n");
+  }
+  return id_set && icon_set && committed;
 }
