@@ -35,7 +35,10 @@ void main() {
       lessThan(identity.indexOf('#ifdef _DEBUG')),
     );
     expect(identity, contains('#ifndef _DEBUG'));
-    expect(identity, contains('return true;\n#else\n  IPropertyStore* store'));
+    expect(
+      identity,
+      matches(RegExp(r'return true;\r?\n#else\r?\n  IPropertyStore\* store')),
+    );
     expect(identity, contains('PKEY_AppUserModel_ID'));
     expect(identity, contains('PKEY_AppUserModel_RelaunchIconResource'));
     expect(identity, contains('kAppIconResourceSuffix[] = L",-101"'));
