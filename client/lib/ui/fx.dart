@@ -15,6 +15,7 @@ export 'widgets/fx_tooltip.dart';
 export 'widgets/fx_progress.dart';
 export 'widgets/fx_badge.dart';
 export 'widgets/fx_tab.dart';
+export 'widgets/fx_segmented.dart';
 export 'widgets/fx_page_header.dart';
 export 'widgets/fx_section_header.dart';
 export 'widgets/section_title.dart';
