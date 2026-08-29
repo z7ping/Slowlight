@@ -47,7 +47,7 @@ class HfCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FxCard(
-      padding: padding is EdgeInsets ? padding as EdgeInsets : null,
+      padding: padding,
       color: color ?? hfSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: border ?? Border.all(color: hfBorder(context)),
