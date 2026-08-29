@@ -40,6 +40,7 @@ class TrayService {
   String _lastMenuKey = '';
   DateTime _lastMenuBuildAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool _poppingMenu = false;
+  bool _quitting = false;
   final _reminder = ReminderService();
   final _systemTray = SystemTray();
   final _menu = Menu();
@@ -344,10 +345,34 @@ class TrayService {
   }
 
   Future<void> _quitApp() async {
+    if (_quitting) return;
+    _quitting = true;
+
+    // Explicit "退出" must mean process termination, not another hide-to-tray.
+    // Start the fallback before plugin cleanup so a stuck native call cannot
+    // leave the old executable locked during an update.
+    Timer(const Duration(seconds: 3), () => exit(0));
+    await _trace('quit.begin', 'platform=${Platform.operatingSystem}');
+    _reminder.stopAll();
+
     try {
-      _reminder.stopAll();
-      await windowManager.destroy();
-    } catch (_) {}
+      await _systemTray.destroy();
+    } catch (error, stackTrace) {
+      await _log('Tray.quit.destroyTray', error, stackTrace);
+    } finally {
+      _initialized = false;
+    }
+
+    try {
+      // Normal window-close behavior remains "hide to tray". Only the explicit
+      // tray Exit action disables that interception before asking the native
+      // window to close.
+      await windowManager.setPreventClose(false);
+      await windowManager.close();
+    } catch (error, stackTrace) {
+      await _log('Tray.quit.closeWindow', error, stackTrace);
+      exit(0);
+    }
   }
 
   Future<void> dispose() async {

@@ -94,6 +94,36 @@ void main() {
     expect(prepareScript, contains('git hash-object'));
   });
 
+  test('Windows installer can request a real app shutdown without breaking close-to-tray',
+      () {
+    final flutterWindow =
+        File('windows/runner/flutter_window.cpp').readAsStringSync();
+    final installer =
+        File('windows/installer/slowlight.iss').readAsStringSync();
+    final dartMain = File('lib/main.dart').readAsStringSync();
+
+    expect(flutterWindow, contains('WM_QUERYENDSESSION'));
+    expect(flutterWindow, contains('WM_ENDSESSION'));
+    expect(flutterWindow, contains('ENDSESSION_CLOSEAPP'));
+    expect(flutterWindow, contains('::DestroyWindow(hwnd);'));
+    expect(
+      flutterWindow.indexOf('WM_QUERYENDSESSION'),
+      lessThan(flutterWindow.indexOf('HandleTopLevelWindowProc')),
+    );
+    expect(
+      flutterWindow.indexOf('WM_ENDSESSION'),
+      lessThan(flutterWindow.indexOf('HandleTopLevelWindowProc')),
+    );
+
+    expect(installer, contains('CloseApplications=yes'));
+    expect(installer, contains('CloseApplicationsFilter={#MyExeName}'));
+    expect(installer, contains('RestartApplications=no'));
+
+    // User clicking the normal window close button should still hide to tray.
+    expect(dartMain, contains('await windowManager.setPreventClose(true);'));
+    expect(dartMain, contains('await windowManager.hide();'));
+  });
+
   test('Windows runner assigns large and small icons directly to each HWND',
       () {
     final header = File('windows/runner/win32_window.h').readAsStringSync();
