@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../theme/app_theme.dart';
-import 'high_fidelity_ui.dart';
+import '../../ui/widgets/fx_page_header.dart';
 
-/// 高保真原型 L2 推送页统一页头：返回 + 标题 + 右侧动作。
+/// 旧高保真页头兼容层。
+///
+/// 新代码必须直接使用 [FxPageHeader]；保留此适配器仅用于渐进迁移现有调用方。
+@Deprecated('Use FxPageHeader from ui/fx.dart instead.')
 class HfPageHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onBack;
@@ -25,71 +26,13 @@ class HfPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final back = onBack ?? () => Navigator.of(context).maybePop();
-    return Container(
-      decoration: BoxDecoration(
-        color: hfSurface(context),
-        border: Border(bottom: BorderSide(color: hfDivider(context))),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
-      child: Row(
-        children: [
-          _HeaderIconButton(
-            icon: LucideIcons.chevronLeft,
-            tooltip: '返回',
-            onPressed: back,
-          ),
-          const SizedBox(width: AppTheme.spaceXs),
-          Text(
-            title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const Spacer(),
-          if (trailing != null) trailing!,
-          if (actionIcon != null && onAction != null) ...[
-            if (trailing != null) const SizedBox(width: AppTheme.spaceXs),
-            _HeaderIconButton(
-              icon: actionIcon!,
-              tooltip: actionTooltip ?? title,
-              onPressed: onAction!,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _HeaderIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        style: IconButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          ),
-        ),
-      ),
+    return FxPageHeader(
+      title: title,
+      onBack: onBack,
+      trailing: trailing,
+      actionIcon: actionIcon,
+      actionTooltip: actionTooltip,
+      onAction: onAction,
     );
   }
 }
