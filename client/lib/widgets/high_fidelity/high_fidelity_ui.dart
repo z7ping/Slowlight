@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../ui/widgets/fx_section_header.dart';
 
 Color hfSurface(BuildContext context) =>
     Theme.of(context).brightness == Brightness.light
@@ -76,6 +77,8 @@ class HfCard extends StatelessWidget {
   }
 }
 
+/// 兼容旧高保真调用；新代码请直接使用 FxSectionHeader。
+@Deprecated('Use FxSectionHeader instead')
 class HfSectionHeader extends StatelessWidget {
   final String title;
   final String? trailing;
@@ -90,36 +93,10 @@ class HfSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 32),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                trailing!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-          const Spacer(),
-          if (trailingWidget != null) trailingWidget!,
-        ],
-      ),
+    return FxSectionHeader(
+      title: title,
+      trailing: trailing,
+      trailingWidget: trailingWidget,
     );
   }
 }
