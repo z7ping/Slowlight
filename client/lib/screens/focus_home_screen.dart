@@ -64,6 +64,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
   Offset _fabDragOffset = Offset.zero;
+  DateTime? _lastAndroidBackAt;
 
   @override
   void initState() {
@@ -185,6 +186,47 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   void _openMobileTools() {
     // 工具菜单改为左侧滑出抽屉（替代自下而上的全屏面板）
     _mobileScaffoldKey.currentState?.openDrawer();
+  }
+
+  void _handleAndroidBack(bool didPop) {
+    if (didPop) return;
+
+    final scaffold = _mobileScaffoldKey.currentState;
+    if (scaffold?.isDrawerOpen == true) {
+      scaffold?.closeDrawer();
+      return;
+    }
+    if (_navigation.isTool) {
+      _closeTool();
+      return;
+    }
+
+    final now = DateTime.now();
+    final lastBackAt = _lastAndroidBackAt;
+    if (lastBackAt == null ||
+        now.difference(lastBackAt) > const Duration(seconds: 2)) {
+      _lastAndroidBackAt = now;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 2),
+            content: Text('再按一次退出 Slowlight'),
+          ),
+        );
+      return;
+    }
+
+    SystemNavigator.pop();
+  }
+
+  Widget _androidBackScope(Widget child) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return child;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) => _handleAndroidBack(didPop),
+      child: child,
+    );
   }
 
   Future<void> _toggleTask(Task task) async {
@@ -331,8 +373,15 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     }
 
     final theme = Theme.of(context);
-    return _shortcutRegion(Scaffold(
+    return _shortcutRegion(_androidBackScope(Scaffold(
       key: _mobileScaffoldKey,
+      drawerEnableOpenDragGesture: true,
+      // Android 全面屏返回手势会占用最外侧约 24dp；扩大应用内边缘区，
+      // 让用户可以从系统手势区内侧稳定右滑打开抽屉。
+      drawerEdgeDragWidth: 72,
+      onDrawerChanged: (isOpened) {
+        if (isOpened) _lastAndroidBackAt = null;
+      },
       drawer: Drawer(
         width: math.min(304, MediaQuery.sizeOf(context).width * 0.84),
         backgroundColor: theme.colorScheme.surface,
@@ -396,7 +445,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
           _navigation.isTool ? null : _mobileBottomNavigation(),
       floatingActionButton:
           _navigation.isToday ? _mobileQuickAddButton() : null,
-    ));
+    )));
   }
 
   Widget _shortcutRegion(Widget child) {
@@ -816,7 +865,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                   child: Text(
                     'Ctrl K',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: AppTheme.textXs,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),

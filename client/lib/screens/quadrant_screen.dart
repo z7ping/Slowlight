@@ -124,6 +124,26 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
+    final emptyState = InkWell(
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      onTap: () => _addTask(priority),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.plus, size: 20),
+            const SizedBox(height: 5),
+            Text(
+              '这里暂时没有任务 · 添加任务',
+              style: TextStyle(
+                fontSize: AppTheme.textXs,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
 
     Widget card = HfCard(
       padding: const EdgeInsets.all(16),
@@ -155,7 +175,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 child: Text(
                   '${items.length}',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: AppTheme.textXs,
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -175,28 +195,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           ),
           const SizedBox(height: 12),
           if (items.isEmpty)
-            Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                onTap: () => _addTask(priority),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(LucideIcons.plus, size: 20),
-                      const SizedBox(height: 5),
-                      Text(
-                        '这里暂时没有任务 · 添加任务',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
+            desktop
+                ? Expanded(child: emptyState)
+                : SizedBox(height: 96, child: emptyState)
           else
             ...items.take(5).map(
                   (task) => desktop

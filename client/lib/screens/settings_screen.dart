@@ -482,7 +482,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ? '数据仅从本机数据库读写。切换模式不会自动把现有本地数据上传到云端。'
               : '数据以所行映我服务端为准，并在本机保留同步缓存；不会自动导入本地模式中的记录。',
           style: TextStyle(
-            fontSize: 11,
+            fontSize: AppTheme.textXs,
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),

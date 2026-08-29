@@ -19,6 +19,7 @@ class HabitCheckinDialog extends StatefulWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
@@ -66,7 +67,8 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
@@ -105,7 +107,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                       Text(
                         '下滑关闭',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: AppTheme.textXs,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -182,7 +184,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                     child: Text(
                       '键盘弹出时会自动避让',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: AppTheme.textXs,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -209,7 +211,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 11,
+        fontSize: AppTheme.textXs,
         fontWeight: FontWeight.w600,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
@@ -272,9 +274,7 @@ class _PickChip extends StatelessWidget {
                 suffix!,
                 style: TextStyle(
                   fontSize: AppTheme.textXs,
-                  color: selected
-                      ? accent
-                      : theme.colorScheme.onSurfaceVariant,
+                  color: selected ? accent : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],

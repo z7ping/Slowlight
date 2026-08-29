@@ -221,12 +221,15 @@ class _MyAppState extends State<MyApp> with WindowListener {
         darkTheme: AppTheme.darkTheme(fontFamily: fontFamily),
         themeMode: _themeSettings.themeMode,
         builder: (context, child) {
-          final scale = _themeSettings.fontScale;
+          final appScale = _themeSettings.fontScale;
+          final systemScale = MediaQuery.textScalerOf(context).scale(1);
+          final effectiveScale =
+              (systemScale * appScale).clamp(0.85, 2.0).toDouble();
           Widget content = child!;
-          if (scale != 1.0) {
+          if (effectiveScale != systemScale) {
             content = MediaQuery(
               data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(scale),
+                textScaler: TextScaler.linear(effectiveScale),
               ),
               child: content,
             );

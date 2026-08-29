@@ -581,6 +581,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       title: '删除观察标签',
       content: '确定删除「${tag.name}」吗？已有行为事实仍会保留，但后续不会再用这个标签分类。',
       confirmText: '删除',
+      destructive: true,
     );
     if (confirmed != true) return;
     try {

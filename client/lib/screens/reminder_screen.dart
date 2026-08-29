@@ -122,7 +122,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                                 ? '距小憩 · 小憩 ${_service.microRestCount}/${_service.microRestsBeforeLong}'
                                 : '还未开始',
                             style: TextStyle(
-                              fontSize: 10.5,
+                              fontSize: AppTheme.textXs,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -174,7 +174,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   '每轮工作 / 小憩 / 跳过都记录为事实 · 在「回顾 → 休息数据」中查看',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: AppTheme.textXs,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -314,7 +314,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
               micro ? '小憩' : '长休息',
               style: const TextStyle(
                 color: Colors.white54,
-                fontSize: 11,
+                fontSize: AppTheme.textXs,
                 letterSpacing: 3,
               ),
             ),
@@ -382,7 +382,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
             bottom: 14,
             child: Text(
               strict ? '严格模式 · 不可跳过' : '非严格模式',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: AppTheme.textXs,
+              ),
             ),
           ),
         ],

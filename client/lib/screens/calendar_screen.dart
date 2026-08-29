@@ -6,6 +6,7 @@ import '../models/calendar_record.dart';
 import '../repositories/calendar_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
+import '../ui/fx.dart';
 import '../widgets/calendar_month_grid.dart';
 import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import '../widgets/task_detail_sheet.dart';
@@ -496,34 +497,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return;
     }
     if (!mounted) return;
-    await showDialog<void>(
+    await FxDialog.show<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: calendarRecordColor(record, dialogContext),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-                child:
-                    Text(record.title, style: const TextStyle(fontSize: 16))),
-          ],
-        ),
-        content: Column(
+      title: record.title,
+      child: Builder(
+        builder: (dialogContext) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: calendarRecordColor(record, dialogContext),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('${record.typeLabel} · ${record.kindLabel}'),
+              ],
+            ),
+            const SizedBox(height: 12),
             if (record.description.isNotEmpty) ...[
               Text(record.description),
               const SizedBox(height: 14),
             ],
-            _detailLine('类型', '${record.typeLabel} · ${record.kindLabel}'),
             _detailLine('状态', record.completed ? '已记录' : '待完成'),
             if (record.timeLabel.isNotEmpty)
               _detailLine('时间', record.timeLabel),
@@ -531,14 +531,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
               _detailLine('时长', '${record.durationMin} 分钟'),
             if (record.dimensionLabel.isNotEmpty)
               _detailLine('观察维度', record.dimensionLabel),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FxButton(
+                label: '关闭',
+                variant: FxButtonVariant.outline,
+                onPressed: () =>
+                    Navigator.of(dialogContext, rootNavigator: true).pop(),
+              ),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('关闭'),
-          ),
-        ],
       ),
     );
   }

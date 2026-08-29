@@ -66,7 +66,8 @@ class TaskDetailSheet extends StatefulWidget {
           position: Tween<Offset>(
             begin: const Offset(1, 0),
             end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+          ).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
           child: child,
         ),
       );
@@ -75,6 +76,7 @@ class TaskDetailSheet extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
       builder: (sheetContext) => Padding(
@@ -141,11 +143,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _repeatInterval = task.repeatInterval;
     _weekdays = task.repeatDays.isEmpty
         ? <int>{}
-        : task.repeatDays
-            .split(',')
-            .map(int.tryParse)
-            .whereType<int>()
-            .toSet();
+        : task.repeatDays.split(',').map(int.tryParse).whereType<int>().toSet();
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _systemTagId = task.systemTagId;
@@ -210,8 +208,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
-              if (widget.task.isCompleted)
-                const HfChip('已完成', accent: true),
+              if (widget.task.isCompleted) const HfChip('已完成', accent: true),
               const SizedBox(width: 4),
               SizedBox(
                 width: 44,
@@ -266,7 +263,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               showCheckmark: false,
               selected: selected,
               selectedColor: activePalette.accent.withValues(alpha: .12),
-              onSelected: _saving ? null : (_) => setState(() => _listId = list.id),
+              onSelected:
+                  _saving ? null : (_) => setState(() => _listId = list.id),
             );
           }).toList(growable: false),
         ),
@@ -373,7 +371,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 selectedColor: activePalette.accent.withValues(alpha: .12),
                 onSelected: _saving
                     ? null
-                    : (_) => setState(() => _systemTagId = selected ? null : id),
+                    : (_) =>
+                        setState(() => _systemTagId = selected ? null : id),
               );
             }).toList(growable: false),
           ),
@@ -507,14 +506,16 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     );
     if (time == null || !mounted) return;
     setState(() {
-      _reminderAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _reminderAt =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
       _reminderAdvanceMinutes = 0;
     });
   }
 
   Future<void> _save() async {
     final title = _title.text.trim();
-    final listId = _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
+    final listId =
+        _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
     if (title.isEmpty || listId == null) return;
     setState(() => _saving = true);
     try {
@@ -523,17 +524,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         serverId: null,
         listId: listId,
         title: title,
-        description: _description.text.trim().isEmpty
-            ? null
-            : _description.text.trim(),
+        description:
+            _description.text.trim().isEmpty ? null : _description.text.trim(),
         priority: _priority,
         dueDate: _dueDate,
         dueTime: _dueTime == null ? null : _timeLabel(_dueTime!),
         repeatType: _repeatType,
         repeatInterval: _repeatInterval,
-        repeatDays: _weekdays.isEmpty
-            ? ''
-            : (_weekdays.toList()..sort()).join(','),
+        repeatDays:
+            _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
         reminderAt: _reminderAt,
         reminderAdvanceMinutes: _reminderAdvanceMinutes,
         tagIds: widget.task.tags.map((tag) => tag.id).toList(),
@@ -563,6 +562,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       title: '删除任务',
       content: '确定删除「${widget.task.title}」吗？',
       confirmText: '删除',
+      destructive: true,
     );
     if (confirmed != true || !mounted) return;
 

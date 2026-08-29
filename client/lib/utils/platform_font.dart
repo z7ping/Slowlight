@@ -38,11 +38,11 @@ class PlatformFont {
   /// 获取所有可用的 Windows 中文字体选项
   static List<String> get windowsFontOptions {
     return [
-      'Microsoft YaHei UI',  // 微软雅黑 UI（推荐，Win8+）
-      'Microsoft YaHei',     // 微软雅黑（经典）
-      'Segoe UI',            // Windows 默认 UI 字体
-      'SimHei',              // 黑体
-      'Noto Sans SC',        // 思源黑体
+      'Microsoft YaHei UI', // 微软雅黑 UI（推荐，Win8+）
+      'Microsoft YaHei', // 微软雅黑（经典）
+      'Segoe UI', // Windows 默认 UI 字体
+      'SimHei', // 黑体
+      'Noto Sans SC', // 思源黑体
     ];
   }
 
@@ -55,4 +55,8 @@ class PlatformFont {
       TargetPlatform.macOS,
     }.contains(defaultTargetPlatform);
   }
+
+  /// 是否使用 Android 的移动端交互与无障碍基线。
+  static bool get isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 }

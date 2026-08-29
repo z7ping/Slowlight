@@ -25,6 +25,7 @@ class SystemTagPicker extends StatefulWidget {
     return showModalBottomSheet<int?>(
       context: context,
       isScrollControlled: false,
+      showDragHandle: false,
       builder: (_) => SystemTagPicker(
         defaultTagId: defaultTagId,
         title: title,
@@ -82,7 +83,8 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                  color:
+                      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -91,7 +93,8 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
 
             Text(
               widget.title,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -120,7 +123,8 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
                     onTap: () => Navigator.pop(context, id),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 16),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? theme.colorScheme.primaryContainer
@@ -136,12 +140,16 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(icon, style: const TextStyle(fontSize: AppTheme.textXl, height: 1.2)),
+                          Text(icon,
+                              style: const TextStyle(
+                                  fontSize: AppTheme.textXl, height: 1.2)),
                           const SizedBox(height: 4),
                           Text(
                             name,
                             style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                           ),
                         ],

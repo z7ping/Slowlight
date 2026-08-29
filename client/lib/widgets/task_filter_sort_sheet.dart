@@ -27,6 +27,7 @@ class TaskFilterSortSheet extends StatefulWidget {
     return showModalBottomSheet<TaskFilterSort>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: false,
       backgroundColor: Colors.transparent,
       builder: (_) => TaskFilterSortSheet(current: current, lists: lists),
     );
@@ -61,7 +62,11 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
   Future<void> _loadTags() async {
     try {
       final tags = await ApiService.getTags();
-      if (mounted) setState(() { _tags = tags; _loadingTags = false; });
+      if (mounted)
+        setState(() {
+          _tags = tags;
+          _loadingTags = false;
+        });
     } catch (e) {
       if (mounted) setState(() => _loadingTags = false);
     }
@@ -109,7 +114,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
         children: [
           // 拖拽手柄
           Container(
-            width: 36, height: 4,
+            width: 36,
+            height: 4,
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: AppTheme.warmGray300,
@@ -120,11 +126,17 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
           Row(
             children: [
               Text('筛选与排序',
-                style: TextStyle(fontSize: AppTheme.textLg, fontWeight: FontWeight.w600, color: AppTheme.textColor(context))),
+                  style: TextStyle(
+                      fontSize: AppTheme.textLg,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textColor(context))),
               const Spacer(),
               TextButton(
                 onPressed: _reset,
-                child: Text('重置', style: TextStyle(color: AppTheme.warmGray500, fontSize: AppTheme.textMd)),
+                child: Text('重置',
+                    style: TextStyle(
+                        color: AppTheme.warmGray500,
+                        fontSize: AppTheme.textMd)),
               ),
             ],
           ),
@@ -180,9 +192,12 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
                 backgroundColor: AppTheme.primary,
                 foregroundColor: AppTheme.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('应用', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600)),
+              child: const Text('应用',
+                  style: TextStyle(
+                      fontSize: AppTheme.textMd, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -192,7 +207,10 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
 
   Widget _sectionTitle(String label) {
     return Text(label,
-      style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmGray500));
+        style: TextStyle(
+            fontSize: AppTheme.textMd,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.warmGray500));
   }
 
   // ====== 排序方式选择 ======
@@ -260,7 +278,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
             label: list.name,
             isSelected: selected,
             color: ColorUtils.safeParse(list.color),
-            onTap: () => setState(() => _filterListId = selected ? null : list.id),
+            onTap: () =>
+                setState(() => _filterListId = selected ? null : list.id),
           );
         }),
       ],
@@ -272,11 +291,17 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     if (_loadingTags) {
       return SizedBox(
         height: 32,
-        child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+        child: Center(
+            child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))),
       );
     }
     if (_tags.isEmpty) {
-      return Text('暂无标签', style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray400));
+      return Text('暂无标签',
+          style: TextStyle(
+              fontSize: AppTheme.textXs, color: AppTheme.warmGray400));
     }
     return Wrap(
       spacing: 8,
@@ -293,7 +318,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
             label: tag.name,
             isSelected: selected,
             color: ColorUtils.safeParse(tag.color),
-            onTap: () => setState(() => _filterTagId = selected ? null : tag.id),
+            onTap: () =>
+                setState(() => _filterTagId = selected ? null : tag.id),
           );
         }),
       ],
@@ -318,7 +344,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
           label: opt.$2,
           isSelected: selected,
           color: opt.$3,
-          onTap: () => setState(() => _filterPriority = selected ? null : opt.$1),
+          onTap: () =>
+              setState(() => _filterPriority = selected ? null : opt.$1),
         );
       }).toList(),
     );
@@ -341,7 +368,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
               label: opt.$2,
               icon: opt.$3,
               isSelected: selected,
-              onTap: () => setState(() => _filterCompleted = selected ? null : opt.$1),
+              onTap: () =>
+                  setState(() => _filterCompleted = selected ? null : opt.$1),
             ),
           ),
         );
@@ -364,10 +392,14 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? chipColor.withValues(alpha: 0.1) : Colors.transparent,
+          color: isSelected
+              ? chipColor.withValues(alpha: 0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? chipColor.withValues(alpha: 0.4) : AppTheme.warmBorder,
+            color: isSelected
+                ? chipColor.withValues(alpha: 0.4)
+                : AppTheme.warmBorder,
             width: 1,
           ),
         ),
@@ -375,7 +407,9 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: isSelected ? chipColor : AppTheme.warmGray500),
+              Icon(icon,
+                  size: 14,
+                  color: isSelected ? chipColor : AppTheme.warmGray500),
               const SizedBox(width: 4),
             ],
             Text(

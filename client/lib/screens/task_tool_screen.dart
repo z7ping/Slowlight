@@ -332,7 +332,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 '提示：点击左侧任务即可在当前页面查看详情',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: AppTheme.textXs,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),

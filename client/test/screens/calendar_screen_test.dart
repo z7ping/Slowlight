@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
+import 'package:slowlight/ui/theme_manager.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 void main() {
   final month = DateTime(2026, 8, 1);
@@ -58,13 +60,17 @@ void main() {
   Widget buildApp({
     Future<void> Function(BuildContext, DateTime)? createTask,
   }) {
-    return MaterialApp(
-      home: Scaffold(
-        body: CalendarScreen(
-          monthLoader: loader,
-          initialMonth: month,
-          initialSelectedDate: selected,
-          createTaskOverride: createTask,
+    return ShadTheme(
+      data: ThemeManager.shadLight,
+      child: MaterialApp(
+        theme: ThemeManager.lightTheme,
+        home: Scaffold(
+          body: CalendarScreen(
+            monthLoader: loader,
+            initialMonth: month,
+            initialSelectedDate: selected,
+            createTaskOverride: createTask,
+          ),
         ),
       ),
     );

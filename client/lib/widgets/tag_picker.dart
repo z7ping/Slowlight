@@ -5,6 +5,7 @@ import '../models/tag.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/widgets/fx_input.dart';
+import '../ui/widgets/fx_dialog.dart';
 import '../utils/color_utils.dart';
 
 class TagPicker extends StatefulWidget {
@@ -56,11 +57,14 @@ class _TagPickerState extends State<TagPicker> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载标签失败'), backgroundColor: AppTheme.priorityHigh),
+          SnackBar(
+              content: Text('加载标签失败'), backgroundColor: AppTheme.priorityHigh),
         );
       }
     }
-  }  void _toggleTag(Tag tag) {
+  }
+
+  void _toggleTag(Tag tag) {
     final selected = List<Tag>.from(widget.selectedTags);
     final index = selected.indexWhere((t) => t.id == tag.id);
 
@@ -77,12 +81,14 @@ class _TagPickerState extends State<TagPicker> {
     final nameController = TextEditingController();
     String selectedColor = presetColors[0];
 
-    showDialog(
+    showShadDialog(
       context: context,
+      barrierColor: FxDialog.barrierColor,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (context, setDialogState) => ShadDialog(
           title: const Text('新建标签'),
-          content: Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -95,7 +101,10 @@ class _TagPickerState extends State<TagPicker> {
               SizedBox(height: 16),
               Text(
                 '选择颜色',
-                style: TextStyle(fontSize: AppTheme.textMd, height: 1.5, color: AppTheme.warmGray500),
+                style: TextStyle(
+                    fontSize: AppTheme.textMd,
+                    height: 1.5,
+                    color: AppTheme.warmGray500),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -117,7 +126,8 @@ class _TagPickerState extends State<TagPicker> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: ColorUtils.safeParse(color).withValues(alpha: 0.5),
+                                  color: ColorUtils.safeParse(color)
+                                      .withValues(alpha: 0.5),
                                   blurRadius: 4,
                                 )
                               ]
@@ -130,11 +140,11 @@ class _TagPickerState extends State<TagPicker> {
             ],
           ),
           actions: [
-            ShadButton.ghost(
+            ShadButton.outline(
               onPressed: () => Navigator.pop(context),
               child: const Text('取消'),
             ),
-            FilledButton(
+            ShadButton(
               onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
@@ -218,7 +228,8 @@ class _TagPickerState extends State<TagPicker> {
           label: Text(
             '新建',
             style: TextStyle(
-              fontSize: AppTheme.textMd, height: 1.5,
+              fontSize: AppTheme.textMd,
+              height: 1.5,
               color: AppTheme.warmGray500,
             ),
           ),

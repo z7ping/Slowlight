@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 /// FxButton — 按钮组件
@@ -53,43 +54,57 @@ class FxButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = _buildChild();
+    final Widget button;
     switch (variant) {
       case FxButtonVariant.primary:
-        return ShadButton(
+        button = ShadButton(
           onPressed: onPressed,
           size: _shadSize,
           child: child,
         );
+        break;
       case FxButtonVariant.secondary:
-        return ShadButton.secondary(
+        button = ShadButton.secondary(
           onPressed: onPressed,
           size: _shadSize,
           child: child,
         );
+        break;
       case FxButtonVariant.outline:
-        return ShadButton.outline(
+        button = ShadButton.outline(
           onPressed: onPressed,
           size: _shadSize,
           child: child,
         );
+        break;
       case FxButtonVariant.ghost:
-        return ShadButton.ghost(
+        button = ShadButton.ghost(
           onPressed: onPressed,
           size: _shadSize,
           child: child,
         );
+        break;
       case FxButtonVariant.destructive:
-        return ShadButton.destructive(
+        button = ShadButton.destructive(
           onPressed: onPressed,
           size: _shadSize,
           child: child,
         );
+        break;
       case FxButtonVariant.link:
-        return ShadButton.link(
+        button = ShadButton.link(
           onPressed: onPressed,
           size: _shadSize,
           child: child,
         );
+        break;
     }
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return button;
+    }
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: button,
+    );
   }
 }

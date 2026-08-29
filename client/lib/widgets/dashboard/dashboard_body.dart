@@ -334,13 +334,16 @@ class _DashboardBodyState extends State<DashboardBody> {
         children: [
           Text(
             item['name']?.toString() ?? '',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: AppTheme.textXs,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             '$count/7 天',
             style: TextStyle(
-              fontSize: 9.5,
+              fontSize: AppTheme.textXs,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -468,7 +471,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: AppTheme.textXs,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -639,7 +642,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               Text(
                 '🔥 ${habit.streakCount}',
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: AppTheme.textXs,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -701,7 +704,8 @@ class _DashboardBodyState extends State<DashboardBody> {
             ),
             Text(
               '$count 次 · $minutes 分钟',
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+              style:
+                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
             ),
             const SizedBox(width: 8),
             if (widget.onStartFocus != null)
@@ -731,7 +735,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               Text(
                 '今日',
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: AppTheme.textXs,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -805,8 +809,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: mobile ? 12.5 : 14.5,
-              fontWeight:
-                  insight == null ? FontWeight.w400 : FontWeight.w600,
+              fontWeight: insight == null ? FontWeight.w400 : FontWeight.w600,
               height: 1.5,
             ),
           ),
@@ -815,7 +818,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             Text(
               '点击去回应 →',
               style: TextStyle(
-                fontSize: 11.5,
+                fontSize: AppTheme.textXs,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -872,7 +875,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               : Text(
                   secondary,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: AppTheme.textXs,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -931,7 +934,9 @@ class _DashboardBodyState extends State<DashboardBody> {
       );
 
   Set<String> _activeDays(Map<String, dynamic> item) =>
-      (item['active_days'] as List?)?.map((value) => value.toString()).toSet() ??
+      (item['active_days'] as List?)
+          ?.map((value) => value.toString())
+          .toSet() ??
       <String>{};
 
   List<DateTime> _lastSevenDays() {
@@ -948,7 +953,8 @@ class _DashboardBodyState extends State<DashboardBody> {
     final listName = task.list?.name.trim() ?? '';
     if (listName.isNotEmpty) parts.add(listName);
     if (task.isCompleted && task.completedAt != null) {
-      parts.add('${_two(task.completedAt!.hour)}:${_two(task.completedAt!.minute)} 完成');
+      parts.add(
+          '${_two(task.completedAt!.hour)}:${_two(task.completedAt!.minute)} 完成');
     } else if (task.dueTime != null && task.dueTime!.trim().isNotEmpty) {
       parts.add('${task.dueTime!.trim()} 前');
     } else if (task.dueDate != null) {
@@ -966,8 +972,11 @@ class _DashboardBodyState extends State<DashboardBody> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
   String _two(int value) => value.toString().padLeft(2, '0');
-  String _greeting(int hour) =>
-      hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好';
+  String _greeting(int hour) => hour < 12
+      ? '早上好'
+      : hour < 18
+          ? '下午好'
+          : '晚上好';
 
   Color _parseColor(String? value) {
     try {
@@ -1042,7 +1051,8 @@ class _MobileTaskSwipeRowState extends State<_MobileTaskSwipeRow> {
   }
 
   void _end(DragEndDetails details) {
-    final open = details.velocity.pixelsPerSecond.dx < -250 || _offset < -_maxReveal / 2;
+    final open =
+        details.velocity.pixelsPerSecond.dx < -250 || _offset < -_maxReveal / 2;
     setState(() => _offset = open ? -_maxReveal : 0);
   }
 
@@ -1118,7 +1128,7 @@ class _SwipeAction extends StatelessWidget {
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 11.5,
+                fontSize: AppTheme.textXs,
                 fontWeight: FontWeight.w600,
               ),
             ),

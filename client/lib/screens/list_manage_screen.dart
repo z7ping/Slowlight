@@ -307,6 +307,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
       title: '删除清单',
       content: '确定删除「${list.name}」？该清单下的任务也会被删除。',
       confirmText: '删除',
+      destructive: true,
     );
     if (confirmed != true) return;
     try {

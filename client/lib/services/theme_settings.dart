@@ -26,14 +26,21 @@ class ThemeSettings extends ChangeNotifier {
   String get palette => _palette;
 
   /// 字号选项
-  static final fontScaleOptions = <double, String>{
-    0.85: '小',
-    0.92: '较小',
-    1.0: '默认',
-    1.08: '较大',
-    1.16: '大',
-    1.25: '特大',
-  };
+  static Map<double, String> get fontScaleOptions => PlatformFont.isAndroid
+      ? {
+          1.0: '默认',
+          1.08: '较大',
+          1.16: '大',
+          1.25: '特大',
+        }
+      : {
+          0.85: '小',
+          0.92: '较小',
+          1.0: '默认',
+          1.08: '较大',
+          1.16: '大',
+          1.25: '特大',
+        };
 
   /// 主题模式选项
   static final themeModeOptions = <ThemeMode, String>{
@@ -72,7 +79,10 @@ class ThemeSettings extends ChangeNotifier {
   /// 加载设置
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    _fontScale = prefs.getDouble(_keyFontSize) ?? 1.0;
+    final savedFontScale = prefs.getDouble(_keyFontSize) ?? 1.0;
+    _fontScale = PlatformFont.isAndroid
+        ? savedFontScale.clamp(1.0, 1.25).toDouble()
+        : savedFontScale.clamp(0.85, 1.25).toDouble();
     _fontFamily = prefs.getString(_keyFontFamily) ?? '';
     final modeStr = prefs.getString(_keyThemeMode) ?? 'system';
     _themeMode = switch (modeStr) {
@@ -86,10 +96,12 @@ class ThemeSettings extends ChangeNotifier {
 
   /// 设置字号倍率
   Future<void> setFontScale(double scale) async {
-    _fontScale = scale;
+    _fontScale = PlatformFont.isAndroid
+        ? scale.clamp(1.0, 1.25).toDouble()
+        : scale.clamp(0.85, 1.25).toDouble();
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_keyFontSize, scale);
+    await prefs.setDouble(_keyFontSize, _fontScale);
   }
 
   /// 设置主题模式
@@ -97,11 +109,13 @@ class ThemeSettings extends ChangeNotifier {
     _themeMode = mode;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyThemeMode, switch (mode) {
-      ThemeMode.light => 'light',
-      ThemeMode.dark => 'dark',
-      _ => 'system',
-    });
+    await prefs.setString(
+        _keyThemeMode,
+        switch (mode) {
+          ThemeMode.light => 'light',
+          ThemeMode.dark => 'dark',
+          _ => 'system',
+        });
   }
 
   /// 设置字体

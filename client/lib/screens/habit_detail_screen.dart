@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/habit.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../ui/fx.dart';
 import '../widgets/habit_heatmap.dart';
 import '../utils/color_utils.dart';
 
@@ -59,31 +60,81 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   Future<void> _editLog(Map<String, dynamic> log) async {
     final note = TextEditingController(text: log['note'] as String? ?? '');
     final duration = TextEditingController(text: '${log['duration_min'] ?? 0}');
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('编辑打卡记录'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
+
+    Widget editor(BuildContext modalContext, {required bool showTitle}) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showTitle) ...[
+            Text(
+              '编辑打卡记录',
+              style: Theme.of(modalContext).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+          ],
           TextField(
-              controller: note,
-              decoration: const InputDecoration(labelText: '备注')),
+            controller: note,
+            decoration: const InputDecoration(labelText: '备注'),
+          ),
+          const SizedBox(height: 12),
           TextField(
-              controller: duration,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '时长（分钟）')),
-        ]),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, {
+            controller: duration,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: '时长（分钟）'),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: FxButton(
+                  label: '取消',
+                  variant: FxButtonVariant.outline,
+                  onPressed: () => Navigator.pop(modalContext),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FxButton(
+                  label: '保存',
+                  onPressed: () => Navigator.pop(modalContext, {
                     'note': note.text,
                     'duration_min': int.tryParse(duration.text) ?? 0,
                   }),
-              child: const Text('保存')),
+                ),
+              ),
+            ],
+          ),
         ],
-      ),
-    );
+      );
+    }
+
+    final mobile = MediaQuery.sizeOf(context).width < 600;
+    final result = mobile
+        ? await showModalBottomSheet<Map<String, dynamic>>(
+            context: context,
+            isScrollControlled: true,
+            builder: (sheetContext) => Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+                  child: editor(sheetContext, showTitle: true),
+                ),
+              ),
+            ),
+          )
+        : await FxDialog.show<Map<String, dynamic>>(
+            context: context,
+            title: '编辑打卡记录',
+            child: Builder(
+              builder: (dialogContext) =>
+                  editor(dialogContext, showTitle: false),
+            ),
+          );
     note.dispose();
     duration.dispose();
     if (result == null || !mounted) return;

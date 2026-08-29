@@ -238,6 +238,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       title: '删除习惯',
       content: '确定删除「${habit.name}」吗？',
       confirmText: '删除',
+      destructive: true,
     );
     if (confirmed != true) return;
     try {
@@ -377,7 +378,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                           Text(
                             _habitMeta(habit),
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: AppTheme.textXs,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -446,7 +447,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                     Text(
                       '最近打卡',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: AppTheme.textXs,
                         fontWeight: FontWeight.w600,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -499,7 +500,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                                   Text(
                                     '补卡 · 删除',
                                     style: TextStyle(
-                                      fontSize: 10.5,
+                                      fontSize: AppTheme.textXs,
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
@@ -560,7 +561,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: AppTheme.textXs,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -591,7 +592,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                     label,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: AppTheme.textXs,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -643,33 +644,38 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
         final active = checked.contains(key);
         final isToday = _sameDay(day, today);
-        return InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: () => _tapWeekDay(habit, day),
-          child: SizedBox(
-            width: 20,
-            height: 28,
-            child: Center(
-              child: Container(
-                width: 13,
-                height: 13,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: active ? color : Colors.transparent,
-                  border: Border.all(
-                    color: active
-                        ? color
-                        : Theme.of(context).colorScheme.outlineVariant,
-                    width: 1.5,
+        return Expanded(
+          child: Semantics(
+            button: true,
+            label: '${day.month}月${day.day}日${active ? '已打卡' : '未打卡'}',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => _tapWeekDay(habit, day),
+              child: SizedBox(
+                height: 44,
+                child: Center(
+                  child: Container(
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active ? color : Colors.transparent,
+                      border: Border.all(
+                        color: active
+                            ? color
+                            : Theme.of(context).colorScheme.outlineVariant,
+                        width: 1.5,
+                      ),
+                      boxShadow: isToday
+                          ? [
+                              BoxShadow(
+                                color: color.withValues(alpha: .25),
+                                spreadRadius: 2,
+                              ),
+                            ]
+                          : null,
+                    ),
                   ),
-                  boxShadow: isToday
-                      ? [
-                          BoxShadow(
-                            color: color.withValues(alpha: .25),
-                            spreadRadius: 2,
-                          ),
-                        ]
-                      : null,
                 ),
               ),
             ),
@@ -753,7 +759,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                       child: Text(
                         parts.join(' · '),
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: AppTheme.textXs,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -768,7 +774,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                           child: Text(
                             '取消',
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: AppTheme.textXs,
                               color: theme.colorScheme.error,
                             ),
                           ),

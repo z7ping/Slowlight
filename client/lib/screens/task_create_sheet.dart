@@ -40,6 +40,7 @@ class TaskCreateSheet extends StatefulWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
       builder: (_) => TaskCreateSheet(
@@ -176,144 +177,139 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       padding: EdgeInsets.only(bottom: bottomInset),
       child: SafeArea(
         top: false,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            width: 560,
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * .94,
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-            decoration: BoxDecoration(
-              color: hfSurface(context),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(18)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: .10),
-                  blurRadius: 40,
-                  offset: const Offset(0, 8),
+        child: Container(
+          width: 560,
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * .94,
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          decoration: BoxDecoration(
+            color: hfSurface(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .10),
+                blurRadius: 40,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: hfDivider(context),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '记录任务',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _titleController,
+                autofocus: true,
+                enabled: !_saving,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _createTask(),
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(
+                  hintText: '例如：整理今天的会议记录',
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_loadingLists)
+                Text(
+                  '正在读取清单…',
+                  style: TextStyle(
+                    fontSize: AppTheme.textXs,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ..._quickLists().map(
+                      (list) => _QuickChip(
+                        icon: LucideIcons.folder,
+                        text: list.name,
+                        selected: _selectedListId == list.id,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedListId = list.id);
+                        },
+                      ),
+                    ),
+                    _QuickChip(
+                      icon: LucideIcons.calendarDays,
+                      text: '今天',
+                      selected: _dueToday,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _dueToday = !_dueToday);
+                      },
+                    ),
+                    _QuickChip(
+                      icon: LucideIcons.flag,
+                      text: _priorityLabel(_selectedPriority),
+                      selected: _selectedPriority != 'none',
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _selectedPriority = _nextPriority(_selectedPriority);
+                        });
+                      },
+                    ),
+                    if (widget.systemTagId != null &&
+                        (widget.systemTagName ?? '').isNotEmpty)
+                      _DefaultHint(
+                        icon: LucideIcons.tag,
+                        text: widget.systemTagName!,
+                      ),
+                  ],
+                ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: TextStyle(
+                    fontSize: AppTheme.textXs,
+                    color: theme.colorScheme.error,
+                  ),
                 ),
               ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Align(
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: hfDivider(context),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  FxButton(
+                    label: '更多设置',
+                    variant: FxButtonVariant.outline,
+                    onPressed: _saving ? null : _openFullCreate,
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  '记录任务',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _titleController,
-                  autofocus: true,
-                  enabled: !_saving,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _createTask(),
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    hintText: '例如：整理今天的会议记录',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (_loadingLists)
-                  Text(
-                    '正在读取清单…',
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      ..._quickLists().map(
-                        (list) => _QuickChip(
-                          icon: LucideIcons.folder,
-                          text: list.name,
-                          selected: _selectedListId == list.id,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _selectedListId = list.id);
-                          },
-                        ),
-                      ),
-                      _QuickChip(
-                        icon: LucideIcons.calendarDays,
-                        text: '今天',
-                        selected: _dueToday,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          setState(() => _dueToday = !_dueToday);
-                        },
-                      ),
-                      _QuickChip(
-                        icon: LucideIcons.flag,
-                        text: _priorityLabel(_selectedPriority),
-                        selected: _selectedPriority != 'none',
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          setState(() {
-                            _selectedPriority =
-                                _nextPriority(_selectedPriority);
-                          });
-                        },
-                      ),
-                      if (widget.systemTagId != null &&
-                          (widget.systemTagName ?? '').isNotEmpty)
-                        _DefaultHint(
-                          icon: LucideIcons.tag,
-                          text: widget.systemTagName!,
-                        ),
-                    ],
-                  ),
-                if (_error != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    _error!,
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
-                      color: theme.colorScheme.error,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FxButton(
+                      label: _saving ? '记录中…' : '记录任务',
+                      onPressed: _saving ? null : _createTask,
                     ),
                   ),
                 ],
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    FxButton(
-                      label: '更多设置',
-                      variant: FxButtonVariant.outline,
-                      onPressed: _saving ? null : _openFullCreate,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FxButton(
-                        label: _saving ? '记录中…' : '记录任务',
-                        onPressed: _saving ? null : _createTask,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

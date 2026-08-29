@@ -55,7 +55,8 @@ class HomeTodayBody extends StatefulWidget {
 }
 
 class _HomeTodayBodyState extends State<HomeTodayBody> {
-  List<Task> get _filteredTasks => widget.tasks.applyFilterSort(widget.filterSort);
+  List<Task> get _filteredTasks =>
+      widget.tasks.applyFilterSort(widget.filterSort);
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +72,8 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
         todayTasks.add(task);
         continue;
       }
-      final due = DateTime(task.dueDate!.year, task.dueDate!.month, task.dueDate!.day);
+      final due =
+          DateTime(task.dueDate!.year, task.dueDate!.month, task.dueDate!.day);
       if (due.isBefore(today) && !task.isCompleted) {
         overdueTasks.add(task);
       } else {
@@ -101,7 +103,9 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
             decoration: BoxDecoration(
               color: AppTheme.warmGray300.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.warmBorder.withValues(alpha: 0.5), width: 0.5),
+              border: Border.all(
+                  color: AppTheme.warmBorder.withValues(alpha: 0.5),
+                  width: 0.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,25 +114,31 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                   onTap: widget.onToggleTodayExpanded,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding: EdgeInsets.only(bottom: widget.todayTasksExpanded ? 8 : 0),
+                    padding: EdgeInsets.only(
+                        bottom: widget.todayTasksExpanded ? 8 : 0),
                     child: Row(
                       children: [
-                        Icon(Icons.wb_sunny_outlined, size: 14, color: AppTheme.primary),
+                        Icon(Icons.wb_sunny_outlined,
+                            size: 14, color: AppTheme.primary),
                         const SizedBox(width: 4),
                         Text(
                           todayTasks.isEmpty
                               ? '今日任务'
                               : '今日任务 $completedCount/${todayTasks.length}',
                           style: TextStyle(
-                            fontSize: AppTheme.textMd, height: 1.4,
+                            fontSize: AppTheme.textMd,
+                            height: 1.4,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.primary,
                           ),
                         ),
                         const Spacer(),
                         Icon(
-                          widget.todayTasksExpanded ? Icons.expand_less : Icons.expand_more,
-                          size: 16, color: AppTheme.warmGray400,
+                          widget.todayTasksExpanded
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          size: 16,
+                          color: AppTheme.warmGray400,
                         ),
                       ],
                     ),
@@ -137,22 +147,25 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                 if (widget.todayTasksExpanded) ...[
                   if (todayTasks.isNotEmpty)
                     ...todayTasks.map((task) => TaskTile(
-                      key: ValueKey(task.id),
-                      task: task,
-                      compact: true,
-                      isSelected: widget.selectedTaskIds.contains(task.id),
-                      onToggle: () => widget.onToggleTask(task),
-                      onDelete: () => widget.onDeleteTask(task),
-                      onPostpone: () => widget.onPostponeTask(task),
-                      onLongPress: () => widget.onLongPressTask(task),
-                      onTap: () => widget.onTapTask(task),
-                    ))
+                          key: ValueKey(task.id),
+                          task: task,
+                          compact: true,
+                          isSelected: widget.selectedTaskIds.contains(task.id),
+                          onToggle: () => widget.onToggleTask(task),
+                          onDelete: () => widget.onDeleteTask(task),
+                          onPostpone: () => widget.onPostponeTask(task),
+                          onLongPress: () => widget.onLongPressTask(task),
+                          onTap: () => widget.onTapTask(task),
+                        ))
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Center(
                         child: Text('今天清闲 ☀️ 加个任务？',
-                          style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmGray400, height: 1.4)),
+                            style: TextStyle(
+                                fontSize: AppTheme.textMd,
+                                color: AppTheme.warmGray400,
+                                height: 1.4)),
                       ),
                     ),
                 ],
@@ -179,7 +192,9 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
             decoration: BoxDecoration(
               color: AppTheme.warmGray300.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.warmBorder.withValues(alpha: 0.5), width: 0.5),
+              border: Border.all(
+                  color: AppTheme.warmBorder.withValues(alpha: 0.5),
+                  width: 0.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,15 +203,18 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                   onTap: widget.onToggleOverdueExpanded,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding: EdgeInsets.only(bottom: widget.overdueExpanded ? 8 : 0),
+                    padding:
+                        EdgeInsets.only(bottom: widget.overdueExpanded ? 8 : 0),
                     child: Row(
                       children: [
-                        Icon(Icons.history, size: 14, color: AppTheme.warmGray400),
+                        Icon(Icons.history,
+                            size: 14, color: AppTheme.warmGray400),
                         const SizedBox(width: 4),
                         Text(
                           '延期 ${overdueTasks.length} 项',
                           style: TextStyle(
-                            fontSize: AppTheme.textMd, height: 1.4,
+                            fontSize: AppTheme.textMd,
+                            height: 1.4,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.warmGray500,
                           ),
@@ -218,7 +236,9 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                                     dueDate: today,
                                     tagIds: task.tags.map((t) => t.id).toList(),
                                   );
-                                } catch (_) { failed++; }
+                                } catch (_) {
+                                  failed++;
+                                }
                               }
                               widget.onRefresh();
                               if (mounted) {
@@ -232,21 +252,29 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                             },
                             borderRadius: BorderRadius.circular(4),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.update, size: 14, color: AppTheme.primary),
+                                  Icon(Icons.update,
+                                      size: 14, color: AppTheme.primary),
                                   const SizedBox(width: 4),
-                                  Text('顺延至今', style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.primary)),
+                                  Text('顺延至今',
+                                      style: TextStyle(
+                                          fontSize: AppTheme.textMd,
+                                          color: AppTheme.primary)),
                                 ],
                               ),
                             ),
                           ),
                         if (overdueTasks.isNotEmpty) const SizedBox(width: 8),
                         Icon(
-                          widget.overdueExpanded ? Icons.expand_less : Icons.expand_more,
-                          size: 16, color: AppTheme.warmGray400,
+                          widget.overdueExpanded
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          size: 16,
+                          color: AppTheme.warmGray400,
                         ),
                       ],
                     ),
@@ -261,7 +289,10 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                       child: Column(
                         children: [
                           Text('无延期任务 ✨',
-                            style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmGray400, height: 1.4)),
+                              style: TextStyle(
+                                  fontSize: AppTheme.textMd,
+                                  color: AppTheme.warmGray400,
+                                  height: 1.4)),
                         ],
                       ),
                     ),
@@ -305,7 +336,8 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
             child: Text(
               task.title,
               style: TextStyle(
-                fontSize: AppTheme.textMd, height: 1.5,
+                fontSize: AppTheme.textMd,
+                height: 1.5,
                 color: AppTheme.warmGray500,
               ),
               maxLines: 1,
@@ -326,7 +358,8 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
               child: Text(
                 '顺延',
                 style: TextStyle(
-                  fontSize: AppTheme.textXs, height: 1.4,
+                  fontSize: AppTheme.textXs,
+                  height: 1.4,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.primary,
                 ),
@@ -342,6 +375,7 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                 title: '确认删除',
                 content: '确定删除「${task.title}」吗？',
                 confirmText: '删除',
+                destructive: true,
               );
               if (confirmed == true) widget.onDeleteTask(task);
             },

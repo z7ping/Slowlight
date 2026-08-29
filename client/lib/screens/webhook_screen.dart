@@ -149,6 +149,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
       title: '确认删除',
       content: '删除后该事件回调将不再触发',
       confirmText: '删除',
+      destructive: true,
     );
     if (ok == true) {
       await ApiService.deleteWebhook(id);

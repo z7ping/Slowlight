@@ -61,6 +61,7 @@ class ReflectionComposer {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
       builder: (sheetContext) => StatefulBuilder(
@@ -233,7 +234,8 @@ class ReflectionComposer {
                                       selectedTagId = created.id;
                                       if (created.dimensionKey != null &&
                                           created.dimensionKey!.isNotEmpty) {
-                                        selectedDimension = created.dimensionKey;
+                                        selectedDimension =
+                                            created.dimensionKey;
                                       }
                                     });
                                   },
@@ -283,7 +285,8 @@ class ReflectionComposer {
                                       if (selectedTag != null)
                                         'observation_tag_id': selectedTag.id,
                                       if (selectedTag != null)
-                                        'observation_tag_name': selectedTag.name,
+                                        'observation_tag_name':
+                                            selectedTag.name,
                                     },
                                   );
                                   if (sheetContext.mounted) {
@@ -555,8 +558,7 @@ class ReflectionComposer {
                           variant: FxButtonVariant.outline,
                           onPressed: saving
                               ? null
-                              : () =>
-                                  Navigator.of(dialogContext).pop(false),
+                              : () => Navigator.of(dialogContext).pop(false),
                         ),
                         const SizedBox(width: 8),
                         FxButton(

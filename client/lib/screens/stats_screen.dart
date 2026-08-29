@@ -131,7 +131,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     Text(
                       _factNote(data),
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: AppTheme.textXs,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),

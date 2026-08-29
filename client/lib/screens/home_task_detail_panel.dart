@@ -139,6 +139,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       title: '删除任务',
       content: '确定删除「${widget.task.title}」吗？',
       confirmText: '删除',
+      destructive: true,
     );
     if (confirmed != true) return;
     try {
