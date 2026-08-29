@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../ui/widgets/fx_card.dart';
 import '../../ui/widgets/fx_section_header.dart';
 
 Color hfSurface(BuildContext context) =>
@@ -25,6 +26,8 @@ Color hfSubtleSurface(BuildContext context) =>
         ? const Color(0xFFF4F4F5)
         : const Color(0xFF27272A);
 
+/// 兼容旧高保真调用；新代码请直接使用 FxCard。
+@Deprecated('Use FxCard instead')
 class HfCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -43,36 +46,16 @@ class HfCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppTheme.radiusLg);
-    final cardColor = color ?? hfSurface(context);
-    final cardBorder = border ?? Border.all(color: hfBorder(context));
-    final body = Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: radius,
-        boxShadow: Theme.of(context).brightness == Brightness.light
-            ? AppTheme.cardShadow
-            : null,
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Container(
-          width: double.infinity,
-          padding: padding,
-          decoration: BoxDecoration(
-            color: cardColor,
-            border: cardBorder,
-          ),
-          child: child,
-        ),
-      ),
-    );
-    if (onTap == null) return body;
-    return InkWell(
-      borderRadius: radius,
+    return FxCard(
+      padding: padding is EdgeInsets ? padding as EdgeInsets : null,
+      color: color ?? hfSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: border ?? Border.all(color: hfBorder(context)),
+      boxShadow:
+          Theme.of(context).brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
       onTap: onTap,
-      child: body,
+      child: child,
     );
   }
 }
