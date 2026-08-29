@@ -24,8 +24,16 @@ void main() {
     expect(main, contains('ConfigureWindowsAppIdentity();'));
     expect(main, contains('ConfigureWindowsWindowIdentity(window.GetHandle())'));
     expect(identity, contains('SetCurrentProcessExplicitAppUserModelID'));
-    expect(identity, contains('kAppUserModelId[] = L"Slowlight"'));
-    expect(identity, contains('kDebugAppUserModelId[] = L"Slowlight.Debug"'));
+    expect(identity, contains('kAppUserModelId[] = L"z7ping.Slowlight"'));
+    expect(
+      identity,
+      contains('kDebugAppUserModelId[] = L"z7ping.Slowlight.Debug"'),
+    );
+    expect(identity, contains('#include <shobjidl.h>'));
+    expect(
+      identity.indexOf('#include <shobjidl.h>'),
+      lessThan(identity.indexOf('#ifdef _DEBUG')),
+    );
     expect(identity, contains('#ifndef _DEBUG'));
     expect(identity, contains('return true;\n#else\n  IPropertyStore* store'));
     expect(identity, contains('PKEY_AppUserModel_ID'));
@@ -34,6 +42,7 @@ void main() {
     expect(identity, isNot(contains('FOLDERID_Programs')));
     expect(identity, isNot(contains('SetPath(executable.c_str())')));
 
+    expect(installer, contains('#define MyAppUserModelId "z7ping.Slowlight"'));
     expect(installer, contains('AppUserModelID: "{#MyAppUserModelId}"'));
     expect(installer, contains('Name: "{userprograms}\\所行映我"'));
     expect(installer, contains('Filename: "{app}\\{#MyExeName}"'));
