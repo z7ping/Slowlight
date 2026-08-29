@@ -5,7 +5,7 @@
 | 项目 | 值 | 权威源 |
 |---|---|---|
 | Flutter package | `slowlight` | `client/pubspec.yaml` |
-| 客户端版本 | `0.2.0+1` | `client/pubspec.yaml` |
+| 客户端版本 | `0.2.0-alpha.1+1` | `client/pubspec.yaml` |
 | Go 版本 | `1.23` | `server/go.mod` |
 
 ## 服务端环境变量

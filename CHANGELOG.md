@@ -3,8 +3,13 @@
 本文档记录 Slowlight 的产品版本变更。
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
-
 ## [Unreleased]
+
+当前暂无未发布变更。
+
+---
+
+## [v0.2.0-alpha.1] - 2026-08-29
 
 ### Changed
 - 收口公开 README、Roadmap、贡献指南、自托管说明与发行流程。
