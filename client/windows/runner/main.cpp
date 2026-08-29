@@ -77,9 +77,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
-  // WinToast/local_notifier requires a matching Start Menu shortcut. Refresh
-  // it on every launch because flutter run and installed builds can live at
-  // different paths; a stale shortcut makes the taskbar resolve no icon.
   ConfigureWindowsAppIdentity();
 
   ConfigureRenderingMode();
@@ -95,6 +92,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"\u6240\u884C\u6620\u6211 \u00B7 Slowlight", origin, size)) {
     return EXIT_FAILURE;
+  }
+  if (!ConfigureWindowsWindowIdentity(window.GetHandle())) {
+    ::OutputDebugStringW(
+        L"Slowlight: taskbar window identity configuration failed.\n");
   }
   window.SetQuitOnClose(true);
 

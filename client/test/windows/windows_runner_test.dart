@@ -14,7 +14,8 @@ void main() {
     );
   });
 
-  test('Windows identity keeps debug isolated and installer owns shortcut', () {
+  test('Windows identity isolates debug and pins an explicit HWND icon source',
+      () {
     final main = File('windows/runner/main.cpp').readAsStringSync();
     final identity = File('windows/runner/app_identity.cpp').readAsStringSync();
     final cmake = File('windows/runner/CMakeLists.txt').readAsStringSync();
@@ -22,21 +23,27 @@ void main() {
         File('windows/installer/slowlight.iss').readAsStringSync();
 
     expect(main, contains('ConfigureWindowsAppIdentity();'));
+    expect(main, contains('ConfigureWindowsWindowIdentity(window.GetHandle())'));
     expect(identity, contains('#ifdef _DEBUG'));
     expect(identity, contains('SetCurrentProcessExplicitAppUserModelID'));
     expect(identity, contains('kAppUserModelId[] = L"Slowlight"'));
+    expect(identity, contains('kDebugAppUserModelId[] = L"Slowlight.Debug"'));
+    expect(identity, contains('PKEY_AppUserModel_ID'));
+    expect(identity, contains('PKEY_AppUserModel_RelaunchIconResource'));
+    expect(identity, contains('kAppIconResourceSuffix[] = L",-101"'));
+    expect(identity, contains('SHGetPropertyStoreForWindow'));
     expect(identity, isNot(contains('FOLDERID_Programs')));
-    expect(identity, isNot(contains('PKEY_AppUserModel_ID')));
     expect(identity, isNot(contains('SetPath(executable.c_str())')));
 
     expect(installer, contains('AppUserModelID: "{#MyAppUserModelId}"'));
     expect(installer, contains('Name: "{userprograms}\\所行映我"'));
     expect(installer, contains('Filename: "{app}\\{#MyExeName}"'));
-    expect(installer, contains('SetupIconFile=..\\runner\\resources\\app_icon.ico'));
+    expect(installer,
+        contains('SetupIconFile=..\\runner\\resources\\app_icon.ico'));
 
     expect(cmake, contains('"app_identity.cpp"'));
     expect(cmake, contains('"shell32.lib"'));
-    expect(cmake, isNot(contains('"propsys.lib"')));
+    expect(cmake, contains('"propsys.lib"'));
   });
 
   test('Windows runner assigns large and small icons directly to each HWND',
