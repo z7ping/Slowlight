@@ -38,12 +38,7 @@ class FxCard extends StatelessWidget {
     final resolvedPadding =
         (padding ?? const EdgeInsets.all(16)).resolve(Directionality.of(context));
     final hasShadTheme =
-        context.dependOnInheritedWidgetOfExactType<ShadTheme>() != null;
-
-    final content = Align(
-      alignment: Alignment.topCenter,
-      child: child,
-    );
+        context.dependOnInheritedWidgetOfExactType<ShadInheritedTheme>() != null;
 
     Widget card;
     if (hasShadTheme) {
@@ -54,18 +49,25 @@ class FxCard extends StatelessWidget {
         radius: radius,
         border: border,
         columnMainAxisAlignment: MainAxisAlignment.start,
-        child: content,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
       );
     } else {
+      final materialRadius = radius ?? BorderRadius.zero;
       card = Container(
         key: _deprecatedCardKey,
         padding: resolvedPadding,
         decoration: BoxDecoration(
           color: color ?? Theme.of(context).colorScheme.surface,
-          borderRadius: radius,
+          borderRadius: materialRadius,
           border: border,
         ),
-        child: content,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
       );
     }
 
