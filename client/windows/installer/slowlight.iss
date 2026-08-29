@@ -6,7 +6,7 @@
 
 #define MyAppName "所行映我 · Slowlight"
 #define MyExeName "Slowlight.exe"
-#define MyAppUserModelId "Slowlight"
+#define MyAppUserModelId "z7ping.Slowlight"
 #define MyAppIconName "slowlight.ico"
 
 [Setup]
@@ -28,7 +28,7 @@ SolidCompression=yes
 WizardStyle=modern
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 
 [Files]
 Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

@@ -44,6 +44,9 @@ jobs:
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --no-progress -y
+      - name: Prepare Simplified Chinese installer messages
+        shell: powershell
+        run: .\client\windows\installer\prepare_chinese_messages.ps1
       - name: Compile installer
         shell: powershell
         run: |

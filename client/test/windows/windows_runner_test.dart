@@ -24,8 +24,16 @@ void main() {
     expect(main, contains('ConfigureWindowsAppIdentity();'));
     expect(main, contains('ConfigureWindowsWindowIdentity(window.GetHandle())'));
     expect(identity, contains('SetCurrentProcessExplicitAppUserModelID'));
-    expect(identity, contains('kAppUserModelId[] = L"Slowlight"'));
-    expect(identity, contains('kDebugAppUserModelId[] = L"Slowlight.Debug"'));
+    expect(identity, contains('kAppUserModelId[] = L"z7ping.Slowlight"'));
+    expect(
+      identity,
+      contains('kDebugAppUserModelId[] = L"z7ping.Slowlight.Debug"'),
+    );
+    expect(identity, contains('#include <shobjidl.h>'));
+    expect(
+      identity.indexOf('#include <shobjidl.h>'),
+      lessThan(identity.indexOf('#ifdef _DEBUG')),
+    );
     expect(identity, contains('#ifndef _DEBUG'));
     expect(identity, contains('return true;\n#else\n  IPropertyStore* store'));
     expect(identity, contains('PKEY_AppUserModel_ID'));
@@ -34,6 +42,7 @@ void main() {
     expect(identity, isNot(contains('FOLDERID_Programs')));
     expect(identity, isNot(contains('SetPath(executable.c_str())')));
 
+    expect(installer, contains('#define MyAppUserModelId "z7ping.Slowlight"'));
     expect(installer, contains('AppUserModelID: "{#MyAppUserModelId}"'));
     expect(installer, contains('Name: "{userprograms}\\所行映我"'));
     expect(installer, contains('Filename: "{app}\\{#MyExeName}"'));
@@ -61,17 +70,28 @@ void main() {
     expect(cmake, contains('"propsys.lib"'));
   });
 
-  test('Windows installer wizard uses Simplified Chinese messages', () {
+  test('Windows installer wizard uses pinned Simplified Chinese messages', () {
     final installer =
         File('windows/installer/slowlight.iss').readAsStringSync();
+    final prepareScript = File('windows/installer/prepare_chinese_messages.ps1')
+        .readAsStringSync();
 
     expect(installer, contains('[Languages]'));
     expect(
       installer,
       contains(
-        'Name: "chinesesimplified"; MessagesFile: "compiler:Languages\\ChineseSimplified.isl"',
+        'Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"',
       ),
     );
+    expect(
+      prepareScript,
+      contains('1ff90acc4ed4aee82b1cda43253243deee3daed4'),
+    );
+    expect(
+      prepareScript,
+      contains('30d997321197c7c96d8e111e9ddd6c0ca8da5f09'),
+    );
+    expect(prepareScript, contains('git hash-object'));
   });
 
   test('Windows runner assigns large and small icons directly to each HWND',

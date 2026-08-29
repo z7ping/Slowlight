@@ -1,5 +1,6 @@
 #include "app_identity.h"
 
+#include <shobjidl.h>
 #include <windows.h>
 
 #include <string>
@@ -8,15 +9,14 @@
 #include <propkey.h>
 #include <propvarutil.h>
 #include <propsys.h>
-#include <shobjidl.h>
 #endif
 
 namespace {
 
-constexpr wchar_t kAppUserModelId[] = L"Slowlight";
+constexpr wchar_t kAppUserModelId[] = L"z7ping.Slowlight";
 
 #ifdef _DEBUG
-constexpr wchar_t kDebugAppUserModelId[] = L"Slowlight.Debug";
+constexpr wchar_t kDebugAppUserModelId[] = L"z7ping.Slowlight.Debug";
 constexpr wchar_t kAppIconResourceSuffix[] = L",-101";
 
 bool SetStringProperty(IPropertyStore* store,
