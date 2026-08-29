@@ -121,15 +121,14 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                         Icon(Icons.wb_sunny_outlined,
                             size: 14, color: AppTheme.primary),
                         const SizedBox(width: 4),
-                        Text(
-                          todayTasks.isEmpty
-                              ? '今日任务'
-                              : '今日任务 $completedCount/${todayTasks.length}',
-                          style: TextStyle(
-                            fontSize: AppTheme.textMd,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primary,
+                        Flexible(
+                          child: Text(
+                            todayTasks.isEmpty
+                                ? '今日任务'
+                                : '今日任务 $completedCount/${todayTasks.length}',
+                            style: SlowlightTypography.cardTitle(context).copyWith(
+                              color: AppTheme.primary,
+                            ),
                           ),
                         ),
                         const Spacer(),
@@ -161,11 +160,13 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Center(
-                        child: Text('今天清闲 ☀️ 加个任务？',
-                            style: TextStyle(
-                                fontSize: AppTheme.textMd,
-                                color: AppTheme.warmGray400,
-                                height: 1.4)),
+                        child: Text(
+                          '今天清闲 ☀️ 加个任务？',
+                          textAlign: TextAlign.center,
+                          style: SlowlightTypography.secondary(context).copyWith(
+                            color: AppTheme.warmGray400,
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -210,13 +211,12 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                         Icon(Icons.history,
                             size: 14, color: AppTheme.warmGray400),
                         const SizedBox(width: 4),
-                        Text(
-                          '延期 ${overdueTasks.length} 项',
-                          style: TextStyle(
-                            fontSize: AppTheme.textMd,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.warmGray500,
+                        Flexible(
+                          child: Text(
+                            '延期 ${overdueTasks.length} 项',
+                            style: SlowlightTypography.cardTitle(context).copyWith(
+                              color: AppTheme.warmGray500,
+                            ),
                           ),
                         ),
                         const Spacer(),
@@ -260,10 +260,12 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                                   Icon(Icons.update,
                                       size: 14, color: AppTheme.primary),
                                   const SizedBox(width: 4),
-                                  Text('顺延至今',
-                                      style: TextStyle(
-                                          fontSize: AppTheme.textMd,
-                                          color: AppTheme.primary)),
+                                  Text(
+                                    '顺延至今',
+                                    style: SlowlightTypography.button.copyWith(
+                                      color: AppTheme.primary,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -288,11 +290,12 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Column(
                         children: [
-                          Text('无延期任务 ✨',
-                              style: TextStyle(
-                                  fontSize: AppTheme.textMd,
-                                  color: AppTheme.warmGray400,
-                                  height: 1.4)),
+                          Text(
+                            '无延期任务 ✨',
+                            style: SlowlightTypography.secondary(context).copyWith(
+                              color: AppTheme.warmGray400,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -307,6 +310,11 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
 
   /// 延期任务的小卡片
   Widget _buildOverdueTile(Task task) {
+    final scaledBodySize =
+        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize);
+    final titleMaxLines =
+        scaledBodySize >= SlowlightTypography.bodySize * 1.3 ? 2 : 1;
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -335,12 +343,10 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
           Expanded(
             child: Text(
               task.title,
-              style: TextStyle(
-                fontSize: AppTheme.textMd,
-                height: 1.5,
+              style: SlowlightTypography.body(context).copyWith(
                 color: AppTheme.warmGray500,
               ),
-              maxLines: 1,
+              maxLines: titleMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -357,9 +363,7 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
               ),
               child: Text(
                 '顺延',
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  height: 1.4,
+                style: SlowlightTypography.caption(context).copyWith(
                   fontWeight: FontWeight.w500,
                   color: AppTheme.primary,
                 ),
