@@ -30,6 +30,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('FxChip 非 primary 变体不再退化为同一默认样式', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: const Scaffold(
+          body: Column(
+            children: [
+              FxChip(label: '次要', variant: FxChipVariant.secondary),
+              FxChip(label: '描边', variant: FxChipVariant.outline),
+              FxChip(label: '危险', variant: FxChipVariant.destructive),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('次要'), findsOneWidget);
+    expect(find.text('描边'), findsOneWidget);
+    expect(find.text('危险'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('FxEmptyState 在 360dp + 200% 字体缩放下保持可读', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
