@@ -27,8 +27,8 @@ class FxButton extends StatelessWidget {
     this.expanded = false,
   });
 
-  Widget _buildChild(BuildContext context) {
-    final text = Text(label, style: SlowlightTypography.button(context));
+  Widget _buildChild() {
+    final text = Text(label, style: SlowlightTypography.button);
     if (icon != null) {
       return Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
@@ -56,7 +56,7 @@ class FxButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _buildChild(context);
+    final child = _buildChild();
     final Widget button;
     switch (variant) {
       case FxButtonVariant.primary:
