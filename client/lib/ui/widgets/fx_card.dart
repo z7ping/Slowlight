@@ -37,19 +37,37 @@ class FxCard extends StatelessWidget {
         : null;
     final resolvedPadding =
         (padding ?? const EdgeInsets.all(16)).resolve(Directionality.of(context));
+    final hasShadTheme =
+        context.dependOnInheritedWidgetOfExactType<ShadTheme>() != null;
 
-    Widget card = ShadCard(
-      key: _deprecatedCardKey,
-      padding: resolvedPadding,
-      backgroundColor: color,
-      radius: radius,
-      border: border,
-      columnMainAxisAlignment: MainAxisAlignment.start,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
+    final content = Align(
+      alignment: Alignment.topCenter,
+      child: child,
     );
+
+    Widget card;
+    if (hasShadTheme) {
+      card = ShadCard(
+        key: _deprecatedCardKey,
+        padding: resolvedPadding,
+        backgroundColor: color,
+        radius: radius,
+        border: border,
+        columnMainAxisAlignment: MainAxisAlignment.start,
+        child: content,
+      );
+    } else {
+      card = Container(
+        key: _deprecatedCardKey,
+        padding: resolvedPadding,
+        decoration: BoxDecoration(
+          color: color ?? Theme.of(context).colorScheme.surface,
+          borderRadius: radius,
+          border: border,
+        ),
+        child: content,
+      );
+    }
 
     if (boxShadow != null && radius != null) {
       card = DecoratedBox(
