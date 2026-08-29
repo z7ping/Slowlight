@@ -4,6 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../ui/widgets/fx_card.dart';
 import '../../ui/widgets/fx_section_header.dart';
 import '../../ui/widgets/fx_segmented.dart';
+import '../../ui/widgets/fx_stat_cell.dart';
 
 Color hfSurface(BuildContext context) =>
     Theme.of(context).brightness == Brightness.light
@@ -122,6 +123,8 @@ class HfSegmented extends StatelessWidget {
   }
 }
 
+/// 兼容旧高保真调用；新代码请直接使用 FxStatCell。
+@Deprecated('Use FxStatCell instead')
 class HfStatCell extends StatelessWidget {
   final String value;
   final String label;
@@ -136,44 +139,13 @@ class HfStatCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: hfSurface(context),
-        border: Border.all(color: hfBorder(context)),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          RichText(
-            text: TextSpan(
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w700),
-              children: [
-                TextSpan(text: value),
-                if (suffix != null)
-                  TextSpan(
-                    text: suffix,
-                    style: TextStyle(
-                      fontSize: AppTheme.textSm,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return FxStatCell(
+      value: value,
+      label: label,
+      suffix: suffix,
+      backgroundColor: hfSurface(context),
+      border: Border.all(color: hfBorder(context)),
+      borderRadius: AppTheme.radiusLg,
     );
   }
 }
