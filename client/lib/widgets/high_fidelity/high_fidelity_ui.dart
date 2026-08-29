@@ -91,32 +91,35 @@ class HfSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (trailing != null) ...[
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              trailing!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 32),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                trailing!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: AppTheme.textXs,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+          const Spacer(),
+          if (trailingWidget != null) trailingWidget!,
         ],
-        const Spacer(),
-        if (trailingWidget != null) trailingWidget!,
-      ],
+      ),
     );
   }
 }
@@ -211,7 +214,8 @@ class HfStatCell extends StatelessWidget {
         children: [
           RichText(
             text: TextSpan(
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
               children: [
                 TextSpan(text: value),
                 if (suffix != null)
@@ -301,10 +305,13 @@ class HfTimelineItem extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+                  decoration:
+                      BoxDecoration(shape: BoxShape.circle, color: color),
                 ),
                 if (!last)
-                  Expanded(child: Container(width: 1, color: hfDivider(context))),
+                  Expanded(
+                    child: Container(width: 1, color: hfDivider(context)),
+                  ),
               ],
             ),
           ),
@@ -375,7 +382,8 @@ class HfEmptyState extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             title,
-            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 3),
           Text(
