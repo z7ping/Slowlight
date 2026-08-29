@@ -46,6 +46,19 @@ void main() {
     expect(cmake, contains('"propsys.lib"'));
   });
 
+  test('Windows installer wizard uses Simplified Chinese messages', () {
+    final installer =
+        File('windows/installer/slowlight.iss').readAsStringSync();
+
+    expect(installer, contains('[Languages]'));
+    expect(
+      installer,
+      contains(
+        'Name: "chinesesimplified"; MessagesFile: "compiler:Languages\\ChineseSimplified.isl"',
+      ),
+    );
+  });
+
   test('Windows runner assigns large and small icons directly to each HWND',
       () {
     final header = File('windows/runner/win32_window.h').readAsStringSync();
