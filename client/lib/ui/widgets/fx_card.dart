@@ -35,10 +35,12 @@ class FxCard extends StatelessWidget {
     final radius = borderRadius != null
         ? BorderRadius.circular(borderRadius!)
         : null;
+    final resolvedPadding =
+        (padding ?? const EdgeInsets.all(16)).resolve(Directionality.of(context));
 
     Widget card = ShadCard(
       key: _deprecatedCardKey,
-      padding: padding ?? const EdgeInsets.all(16),
+      padding: resolvedPadding,
       backgroundColor: color,
       radius: radius,
       border: border,
