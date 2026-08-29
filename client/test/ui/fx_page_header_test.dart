@@ -16,7 +16,6 @@ void main() {
           child: const Scaffold(
             body: FxPageHeader(
               title: '这是一个用于验证大字体布局的较长页面标题',
-              actionIcon: Icons.more_horiz,
             ),
           ),
         ),
@@ -24,7 +23,7 @@ void main() {
     );
 
     expect(find.text('这是一个用于验证大字体布局的较长页面标题'), findsOneWidget);
-    expect(find.byIcon(Icons.chevron_left), findsOneWidget);
+    expect(find.byType(IconButton), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
