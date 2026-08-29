@@ -11,6 +11,8 @@ class FxCard extends StatelessWidget {
   final double? borderRadius;
   final EdgeInsets? margin;
   final Border? border;
+  final List<BoxShadow>? boxShadow;
+  final bool expanded;
   final Key? _deprecatedCardKey;
 
   const FxCard({
@@ -22,19 +24,23 @@ class FxCard extends StatelessWidget {
     this.borderRadius,
     this.margin,
     this.border,
+    this.boxShadow,
+    this.expanded = false,
     @Deprecated('Pass key directly to FxCard constructor instead')
     Key? cardKey,
   }) : _deprecatedCardKey = cardKey;
 
   @override
   Widget build(BuildContext context) {
+    final radius = borderRadius != null
+        ? BorderRadius.circular(borderRadius!)
+        : null;
+
     Widget card = ShadCard(
       key: _deprecatedCardKey,
       padding: padding ?? const EdgeInsets.all(16),
       backgroundColor: color,
-      radius: borderRadius != null
-          ? BorderRadius.circular(borderRadius!)
-          : null,
+      radius: radius,
       border: border,
       columnMainAxisAlignment: MainAxisAlignment.start,
       child: Align(
@@ -42,6 +48,23 @@ class FxCard extends StatelessWidget {
         child: child,
       ),
     );
+
+    if (boxShadow != null && radius != null) {
+      card = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: boxShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: card,
+        ),
+      );
+    }
+
+    if (expanded) {
+      card = SizedBox(width: double.infinity, child: card);
+    }
 
     if (margin != null) {
       card = Padding(padding: margin!, child: card);
