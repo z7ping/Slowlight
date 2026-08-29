@@ -1,5 +1,6 @@
 #include "app_identity.h"
 
+#include <shobjidl.h>
 #include <windows.h>
 
 #include <string>
@@ -8,7 +9,6 @@
 #include <propkey.h>
 #include <propvarutil.h>
 #include <propsys.h>
-#include <shobjidl.h>
 #endif
 
 namespace {
