@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/widgets/fx_card.dart';
 import '../../ui/widgets/fx_section_header.dart';
+import '../../ui/widgets/fx_segmented.dart';
 
 Color hfSurface(BuildContext context) =>
     Theme.of(context).brightness == Brightness.light
@@ -84,6 +85,8 @@ class HfSectionHeader extends StatelessWidget {
   }
 }
 
+/// 兼容旧高保真调用；新代码请直接使用 FxSegmented。
+@Deprecated('Use FxSegmented instead')
 class HfSegmented extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;
@@ -99,50 +102,22 @@ class HfSegmented extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: hfSubtleSurface(context),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(labels.length, (index) {
-          final selected = index == selectedIndex;
-          return InkWell(
-            borderRadius: BorderRadius.circular(6),
-            onTap: () => onChanged(index),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 44, minWidth: 52),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: selected ? hfSurface(context) : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: selected && theme.brightness == Brightness.light
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: .06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
+    return FxSegmented(
+      labels: labels,
+      selectedIndex: selectedIndex,
+      onChanged: onChanged,
+      backgroundColor: hfSubtleSurface(context),
+      selectedColor: hfSurface(context),
+      selectedShadow: theme.brightness == Brightness.light
+          ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              child: Text(
-                labels[index],
-                style: TextStyle(
-                  fontSize: AppTheme.textSm,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
+            ]
+          : null,
+      borderRadius: AppTheme.radiusMd,
     );
   }
 }
