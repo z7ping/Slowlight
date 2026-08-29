@@ -1,6 +1,7 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <windows.h>
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
 
@@ -55,6 +56,20 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // Windows Restart Manager uses the end-session messages when an installer
+  // needs a running application to release files. Handle these before Flutter
+  // plugins so window_manager's "close to tray" interception cannot turn an
+  // installer shutdown request into a hidden-but-still-running process.
+  if (message == WM_QUERYENDSESSION &&
+      (lparam & ENDSESSION_CLOSEAPP) != 0) {
+    return TRUE;
+  }
+  if (message == WM_ENDSESSION && wparam == TRUE &&
+      (lparam & ENDSESSION_CLOSEAPP) != 0) {
+    ::DestroyWindow(hwnd);
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
