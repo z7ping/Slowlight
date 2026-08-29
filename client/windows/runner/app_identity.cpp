@@ -1,16 +1,21 @@
 #include "app_identity.h"
 
-#include <propkey.h>
-#include <propvarutil.h>
-#include <propsys.h>
-#include <shobjidl.h>
 #include <windows.h>
 
 #include <string>
 
+#ifdef _DEBUG
+#include <propkey.h>
+#include <propvarutil.h>
+#include <propsys.h>
+#include <shobjidl.h>
+#endif
+
 namespace {
 
 constexpr wchar_t kAppUserModelId[] = L"Slowlight";
+
+#ifdef _DEBUG
 constexpr wchar_t kDebugAppUserModelId[] = L"Slowlight.Debug";
 constexpr wchar_t kAppIconResourceSuffix[] = L",-101";
 
@@ -41,19 +46,19 @@ std::wstring ExecutableIconResource() {
   icon_resource.append(kAppIconResourceSuffix);
   return icon_resource;
 }
+#endif
 
 }  // namespace
 
 bool ConfigureWindowsAppIdentity() {
 #ifdef _DEBUG
-  // Debug keeps a separate taskbar identity at the window level. Do not assign
-  // the release process AppUserModelID, otherwise Explorer may resolve an
-  // installed/recent release shortcut that points at another executable.
+  // Debug uses a window-level identity so flutter run never groups with an
+  // installed Slowlight release shortcut.
   return true;
 #else
-  // Release builds use the same stable AppUserModelID that the installer writes
-  // to the Start Menu shortcut. Shortcut ownership belongs to the installer;
-  // the application must not rewrite it on every launch.
+  // Release uses one stable process identity matching the Start Menu shortcut
+  // created by the installer. The shortcut owns the display name, relaunch
+  // target, and icon used by the Windows taskbar.
   return SUCCEEDED(
       ::SetCurrentProcessExplicitAppUserModelID(kAppUserModelId));
 #endif
@@ -64,6 +69,12 @@ bool ConfigureWindowsWindowIdentity(HWND window) {
     return false;
   }
 
+#ifndef _DEBUG
+  // Do not set release window-level AppUserModel properties here. Windows
+  // should resolve the matching installer-owned shortcut for taskbar identity
+  // instead of mixing shortcut metadata with Relaunch* window properties.
+  return true;
+#else
   IPropertyStore* store = nullptr;
   const HRESULT store_result =
       ::SHGetPropertyStoreForWindow(window, IID_PPV_ARGS(&store));
@@ -73,15 +84,9 @@ bool ConfigureWindowsWindowIdentity(HWND window) {
     return false;
   }
 
-#ifdef _DEBUG
-  const wchar_t* app_user_model_id = kDebugAppUserModelId;
-#else
-  const wchar_t* app_user_model_id = kAppUserModelId;
-#endif
-
   const std::wstring icon_resource = ExecutableIconResource();
   const bool id_set = SetStringProperty(
-      store, PKEY_AppUserModel_ID, std::wstring(app_user_model_id));
+      store, PKEY_AppUserModel_ID, std::wstring(kDebugAppUserModelId));
   const bool icon_set = !icon_resource.empty() &&
                         SetStringProperty(store,
                                           PKEY_AppUserModel_RelaunchIconResource,
@@ -91,11 +96,12 @@ bool ConfigureWindowsWindowIdentity(HWND window) {
 
   if (!id_set) {
     ::OutputDebugStringW(
-        L"Slowlight: failed to set taskbar window AppUserModelID.\n");
+        L"Slowlight: failed to set debug taskbar window AppUserModelID.\n");
   }
   if (!icon_set) {
     ::OutputDebugStringW(
-        L"Slowlight: failed to set taskbar relaunch icon resource.\n");
+        L"Slowlight: failed to set debug taskbar relaunch icon resource.\n");
   }
   return id_set && icon_set;
+#endif
 }

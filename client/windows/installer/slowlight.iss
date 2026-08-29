@@ -7,6 +7,7 @@
 #define MyAppName "所行映我 · Slowlight"
 #define MyExeName "Slowlight.exe"
 #define MyAppUserModelId "Slowlight"
+#define MyAppIconName "slowlight.ico"
 
 [Setup]
 AppId=z7ping.Slowlight
@@ -21,13 +22,17 @@ ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\..\dist\windows
 OutputBaseFilename=Slowlight-v{#MyAppVersion}-windows-x64-setup
 SetupIconFile=..\runner\resources\app_icon.ico
-UninstallDisplayIcon={app}\{#MyExeName}
+UninstallDisplayIcon={app}\resources\{#MyAppIconName}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 
+[Languages]
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+
 [Files]
 Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\runner\resources\app_icon.ico"; DestDir: "{app}\resources"; DestName: "{#MyAppIconName}"; Flags: ignoreversion
 Source: "..\..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -35,7 +40,7 @@ Source: "..\..\..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversio
 Type: files; Name: "{userprograms}\所行映我.lnk"
 
 [Icons]
-Name: "{userprograms}\所行映我"; Filename: "{app}\{#MyExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyExeName}"; AppUserModelID: "{#MyAppUserModelId}"; Comment: "{#MyAppName}"
+Name: "{userprograms}\所行映我"; Filename: "{app}\{#MyExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\resources\{#MyAppIconName}"; IconIndex: 0; AppUserModelID: "{#MyAppUserModelId}"; Comment: "{#MyAppName}"
 
 [Run]
 Filename: "{app}\{#MyExeName}"; Description: "启动所行映我"; Flags: nowait postinstall skipifsilent
