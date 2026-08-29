@@ -6,8 +6,8 @@ import '../typography_tokens.dart';
 
 /// FxChip — 标签/徽章组件。
 ///
-/// 常规场景继续以 ShadBadge 为视觉基础；迁移旧组件时如确有既定视觉语义，
-/// 可通过受控的颜色、圆角和内边距覆盖，不在业务页面重新手写 Chip。
+/// 默认仍以 ShadBadge 为视觉基础；需要 secondary / outline / destructive
+/// 或迁移旧组件既定视觉时，由 Fx 层统一解析语义，不让页面自行手写 Chip。
 class FxChip extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -66,23 +66,42 @@ class FxChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasVisualOverride = backgroundColor != null ||
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final hasExplicitVisualOverride = backgroundColor != null ||
         foregroundColor != null ||
         borderRadius != null ||
         padding != null;
 
     Widget badge;
-    if (hasVisualOverride) {
+    if (!hasExplicitVisualOverride && variant == FxChipVariant.primary) {
+      badge = ShadBadge(child: _content(context));
+    } else {
+      final resolvedBackground = backgroundColor ?? switch (variant) {
+        FxChipVariant.primary => scheme.primary,
+        FxChipVariant.secondary => scheme.surfaceContainerHighest,
+        FxChipVariant.outline => Colors.transparent,
+        FxChipVariant.destructive => scheme.errorContainer,
+      };
+      final resolvedForeground = foregroundColor ?? switch (variant) {
+        FxChipVariant.primary => scheme.onPrimary,
+        FxChipVariant.secondary => scheme.onSurfaceVariant,
+        FxChipVariant.outline => scheme.onSurface,
+        FxChipVariant.destructive => scheme.onErrorContainer,
+      };
+      final outlineBorder = variant == FxChipVariant.outline
+          ? Border.all(color: scheme.outlineVariant)
+          : null;
+
       badge = Container(
         padding: padding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: resolvedBackground,
+          border: outlineBorder,
           borderRadius: BorderRadius.circular(borderRadius ?? 999),
         ),
-        child: _content(context, color: foregroundColor),
+        child: _content(context, color: resolvedForeground),
       );
-    } else {
-      badge = ShadBadge(child: _content(context));
     }
 
     if (onTap != null) {
