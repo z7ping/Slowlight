@@ -216,16 +216,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 ),
               ),
               const SizedBox(height: 10),
-              TextField(
+              FxInput(
                 controller: _titleController,
                 autofocus: true,
                 enabled: !_saving,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _createTask(),
                 style: SlowlightTypography.body(context),
-                decoration: const InputDecoration(
-                  hintText: '例如：整理今天的会议记录',
-                ),
+                placeholder: '例如：整理今天的会议记录',
               ),
               const SizedBox(height: 10),
               if (_loadingLists)
@@ -490,7 +488,7 @@ class _QuickChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = activePalette.accent;
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: Container(
