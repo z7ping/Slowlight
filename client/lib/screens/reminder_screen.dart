@@ -4,8 +4,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../services/reminder_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import 'settings_screen.dart';
 
 /// 桌面休息提醒：运行态、今日统计、系统规则与全屏休息遮罩。
@@ -57,7 +55,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
             ? _fullscreenRest()
             : Column(
                 children: [
-                  HfPageHeader(
+                  FxPageHeader(
                     title: '休息提醒',
                     actionIcon: LucideIcons.settings,
                     actionTooltip: '提醒设置',
@@ -86,9 +84,19 @@ class _ReminderScreenState extends State<ReminderScreen> {
             constraints: const BoxConstraints(maxWidth: 620),
             child: Column(
               children: [
-                HfChip(
-                  working ? '● 工作中 · 第 ${_service.cycleCount + 1} 轮' : '● 待机',
-                  accent: working,
+                FxChip(
+                  label: working
+                      ? '● 工作中 · 第 ${_service.cycleCount + 1} 轮'
+                      : '● 待机',
+                  backgroundColor: working
+                      ? activePalette.accent.withValues(alpha: .12)
+                      : fxSubtleSurface(context),
+                  foregroundColor: working
+                      ? activePalette.accent
+                      : theme.colorScheme.onSurfaceVariant,
+                  borderRadius: 999,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -111,8 +119,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                         children: [
                           Text(
                             _format(_service.remainingSeconds),
-                            style: const TextStyle(
-                              fontSize: 24,
+                            style: SlowlightTypography.hero(context).copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -121,8 +128,8 @@ class _ReminderScreenState extends State<ReminderScreen> {
                             working
                                 ? '距小憩 · 小憩 ${_service.microRestCount}/${_service.microRestsBeforeLong}'
                                 : '还未开始',
-                            style: TextStyle(
-                              fontSize: AppTheme.textXs,
+                            textAlign: TextAlign.center,
+                            style: SlowlightTypography.caption(context).copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -173,8 +180,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                 Text(
                   '每轮工作 / 小憩 / 跳过都记录为事实 · 在「回顾 → 休息数据」中查看',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -201,24 +207,38 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   Widget _todayStats() {
+    final theme = Theme.of(context);
     final workMinutes = _service.todayWorkSeconds ~/ 60;
     final restMinutes = _service.todayRestSeconds ~/ 60;
     final skipRate = (_service.todaySkipRate * 100).round();
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(12),
+      color: fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: Border.all(color: fxBorder(context)),
+      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: '今日统计', trailing: '→ 写入行为事件'),
+          const FxSectionHeader(title: '今日统计', trailing: '→ 写入行为事件'),
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
-              final width = (constraints.maxWidth - 18) / 4;
+              final scaled = MediaQuery.textScalerOf(context)
+                  .scale(SlowlightTypography.bodySize);
+              final columns = scaled >= SlowlightTypography.bodySize * 1.3
+                  ? 1
+                  : constraints.maxWidth < 420
+                      ? 2
+                      : 4;
+              final width =
+                  (constraints.maxWidth - 6 * (columns - 1)) / columns;
               final cells = [
-                HfStatCell(value: _duration(workMinutes), label: '工作'),
-                HfStatCell(value: '$restMinutes', suffix: '分', label: '休息'),
-                HfStatCell(value: '$skipRate%', label: '跳过率'),
-                HfStatCell(
+                FxStatCell(value: _duration(workMinutes), label: '工作'),
+                FxStatCell(value: '$restMinutes', suffix: '分', label: '休息'),
+                FxStatCell(value: '$skipRate%', label: '跳过率'),
+                FxStatCell(
                   value: '${_service.todayLongestNoSkipStreak}',
                   label: '连续不跳过',
                 ),
@@ -249,10 +269,8 @@ class _ReminderScreenState extends State<ReminderScreen> {
               Expanded(
                 child: Text(
                   text,
-                  style: TextStyle(
-                    fontSize: AppTheme.textSm,
+                  style: SlowlightTypography.secondary(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.55,
                   ),
                 ),
               ),
@@ -260,22 +278,35 @@ class _ReminderScreenState extends State<ReminderScreen> {
           ),
         );
 
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(12),
+      color: fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: Border.all(color: fxBorder(context)),
+      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 '系统行为规则',
-                style: TextStyle(
-                  fontSize: AppTheme.textSm,
+                style: SlowlightTypography.secondary(context).copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              SizedBox(width: 8),
-              HfChip('新增需求'),
+              FxChip(
+                label: '新增需求',
+                backgroundColor: fxSubtleSurface(context),
+                foregroundColor: theme.colorScheme.onSurfaceVariant,
+                borderRadius: 999,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -320,61 +351,67 @@ class _ReminderScreenState extends State<ReminderScreen> {
             ),
           ),
           Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 190,
-                  height: 190,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox.expand(
-                        child: CircularProgressIndicator(
-                          value: progress,
-                          strokeWidth: 9,
-                          strokeCap: StrokeCap.round,
-                          backgroundColor: Colors.white.withValues(alpha: .14),
-                          color: const Color(0xFF4ADE80),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 190,
+                    height: 190,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox.expand(
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 9,
+                            strokeCap: StrokeCap.round,
+                            backgroundColor: Colors.white.withValues(alpha: .14),
+                            color: const Color(0xFF4ADE80),
+                          ),
                         ),
-                      ),
-                      Text(
-                        _format(_service.remainingSeconds),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 38,
-                          fontWeight: FontWeight.w700,
+                        Text(
+                          _format(_service.remainingSeconds),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 38,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  micro ? '眨眨眼，看看六米外的地方' : '离开屏幕，活动一下身体',
-                  style: const TextStyle(color: Colors.white, fontSize: 14.5),
-                ),
-                const SizedBox(height: 18),
-                if (!strict)
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      if (_service.isCurrentRestPostponeAllowed)
+                  const SizedBox(height: 18),
+                  Text(
+                    micro ? '眨眨眼，看看六米外的地方' : '离开屏幕，活动一下身体',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  const SizedBox(height: 18),
+                  if (!strict)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        if (_service.isCurrentRestPostponeAllowed)
+                          FxButton(
+                            label: '延后 5 分钟',
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _service.postponeRest,
+                          ),
                         FxButton(
-                          label: '延后 5 分钟',
-                          variant: FxButtonVariant.outline,
+                          label: '跳过',
+                          variant: FxButtonVariant.ghost,
                           size: FxButtonSize.sm,
-                          onPressed: _service.postponeRest,
+                          onPressed: _service.skipRest,
                         ),
-                      FxButton(
-                        label: '跳过',
-                        variant: FxButtonVariant.ghost,
-                        size: FxButtonSize.sm,
-                        onPressed: _service.skipRest,
-                      ),
-                    ],
-                  ),
-              ],
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
           Positioned(
