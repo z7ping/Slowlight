@@ -173,7 +173,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _toolbar() {
     final compact = MediaQuery.sizeOf(context).width < 720;
-    return Wrap(
+    final navigation = Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 6,
       runSpacing: 8,
@@ -197,8 +197,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ).copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        if (!compact) _filter(),
       ],
+    );
+    return FxActionBar(
+      leading: navigation,
+      actions: [if (!compact) _filter()],
+      stackBelow: 760,
+      gap: 12,
     );
   }
 
@@ -254,36 +259,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
         .where((record) => record.type != CalendarRecordType.task)
         .toList(growable: false);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final contextInfo = Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_selected.month} 月 ${_selected.day} 日 · 周${weekdays[_selected.weekday - 1]}',
+              key: const ValueKey('calendar-selected-title'),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '计划与实际 · 共 ${records.length} 条完整记录',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        _summary(records),
+      ],
+    );
     return FxCard(
       key: _dayPanelKey,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${_selected.month} 月 ${_selected.day} 日 · 周${weekdays[_selected.weekday - 1]}',
-                    key: const ValueKey('calendar-selected-title'),
-                    style: SlowlightTypography.secondary(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  Text(
-                    '计划与实际 · 共 ${records.length} 条完整记录',
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              _summary(records),
+          FxActionBar(
+            leading: contextInfo,
+            actions: [
               FxButton(
                 key: const ValueKey('calendar-add-task'),
                 label: '新建任务',
@@ -292,6 +302,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onPressed: () => _addTask(_selected),
               ),
             ],
+            stackBelow: 680,
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
@@ -496,18 +507,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 if (record.dimensionLabel.isNotEmpty)
                   _detailLine('观察维度', record.dimensionLabel),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FxButton(
-                    label: '关闭',
-                    variant: FxButtonVariant.outline,
-                    onPressed:
-                        () =>
-                            Navigator.of(
-                              dialogContext,
-                              rootNavigator: true,
-                            ).pop(),
-                  ),
+                FxDialogActions(
+                  actions: [
+                    FxButton(
+                      label: '关闭',
+                      variant: FxButtonVariant.outline,
+                      onPressed:
+                          () =>
+                              Navigator.of(
+                                dialogContext,
+                                rootNavigator: true,
+                              ).pop(),
+                    ),
+                  ],
                 ),
               ],
             ),
