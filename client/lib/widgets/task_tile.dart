@@ -83,19 +83,9 @@ class TaskTile extends StatelessWidget {
                     width: 28,
                     height: 28,
                     child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Checkbox(
-                          value: task.isCompleted,
-                          onChanged: (_) => onToggle(),
-                          activeColor: AppTheme.primary,
-                          side: BorderSide(
-                              color: AppTheme.warmGray400, width: 1.5),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
+                      child: FxCheckbox(
+                        value: task.isCompleted,
+                        onChanged: (_) => onToggle(),
                       ),
                     ),
                   ),
@@ -329,18 +319,9 @@ class TaskTile extends StatelessWidget {
           width: 44,
           height: 44,
           child: Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: Checkbox(
-                value: task.isCompleted,
-                onChanged: (_) => onToggle(),
-                activeColor: AppTheme.primary,
-                side: BorderSide(
-                  color: AppTheme.warmGray400,
-                  width: 2,
-                ),
-              ),
+            child: FxCheckbox(
+              value: task.isCompleted,
+              onChanged: (_) => onToggle(),
             ),
           ),
         ),
@@ -509,16 +490,11 @@ class TaskTile extends StatelessWidget {
       builder: (context) => Row(
         children: [
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 5,
-                backgroundColor: AppTheme.warmBorder,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  isAllDone ? AppTheme.success : AppTheme.primary,
-                ),
-              ),
+            child: FxProgress(
+              value: progress,
+              height: 5,
+              backgroundColor: AppTheme.warmBorder,
+              color: isAllDone ? AppTheme.success : AppTheme.primary,
             ),
           ),
           SizedBox(width: 8),
