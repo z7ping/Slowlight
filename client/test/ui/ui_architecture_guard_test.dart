@@ -82,16 +82,23 @@ void main() {
   test('业务 UI 不直接使用已有 Fx 替代的 Material 视觉控件', () async {
     final roots = [Directory('lib/screens'), Directory('lib/widgets')];
     final forbidden = <String, RegExp>{
-      'TextButton': RegExp(r'(?<!Fx)\bTextButton\s*\('),
-      'ElevatedButton': RegExp(r'\bElevatedButton\s*\('),
-      'OutlinedButton': RegExp(r'\bOutlinedButton\s*\('),
-      'IconButton': RegExp(r'(?<!Fx)\bIconButton\s*\('),
-      'TextField': RegExp(r'(?<!Fx)\bTextField\s*\('),
+      'TextButton': RegExp(r'\bTextButton(?:\.[A-Za-z]+)?\s*\('),
+      'ElevatedButton': RegExp(r'\bElevatedButton(?:\.[A-Za-z]+)?\s*\('),
+      'OutlinedButton': RegExp(r'\bOutlinedButton(?:\.[A-Za-z]+)?\s*\('),
+      'FilledButton': RegExp(r'\bFilledButton(?:\.[A-Za-z]+)?\s*\('),
+      'IconButton': RegExp(r'\bIconButton(?:\.[A-Za-z]+)?\s*\('),
+      'TextField': RegExp(r'\bTextField\s*\('),
       'DropdownButton': RegExp(r'\bDropdownButton(?:<[^>]+>)?\s*\('),
+      'DropdownButtonFormField':
+          RegExp(r'\bDropdownButtonFormField(?:<[^>]+>)?\s*\('),
+      'ChoiceChip': RegExp(r'\bChoiceChip\s*\('),
+      'FilterChip': RegExp(r'\bFilterChip\s*\('),
+      'ActionChip': RegExp(r'\bActionChip\s*\('),
+      'InputChip': RegExp(r'\bInputChip\s*\('),
       'SwitchListTile': RegExp(r'\bSwitchListTile(?:\.adaptive)?\s*\('),
-      'Slider': RegExp(r'(?<!Fx)\bSlider\s*\('),
-      'Checkbox': RegExp(r'(?<!Fx)\bCheckbox\s*\('),
-      'Switch': RegExp(r'(?<!Fx)\bSwitch\s*\('),
+      'Slider': RegExp(r'\bSlider\s*\('),
+      'Checkbox': RegExp(r'\bCheckbox\s*\('),
+      'Switch': RegExp(r'\bSwitch\s*\('),
       'LinearProgressIndicator': RegExp(r'\bLinearProgressIndicator\s*\('),
     };
     final offenders = <String>[];
