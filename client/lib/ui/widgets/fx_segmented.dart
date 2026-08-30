@@ -9,6 +9,7 @@ class FxSegmented extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onChanged;
+  final List<Key?>? itemKeys;
   final Color? backgroundColor;
   final Color? selectedColor;
   final List<BoxShadow>? selectedShadow;
@@ -19,6 +20,7 @@ class FxSegmented extends StatelessWidget {
     required this.labels,
     required this.selectedIndex,
     required this.onChanged,
+    this.itemKeys,
     this.backgroundColor,
     this.selectedColor,
     this.selectedShadow,
@@ -29,6 +31,7 @@ class FxSegmented extends StatelessWidget {
   Widget build(BuildContext context) {
     assert(labels.isNotEmpty);
     assert(selectedIndex >= 0 && selectedIndex < labels.length);
+    assert(itemKeys == null || itemKeys!.length == labels.length);
 
     final theme = Theme.of(context);
     return Container(
@@ -42,6 +45,7 @@ class FxSegmented extends StatelessWidget {
         children: List.generate(labels.length, (index) {
           final selected = index == selectedIndex;
           return InkWell(
+            key: itemKeys?[index],
             borderRadius: BorderRadius.circular(borderRadius - 2),
             onTap: () => onChanged(index),
             child: Container(
