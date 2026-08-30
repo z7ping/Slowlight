@@ -22,6 +22,7 @@ jobs:
           from pathlib import Path
           import re
 
+          # Temporary branch-only audit; remove after reading the report.
           root = Path('client/lib')
           patterns = {
               'SnackBar': re.compile(r'\bSnackBar\s*\('),
