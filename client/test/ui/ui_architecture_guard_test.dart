@@ -79,8 +79,10 @@ void main() {
     );
   });
 
-  test('业务 UI 不直接使用已有 Fx 替代的 Material 视觉控件', () async {
-    final roots = [Directory('lib/screens'), Directory('lib/widgets')];
+  test('整个 lib 不直接使用已有 Fx 替代的 Material 视觉控件', () async {
+    final lib = Directory('lib');
+    expect(lib.existsSync(), isTrue, reason: '测试需从 client 目录运行');
+
     final forbidden = <String, RegExp>{
       'TextButton': RegExp(r'\bTextButton(?:\.[A-Za-z]+)?\s*\('),
       'ElevatedButton': RegExp(r'\bElevatedButton(?:\.[A-Za-z]+)?\s*\('),
@@ -103,25 +105,22 @@ void main() {
     };
     final offenders = <String>[];
 
-    for (final root in roots) {
-      if (!root.existsSync()) continue;
-      await for (final entity in root.list(recursive: true, followLinks: false)) {
-        if (entity is! File || !entity.path.endsWith('.dart')) continue;
-        final normalized = entity.path.replaceAll('\\', '/');
-        final source = await entity.readAsString();
-        final hits = forbidden.entries
-            .where((entry) => entry.value.hasMatch(source))
-            .map((entry) => entry.key)
-            .toList(growable: false);
-        if (hits.isNotEmpty) offenders.add('$normalized: ${hits.join(', ')}');
-      }
+    await for (final entity in lib.list(recursive: true, followLinks: false)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final normalized = entity.path.replaceAll('\\', '/');
+      final source = await entity.readAsString();
+      final hits = forbidden.entries
+          .where((entry) => entry.value.hasMatch(source))
+          .map((entry) => entry.key)
+          .toList(growable: false);
+      if (hits.isNotEmpty) offenders.add('$normalized: ${hits.join(', ')}');
     }
 
     offenders.sort();
     expect(
       offenders,
       isEmpty,
-      reason: '业务视觉控件应通过 Fx* 使用；Material 仅保留布局、导航、滚动、动画、焦点及 Fx 内部明确的兼容实现：\n'
+      reason: '整个 lib 的业务视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点等非视觉基础设施：\n'
           '${offenders.join('\n')}',
     );
   });
