@@ -1,4 +1,5 @@
 import 'fx_cursor.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -105,6 +106,12 @@ class FxChip extends StatelessWidget {
     }
 
     if (onTap != null) {
+      final android =
+          !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      badge = ConstrainedBox(
+        constraints: BoxConstraints(minHeight: android ? 44 : 32),
+        child: Align(alignment: Alignment.center, child: badge),
+      );
       badge = FxGestureDetector(onTap: onTap, child: badge);
     }
     return badge;
