@@ -117,6 +117,9 @@ void main() {
       'VerticalDivider': RegExp(r'\bVerticalDivider\s*\('),
       'InkWell': RegExp(r'\bInkWell\s*\('),
       'Tooltip': RegExp(r'\bTooltip\s*\('),
+      'SnackBar': RegExp(r'\bSnackBar\s*\('),
+      'SnackBarAction': RegExp(r'\bSnackBarAction\s*\('),
+      'ScaffoldMessenger.of': RegExp(r'\bScaffoldMessenger\.of\s*\('),
     };
     final offenders = <String>[];
 
