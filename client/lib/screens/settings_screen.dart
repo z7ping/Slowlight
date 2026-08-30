@@ -12,14 +12,12 @@ import '../services/sync_service.dart';
 import '../services/theme_settings.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
 import 'conflict_screen.dart';
-import 'login_screen.dart';
-import 'migration_preview_dialog.dart';
-import 'migration_history_dialog.dart';
-import 'reminder_screen.dart';
 import 'integration_screen.dart';
+import 'login_screen.dart';
+import 'migration_history_dialog.dart';
+import 'migration_preview_dialog.dart';
+import 'reminder_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String initialSection;
@@ -113,7 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const HfPageHeader(title: '设置'),
+            const FxPageHeader(title: '设置'),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
@@ -165,15 +163,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 Center(
                                   child: Text(
                                     '本地数据 · 你的记录属于你',
-                                    style: TextStyle(
-                                      fontSize: AppTheme.textXs,
+                                    style: SlowlightTypography.caption(context)
+                                        .copyWith(
                                       color: Theme.of(context)
                                           .colorScheme
                                           .onSurfaceVariant,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
                               ],
                             ),
                           ),
@@ -187,39 +184,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _settingsIntro() {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Align(
-        alignment: Alignment.centerLeft,
+  Widget _settingsIntro() => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
         child: Text(
           '调整所行映我的工作方式与数据边界',
-          style: TextStyle(
-            fontSize: AppTheme.textSm,
-            color: theme.colorScheme.onSurfaceVariant,
+          style: SlowlightTypography.secondary(context).copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-      ),
-    );
-  }
+      );
 
-  Widget _groupLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 10, 4, 7),
-      child: Align(
-        alignment: Alignment.centerLeft,
+  Widget _groupLabel(String label) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 10, 4, 7),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             fontWeight: FontWeight.w700,
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
-      ),
-    );
-  }
+      );
 
   String _dataSummary() {
     if (DataModeManager().isLocal) return '本地优先 · 仅保存在设备';
@@ -242,46 +226,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     final theme = Theme.of(context);
     final open = _open == id;
-    return HfCard(
+    final largeText = MediaQuery.textScalerOf(context)
+            .scale(SlowlightTypography.secondarySize) >=
+        SlowlightTypography.secondarySize * 1.3;
+    return FxCard(
       padding: EdgeInsets.zero,
+      color: fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: Border.all(color: fxBorder(context)),
+      expanded: true,
       child: Column(
         children: [
           InkWell(
             onTap: () => setState(() => _open = open ? '' : id),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 52),
+              constraints: const BoxConstraints(minHeight: 56),
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
+                child: largeText
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Icon(icon, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: SlowlightTypography.secondary(context)
+                                    .copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            Icon(
+                              open
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.chevron_right,
+                            ),
+                          ]),
+                          const SizedBox(height: 4),
+                          Text(
+                            summary,
+                            style: SlowlightTypography.caption(context).copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Icon(icon, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: SlowlightTypography.secondary(context)
+                                  .copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              summary,
+                              textAlign: TextAlign.right,
+                              overflow: TextOverflow.ellipsis,
+                              style: SlowlightTypography.caption(context)
+                                  .copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            open
+                                ? Icons.keyboard_arrow_down
+                                : Icons.chevron_right,
+                            size: 18,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
                       ),
-                    ),
-                    Text(
-                      summary,
-                      style: TextStyle(
-                        fontSize: AppTheme.textXs,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      open ? Icons.keyboard_arrow_down : Icons.chevron_right,
-                      size: 18,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
@@ -289,11 +313,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             firstChild: const SizedBox(width: double.infinity),
             secondChild: Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
               decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: theme.colorScheme.outlineVariant),
-                ),
+                border: Border(top: BorderSide(color: fxDivider(context))),
               ),
               child: child,
             ),
@@ -306,6 +328,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _segmented(List<String> labels, int selected, ValueChanged<int> change) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: FxSegmented(
+        labels: labels,
+        selectedIndex: selected,
+        onChanged: change,
+        backgroundColor: fxSubtleSurface(context),
+        selectedColor: fxSurface(context),
+        borderRadius: AppTheme.radiusMd,
+      ),
+    );
+  }
+
   Widget _appearancePanel() {
     final theme = Theme.of(context);
     final settings = ThemeSettings();
@@ -314,20 +350,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ThemeMode.dark => 2,
       _ => 0,
     };
+    final visibleScale = settings.fontScale.clamp(1.0, 1.25).toDouble();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('主题模式'),
-        HfSegmented(
-          labels: const ['跟随系统', '浅色', '深色'],
-          selectedIndex: modeIndex,
-          onChanged: (index) async {
-            await settings.setThemeMode(
-              [ThemeMode.system, ThemeMode.light, ThemeMode.dark][index],
-            );
-            if (mounted) setState(() {});
-          },
-        ),
+        _segmented(const ['跟随系统', '浅色', '深色'], modeIndex,
+            (index) async {
+          await settings.setThemeMode(
+            [ThemeMode.system, ThemeMode.light, ThemeMode.dark][index],
+          );
+          if (mounted) setState(() {});
+        }),
         const SizedBox(height: 14),
         _label('配色'),
         Wrap(
@@ -341,73 +375,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 await settings.setPalette(palette.name);
                 if (mounted) setState(() {});
               },
-              child: SizedBox(
-                width: 104,
-                height: 44,
-                child: Center(
-                  child: Container(
-                    width: 104,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: selected
-                            ? palette.accent
-                            : theme.colorScheme.outlineVariant,
-                        width: selected ? 2 : 1,
-                      ),
-                      color: theme.colorScheme.surface,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 17,
-                          height: 17,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: palette.accent,
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: Text(
-                            palette.label,
-                            style: const TextStyle(
-                              fontSize: AppTheme.textXs,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (selected)
-                          Icon(Icons.check, size: 14, color: palette.accent),
-                      ],
-                    ),
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 104, minHeight: 44),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: selected
+                        ? palette.accent
+                        : theme.colorScheme.outlineVariant,
+                    width: selected ? 2 : 1,
                   ),
+                  color: theme.colorScheme.surface,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 17,
+                      height: 17,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: palette.accent,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      palette.label,
+                      style: SlowlightTypography.caption(context)
+                          .copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (selected) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.check, size: 14, color: palette.accent),
+                    ],
+                  ],
                 ),
               ),
             );
-          }).toList(),
+          }).toList(growable: false),
         ),
         const SizedBox(height: 14),
         Row(
           children: [
-            _label('字号'),
+            _label('应用内字号'),
             const Spacer(),
             Text(
-              '${(settings.fontScale * 100).round()}%',
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
+              '${(visibleScale * 100).round()}%',
+              style: SlowlightTypography.caption(context).copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ],
         ),
         Slider(
-          value: settings.fontScale,
-          min: .85,
+          value: visibleScale,
+          min: 1.0,
           max: 1.25,
-          divisions: 8,
+          divisions: 5,
           onChanged: (value) {
             settings.setFontScale(value);
             setState(() {});
@@ -423,23 +449,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Text(
             '预览：所行映我帮你了解自己',
-            style: TextStyle(fontSize: 14 * settings.fontScale),
+            style: TextStyle(fontSize: 14 * visibleScale),
           ),
         ),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(child: _label('字体')),
+            _label('字体'),
             DropdownButton<String>(
               value: settings.fontFamily,
               items: ThemeSettings.fontFamilyOptions.entries
-                  .map(
-                    (entry) => DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    ),
-                  )
-                  .toList(),
+                  .map((entry) => DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      ))
+                  .toList(growable: false),
               onChanged: (value) async {
                 if (value == null) return;
                 await settings.setFontFamily(value);
@@ -471,18 +498,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('数据模式'),
-        HfSegmented(
-          labels: const ['本地数据', '云端数据'],
-          selectedIndex: local ? 0 : 1,
-          onChanged: _setDataMode,
-        ),
+        _segmented(const ['本地数据', '云端数据'], local ? 0 : 1, _setDataMode),
         const SizedBox(height: 6),
         Text(
           local
               ? '数据仅从本机数据库读写。切换模式不会自动把现有本地数据上传到云端。'
               : '数据以所行映我服务端为准，并在本机保留同步缓存；不会自动导入本地模式中的记录。',
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
@@ -509,7 +531,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 12),
         _settingLine(
           '数据迁移',
           '先预览本机记录与潜在冲突，再确认迁移到云端',
@@ -520,14 +541,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => MigrationPreviewDialog.show(context),
           ),
         ),
-        const SizedBox(height: 12),
-        _settingLine('迁移历史', '查看最近 20 次迁移的时间、策略与结果摘要',
-            trailing: FxButton(
-                label: '查看历史',
-                variant: FxButtonVariant.outline,
-                size: FxButtonSize.sm,
-                onPressed: () => MigrationHistoryDialog.show(context))),
-        const SizedBox(height: 12),
+        _settingLine(
+          '迁移历史',
+          '查看最近 20 次迁移的时间、策略与结果摘要',
+          trailing: FxButton(
+            label: '查看历史',
+            variant: FxButtonVariant.outline,
+            size: FxButtonSize.sm,
+            onPressed: () => MigrationHistoryDialog.show(context),
+          ),
+        ),
         _settingLine(
           '平台集成',
           '连接飞书多维表格，同步任务、习惯与行为记录',
@@ -559,17 +582,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          title: const Text(
+          title: Text(
             '启用 AI',
-            style: TextStyle(
-              fontSize: AppTheme.textSm,
-              fontWeight: FontWeight.w600,
-            ),
+            style: SlowlightTypography.secondary(context)
+                .copyWith(fontWeight: FontWeight.w600),
           ),
           subtitle: Text(
             '提问引擎与回顾洞察',
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -578,22 +598,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() => _ai = _ai.copyWith(enabled: value)),
         ),
         _label('服务商'),
-        HfSegmented(
-          labels: providers.map((provider) => provider.label).toList(),
-          selectedIndex: providerIndex,
-          onChanged: (index) => _changeProvider(providers[index]),
+        _segmented(
+          providers.map((provider) => provider.label).toList(growable: false),
+          providerIndex,
+          (index) => _changeProvider(providers[index]),
         ),
         const SizedBox(height: 10),
         _label('接口地址'),
         TextField(
           controller: _endpoint,
-          style: const TextStyle(fontSize: AppTheme.textSm),
+          style: SlowlightTypography.secondary(context),
         ),
         const SizedBox(height: 10),
         _label('模型'),
         TextField(
           controller: _model,
-          style: const TextStyle(fontSize: AppTheme.textSm),
+          style: SlowlightTypography.secondary(context),
         ),
         if (_ai.provider != AiProviderType.ollama) ...[
           const SizedBox(height: 10),
@@ -603,6 +623,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             obscureText: true,
             enableSuggestions: false,
             autocorrect: false,
+            style: SlowlightTypography.secondary(context),
             decoration: InputDecoration(
               hintText: _hasKey ? '已安全保存；留空保持原值' : '仅保存在本机安全存储',
             ),
@@ -618,15 +639,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Text(
             '🔒 本地 Ollama：数据不出设备。数据模式与 AI 模式相互独立。',
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
         const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             FxButton(
               label: '测试连接',
@@ -634,7 +656,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               size: FxButtonSize.sm,
               onPressed: _savingAi ? null : _testAi,
             ),
-            const SizedBox(width: 8),
             FxButton(
               label: _savingAi ? '保存中…' : '保存',
               size: FxButtonSize.sm,
@@ -646,6 +667,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _statusChip(String label, {bool accent = false}) {
+    final theme = Theme.of(context);
+    return FxChip(
+      label: label,
+      backgroundColor: accent
+          ? activePalette.accent.withValues(alpha: .12)
+          : fxSubtleSurface(context),
+      foregroundColor:
+          accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
+      borderRadius: 999,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    );
+  }
+
   Widget _restPanel() {
     final theme = Theme.of(context);
     if (!_reminderSupported) {
@@ -654,15 +689,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _settingLine(
             '桌面专属',
             '休息提醒只在桌面端采集；移动端仅在回顾中查看同步来的工作/休息事实',
-            trailing: const HfChip('只读回顾'),
+            trailing: _statusChip('只读回顾'),
           ),
-          const SizedBox(height: 6),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
               '查看随处，采集归位。',
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
+              style: SlowlightTypography.caption(context).copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -680,14 +713,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _reminder.isLoaded
               ? '每 ${_reminder.workMinutes} 分钟小憩 ${_reminder.microRestSeconds} 秒'
               : '读取提醒配置中…',
-          trailing: const HfChip('已启用'),
+          trailing: _statusChip('已启用', accent: true),
         ),
         _settingLine(
           '长休息提醒',
           _reminder.isLoaded
               ? '小憩满 ${_reminder.microRestsBeforeLong} 次后进入 ${_reminder.longRestMinutes} 分钟长休息'
               : '读取提醒配置中…',
-          trailing: const HfChip('已启用'),
+          trailing: _statusChip('已启用', accent: true),
         ),
         _settingLine(
           '霸屏休息',
@@ -714,31 +747,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _setReminderStrict(micro: false, value: value),
           ),
         ),
-        _settingLine(
-          '睡眠暂停计时',
-          '系统睡眠/休眠期间不累计工作时长',
-          trailing: const HfChip('提案'),
-        ),
-        _settingLine(
-          '锁屏重置本轮',
-          '解锁后本轮从零开始',
-          trailing: const HfChip('提案'),
-        ),
-        _settingLine(
-          '免打扰时段',
-          '建议 22:00 – 08:00 不提醒',
-          trailing: const HfChip('提案'),
-        ),
+        _settingLine('睡眠暂停计时', '系统睡眠/休眠期间不累计工作时长',
+            trailing: _statusChip('提案')),
+        _settingLine('锁屏重置本轮', '解锁后本轮从零开始',
+            trailing: _statusChip('提案')),
+        _settingLine('免打扰时段', '建议 22:00 – 08:00 不提醒',
+            trailing: _statusChip('提案')),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
-              child: Text(
-                '未落地项继续明确标记为提案，不伪装成可用开关。',
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+            Text(
+              '未落地项继续明确标记为提案，不伪装成可用开关。',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             FxButton(
@@ -758,41 +782,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _settingLine(String title, String subtitle, {Widget? trailing}) {
     final theme = Theme.of(context);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 48),
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+    final largeText = MediaQuery.textScalerOf(context)
+            .scale(SlowlightTypography.secondarySize) >=
+        SlowlightTypography.secondarySize * 1.3;
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: SlowlightTypography.secondary(context)
+              .copyWith(fontWeight: FontWeight.w600),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: AppTheme.textSm,
-                    fontWeight: FontWeight.w600,
-                  ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: SlowlightTypography.caption(context)
+              .copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ],
+    );
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration:
+          BoxDecoration(border: Border(bottom: BorderSide(color: fxDivider(context)))),
+      child: trailing == null
+          ? copy
+          : largeText
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [copy, const SizedBox(height: 8), trailing],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: copy),
+                    const SizedBox(width: 10),
+                    trailing,
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (trailing != null) trailing,
-        ],
-      ),
     );
   }
 
@@ -800,8 +827,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.only(bottom: 5),
         child: Text(
           text,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             fontWeight: FontWeight.w600,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -810,7 +836,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _appearanceSummary() {
     final settings = ThemeSettings();
-    return '${ThemeSettings.themeModeOptions[settings.themeMode]} · ${getPalette(settings.palette).label} · ${(settings.fontScale * 100).round()}%';
+    final scale = settings.fontScale.clamp(1.0, 1.25);
+    return '${ThemeSettings.themeModeOptions[settings.themeMode]} · ${getPalette(settings.palette).label} · ${(scale * 100).round()}%';
   }
 
   String _restSummary() {
