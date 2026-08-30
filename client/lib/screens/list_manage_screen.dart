@@ -7,7 +7,6 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 /// 清单管理：作为「更多工具」中的一级内容页嵌入主壳，不再叠加第二层 AppBar。
 class ListManageScreen extends StatefulWidget {
@@ -23,28 +22,10 @@ class _ListManageScreenState extends State<ListManageScreen> {
   List<Task> _tasks = const [];
 
   static const _presetIcons = [
-    '📁',
-    '💼',
-    '🏠',
-    '🎯',
-    '💡',
-    '📚',
-    '🎨',
-    '🔧',
-    '❤️',
-    '🌟',
-    '🌱',
-    '📊',
+    '📁', '💼', '🏠', '🎯', '💡', '📚', '🎨', '🔧', '❤️', '🌟', '🌱', '📊',
   ];
   static const _presetColors = [
-    '#1890FF',
-    '#52C41A',
-    '#FAAD14',
-    '#FF6B6B',
-    '#722ED1',
-    '#13C2C2',
-    '#EB2F96',
-    '#FA8C16',
+    '#1890FF', '#52C41A', '#FAAD14', '#FF6B6B', '#722ED1', '#13C2C2', '#EB2F96', '#FA8C16',
   ];
 
   @override
@@ -87,17 +68,16 @@ class _ListManageScreenState extends State<ListManageScreen> {
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
           return Dialog(
-            backgroundColor: hfSurface(dialogContext),
+            backgroundColor: theme.colorScheme.surface,
             surfaceTintColor: Colors.transparent,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              side: BorderSide(color: hfBorder(dialogContext)),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -108,10 +88,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                         Expanded(
                           child: Text(
                             existing == null ? '新建清单' : '编辑清单',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: SlowlightTypography.cardTitle(dialogContext),
                           ),
                         ),
                         SizedBox(
@@ -132,7 +109,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       controller: nameController,
                       autofocus: true,
                       enabled: !saving,
-                      style: const TextStyle(fontSize: 13),
+                      style: SlowlightTypography.body(dialogContext),
                       decoration: const InputDecoration(hintText: '清单名称'),
                     ),
                     const SizedBox(height: 14),
@@ -146,8 +123,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                           onTap: saving
                               ? null
                               : () => setDialogState(() => selectedIcon = icon),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusMd),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                           child: Container(
                             width: 44,
                             height: 44,
@@ -156,16 +132,14 @@ class _ListManageScreenState extends State<ListManageScreen> {
                               color: selected
                                   ? activePalette.accent.withValues(alpha: .12)
                                   : Colors.transparent,
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusMd),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                               border: Border.all(
                                 color: selected
                                     ? activePalette.accent
-                                    : hfBorder(dialogContext),
+                                    : theme.colorScheme.outlineVariant,
                               ),
                             ),
-                            child: Text(icon,
-                                style: const TextStyle(fontSize: 18)),
+                            child: Text(icon, style: const TextStyle(fontSize: 18)),
                           ),
                         );
                       }).toList(growable: false),
@@ -181,8 +155,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                         return InkWell(
                           onTap: saving
                               ? null
-                              : () =>
-                                  setDialogState(() => selectedColor = value),
+                              : () => setDialogState(() => selectedColor = value),
                           borderRadius: BorderRadius.circular(22),
                           child: SizedBox(
                             width: 44,
@@ -211,15 +184,16 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       const SizedBox(height: 8),
                       Text(
                         error!,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                        style: SlowlightTypography.caption(dialogContext).copyWith(
                           color: theme.colorScheme.error,
                         ),
                       ),
                     ],
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         FxButton(
                           label: '取消',
@@ -228,7 +202,6 @@ class _ListManageScreenState extends State<ListManageScreen> {
                               ? null
                               : () => Navigator.pop(dialogContext, false),
                         ),
-                        const SizedBox(width: 8),
                         FxButton(
                           label: saving
                               ? '保存中…'
@@ -293,8 +266,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(
           text,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             fontWeight: FontWeight.w600,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -337,12 +309,16 @@ class _ListManageScreenState extends State<ListManageScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 8,
                     children: [
-                      HfChip('${_lists.length} 个清单'),
-                      const Spacer(),
-                      const SizedBox(width: 16),
+                      FxChip(
+                        label: '${_lists.length} 个清单',
+                        variant: FxChipVariant.secondary,
+                      ),
                       FxButton(
                         label: '新建清单',
                         icon: LucideIcons.plus,
@@ -353,7 +329,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                   ),
                   const SizedBox(height: 14),
                   if (_lists.isEmpty)
-                    HfEmptyState(
+                    FxEmptyState(
                       emoji: '📁',
                       title: '还没有清单',
                       subtitle: '用清单把不同方向的任务分开',
@@ -365,8 +341,9 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       ),
                     )
                   else
-                    HfCard(
+                    FxCard(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
+                      expanded: true,
                       child: Column(
                         children: _lists.map((list) {
                           final color = ColorUtils.safeParse(list.color);
@@ -375,7 +352,9 @@ class _ListManageScreenState extends State<ListManageScreen> {
                             constraints: const BoxConstraints(minHeight: 60),
                             decoration: BoxDecoration(
                               border: Border(
-                                bottom: BorderSide(color: hfDivider(context)),
+                                bottom: BorderSide(
+                                  color: theme.colorScheme.outlineVariant,
+                                ),
                               ),
                             ),
                             child: Row(
@@ -386,35 +365,27 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     color: color.withValues(alpha: .10),
-                                    borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusMd),
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                                   ),
-                                  child: Text(
-                                    list.icon,
-                                    style: const TextStyle(fontSize: 17),
-                                  ),
+                                  child: Text(list.icon, style: const TextStyle(fontSize: 17)),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
                                         list.name,
-                                        style: const TextStyle(
-                                          fontSize: 13,
+                                        style: SlowlightTypography.body(context).copyWith(
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       if (list.isInbox)
                                         Text(
                                           '默认收集箱',
-                                          style: TextStyle(
-                                            fontSize: AppTheme.textXs,
-                                            color: theme
-                                                .colorScheme.onSurfaceVariant,
+                                          style: SlowlightTypography.caption(context).copyWith(
+                                            color: theme.colorScheme.onSurfaceVariant,
                                           ),
                                         ),
                                     ],
@@ -422,22 +393,17 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                 ),
                                 Text(
                                   '$count 条',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.textXs,
+                                  style: SlowlightTypography.caption(context).copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                const SizedBox(width: 2),
                                 SizedBox(
                                   width: 44,
                                   height: 44,
                                   child: IconButton(
                                     tooltip: '编辑',
                                     onPressed: () => _showEditor(list),
-                                    icon: const Icon(
-                                      LucideIcons.pencil,
-                                      size: 17,
-                                    ),
+                                    icon: const Icon(LucideIcons.pencil, size: 17),
                                   ),
                                 ),
                                 if (!list.isInbox)
