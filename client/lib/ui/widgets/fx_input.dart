@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../app_theme.dart';
 import '../typography_tokens.dart';
 
 /// FxInput — 文本输入组件。
 ///
-/// 页面层统一使用 FxInput；内部保留原生 TextField 以保证桌面端中文输入法
-/// 的稳定性。视觉、字号、占位文字和标签语义统一由 Fx 层管理。
+/// 页面层统一使用 FxInput；底层统一由 shadcn_ui 的 ShadInput 提供输入能力，
+/// Slowlight 只在 Fx 层管理语义排版、尺寸和装饰。
 class FxInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? placeholder;
@@ -68,7 +69,8 @@ class FxInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(AppTheme.radiusMd);
-    final input = TextField(
+    final shadTheme = ShadTheme.of(context);
+    final input = ShadInput(
       controller: controller,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
@@ -87,42 +89,32 @@ class FxInput extends StatelessWidget {
       focusNode: focusNode,
       style: style ?? SlowlightTypography.body(context),
       inputFormatters: inputFormatters,
-      decoration: InputDecoration(
-        hintText: placeholder,
-        hintStyle: placeholderStyle ??
-            SlowlightTypography.secondary(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-        prefixIcon: leading,
-        suffixIcon: trailing,
-        filled: true,
-        fillColor: enabled
-            ? theme.colorScheme.surfaceContainerLowest
-            : theme.colorScheme.surfaceContainerLow,
-        border: OutlineInputBorder(
-          borderRadius: radius,
-          borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: radius,
-          borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: radius,
-          borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: radius,
-          borderSide: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: .65),
+      placeholder: placeholder == null ? null : Text(placeholder!),
+      placeholderStyle: placeholderStyle ??
+          SlowlightTypography.secondary(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
+      leading: leading,
+      trailing: trailing,
+      padding: contentPadding ??
+          EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: isDense ? 9 : 11,
+          ),
+      decoration: ShadDecoration(
+        color: enabled
+            ? shadTheme.colorScheme.background
+            : shadTheme.colorScheme.muted,
+        border: ShadBorder.all(
+          color: shadTheme.colorScheme.border,
+          width: 1,
+          radius: radius,
         ),
-        isDense: isDense,
-        contentPadding: contentPadding ??
-            EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: isDense ? 9 : 11,
-            ),
+        focusedBorder: ShadBorder.all(
+          color: shadTheme.colorScheme.ring,
+          width: 1.5,
+          radius: radius,
+        ),
       ),
     );
 
