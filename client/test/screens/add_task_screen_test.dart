@@ -1,19 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/models/todo_list.dart';
-import 'package:slowlight/ui/theme_manager.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:slowlight/screens/add_task_screen.dart';
 
-Widget buildHost(Widget home) {
-  return ShadTheme(
-    data: ThemeManager.shadLight,
-    child: MaterialApp(
-      theme: ThemeManager.lightTheme,
-      home: home,
-    ),
-  );
-}
+import '../support/fx_test_host.dart';
 
 void main() {
   final testLists = [
@@ -25,13 +15,13 @@ void main() {
 
   group('AddTaskScreen 稳定契约', () {
     testWidgets('空标题提交会被校验拦截', (tester) async {
-      await tester.pumpWidget(buildHost(buildScreen()));
+      await tester.pumpWidget(buildFxTestHost(home: buildScreen()));
       await tester.pump();
 
       await tester.tap(find.text('保存'));
       await tester.pump();
 
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('请输入任务标题'), findsOneWidget);
       expect(find.byType(AddTaskScreen), findsOneWidget);
     });
 
@@ -40,7 +30,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(buildHost(buildScreen()));
+      await tester.pumpWidget(buildFxTestHost(home: buildScreen()));
       await tester.pump();
 
       expect(tester.takeException(), isNull);
