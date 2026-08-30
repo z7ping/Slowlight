@@ -93,6 +93,18 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     borderRadius: AppTheme.radiusMd,
   );
 
+  Widget _taskActionBar() => FxActionBar(
+    leading: _segments(),
+    actions: [
+      FxButton(
+        label: '新建任务',
+        icon: LucideIcons.plus,
+        size: FxButtonSize.sm,
+        onPressed: _create,
+      ),
+    ],
+  );
+
   Future<void> _toggle(Task task) async {
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     try {
@@ -163,21 +175,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
                     children: [
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          _segments(),
-                          FxButton(
-                            label: '新建任务',
-                            icon: LucideIcons.plus,
-                            size: FxButtonSize.sm,
-                            onPressed: _create,
-                          ),
-                        ],
-                      ),
+                      _taskActionBar(),
                       const SizedBox(height: 14),
                       _card(
                         child:
@@ -222,7 +220,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: Column(
         children: [
-          _toolbar(),
+          _taskActionBar(),
           const SizedBox(height: 14),
           Expanded(
             child:
@@ -271,19 +269,6 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       ),
     );
   }
-
-  Widget _toolbar() => Row(
-    children: [
-      _segments(),
-      const Spacer(),
-      FxButton(
-        label: '新建任务',
-        icon: LucideIcons.plus,
-        size: FxButtonSize.sm,
-        onPressed: _create,
-      ),
-    ],
-  );
 
   Widget _emptyState() => FxEmptyState(
     emoji: '🍃',
