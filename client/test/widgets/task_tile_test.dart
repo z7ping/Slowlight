@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slowlight/widgets/task_tile.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/task.dart';
+import 'package:slowlight/ui/app_theme.dart';
+import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/widgets/task_tile.dart';
 
 void main() {
   Task makeTask({
@@ -23,13 +26,17 @@ void main() {
     required VoidCallback onToggle,
     VoidCallback? onTap,
   }) {
-    return MaterialApp(
-      home: Scaffold(
-        body: TaskTile(
-          task: task,
-          onToggle: onToggle,
-          onDelete: () {},
-          onTap: onTap,
+    return ShadTheme(
+      data: shadLightTheme(null),
+      child: MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: TaskTile(
+            task: task,
+            onToggle: onToggle,
+            onDelete: () {},
+            onTap: onTap,
+          ),
         ),
       ),
     );
@@ -42,7 +49,7 @@ void main() {
       );
 
       expect(find.text('买牛奶'), findsOneWidget);
-      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+      expect(tester.widget<FxCheckbox>(find.byType(FxCheckbox)).value, isTrue);
     });
 
     testWidgets('点击完成控件触发状态切换回调', (tester) async {
@@ -51,7 +58,7 @@ void main() {
         host(makeTask(), onToggle: () => toggled = true),
       );
 
-      await tester.tap(find.byType(Checkbox));
+      await tester.tap(find.byType(FxCheckbox));
 
       expect(toggled, isTrue);
     });
