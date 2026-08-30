@@ -8,7 +8,6 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/calendar_month_grid.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
@@ -192,10 +191,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Text(
             '${_focused.year} 年 ${_focused.month} 月',
             key: const ValueKey('calendar-month-label'),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: SlowlightTypography.cardTitle(context).copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         if (!compact) _filter(),
@@ -213,47 +211,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _filter() {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(left: 12),
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _filterButton('全部', CalendarDisplayMode.all),
-          _filterButton('计划', CalendarDisplayMode.plan),
-          _filterButton('实际', CalendarDisplayMode.actual),
-        ],
-      ),
-    );
-  }
-
-  Widget _filterButton(String label, CalendarDisplayMode mode) {
-    final selected = mode == _displayMode;
-    final theme = Theme.of(context);
-    return Material(
-      color: selected
-          ? theme.colorScheme.surfaceContainerLowest
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-      child: InkWell(
-        key: ValueKey('calendar-filter-${mode.name}'),
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        onTap: () => setState(() => _displayMode = mode),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-        ),
+    return FxSegmented(
+      labels: const ['全部', '计划', '实际'],
+      selectedIndex: _displayMode.index,
+      onChanged: (index) => setState(
+        () => _displayMode = CalendarDisplayMode.values[index],
       ),
     );
   }
@@ -274,7 +236,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       child: Text(
         '${labels.join('、')}记录暂时不可用，其他数据仍可浏览。',
-        style: const TextStyle(fontSize: AppTheme.textXs),
+        style: SlowlightTypography.caption(context),
       ),
     );
   }
@@ -288,7 +250,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         .where((record) => record.type != CalendarRecordType.task)
         .toList(growable: false);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    return HfCard(
+    return FxCard(
       key: _dayPanelKey,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Column(
@@ -305,15 +267,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Text(
                     '${_selected.month} 月 ${_selected.day} 日 · 周${weekdays[_selected.weekday - 1]}',
                     key: const ValueKey('calendar-selected-title'),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   Text(
                     '计划与实际 · 共 ${records.length} 条完整记录',
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                    style: SlowlightTypography.caption(context).copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -339,7 +299,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   children: [
                     taskSection,
                     const SizedBox(height: 16),
-                    activitySection
+                    activitySection,
                   ],
                 );
               }
@@ -380,13 +340,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _summaryChip(String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(text, style: const TextStyle(fontSize: AppTheme.textXs)),
+  Widget _summaryChip(String text) => FxChip(
+        label: text,
+        variant: FxChipVariant.secondary,
       );
 
   Widget _recordSection(
@@ -399,8 +355,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       children: [
         Text(
           title,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             fontWeight: FontWeight.w700,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -410,8 +365,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             padding: const EdgeInsets.symmetric(vertical: 18),
             child: Text(
               taskSection ? '当天没有任务计划。' : '当天还没有习惯、专注或观察记录。',
-              style: TextStyle(
-                fontSize: AppTheme.textSm,
+              style: SlowlightTypography.secondary(context).copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
@@ -429,6 +383,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (record.dimensionLabel.isNotEmpty) record.dimensionLabel,
       if (record.durationMin > 0) '${record.durationMin}min',
     ].join(' · ');
+    final scaledSecondary = MediaQuery.textScalerOf(context)
+        .scale(SlowlightTypography.secondarySize);
+    final titleMaxLines = scaledSecondary >=
+            SlowlightTypography.secondarySize * 1.3
+        ? 2
+        : 1;
     return InkWell(
       key: ValueKey('calendar-record-${record.id}'),
       onTap: () => _openRecord(record),
@@ -436,7 +396,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         constraints: const BoxConstraints(minHeight: 48),
         decoration: BoxDecoration(
           border: Border(
-              bottom: BorderSide(color: theme.colorScheme.outlineVariant)),
+            bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
         ),
         child: Row(
           children: [
@@ -455,26 +416,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 children: [
                   Text(
                     record.title,
-                    maxLines: 1,
+                    maxLines: titleMaxLines,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500),
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (meta.isNotEmpty)
                     Text(
                       meta,
-                      style: TextStyle(
-                        fontSize: AppTheme.textXs,
+                      style: SlowlightTypography.caption(context).copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               record.completed ? '已记录 ›' : '待完成 ›',
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
+              style: SlowlightTypography.caption(context).copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -555,13 +516,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
               width: 72,
               child: Text(
                 label,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: SlowlightTypography.secondary(context).copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             Expanded(
-                child: Text(value,
-                    style: const TextStyle(fontWeight: FontWeight.w600))),
+              child: Text(
+                value,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ],
         ),
       );
