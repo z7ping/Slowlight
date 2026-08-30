@@ -6,7 +6,6 @@ import '../services/data_mode_manager.dart';
 import '../services/migration_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import 'login_screen.dart';
 
 /// 本地数据迁移到云端的预览与冲突确认界面。
@@ -81,7 +80,6 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         _conflictCount = _conflicts.length;
       }
     } catch (e) {
-      // 某些旧数据库尚未拥有所有表；保留已读取到的本机统计，避免阻断设置页。
       _previewError = e.toString();
     }
     if (mounted) setState(() => _loading = false);
@@ -92,6 +90,36 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     if (!DataModeManager().isCloud) return 1;
     if (_conflictCount > 0) return 1;
     return 2;
+  }
+
+  Widget _card({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+  }) {
+    final theme = Theme.of(context);
+    return FxCard(
+      padding: padding,
+      color: fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: Border.all(color: fxBorder(context)),
+      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
+      child: child,
+    );
+  }
+
+  Widget _chip(String label, {bool accent = false}) {
+    final theme = Theme.of(context);
+    return FxChip(
+      label: label,
+      backgroundColor: accent
+          ? activePalette.accent.withValues(alpha: .12)
+          : fxSubtleSurface(context),
+      foregroundColor:
+          accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
+      borderRadius: 999,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    );
   }
 
   @override
@@ -114,21 +142,21 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 children: [
                   _overviewCard(),
                   const SizedBox(height: AppTheme.spaceLg),
-                  const HfSectionHeader(
+                  const FxSectionHeader(
                     title: '迁移进度',
                     trailing: '先扫描、再比对，最后由你确认写入',
                   ),
                   const SizedBox(height: AppTheme.spaceXs),
                   _progressCard(),
                   const SizedBox(height: AppTheme.spaceLg),
-                  const HfSectionHeader(
+                  const FxSectionHeader(
                     title: '迁移数据',
                     trailing: '当前只读取数量，不会修改本地数据',
                   ),
                   const SizedBox(height: AppTheme.spaceXs),
                   _countGrid(),
                   const SizedBox(height: AppTheme.spaceLg),
-                  HfSectionHeader(
+                  FxSectionHeader(
                     title: '冲突处理',
                     trailing: DataModeManager().isCloud
                         ? (_conflictCount == 0
@@ -163,14 +191,14 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             children: [
               Text(
                 '迁移本地数据到云端',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: SlowlightTypography.pageTitle(context).copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 3),
               Text(
                 '先扫描和比较，再决定如何处理冲突；预览阶段不会写入或删除数据。',
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
+                style: SlowlightTypography.caption(context).copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -178,8 +206,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           ),
         ),
         SizedBox(
-          width: 40,
-          height: 40,
+          width: 44,
+          height: 44,
           child: IconButton(
             tooltip: '关闭',
             onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
@@ -192,7 +220,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   Widget _overviewCard() {
     final theme = Theme.of(context);
-    return HfCard(
+    return _card(
       padding: const EdgeInsets.all(AppTheme.spaceMd),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -217,18 +245,16 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '本机数据 → Slowlight 云端',
-                      style: TextStyle(
-                        fontSize: AppTheme.textMd,
+                      style: SlowlightTypography.cardTitle(context).copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       '本地数据始终保留；只有最终确认后才会开始迁移。',
-                      style: TextStyle(
-                        fontSize: AppTheme.textXs,
+                      style: SlowlightTypography.caption(context).copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -241,12 +267,12 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             spacing: AppTheme.spaceXs,
             runSpacing: AppTheme.spaceXs,
             children: [
-              const HfChip('本机 → 云端'),
-              HfChip(
+              _chip('本机 → 云端'),
+              _chip(
                 DataModeManager().isCloud ? '云端已连接' : '云端未登录',
                 accent: DataModeManager().isCloud,
               ),
-              HfChip(
+              _chip(
                 _loading
                     ? '正在扫描'
                     : _previewError != null
@@ -280,14 +306,17 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   Widget _progressCard() {
     const labels = ['扫描数据', '处理冲突', '确认迁移', '完成'];
-    return HfCard(
+    return _card(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spaceMd,
         vertical: AppTheme.spaceSm,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 560;
+          final compact = constraints.maxWidth < 560 ||
+              MediaQuery.textScalerOf(context)
+                      .scale(SlowlightTypography.secondarySize) >=
+                  SlowlightTypography.secondarySize * 1.3;
           if (compact) {
             return Wrap(
               spacing: AppTheme.spaceMd,
@@ -309,7 +338,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                         const EdgeInsets.symmetric(horizontal: AppTheme.spaceXs),
                     color: before < _currentStep
                         ? Theme.of(context).colorScheme.primary
-                        : hfDivider(context),
+                        : fxDivider(context),
                   ),
                 );
               }
@@ -337,15 +366,14 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           decoration: BoxDecoration(
             color: emphasized
                 ? theme.colorScheme.primary
-                : hfSubtleSurface(context),
+                : fxSubtleSurface(context),
             shape: BoxShape.circle,
           ),
           child: completed
               ? Icon(Icons.check, size: 14, color: theme.colorScheme.onPrimary)
               : Text(
                   '${index + 1}',
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(context).copyWith(
                     fontWeight: FontWeight.w700,
                     color: current
                         ? theme.colorScheme.onPrimary
@@ -356,8 +384,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         const SizedBox(width: 7),
         Text(
           label,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             fontWeight: current ? FontWeight.w700 : FontWeight.w500,
             color: emphasized
                 ? theme.colorScheme.onSurface
@@ -370,17 +397,28 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   Widget _countGrid() => LayoutBuilder(
         builder: (context, constraints) {
-          final columns = constraints.maxWidth < 520 ? 2 : 4;
+          final largeText = MediaQuery.textScalerOf(context)
+                  .scale(SlowlightTypography.bodySize) >=
+              SlowlightTypography.bodySize * 1.3;
+          final columns = largeText
+              ? 1
+              : constraints.maxWidth < 520
+                  ? 2
+                  : 4;
           return GridView.count(
             crossAxisCount: columns,
             mainAxisSpacing: AppTheme.spaceXs,
             crossAxisSpacing: AppTheme.spaceXs,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: columns == 2 ? 2.45 : 1.95,
+            childAspectRatio: columns == 1
+                ? 3.4
+                : columns == 2
+                    ? 2.45
+                    : 1.95,
             children: _counts.entries
                 .map(
-                  (entry) => HfStatCell(
+                  (entry) => FxStatCell(
                     label: entry.key,
                     value: _loading ? '—' : '${entry.value}',
                   ),
@@ -393,7 +431,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   Widget _comparisonStateCard() {
     final theme = Theme.of(context);
     final cloud = DataModeManager().isCloud;
-    return HfCard(
+    return _card(
       child: Row(
         children: [
           Container(
@@ -416,8 +454,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               children: [
                 Text(
                   cloud ? '当前没有需要确认的冲突' : '登录云端后开始数据比对',
-                  style: const TextStyle(
-                    fontSize: AppTheme.textSm,
+                  style: SlowlightTypography.secondary(context).copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -426,8 +463,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                   cloud
                       ? '可以继续到确认迁移；本地数据仍不会被删除。'
                       : '登录仅用于读取云端并生成冲突预览，确认前不会写入。',
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -441,7 +477,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   Widget _conflictCard() {
     final theme = Theme.of(context);
-    return HfCard(
+    return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -491,8 +527,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           const SizedBox(height: AppTheme.spaceXs),
           Text(
             '冲突策略将在确认迁移后应用；当前不会覆盖任何云端数据。',
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -524,7 +559,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         width: double.infinity,
         padding: const EdgeInsets.all(AppTheme.spaceSm),
         decoration: BoxDecoration(
-          color: hfSubtleSurface(context).withValues(alpha: .45),
+          color: fxSubtleSurface(context).withValues(alpha: .45),
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         ),
         child: Column(
@@ -545,8 +580,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             const SizedBox(height: 4),
             Text(
               '状态、截止日期等字段存在差异',
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
+              style: SlowlightTypography.caption(context).copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -580,7 +614,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
       width: double.infinity,
       padding: const EdgeInsets.only(top: AppTheme.spaceSm),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: hfDivider(context))),
+        border: Border(top: BorderSide(color: fxDivider(context))),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -614,40 +648,29 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             ],
           );
 
+          final statusText = Text(
+            status,
+            maxLines: constraints.maxWidth < 620 ? null : 1,
+            overflow: constraints.maxWidth < 620 ? null : TextOverflow.ellipsis,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: _previewError == null
+                  ? theme.colorScheme.onSurfaceVariant
+                  : theme.colorScheme.error,
+            ),
+          );
           if (constraints.maxWidth < 620) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    color: _previewError == null
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.colorScheme.error,
-                  ),
-                ),
+                statusText,
                 const SizedBox(height: AppTheme.spaceXs),
                 actions,
               ],
             );
           }
-
           return Row(
             children: [
-              Expanded(
-                child: Text(
-                  status,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    color: _previewError == null
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.colorScheme.error,
-                  ),
-                ),
-              ),
+              Expanded(child: statusText),
               const SizedBox(width: AppTheme.spaceMd),
               actions,
             ],
