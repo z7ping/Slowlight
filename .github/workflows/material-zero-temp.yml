@@ -24,17 +24,27 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Remove legacy Material button theme
+      - name: Remove legacy Material button themes
         shell: python
         run: |
           from pathlib import Path
           p = Path('client/lib/ui/app_theme.dart')
           source = p.read_text(encoding='utf-8')
-          old = """      elevatedButtonTheme: ElevatedButtonThemeData(\n          style: ElevatedButton.styleFrom(\n              backgroundColor: p.darkPrimaryBtnBg,\n              foregroundColor: p.darkPrimaryBtnFg,\n              elevation: 0,\n              minimumSize: const Size(0, 44),\n              padding: const EdgeInsets.symmetric(horizontal: 14),\n              shape: RoundedRectangleBorder(\n                  borderRadius: BorderRadius.circular(8)))),\n"""
-          count = source.count(old)
-          if count != 1:
-              raise SystemExit(f'expected exactly one legacy ElevatedButton theme block, got {count}')
-          p.write_text(source.replace(old, ''), encoding='utf-8')
+
+          blocks = [
+              """      elevatedButtonTheme: ElevatedButtonThemeData(\n          style: ElevatedButton.styleFrom(\n              backgroundColor: p.primaryBtnBg,\n              foregroundColor: p.primaryBtnFg,\n              elevation: 0,\n              minimumSize: const Size(0, 44),\n              padding: const EdgeInsets.symmetric(horizontal: 14),\n              shape: RoundedRectangleBorder(\n                  borderRadius: BorderRadius.circular(8)))),\n""",
+              """      elevatedButtonTheme: ElevatedButtonThemeData(\n          style: ElevatedButton.styleFrom(\n              backgroundColor: p.darkPrimaryBtnBg,\n              foregroundColor: p.darkPrimaryBtnFg,\n              elevation: 0,\n              minimumSize: const Size(0, 44),\n              padding: const EdgeInsets.symmetric(horizontal: 14),\n              shape: RoundedRectangleBorder(\n                  borderRadius: BorderRadius.circular(8)))),\n""",
+          ]
+
+          for index, old in enumerate(blocks, start=1):
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f'expected exactly one legacy ElevatedButton theme block #{index}, got {count}'
+                  )
+              source = source.replace(old, '')
+
+          p.write_text(source, encoding='utf-8')
 
       - name: Format
         run: dart format client/lib/ui/app_theme.dart client/lib/ui/widgets/fx_input.dart client/test/ui/ui_architecture_guard_test.dart
