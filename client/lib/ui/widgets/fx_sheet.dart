@@ -31,12 +31,10 @@ abstract final class FxSheet {
   }) {
     final effectiveDismissible = isDismissible ?? dismissible;
     final effectiveDraggable = enableDrag ?? draggable;
-    final radius = switch (shape) {
-      RoundedRectangleBorder(borderRadius: final BorderRadiusGeometry value)
-          when value is BorderRadius =>
-        value,
-      _ => null,
-    };
+    BorderRadius? radius;
+    if (shape is RoundedRectangleBorder && shape.borderRadius is BorderRadius) {
+      radius = shape.borderRadius as BorderRadius;
+    }
 
     return showShadSheet<T>(
       context: context,
