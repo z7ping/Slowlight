@@ -22,7 +22,7 @@ class FxSelect<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = SlowlightTypography.secondary(context);
+    final textStyle = SlowlightTypography.control(context);
     return ShadSelect<T>(
       key: ValueKey(value),
       initialValue: value,
