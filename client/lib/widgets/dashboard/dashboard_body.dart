@@ -98,9 +98,10 @@ class _DashboardBodyState extends State<DashboardBody> {
             .take(1)
             .map((item) => Insight.fromJson(Map<String, dynamic>.from(item)))
             .toList(growable: false);
-        _facts = reviewData['facts'] is Map
-            ? Map<String, dynamic>.from(reviewData['facts'] as Map)
-            : <String, dynamic>{};
+        _facts =
+            reviewData['facts'] is Map
+                ? Map<String, dynamic>.from(reviewData['facts'] as Map)
+                : <String, dynamic>{};
         _loading = false;
       });
     } catch (e) {
@@ -119,7 +120,8 @@ class _DashboardBodyState extends State<DashboardBody> {
       color: fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );
@@ -137,8 +139,12 @@ class _DashboardBodyState extends State<DashboardBody> {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(desktop ? 24 : 16, desktop ? 20 : 14,
-            desktop ? 24 : 16, 40),
+        padding: EdgeInsets.fromLTRB(
+          desktop ? 24 : 16,
+          desktop ? 20 : 14,
+          desktop ? 24 : 16,
+          40,
+        ),
         children: [
           _header(desktop),
           SizedBox(height: desktop ? 18 : 12),
@@ -153,19 +159,26 @@ class _DashboardBodyState extends State<DashboardBody> {
     final now = DateTime.now();
     const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
     const short = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    final subtitle = desktop
-        ? '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 你有 ${widget.tasks.length} 个任务和 ${widget.habits.length} 个习惯在今天'
-        : '${now.month} 月 ${now.day} 日 ${short[now.weekday - 1]}';
+    final subtitle =
+        desktop
+            ? '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 你有 ${widget.tasks.length} 个任务和 ${widget.habits.length} 个习惯在今天'
+            : '${now.month} 月 ${now.day} 日 ${short[now.weekday - 1]}';
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${_greeting(now.hour)} 👋',
-            style: SlowlightTypography.pageTitle(context)
-                .copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          '${_greeting(now.hour)} 👋',
+          style: SlowlightTypography.pageTitle(
+            context,
+          ).copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 2),
-        Text(subtitle,
-            style: SlowlightTypography.caption(context)
-                .copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          subtitle,
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
       ],
     );
     if (!desktop) return copy;
@@ -195,40 +208,46 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _desktop() => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 280,
-            child: Column(children: [
-              _dimensionCard(),
-              const SizedBox(height: 14),
-              _focusCard(),
-              const SizedBox(height: 14),
-              _questionCard(),
-            ]),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(children: [
-              _taskCard(maxItems: 3, mobile: false),
-              const SizedBox(height: 14),
-              _habitCard(maxItems: 3, mobile: false),
-            ]),
-          ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 280,
+        child: Column(
+          children: [
+            _dimensionCard(),
+            const SizedBox(height: 14),
+            _focusCard(),
+            const SizedBox(height: 14),
+            _questionCard(),
+          ],
+        ),
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: Column(
+          children: [
+            _taskCard(maxItems: 3, mobile: false),
+            const SizedBox(height: 14),
+            _habitCard(maxItems: 3, mobile: false),
+          ],
+        ),
+      ),
+    ],
+  );
 
-  Widget _mobile() => Column(children: [
-        _dimensionCard(),
-        const SizedBox(height: 12),
-        _taskCard(maxItems: 2, mobile: true),
-        const SizedBox(height: 12),
-        _habitCard(maxItems: 2, mobile: true),
-        const SizedBox(height: 12),
-        _questionCard(),
-        const SizedBox(height: 12),
-        _focusCard(),
-      ]);
+  Widget _mobile() => Column(
+    children: [
+      _dimensionCard(),
+      const SizedBox(height: 12),
+      _taskCard(maxItems: 2, mobile: true),
+      const SizedBox(height: 12),
+      _habitCard(maxItems: 2, mobile: true),
+      const SizedBox(height: 12),
+      _questionCard(),
+      const SizedBox(height: 12),
+      _focusCard(),
+    ],
+  );
 
   Widget _dimensionCard() {
     final mobile = MediaQuery.sizeOf(context).width < 1024;
@@ -241,25 +260,31 @@ class _DashboardBodyState extends State<DashboardBody> {
           if (_dimensions.isEmpty)
             _empty('还没有四维行为记录')
           else
-            LayoutBuilder(builder: (context, constraints) {
-              final largeText = MediaQuery.textScalerOf(context)
-                      .scale(SlowlightTypography.secondarySize) >=
-                  SlowlightTypography.secondarySize * 1.3;
-              final columns = largeText ? 1 : 2;
-              final gap = 8.0;
-              final width =
-                  (constraints.maxWidth - gap * (columns - 1)) / columns;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: _dimensions
-                    .map((item) => SizedBox(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final largeText =
+                    MediaQuery.textScalerOf(
+                      context,
+                    ).scale(SlowlightTypography.secondarySize) >=
+                    SlowlightTypography.secondarySize * 1.3;
+                final columns = largeText ? 1 : 2;
+                final gap = 8.0;
+                final width =
+                    (constraints.maxWidth - gap * (columns - 1)) / columns;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: _dimensions
+                      .map(
+                        (item) => SizedBox(
                           width: width,
                           child: _dimensionItem(item, compact: mobile),
-                        ))
-                    .toList(growable: false),
-              );
-            }),
+                        ),
+                      )
+                      .toList(growable: false),
+                );
+              },
+            ),
         ],
       ),
       padding: EdgeInsets.all(mobile ? 12 : 16),
@@ -280,26 +305,35 @@ class _DashboardBodyState extends State<DashboardBody> {
       child: Row(
         children: [
           Expanded(
-            child: Text(item['name']?.toString() ?? '',
-                style: SlowlightTypography.caption(context)
-                    .copyWith(fontWeight: FontWeight.w600)),
+            child: Text(
+              item['name']?.toString() ?? '',
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
           if (compact)
-            Text('${active.length}/7 天',
-                style: SlowlightTypography.caption(context)
-                    .copyWith(color: theme.colorScheme.onSurfaceVariant))
+            Text(
+              '${active.length}/7 天',
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+            )
           else
-            ..._lastSevenDays().map((day) => Container(
-                  width: 7,
-                  height: 7,
-                  margin: const EdgeInsets.only(left: 3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: active.contains(_dateKey(day))
-                        ? color
-                        : fxSubtleSurface(context),
-                  ),
-                )),
+            ..._lastSevenDays().map(
+              (day) => Container(
+                width: 7,
+                height: 7,
+                margin: const EdgeInsets.only(left: 3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color:
+                      active.contains(_dateKey(day))
+                          ? color
+                          : fxSubtleSurface(context),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -315,12 +349,15 @@ class _DashboardBodyState extends State<DashboardBody> {
           FxSectionHeader(
             title: '今日任务',
             trailing: '$completed/${widget.tasks.length} 完成',
-            trailingWidget: widget.onViewAllTasks == null
-                ? null
-                : TextButton(
-                    onPressed: widget.onViewAllTasks,
-                    child: const Text('查看全部'),
-                  ),
+            trailingWidget:
+                widget.onViewAllTasks == null
+                    ? null
+                    : FxButton(
+                      label: '查看全部',
+                      variant: FxButtonVariant.ghost,
+                      size: FxButtonSize.sm,
+                      onPressed: widget.onViewAllTasks,
+                    ),
           ),
           if (visible.isEmpty)
             _empty('今天暂时没有任务')
@@ -328,16 +365,20 @@ class _DashboardBodyState extends State<DashboardBody> {
             ...visible.map((task) => _taskRow(task, mobile)),
         ],
       ),
-      padding: EdgeInsets.fromLTRB(mobile ? 12 : 16, mobile ? 12 : 16,
-          mobile ? 12 : 16, 7),
+      padding: EdgeInsets.fromLTRB(
+        mobile ? 12 : 16,
+        mobile ? 12 : 16,
+        mobile ? 12 : 16,
+        7,
+      ),
     );
   }
 
   Widget _taskRow(Task task, bool mobile) {
     final theme = Theme.of(context);
     final meta = _taskMeta(task);
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.bodySize) >=
+    final largeText =
+        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.3;
     final row = InkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -348,76 +389,93 @@ class _DashboardBodyState extends State<DashboardBody> {
           color: fxSurface(context),
           border: Border(bottom: BorderSide(color: fxDivider(context))),
         ),
-        child: Row(children: [
-          if (!mobile) ...[
-            Container(
-              width: 3,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppTheme.priorityColor(task.priority),
-                borderRadius: BorderRadius.circular(2),
+        child: Row(
+          children: [
+            if (!mobile) ...[
+              Container(
+                width: 3,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppTheme.priorityColor(task.priority),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(width: 7),
-          ],
-          InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: widget.onTaskToggle == null
-                ? null
-                : () {
-                    if (mobile) HapticFeedback.lightImpact();
-                    widget.onTaskToggle?.call(task);
-                  },
-            child: SizedBox(
-              width: 44,
-              height: 44,
-              child: Center(
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    color: task.isCompleted ? AppTheme.success : Colors.transparent,
-                    border: Border.all(
-                      color: task.isCompleted
-                          ? AppTheme.success
-                          : theme.colorScheme.outline,
-                      width: 1.5,
+              const SizedBox(width: 7),
+            ],
+            InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap:
+                  widget.onTaskToggle == null
+                      ? null
+                      : () {
+                        if (mobile) HapticFeedback.lightImpact();
+                        widget.onTaskToggle?.call(task);
+                      },
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Center(
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      color:
+                          task.isCompleted
+                              ? AppTheme.success
+                              : Colors.transparent,
+                      border: Border.all(
+                        color:
+                            task.isCompleted
+                                ? AppTheme.success
+                                : theme.colorScheme.outline,
+                        width: 1.5,
+                      ),
                     ),
+                    child:
+                        task.isCompleted
+                            ? const Icon(
+                              Icons.check,
+                              size: 11,
+                              color: Colors.white,
+                            )
+                            : null,
                   ),
-                  child: task.isCompleted
-                      ? const Icon(Icons.check, size: 11, color: Colors.white)
-                      : null,
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(task.title,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.title,
                     maxLines: largeText ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
                     style: SlowlightTypography.body(context).copyWith(
                       fontWeight: FontWeight.w500,
                       decoration:
                           task.isCompleted ? TextDecoration.lineThrough : null,
-                      color: task.isCompleted
-                          ? theme.colorScheme.onSurfaceVariant
-                          : theme.colorScheme.onSurface,
-                    )),
-                if (meta.isNotEmpty)
-                  Text(meta,
+                      color:
+                          task.isCompleted
+                              ? theme.colorScheme.onSurfaceVariant
+                              : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  if (meta.isNotEmpty)
+                    Text(
+                      meta,
                       maxLines: largeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      )),
-              ],
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
     if (!mobile || task.isCompleted) return row;
@@ -437,17 +495,21 @@ class _DashboardBodyState extends State<DashboardBody> {
       HapticFeedback.lightImpact();
       await DataService().postponeTask(task.id, null);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text('已顺延到明天'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('已顺延到明天'),
+        ),
+      );
       widget.onRefresh?.call();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text('顺延任务失败'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('顺延任务失败'),
+        ),
+      );
     }
   }
 
@@ -461,12 +523,15 @@ class _DashboardBodyState extends State<DashboardBody> {
           FxSectionHeader(
             title: '习惯',
             trailing: '$checked/${widget.habits.length} 已打卡',
-            trailingWidget: widget.onViewAllHabits == null
-                ? null
-                : TextButton(
-                    onPressed: widget.onViewAllHabits,
-                    child: const Text('查看全部'),
-                  ),
+            trailingWidget:
+                widget.onViewAllHabits == null
+                    ? null
+                    : FxButton(
+                      label: '查看全部',
+                      variant: FxButtonVariant.ghost,
+                      size: FxButtonSize.sm,
+                      onPressed: widget.onViewAllHabits,
+                    ),
           ),
           if (visible.isEmpty)
             _empty('还没有习惯记录')
@@ -474,8 +539,12 @@ class _DashboardBodyState extends State<DashboardBody> {
             ...visible.map((habit) => _habitRow(habit, mobile)),
         ],
       ),
-      padding: EdgeInsets.fromLTRB(mobile ? 12 : 16, mobile ? 12 : 16,
-          mobile ? 12 : 16, 7),
+      padding: EdgeInsets.fromLTRB(
+        mobile ? 12 : 16,
+        mobile ? 12 : 16,
+        mobile ? 12 : 16,
+        7,
+      ),
     );
   }
 
@@ -484,66 +553,83 @@ class _DashboardBodyState extends State<DashboardBody> {
     final color = _parseColor(habit.color);
     return InkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      onTap: widget.onHabitToggle == null
-          ? null
-          : () {
-              if (mobile) HapticFeedback.lightImpact();
-              widget.onHabitToggle?.call(habit);
-            },
-      onLongPress: !mobile || widget.onHabitLongPress == null
-          ? null
-          : () {
-              HapticFeedback.mediumImpact();
-              widget.onHabitLongPress?.call(habit);
-            },
+      onTap:
+          widget.onHabitToggle == null
+              ? null
+              : () {
+                if (mobile) HapticFeedback.lightImpact();
+                widget.onHabitToggle?.call(habit);
+              },
+      onLongPress:
+          !mobile || widget.onHabitLongPress == null
+              ? null
+              : () {
+                HapticFeedback.mediumImpact();
+                widget.onHabitLongPress?.call(habit);
+              },
       child: Container(
         constraints: const BoxConstraints(minHeight: 56),
-        decoration:
-            BoxDecoration(border: Border(bottom: BorderSide(color: fxDivider(context)))),
-        child: Row(children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: fxDivider(context))),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              ),
+              child: Text(habit.icon, style: const TextStyle(fontSize: 16)),
             ),
-            child: Text(habit.icon, style: const TextStyle(fontSize: 16)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(habit.name,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                habit.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.secondary(context)
-                    .copyWith(fontWeight: FontWeight.w600)),
-          ),
-          if (habit.streakCount > 0)
-            Text('🔥 ${habit.streakCount}',
-                style: SlowlightTypography.caption(context)
-                    .copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          const SizedBox(width: 8),
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: habit.checkedToday ? color : Colors.transparent,
-              border: Border.all(
-                color: habit.checkedToday
-                    ? color
-                    : theme.colorScheme.outlineVariant,
-                width: 1.5,
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
             ),
-            child: Icon(Icons.check,
+            if (habit.streakCount > 0)
+              Text(
+                '🔥 ${habit.streakCount}',
+                style: SlowlightTypography.caption(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            const SizedBox(width: 8),
+            Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: habit.checkedToday ? color : Colors.transparent,
+                border: Border.all(
+                  color:
+                      habit.checkedToday
+                          ? color
+                          : theme.colorScheme.outlineVariant,
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                Icons.check,
                 size: 13,
-                color: habit.checkedToday ? Colors.white : theme.colorScheme.outline),
-          ),
-          const SizedBox(width: 9),
-        ]),
+                color:
+                    habit.checkedToday
+                        ? Colors.white
+                        : theme.colorScheme.outline,
+              ),
+            ),
+            const SizedBox(width: 9),
+          ],
+        ),
       ),
     );
   }
@@ -552,37 +638,45 @@ class _DashboardBodyState extends State<DashboardBody> {
     final theme = Theme.of(context);
     final count = (_facts['focus_count'] as num?)?.toInt() ?? 0;
     final minutes = (_facts['focus_minutes'] as num?)?.toInt() ?? 0;
-    return _card(Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const FxSectionHeader(title: '专注', trailing: '今日'),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text('$count',
-                style: SlowlightTypography.hero(context)
-                    .copyWith(fontWeight: FontWeight.w700)),
-            Text('次 · $minutes 分钟',
-                style: SlowlightTypography.secondary(context)
-                    .copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          ],
-        ),
-        if (widget.onStartFocus != null) ...[
-          const SizedBox(height: 10),
-          FxButton(
-            label: '开始专注',
-            icon: LucideIcons.timer,
-            variant: FxButtonVariant.outline,
-            size: FxButtonSize.sm,
-            expanded: true,
-            onPressed: widget.onStartFocus,
+    return _card(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FxSectionHeader(title: '专注', trailing: '今日'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '$count',
+                style: SlowlightTypography.hero(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w700),
+              ),
+              Text(
+                '次 · $minutes 分钟',
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
           ),
+          if (widget.onStartFocus != null) ...[
+            const SizedBox(height: 10),
+            FxButton(
+              label: '开始专注',
+              icon: LucideIcons.timer,
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              expanded: true,
+              onPressed: widget.onStartFocus,
+            ),
+          ],
         ],
-      ],
-    ));
+      ),
+    );
   }
 
   Widget _questionCard() {
@@ -615,8 +709,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                 backgroundColor: activePalette.accent.withValues(alpha: .12),
                 foregroundColor: activePalette.accent,
                 borderRadius: 999,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
               ),
               const SizedBox(height: 8),
               Text(
@@ -624,15 +717,18 @@ class _DashboardBodyState extends State<DashboardBody> {
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: insight == null ? FontWeight.w400 : FontWeight.w600,
+                  fontWeight:
+                      insight == null ? FontWeight.w400 : FontWeight.w600,
                 ),
               ),
               if (insight != null) ...[
                 const SizedBox(height: 8),
-                Text('点击去回应 →',
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    )),
+                Text(
+                  '点击去回应 →',
+                  style: SlowlightTypography.caption(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
               ],
             ],
           ),
@@ -658,21 +754,28 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _empty(String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Text(text,
-            style: SlowlightTypography.secondary(context).copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            )),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    child: Text(
+      text,
+      style: SlowlightTypography.secondary(
+        context,
+      ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    ),
+  );
 
   Set<String> _activeDays(Map<String, dynamic> item) =>
-      (item['active_days'] as List?)?.map((value) => value.toString()).toSet() ??
+      (item['active_days'] as List?)
+          ?.map((value) => value.toString())
+          .toSet() ??
       <String>{};
 
   List<DateTime> _lastSevenDays() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    return List.generate(7, (index) => today.subtract(Duration(days: 6 - index)));
+    return List.generate(
+      7,
+      (index) => today.subtract(Duration(days: 6 - index)),
+    );
   }
 
   String _taskMeta(Task task) {
@@ -680,7 +783,9 @@ class _DashboardBodyState extends State<DashboardBody> {
     final listName = task.list?.name.trim() ?? '';
     if (listName.isNotEmpty) parts.add(listName);
     if (task.isCompleted && task.completedAt != null) {
-      parts.add('${_two(task.completedAt!.hour)}:${_two(task.completedAt!.minute)} 完成');
+      parts.add(
+        '${_two(task.completedAt!.hour)}:${_two(task.completedAt!.minute)} 完成',
+      );
     } else if (task.dueTime != null && task.dueTime!.trim().isNotEmpty) {
       parts.add('${task.dueTime!.trim()} 前');
     } else if (task.dueDate != null) {
@@ -694,9 +799,10 @@ class _DashboardBodyState extends State<DashboardBody> {
   String _dateKey(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-${_two(value.month)}-${_two(value.day)}';
   String _two(int value) => value.toString().padLeft(2, '0');
-  String _greeting(int hour) => hour < 12
-      ? '早上好'
-      : hour < 18
+  String _greeting(int hour) =>
+      hour < 12
+          ? '早上好'
+          : hour < 18
           ? '下午好'
           : '晚上好';
 
@@ -711,34 +817,34 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _skeleton() => ListView(
-        padding: const EdgeInsets.all(20),
-        children: List.generate(
-          4,
-          (index) => Container(
-            height: index == 0 ? 64 : 150,
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.warmGray300.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-            ),
-          ),
+    padding: const EdgeInsets.all(20),
+    children: List.generate(
+      4,
+      (index) => Container(
+        height: index == 0 ? 64 : 150,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.warmGray300.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _errorView() => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('今天的数据加载失败'),
-            const SizedBox(height: 10),
-            FxButton(
-              label: '重试',
-              variant: FxButtonVariant.secondary,
-              onPressed: _load,
-            ),
-          ],
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('今天的数据加载失败'),
+        const SizedBox(height: 10),
+        FxButton(
+          label: '重试',
+          variant: FxButtonVariant.secondary,
+          onPressed: _load,
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _MobileTaskSwipeRow extends StatefulWidget {
@@ -842,12 +948,14 @@ class _SwipeAction extends StatelessWidget {
           width: width,
           height: double.infinity,
           child: Center(
-            child: Text(label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: AppTheme.textXs,
-                  fontWeight: FontWeight.w600,
-                )),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: AppTheme.textXs,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
       ),
@@ -863,15 +971,15 @@ class _DashedBorderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(radius),
-      ));
+    final paint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
+    final path =
+        Path()..addRRect(
+          RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+        );
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {

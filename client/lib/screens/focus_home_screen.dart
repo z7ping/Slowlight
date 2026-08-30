@@ -83,7 +83,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
   bool _handleKeyboardShortcut(KeyEvent event) {
     final key = event.logicalKey;
-    final isModifier = key == LogicalKeyboardKey.controlLeft ||
+    final isModifier =
+        key == LogicalKeyboardKey.controlLeft ||
         key == LogicalKeyboardKey.controlRight ||
         key == LogicalKeyboardKey.metaLeft ||
         key == LogicalKeyboardKey.metaRight;
@@ -94,7 +95,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     }
     if (event is! KeyDownEvent || key != LogicalKeyboardKey.keyK) return false;
     final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final modifierPressed = _shortcutModifierPressed ||
+    final modifierPressed =
+        _shortcutModifierPressed ||
         pressed.contains(LogicalKeyboardKey.controlLeft) ||
         pressed.contains(LogicalKeyboardKey.controlRight) ||
         pressed.contains(LogicalKeyboardKey.metaLeft) ||
@@ -158,9 +160,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   }
 
   bool _isOrganizeTool(HomeToolSection tool) => switch (tool) {
-        HomeToolSection.lists || HomeToolSection.observationTags => true,
-        _ => false,
-      };
+    HomeToolSection.lists || HomeToolSection.observationTags => true,
+    _ => false,
+  };
 
   bool get _isReviewContext =>
       _navigation.primary == HomePrimarySection.review &&
@@ -353,99 +355,103 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final desktop = MediaQuery.sizeOf(context).width >= 1024;
-    final content = _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _buildContent();
+    final content =
+        _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildContent();
 
     if (desktop) {
-      return _shortcutRegion(Scaffold(
-        body: Row(
-          children: [
-            SizedBox(width: 232, child: _navigationPanel(closeDrawer: false)),
-            VerticalDivider(
-              width: 1,
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-            Expanded(child: content),
-          ],
+      return _shortcutRegion(
+        Scaffold(
+          body: Row(
+            children: [
+              SizedBox(width: 232, child: _navigationPanel(closeDrawer: false)),
+              VerticalDivider(
+                width: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              Expanded(child: content),
+            ],
+          ),
         ),
-      ));
+      );
     }
 
     final theme = Theme.of(context);
-    return _shortcutRegion(_androidBackScope(Scaffold(
-      key: _mobileScaffoldKey,
-      drawerEnableOpenDragGesture: true,
-      // Android 全面屏返回手势会占用最外侧约 24dp；扩大应用内边缘区，
-      // 让用户可以从系统手势区内侧稳定右滑打开抽屉。
-      drawerEdgeDragWidth: 72,
-      onDrawerChanged: (isOpened) {
-        if (isOpened) _lastAndroidBackAt = null;
-      },
-      drawer: Drawer(
-        width: math.min(304, MediaQuery.sizeOf(context).width * 0.84),
-        backgroundColor: theme.colorScheme.surface,
-        child: SafeArea(child: _navigationPanel(closeDrawer: true)),
-      ),
-      appBar: AppBar(
-        toolbarHeight: 48,
-        titleSpacing: 16,
-        title: Text(
-          _navigation.title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+    return _shortcutRegion(
+      _androidBackScope(
+        Scaffold(
+          key: _mobileScaffoldKey,
+          drawerEnableOpenDragGesture: true,
+          // Android 全面屏返回手势会占用最外侧约 24dp；扩大应用内边缘区，
+          // 让用户可以从系统手势区内侧稳定右滑打开抽屉。
+          drawerEdgeDragWidth: 72,
+          onDrawerChanged: (isOpened) {
+            if (isOpened) _lastAndroidBackAt = null;
+          },
+          drawer: Drawer(
+            width: math.min(304, MediaQuery.sizeOf(context).width * 0.84),
+            backgroundColor: theme.colorScheme.surface,
+            child: SafeArea(child: _navigationPanel(closeDrawer: true)),
           ),
-        ),
-        leading: _navigation.isTool
-            ? IconButton(
-                icon: const Icon(LucideIcons.chevronLeft, size: 20),
-                tooltip: '返回',
-                onPressed: _closeTool,
-              )
-            : IconButton(
-                icon: const Icon(LucideIcons.menu, size: 20),
-                tooltip: '工具',
-                onPressed: _openMobileTools,
-              ),
-        actions: [
-          if (_navigation.isToday) ...[
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: IconButton(
-                icon: const Icon(LucideIcons.pencil, size: 18),
-                tooltip: '写下观察',
-                onPressed: _writeObservation,
+          appBar: AppBar(
+            toolbarHeight: 48,
+            titleSpacing: 16,
+            title: Text(
+              _navigation.title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: IconButton(
-                icon: const Icon(LucideIcons.plus, size: 20),
-                tooltip: '记录任务',
-                onPressed: _quickAdd,
+            leading:
+                _navigation.isTool
+                    ? FxIconButton(
+                      icon: LucideIcons.chevronLeft,
+                      iconSize: 20,
+                      tooltip: '返回',
+                      onPressed: _closeTool,
+                    )
+                    : FxIconButton(
+                      icon: LucideIcons.menu,
+                      iconSize: 20,
+                      tooltip: '工具',
+                      onPressed: _openMobileTools,
+                    ),
+            actions: [
+              if (_navigation.isToday) ...[
+                FxIconButton(
+                  icon: LucideIcons.pencil,
+                  iconSize: 18,
+                  tooltip: '写下观察',
+                  onPressed: _writeObservation,
+                ),
+                FxIconButton(
+                  icon: LucideIcons.plus,
+                  iconSize: 20,
+                  tooltip: '记录任务',
+                  onPressed: _quickAdd,
+                ),
+              ],
+              const SizedBox(width: 4),
+            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: theme.colorScheme.outlineVariant,
               ),
             ),
-          ],
-          const SizedBox(width: 4),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            thickness: 1,
-            color: theme.colorScheme.outlineVariant,
           ),
+          body: content,
+          bottomNavigationBar:
+              _navigation.isTool ? null : _mobileBottomNavigation(),
+          floatingActionButton:
+              _navigation.isToday ? _mobileQuickAddButton() : null,
         ),
       ),
-      body: content,
-      bottomNavigationBar:
-          _navigation.isTool ? null : _mobileBottomNavigation(),
-      floatingActionButton:
-          _navigation.isToday ? _mobileQuickAddButton() : null,
-    )));
+    );
   }
 
   Widget _shortcutRegion(Widget child) {
@@ -453,9 +459,11 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       key: const ValueKey('global-search-shortcuts'),
       focusNode: _shortcutFocusNode,
       autofocus: true,
-      onKeyEvent: (_, event) => _handleKeyboardShortcut(event)
-          ? KeyEventResult.handled
-          : KeyEventResult.ignored,
+      onKeyEvent:
+          (_, event) =>
+              _handleKeyboardShortcut(event)
+                  ? KeyEventResult.handled
+                  : KeyEventResult.ignored,
       child: child,
     );
   }
@@ -588,20 +596,20 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     }
     return switch (_navigation.primary) {
       HomePrimarySection.today => DashboardBody(
-          tasks: _tasks,
-          habits: _habits,
-          refreshTick: _dashboardRefreshTick,
-          onTaskTap: _openTask,
-          onTaskToggle: _toggleTask,
-          onHabitToggle: _toggleHabit,
-          onHabitLongPress: _openDetailedHabitCheckin,
-          onViewAllTasks: () => _openTool(HomeToolSection.tasks),
-          onViewAllHabits: () => _openTool(HomeToolSection.habits),
-          onQuickAdd: _quickAdd,
-          onWriteObservation: _writeObservation,
-          onStartFocus: _startFocus,
-          onRefresh: _reload,
-        ),
+        tasks: _tasks,
+        habits: _habits,
+        refreshTick: _dashboardRefreshTick,
+        onTaskTap: _openTask,
+        onTaskToggle: _toggleTask,
+        onHabitToggle: _toggleHabit,
+        onHabitLongPress: _openDetailedHabitCheckin,
+        onViewAllTasks: () => _openTool(HomeToolSection.tasks),
+        onViewAllHabits: () => _openTool(HomeToolSection.habits),
+        onQuickAdd: _quickAdd,
+        onWriteObservation: _writeObservation,
+        onStartFocus: _startFocus,
+        onRefresh: _reload,
+      ),
       HomePrimarySection.review => const TodayReviewScreen(),
     };
   }
@@ -645,25 +653,17 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                     ),
                   ),
                   if (closeDrawer)
-                    SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: IconButton(
-                        tooltip: '关闭',
-                        icon: const Icon(LucideIcons.x, size: 20),
-                        onPressed: () => Navigator.pop(context),
-                      ),
+                    FxIconButton(
+                      icon: LucideIcons.x,
+                      iconSize: 20,
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.pop(context),
                     ),
                 ],
               ),
             ),
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              10,
-              showPanelBrand ? 0 : 10,
-              10,
-              10,
-            ),
+            padding: EdgeInsets.fromLTRB(10, showPanelBrand ? 0 : 10, 10, 10),
             child: _searchEntry(
               showShortcut: !closeDrawer,
               onTap: () => openPage(const SearchScreen()),
@@ -763,14 +763,11 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                         onTap: () => openPage(const SettingsScreen()),
                       ),
                     ),
-                    SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: IconButton(
-                        tooltip: '关于',
-                        icon: const Icon(LucideIcons.circleHelp, size: 18),
-                        onPressed: () => openPage(const AboutScreen()),
-                      ),
+                    FxIconButton(
+                      icon: LucideIcons.circleHelp,
+                      iconSize: 18,
+                      tooltip: '关于',
+                      onPressed: () => openPage(const AboutScreen()),
                     ),
                   ],
                 ),
@@ -786,9 +783,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     final theme = Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      onTap: () => setState(
-        () => _organizeToolsExpanded = !_organizeToolsExpanded,
-      ),
+      onTap:
+          () =>
+              setState(() => _organizeToolsExpanded = !_organizeToolsExpanded),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
@@ -855,8 +852,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
               ),
               if (showShortcut)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
                     border: Border.all(color: theme.colorScheme.outlineVariant),
