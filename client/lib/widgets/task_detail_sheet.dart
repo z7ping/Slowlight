@@ -245,9 +245,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   Widget _form() {
     final theme = Theme.of(context);
-    final largeText =
-        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
-        SlowlightTypography.bodySize * 1.3;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -307,42 +304,25 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ],
         ),
         const SizedBox(height: 14),
-        if (largeText) ...[
-          _pickerField(
-            label: '到期日期',
-            value: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
-            icon: LucideIcons.calendarDays,
-            onTap: _pickDate,
-          ),
-          const SizedBox(height: 10),
-          _pickerField(
-            label: '时间',
-            value: _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
-            icon: LucideIcons.clock3,
-            onTap: _pickTime,
-          ),
-        ] else
-          Row(
-            children: [
-              Expanded(
-                child: _pickerField(
-                  label: '到期日期',
-                  value: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
-                  icon: LucideIcons.calendarDays,
-                  onTap: _pickDate,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _pickerField(
-                  label: '时间',
-                  value: _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
-                  icon: LucideIcons.clock3,
-                  onTap: _pickTime,
-                ),
-              ),
-            ],
-          ),
+        FxResponsiveFormGrid(
+          minColumnWidth: 160,
+          horizontalGap: 8,
+          verticalGap: 10,
+          children: [
+            _pickerField(
+              label: '到期日期',
+              value: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
+              icon: LucideIcons.calendarDays,
+              onTap: _pickDate,
+            ),
+            _pickerField(
+              label: '时间',
+              value: _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
+              icon: LucideIcons.clock3,
+              onTap: _pickTime,
+            ),
+          ],
+        ),
         const SizedBox(height: 14),
         _fieldLabel('重复'),
         FxSelect<String>(
@@ -516,17 +496,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FxButton(
-              label: '删除',
-              icon: LucideIcons.trash2,
-              variant: FxButtonVariant.ghost,
-              onPressed: _saving ? null : _delete,
-            ),
+        child: FxDialogActions(
+          stackBelow: 340,
+          leading: FxButton(
+            label: '删除',
+            icon: LucideIcons.trash2,
+            variant: FxButtonVariant.ghost,
+            onPressed: _saving ? null : _delete,
+          ),
+          actions: [
             FxButton(
               label: _saving ? '保存中…' : '保存修改',
               onPressed: _saving ? null : _save,
