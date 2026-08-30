@@ -3,6 +3,7 @@
 
 export 'typography_tokens.dart';
 export 'widgets/fx_button.dart';
+export 'widgets/fx_icon_button.dart';
 export 'widgets/fx_card.dart';
 export 'widgets/fx_cursor.dart';
 export 'widgets/fx_input.dart';
