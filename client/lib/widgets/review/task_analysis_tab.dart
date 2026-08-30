@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../services/api/analytics_api.dart';
-import '../../ui/fx.dart';
 import '../../theme/app_theme.dart';
+import '../../ui/fx.dart';
 
 class TaskAnalysisTab extends StatefulWidget {
   const TaskAnalysisTab({super.key});
+
   @override
   State<TaskAnalysisTab> createState() => _TaskAnalysisTabState();
 }
@@ -61,7 +63,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('📊', style: TextStyle(fontSize: 48)),
-            Text('数据积累中', style: theme.textTheme.bodyMedium),
+            Text('数据积累中', style: SlowlightTypography.secondary(context)),
           ],
         ),
       );
@@ -92,18 +94,34 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
         children: [
           Text(_error!, style: const TextStyle(color: AppTheme.error)),
           const SizedBox(height: 8),
-          FxButton(label: '重试', variant: FxButtonVariant.secondary, onPressed: _load),
+          FxButton(
+            label: '重试',
+            variant: FxButtonVariant.secondary,
+            onPressed: _load,
+          ),
         ],
       ),
     );
   }
 
   Widget _statCol(ThemeData theme, String emoji, String value, String label) {
-    return Column(children: [
-      Text(emoji, style: const TextStyle(fontSize: AppTheme.text2Xl)),
-      Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-      Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-    ]);
+    return Column(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: AppTheme.text2Xl)),
+        Text(
+          value,
+          style: SlowlightTypography.pageTitle(context).copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: SlowlightTypography.caption(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _totalCard(ThemeData theme, int total, int wk, int mo, int ms) {
@@ -111,27 +129,52 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
       color: theme.colorScheme.surfaceContainerLowest,
       borderRadius: 16,
       padding: const EdgeInsets.all(16),
-      child: Column(children: [
-        Row(children: [
-          Icon(Icons.analytics_outlined, color: theme.colorScheme.primary, size: 20),
-          const SizedBox(width: 6),
-          Text('输出记录', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-        ]),
-        const SizedBox(height: 14),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-          _statCol(theme, '🎯', '$total', '总输出'),
-          _statCol(theme, '📅', '$wk', '本周'),
-          _statCol(theme, '📆', '$mo', '本月'),
-        ]),
-        if (ms > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.emoji_events, color: AppTheme.warning),
-              Text(' $ms 个里程碑', style: TextStyle(color: AppTheme.warning, fontWeight: FontWeight.w600)),
-            ]),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.analytics_outlined,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '输出记录',
+                style: SlowlightTypography.cardTitle(context).copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-      ]),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _statCol(theme, '🎯', '$total', '总输出'),
+              _statCol(theme, '📅', '$wk', '本周'),
+              _statCol(theme, '📆', '$mo', '本月'),
+            ],
+          ),
+          if (ms > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.emoji_events, color: AppTheme.warning),
+                  Text(
+                    ' $ms 个里程碑',
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      color: AppTheme.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -142,61 +185,94 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
       'B': AppTheme.warning,
       'C': AppTheme.error,
     };
-    final mx = byLevel.values.fold<int>(0, (a, b) => (b as int) > a ? b : a).toDouble();
+    final mx = byLevel.values
+        .fold<int>(0, (a, b) => (b as int) > a ? b : a)
+        .toDouble();
     return FxCard(
       color: theme.colorScheme.surfaceContainerLowest,
       borderRadius: 16,
       padding: const EdgeInsets.all(12),
-      child: Column(children: [
-        Text('输出等级分布', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        ...['S', 'A', 'B', 'C'].map((level) {
-          final count = (byLevel[level] ?? 0) as int;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(children: [
-              SizedBox(width: 36, child: Text('$level 级', style: theme.textTheme.bodySmall)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: mx > 0 ? count / mx : 0,
-                    minHeight: 16,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    color: colors[level],
+      child: Column(
+        children: [
+          Text(
+            '输出等级分布',
+            style: SlowlightTypography.cardTitle(context).copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...['S', 'A', 'B', 'C'].map((level) {
+            final count = (byLevel[level] ?? 0) as int;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 36,
+                    child: Text(
+                      '$level 级',
+                      style: SlowlightTypography.caption(context),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FxProgress(
+                      value: mx > 0 ? count / mx : 0,
+                      height: 16,
+                      color: colors[level],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 30,
+                    child: Text(
+                      '$count',
+                      style: SlowlightTypography.caption(context),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              SizedBox(width: 30, child: Text('$count', style: theme.textTheme.bodySmall)),
-            ]),
-          );
-        }),
-      ]),
+            );
+          }),
+        ],
+      ),
     );
   }
 
   Widget _typeCard(ThemeData theme, Map<String, dynamic> byTaskType) {
-    final names = {'main': '主线', 'branch': '分支', 'daily': '日常', 'explore': '探索'};
+    final names = {
+      'main': '主线',
+      'branch': '分支',
+      'daily': '日常',
+      'explore': '探索',
+    };
     return FxCard(
       color: theme.colorScheme.surfaceContainerLowest,
       borderRadius: 16,
       padding: const EdgeInsets.all(12),
-      child: Column(children: [
-        Text('任务类型分布', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: byTaskType.entries
-              .map((e) => Chip(
-                    label: Text('${names[e.key] ?? e.key}: ${e.value}'),
-                    visualDensity: VisualDensity.compact,
-                  ))
-              .toList(),
-        ),
-      ]),
+      child: Column(
+        children: [
+          Text(
+            '任务类型分布',
+            style: SlowlightTypography.cardTitle(context).copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: byTaskType.entries
+                .map(
+                  (entry) => FxChip(
+                    label: '${names[entry.key] ?? entry.key}: ${entry.value}',
+                    variant: FxChipVariant.secondary,
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
     );
   }
 }
