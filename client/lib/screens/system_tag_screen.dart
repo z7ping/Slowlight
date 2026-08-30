@@ -7,7 +7,6 @@ import '../repositories/observation_tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 /// 用户管理的是“观察标签”，不是固定的四维度本身。
 class SystemTagScreen extends StatefulWidget {
@@ -24,32 +23,12 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   List<ObservationTag> _tags = const [];
 
   static const _presetEmojis = [
-    '🏃',
-    '💪',
-    '🧘',
-    '🧠',
-    '📚',
-    '✍️',
-    '💡',
-    '🎯',
-    '💼',
-    '🏠',
-    '👨‍👩‍👧',
-    '🎨',
-    '🎵',
-    '🌱',
-    '🔧',
-    '📊',
+    '🏃', '💪', '🧘', '🧠', '📚', '✍️', '💡', '🎯', '💼', '🏠', '👨‍👩‍👧', '🎨',
+    '🎵', '🌱', '🔧', '📊',
   ];
   static const _presetColors = [
-    '#52C41A',
-    '#1890FF',
-    '#FAAD14',
-    '#FF6B6B',
-    '#722ED1',
-    '#13C2C2',
-    '#EB2F96',
-    '#FA8C16',
+    '#52C41A', '#1890FF', '#FAAD14', '#FF6B6B', '#722ED1', '#13C2C2',
+    '#EB2F96', '#FA8C16',
   ];
 
   @override
@@ -83,26 +62,53 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
           .where((tag) => tag.dimensionKey == dimension.keyValue)
           .toList(growable: false);
       if (tags.isNotEmpty) {
-        groups.add(
-          _ObservationTagGroup(
-            label: '${dimension.icon} ${dimension.name}',
-            tags: tags,
-          ),
-        );
+        groups.add(_ObservationTagGroup(
+          label: '${dimension.icon} ${dimension.name}',
+          tags: tags,
+        ));
       }
     }
     final unclassified = _tags
         .where((tag) => tag.dimensionKey == null || tag.dimensionKey!.isEmpty)
         .toList(growable: false);
     if (unclassified.isNotEmpty) {
-      groups.add(
-        _ObservationTagGroup(
-          label: '未归类 · 仅分析',
-          tags: unclassified,
-        ),
-      );
+      groups.add(_ObservationTagGroup(
+        label: '未归类 · 仅分析',
+        tags: unclassified,
+      ));
     }
     return groups;
+  }
+
+  Widget _card({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(14),
+    Color? color,
+  }) {
+    final theme = Theme.of(context);
+    return FxCard(
+      padding: padding,
+      color: color ?? fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: Border.all(color: fxBorder(context)),
+      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
+      child: child,
+    );
+  }
+
+  Widget _chip(String label, {bool accent = false}) {
+    final theme = Theme.of(context);
+    return FxChip(
+      label: label,
+      backgroundColor: accent
+          ? activePalette.accent.withValues(alpha: .12)
+          : fxSubtleSurface(context),
+      foregroundColor:
+          accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
+      borderRadius: 999,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    );
   }
 
   @override
@@ -110,7 +116,6 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return _errorView();
 
-    final theme = Theme.of(context);
     final groups = _groups();
     return RefreshIndicator(
       onRefresh: _load,
@@ -124,12 +129,13 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.spaceBetween,
                     children: [
-                      HfChip('${_tags.length} 个标签'),
-                      const Spacer(),
-                      const SizedBox(width: 16),
+                      _chip('${_tags.length} 个标签'),
                       FxButton(
                         label: '新建标签',
                         icon: LucideIcons.plus,
@@ -142,7 +148,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                   _explanationCard(),
                   const SizedBox(height: 12),
                   if (_tags.isEmpty)
-                    HfEmptyState(
+                    FxEmptyState(
                       emoji: '🏷️',
                       title: '还没有观察标签',
                       subtitle: '标签用于分类事实；不归属维度时只参与分类与分析',
@@ -174,22 +180,21 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
 
   Widget _explanationCard() {
     final theme = Theme.of(context);
-    return HfCard(
-      padding: const EdgeInsets.all(14),
+    return _card(
       color: theme.colorScheme.surfaceContainerLowest,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '标签和维度是两回事',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: SlowlightTypography.secondary(context).copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 5),
           Text(
             '身体、认知、产出、关系是固定长期坐标；标签是你自己的分类方式。标签可以归属某个维度，也可以保持“未归类 · 仅分析”。',
-            style: TextStyle(
-              fontSize: AppTheme.textSm,
-              height: 1.5,
+            style: SlowlightTypography.secondary(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -198,7 +203,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
             spacing: 6,
             runSpacing: 6,
             children: DimensionCatalog.all
-                .map((item) => HfChip('${item.icon} ${item.name}'))
+                .map((item) => _chip('${item.icon} ${item.name}'))
                 .toList(growable: false),
           ),
         ],
@@ -215,14 +220,13 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
           padding: const EdgeInsets.fromLTRB(2, 0, 2, 6),
           child: Text(
             group.label,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
-        HfCard(
+        _card(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Column(
             children: group.tags.map(_tagRow).toList(growable: false),
@@ -239,7 +243,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       key: ValueKey(tag.id),
       constraints: const BoxConstraints(minHeight: 58),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: hfDivider(context))),
+        border: Border(bottom: BorderSide(color: fxDivider(context))),
       ),
       child: Row(
         children: [
@@ -255,22 +259,18 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Row(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Flexible(
-                  child: Text(
-                    '#${tag.name}',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                Text(
+                  '#${tag.name}',
+                  style: SlowlightTypography.secondary(context).copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (tag.isDefault) ...[
-                  const SizedBox(width: 6),
-                  const HfChip('默认'),
-                ],
+                if (tag.isDefault) _chip('默认'),
               ],
             ),
           ),
@@ -316,8 +316,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
           const SizedBox(height: 6),
           Text(
             _error!,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -347,13 +346,13 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
           return Dialog(
-            backgroundColor: hfSurface(dialogContext),
+            backgroundColor: fxSurface(dialogContext),
             surfaceTintColor: Colors.transparent,
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              side: BorderSide(color: hfBorder(dialogContext)),
+              side: BorderSide(color: fxBorder(dialogContext)),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 540, maxHeight: 700),
@@ -368,10 +367,8 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                         Expanded(
                           child: Text(
                             existing == null ? '新建观察标签' : '编辑观察标签',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: SlowlightTypography.cardTitle(dialogContext)
+                                .copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                         SizedBox(
@@ -392,7 +389,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                       controller: nameController,
                       autofocus: true,
                       enabled: !saving,
-                      style: const TextStyle(fontSize: 13),
+                      style: SlowlightTypography.body(dialogContext),
                       decoration: const InputDecoration(
                         hintText: '例如：分心、心流、精力低谷',
                       ),
@@ -488,15 +485,15 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                       const SizedBox(height: 8),
                       Text(
                         error!,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.error,
-                        ),
+                        style: SlowlightTypography.caption(dialogContext)
+                            .copyWith(color: theme.colorScheme.error),
                       ),
                     ],
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         FxButton(
                           label: '取消',
@@ -505,7 +502,6 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                               ? null
                               : () => Navigator.pop(dialogContext, false),
                         ),
-                        const SizedBox(width: 8),
                         FxButton(
                           label: saving ? '保存中…' : '保存',
                           onPressed: saving
@@ -567,8 +563,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(
           text,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             fontWeight: FontWeight.w600,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
