@@ -20,6 +20,7 @@ export 'widgets/fx_page_header.dart';
 export 'widgets/fx_section_header.dart';
 export 'widgets/fx_stat_cell.dart';
 export 'widgets/fx_empty_state.dart';
+export 'widgets/fx_surface.dart';
 export 'widgets/section_title.dart';
 
 export 'widgets/fx_date_time_picker.dart';
