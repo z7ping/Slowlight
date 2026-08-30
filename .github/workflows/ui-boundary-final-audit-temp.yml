@@ -22,6 +22,7 @@ jobs:
           from pathlib import Path
           import re
 
+          # Temporary branch-only audit; remove after this report.
           root = Path('client/lib')
           patterns = {
               'showModalBottomSheet': re.compile(r'\bshowModalBottomSheet(?:<[^>]+>)?\s*\('),
