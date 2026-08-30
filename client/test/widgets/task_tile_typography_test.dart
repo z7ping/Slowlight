@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/typography_tokens.dart';
@@ -15,12 +16,19 @@ void main() {
         createdAt: DateTime(2026, 8, 30),
       );
 
+  Widget host(Widget child) => ShadTheme(
+        data: shadLightTheme(null),
+        child: MaterialApp(
+          theme: AppTheme.lightTheme(),
+          home: child,
+        ),
+      );
+
   testWidgets('TaskTile 紧凑模式在 360dp + 200% 字体缩放下允许标题换行',
       (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme(),
-        home: MediaQuery(
+      host(
+        MediaQuery(
           data: const MediaQueryData(
             size: Size(360, 800),
             textScaler: TextScaler.linear(2),
@@ -47,9 +55,8 @@ void main() {
 
   testWidgets('TaskTile 默认字号仍保持紧凑标题单行', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme(),
-        home: Scaffold(
+      host(
+        Scaffold(
           body: TaskTile(
             task: buildTask(),
             compact: true,
