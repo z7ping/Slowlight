@@ -205,14 +205,11 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             ],
           ),
         ),
-        SizedBox(
-          width: 44,
-          height: 44,
-          child: IconButton(
-            tooltip: '关闭',
-            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-            icon: const Icon(Icons.close, size: 19),
-          ),
+        FxIconButton(
+          tooltip: '关闭',
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+          icon: Icons.close,
+          iconSize: 19,
         ),
       ],
     );
