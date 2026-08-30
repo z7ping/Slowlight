@@ -1,6 +1,38 @@
 part of 'feishu_screen.dart';
 
 extension _FeishuScreenSections on _FeishuScreenState {
+  Widget _card({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(14),
+    Color? color,
+    Border? border,
+  }) {
+    final theme = Theme.of(context);
+    return FxCard(
+      padding: padding,
+      color: color ?? fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: border ?? Border.all(color: fxBorder(context)),
+      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
+      child: child,
+    );
+  }
+
+  Widget _chip(String label, {bool accent = false}) {
+    final theme = Theme.of(context);
+    return FxChip(
+      label: label,
+      backgroundColor: accent
+          ? activePalette.accent.withValues(alpha: .12)
+          : fxSubtleSurface(context),
+      foregroundColor:
+          accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
+      borderRadius: 999,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    );
+  }
+
   Widget _buildLoadError() {
     final theme = Theme.of(context);
     return Center(
@@ -17,11 +49,13 @@ extension _FeishuScreenSections on _FeishuScreenState {
               const Text('无法读取飞书配置',
                   style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
-              Text(_loadError!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: AppTheme.textXs,
-                      color: theme.colorScheme.onSurfaceVariant)),
+              Text(
+                _loadError!,
+                textAlign: TextAlign.center,
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: AppTheme.spaceMd),
               FxButton(
                 label: '重新加载',
@@ -86,7 +120,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
 
   Widget _buildOverview() {
     final theme = Theme.of(context);
-    return HfCard(
+    return _card(
       padding: const EdgeInsets.all(AppTheme.spaceMd),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -109,16 +143,18 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('飞书多维表格',
-                        style: TextStyle(
-                            fontSize: AppTheme.textMd,
-                            fontWeight: FontWeight.w700)),
+                    Text(
+                      '飞书多维表格',
+                      style: SlowlightTypography.cardTitle(context).copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 3),
                     Text(
                       _isConfigured ? '连接已就绪，可按数据类型同步' : '填写应用凭据后创建或绑定数据表',
-                      style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant),
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -129,9 +165,9 @@ extension _FeishuScreenSections on _FeishuScreenState {
             spacing: AppTheme.spaceXs,
             runSpacing: AppTheme.spaceXs,
             children: [
-              HfChip(_cloud ? '云端配置' : '本机配置'),
-              HfChip(_isConfigured ? '已连接' : '未连接', accent: _isConfigured),
-              if (_tables.isNotEmpty) HfChip('已识别 ${_tables.length} 张表'),
+              _chip(_cloud ? '云端配置' : '本机配置'),
+              _chip(_isConfigured ? '已连接' : '未连接', accent: _isConfigured),
+              if (_tables.isNotEmpty) _chip('已识别 ${_tables.length} 张表'),
             ],
           );
           if (compact) {
@@ -158,12 +194,12 @@ extension _FeishuScreenSections on _FeishuScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const HfSectionHeader(
+        const FxSectionHeader(
           title: '连接配置',
           trailing: '密钥保存在当前数据模式对应的安全存储中',
         ),
         const SizedBox(height: AppTheme.spaceXs),
-        HfCard(
+        _card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -221,9 +257,9 @@ extension _FeishuScreenSections on _FeishuScreenState {
           ),
         ),
         const SizedBox(height: AppTheme.spaceLg),
-        const HfSectionHeader(title: '数据模板', trailing: '首次连接建议从这里开始'),
+        const FxSectionHeader(title: '数据模板', trailing: '首次连接建议从这里开始'),
         const SizedBox(height: AppTheme.spaceXs),
-        HfCard(
+        _card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -232,21 +268,22 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   Icon(Icons.auto_awesome,
                       size: 20, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: AppTheme.spaceXs),
-                  const Expanded(
-                    child: Text('创建标准的 8 张数据表',
-                        style: TextStyle(
-                            fontSize: AppTheme.textSm,
-                            fontWeight: FontWeight.w600)),
+                  Expanded(
+                    child: Text(
+                      '创建标准的 8 张数据表',
+                      style: SlowlightTypography.secondary(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: AppTheme.spaceXs),
               Text(
                 '任务、子任务、清单、习惯、习惯记录、专注、休息记录和标签。创建后会自动填入表格链接。',
-                style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    height: 1.5,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: AppTheme.spaceSm),
               FxButton(
@@ -269,7 +306,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HfSectionHeader(
+        FxSectionHeader(
           title: '数据同步',
           trailing: _cloud ? '通过 Slowlight Server' : '从本机 SQLite 单向导出',
           trailingWidget: FxButton(
@@ -280,7 +317,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           ),
         ),
         const SizedBox(height: AppTheme.spaceXs),
-        HfCard(
+        _card(
           padding: EdgeInsets.zero,
           child: Column(
             children: [
@@ -334,9 +371,9 @@ extension _FeishuScreenSections on _FeishuScreenState {
           const SizedBox(height: AppTheme.spaceXs),
           Text(
             '本机模式当前只支持导出，不支持从飞书导入或双向冲突处理。',
-            style: TextStyle(
-                fontSize: AppTheme.textXs,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: SlowlightTypography.caption(context).copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
         if (_cloud) ...[
@@ -351,7 +388,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HfSectionHeader(
+        FxSectionHeader(
           title: '飞书日历',
           trailing: '把有截止日期的任务创建为日历事件',
           trailingWidget: FxButton(
@@ -362,7 +399,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           ),
         ),
         const SizedBox(height: AppTheme.spaceXs),
-        HfCard(
+        _card(
           child: _isLoadingCalendars
               ? const Center(
                   child: Padding(
@@ -415,10 +452,12 @@ extension _FeishuScreenSections on _FeishuScreenState {
               size: 20, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: AppTheme.spaceXs),
           Expanded(
-            child: Text('没有读取到可用日历，请检查应用权限后刷新。',
-                style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    color: theme.colorScheme.onSurfaceVariant)),
+            child: Text(
+              '没有读取到可用日历，请检查应用权限后刷新。',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
         ],
       ),
@@ -436,9 +475,9 @@ extension _FeishuScreenSections on _FeishuScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const HfSectionHeader(title: '连接步骤'),
+        const FxSectionHeader(title: '连接步骤'),
         const SizedBox(height: AppTheme.spaceXs),
-        HfCard(
+        _card(
           color: theme.colorScheme.primaryContainer.withValues(alpha: .22),
           border: Border.all(
               color: theme.colorScheme.primary.withValues(alpha: .12)),
@@ -459,17 +498,20 @@ extension _FeishuScreenSections on _FeishuScreenState {
                         color: theme.colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: Text('${index + 1}',
-                          style: TextStyle(
-                              fontSize: AppTheme.textXs,
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onPrimary)),
+                      child: Text(
+                        '${index + 1}',
+                        style: SlowlightTypography.caption(context).copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: AppTheme.spaceXs),
                     Expanded(
-                      child: Text(steps[index],
-                          style: const TextStyle(
-                              fontSize: AppTheme.textXs, height: 1.5)),
+                      child: Text(
+                        steps[index],
+                        style: SlowlightTypography.caption(context),
+                      ),
                     ),
                   ],
                 ),
@@ -515,7 +557,7 @@ class _FeishuActionTile extends StatelessWidget {
           decoration: BoxDecoration(
             border: last
                 ? null
-                : Border(bottom: BorderSide(color: hfDivider(context))),
+                : Border(bottom: BorderSide(color: fxDivider(context))),
           ),
           child: Row(
             children: [
@@ -535,15 +577,19 @@ class _FeishuActionTile extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: AppTheme.textSm,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      title,
+                      style: SlowlightTypography.secondary(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: TextStyle(
-                            fontSize: AppTheme.textXs,
-                            color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      subtitle,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
