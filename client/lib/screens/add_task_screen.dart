@@ -185,8 +185,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Widget _form() {
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    final desktop = MediaQuery.sizeOf(context).width >= 700 && scale < 1.6;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -209,51 +207,18 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           style: SlowlightTypography.secondary(context),
           placeholder: '描述（可选）',
         ),
-        const SizedBox(height: 14),
-        if (desktop)
-          Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _listField()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _priorityField()),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _dateField()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _timeField()),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _repeatField()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _reminderField()),
-                ],
-              ),
-            ],
-          )
-        else ...[
-          _listField(),
-          const SizedBox(height: 12),
-          _priorityField(),
-          const SizedBox(height: 12),
-          _dateField(),
-          const SizedBox(height: 12),
-          _timeField(),
-          const SizedBox(height: 12),
-          _repeatField(),
-          const SizedBox(height: 12),
-          _reminderField(),
-        ],
+        const SizedBox(height: 16),
+        FxResponsiveFormGrid(
+          minColumnWidth: 240,
+          children: [
+            _listField(),
+            _priorityField(),
+            _dateField(),
+            _timeField(),
+            _repeatField(),
+            _reminderField(),
+          ],
+        ),
         if (_repeatType == 'weekly') ...[
           const SizedBox(height: 12),
           _fieldLabel('每周重复'),
@@ -285,14 +250,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     String label, {
     required bool selected,
     required VoidCallback onTap,
+    Color? selectionColor,
   }) {
-    return FxChip(
+    return FxChoiceChip(
       label: label,
-      variant: selected ? FxChipVariant.secondary : FxChipVariant.outline,
-      backgroundColor:
-          selected ? activePalette.accent.withValues(alpha: .12) : null,
-      foregroundColor: selected ? activePalette.accent : null,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      selected: selected,
+      selectionColor: selectionColor,
       onTap: _isSaving ? null : onTap,
     );
   }
@@ -324,20 +287,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         spacing: 6,
         runSpacing: 6,
         children: [
-          _priorityChip('urgent_important', '🔴 高'),
-          _priorityChip('important', '🔵 中'),
-          _priorityChip('urgent', '⚪ 低'),
+          _priorityChip('none', '无', Theme.of(context).colorScheme.onSurface),
+          _priorityChip('urgent_important', '高', AppTheme.priorityHigh),
+          _priorityChip('important', '中', AppTheme.priorityMedium),
+          _priorityChip('urgent', '低', AppTheme.priorityLow),
         ],
       ),
     );
   }
 
-  Widget _priorityChip(String value, String label) {
+  Widget _priorityChip(String value, String label, Color color) {
     final selected = _priority == value;
     return _choiceChip(
       label,
       selected: selected,
-      onTap: () => setState(() => _priority = selected ? 'none' : value),
+      selectionColor: color,
+      onTap: () => setState(() => _priority = value),
     );
   }
 
@@ -443,19 +408,15 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Widget _field({required String label, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [_fieldLabel(label), child],
-    );
+    return FxFormField(label: label, child: child);
   }
 
   Widget _fieldLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         label,
-        style: SlowlightTypography.caption(context).copyWith(
-          fontWeight: FontWeight.w600,
+        style: SlowlightTypography.fieldLabel(context).copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
@@ -471,20 +432,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return FxInkWell(
       onTap: _isSaving ? null : onTap,
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      hoverColor: theme.colorScheme.onSurface.withValues(alpha: .04),
+      focusColor: activePalette.accent.withValues(alpha: .08),
       child: Container(
         constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
+          color: fxSurface(context),
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          border: Border.all(color: fxBorder(context)),
+          border: Border.all(color: theme.colorScheme.outline),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(text, style: SlowlightTypography.secondary(context)),
+              child: Text(text, style: SlowlightTypography.control(context)),
             ),
-            Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+            Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
           ],
         ),
       ),
