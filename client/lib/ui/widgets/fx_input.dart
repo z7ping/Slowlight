@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../app_theme.dart';
 
-/// FxInput — 文本输入组件
-/// 页面层统一使用 FxInput；内部使用原生 TextField 以保持桌面端中文输入稳定。
+import '../typography_tokens.dart';
+
+/// FxInput — 文本输入组件。
+///
+/// 页面层统一使用 FxInput；内部保留原生 TextField 以保证桌面端中文输入法
+/// 的稳定性，但字号、占位文字和标签语义统一由 Slowlight Typography 管理。
 class FxInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? placeholder;
@@ -12,6 +15,8 @@ class FxInput extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onEditingComplete;
   final bool obscureText;
+  final bool enableSuggestions;
+  final bool autocorrect;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final int? maxLines;
@@ -37,6 +42,8 @@ class FxInput extends StatelessWidget {
     this.onSubmitted,
     this.onEditingComplete,
     this.obscureText = false,
+    this.enableSuggestions = true,
+    this.autocorrect = true,
     this.keyboardType,
     this.textInputAction,
     this.maxLines = 1,
@@ -56,13 +63,15 @@ class FxInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 如果有 label，用 Column 包裹
+    final theme = Theme.of(context);
     final input = TextField(
       controller: controller,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       onEditingComplete: onEditingComplete,
       obscureText: obscureText,
+      enableSuggestions: enableSuggestions,
+      autocorrect: autocorrect,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       maxLines: maxLines ?? 1,
@@ -71,11 +80,14 @@ class FxInput extends StatelessWidget {
       readOnly: readOnly,
       autofocus: autofocus,
       focusNode: focusNode,
-      style: style,
+      style: style ?? SlowlightTypography.body(context),
       inputFormatters: inputFormatters,
       decoration: InputDecoration(
         hintText: placeholder,
-        hintStyle: placeholderStyle,
+        hintStyle: placeholderStyle ??
+            SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
         prefixIcon: leading,
         suffixIcon: trailing,
         border: InputBorder.none,
@@ -88,23 +100,21 @@ class FxInput extends StatelessWidget {
       ),
     );
 
-    if (label != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label!,
-              style: TextStyle(
-                  fontSize: AppTheme.textMd,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.warmGray500)),
-          const SizedBox(height: 6),
-          input,
-        ],
-      );
-    }
-
-    return input;
+    if (label == null) return input;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label!,
+          style: SlowlightTypography.secondary(context).copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        input,
+      ],
+    );
   }
 }
