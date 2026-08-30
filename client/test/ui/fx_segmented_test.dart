@@ -3,12 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/fx.dart';
 
+import '../support/fx_test_host.dart';
+
 void main() {
   testWidgets('FxSegmented 在 360dp + 200% 字体缩放下可用', (tester) async {
     var selected = 0;
 
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         theme: AppTheme.lightTheme(),
         home: MediaQuery(
           data: const MediaQueryData(
@@ -44,7 +46,7 @@ void main() {
 
   testWidgets('FxSegmented 使用辅助信息语义字号', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         theme: AppTheme.lightTheme(),
         home: Scaffold(
           body: FxSegmented(
@@ -65,7 +67,7 @@ void main() {
     final keys = List.generate(3, (index) => ValueKey('segment-$index'));
 
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         theme: AppTheme.lightTheme(),
         home: Scaffold(
           body: Align(
@@ -89,8 +91,9 @@ void main() {
     expect(tester.getSize(find.byType(FxSegmented)).width, 320);
     expect(widths.every((width) => width > 100), isTrue);
     expect(
-        widths.reduce((a, b) => a > b ? a : b) -
-            widths.reduce((a, b) => a < b ? a : b),
-        lessThan(0.01));
+      widths.reduce((a, b) => a > b ? a : b) -
+          widths.reduce((a, b) => a < b ? a : b),
+      lessThan(0.01),
+    );
   });
 }
