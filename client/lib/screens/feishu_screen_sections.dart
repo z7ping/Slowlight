@@ -216,15 +216,12 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 placeholder: _isConfigured ? '重新保存配置时需要填写' : '请输入应用密钥',
                 obscureText: !_showSecret,
                 leading: const Icon(Icons.lock_outline, size: 18),
-                trailing: IconButton(
+                trailing: FxIconButton(
                   tooltip: _showSecret ? '隐藏密钥' : '显示密钥',
                   onPressed: () => setState(() => _showSecret = !_showSecret),
-                  icon: Icon(
-                    _showSecret
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                  ),
+                  icon: _showSecret
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                 ),
               ),
               const SizedBox(height: AppTheme.spaceSm),
@@ -548,7 +545,7 @@ class _FeishuActionTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Opacity(
       opacity: enabled ? 1 : .55,
-      child: InkWell(
+      child: FxInkWell(
         onTap: enabled && !busy ? onTap : null,
         child: Container(
           constraints: const BoxConstraints(minHeight: 68),
