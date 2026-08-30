@@ -51,4 +51,39 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('FxSectionHeader 大字体时将查看全部放到下一行右侧', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(360, 800),
+            textScaler: TextScaler.linear(2),
+          ),
+          child: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: FxSectionHeader(
+                title: '今日任务',
+                trailing: '3/5 已完成',
+                trailingWidget: FxButton(
+                  label: '查看全部',
+                  variant: FxButtonVariant.ghost,
+                  size: FxButtonSize.sm,
+                  onPressed: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final titleBottom = tester.getBottomLeft(find.text('今日任务')).dy;
+    final actionTop = tester.getTopLeft(find.text('查看全部')).dy;
+    expect(actionTop, greaterThanOrEqualTo(titleBottom));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
