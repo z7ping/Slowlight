@@ -28,25 +28,31 @@ void main() {
     );
   });
 
-  test('正式 UI 文件不新增阶段性版本命名', () async {
+  test('正式 UI 不新增阶段性版本命名', () async {
     final lib = Directory('lib');
     final offenders = <String>[];
     final stageFileName = RegExp(
       r'(^|/)(?:new|old|final|high_fidelity)(?:_|/)|_(?:v2|v3)(?:\.|_|/)',
       caseSensitive: false,
     );
+    final stageClassName = RegExp(
+      r'\bclass\s+(?:[A-Za-z0-9_]*(?:V2|V3)|(?:New|Old|Final)[A-Z][A-Za-z0-9_]*)\b',
+    );
 
     await for (final entity in lib.list(recursive: true, followLinks: false)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final normalized = entity.path.replaceAll('\\', '/');
-      if (stageFileName.hasMatch(normalized)) offenders.add(normalized);
+      final source = await entity.readAsString();
+      if (stageFileName.hasMatch(normalized) || stageClassName.hasMatch(source)) {
+        offenders.add(normalized);
+      }
     }
 
     offenders.sort();
     expect(
       offenders,
       isEmpty,
-      reason: '正式 UI 文件禁止使用 new/old/final/high_fidelity/_v2/_v3 等阶段性命名：\n'
+      reason: '正式 UI 禁止使用 new/old/final/high_fidelity/V2/V3 等阶段性实现命名：\n'
           '${offenders.join('\n')}',
     );
   });
