@@ -343,7 +343,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         expanded: true,
         child: Column(
           children: [
-            InkWell(
+            FxInkWell(
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               onTap: () => _toggleExpanded(habit),
               onLongPress: () => _openDetailedCheckin(habit),
@@ -388,7 +388,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                       SizedBox(width: 154, child: _weekDots(habit, color)),
                       const SizedBox(width: 6),
                     ],
-                    InkWell(
+                    FxInkWell(
                       borderRadius: BorderRadius.circular(999),
                       onTap: () => _toggleToday(habit),
                       child: SizedBox(
@@ -639,7 +639,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           child: Semantics(
             button: true,
             label: '${day.month}月${day.day}日${active ? '已打卡' : '未打卡'}',
-            child: InkWell(
+            child: FxInkWell(
               borderRadius: BorderRadius.circular(999),
               onTap: () => _tapWeekDay(habit, day),
               child: SizedBox(
@@ -670,7 +670,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Widget _logs(Habit habit, Color color) {
     if (_controller.isLoadingLogs(habit.id)) {
-      return const LinearProgressIndicator(minHeight: 2);
+      return const SizedBox(
+        height: 28,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
     }
     final logs = _controller.logsFor(habit.id);
     if (logs.isEmpty) {
@@ -732,7 +735,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                           color: theme.colorScheme.onSurfaceVariant,
                         )),
                     if (canCancel)
-                      InkWell(
+                      FxInkWell(
                         onTap: () => _toggleToday(habit),
                         child: Text('取消',
                             style: SlowlightTypography.caption(context)
