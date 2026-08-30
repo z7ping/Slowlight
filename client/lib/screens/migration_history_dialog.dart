@@ -7,7 +7,6 @@ import '../services/data_mode_manager.dart';
 import '../services/migration_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 class MigrationHistoryDialog extends StatefulWidget {
   const MigrationHistoryDialog({super.key});
@@ -38,6 +37,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   @override
   Widget build(BuildContext context) {
     final cloudMode = DataModeManager().isCloud;
+    final theme = Theme.of(context);
     return SizedBox(
       width: 660,
       child: Column(
@@ -45,17 +45,23 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (cloudMode) ...[
-            HfSegmented(
-              labels: const ['云端审计', '本机记录'],
-              selectedIndex: _source == 'cloud' ? 0 : 1,
-              onChanged: (index) {
-                _source = index == 0 ? 'cloud' : 'local';
-                _reload();
-              },
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: FxSegmented(
+                labels: const ['云端审计', '本机记录'],
+                selectedIndex: _source == 'cloud' ? 0 : 1,
+                onChanged: (index) {
+                  _source = index == 0 ? 'cloud' : 'local';
+                  _reload();
+                },
+              ),
             ),
             const SizedBox(height: AppTheme.spaceMd),
           ] else ...[
-            const HfChip('本机记录'),
+            const FxChip(
+              label: '本机记录',
+              variant: FxChipVariant.secondary,
+            ),
             const SizedBox(height: AppTheme.spaceMd),
           ],
           ConstrainedBox(
@@ -83,20 +89,23 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             ),
           ),
           const SizedBox(height: AppTheme.spaceMd),
-          Row(
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppTheme.spaceSm,
+            runSpacing: AppTheme.spaceSm,
             children: [
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
                 child: Text(
                   _source == 'local'
                       ? '失败的本机记录保留快照，可在云端模式下重试。'
                       : '云端审计不包含原始用户内容或应用密钥。',
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
-              const SizedBox(width: AppTheme.spaceSm),
               FxButton(
                 label: '关闭',
                 variant: FxButtonVariant.outline,
@@ -118,14 +127,18 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
         children: [
           Icon(Icons.error_outline, color: theme.colorScheme.error),
           const SizedBox(height: AppTheme.spaceXs),
-          Text('读取${_source == 'local' ? '本机' : '云端'}迁移历史失败',
-              style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            '读取${_source == 'local' ? '本机' : '云端'}迁移历史失败',
+            style: SlowlightTypography.cardTitle(context),
+          ),
           const SizedBox(height: 4),
-          Text('$error',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            '$error',
+            textAlign: TextAlign.center,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: AppTheme.spaceSm),
           FxButton(
             label: '重新加载',
@@ -144,17 +157,24 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.history_outlined,
-              size: 30, color: theme.colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.history_outlined,
+            size: 30,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: AppTheme.spaceXs),
-          Text(_source == 'local' ? '还没有本机迁移记录' : '还没有云端审计记录',
-              style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            _source == 'local' ? '还没有本机迁移记录' : '还没有云端审计记录',
+            style: SlowlightTypography.cardTitle(context),
+          ),
           const SizedBox(height: 4),
-          Text('完成一次迁移后，时间、策略与结果会显示在这里。',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            '完成一次迁移后，时间、策略与结果会显示在这里。',
+            textAlign: TextAlign.center,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -165,32 +185,39 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
     final local = report['source'] == 'local';
     final id = (report['id'] as num?)?.toInt();
     final canRetry = local && status == 'failed' && id != null;
-    return HfCard(
+    final theme = Theme.of(context);
+    return FxCard(
       padding: const EdgeInsets.all(AppTheme.spaceSm),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(local ? Icons.computer_outlined : Icons.cloud_outlined,
-                  size: 18, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                local ? Icons.computer_outlined : Icons.cloud_outlined,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: AppTheme.spaceXs),
               Expanded(
                 child: Text(
                   _formatTime(report['created_at']),
-                  style: const TextStyle(
-                      fontSize: AppTheme.textSm, fontWeight: FontWeight.w600),
+                  style: SlowlightTypography.secondary(context).copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               _statusBadge(status),
             ],
           ),
           const SizedBox(height: AppTheme.spaceXs),
           Text(
             '${local ? '本机记录' : '云端审计'} · ${_policy(report['conflict_policy'])}',
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: AppTheme.spaceSm),
@@ -201,9 +228,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             const SizedBox(height: AppTheme.spaceXs),
             Text(
               _error(report),
-              style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  color: Theme.of(context).colorScheme.error),
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.error,
+              ),
             ),
           ],
           if (canRetry) ...[
@@ -244,11 +271,13 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
         color: color.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: AppTheme.textXs,
-              fontWeight: FontWeight.w600,
-              color: color)),
+      child: Text(
+        label,
+        style: SlowlightTypography.caption(context).copyWith(
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 
@@ -258,15 +287,19 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 40,
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  color: theme.colorScheme.onSurfaceVariant)),
+          width: 48,
+          child: Text(
+            label,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
         Expanded(
-          child: Text(_counts(value),
-              style: const TextStyle(fontSize: AppTheme.textXs)),
+          child: Text(
+            _counts(value),
+            style: SlowlightTypography.caption(context),
+          ),
         ),
       ],
     );
@@ -325,7 +358,8 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
       final raw = value is Map
           ? Map<String, dynamic>.from(value)
           : Map<String, dynamic>.from(
-              jsonDecode(value?.toString() ?? '{}') as Map);
+              jsonDecode(value?.toString() ?? '{}') as Map,
+            );
       const labels = {
         'lists': '清单',
         'tasks': '任务',
