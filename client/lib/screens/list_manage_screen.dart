@@ -239,11 +239,8 @@ class _ListManageScreenState extends State<ListManageScreen> {
                           ),
                         ],
                         const SizedBox(height: 16),
-                        Wrap(
-                          alignment: WrapAlignment.end,
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
+                        FxDialogActions(
+                          actions: [
                             FxButton(
                               label: '取消',
                               variant: FxButtonVariant.outline,
@@ -362,16 +359,12 @@ class _ListManageScreenState extends State<ListManageScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: [
-                      FxChip(
-                        label: '${_lists.length} 个清单',
-                        variant: FxChipVariant.secondary,
-                      ),
+                  FxActionBar(
+                    leading: FxChip(
+                      label: '${_lists.length} 个清单',
+                      variant: FxChipVariant.secondary,
+                    ),
+                    actions: [
                       FxButton(
                         label: '新建清单',
                         icon: LucideIcons.plus,
