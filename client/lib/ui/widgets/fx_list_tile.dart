@@ -6,36 +6,8 @@ import 'fx_cursor.dart';
 
 /// FxListTile — 统一列表行。
 ///
-/// 用于设置、选择列表、轻量内容列表等常见单行/双行场景。保留 Material
-/// ListTile 的常用命名参数作为迁移兼容层，但视觉与交互始终由 Fx 控制。
+/// 保留 Material ListTile 常用命名参数作为迁移兼容层，但视觉与交互始终由 Fx 控制。
 class FxListTile extends StatelessWidget {
-  final Object title;
-  final Object? subtitle;
-  final Widget? leading;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-  final EdgeInsetsGeometry padding;
-  final EdgeInsetsGeometry? contentPadding;
-  final double minHeight;
-  final bool showDivider;
-  final TextStyle? titleStyle;
-  final TextStyle? subtitleStyle;
-  final bool enabled;
-  final bool selected;
-  final Color? tileColor;
-  final Color? selectedTileColor;
-  final Color? textColor;
-  final Color? selectedColor;
-  final Color? iconColor;
-  final bool dense;
-  final double? horizontalTitleGap;
-  final double? minLeadingWidth;
-  final ShapeBorder? shape;
-  final ShapeBorder? selectedShape;
-  final MouseCursor? mouseCursor;
-  final bool enableFeedback;
-
   const FxListTile({
     super.key,
     required this.title,
@@ -44,12 +16,16 @@ class FxListTile extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.onLongPress,
+    this.onFocusChange,
     this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
     this.contentPadding,
     this.minHeight = 52,
     this.showDivider = false,
     this.titleStyle,
     this.subtitleStyle,
+    this.titleTextStyle,
+    this.subtitleTextStyle,
+    this.leadingAndTrailingTextStyle,
     this.enabled = true,
     this.selected = false,
     this.tileColor,
@@ -57,18 +33,66 @@ class FxListTile extends StatelessWidget {
     this.textColor,
     this.selectedColor,
     this.iconColor,
+    this.focusColor,
+    this.hoverColor,
+    this.splashColor,
     this.dense = false,
+    this.isThreeLine = false,
+    this.visualDensity,
     this.horizontalTitleGap,
+    this.minVerticalPadding,
     this.minLeadingWidth,
     this.shape,
     this.selectedShape,
     this.mouseCursor,
     this.enableFeedback = true,
+    this.autofocus = false,
+    this.titleAlignment,
+    this.internalAddSemanticForOnTap,
   })  : assert(title is String || title is Widget),
         assert(subtitle == null || subtitle is String || subtitle is Widget);
 
+  final Object title;
+  final Object? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final ValueChanged<bool>? onFocusChange;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? contentPadding;
+  final double minHeight;
+  final bool showDivider;
+  final TextStyle? titleStyle;
+  final TextStyle? subtitleStyle;
+  final TextStyle? titleTextStyle;
+  final TextStyle? subtitleTextStyle;
+  final TextStyle? leadingAndTrailingTextStyle;
+  final bool enabled;
+  final bool selected;
+  final Color? tileColor;
+  final Color? selectedTileColor;
+  final Color? textColor;
+  final Color? selectedColor;
+  final Color? iconColor;
+  final Color? focusColor;
+  final Color? hoverColor;
+  final Color? splashColor;
+  final bool dense;
+  final bool isThreeLine;
+  final VisualDensity? visualDensity;
+  final double? horizontalTitleGap;
+  final double? minVerticalPadding;
+  final double? minLeadingWidth;
+  final ShapeBorder? shape;
+  final ShapeBorder? selectedShape;
+  final MouseCursor? mouseCursor;
+  final bool enableFeedback;
+  final bool autofocus;
+  final ListTileTitleAlignment? titleAlignment;
+  final bool? internalAddSemanticForOnTap;
+
   Widget _content(
-    BuildContext context,
     Object value, {
     required TextStyle fallbackStyle,
   }) {
@@ -94,12 +118,45 @@ class FxListTile extends StatelessWidget {
     final effectivePadding = contentPadding ?? padding;
     final gap = horizontalTitleGap ?? AppTheme.spaceSm;
     final leadingWidth = minLeadingWidth ?? 0;
+    final verticalPadding = minVerticalPadding ?? (dense ? 4 : 8);
     final showSubtitle = subtitle is Widget ||
         (subtitle is String && (subtitle! as String).isNotEmpty);
+    final effectiveMinHeight = visualDensity?.effectiveConstraints(
+          BoxConstraints(minHeight: dense ? minHeight - 8 : minHeight),
+        ).minHeight ??
+        (dense ? minHeight - 8 : minHeight);
+
+    final leadingWidget = leading == null
+        ? null
+        : DefaultTextStyle.merge(
+            style: leadingAndTrailingTextStyle,
+            child: IconTheme(
+              data: IconThemeData(
+                color: iconColor ??
+                    (selected
+                        ? selectedColor
+                        : theme.colorScheme.onSurfaceVariant),
+              ),
+              child: leading!,
+            ),
+          );
+    final trailingWidget = trailing == null
+        ? null
+        : DefaultTextStyle.merge(
+            style: leadingAndTrailingTextStyle,
+            child: trailing!,
+          );
 
     final row = Container(
-      constraints: BoxConstraints(minHeight: dense ? minHeight - 8 : minHeight),
-      padding: effectivePadding,
+      constraints: BoxConstraints(minHeight: effectiveMinHeight),
+      padding: effectivePadding == padding && contentPadding == null
+          ? EdgeInsets.fromLTRB(
+              (effectivePadding as EdgeInsets).left,
+              verticalPadding,
+              (effectivePadding).right,
+              verticalPadding,
+            )
+          : effectivePadding,
       decoration: BoxDecoration(
         color: selected ? selectedTileColor ?? tileColor : tileColor,
         borderRadius: _borderRadius(),
@@ -112,18 +169,10 @@ class FxListTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (leading != null) ...[
+          if (leadingWidget != null) ...[
             ConstrainedBox(
               constraints: BoxConstraints(minWidth: leadingWidth),
-              child: IconTheme(
-                data: IconThemeData(
-                  color: iconColor ??
-                      (selected
-                          ? selectedColor
-                          : theme.colorScheme.onSurfaceVariant),
-                ),
-                child: leading!,
-              ),
+              child: leadingWidget,
             ),
             SizedBox(width: gap),
           ],
@@ -135,9 +184,9 @@ class FxListTile extends StatelessWidget {
                 DefaultTextStyle.merge(
                   style: TextStyle(color: effectiveForeground),
                   child: _content(
-                    context,
                     title,
-                    fallbackStyle: titleStyle ??
+                    fallbackStyle: titleTextStyle ??
+                        titleStyle ??
                         SlowlightTypography.secondary(context).copyWith(
                           fontWeight: FontWeight.w600,
                           color: effectiveForeground,
@@ -147,9 +196,9 @@ class FxListTile extends StatelessWidget {
                 if (showSubtitle) ...[
                   const SizedBox(height: 2),
                   _content(
-                    context,
                     subtitle!,
-                    fallbackStyle: subtitleStyle ??
+                    fallbackStyle: subtitleTextStyle ??
+                        subtitleStyle ??
                         SlowlightTypography.caption(context).copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -158,9 +207,9 @@ class FxListTile extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) ...[
+          if (trailingWidget != null) ...[
             SizedBox(width: gap),
-            trailing!,
+            trailingWidget,
           ],
         ],
       ),
@@ -171,8 +220,13 @@ class FxListTile extends StatelessWidget {
     return FxInkWell(
       onTap: onTap,
       onLongPress: onLongPress,
+      onFocusChange: onFocusChange,
       mouseCursor: mouseCursor,
       enableFeedback: enableFeedback,
+      autofocus: autofocus,
+      focusColor: focusColor,
+      hoverColor: hoverColor,
+      splashColor: splashColor,
       borderRadius: _borderRadius(),
       child: row,
     );
