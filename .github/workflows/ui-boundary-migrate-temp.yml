@@ -1,0 +1,123 @@
+name: Temporary UI Boundary Migration
+
+on:
+  push:
+    branches:
+      - fix/android-typography-fx-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/android-typography-fx-foundation
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+
+      - name: Migrate first semi-visual batch
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path('client/lib')
+          expected = {
+              'CircularProgressIndicator': 43,
+              'RefreshIndicator': 23,
+              'VerticalDivider': 1,
+              'Divider': 23,
+              'InkWell': 20,
+              'Tooltip': 2,
+          }
+          actual = {key: 0 for key in expected}
+          changed = []
+
+          def ensure_fx_import(path: Path, source: str) -> str:
+              if path.as_posix() == 'client/lib/ui/widgets/fx_segmented.dart':
+                  if "import 'fx_cursor.dart';" not in source:
+                      lines = source.splitlines()
+                      insert_at = 0
+                      while insert_at < len(lines) and lines[insert_at].startswith('import '):
+                          insert_at += 1
+                      lines.insert(insert_at, "import 'fx_cursor.dart';")
+                      return '\n'.join(lines) + ('\n' if source.endswith('\n') else '')
+                  return source
+              if re.search(r"import\s+['\"][^'\"]*ui/fx\.dart['\"]", source):
+                  return source
+              lines = source.splitlines()
+              insert_at = 0
+              while insert_at < len(lines) and lines[insert_at].startswith('import '):
+                  insert_at += 1
+              lines.insert(insert_at, "import 'package:slowlight/ui/fx.dart';")
+              return '\n'.join(lines) + ('\n' if source.endswith('\n') else '')
+
+          for path in sorted(root.rglob('*.dart')):
+              source = path.read_text(encoding='utf-8')
+              original = source
+              posix = path.as_posix()
+
+              replacements = []
+              replacements.append(('CircularProgressIndicator', r'\bCircularProgressIndicator\s*\(', 'FxCircularProgress('))
+              if posix != 'client/lib/ui/widgets/fx_refresh.dart':
+                  replacements.append(('RefreshIndicator', r'\bRefreshIndicator\s*\(', 'FxRefresh('))
+              replacements.append(('VerticalDivider', r'\bVerticalDivider\s*\(', 'FxSeparator.vertical('))
+              replacements.append(('Divider', r'(?<!FxSeparator\.horizontal)\bDivider\s*\(', 'FxSeparator.horizontal('))
+              if posix != 'client/lib/ui/widgets/fx_cursor.dart':
+                  replacements.append(('InkWell', r'(?<!Fx)\bInkWell\s*\(', 'FxInkWell('))
+              if posix != 'client/lib/ui/widgets/fx_tooltip.dart':
+                  replacements.append(('Tooltip', r'(?<!Fx)\bTooltip\s*\(', 'FxTooltip('))
+
+              for name, pattern, replacement in replacements:
+                  source, count = re.subn(pattern, replacement, source)
+                  actual[name] += count
+
+              if source != original:
+                  source = ensure_fx_import(path, source)
+                  path.write_text(source, encoding='utf-8')
+                  changed.append(posix)
+
+          for name, count in expected.items():
+              if actual[name] != count:
+                  raise SystemExit(f'{name}: expected {count}, got {actual[name]}')
+
+          print('migrated:', actual)
+          print('changed files:', len(changed))
+          for path in changed:
+              print(path)
+
+      - name: Format
+        run: dart format client/lib
+
+      - name: Resolve dependencies
+        working-directory: client
+        run: flutter pub get
+
+      - name: Run static analysis
+        working-directory: client
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Run architecture guard
+        working-directory: client
+        run: flutter test test/ui/ui_architecture_guard_test.dart
+
+      - name: Commit migration
+        run: |
+          if git diff --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add client/lib
+          git commit -m 'refactor(ui): migrate semi-visual Material primitives'
+          git push origin HEAD:fix/android-typography-fx-foundation
