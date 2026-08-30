@@ -146,8 +146,9 @@ void main() {
       createTask: (_, date) async => createdFor = date,
     );
 
+    final addTask = find.byKey(const ValueKey('calendar-add-task'));
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('calendar-add-task')),
+      addTask,
       300,
       scrollable: find
           .descendant(
@@ -156,7 +157,9 @@ void main() {
           )
           .first,
     );
-    await tester.tap(find.byKey(const ValueKey('calendar-add-task')));
+    await tester.ensureVisible(addTask);
+    await tester.pumpAndSettle();
+    await tester.tap(addTask);
     await tester.pumpAndSettle();
 
     expect(createdFor, DateTime(2026, 8, 21));
