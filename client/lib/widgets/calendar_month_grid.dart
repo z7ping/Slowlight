@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/calendar_record.dart';
 import '../theme/app_theme.dart';
+import '../ui/typography_tokens.dart';
 
 class CalendarMonthGrid extends StatelessWidget {
   final DateTime focusedMonth;
@@ -31,6 +32,10 @@ class CalendarMonthGrid extends StatelessWidget {
     required this.onShowMore,
   });
 
+  bool _largeText(BuildContext context) => MediaQuery.textScalerOf(context)
+          .scale(SlowlightTypography.captionSize) >=
+      SlowlightTypography.captionSize * 1.3;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -54,8 +59,15 @@ class CalendarMonthGrid extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 720;
-                  // 紧凑模式仍要容纳日期、两条记录和“还有 N 条”，避免窄屏裁切。
-                  final height = compact ? 100.0 : 124.0;
+                  final largeText = _largeText(context);
+                  // 月格始终保持 7 列；系统字体放大时改为纵向增高，
+                  // 不通过继续缩小文字维持密度。
+                  final height = switch ((compact, largeText)) {
+                    (true, true) => 142.0,
+                    (true, false) => 100.0,
+                    (false, true) => 156.0,
+                    (false, false) => 124.0,
+                  };
                   return GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -65,7 +77,7 @@ class CalendarMonthGrid extends StatelessWidget {
                       mainAxisExtent: height,
                     ),
                     itemBuilder: (context, index) =>
-                        _dayCell(context, _dates[index], compact),
+                        _dayCell(context, _dates[index], compact, largeText),
                   );
                 },
               ),
@@ -91,6 +103,7 @@ class CalendarMonthGrid extends StatelessWidget {
         ),
       ),
       child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _WeekdayLabel('周一'),
           _WeekdayLabel('周二'),
@@ -104,7 +117,12 @@ class CalendarMonthGrid extends StatelessWidget {
     );
   }
 
-  Widget _dayCell(BuildContext context, DateTime date, bool compact) {
+  Widget _dayCell(
+    BuildContext context,
+    DateTime date,
+    bool compact,
+    bool largeText,
+  ) {
     final theme = Theme.of(context);
     final outside = date.month != focusedMonth.month;
     final selected = _sameDay(date, selectedDate);
@@ -112,6 +130,7 @@ class CalendarMonthGrid extends StatelessWidget {
     final items = _visibleRecords(date);
     final shown = items.take(compact ? 2 : 3).toList(growable: false);
     final remaining = items.length - shown.length;
+    final dateHeaderHeight = largeText ? 34.0 : 23.0;
 
     return Material(
       color: selected
@@ -144,12 +163,17 @@ class CalendarMonthGrid extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                height: 23,
+                height: dateHeaderHeight,
                 child: Row(
                   children: [
                     Container(
-                      width: 22,
-                      height: 22,
+                      constraints: BoxConstraints(
+                        minWidth: largeText ? 30 : 22,
+                        minHeight: largeText ? 30 : 22,
+                      ),
+                      padding: largeText
+                          ? const EdgeInsets.symmetric(horizontal: 2)
+                          : EdgeInsets.zero,
                       alignment: Alignment.center,
                       decoration: today
                           ? BoxDecoration(
@@ -159,8 +183,8 @@ class CalendarMonthGrid extends StatelessWidget {
                           : null,
                       child: Text(
                         '${date.day}',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                        maxLines: 1,
+                        style: SlowlightTypography.caption(context).copyWith(
                           fontWeight: selected || today
                               ? FontWeight.w700
                               : FontWeight.w500,
@@ -191,18 +215,19 @@ class CalendarMonthGrid extends StatelessWidget {
                   ],
                 ),
               ),
-              ...shown.map((record) => _recordChip(context, record, compact)),
+              ...shown.map(
+                (record) => _recordChip(context, record, compact, largeText),
+              ),
               if (remaining > 0)
                 InkWell(
                   onTap: () => onShowMore(date),
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 5, top: 3),
+                    padding: const EdgeInsets.only(left: 3, top: 3),
                     child: Text(
                       '还有 $remaining 条记录',
-                      maxLines: 1,
+                      maxLines: largeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: compact ? 9 : 10,
+                      style: SlowlightTypography.caption(context).copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -219,6 +244,7 @@ class CalendarMonthGrid extends StatelessWidget {
     BuildContext context,
     CalendarRecord record,
     bool compact,
+    bool largeText,
   ) {
     final theme = Theme.of(context);
     final color = calendarRecordColor(record, context);
@@ -234,15 +260,16 @@ class CalendarMonthGrid extends StatelessWidget {
           child: Container(
             key: ValueKey('calendar-grid-record-${record.id}'),
             width: double.infinity,
-            height: compact ? 20 : 21,
+            constraints: BoxConstraints(
+              minHeight: largeText ? 32 : 24,
+            ),
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 6),
             child: Text(
               '${record.title}$suffix',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: compact ? 9 : 10.5,
+              style: SlowlightTypography.caption(context).copyWith(
                 color: record.completed
                     ? theme.colorScheme.onSurfaceVariant
                     : theme.colorScheme.onSurface,
@@ -277,11 +304,12 @@ class _WeekdayLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: SlowlightTypography.caption(context).copyWith(
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
