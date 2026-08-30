@@ -80,18 +80,27 @@ class DimensionSummaryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   '四维近况',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: SlowlightTypography.cardTitle(context).copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Text(
                 '本周',
-                style: TextStyle(fontSize: AppTheme.textXs, color: theme.colorScheme.onSurfaceVariant),
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (dimensions.isEmpty)
-            Text('还没有可用的维度数据。', style: TextStyle(color: theme.colorScheme.onSurfaceVariant))
+            Text(
+              '还没有可用的维度数据。',
+              style: SlowlightTypography.secondary(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
           else
             ...dimensions.map((dim) => _buildItem(context, dim)),
           if (dimensions.isNotEmpty) ...[
@@ -116,7 +125,7 @@ class DimensionSummaryCard extends StatelessWidget {
   Widget _buildItem(BuildContext context, Dimension dim) {
     final theme = Theme.of(context);
     final color = _parseColor(dim.color);
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: () => onDimensionTap?.call(dim),
       child: Container(
@@ -136,27 +145,35 @@ class DimensionSummaryCard extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(dim.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+              child: Text(
+                dim.name,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             Text(
               '${dim.value}${dim.unit.isEmpty ? '' : ' ${dim.unit}'}',
-              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: SlowlightTypography.secondary(context).copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(width: 10),
-            Icon(_trendIcon(dim.trend), size: 18, color: _trendColor(context, dim.trend)),
+            Icon(
+              _trendIcon(dim.trend),
+              size: 18,
+              color: _trendColor(context, dim.trend),
+            ),
             const SizedBox(width: 2),
-            Tooltip(
-              message: '记录关于${dim.name}的观察',
-              child: IconButton(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                padding: EdgeInsets.zero,
-                icon: Icon(Icons.edit_outlined, size: 16, color: theme.colorScheme.outline),
-                onPressed: () => ReflectionComposer.show(
-                  context,
-                  entryType: 'observation',
-                  dimensionKey: dim.key,
-                  prompt: '关于「${dim.name}」，此刻你自己观察到了什么？',
-                ),
+            FxIconButton(
+              icon: Icons.edit_outlined,
+              iconSize: 16,
+              tooltip: '记录关于${dim.name}的观察',
+              onPressed: () => ReflectionComposer.show(
+                context,
+                entryType: 'observation',
+                dimensionKey: dim.key,
+                prompt: '关于「${dim.name}」，此刻你自己观察到了什么？',
               ),
             ),
           ],
