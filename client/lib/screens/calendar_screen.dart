@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/calendar_record.dart';
@@ -179,10 +178,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       spacing: 6,
       runSpacing: 8,
       children: [
-        OutlinedButton(
+        FxButton(
           key: const ValueKey('calendar-today'),
+          label: '今天',
+          size: FxButtonSize.sm,
+          variant: FxButtonVariant.outline,
           onPressed: _loading ? null : _goToday,
-          child: const Text('今天'),
         ),
         _monthButton(LucideIcons.chevronLeft, '上个月', () => _moveMonth(-1)),
         _monthButton(LucideIcons.chevronRight, '下个月', () => _moveMonth(1)),
@@ -202,11 +203,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _monthButton(IconData icon, String tooltip, VoidCallback onPressed) {
-    return IconButton.outlined(
+    return FxIconButton(
+      icon: icon,
+      iconSize: 17,
       tooltip: tooltip,
+      variant: FxIconButtonVariant.outline,
       onPressed: _loading ? null : onPressed,
-      icon: Icon(icon, size: 17),
-      constraints: const BoxConstraints.tightFor(width: 40, height: 40),
     );
   }
 
@@ -280,11 +282,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ],
               ),
               _summary(records),
-              FilledButton.icon(
+              FxButton(
                 key: const ValueKey('calendar-add-task'),
+                label: '新建任务',
+                icon: LucideIcons.plus,
+                size: FxButtonSize.sm,
                 onPressed: () => _addTask(_selected),
-                icon: const Icon(LucideIcons.plus, size: 16),
-                label: const Text('新建任务'),
               ),
             ],
           ),
@@ -389,7 +392,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             SlowlightTypography.secondarySize * 1.3
         ? 2
         : 1;
-    return InkWell(
+    return FxInkWell(
       key: ValueKey('calendar-record-${record.id}'),
       onTap: () => _openRecord(record),
       child: Container(
