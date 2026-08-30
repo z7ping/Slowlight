@@ -1,18 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../services/api_service.dart';
-import '../ui/fx.dart';
 import '../ui/app_theme.dart';
+import '../ui/fx.dart';
 
 /// 每日趋势折线图
-const _chartColors = [
-  Color(0xFF52C41A),
-  Color(0xFF1890FF),
-  Color(0xFFFAAD14),
-  Color(0xFFFF6B6B),
-  Color(0xFF722ED1),
-  Color(0xFF13C2C2),
-];
-
 class DailyTrendChart extends StatefulWidget {
   const DailyTrendChart({super.key});
 
@@ -23,7 +15,7 @@ class DailyTrendChart extends StatefulWidget {
 class _DailyTrendChartState extends State<DailyTrendChart> {
   bool _loading = true;
   List<Map<String, dynamic>> _days = [];
-  String _metric = 'focus_minutes'; // focus_minutes | task_completed | completion_rate | habit_checked
+  String _metric = 'focus_minutes';
 
   static const _metrics = {
     'focus_minutes': {'label': '专注分钟', 'color': Color(0xFF52C41A)},
@@ -59,58 +51,70 @@ class _DailyTrendChartState extends State<DailyTrendChart> {
     return FxCard(
       padding: const EdgeInsets.all(12),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.show_chart, color: theme.colorScheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Text('最近 7 天趋势',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // 指标选择器
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _metrics.entries.map((e) {
-                  final selected = _metric == e.key;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(e.value['label'] as String),
-                      selected: selected,
-                      onSelected: (_) => setState(() => _metric = e.key),
-                      labelStyle: TextStyle(
-                        fontSize: AppTheme.textXs, height: 1.4,
-                        color: selected ? AppTheme.white : null,
-                      ),
-                      selectedColor: e.value['color'] as Color,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_loading)
-              const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()))
-            else if (_days.isEmpty)
-              SizedBox(
-                height: 120,
-                child: Center(
-                  child: Text('数据积累中',
-                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.show_chart, color: theme.colorScheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                '最近 7 天趋势',
+                style: SlowlightTypography.cardTitle(context).copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-              )
-            else
-              SizedBox(
-                height: 150,
-                child: _buildChart(theme),
               ),
-          ],
-        ),
-      );
+            ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _metrics.entries.map((entry) {
+                final selected = _metric == entry.key;
+                final color = entry.value['color'] as Color;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FxChip(
+                    label: entry.value['label'] as String,
+                    variant: selected
+                        ? FxChipVariant.primary
+                        : FxChipVariant.outline,
+                    backgroundColor: selected ? color : Colors.transparent,
+                    foregroundColor: selected
+                        ? AppTheme.white
+                        : theme.colorScheme.onSurfaceVariant,
+                    onTap: () => setState(() => _metric = entry.key),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_loading)
+            const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_days.isEmpty)
+            SizedBox(
+              height: 120,
+              child: Center(
+                child: Text(
+                  '数据积累中',
+                  style: SlowlightTypography.secondary(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 150,
+              child: _buildChart(theme),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildChart(ThemeData theme) {
@@ -167,22 +171,25 @@ class _TrendLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
 
-    final padding = const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 28);
+    final padding =
+        const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 28);
     final chartW = size.width - padding.left - padding.right;
     final chartH = size.height - padding.top - padding.bottom;
     final pointCount = values.length;
     final stepX = pointCount > 1 ? chartW / (pointCount - 1) : 0.0;
 
-    // 网格线
     final gridPaint = Paint()
       ..color = theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
       ..strokeWidth = 0.5;
     for (int i = 0; i < 4; i++) {
       final y = padding.top + chartH * i / 3;
-      canvas.drawLine(Offset(padding.left, y), Offset(size.width - padding.right, y), gridPaint);
+      canvas.drawLine(
+        Offset(padding.left, y),
+        Offset(size.width - padding.right, y),
+        gridPaint,
+      );
     }
 
-    // 折线
     final linePaint = Paint()
       ..color = color
       ..strokeWidth = 2.5
@@ -203,38 +210,38 @@ class _TrendLinePainter extends CustomPainter {
     }
     canvas.drawPath(path, linePaint);
 
-    // 渐变填充
-    final fillPath = Path.from(path);
-    fillPath.lineTo(points.last.dx, padding.top + chartH);
-    fillPath.lineTo(points.first.dx, padding.top + chartH);
-    fillPath.close();
+    final fillPath = Path.from(path)
+      ..lineTo(points.last.dx, padding.top + chartH)
+      ..lineTo(points.first.dx, padding.top + chartH)
+      ..close();
     final fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0.02)],
+        colors: [
+          color.withValues(alpha: 0.2),
+          color.withValues(alpha: 0.02),
+        ],
       ).createShader(Rect.fromLTWH(0, padding.top, size.width, chartH));
     canvas.drawPath(fillPath, fillPaint);
 
-    // 数据点
     final dotPaint = Paint()..color = color;
     final dotBorderPaint = Paint()
       ..color = AppTheme.white
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
-    for (final p in points) {
-      canvas.drawCircle(p, 4, dotBorderPaint);
-      canvas.drawCircle(p, 3, dotPaint);
+    for (final point in points) {
+      canvas.drawCircle(point, 4, dotBorderPaint);
+      canvas.drawCircle(point, 3, dotPaint);
     }
 
-    // 日期标签
     final textStyle = TextStyle(
-      fontSize: AppTheme.textXs, height: 1.4,
+      fontSize: AppTheme.textXs,
+      height: 1.4,
       color: theme.colorScheme.onSurfaceVariant,
     );
     for (int i = 0; i < pointCount; i++) {
       final x = padding.left + stepX * i;
-      // 只显示 MM-DD
       final label = labels[i].length >= 10 ? labels[i].substring(5) : labels[i];
       final tp = TextPainter(
         text: TextSpan(text: label, style: textStyle),
@@ -243,20 +250,20 @@ class _TrendLinePainter extends CustomPainter {
       tp.paint(canvas, Offset(x - tp.width / 2, padding.top + chartH + 6));
     }
 
-    // 数值标签
     final valueStyle = TextStyle(
-      fontSize: AppTheme.textXs, height: 1.4,
+      fontSize: AppTheme.textXs,
+      height: 1.4,
       fontWeight: FontWeight.w600,
       color: color,
     );
     for (int i = 0; i < pointCount; i++) {
       if (values[i] == 0) continue;
-      final p = points[i];
+      final point = points[i];
       final tp = TextPainter(
         text: TextSpan(text: values[i].toInt().toString(), style: valueStyle),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(p.dx - tp.width / 2, p.dy - 14));
+      tp.paint(canvas, Offset(point.dx - tp.width / 2, point.dy - 14));
     }
   }
 
