@@ -15,6 +15,7 @@ export 'widgets/fx_switch.dart';
 export 'widgets/fx_chip.dart';
 export 'widgets/fx_tooltip.dart';
 export 'widgets/fx_progress.dart';
+export 'widgets/fx_separator.dart';
 export 'widgets/fx_badge.dart';
 export 'widgets/fx_tab.dart';
 export 'widgets/fx_segmented.dart';
