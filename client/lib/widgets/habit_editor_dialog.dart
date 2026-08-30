@@ -243,14 +243,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           ),
                         ),
                       ),
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          tooltip: '关闭',
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close, size: 18),
-                        ),
+                      FxIconButton(
+                        tooltip: '关闭',
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icons.close,
                       ),
                     ],
                   ),
@@ -282,36 +278,29 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           final icon = template['icon']!;
                           final selected =
                               _name.text.trim() == name && _icon == icon;
-                          return ChoiceChip(
-                            label: Text('$icon $name'),
-                            labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-                            showCheckmark: false,
-                            selected: selected,
-                            selectedColor:
-                                activePalette.accent.withValues(alpha: .12),
-                            side: BorderSide(
-                              color: selected
-                                  ? activePalette.accent
-                                  : fxBorder(context),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            onSelected: (_) => _applyTemplate(template),
+                          return FxChip(
+                            label: '$icon $name',
+                            onTap: () => _applyTemplate(template),
+                            backgroundColor: selected
+                                ? activePalette.accent.withValues(alpha: .12)
+                                : fxSubtleSurface(context),
+                            foregroundColor: selected
+                                ? activePalette.accent
+                                : theme.colorScheme.onSurfaceVariant,
+                            borderColor: selected
+                                ? activePalette.accent
+                                : fxBorder(context),
+                            borderRadius: 999,
                           );
                         }).toList(growable: false),
                       ),
                       const SizedBox(height: 12),
                     ],
-                    TextField(
+                    FxInput(
                       controller: _name,
                       autofocus: widget.habit == null,
                       onChanged: (_) => setState(() {}),
-                      style: SlowlightTypography.body(context),
-                      decoration: const InputDecoration(
-                        hintText: '习惯名称',
-                        labelText: null,
-                      ),
+                      placeholder: '习惯名称',
                     ),
                     const SizedBox(height: 12),
                     _fieldLabel('频率'),
@@ -334,23 +323,21 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _icons
-                          .map(
-                            (icon) => ChoiceChip(
-                              label: Text(icon),
-                              showCheckmark: false,
-                              selected: _icon == icon,
-                              selectedColor:
-                                  activePalette.accent.withValues(alpha: .12),
-                              side: BorderSide(
-                                color: _icon == icon
-                                    ? activePalette.accent
-                                    : fxBorder(context),
-                              ),
-                              onSelected: (_) => setState(() => _icon = icon),
-                            ),
-                          )
-                          .toList(growable: false),
+                      children: _icons.map((icon) {
+                        final selected = _icon == icon;
+                        return FxChip(
+                          label: icon,
+                          onTap: () => setState(() => _icon = icon),
+                          backgroundColor: selected
+                              ? activePalette.accent.withValues(alpha: .12)
+                              : fxSubtleSurface(context),
+                          foregroundColor: theme.colorScheme.onSurface,
+                          borderColor: selected
+                              ? activePalette.accent
+                              : fxBorder(context),
+                          borderRadius: 999,
+                        );
+                      }).toList(growable: false),
                     ),
                     const SizedBox(height: 16),
                     _fieldLabel('颜色'),
@@ -359,7 +346,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       runSpacing: 8,
                       children: _colors.map((color) {
                         final parsed = _parseColor(color);
-                        return InkWell(
+                        return FxInkWell(
                           onTap: () => setState(() => _color = color),
                           borderRadius: BorderRadius.circular(22),
                           child: SizedBox(
@@ -387,42 +374,42 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     ),
                     const SizedBox(height: 14),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: TextField(
+                          child: FxInput(
                             controller: _targetDays,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: '目标天数',
-                              helperText: '0 表示不设目标',
-                            ),
+                            label: '目标天数',
+                            placeholder: '0 表示不设目标',
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: TextField(
+                          child: FxInput(
                             controller: _duration,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: '预期时长（分钟）',
-                            ),
+                            label: '预期时长（分钟）',
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _preferredPeriod,
-                      decoration: const InputDecoration(labelText: '偏好时段'),
-                      items: const [
-                        DropdownMenuItem(value: '', child: Text('不限')),
-                        DropdownMenuItem(value: 'morning', child: Text('早晨')),
-                        DropdownMenuItem(value: 'afternoon', child: Text('下午')),
-                        DropdownMenuItem(value: 'evening', child: Text('傍晚')),
-                        DropdownMenuItem(value: 'night', child: Text('晚间')),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => _preferredPeriod = value ?? ''),
+                    _fieldLabel('偏好时段'),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FxSelect<String>(
+                        value: _preferredPeriod,
+                        options: const [
+                          FxSelectOption(value: '', label: '不限'),
+                          FxSelectOption(value: 'morning', label: '早晨'),
+                          FxSelectOption(value: 'afternoon', label: '下午'),
+                          FxSelectOption(value: 'evening', label: '傍晚'),
+                          FxSelectOption(value: 'night', label: '晚间'),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _preferredPeriod = value ?? ''),
+                      ),
                     ),
                     _timeRow(
                       title: '计划执行时间',
@@ -430,33 +417,38 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       onChanged: (value) => setState(() => _specificTime = value),
                     ),
                     const SizedBox(height: 4),
-                    DropdownButtonFormField<int?>(
-                      value: _loadingTags ? null : _systemTagId,
-                      decoration: const InputDecoration(labelText: '观察标签'),
-                      items: [
-                        const DropdownMenuItem<int?>(value: null, child: Text('无')),
-                        ..._tags.map(
-                          (tag) => DropdownMenuItem<int?>(
-                            value: tag.id,
-                            child: Text('${tag.icon} ${tag.name}'),
+                    _fieldLabel('观察标签'),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FxSelect<int>(
+                        value: _loadingTags ? 0 : (_systemTagId ?? 0),
+                        enabled: !_loadingTags,
+                        options: [
+                          const FxSelectOption(value: 0, label: '无'),
+                          ..._tags.map(
+                            (tag) => FxSelectOption(
+                              value: tag.id,
+                              label: '${tag.icon} ${tag.name}',
+                            ),
                           ),
+                        ],
+                        onChanged: (value) => setState(
+                          () => _systemTagId =
+                              value == null || value == 0 ? null : value,
                         ),
-                      ],
-                      onChanged: _loadingTags
-                          ? null
-                          : (value) => setState(() => _systemTagId = value),
+                      ),
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('打卡时记录详情'),
-                      subtitle: const Text('可填写时长、时段和备注'),
+                    const SizedBox(height: 12),
+                    FxSwitch(
+                      label: '打卡时记录详情',
+                      description: '可填写时长、时段和备注',
                       value: _showCheckinDialog,
                       onChanged: (value) =>
                           setState(() => _showCheckinDialog = value),
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('自动生成任务'),
+                    const SizedBox(height: 12),
+                    FxSwitch(
+                      label: '自动生成任务',
                       value: _generateTask,
                       onChanged: (value) =>
                           setState(() => _generateTask = value),
@@ -512,38 +504,33 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     required TimeOfDay? value,
     required ValueChanged<TimeOfDay?> onChanged,
   }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      minTileHeight: 48,
-      title: Text(title),
-      subtitle: Text(value == null ? '未设置' : _formatTime(value)),
+    return FxListTile(
+      title: Text(title, style: SlowlightTypography.secondary(context)),
+      subtitle: Text(
+        value == null ? '未设置' : _formatTime(value),
+        style: SlowlightTypography.caption(context).copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (value != null)
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: IconButton(
-                tooltip: '清除',
-                onPressed: () => onChanged(null),
-                icon: const Icon(Icons.close, size: 18),
-              ),
+            FxIconButton(
+              tooltip: '清除',
+              onPressed: () => onChanged(null),
+              icon: Icons.close,
             ),
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              tooltip: '选择时间',
-              onPressed: () async {
-                final picked = await showFxTimePicker(
-                  context: context,
-                  initialTime: value ?? const TimeOfDay(hour: 8, minute: 0),
-                );
-                if (picked != null && mounted) onChanged(picked);
-              },
-              icon: const Icon(Icons.schedule),
-            ),
+          FxIconButton(
+            tooltip: '选择时间',
+            onPressed: () async {
+              final picked = await showFxTimePicker(
+                context: context,
+                initialTime: value ?? const TimeOfDay(hour: 8, minute: 0),
+              );
+              if (picked != null && mounted) onChanged(picked);
+            },
+            icon: Icons.schedule,
           ),
         ],
       ),
