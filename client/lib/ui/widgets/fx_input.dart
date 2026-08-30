@@ -20,6 +20,7 @@ class FxInput extends StatelessWidget {
   final bool autocorrect;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
+  final int? minLines;
   final int? maxLines;
   final int? maxLength;
   final bool enabled;
@@ -47,6 +48,7 @@ class FxInput extends StatelessWidget {
     this.autocorrect = true,
     this.keyboardType,
     this.textInputAction,
+    this.minLines,
     this.maxLines = 1,
     this.maxLength,
     this.enabled = true,
@@ -76,6 +78,7 @@ class FxInput extends StatelessWidget {
       autocorrect: autocorrect,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
+      minLines: minLines,
       maxLines: maxLines ?? 1,
       maxLength: maxLength,
       enabled: enabled,
