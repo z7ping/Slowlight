@@ -14,6 +14,7 @@ class FxSegmented extends StatelessWidget {
   final Color? selectedColor;
   final List<BoxShadow>? selectedShadow;
   final double borderRadius;
+  final bool expanded;
 
   const FxSegmented({
     super.key,
@@ -25,6 +26,7 @@ class FxSegmented extends StatelessWidget {
     this.selectedColor,
     this.selectedShadow,
     this.borderRadius = 8,
+    this.expanded = false,
   });
 
   @override
@@ -41,10 +43,10 @@ class FxSegmented extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         children: List.generate(labels.length, (index) {
           final selected = index == selectedIndex;
-          return InkWell(
+          final item = InkWell(
             key: itemKeys?[index],
             borderRadius: BorderRadius.circular(borderRadius - 2),
             onTap: () => onChanged(index),
@@ -71,6 +73,7 @@ class FxSegmented extends StatelessWidget {
               ),
             ),
           );
+          return expanded ? Expanded(child: item) : item;
         }),
       ),
     );

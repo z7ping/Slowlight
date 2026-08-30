@@ -18,7 +18,9 @@ class PlatformFont {
       case TargetPlatform.macOS:
         return '.AppleSystemUIFont'; // macOS 系统字体
       case TargetPlatform.android:
-        return 'Roboto'; // Android 默认就是 Roboto
+        // 不显式指定 Roboto。Android 的系统 sans-serif 会按当前语言选择
+        // 合适的中文字体，并为拉丁字符提供一致的度量与回退链。
+        return null;
       case TargetPlatform.iOS:
         return '.AppleSystemUIFont'; // iOS 系统字体
       default:

@@ -60,4 +60,37 @@ void main() {
     expect(text.style?.fontSize, SlowlightTypography.secondarySize);
     expect(text.style?.height, closeTo(20 / 14, 0.0001));
   });
+
+  testWidgets('FxSegmented 展开时等分可用宽度', (tester) async {
+    final keys = List.generate(3, (index) => ValueKey('segment-$index'));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 320,
+              child: FxSegmented(
+                labels: const ['概览', '统计', '时间分配'],
+                selectedIndex: 0,
+                onChanged: (_) {},
+                itemKeys: keys,
+                expanded: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final widths = keys.map((key) => tester.getSize(find.byKey(key)).width);
+    expect(tester.getSize(find.byType(FxSegmented)).width, 320);
+    expect(widths.every((width) => width > 100), isTrue);
+    expect(
+        widths.reduce((a, b) => a > b ? a : b) -
+            widths.reduce((a, b) => a < b ? a : b),
+        lessThan(0.01));
+  });
 }

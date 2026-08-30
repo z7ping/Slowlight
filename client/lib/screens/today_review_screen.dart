@@ -143,6 +143,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                 labels: const ['概览', '统计', '时间分配'],
                 selectedIndex: _viewIndex,
                 onChanged: (index) => setState(() => _viewIndex = index),
+                expanded: compact,
               );
               final period = _viewIndex == 0
                   ? FxSegmented(
@@ -150,6 +151,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                       selectedIndex: _periodIndex,
                       onChanged: (index) =>
                           setState(() => _periodIndex = index),
+                      expanded: compact,
                     )
                   : const SizedBox.shrink();
 
@@ -157,16 +159,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: views,
-                    ),
+                    SizedBox(width: double.infinity, child: views),
                     if (_viewIndex == 0) ...[
                       const SizedBox(height: 10),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: period,
-                      ),
+                      SizedBox(width: double.infinity, child: period),
                     ],
                   ],
                 );
@@ -463,7 +459,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           const SizedBox(height: 6),
                           Text(
                             '尚未回应 · 点击展开',
-                            style: SlowlightTypography.caption(context).copyWith(
+                            style:
+                                SlowlightTypography.caption(context).copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),

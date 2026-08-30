@@ -60,16 +60,17 @@ class ThemeSettings extends ChangeNotifier {
       for (final font in PlatformFont.windowsFontOptions) {
         options[font] = font;
       }
+      options['Inter'] = 'Inter';
+      options['SimSun'] = '宋体';
+      options['SimHei'] = '黑体';
     }
 
-    options['Inter'] = 'Inter';
-    options['SimSun'] = '宋体';
-    options['SimHei'] = '黑体';
     return options;
   }
 
   /// 解析字体：空字符串 → 系统字体
   String get resolvedFontFamily {
+    if (PlatformFont.isAndroid) return '';
     if (_fontFamily.isEmpty) {
       return PlatformFont.systemFontFamily ?? '';
     }
