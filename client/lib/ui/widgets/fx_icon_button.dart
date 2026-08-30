@@ -15,6 +15,7 @@ class FxIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String? tooltip;
   final double iconSize;
+  final Color? foregroundColor;
   final FxIconButtonVariant variant;
 
   const FxIconButton({
@@ -23,11 +24,13 @@ class FxIconButton extends StatelessWidget {
     this.onPressed,
     this.tooltip,
     this.iconSize = 18,
+    this.foregroundColor,
     this.variant = FxIconButtonVariant.ghost,
   });
 
   @override
   Widget build(BuildContext context) {
+    final iconWidget = Icon(icon, size: iconSize, color: foregroundColor);
     final Widget button = switch (variant) {
       FxIconButtonVariant.ghost => ShadIconButton.ghost(
           width: 44,
@@ -35,7 +38,7 @@ class FxIconButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           onPressed: onPressed,
           iconSize: iconSize,
-          icon: Icon(icon, size: iconSize),
+          icon: iconWidget,
         ),
       FxIconButtonVariant.outline => ShadIconButton.outline(
           width: 44,
@@ -43,7 +46,7 @@ class FxIconButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           onPressed: onPressed,
           iconSize: iconSize,
-          icon: Icon(icon, size: iconSize),
+          icon: iconWidget,
         ),
     };
 
