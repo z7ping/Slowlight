@@ -110,6 +110,13 @@ void main() {
       'Checkbox': RegExp(r'\bCheckbox\s*\('),
       'Switch': RegExp(r'\bSwitch\s*\('),
       'LinearProgressIndicator': RegExp(r'\bLinearProgressIndicator\s*\('),
+      'CircularProgressIndicator': RegExp(
+        r'\bCircularProgressIndicator\s*\(',
+      ),
+      'Divider': RegExp(r'\bDivider\s*\('),
+      'VerticalDivider': RegExp(r'\bVerticalDivider\s*\('),
+      'InkWell': RegExp(r'\bInkWell\s*\('),
+      'Tooltip': RegExp(r'\bTooltip\s*\('),
     };
     final offenders = <String>[];
 
@@ -129,7 +136,33 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          '整个 lib 的业务视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点等非视觉基础设施：\n'
+          '整个 lib 的产品视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点等非视觉基础设施：\n'
+          '${offenders.join('\n')}',
+    );
+  });
+
+  test('RefreshIndicator 只允许存在于 FxRefresh 适配层', () async {
+    final lib = Directory('lib');
+    expect(lib.existsSync(), isTrue, reason: '测试需从 client 目录运行');
+
+    const adapter = 'lib/ui/widgets/fx_refresh.dart';
+    final rawRefresh = RegExp(r'\bRefreshIndicator\s*\(');
+    final offenders = <String>[];
+
+    await for (final entity in lib.list(recursive: true, followLinks: false)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final normalized = entity.path.replaceAll('\\', '/');
+      if (normalized == adapter) continue;
+      final source = await entity.readAsString();
+      if (rawRefresh.hasMatch(source)) offenders.add(normalized);
+    }
+
+    offenders.sort();
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'shadcn_ui 0.26.5 暂无 pull-to-refresh；Material RefreshIndicator 只能封装在 FxRefresh 适配层，业务代码不得直接使用：\n'
           '${offenders.join('\n')}',
     );
   });
