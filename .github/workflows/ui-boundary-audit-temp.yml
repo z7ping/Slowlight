@@ -58,3 +58,15 @@ jobs:
           print('=== HITS ===')
           for name, path, line_no, text in hits:
               print(f'{name}\t{path}:{line_no}\t{text}')
+
+          print('=== SNACKBAR CONTEXT ===')
+          for path in sorted(root.rglob('*.dart')):
+              lines = path.read_text(encoding='utf-8').splitlines()
+              for index, line in enumerate(lines):
+                  if not re.search(r'\bSnackBar\s*\(', line):
+                      continue
+                  start = max(0, index - 3)
+                  end = min(len(lines), index + 9)
+                  print(f'--- {path.as_posix()}:{index + 1} ---')
+                  for pos in range(start, end):
+                      print(f'{pos + 1:4}: {lines[pos]}')
