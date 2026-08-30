@@ -356,9 +356,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   Widget build(BuildContext context) {
     final desktop = MediaQuery.sizeOf(context).width >= 1024;
     final content =
-        _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _buildContent();
+        _loading ? const Center(child: FxCircularProgress()) : _buildContent();
 
     if (desktop) {
       return _shortcutRegion(
@@ -366,7 +364,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
           body: Row(
             children: [
               SizedBox(width: 232, child: _navigationPanel(closeDrawer: false)),
-              VerticalDivider(
+              FxSeparator.vertical(
                 width: 1,
                 color: Theme.of(context).colorScheme.outlineVariant,
               ),
@@ -437,7 +435,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
             ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(1),
-              child: Divider(
+              child: FxSeparator.horizontal(
                 height: 1,
                 thickness: 1,
                 color: theme.colorScheme.outlineVariant,
@@ -510,7 +508,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     final color =
         selected ? activePalette.accent : theme.colorScheme.onSurfaceVariant;
     return Expanded(
-      child: InkWell(
+      child: FxInkWell(
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 58),
@@ -542,7 +540,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       onPanUpdate: _onFabPanUpdate,
       child: Transform.translate(
         offset: _fabDragOffset,
-        child: Tooltip(
+        child: FxTooltip(
           message: '快速记录任务（按住可拖动）',
           child: Material(
             color: activePalette.accent,
@@ -550,7 +548,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
             shadowColor: Colors.black.withValues(alpha: .18),
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
-            child: InkWell(
+            child: FxInkWell(
               onTap: _quickAdd,
               child: const SizedBox(
                 width: 48,
@@ -744,7 +742,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          FxSeparator.horizontal(
+            height: 1,
+            color: theme.colorScheme.outlineVariant,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
             child: Column(
@@ -781,7 +782,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
   Widget _organizeToolsToggle() {
     final theme = Theme.of(context);
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap:
           () =>
@@ -822,7 +823,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     final theme = Theme.of(context);
     return Material(
       color: Colors.transparent,
-      child: InkWell(
+      child: FxInkWell(
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         onTap: onTap,
         child: Container(

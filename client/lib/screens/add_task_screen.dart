@@ -48,7 +48,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   void initState() {
     super.initState();
     _titleController.text = widget.initialTitle;
-    _selectedListId = widget.selectedListId ??
+    _selectedListId =
+        widget.selectedListId ??
         (widget.lists.isEmpty ? null : widget.lists.first.id);
     _priority = widget.initialPriority;
     _dueDate = widget.defaultDueDate;
@@ -75,20 +76,23 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final dueTime = _dueTime == null
-          ? null
-          : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}';
+      final dueTime =
+          _dueTime == null
+              ? null
+              : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}';
       final reminderAt = _buildReminderAt();
-      final repeatDays = _repeatType == 'weekly' && _selectedWeekdays.isNotEmpty
-          ? (_selectedWeekdays.toList()..sort()).join(',')
-          : '';
+      final repeatDays =
+          _repeatType == 'weekly' && _selectedWeekdays.isNotEmpty
+              ? (_selectedWeekdays.toList()..sort()).join(',')
+              : '';
 
       await DataService().createTask(
         listId: listId,
         title: title,
-        description: _descController.text.trim().isEmpty
-            ? null
-            : _descController.text.trim(),
+        description:
+            _descController.text.trim().isEmpty
+                ? null
+                : _descController.text.trim(),
         priority: _priority,
         dueDate: _dueDate,
         dueTime: dueTime,
@@ -131,19 +135,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.embedded) return _editorShell(showBack: false);
-    return Scaffold(
-      body: SafeArea(child: _editorShell(showBack: true)),
-    );
+    return Scaffold(body: SafeArea(child: _editorShell(showBack: true)));
   }
 
   Widget _editorShell({required bool showBack}) {
     return Column(
       children: [
         if (showBack)
-          FxPageHeader(
-            title: '新建任务',
-            onBack: () => Navigator.maybePop(context),
-          )
+          FxPageHeader(title: '新建任务', onBack: () => Navigator.maybePop(context))
         else
           _dialogHeader(),
         Expanded(
@@ -153,7 +152,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             child: _form(),
           ),
         ),
-        Divider(height: 1, color: fxDivider(context)),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
         _footer(),
       ],
     );
@@ -169,9 +168,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               Expanded(
                 child: Text(
                   '新建任务',
-                  style: SlowlightTypography.cardTitle(context).copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: SlowlightTypography.cardTitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               FxIconButton(
@@ -182,7 +181,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ],
           ),
         ),
-        Divider(height: 1, color: fxDivider(context)),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
       ],
     );
   }
@@ -198,9 +197,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           autofocus: true,
           enabled: !_isSaving,
           textInputAction: TextInputAction.next,
-          style: SlowlightTypography.body(context).copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: SlowlightTypography.body(
+            context,
+          ).copyWith(fontWeight: FontWeight.w600),
           placeholder: '任务标题',
         ),
         const SizedBox(height: 8),
@@ -270,11 +269,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               return _choiceChip(
                 labels[index],
                 selected: selected,
-                onTap: () => setState(() {
-                  selected
-                      ? _selectedWeekdays.remove(day)
-                      : _selectedWeekdays.add(day);
-                }),
+                onTap:
+                    () => setState(() {
+                      selected
+                          ? _selectedWeekdays.remove(day)
+                          : _selectedWeekdays.add(day);
+                    }),
               );
             }),
           ),
@@ -305,14 +305,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       child: Wrap(
         spacing: 6,
         runSpacing: 6,
-        children: widget.lists.map((list) {
-          final selected = _selectedListId == list.id;
-          return _choiceChip(
-            '${list.icon} ${list.name}',
-            selected: selected,
-            onTap: () => setState(() => _selectedListId = list.id),
-          );
-        }).toList(growable: false),
+        children: widget.lists
+            .map((list) {
+              final selected = _selectedListId == list.id;
+              return _choiceChip(
+                '${list.icon} ${list.name}',
+                selected: selected,
+                onTap: () => setState(() => _selectedListId = list.id),
+              );
+            })
+            .toList(growable: false),
       ),
     );
   }
@@ -364,9 +366,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return _field(
       label: '时间',
       child: _picker(
-        text: _dueTime == null
-            ? '未设置'
-            : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}',
+        text:
+            _dueTime == null
+                ? '未设置'
+                : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}',
         icon: LucideIcons.clock3,
         onTap: () async {
           final time = await showFxTimePicker(
@@ -402,10 +405,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 ),
               )
               .toList(growable: false),
-          onChanged: (value) => setState(() {
-            _repeatType = value ?? 'none';
-            if (_repeatType != 'weekly') _selectedWeekdays.clear();
-          }),
+          onChanged:
+              (value) => setState(() {
+                _repeatType = value ?? 'none';
+                if (_repeatType != 'weekly') _selectedWeekdays.clear();
+              }),
         ),
       ),
     );
@@ -429,14 +433,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           enabled: !_isSaving,
           options: values.entries
               .map(
-                (entry) => FxSelectOption<int>(
-                  value: entry.key,
-                  label: entry.value,
-                ),
+                (entry) =>
+                    FxSelectOption<int>(value: entry.key, label: entry.value),
               )
               .toList(growable: false),
-          onChanged: (value) =>
-              setState(() => _reminderAdvanceMinutes = value ?? -1),
+          onChanged:
+              (value) => setState(() => _reminderAdvanceMinutes = value ?? -1),
         ),
       ),
     );
@@ -445,10 +447,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget _field({required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _fieldLabel(label),
-        child,
-      ],
+      children: [_fieldLabel(label), child],
     );
   }
 
@@ -508,9 +507,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               FxButton(
                 label: '删除',
                 variant: FxButtonVariant.ghost,
-                onPressed: _isSaving
-                    ? null
-                    : () => Navigator.pop(context, 'delete'),
+                onPressed:
+                    _isSaving ? null : () => Navigator.pop(context, 'delete'),
               ),
             FxButton(
               label: _isSaving ? '保存中…' : '保存',

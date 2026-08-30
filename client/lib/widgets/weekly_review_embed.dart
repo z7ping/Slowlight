@@ -27,8 +27,9 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
     try {
       final results = await Future.wait([
         AnalyticsApi.getWeeklyReview(),
-        AnalyticsApi.getOutputStats(period: 'week')
-            .catchError((_) => <String, dynamic>{}),
+        AnalyticsApi.getOutputStats(
+          period: 'week',
+        ).catchError((_) => <String, dynamic>{}),
       ]);
       if (mounted) {
         setState(() {
@@ -45,13 +46,13 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return const Center(child: FxCircularProgress(strokeWidth: 2));
     }
 
     final weekStart = _review['week_start'] ?? '';
     final weekEnd = _review['week_end'] ?? '';
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadReview,
       color: AppTheme.primary,
       child: ListView(
@@ -67,9 +68,9 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 '$weekStart ~ $weekEnd',
-                style: SlowlightTypography.secondary(context).copyWith(
-                  color: AppTheme.warmGray500,
-                ),
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(color: AppTheme.warmGray500),
               ),
             ),
           _buildWeekSummary(),
@@ -95,17 +96,16 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
         const SizedBox(height: 4),
         Text(
           value,
-          style: SlowlightTypography.pageTitle(context).copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.warmDark,
-          ),
+          style: SlowlightTypography.pageTitle(
+            context,
+          ).copyWith(fontWeight: FontWeight.bold, color: AppTheme.warmDark),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: SlowlightTypography.caption(context).copyWith(
-            color: AppTheme.warmGray500,
-          ),
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: AppTheme.warmGray500),
         ),
       ],
     );
@@ -124,17 +124,24 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
         children: [
           Text(
             '本周记录',
-            style: SlowlightTypography.secondary(context).copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppTheme.warmDark,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600, color: AppTheme.warmDark),
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem(emoji: '🔥', value: '$habitChecked', label: '习惯打卡'),
-              _buildStatItem(emoji: '✅', value: '$taskCompleted', label: '完成任务'),
+              _buildStatItem(
+                emoji: '🔥',
+                value: '$habitChecked',
+                label: '习惯打卡',
+              ),
+              _buildStatItem(
+                emoji: '✅',
+                value: '$taskCompleted',
+                label: '完成任务',
+              ),
               _buildStatItem(
                 emoji: '⏱️',
                 value: h > 0 ? '${h}h${m}m' : '${m}m',
@@ -157,17 +164,17 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
           const Spacer(),
           Text(
             '$current',
-            style: SlowlightTypography.secondary(context).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 8),
           if (delta != 0)
             Text(
               delta > 0 ? '+$delta' : '$delta',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: AppTheme.warmGray500,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: AppTheme.warmGray500),
             ),
         ],
       ),
@@ -188,9 +195,9 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
         children: [
           Text(
             '和上周比',
-            style: SlowlightTypography.secondary(context).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           _buildDeltaRow('习惯打卡', habitThis, habitLast),
@@ -222,9 +229,9 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
         children: [
           Text(
             '输出记录',
-            style: SlowlightTypography.secondary(context).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
           Row(
@@ -240,14 +247,15 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: byLevel.entries
-                  .map(
-                    (entry) => FxChip(
-                      label: '${entry.key} 级 ${entry.value}',
-                      variant: FxChipVariant.secondary,
-                    ),
-                  )
-                  .toList(),
+              children:
+                  byLevel.entries
+                      .map(
+                        (entry) => FxChip(
+                          label: '${entry.key} 级 ${entry.value}',
+                          variant: FxChipVariant.secondary,
+                        ),
+                      )
+                      .toList(),
             ),
           ],
           if (byType.isNotEmpty) ...[
@@ -255,14 +263,15 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: byType.entries
-                  .map(
-                    (entry) => FxChip(
-                      label: '${_typeName(entry.key)} ${entry.value}',
-                      variant: FxChipVariant.secondary,
-                    ),
-                  )
-                  .toList(),
+              children:
+                  byType.entries
+                      .map(
+                        (entry) => FxChip(
+                          label: '${_typeName(entry.key)} ${entry.value}',
+                          variant: FxChipVariant.secondary,
+                        ),
+                      )
+                      .toList(),
             ),
           ],
           if (milestones > 0) ...[
@@ -304,9 +313,9 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
         children: [
           Text(
             '时间分布',
-            style: SlowlightTypography.secondary(context).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           ...timeDistribution.map((td) {
@@ -349,9 +358,9 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
                     width: 60,
                     child: Text(
                       h > 0 ? '${h}h${m}m' : '${m}m',
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: AppTheme.warmGray500,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: AppTheme.warmGray500),
                       textAlign: TextAlign.end,
                     ),
                   ),

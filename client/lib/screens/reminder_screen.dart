@@ -51,19 +51,20 @@ class _ReminderScreenState extends State<ReminderScreen> {
         _service.state == 'micro_rest' || _service.state == 'long_rest';
     return Scaffold(
       body: SafeArea(
-        child: resting
-            ? _fullscreenRest()
-            : Column(
-                children: [
-                  FxPageHeader(
-                    title: '休息提醒',
-                    actionIcon: LucideIcons.settings,
-                    actionTooltip: '提醒设置',
-                    onAction: _openSettings,
-                  ),
-                  Expanded(child: _runtime()),
-                ],
-              ),
+        child:
+            resting
+                ? _fullscreenRest()
+                : Column(
+                  children: [
+                    FxPageHeader(
+                      title: '休息提醒',
+                      actionIcon: LucideIcons.settings,
+                      actionTooltip: '提醒设置',
+                      onAction: _openSettings,
+                    ),
+                    Expanded(child: _runtime()),
+                  ],
+                ),
       ),
     );
   }
@@ -72,9 +73,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
     final theme = Theme.of(context);
     final working = _service.state == 'working';
     final total = _service.totalSeconds;
-    final progress = total <= 0
-        ? 0.0
-        : (1 - _service.remainingSeconds / total).clamp(0.0, 1.0);
+    final progress =
+        total <= 0
+            ? 0.0
+            : (1 - _service.remainingSeconds / total).clamp(0.0, 1.0);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 26, 20, 32),
@@ -85,18 +87,23 @@ class _ReminderScreenState extends State<ReminderScreen> {
             child: Column(
               children: [
                 FxChip(
-                  label: working
-                      ? '● 工作中 · 第 ${_service.cycleCount + 1} 轮'
-                      : '● 待机',
-                  backgroundColor: working
-                      ? activePalette.accent.withValues(alpha: .12)
-                      : fxSubtleSurface(context),
-                  foregroundColor: working
-                      ? activePalette.accent
-                      : theme.colorScheme.onSurfaceVariant,
+                  label:
+                      working
+                          ? '● 工作中 · 第 ${_service.cycleCount + 1} 轮'
+                          : '● 待机',
+                  backgroundColor:
+                      working
+                          ? activePalette.accent.withValues(alpha: .12)
+                          : fxSubtleSurface(context),
+                  foregroundColor:
+                      working
+                          ? activePalette.accent
+                          : theme.colorScheme.onSurfaceVariant,
                   borderRadius: 999,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -106,7 +113,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     alignment: Alignment.center,
                     children: [
                       SizedBox.expand(
-                        child: CircularProgressIndicator(
+                        child: FxCircularProgress(
                           value: progress,
                           strokeWidth: 8,
                           strokeCap: StrokeCap.round,
@@ -119,9 +126,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
                         children: [
                           Text(
                             _format(_service.remainingSeconds),
-                            style: SlowlightTypography.hero(context).copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: SlowlightTypography.hero(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -129,7 +136,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
                                 ? '距小憩 · 小憩 ${_service.microRestCount}/${_service.microRestsBeforeLong}'
                                 : '还未开始',
                             textAlign: TextAlign.center,
-                            style: SlowlightTypography.caption(context).copyWith(
+                            style: SlowlightTypography.caption(
+                              context,
+                            ).copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -180,9 +189,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
                 Text(
                   '每轮工作 / 小憩 / 跳过都记录为事实 · 在「回顾 → 休息数据」中查看',
                   textAlign: TextAlign.center,
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.caption(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -216,7 +225,8 @@ class _ReminderScreenState extends State<ReminderScreen> {
       color: fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,11 +235,13 @@ class _ReminderScreenState extends State<ReminderScreen> {
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
-              final scaled = MediaQuery.textScalerOf(context)
-                  .scale(SlowlightTypography.bodySize);
-              final columns = scaled >= SlowlightTypography.bodySize * 1.3
-                  ? 1
-                  : constraints.maxWidth < 420
+              final scaled = MediaQuery.textScalerOf(
+                context,
+              ).scale(SlowlightTypography.bodySize);
+              final columns =
+                  scaled >= SlowlightTypography.bodySize * 1.3
+                      ? 1
+                      : constraints.maxWidth < 420
                       ? 2
                       : 4;
               final width =
@@ -260,30 +272,31 @@ class _ReminderScreenState extends State<ReminderScreen> {
   Widget _systemRules() {
     final theme = Theme.of(context);
     Widget rule(IconData icon, String text) => Padding(
-          padding: const EdgeInsets.only(bottom: 5),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  text,
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
           ),
-        );
+        ],
+      ),
+    );
 
     return FxCard(
       padding: const EdgeInsets.all(12),
       color: fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,17 +308,16 @@ class _ReminderScreenState extends State<ReminderScreen> {
             children: [
               Text(
                 '系统行为规则',
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
               FxChip(
                 label: '新增需求',
                 backgroundColor: fxSubtleSurface(context),
                 foregroundColor: theme.colorScheme.onSurfaceVariant,
                 borderRadius: 999,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
               ),
             ],
           ),
@@ -322,9 +334,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
     final strict = _service.isCurrentRestStrict;
     final micro = _service.state == 'micro_rest';
     final total = _service.totalSeconds;
-    final progress = total <= 0
-        ? 0.0
-        : (1 - _service.remainingSeconds / total).clamp(0.0, 1.0);
+    final progress =
+        total <= 0
+            ? 0.0
+            : (1 - _service.remainingSeconds / total).clamp(0.0, 1.0);
 
     return Container(
       width: double.infinity,
@@ -363,11 +376,13 @@ class _ReminderScreenState extends State<ReminderScreen> {
                       alignment: Alignment.center,
                       children: [
                         SizedBox.expand(
-                          child: CircularProgressIndicator(
+                          child: FxCircularProgress(
                             value: progress,
                             strokeWidth: 9,
                             strokeCap: StrokeCap.round,
-                            backgroundColor: Colors.white.withValues(alpha: .14),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: .14,
+                            ),
                             color: const Color(0xFF4ADE80),
                           ),
                         ),

@@ -167,9 +167,9 @@ class _LogTabState extends State<_LogTab> {
               Flexible(
                 child: Text(
                   _date,
-                  style: SlowlightTypography.cardTitle(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: SlowlightTypography.cardTitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               FxIconButton(
@@ -180,85 +180,98 @@ class _LogTabState extends State<_LogTab> {
             ],
           ),
         ),
-        Divider(height: 1, color: fxDivider(context)),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
         Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _sessions.isEmpty
+          child:
+              _loading
+                  ? const Center(child: FxCircularProgress())
+                  : _sessions.isEmpty
                   ? FxEmptyState(
-                      emoji: '☕',
-                      title: '当天没有记录',
-                      subtitle: '工作与休息记录会显示在这里',
-                    )
+                    emoji: '☕',
+                    title: '当天没有记录',
+                    subtitle: '工作与休息记录会显示在这里',
+                  )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: _sessions.length,
-                      itemBuilder: (context, index) {
-                        final item = _sessions[index];
-                        final type = item['type'] as String;
-                        final skipped = (item['skipped'] as int?) == 1;
-                        final work = type == 'work';
-                        final color = work
-                            ? AppTheme.primary
-                            : skipped
-                                ? theme.colorScheme.outline
-                                : AppTheme.success;
-                        final start = item['started_at'] as String?;
-                        final end = item['ended_at'] as String?;
-                        final period = start == null
-                            ? '--'
-                            : '${_time(start)} — ${end == null ? '进行中' : _time(end)}';
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: index.isEven
-                                ? Colors.transparent
-                                : theme.colorScheme.surfaceContainerLowest,
-                            border: Border(
-                              bottom: BorderSide(color: fxDivider(context)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _sessions.length,
+                    itemBuilder: (context, index) {
+                      final item = _sessions[index];
+                      final type = item['type'] as String;
+                      final skipped = (item['skipped'] as int?) == 1;
+                      final work = type == 'work';
+                      final color =
+                          work
+                              ? AppTheme.primary
+                              : skipped
+                              ? theme.colorScheme.outline
+                              : AppTheme.success;
+                      final start = item['started_at'] as String?;
+                      final end = item['ended_at'] as String?;
+                      final period =
+                          start == null
+                              ? '--'
+                              : '${_time(start)} — ${end == null ? '进行中' : _time(end)}';
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              index.isEven
+                                  ? Colors.transparent
+                                  : theme.colorScheme.surfaceContainerLowest,
+                          border: Border(
+                            bottom: BorderSide(color: fxDivider(context)),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              work
+                                  ? Icons.work_outline
+                                  : skipped
+                                  ? Icons.skip_next_outlined
+                                  : Icons.coffee_outlined,
+                              color: color,
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                work
-                                    ? Icons.work_outline
-                                    : skipped
-                                        ? Icons.skip_next_outlined
-                                        : Icons.coffee_outlined,
-                                color: color,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(period,
-                                        style: SlowlightTypography.secondary(context)),
-                                    Text(
-                                      work ? '工作' : (skipped ? '跳过休息' : '有效休息'),
-                                      style: SlowlightTypography.caption(context)
-                                          .copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    period,
+                                    style: SlowlightTypography.secondary(
+                                      context,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  Text(
+                                    work ? '工作' : (skipped ? '跳过休息' : '有效休息'),
+                                    style: SlowlightTypography.caption(
+                                      context,
+                                    ).copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                skipped
-                                    ? '已跳过'
-                                    : _duration(
-                                        (item['duration_seconds'] as int?) ?? 0),
-                                style: SlowlightTypography.secondary(context)
-                                    .copyWith(color: color),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                            ),
+                            Text(
+                              skipped
+                                  ? '已跳过'
+                                  : _duration(
+                                    (item['duration_seconds'] as int?) ?? 0,
+                                  ),
+                              style: SlowlightTypography.secondary(
+                                context,
+                              ).copyWith(color: color),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
         ),
       ],
     );
@@ -303,7 +316,7 @@ class _RangeStatsTabState extends State<_RangeStatsTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     if (_stats.isEmpty) {
       return const FxEmptyState(
         emoji: '📊',
@@ -312,18 +325,27 @@ class _RangeStatsTabState extends State<_RangeStatsTab> {
       );
     }
     final work = _stats.fold<int>(
-        0, (sum, row) => sum + ((row['work_seconds'] as int?) ?? 0));
+      0,
+      (sum, row) => sum + ((row['work_seconds'] as int?) ?? 0),
+    );
     final workCount = _stats.fold<int>(
-        0, (sum, row) => sum + ((row['work_count'] as int?) ?? 0));
+      0,
+      (sum, row) => sum + ((row['work_count'] as int?) ?? 0),
+    );
     final rest = _stats.fold<int>(
-        0, (sum, row) => sum + ((row['rest_seconds'] as int?) ?? 0));
+      0,
+      (sum, row) => sum + ((row['rest_seconds'] as int?) ?? 0),
+    );
     final restCount = _stats.fold<int>(
-        0, (sum, row) => sum + ((row['rest_count'] as int?) ?? 0));
+      0,
+      (sum, row) => sum + ((row['rest_count'] as int?) ?? 0),
+    );
     final skip = _stats.fold<int>(
-        0, (sum, row) => sum + ((row['skip_count'] as int?) ?? 0));
-    final activeDays = _stats
-        .where((row) => ((row['work_seconds'] as int?) ?? 0) > 0)
-        .length;
+      0,
+      (sum, row) => sum + ((row['skip_count'] as int?) ?? 0),
+    );
+    final activeDays =
+        _stats.where((row) => ((row['work_seconds'] as int?) ?? 0) > 0).length;
     final reminders = restCount + skip;
     final skipRate = reminders == 0 ? 0 : (skip / reminders * 100).round();
 
@@ -366,7 +388,10 @@ class _RangeStatsTabState extends State<_RangeStatsTab> {
         const SizedBox(height: 8),
         ..._stats.map((row) {
           final date = DateTime.tryParse(row['date']?.toString() ?? '');
-          final label = date == null ? '${row['date'] ?? ''}' : '${date.month}/${date.day}';
+          final label =
+              date == null
+                  ? '${row['date'] ?? ''}'
+                  : '${date.month}/${date.day}';
           final seconds = (row['work_seconds'] as int?) ?? 0;
           final skips = (row['skip_count'] as int?) ?? 0;
           return Padding(
@@ -381,12 +406,13 @@ class _RangeStatsTabState extends State<_RangeStatsTab> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(_duration(seconds),
-                    style: SlowlightTypography.caption(context)),
+                Text(
+                  _duration(seconds),
+                  style: SlowlightTypography.caption(context),
+                ),
                 if (skips > 0) ...[
                   const SizedBox(width: 8),
-                  Text('跳过$skips',
-                      style: SlowlightTypography.caption(context)),
+                  Text('跳过$skips', style: SlowlightTypography.caption(context)),
                 ],
               ],
             ),
@@ -440,115 +466,151 @@ class _AnalysisTabState extends State<_AnalysisTab> {
   }
 
   Widget _card(Widget child) => FxCard(
-        color: fxSurface(context),
-        borderRadius: AppTheme.radiusLg,
-        border: Border.all(color: fxBorder(context)),
-        child: child,
-      );
+    color: fxSurface(context),
+    borderRadius: AppTheme.radiusLg,
+    border: Border.all(color: fxBorder(context)),
+    child: child,
+  );
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    final max = _hourly.values.isEmpty
-        ? 1
-        : _hourly.values.reduce((a, b) => a > b ? a : b);
+    if (_loading) return const Center(child: FxCircularProgress());
+    final max =
+        _hourly.values.isEmpty
+            ? 1
+            : _hourly.values.reduce((a, b) => a > b ? a : b);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const FxSectionHeader(title: '时段分布', trailing: '近 30 天'),
         const SizedBox(height: 8),
-        _card(Column(
-          children: List.generate(24, (hour) {
-            final seconds = _hourly[hour] ?? 0;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 44,
-                    child: Text('${hour.toString().padLeft(2, '0')}:00',
-                        style: SlowlightTypography.caption(context)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FxProgress(
-                      value: max == 0 ? 0 : seconds / max,
-                      height: 10,
+        _card(
+          Column(
+            children: List.generate(24, (hour) {
+              final seconds = _hourly[hour] ?? 0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 44,
+                      child: Text(
+                        '${hour.toString().padLeft(2, '0')}:00',
+                        style: SlowlightTypography.caption(context),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 64,
-                    child: Text(seconds == 0 ? '' : _duration(seconds),
-                        style: SlowlightTypography.caption(context)),
-                  ),
-                ],
-              ),
-            );
-          }),
-        )),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FxProgress(
+                        value: max == 0 ? 0 : seconds / max,
+                        height: 10,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 64,
+                      child: Text(
+                        seconds == 0 ? '' : _duration(seconds),
+                        style: SlowlightTypography.caption(context),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
         const SizedBox(height: 16),
         const FxSectionHeader(title: '工作日与周末', trailing: '近 30 天'),
         const SizedBox(height: 8),
-        _card(Column(
-          children: [
-            _compare('工作日', '${_weekday['weekday_days'] ?? 0}天',
+        _card(
+          Column(
+            children: [
+              _compare(
+                '工作日',
+                '${_weekday['weekday_days'] ?? 0}天',
                 _duration((_weekday['weekday_avg_work_seconds'] as int?) ?? 0),
-                '${_weekday['weekday_avg_rest_count'] ?? 0}次'),
-            Divider(color: fxDivider(context)),
-            _compare('周末', '${_weekday['weekend_days'] ?? 0}天',
+                '${_weekday['weekday_avg_rest_count'] ?? 0}次',
+              ),
+              FxSeparator.horizontal(color: fxDivider(context)),
+              _compare(
+                '周末',
+                '${_weekday['weekend_days'] ?? 0}天',
                 _duration((_weekday['weekend_avg_work_seconds'] as int?) ?? 0),
-                '${_weekday['weekend_avg_rest_count'] ?? 0}次'),
-          ],
-        )),
+                '${_weekday['weekend_avg_rest_count'] ?? 0}次',
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
         const FxSectionHeader(title: '个人最佳'),
         const SizedBox(height: 8),
-        _card(Column(
-          children: [
-            _best('最高单日工作', _bests['best_work_day'] == null
-                ? '暂无'
-                : '${_bests['best_work_day']} · ${_duration((_bests['best_work_seconds'] as int?) ?? 0)}'),
-            _best('最长连续不跳过', ((_bests['longest_streak'] as int?) ?? 0) == 0
-                ? '暂无'
-                : '${_bests['longest_streak']}轮'),
-            _best('最低跳过率日', _bests['best_skip_day'] == null
-                ? '暂无'
-                : '${_bests['best_skip_day']} · ${_bests['best_skip_rate'] ?? '0'}%'),
-          ],
-        )),
+        _card(
+          Column(
+            children: [
+              _best(
+                '最高单日工作',
+                _bests['best_work_day'] == null
+                    ? '暂无'
+                    : '${_bests['best_work_day']} · ${_duration((_bests['best_work_seconds'] as int?) ?? 0)}',
+              ),
+              _best(
+                '最长连续不跳过',
+                ((_bests['longest_streak'] as int?) ?? 0) == 0
+                    ? '暂无'
+                    : '${_bests['longest_streak']}轮',
+              ),
+              _best(
+                '最低跳过率日',
+                _bests['best_skip_day'] == null
+                    ? '暂无'
+                    : '${_bests['best_skip_day']} · ${_bests['best_skip_rate'] ?? '0'}%',
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _compare(String label, String days, String work, String rest) => Padding(
+  Widget _compare(String label, String days, String work, String rest) =>
+      Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Wrap(
           spacing: 12,
           runSpacing: 4,
           children: [
-            Text('$label · $days',
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                )),
-            Text('日均工作 $work · 日均休息 $rest',
-                style: SlowlightTypography.caption(context)),
+            Text(
+              '$label · $days',
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              '日均工作 $work · 日均休息 $rest',
+              style: SlowlightTypography.caption(context),
+            ),
           ],
         ),
       );
 
   Widget _best(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            Expanded(child: Text(label,
-                style: SlowlightTypography.caption(context))),
-            Flexible(child: Text(value,
-                textAlign: TextAlign.right,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w500,
-                ))),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(label, style: SlowlightTypography.caption(context)),
         ),
-      );
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w500),
+          ),
+        ),
+      ],
+    ),
+  );
 }

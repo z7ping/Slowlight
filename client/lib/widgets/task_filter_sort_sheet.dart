@@ -126,9 +126,9 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
             children: [
               Text(
                 '筛选与排序',
-                style: SlowlightTypography.cardTitle(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: SlowlightTypography.cardTitle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               FxButton(
@@ -153,7 +153,9 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
                   const SizedBox(height: 8),
                   _buildSortDirection(),
                   const SizedBox(height: 20),
-                  Divider(color: AppTheme.warmBorder.withValues(alpha: 0.5)),
+                  FxSeparator.horizontal(
+                    color: AppTheme.warmBorder.withValues(alpha: 0.5),
+                  ),
                   const SizedBox(height: 12),
                   _sectionTitle('按清单'),
                   const SizedBox(height: 8),
@@ -177,10 +179,7 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
           ),
           SizedBox(
             width: double.infinity,
-            child: FxButton(
-              label: '应用',
-              onPressed: _apply,
-            ),
+            child: FxButton(label: '应用', onPressed: _apply),
           ),
         ],
       ),
@@ -190,10 +189,9 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
   Widget _sectionTitle(String label) {
     return Text(
       label,
-      style: SlowlightTypography.secondary(context).copyWith(
-        fontWeight: FontWeight.w600,
-        color: AppTheme.warmGray500,
-      ),
+      style: SlowlightTypography.secondary(
+        context,
+      ).copyWith(fontWeight: FontWeight.w600, color: AppTheme.warmGray500),
     );
   }
 
@@ -207,15 +205,16 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: options.map((opt) {
-        final selected = _sortBy == opt.$1;
-        return _buildChip(
-          label: opt.$2,
-          icon: opt.$3,
-          isSelected: selected,
-          onTap: () => setState(() => _sortBy = opt.$1),
-        );
-      }).toList(),
+      children:
+          options.map((opt) {
+            final selected = _sortBy == opt.$1;
+            return _buildChip(
+              label: opt.$2,
+              icon: opt.$3,
+              isSelected: selected,
+              onTap: () => setState(() => _sortBy = opt.$1),
+            );
+          }).toList(),
     );
   }
 
@@ -259,8 +258,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
             label: list.name,
             isSelected: selected,
             color: ColorUtils.safeParse(list.color),
-            onTap: () =>
-                setState(() => _filterListId = selected ? null : list.id),
+            onTap:
+                () => setState(() => _filterListId = selected ? null : list.id),
           );
         }),
       ],
@@ -275,7 +274,7 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
           child: SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: FxCircularProgress(strokeWidth: 2),
           ),
         ),
       );
@@ -283,9 +282,9 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     if (_tags.isEmpty) {
       return Text(
         '暂无标签',
-        style: SlowlightTypography.caption(context).copyWith(
-          color: AppTheme.warmGray400,
-        ),
+        style: SlowlightTypography.caption(
+          context,
+        ).copyWith(color: AppTheme.warmGray400),
       );
     }
     return Wrap(
@@ -303,8 +302,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
             label: tag.name,
             isSelected: selected,
             color: ColorUtils.safeParse(tag.color),
-            onTap: () =>
-                setState(() => _filterTagId = selected ? null : tag.id),
+            onTap:
+                () => setState(() => _filterTagId = selected ? null : tag.id),
           );
         }),
       ],
@@ -322,16 +321,19 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: options.map((opt) {
-        final selected = _filterPriority == opt.$1;
-        return _buildChip(
-          label: opt.$2,
-          isSelected: selected,
-          color: opt.$3,
-          onTap: () =>
-              setState(() => _filterPriority = selected ? null : opt.$1),
-        );
-      }).toList(),
+      children:
+          options.map((opt) {
+            final selected = _filterPriority == opt.$1;
+            return _buildChip(
+              label: opt.$2,
+              isSelected: selected,
+              color: opt.$3,
+              onTap:
+                  () => setState(
+                    () => _filterPriority = selected ? null : opt.$1,
+                  ),
+            );
+          }).toList(),
     );
   }
 
@@ -342,21 +344,24 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
       (true, '已完成', Icons.check_circle_outline),
     ];
     return Row(
-      children: options.map((opt) {
-        final selected = _filterCompleted == opt.$1;
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildChip(
-              label: opt.$2,
-              icon: opt.$3,
-              isSelected: selected,
-              onTap: () =>
-                  setState(() => _filterCompleted = selected ? null : opt.$1),
-            ),
-          ),
-        );
-      }).toList(),
+      children:
+          options.map((opt) {
+            final selected = _filterCompleted == opt.$1;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _buildChip(
+                  label: opt.$2,
+                  icon: opt.$3,
+                  isSelected: selected,
+                  onTap:
+                      () => setState(
+                        () => _filterCompleted = selected ? null : opt.$1,
+                      ),
+                ),
+              ),
+            );
+          }).toList(),
     );
   }
 
@@ -374,14 +379,16 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected
-              ? chipColor.withValues(alpha: 0.1)
-              : Colors.transparent,
+          color:
+              isSelected
+                  ? chipColor.withValues(alpha: 0.1)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected
-                ? chipColor.withValues(alpha: 0.4)
-                : AppTheme.warmBorder,
+            color:
+                isSelected
+                    ? chipColor.withValues(alpha: 0.4)
+                    : AppTheme.warmBorder,
             width: 1,
           ),
         ),

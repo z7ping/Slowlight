@@ -37,9 +37,7 @@ class HomeDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
-      child: _buildMobileDrawerContent(context),
-    );
+    return Drawer(child: _buildMobileDrawerContent(context));
   }
 
   Widget _buildMobileDrawerContent(BuildContext context) {
@@ -54,17 +52,37 @@ class HomeDrawer extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _buildDrawerTab(
-                      Icons.home_outlined, Icons.home, '今日', 0, context),
-                  _buildDrawerTab(Icons.grid_4x4_outlined, Icons.grid_4x4,
-                      '四象限', 1, context),
-                  _buildDrawerTab(Icons.self_improvement_outlined,
-                      Icons.self_improvement, '习惯', 2, context),
-                  _buildDrawerTab(Icons.auto_awesome_outlined,
-                      Icons.auto_awesome, '回顾', 3, context),
+                    Icons.home_outlined,
+                    Icons.home,
+                    '今日',
+                    0,
+                    context,
+                  ),
+                  _buildDrawerTab(
+                    Icons.grid_4x4_outlined,
+                    Icons.grid_4x4,
+                    '四象限',
+                    1,
+                    context,
+                  ),
+                  _buildDrawerTab(
+                    Icons.self_improvement_outlined,
+                    Icons.self_improvement,
+                    '习惯',
+                    2,
+                    context,
+                  ),
+                  _buildDrawerTab(
+                    Icons.auto_awesome_outlined,
+                    Icons.auto_awesome,
+                    '回顾',
+                    3,
+                    context,
+                  ),
                 ],
               ),
             ),
-            Divider(height: 1, color: AppTheme.warmBorder),
+            FxSeparator.horizontal(height: 1, color: AppTheme.warmBorder),
             _buildDrawerItem(
               icon: Icons.tune_outlined,
               title: '清单',
@@ -86,8 +104,10 @@ class HomeDrawer extends StatelessWidget {
               title: '番茄钟',
               onTap: () {
                 onPopDrawer();
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const PomodoroScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PomodoroScreen()),
+                );
               },
             ),
             if (!kIsWeb &&
@@ -105,8 +125,10 @@ class HomeDrawer extends StatelessWidget {
               title: '设置',
               onTap: () {
                 onPopDrawer();
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                );
               },
             ),
             _buildDrawerItem(
@@ -114,12 +136,14 @@ class HomeDrawer extends StatelessWidget {
               title: '关于',
               onTap: () {
                 onPopDrawer();
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const AboutScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AboutScreen()),
+                );
               },
             ),
             const SizedBox(height: 24),
-            Divider(height: 1),
+            FxSeparator.horizontal(height: 1),
             _buildDrawerItem(
               icon: Icons.logout,
               title: '退出登录',
@@ -203,8 +227,13 @@ class HomeDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerTab(IconData icon, IconData activeIcon, String label,
-      int index, BuildContext context) {
+  Widget _buildDrawerTab(
+    IconData icon,
+    IconData activeIcon,
+    String label,
+    int index,
+    BuildContext context,
+  ) {
     final isActive = currentNavIndex == index;
     return FxInkWell(
       onTap: () => onNavChanged(index),
@@ -218,17 +247,21 @@ class HomeDrawer extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isActive ? activeIcon : icon,
-                size: 20,
-                color: isActive ? AppTheme.primary : AppTheme.warmGray500),
+            Icon(
+              isActive ? activeIcon : icon,
+              size: 20,
+              color: isActive ? AppTheme.primary : AppTheme.warmGray500,
+            ),
             const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  height: 1.2,
-                  color: isActive ? AppTheme.primary : AppTheme.warmGray500,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                )),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: AppTheme.textXs,
+                height: 1.2,
+                color: isActive ? AppTheme.primary : AppTheme.warmGray500,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
           ],
         ),
       ),
@@ -248,15 +281,17 @@ class HomeDrawer extends StatelessWidget {
       decoration: BoxDecoration(
         color: isSelected ? AppTheme.primaryLight : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isSelected
-            ? Border(left: BorderSide(color: AppTheme.primary, width: 3))
-            : null,
+        border:
+            isSelected
+                ? Border(left: BorderSide(color: AppTheme.primary, width: 3))
+                : null,
       ),
       child: ListTile(
         leading: Icon(
           icon,
           size: 20,
-          color: iconColor ??
+          color:
+              iconColor ??
               (isSelected ? AppTheme.primary : AppTheme.warmGray500),
         ),
         title: Text(
@@ -265,7 +300,8 @@ class HomeDrawer extends StatelessWidget {
             fontSize: AppTheme.textMd,
             height: 1.5,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: textColor ??
+            color:
+                textColor ??
                 (isSelected ? AppTheme.primary : AppTheme.warmGray500),
           ),
         ),
@@ -308,12 +344,14 @@ class HomeDesktopSidebar extends StatelessWidget {
               children: [
                 const SlowlightLogo(size: 24),
                 const SizedBox(width: 8),
-                Text(kBrandDisplayName,
-                    style: TextStyle(
-                      fontSize: AppTheme.textLg,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textColor(context),
-                    )),
+                Text(
+                  kBrandDisplayName,
+                  style: TextStyle(
+                    fontSize: AppTheme.textLg,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor(context),
+                  ),
+                ),
               ],
             ),
           ),
@@ -325,18 +363,38 @@ class HomeDesktopSidebar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildDrawerTab(
-                    Icons.home_outlined, Icons.home, '今日', 0, context),
+                  Icons.home_outlined,
+                  Icons.home,
+                  '今日',
+                  0,
+                  context,
+                ),
                 _buildDrawerTab(
-                    Icons.grid_4x4_outlined, Icons.grid_4x4, '四象限', 1, context),
-                _buildDrawerTab(Icons.self_improvement_outlined,
-                    Icons.self_improvement, '习惯', 2, context),
-                _buildDrawerTab(Icons.auto_awesome_outlined, Icons.auto_awesome,
-                    '回顾', 3, context),
+                  Icons.grid_4x4_outlined,
+                  Icons.grid_4x4,
+                  '四象限',
+                  1,
+                  context,
+                ),
+                _buildDrawerTab(
+                  Icons.self_improvement_outlined,
+                  Icons.self_improvement,
+                  '习惯',
+                  2,
+                  context,
+                ),
+                _buildDrawerTab(
+                  Icons.auto_awesome_outlined,
+                  Icons.auto_awesome,
+                  '回顾',
+                  3,
+                  context,
+                ),
               ],
             ),
           ),
 
-          Divider(height: 1, color: AppTheme.warmBorder),
+          FxSeparator.horizontal(height: 1, color: AppTheme.warmBorder),
 
           // 中间：可滚动菜单项
           Expanded(
@@ -357,10 +415,13 @@ class HomeDesktopSidebar extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.timer_outlined,
                     title: '番茄钟',
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const PomodoroScreen())),
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PomodoroScreen(),
+                          ),
+                        ),
                   ),
                   if (!kIsWeb &&
                       (Platform.isWindows ||
@@ -374,17 +435,20 @@ class HomeDesktopSidebar extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.settings_outlined,
                     title: '设置',
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SettingsScreen())),
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        ),
                   ),
                 ],
               ),
             ),
           ),
 
-          Divider(height: 1, color: AppTheme.warmBorder),
+          FxSeparator.horizontal(height: 1, color: AppTheme.warmBorder),
 
           // 底部：退出登录（钉在左下角）
           _buildDrawerItem(
@@ -417,8 +481,13 @@ class HomeDesktopSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerTab(IconData icon, IconData activeIcon, String label,
-      int index, BuildContext context) {
+  Widget _buildDrawerTab(
+    IconData icon,
+    IconData activeIcon,
+    String label,
+    int index,
+    BuildContext context,
+  ) {
     final isActive = currentNavIndex == index;
     return FxInkWell(
       onTap: () => onNavChanged(index),
@@ -432,17 +501,21 @@ class HomeDesktopSidebar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isActive ? activeIcon : icon,
-                size: 20,
-                color: isActive ? AppTheme.primary : AppTheme.warmGray500),
+            Icon(
+              isActive ? activeIcon : icon,
+              size: 20,
+              color: isActive ? AppTheme.primary : AppTheme.warmGray500,
+            ),
             const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  height: 1.2,
-                  color: isActive ? AppTheme.primary : AppTheme.warmGray500,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                )),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: AppTheme.textXs,
+                height: 1.2,
+                color: isActive ? AppTheme.primary : AppTheme.warmGray500,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
           ],
         ),
       ),
@@ -462,15 +535,17 @@ class HomeDesktopSidebar extends StatelessWidget {
       decoration: BoxDecoration(
         color: isSelected ? AppTheme.primaryLight : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isSelected
-            ? Border(left: BorderSide(color: AppTheme.primary, width: 3))
-            : null,
+        border:
+            isSelected
+                ? Border(left: BorderSide(color: AppTheme.primary, width: 3))
+                : null,
       ),
       child: ListTile(
         leading: Icon(
           icon,
           size: 20,
-          color: iconColor ??
+          color:
+              iconColor ??
               (isSelected ? AppTheme.primary : AppTheme.warmGray500),
         ),
         title: Text(
@@ -479,7 +554,8 @@ class HomeDesktopSidebar extends StatelessWidget {
             fontSize: AppTheme.textMd,
             height: 1.5,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: textColor ??
+            color:
+                textColor ??
                 (isSelected ? AppTheme.primary : AppTheme.warmGray500),
           ),
         ),

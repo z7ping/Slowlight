@@ -52,7 +52,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _buildError();
 
     final summary = Map<String, dynamic>.from(
@@ -67,7 +67,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         .take(20)
         .toList(growable: false);
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -103,9 +103,10 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     final completed = (summary['completed_count'] as num?)?.toInt() ?? 0;
     final created = (summary['created_count'] as num?)?.toInt() ?? 0;
     final days = (summary['total_days'] as num?)?.toInt() ?? 30;
-    final bestDay = summary['best_day'] is Map
-        ? Map<String, dynamic>.from(summary['best_day'] as Map)
-        : null;
+    final bestDay =
+        summary['best_day'] is Map
+            ? Map<String, dynamic>.from(summary['best_day'] as Map)
+            : null;
     final bestCount = (bestDay?['completed'] as num?)?.toInt() ?? 0;
 
     return FxCard(
@@ -125,9 +126,9 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
             const SizedBox(height: 10),
             Text(
               '↳ ${bestDay['date'] ?? ''}记录到 $bestCount 个完成任务',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ],
@@ -138,9 +139,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   Widget _stats(List<Widget> cells) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scaled = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.secondarySize);
-        final stacked = constraints.maxWidth < 560 ||
+        final scaled = MediaQuery.textScalerOf(
+          context,
+        ).scale(SlowlightTypography.secondarySize);
+        final stacked =
+            constraints.maxWidth < 560 ||
             scaled >= SlowlightTypography.secondarySize * 1.3;
         if (stacked) {
           return Column(
@@ -177,9 +180,9 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
           if (_trendDays.isEmpty)
             Text(
               '暂无趋势数据',
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             )
           else
             _bars(),
@@ -200,9 +203,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(values.length, (index) {
           final date = _trendDays[index]['date']?.toString() ?? '';
-          final showLabel = index == 0 ||
-              index == values.length - 1 ||
-              index % 7 == 0;
+          final showLabel =
+              index == 0 || index == values.length - 1 || index % 7 == 0;
           final label = date.length >= 10 ? date.substring(5) : date;
           return Expanded(
             child: Padding(
@@ -215,7 +217,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                       alignment: Alignment.bottomCenter,
                       child: Container(
                         width: 7,
-                        height: values[index] == 0 ? 2 : 82 * values[index] / max,
+                        height:
+                            values[index] == 0 ? 2 : 82 * values[index] / max,
                         decoration: BoxDecoration(
                           color: activePalette.accent.withValues(alpha: .78),
                           borderRadius: const BorderRadius.vertical(
@@ -228,18 +231,20 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                   const SizedBox(height: 4),
                   SizedBox(
                     height: 22,
-                    child: showLabel
-                        ? FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              label,
-                              style: SlowlightTypography.caption(context)
-                                  .copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                    child:
+                        showLabel
+                            ? FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                label,
+                                style: SlowlightTypography.caption(
+                                  context,
+                                ).copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
                               ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
+                            )
+                            : const SizedBox.shrink(),
                   ),
                 ],
               ),
@@ -324,10 +329,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '近 30 天回顾加载失败',
-            style: SlowlightTypography.cardTitle(context),
-          ),
+          Text('近 30 天回顾加载失败', style: SlowlightTypography.cardTitle(context)),
           const SizedBox(height: 12),
           FxButton(
             label: '重试',

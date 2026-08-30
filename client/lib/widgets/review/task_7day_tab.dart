@@ -52,7 +52,7 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _buildError();
 
     final summary = Map<String, dynamic>.from(
@@ -66,7 +66,7 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
         .map((item) => Map<String, dynamic>.from(item))
         .toList(growable: false);
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -102,9 +102,10 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
     final completed = (summary['completed_count'] as num?)?.toInt() ?? 0;
     final created = (summary['created_count'] as num?)?.toInt() ?? 0;
     final days = (summary['total_days'] as num?)?.toInt() ?? 7;
-    final bestDay = summary['best_day'] is Map
-        ? Map<String, dynamic>.from(summary['best_day'] as Map)
-        : null;
+    final bestDay =
+        summary['best_day'] is Map
+            ? Map<String, dynamic>.from(summary['best_day'] as Map)
+            : null;
     final bestCount = (bestDay?['completed'] as num?)?.toInt() ?? 0;
 
     return FxCard(
@@ -124,9 +125,9 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
             const SizedBox(height: 10),
             Text(
               '↳ ${bestDay['date'] ?? ''}记录到 $bestCount 个完成任务',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ],
@@ -137,9 +138,11 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
   Widget _stats(List<Widget> cells) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scaled = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.secondarySize);
-        final stacked = constraints.maxWidth < 560 ||
+        final scaled = MediaQuery.textScalerOf(
+          context,
+        ).scale(SlowlightTypography.secondarySize);
+        final stacked =
+            constraints.maxWidth < 560 ||
             scaled >= SlowlightTypography.secondarySize * 1.3;
         if (stacked) {
           return Column(
@@ -176,9 +179,9 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
           if (_trendDays.isEmpty)
             Text(
               '暂无趋势数据',
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             )
           else
             _bars(),
@@ -211,9 +214,9 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
                 children: [
                   Text(
                     '${values[index]}',
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    style: SlowlightTypography.caption(
+                      context,
+                    ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 3),
                   Container(
@@ -229,9 +232,9 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
                   const SizedBox(height: 5),
                   Text(
                     label,
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    style: SlowlightTypography.caption(
+                      context,
+                    ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -316,10 +319,7 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '近 7 天回顾加载失败',
-            style: SlowlightTypography.cardTitle(context),
-          ),
+          Text('近 7 天回顾加载失败', style: SlowlightTypography.cardTitle(context)),
           const SizedBox(height: 12),
           FxButton(
             label: '重试',

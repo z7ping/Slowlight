@@ -57,9 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
           username: _usernameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          nickname: _nicknameController.text.trim().isEmpty
-              ? null
-              : _nicknameController.text.trim(),
+          nickname:
+              _nicknameController.text.trim().isEmpty
+                  ? null
+                  : _nicknameController.text.trim(),
         );
       }
       await DataModeManager().setCloud();
@@ -127,9 +128,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     '了解自己的系统 · 数据位置由你选择',
                     textAlign: TextAlign.center,
-                    style: SlowlightTypography.secondary(context).copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    style: SlowlightTypography.secondary(
+                      context,
+                    ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 22),
                   FxButton(
@@ -143,19 +144,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Divider(color: theme.colorScheme.outlineVariant),
+                        child: FxSeparator.horizontal(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
                           '或登录使用云端数据',
-                          style: SlowlightTypography.caption(context).copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                          style: SlowlightTypography.caption(
+                            context,
+                          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
                       Expanded(
-                        child: Divider(color: theme.colorScheme.outlineVariant),
+                        child: FxSeparator.horizontal(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -187,12 +192,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     placeholder: '密码',
                     trailing: FxIconButton(
                       tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                      onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword,
-                      ),
-                      icon: _obscurePassword
-                          ? LucideIcons.eye
-                          : LucideIcons.eyeOff,
+                      onPressed:
+                          () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                      icon:
+                          _obscurePassword
+                              ? LucideIcons.eye
+                              : LucideIcons.eyeOff,
                       iconSize: 17,
                     ),
                   ),
@@ -208,9 +215,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                   const SizedBox(height: 12),
                   FxButton(
-                    label: _isLoading
-                        ? '处理中…'
-                        : _isLogin
+                    label:
+                        _isLoading
+                            ? '处理中…'
+                            : _isLogin
                             ? '登录'
                             : '注册',
                     expanded: true,
@@ -224,17 +232,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       Text(
                         _isLogin ? '还没有账号？' : '已有账号？',
-                        style: SlowlightTypography.caption(context).copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                       FxButton(
                         label: _isLogin ? '注册' : '登录',
                         variant: FxButtonVariant.link,
                         size: FxButtonSize.sm,
-                        onPressed: _isLoading
-                            ? null
-                            : () => setState(() => _isLogin = !_isLogin),
+                        onPressed:
+                            _isLoading
+                                ? null
+                                : () => setState(() => _isLogin = !_isLogin),
                       ),
                     ],
                   ),

@@ -57,9 +57,9 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
               Expanded(
                 child: Text(
                   '我的观察',
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               FxButton(
@@ -82,7 +82,7 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
               child: SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: FxCircularProgress(strokeWidth: 2),
               ),
             )
           else if (_items.isEmpty)
@@ -118,9 +118,9 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
           const SizedBox(height: 3),
           Text(
             '${dimension == null ? '' : '${dimension.icon} ${dimension.name} · '}$time',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),

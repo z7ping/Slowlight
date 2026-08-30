@@ -47,12 +47,13 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _buildError();
     final theme = Theme.of(context);
     final total = _outputStats['total_count'] ?? 0;
     final byLevel = _outputStats['by_level'] as Map<String, dynamic>? ?? {};
-    final byTaskType = _outputStats['by_task_type'] as Map<String, dynamic>? ?? {};
+    final byTaskType =
+        _outputStats['by_task_type'] as Map<String, dynamic>? ?? {};
     final ms = _outputStats['milestones'] ?? 0;
     final wk = _outputStats['this_week'] ?? 0;
     final mo = _outputStats['this_month'] ?? 0;
@@ -68,7 +69,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
         ),
       );
     }
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -110,15 +111,15 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
         Text(emoji, style: const TextStyle(fontSize: AppTheme.text2Xl)),
         Text(
           value,
-          style: SlowlightTypography.pageTitle(context).copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: SlowlightTypography.pageTitle(
+            context,
+          ).copyWith(fontWeight: FontWeight.bold),
         ),
         Text(
           label,
-          style: SlowlightTypography.caption(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
     );
@@ -141,9 +142,9 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
               const SizedBox(width: 6),
               Text(
                 '输出记录',
-                style: SlowlightTypography.cardTitle(context).copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: SlowlightTypography.cardTitle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -185,9 +186,10 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
       'B': AppTheme.warning,
       'C': AppTheme.error,
     };
-    final mx = byLevel.values
-        .fold<int>(0, (a, b) => (b as int) > a ? b : a)
-        .toDouble();
+    final mx =
+        byLevel.values
+            .fold<int>(0, (a, b) => (b as int) > a ? b : a)
+            .toDouble();
     return FxCard(
       color: theme.colorScheme.surfaceContainerLowest,
       borderRadius: 16,
@@ -196,9 +198,9 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
         children: [
           Text(
             '输出等级分布',
-            style: SlowlightTypography.cardTitle(context).copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: SlowlightTypography.cardTitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           ...['S', 'A', 'B', 'C'].map((level) {
@@ -254,22 +256,24 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
         children: [
           Text(
             '任务类型分布',
-            style: SlowlightTypography.cardTitle(context).copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: SlowlightTypography.cardTitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 6,
-            children: byTaskType.entries
-                .map(
-                  (entry) => FxChip(
-                    label: '${names[entry.key] ?? entry.key}: ${entry.value}',
-                    variant: FxChipVariant.secondary,
-                  ),
-                )
-                .toList(),
+            children:
+                byTaskType.entries
+                    .map(
+                      (entry) => FxChip(
+                        label:
+                            '${names[entry.key] ?? entry.key}: ${entry.value}',
+                        variant: FxChipVariant.secondary,
+                      ),
+                    )
+                    .toList(),
           ),
         ],
       ),

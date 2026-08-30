@@ -33,18 +33,23 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     try {
       final now = DateTime.now();
       final monthStr = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-      final data =
-          await ApiService.getHabitLogs(widget.habit.id, month: monthStr);
+      final data = await ApiService.getHabitLogs(
+        widget.habit.id,
+        month: monthStr,
+      );
       final logs =
           (data['logs'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
 
       final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-      final uniqueDays = logs
-          .map((log) => DateTime.parse(log['created_at'] as String))
-          .map((d) =>
-              '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}')
-          .toSet()
-          .length;
+      final uniqueDays =
+          logs
+              .map((log) => DateTime.parse(log['created_at'] as String))
+              .map(
+                (d) =>
+                    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+              )
+              .toSet()
+              .length;
 
       if (!mounted) return;
       setState(() {
@@ -60,8 +65,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
   Future<void> _editLog(Map<String, dynamic> log) async {
     final note = TextEditingController(text: log['note'] as String? ?? '');
-    final duration =
-        TextEditingController(text: '${log['duration_min'] ?? 0}');
+    final duration = TextEditingController(text: '${log['duration_min'] ?? 0}');
 
     Widget editor(BuildContext modalContext, {required bool showTitle}) {
       return Column(
@@ -69,17 +73,10 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showTitle) ...[
-            Text(
-              '编辑打卡记录',
-              style: SlowlightTypography.cardTitle(modalContext),
-            ),
+            Text('编辑打卡记录', style: SlowlightTypography.cardTitle(modalContext)),
             const SizedBox(height: 16),
           ],
-          FxInput(
-            controller: note,
-            label: '备注',
-            placeholder: '记录这次打卡',
-          ),
+          FxInput(controller: note, label: '备注', placeholder: '记录这次打卡'),
           const SizedBox(height: 12),
           FxInput(
             controller: duration,
@@ -100,10 +97,11 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               Expanded(
                 child: FxButton(
                   label: '保存',
-                  onPressed: () => Navigator.pop(modalContext, {
-                    'note': note.text,
-                    'duration_min': int.tryParse(duration.text) ?? 0,
-                  }),
+                  onPressed:
+                      () => Navigator.pop(modalContext, {
+                        'note': note.text,
+                        'duration_min': int.tryParse(duration.text) ?? 0,
+                      }),
                 ),
               ),
             ],
@@ -113,31 +111,33 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     }
 
     final mobile = MediaQuery.sizeOf(context).width < 600;
-    final result = mobile
-        ? await showModalBottomSheet<Map<String, dynamic>>(
-            context: context,
-            isScrollControlled: true,
-            builder: (sheetContext) => Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+    final result =
+        mobile
+            ? await showModalBottomSheet<Map<String, dynamic>>(
+              context: context,
+              isScrollControlled: true,
+              builder:
+                  (sheetContext) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+                        child: editor(sheetContext, showTitle: true),
+                      ),
+                    ),
+                  ),
+            )
+            : await FxDialog.show<Map<String, dynamic>>(
+              context: context,
+              title: '编辑打卡记录',
+              child: Builder(
+                builder:
+                    (dialogContext) => editor(dialogContext, showTitle: false),
               ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-                  child: editor(sheetContext, showTitle: true),
-                ),
-              ),
-            ),
-          )
-        : await FxDialog.show<Map<String, dynamic>>(
-            context: context,
-            title: '编辑打卡记录',
-            child: Builder(
-              builder: (dialogContext) =>
-                  editor(dialogContext, showTitle: false),
-            ),
-          );
+            );
     note.dispose();
     duration.dispose();
     if (result == null || !mounted) return;
@@ -150,9 +150,9 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       await _loadHabitLogs();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败：$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
       }
     }
   }
@@ -161,9 +161,10 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   Widget build(BuildContext context) {
     final habit = widget.habit;
     final habitColor = ColorUtils.safeParse(habit.color);
-    final checkInDates = _logs
-        .map((log) => DateTime.parse(log['created_at'] as String))
-        .toList();
+    final checkInDates =
+        _logs
+            .map((log) => DateTime.parse(log['created_at'] as String))
+            .toList();
 
     return Scaffold(
       backgroundColor: AppTheme.warmWhite,
@@ -175,76 +176,80 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               onBack: () => Navigator.of(context).pop(),
             ),
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : RefreshIndicator(
-                      onRefresh: _loadHabitLogs,
-                      child: ListView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 20,
-                        ),
-                        children: [
-                          _statsRow(habit, habitColor),
-                          const SizedBox(height: 24),
-                          FxCard(
-                            padding: const EdgeInsets.all(16),
-                            child: HabitHeatmap(
-                              checkInDates: checkInDates,
-                              color: habitColor,
-                            ),
+              child:
+                  _isLoading
+                      ? const Center(child: FxCircularProgress())
+                      : FxRefresh(
+                        onRefresh: _loadHabitLogs,
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 20,
                           ),
-                          const SizedBox(height: 24),
-                          Text(
-                            '最近打卡记录',
-                            style: SlowlightTypography.cardTitle(context)
-                                .copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.warmDark,
+                          children: [
+                            _statsRow(habit, habitColor),
+                            const SizedBox(height: 24),
+                            FxCard(
+                              padding: const EdgeInsets.all(16),
+                              child: HabitHeatmap(
+                                checkInDates: checkInDates,
+                                color: habitColor,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          _logs.isEmpty
-                              ? FxCard(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 32),
+                            const SizedBox(height: 24),
+                            Text(
+                              '最近打卡记录',
+                              style: SlowlightTypography.cardTitle(
+                                context,
+                              ).copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.warmDark,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _logs.isEmpty
+                                ? FxCard(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 32,
+                                  ),
                                   child: Column(
                                     children: [
                                       Text(
                                         habit.icon,
-                                        style:
-                                            SlowlightTypography.hero(context),
+                                        style: SlowlightTypography.hero(
+                                          context,
+                                        ),
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
                                         '暂无打卡记录',
                                         style: SlowlightTypography.secondary(
                                           context,
-                                        ).copyWith(
-                                          color: AppTheme.warmGray500,
-                                        ),
+                                        ).copyWith(color: AppTheme.warmGray500),
                                       ),
                                     ],
                                   ),
                                 )
-                              : FxCard(
+                                : FxCard(
                                   padding: EdgeInsets.zero,
                                   child: ListView.separated(
                                     shrinkWrap: true,
                                     physics:
                                         const NeverScrollableScrollPhysics(),
                                     itemCount: _logs.length.clamp(0, 30),
-                                    separatorBuilder: (_, __) => Divider(
-                                      color: AppTheme.warmBorder,
-                                      height: 1,
-                                    ),
-                                    itemBuilder: (context, index) =>
-                                        _logRow(_logs[index], habitColor),
+                                    separatorBuilder:
+                                        (_, __) => FxSeparator.horizontal(
+                                          color: AppTheme.warmBorder,
+                                          height: 1,
+                                        ),
+                                    itemBuilder:
+                                        (context, index) =>
+                                            _logRow(_logs[index], habitColor),
                                   ),
                                 ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
             ),
           ],
         ),
@@ -253,8 +258,8 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   }
 
   Widget _statsRow(Habit habit, Color habitColor) {
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.bodySize) >=
+    final largeText =
+        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.5;
     final cards = [
       _StatCard(
@@ -338,16 +343,16 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                     if (dMin > 0)
                       Text(
                         '$dMin 分钟',
-                        style: SlowlightTypography.caption(context).copyWith(
-                          color: AppTheme.warmGray500,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: AppTheme.warmGray500),
                       ),
                     if (period.isNotEmpty)
                       Text(
                         _periodLabel(period),
-                        style: SlowlightTypography.caption(context).copyWith(
-                          color: AppTheme.warmGray500,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: AppTheme.warmGray500),
                       ),
                   ],
                 ),
@@ -355,9 +360,9 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                   const SizedBox(height: 4),
                   Text(
                     note,
-                    style: SlowlightTypography.secondary(context).copyWith(
-                      color: AppTheme.warmGray500,
-                    ),
+                    style: SlowlightTypography.secondary(
+                      context,
+                    ).copyWith(color: AppTheme.warmGray500),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -419,17 +424,16 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: SlowlightTypography.pageTitle(context).copyWith(
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+            style: SlowlightTypography.pageTitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w700, color: color),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: AppTheme.warmGray500,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: AppTheme.warmGray500),
           ),
         ],
       ),

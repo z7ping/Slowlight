@@ -55,13 +55,17 @@ class _DailyTrendChartState extends State<DailyTrendChart> {
         children: [
           Row(
             children: [
-              Icon(Icons.show_chart, color: theme.colorScheme.primary, size: 20),
+              Icon(
+                Icons.show_chart,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 '最近 7 天趋势',
-                style: SlowlightTypography.cardTitle(context).copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: SlowlightTypography.cardTitle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -69,31 +73,34 @@ class _DailyTrendChartState extends State<DailyTrendChart> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _metrics.entries.map((entry) {
-                final selected = _metric == entry.key;
-                final color = entry.value['color'] as Color;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FxChip(
-                    label: entry.value['label'] as String,
-                    variant: selected
-                        ? FxChipVariant.primary
-                        : FxChipVariant.outline,
-                    backgroundColor: selected ? color : Colors.transparent,
-                    foregroundColor: selected
-                        ? AppTheme.white
-                        : theme.colorScheme.onSurfaceVariant,
-                    onTap: () => setState(() => _metric = entry.key),
-                  ),
-                );
-              }).toList(),
+              children:
+                  _metrics.entries.map((entry) {
+                    final selected = _metric == entry.key;
+                    final color = entry.value['color'] as Color;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FxChip(
+                        label: entry.value['label'] as String,
+                        variant:
+                            selected
+                                ? FxChipVariant.primary
+                                : FxChipVariant.outline,
+                        backgroundColor: selected ? color : Colors.transparent,
+                        foregroundColor:
+                            selected
+                                ? AppTheme.white
+                                : theme.colorScheme.onSurfaceVariant,
+                        onTap: () => setState(() => _metric = entry.key),
+                      ),
+                    );
+                  }).toList(),
             ),
           ),
           const SizedBox(height: 16),
           if (_loading)
             const SizedBox(
               height: 120,
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: FxCircularProgress()),
             )
           else if (_days.isEmpty)
             SizedBox(
@@ -101,17 +108,14 @@ class _DailyTrendChartState extends State<DailyTrendChart> {
               child: Center(
                 child: Text(
                   '数据积累中',
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
             )
           else
-            SizedBox(
-              height: 150,
-              child: _buildChart(theme),
-            ),
+            SizedBox(height: 150, child: _buildChart(theme)),
         ],
       ),
     );
@@ -171,16 +175,21 @@ class _TrendLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
 
-    final padding =
-        const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 28);
+    final padding = const EdgeInsets.only(
+      left: 8,
+      right: 8,
+      top: 16,
+      bottom: 28,
+    );
     final chartW = size.width - padding.left - padding.right;
     final chartH = size.height - padding.top - padding.bottom;
     final pointCount = values.length;
     final stepX = pointCount > 1 ? chartW / (pointCount - 1) : 0.0;
 
-    final gridPaint = Paint()
-      ..color = theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
-      ..strokeWidth = 0.5;
+    final gridPaint =
+        Paint()
+          ..color = theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
+          ..strokeWidth = 0.5;
     for (int i = 0; i < 4; i++) {
       final y = padding.top + chartH * i / 3;
       canvas.drawLine(
@@ -190,11 +199,12 @@ class _TrendLinePainter extends CustomPainter {
       );
     }
 
-    final linePaint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+    final linePaint =
+        Paint()
+          ..color = color
+          ..strokeWidth = 2.5
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke;
 
     final path = Path();
     final points = <Offset>[];
@@ -210,26 +220,29 @@ class _TrendLinePainter extends CustomPainter {
     }
     canvas.drawPath(path, linePaint);
 
-    final fillPath = Path.from(path)
-      ..lineTo(points.last.dx, padding.top + chartH)
-      ..lineTo(points.first.dx, padding.top + chartH)
-      ..close();
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          color.withValues(alpha: 0.2),
-          color.withValues(alpha: 0.02),
-        ],
-      ).createShader(Rect.fromLTWH(0, padding.top, size.width, chartH));
+    final fillPath =
+        Path.from(path)
+          ..lineTo(points.last.dx, padding.top + chartH)
+          ..lineTo(points.first.dx, padding.top + chartH)
+          ..close();
+    final fillPaint =
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              color.withValues(alpha: 0.2),
+              color.withValues(alpha: 0.02),
+            ],
+          ).createShader(Rect.fromLTWH(0, padding.top, size.width, chartH));
     canvas.drawPath(fillPath, fillPaint);
 
     final dotPaint = Paint()..color = color;
-    final dotBorderPaint = Paint()
-      ..color = AppTheme.white
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+    final dotBorderPaint =
+        Paint()
+          ..color = AppTheme.white
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke;
     for (final point in points) {
       canvas.drawCircle(point, 4, dotBorderPaint);
       canvas.drawCircle(point, 3, dotPaint);

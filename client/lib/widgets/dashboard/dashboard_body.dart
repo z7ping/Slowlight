@@ -132,7 +132,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     if (_loading) return _skeleton();
     if (_error != null) return _errorView();
     final desktop = MediaQuery.sizeOf(context).width >= 1024;
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: () async {
         await _load();
         widget.onRefresh?.call();
@@ -380,7 +380,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     final largeText =
         MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.3;
-    final row = InkWell(
+    final row = FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () => widget.onTaskTap?.call(task),
       child: Container(
@@ -402,7 +402,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               ),
               const SizedBox(width: 7),
             ],
-            InkWell(
+            FxInkWell(
               borderRadius: BorderRadius.circular(999),
               onTap:
                   widget.onTaskToggle == null
@@ -551,7 +551,7 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _habitRow(Habit habit, bool mobile) {
     final theme = Theme.of(context);
     final color = _parseColor(habit.color);
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap:
           widget.onHabitToggle == null
@@ -686,7 +686,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         .take(1)
         .toList(growable: false);
     final insight = visible.isEmpty ? null : visible.first;
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       onTap: insight == null ? null : () => _respond(insight),
       child: CustomPaint(
@@ -942,7 +942,7 @@ class _SwipeAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: background,
-      child: InkWell(
+      child: FxInkWell(
         onTap: onTap,
         child: SizedBox(
           width: width,

@@ -40,7 +40,7 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return const Center(child: FxCircularProgress(strokeWidth: 2));
     }
     final totalMin = (_data['total_min'] as num?)?.toInt() ?? 0;
     final tags =
@@ -52,9 +52,9 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
       return Center(
         child: Text(
           '暂无专注数据',
-          style: SlowlightTypography.secondary(context).copyWith(
-            color: AppTheme.warmGray400,
-          ),
+          style: SlowlightTypography.secondary(
+            context,
+          ).copyWith(color: AppTheme.warmGray400),
         ),
       );
     }
@@ -62,7 +62,7 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
     final m = totalMin % 60;
     final pad = widget.dense ? 12.0 : 16.0;
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadData,
       color: AppTheme.primary,
       child: ListView(
@@ -147,16 +147,16 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                 const SizedBox(height: 16),
                 ...tags.asMap().entries.map((entry) {
                   final tag = entry.value;
-                  final color = [
-                    AppTheme.primary,
-                    AppTheme.success,
-                    AppTheme.warning,
-                    AppTheme.priorityHigh,
-                    AppTheme.warmGray400,
-                    AppTheme.warmGray300,
-                  ][entry.key % 6];
-                  final percent =
-                      (tag['percent'] as num?)?.toDouble() ?? 0;
+                  final color =
+                      [
+                        AppTheme.primary,
+                        AppTheme.success,
+                        AppTheme.warning,
+                        AppTheme.priorityHigh,
+                        AppTheme.warmGray400,
+                        AppTheme.warmGray300,
+                      ][entry.key % 6];
+                  final percent = (tag['percent'] as num?)?.toDouble() ?? 0;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
@@ -172,17 +172,16 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                         const SizedBox(width: 8),
                         Text(
                           '${tag['icon'] ?? ''} ${tag['name'] ?? ''}',
-                          style: SlowlightTypography.secondary(context)
-                              .copyWith(color: AppTheme.warmDark),
+                          style: SlowlightTypography.secondary(
+                            context,
+                          ).copyWith(color: AppTheme.warmDark),
                         ),
                         const Spacer(),
                         Text(
                           '${percent.toStringAsFixed(0)}%',
-                          style: SlowlightTypography.secondary(context)
-                              .copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: color,
-                          ),
+                          style: SlowlightTypography.secondary(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w600, color: color),
                         ),
                       ],
                     ),
@@ -217,8 +216,9 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                             width: 40,
                             child: Text(
                               _weekdayLabel(day['date'] ?? ''),
-                              style: SlowlightTypography.caption(context)
-                                  .copyWith(color: AppTheme.warmGray500),
+                              style: SlowlightTypography.caption(
+                                context,
+                              ).copyWith(color: AppTheme.warmGray500),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -234,8 +234,9 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                             width: 55,
                             child: Text(
                               '${dayMin}分钟',
-                              style: SlowlightTypography.caption(context)
-                                  .copyWith(color: AppTheme.warmGray500),
+                              style: SlowlightTypography.caption(
+                                context,
+                              ).copyWith(color: AppTheme.warmGray500),
                               textAlign: TextAlign.end,
                             ),
                           ),
@@ -244,8 +245,9 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                             width: 28,
                             child: Text(
                               '$workCount次',
-                              style: SlowlightTypography.caption(context)
-                                  .copyWith(color: AppTheme.warmGray400),
+                              style: SlowlightTypography.caption(
+                                context,
+                              ).copyWith(color: AppTheme.warmGray400),
                               textAlign: TextAlign.end,
                             ),
                           ),
@@ -266,8 +268,7 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
       final d = DateTime.parse(dateStr);
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final diff =
-          today.difference(DateTime(d.year, d.month, d.day)).inDays;
+      final diff = today.difference(DateTime(d.year, d.month, d.day)).inDays;
       if (diff == 0) return '今天';
       if (diff == 1) return '昨天';
       const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];

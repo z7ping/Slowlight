@@ -38,7 +38,9 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _focusNode.requestFocus(),
+    );
   }
 
   @override
@@ -142,17 +144,18 @@ class _SearchScreenState extends State<SearchScreen> {
                             onChanged: _changed,
                             placeholder: '搜索任务、习惯、回顾…',
                             leading: const Icon(LucideIcons.search, size: 20),
-                            trailing: _controller.text.isEmpty
-                                ? null
-                                : FxIconButton(
-                                    tooltip: '清空',
-                                    onPressed: () {
-                                      _controller.clear();
-                                      _search('');
-                                      setState(() {});
-                                    },
-                                    icon: LucideIcons.x,
-                                  ),
+                            trailing:
+                                _controller.text.isEmpty
+                                    ? null
+                                    : FxIconButton(
+                                      tooltip: '清空',
+                                      onPressed: () {
+                                        _controller.clear();
+                                        _search('');
+                                        setState(() {});
+                                      },
+                                      icon: LucideIcons.x,
+                                    ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 11,
@@ -167,16 +170,19 @@ class _SearchScreenState extends State<SearchScreen> {
                               children: [
                                 Text(
                                   '最近：',
-                                  style: SlowlightTypography.caption(context).copyWith(
+                                  style: SlowlightTypography.caption(
+                                    context,
+                                  ).copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 ..._recentSearches.map(
                                   (query) => FxChip(
                                     label: query,
-                                    variant: query == _query
-                                        ? FxChipVariant.primary
-                                        : FxChipVariant.secondary,
+                                    variant:
+                                        query == _query
+                                            ? FxChipVariant.primary
+                                            : FxChipVariant.secondary,
                                     onTap: () => _useRecent(query),
                                   ),
                                 ),
@@ -187,7 +193,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(36),
-                                child: CircularProgressIndicator(),
+                                child: FxCircularProgress(),
                               ),
                             )
                           else if (_query.isEmpty)
@@ -247,12 +253,13 @@ class _SearchScreenState extends State<SearchScreen> {
     ].join(' · ');
     return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      onTap: () => TaskDetailSheet.show(
-        context,
-        task: task,
-        lists: _lists,
-        onChanged: () => _search(_query),
-      ),
+      onTap:
+          () => TaskDetailSheet.show(
+            context,
+            task: task,
+            lists: _lists,
+            onChanged: () => _search(_query),
+          ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
@@ -275,17 +282,17 @@ class _SearchScreenState extends State<SearchScreen> {
                     _highlight(
                       task.title,
                       _query,
-                      style: SlowlightTypography.body(context).copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: SlowlightTypography.body(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w500),
                     ),
                     if (meta.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         meta,
-                        style: SlowlightTypography.caption(context).copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ],
@@ -305,32 +312,36 @@ class _SearchScreenState extends State<SearchScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
         child: Column(
-          children: _habits
-              .take(20)
-              .map(
-                (habit) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Text(habit.icon, style: const TextStyle(fontSize: 17)),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: _highlight(
-                          habit.name,
-                          _query,
-                          style: SlowlightTypography.body(context),
-                        ),
+          children:
+              _habits
+                  .take(20)
+                  .map(
+                    (habit) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Text(
+                            habit.icon,
+                            style: const TextStyle(fontSize: 17),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: _highlight(
+                              habit.name,
+                              _query,
+                              style: SlowlightTypography.body(context),
+                            ),
+                          ),
+                          if (habit.streakCount > 0)
+                            FxChip(
+                              label: '🔥 ${habit.streakCount}',
+                              variant: FxChipVariant.secondary,
+                            ),
+                        ],
                       ),
-                      if (habit.streakCount > 0)
-                        FxChip(
-                          label: '🔥 ${habit.streakCount}',
-                          variant: FxChipVariant.secondary,
-                        ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
+                    ),
+                  )
+                  .toList(),
         ),
       ),
     );
@@ -344,40 +355,43 @@ class _SearchScreenState extends State<SearchScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
         child: Column(
-          children: _reflections
-              .take(20)
-              .map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 7),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(entry.entryType == 'observation' ? '📝' : '💬'),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _highlight(
-                              entry.content,
-                              _query,
-                              style: SlowlightTypography.body(context),
+          children:
+              _reflections
+                  .take(20)
+                  .map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(entry.entryType == 'observation' ? '📝' : '💬'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _highlight(
+                                  entry.content,
+                                  _query,
+                                  style: SlowlightTypography.body(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${entry.createdAt.month} 月 ${entry.createdAt.day} 日${entry.dimensionKey == null ? '' : ' · #${_dimensionLabel(entry.dimensionKey!)}'}',
+                                  style: SlowlightTypography.caption(
+                                    context,
+                                  ).copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${entry.createdAt.month} 月 ${entry.createdAt.day} 日${entry.dimensionKey == null ? '' : ' · #${_dimensionLabel(entry.dimensionKey!)}'}',
-                              style: SlowlightTypography.caption(context).copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
+                    ),
+                  )
+                  .toList(),
         ),
       ),
     );
@@ -437,10 +451,10 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   String _dimensionLabel(String key) => switch (key) {
-        'body' => '身体',
-        'cognition' => '认知',
-        'output' => '产出',
-        'relationship' => '关系',
-        _ => key,
-      };
+    'body' => '身体',
+    'cognition' => '认知',
+    'output' => '产出',
+    'relationship' => '关系',
+    _ => key,
+  };
 }

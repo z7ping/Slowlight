@@ -10,11 +10,7 @@ class SystemTagPicker extends StatefulWidget {
   final int? defaultTagId;
   final String title;
 
-  const SystemTagPicker({
-    super.key,
-    this.defaultTagId,
-    this.title = '选择系统标签',
-  });
+  const SystemTagPicker({super.key, this.defaultTagId, this.title = '选择系统标签'});
 
   /// 显示系统标签选择弹窗，返回选中的 tag ID 或 null
   static Future<int?> show(
@@ -26,10 +22,7 @@ class SystemTagPicker extends StatefulWidget {
       context: context,
       isScrollControlled: false,
       showDragHandle: false,
-      builder: (_) => SystemTagPicker(
-        defaultTagId: defaultTagId,
-        title: title,
-      ),
+      builder: (_) => SystemTagPicker(defaultTagId: defaultTagId, title: title),
     );
   }
 
@@ -83,8 +76,9 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.3,
+                  ),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -93,8 +87,9 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
 
             Text(
               widget.title,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -106,57 +101,67 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
             const SizedBox(height: 16),
 
             if (_loading)
-              const Center(child: CircularProgressIndicator())
+              const Center(child: FxCircularProgress())
             else if (_tags.isEmpty)
               const Text('暂无系统标签')
             else
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: _tags.map((tag) {
-                  final id = tag['id'] as int;
-                  final name = tag['name'] as String? ?? '';
-                  final icon = tag['icon'] as String? ?? '🏷️';
-                  final isSelected = id == widget.defaultTagId;
+                children:
+                    _tags.map((tag) {
+                      final id = tag['id'] as int;
+                      final name = tag['name'] as String? ?? '';
+                      final icon = tag['icon'] as String? ?? '🏷️';
+                      final isSelected = id == widget.defaultTagId;
 
-                  return FxInkWell(
-                    onTap: () => Navigator.pop(context, id),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? theme.colorScheme.primaryContainer
-                            : theme.colorScheme.surfaceContainerLowest,
+                      return FxInkWell(
+                        onTap: () => Navigator.pop(context, id),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.outlineVariant,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(icon,
-                              style: const TextStyle(
-                                  fontSize: AppTheme.textXl, height: 1.2)),
-                          const SizedBox(height: 4),
-                          Text(
-                            name,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                isSelected
+                                    ? theme.colorScheme.primaryContainer
+                                    : theme.colorScheme.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color:
+                                  isSelected
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.outlineVariant,
+                              width: isSelected ? 2 : 1,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                icon,
+                                style: const TextStyle(
+                                  fontSize: AppTheme.textXl,
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                name,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
               ),
 
             const SizedBox(height: 16),

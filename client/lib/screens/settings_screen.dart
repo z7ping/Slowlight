@@ -22,10 +22,7 @@ import 'reminder_screen.dart';
 class SettingsScreen extends StatefulWidget {
   final String initialSection;
 
-  const SettingsScreen({
-    super.key,
-    this.initialSection = 'appearance',
-  });
+  const SettingsScreen({super.key, this.initialSection = 'appearance'});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -113,70 +110,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const FxPageHeader(title: '设置'),
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
-                      children: [
-                        Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 640),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _settingsIntro(),
-                                _groupLabel('个性化'),
-                                _accordion(
-                                  id: 'appearance',
-                                  icon: Icons.palette_outlined,
-                                  title: '外观',
-                                  summary: _appearanceSummary(),
-                                  child: _appearancePanel(),
-                                ),
-                                const SizedBox(height: 10),
-                                _groupLabel('数据与服务'),
-                                _accordion(
-                                  id: 'data',
-                                  icon: Icons.cloud_outlined,
-                                  title: '数据同步',
-                                  summary: _dataSummary(),
-                                  child: _dataPanel(),
-                                ),
-                                const SizedBox(height: 10),
-                                _accordion(
-                                  id: 'ai',
-                                  icon: Icons.auto_awesome_outlined,
-                                  title: 'AI 服务',
-                                  summary: _aiSummary(),
-                                  child: _aiPanel(),
-                                ),
-                                const SizedBox(height: 10),
-                                _groupLabel('桌面效率'),
-                                _accordion(
-                                  id: 'rest',
-                                  icon: Icons.notifications_none,
-                                  title: '休息提醒',
-                                  summary: _restSummary(),
-                                  child: _restPanel(),
-                                ),
-                                const SizedBox(height: 24),
-                                Center(
-                                  child: Text(
-                                    '本地数据 · 你的记录属于你',
-                                    style: SlowlightTypography.caption(context)
-                                        .copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+              child:
+                  _loading
+                      ? const Center(child: FxCircularProgress())
+                      : ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
+                        children: [
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 640),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _settingsIntro(),
+                                  _groupLabel('个性化'),
+                                  _accordion(
+                                    id: 'appearance',
+                                    icon: Icons.palette_outlined,
+                                    title: '外观',
+                                    summary: _appearanceSummary(),
+                                    child: _appearancePanel(),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _groupLabel('数据与服务'),
+                                  _accordion(
+                                    id: 'data',
+                                    icon: Icons.cloud_outlined,
+                                    title: '数据同步',
+                                    summary: _dataSummary(),
+                                    child: _dataPanel(),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _accordion(
+                                    id: 'ai',
+                                    icon: Icons.auto_awesome_outlined,
+                                    title: 'AI 服务',
+                                    summary: _aiSummary(),
+                                    child: _aiPanel(),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _groupLabel('桌面效率'),
+                                  _accordion(
+                                    id: 'rest',
+                                    icon: Icons.notifications_none,
+                                    title: '休息提醒',
+                                    summary: _restSummary(),
+                                    child: _restPanel(),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Center(
+                                    child: Text(
+                                      '本地数据 · 你的记录属于你',
+                                      style: SlowlightTypography.caption(
+                                        context,
+                                      ).copyWith(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
             ),
           ],
         ),
@@ -185,25 +185,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _settingsIntro() => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(
-          '调整所行映我的工作方式与数据边界',
-          style: SlowlightTypography.secondary(context).copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(
+      '调整所行映我的工作方式与数据边界',
+      style: SlowlightTypography.secondary(
+        context,
+      ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    ),
+  );
 
   Widget _groupLabel(String label) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 10, 4, 7),
-        child: Text(
-          label,
-          style: SlowlightTypography.caption(context).copyWith(
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.fromLTRB(4, 10, 4, 7),
+    child: Text(
+      label,
+      style: SlowlightTypography.caption(context).copyWith(
+        fontWeight: FontWeight.w700,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    ),
+  );
 
   String _dataSummary() {
     if (DataModeManager().isLocal) return '本地优先 · 仅保存在设备';
@@ -227,8 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     final open = _open == id;
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    final stackHeader =
-        scale >= 1.6 && MediaQuery.sizeOf(context).width < 520;
+    final stackHeader = scale >= 1.6 && MediaQuery.sizeOf(context).width < 520;
     return FxCard(
       padding: EdgeInsets.zero,
       color: fxSurface(context),
@@ -243,77 +242,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 56),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: stackHeader
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(icon, size: 18),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  style: SlowlightTypography.secondary(context)
-                                      .copyWith(fontWeight: FontWeight.w600),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                child:
+                    stackHeader
+                        ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(icon, size: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    style: SlowlightTypography.secondary(
+                                      context,
+                                    ).copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                Icon(
+                                  open
+                                      ? Icons.keyboard_arrow_down
+                                      : Icons.chevron_right,
+                                  size: 18,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 28),
+                              child: Text(
+                                summary,
+                                style: SlowlightTypography.caption(
+                                  context,
+                                ).copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              Icon(
-                                open
-                                    ? Icons.keyboard_arrow_down
-                                    : Icons.chevron_right,
-                                size: 18,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 28),
-                            child: Text(
-                              summary,
-                              style: SlowlightTypography.caption(context)
-                                  .copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        )
+                        : Row(
+                          children: [
+                            Icon(icon, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: SlowlightTypography.secondary(
+                                  context,
+                                ).copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Icon(icon, size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: SlowlightTypography.secondary(context)
-                                  .copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Flexible(
-                            child: Text(
-                              summary,
-                              textAlign: TextAlign.right,
-                              overflow: TextOverflow.ellipsis,
-                              style: SlowlightTypography.caption(context)
-                                  .copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                            Flexible(
+                              child: Text(
+                                summary,
+                                textAlign: TextAlign.right,
+                                overflow: TextOverflow.ellipsis,
+                                style: SlowlightTypography.caption(
+                                  context,
+                                ).copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            open
-                                ? Icons.keyboard_arrow_down
-                                : Icons.chevron_right,
-                            size: 18,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              open
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.chevron_right,
+                              size: 18,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
               ),
             ),
           ),
@@ -336,7 +342,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _segmented(List<String> labels, int selected, ValueChanged<int> change) {
+  Widget _segmented(
+    List<String> labels,
+    int selected,
+    ValueChanged<int> change,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
@@ -374,8 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('主题模式'),
-        _segmented(const ['跟随系统', '浅色', '深色'], modeIndex,
-            (index) async {
+        _segmented(const ['跟随系统', '浅色', '深色'], modeIndex, (index) async {
           await settings.setThemeMode(
             [ThemeMode.system, ThemeMode.light, ThemeMode.dark][index],
           );
@@ -386,61 +395,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: allPalettes.map((palette) {
-            final selected = settings.palette == palette.name;
-            return FxInkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () async {
-                await settings.setPalette(palette.name);
-                if (mounted) setState(() {});
-              },
-              child: SizedBox(
-                width: 116,
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: selected
-                          ? palette.accent
-                          : theme.colorScheme.outlineVariant,
-                      width: selected ? 2 : 1,
+          children: allPalettes
+              .map((palette) {
+                final selected = settings.palette == palette.name;
+                return FxInkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () async {
+                    await settings.setPalette(palette.name);
+                    if (mounted) setState(() {});
+                  },
+                  child: SizedBox(
+                    width: 116,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color:
+                              selected
+                                  ? palette.accent
+                                  : theme.colorScheme.outlineVariant,
+                          width: selected ? 2 : 1,
+                        ),
+                        color: theme.colorScheme.surface,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 17,
+                            height: 17,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: palette.accent,
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              palette.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: SlowlightTypography.caption(
+                                context,
+                              ).copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Opacity(
+                            opacity: selected ? 1 : 0,
+                            child: Icon(
+                              Icons.check,
+                              size: 14,
+                              color: palette.accent,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    color: theme.colorScheme.surface,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 17,
-                        height: 17,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: palette.accent,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Text(
-                          palette.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: SlowlightTypography.caption(context)
-                              .copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Opacity(
-                        opacity: selected ? 1 : 0,
-                        child: Icon(Icons.check, size: 14, color: palette.accent),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(growable: false),
+                );
+              })
+              .toList(growable: false),
         ),
         const SizedBox(height: 14),
         Row(
@@ -449,9 +468,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Spacer(),
             Text(
               '${(visibleScale * 100).round()}%',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -527,9 +546,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           local
               ? '数据仅从本机数据库读写。切换模式不会自动把现有本地数据上传到云端。'
               : '数据以所行映我服务端为准，并在本机保留同步缓存；不会自动导入本地模式中的记录。',
-          style: SlowlightTypography.caption(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         if (!local) ...[
           const SizedBox(height: 10),
@@ -581,10 +600,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: '打开飞书表格',
             variant: FxButtonVariant.outline,
             size: FxButtonSize.sm,
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const IntegrationScreen()),
-            ),
+            onPressed:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const IntegrationScreen()),
+                ),
           ),
         ),
       ],
@@ -609,8 +629,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: _ai.enabled,
             label: '启用 AI',
             description: '提问引擎与回顾洞察',
-            onChanged: (value) =>
-                setState(() => _ai = _ai.copyWith(enabled: value)),
+            onChanged:
+                (value) => setState(() => _ai = _ai.copyWith(enabled: value)),
           ),
         ),
         const SizedBox(height: 12),
@@ -654,9 +674,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Text(
             '🔒 本地 Ollama：数据不出设备。数据模式与 AI 模式相互独立。',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ),
         const SizedBox(height: 10),
@@ -686,9 +706,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     return FxChip(
       label: label,
-      backgroundColor: accent
-          ? activePalette.accent.withValues(alpha: .12)
-          : fxSubtleSurface(context),
+      backgroundColor:
+          accent
+              ? activePalette.accent.withValues(alpha: .12)
+              : fxSubtleSurface(context),
       foregroundColor:
           accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
       borderRadius: 999,
@@ -710,9 +731,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             alignment: Alignment.centerLeft,
             child: Text(
               '查看随处，采集归位。',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
         ],
@@ -758,16 +779,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           '长休息开始后不可跳过本轮',
           trailing: FxSwitch(
             value: _reminder.longRestStrict,
-            onChanged: (value) =>
-                _setReminderStrict(micro: false, value: value),
+            onChanged:
+                (value) => _setReminderStrict(micro: false, value: value),
           ),
         ),
-        _settingLine('睡眠暂停计时', '系统睡眠/休眠期间不累计工作时长',
-            trailing: _statusChip('提案')),
-        _settingLine('锁屏重置本轮', '解锁后本轮从零开始',
-            trailing: _statusChip('提案')),
-        _settingLine('免打扰时段', '建议 22:00 – 08:00 不提醒',
-            trailing: _statusChip('提案')),
+        _settingLine('睡眠暂停计时', '系统睡眠/休眠期间不累计工作时长', trailing: _statusChip('提案')),
+        _settingLine('锁屏重置本轮', '解锁后本轮从零开始', trailing: _statusChip('提案')),
+        _settingLine(
+          '免打扰时段',
+          '建议 22:00 – 08:00 不提醒',
+          trailing: _statusChip('提案'),
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -776,18 +798,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text(
               '未落地项继续明确标记为提案，不伪装成可用开关。',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             FxButton(
               label: '打开休息提醒',
               variant: FxButtonVariant.outline,
               size: FxButtonSize.sm,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReminderScreen()),
-              ),
+              onPressed:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ReminderScreen()),
+                  ),
             ),
           ],
         ),
@@ -799,20 +822,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     final scale = MediaQuery.textScalerOf(context).scale(1);
     final stackTrailing =
-        trailing != null && scale >= 1.6 && MediaQuery.sizeOf(context).width < 520;
+        trailing != null &&
+        scale >= 1.6 &&
+        MediaQuery.sizeOf(context).width < 520;
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: SlowlightTypography.secondary(context)
-              .copyWith(fontWeight: FontWeight.w600),
+          style: SlowlightTypography.secondary(
+            context,
+          ).copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 2),
         Text(
           subtitle,
-          style: SlowlightTypography.caption(context)
-              .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
     );
@@ -822,37 +849,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: fxDivider(context))),
       ),
-      child: trailing == null
-          ? copy
-          : stackTrailing
+      child:
+          trailing == null
+              ? copy
+              : stackTrailing
               ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    copy,
-                    const SizedBox(height: 8),
-                    Align(alignment: Alignment.centerRight, child: trailing),
-                  ],
-                )
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  copy,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerRight, child: trailing),
+                ],
+              )
               : Row(
-                  children: [
-                    Expanded(child: copy),
-                    const SizedBox(width: 10),
-                    trailing,
-                  ],
-                ),
+                children: [
+                  Expanded(child: copy),
+                  const SizedBox(width: 10),
+                  trailing,
+                ],
+              ),
     );
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 5),
-        child: Text(
-          text,
-          style: SlowlightTypography.caption(context).copyWith(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 5),
+    child: Text(
+      text,
+      style: SlowlightTypography.caption(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 
   String _appearanceSummary() {
     final settings = ThemeSettings();
@@ -863,7 +891,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _restSummary() {
     if (!_reminderSupported) return '仅桌面端';
     if (!_reminder.isLoaded) return '读取中…';
-    final fullscreen = defaultTargetPlatform == TargetPlatform.windows &&
+    final fullscreen =
+        defaultTargetPlatform == TargetPlatform.windows &&
         _reminder.lockScreenMode == 'fullscreen';
     return '${_reminder.workMinutes} 分钟 · ${fullscreen ? '霸屏' : '窗口'}';
   }
@@ -946,14 +975,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  AiConfig _aiDraft() => _ai.copyWith(
-        endpoint: _endpoint.text.trim(),
-        model: _model.text.trim(),
-      );
+  AiConfig _aiDraft() =>
+      _ai.copyWith(endpoint: _endpoint.text.trim(), model: _model.text.trim());
 
-  Future<String> _effectiveKey() async => _key.text.trim().isNotEmpty
-      ? _key.text.trim()
-      : await _aiStore.loadApiKey(_ai.provider) ?? '';
+  Future<String> _effectiveKey() async =>
+      _key.text.trim().isNotEmpty
+          ? _key.text.trim()
+          : await _aiStore.loadApiKey(_ai.provider) ?? '';
 
   Future<void> _saveAi() async {
     setState(() => _savingAi = true);
@@ -984,10 +1012,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _testAi() async {
     try {
-      final text = await AiService(configStore: _aiStore).testConfiguration(
-        _aiDraft(),
-        apiKey: await _effectiveKey(),
-      );
+      final text = await AiService(
+        configStore: _aiStore,
+      ).testConfiguration(_aiDraft(), apiKey: await _effectiveKey());
       _message('连接成功：$text');
     } catch (e) {
       _message('连接失败：$e');

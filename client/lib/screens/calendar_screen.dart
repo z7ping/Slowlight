@@ -15,7 +15,7 @@ class CalendarScreen extends StatefulWidget {
   final DateTime? initialMonth;
   final DateTime? initialSelectedDate;
   final Future<void> Function(BuildContext context, DateTime date)?
-      createTaskOverride;
+  createTaskOverride;
 
   const CalendarScreen({
     super.key,
@@ -132,7 +132,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _load,
       child: ListView(
         key: const ValueKey('calendar-scroll-view'),
@@ -192,9 +192,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Text(
             '${_focused.year} 年 ${_focused.month} 月',
             key: const ValueKey('calendar-month-label'),
-            style: SlowlightTypography.cardTitle(context).copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: SlowlightTypography.cardTitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         if (!compact) _filter(),
@@ -216,19 +216,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return FxSegmented(
       labels: const ['全部', '计划', '实际'],
       selectedIndex: _displayMode.index,
-      onChanged: (index) => setState(
-        () => _displayMode = CalendarDisplayMode.values[index],
-      ),
+      onChanged:
+          (index) =>
+              setState(() => _displayMode = CalendarDisplayMode.values[index]),
     );
   }
 
   Widget _partialDataNotice() {
-    final labels = _data!.unavailableTypes.map((type) => switch (type) {
-          CalendarRecordType.task => '任务',
-          CalendarRecordType.habit => '习惯',
-          CalendarRecordType.focus => '专注',
-          CalendarRecordType.reflection => '观察',
-        });
+    final labels = _data!.unavailableTypes.map(
+      (type) => switch (type) {
+        CalendarRecordType.task => '任务',
+        CalendarRecordType.habit => '习惯',
+        CalendarRecordType.focus => '专注',
+        CalendarRecordType.reflection => '观察',
+      },
+    );
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -269,9 +271,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Text(
                     '${_selected.month} 月 ${_selected.day} 日 · 周${weekdays[_selected.weekday - 1]}',
                     key: const ValueKey('calendar-selected-title'),
-                    style: SlowlightTypography.secondary(context).copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: SlowlightTypography.secondary(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w700),
                   ),
                   Text(
                     '计划与实际 · 共 ${records.length} 条完整记录',
@@ -343,10 +345,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _summaryChip(String text) => FxChip(
-        label: text,
-        variant: FxChipVariant.secondary,
-      );
+  Widget _summaryChip(String text) =>
+      FxChip(label: text, variant: FxChipVariant.secondary);
 
   Widget _recordSection(
     String title,
@@ -368,9 +368,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
             padding: const EdgeInsets.symmetric(vertical: 18),
             child: Text(
               taskSection ? '当天没有任务计划。' : '当天还没有习惯、专注或观察记录。',
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           )
         else
@@ -386,12 +386,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (record.dimensionLabel.isNotEmpty) record.dimensionLabel,
       if (record.durationMin > 0) '${record.durationMin}min',
     ].join(' · ');
-    final scaledSecondary = MediaQuery.textScalerOf(context)
-        .scale(SlowlightTypography.secondarySize);
-    final titleMaxLines = scaledSecondary >=
-            SlowlightTypography.secondarySize * 1.3
-        ? 2
-        : 1;
+    final scaledSecondary = MediaQuery.textScalerOf(
+      context,
+    ).scale(SlowlightTypography.secondarySize);
+    final titleMaxLines =
+        scaledSecondary >= SlowlightTypography.secondarySize * 1.3 ? 2 : 1;
     return FxInkWell(
       key: ValueKey('calendar-record-${record.id}'),
       onTap: () => _openRecord(record),
@@ -421,16 +420,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     record.title,
                     maxLines: titleMaxLines,
                     overflow: TextOverflow.ellipsis,
-                    style: SlowlightTypography.secondary(context).copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: SlowlightTypography.secondary(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w600),
                   ),
                   if (meta.isNotEmpty)
                     Text(
                       meta,
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                 ],
               ),
@@ -438,9 +437,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
             const SizedBox(width: 8),
             Text(
               record.completed ? '已记录 ›' : '待完成 ›',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -465,76 +464,81 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       title: record.title,
       child: Builder(
-        builder: (dialogContext) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        builder:
+            (dialogContext) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: calendarRecordColor(record, dialogContext),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: calendarRecordColor(record, dialogContext),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${record.typeLabel} · ${record.kindLabel}'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (record.description.isNotEmpty) ...[
+                  Text(record.description),
+                  const SizedBox(height: 14),
+                ],
+                _detailLine('状态', record.completed ? '已记录' : '待完成'),
+                if (record.timeLabel.isNotEmpty)
+                  _detailLine('时间', record.timeLabel),
+                if (record.durationMin > 0)
+                  _detailLine('时长', '${record.durationMin} 分钟'),
+                if (record.dimensionLabel.isNotEmpty)
+                  _detailLine('观察维度', record.dimensionLabel),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FxButton(
+                    label: '关闭',
+                    variant: FxButtonVariant.outline,
+                    onPressed:
+                        () =>
+                            Navigator.of(
+                              dialogContext,
+                              rootNavigator: true,
+                            ).pop(),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text('${record.typeLabel} · ${record.kindLabel}'),
               ],
             ),
-            const SizedBox(height: 12),
-            if (record.description.isNotEmpty) ...[
-              Text(record.description),
-              const SizedBox(height: 14),
-            ],
-            _detailLine('状态', record.completed ? '已记录' : '待完成'),
-            if (record.timeLabel.isNotEmpty)
-              _detailLine('时间', record.timeLabel),
-            if (record.durationMin > 0)
-              _detailLine('时长', '${record.durationMin} 分钟'),
-            if (record.dimensionLabel.isNotEmpty)
-              _detailLine('观察维度', record.dimensionLabel),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FxButton(
-                label: '关闭',
-                variant: FxButtonVariant.outline,
-                onPressed: () =>
-                    Navigator.of(dialogContext, rootNavigator: true).pop(),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
   Widget _detailLine(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 72,
-              child: Text(
-                label,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            label,
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
         ),
-      );
+        Expanded(
+          child: Text(
+            value,
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    ),
+  );
 
   List<CalendarRecord> _recordsForDay(DateTime date) => _records
       .where((record) => _sameDay(record.date, date))

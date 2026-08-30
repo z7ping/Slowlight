@@ -48,19 +48,17 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final body = _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
+    final body =
+        _loading
+            ? const Center(child: FxCircularProgress())
+            : _error != null
             ? _errorView()
             : _content(_snapshot!);
     if (widget.embedded || !Navigator.of(context).canPop()) return body;
     return Scaffold(
       body: SafeArea(
         child: Column(
-          children: [
-            const FxPageHeader(title: '统计'),
-            Expanded(child: body),
-          ],
+          children: [const FxPageHeader(title: '统计'), Expanded(child: body)],
         ),
       ),
     );
@@ -76,13 +74,14 @@ class _StatsScreenState extends State<StatsScreen> {
     );
     final focusSeconds =
         (data.sessionStats['total_work_seconds'] as num?)?.toInt();
-    final focusMinutes = focusSeconds == null
-        ? (data.sessionStats['total_minutes'] as num?)?.toInt() ??
-            data.todayFocusMinutes
-        : focusSeconds ~/ 60;
+    final focusMinutes =
+        focusSeconds == null
+            ? (data.sessionStats['total_minutes'] as num?)?.toInt() ??
+                data.todayFocusMinutes
+            : focusSeconds ~/ 60;
     final observations = _observationCount(last7);
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -101,10 +100,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
               final width = cellWidth(columns);
               final cells = [
-                FxStatCell(
-                  value: '${data.completedThisWeek}',
-                  label: '本周完成任务',
-                ),
+                FxStatCell(value: '${data.completedThisWeek}', label: '本周完成任务'),
                 FxStatCell(value: '$habitChecks', label: '习惯打卡次数'),
                 FxStatCell(value: _focusText(focusMinutes), label: '专注总时长'),
                 FxStatCell(
@@ -136,9 +132,9 @@ class _StatsScreenState extends State<StatsScreen> {
                     const SizedBox(height: 10),
                     Text(
                       _factNote(data),
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -157,11 +153,7 @@ class _StatsScreenState extends State<StatsScreen> {
               );
               if (!desktop) {
                 return Column(
-                  children: [
-                    chart,
-                    const SizedBox(height: 14),
-                    distribution,
-                  ],
+                  children: [chart, const SizedBox(height: 14), distribution],
                 );
               }
               return Row(
@@ -187,12 +179,14 @@ class _StatsScreenState extends State<StatsScreen> {
         child: Center(child: Text('暂无近 7 天数据')),
       );
     }
-    final values = points.map((row) {
-      return (row['focus_minutes'] as num?)?.toDouble() ??
-          (row['focus_min'] as num?)?.toDouble() ??
-          (row['task_completed'] as num?)?.toDouble() ??
-          0;
-    }).toList(growable: false);
+    final values = points
+        .map((row) {
+          return (row['focus_minutes'] as num?)?.toDouble() ??
+              (row['focus_min'] as num?)?.toDouble() ??
+              (row['task_completed'] as num?)?.toDouble() ??
+              0;
+        })
+        .toList(growable: false);
     final max = values.fold<double>(1, (a, b) => b > a ? b : a);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     return SizedBox(
@@ -201,8 +195,9 @@ class _StatsScreenState extends State<StatsScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(values.length, (index) {
           final value = values[index];
-          final date =
-              DateTime.tryParse(points[index]['date']?.toString() ?? '');
+          final date = DateTime.tryParse(
+            points[index]['date']?.toString() ?? '',
+          );
           final label = date == null ? '' : weekdays[date.weekday - 1];
           return Expanded(
             child: Padding(
@@ -248,9 +243,9 @@ class _StatsScreenState extends State<StatsScreen> {
     if (raw is! List || raw.isEmpty) {
       return Text(
         '暂无时间分配数据',
-        style: SlowlightTypography.secondary(context).copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        style: SlowlightTypography.secondary(
+          context,
+        ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       );
     }
     final items = raw
@@ -266,9 +261,10 @@ class _StatsScreenState extends State<StatsScreen> {
     return Column(
       children: List.generate(items.length, (index) {
         final item = items[index];
-        final percent = ((item['percent'] as num?)?.toDouble() ?? 0)
-            .clamp(0, 100)
-            .toDouble();
+        final percent =
+            ((item['percent'] as num?)?.toDouble() ?? 0)
+                .clamp(0, 100)
+                .toDouble();
         final minutes = (item['total_min'] as num?)?.toInt() ?? 0;
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -333,7 +329,8 @@ class _StatsScreenState extends State<StatsScreen> {
     var bestIndex = 0;
     var best = -1;
     for (var i = 0; i < points.length; i++) {
-      final value = (points[i]['focus_minutes'] as num?)?.toInt() ??
+      final value =
+          (points[i]['focus_minutes'] as num?)?.toInt() ??
           (points[i]['task_completed'] as num?)?.toInt() ??
           0;
       if (value > best) {
@@ -355,10 +352,7 @@ class _StatsScreenState extends State<StatsScreen> {
         children: [
           const Icon(LucideIcons.chartNoAxesColumn, size: 24),
           const SizedBox(height: 8),
-          Text(
-            '统计数据加载失败',
-            style: SlowlightTypography.cardTitle(context),
-          ),
+          Text('统计数据加载失败', style: SlowlightTypography.cardTitle(context)),
           const SizedBox(height: 12),
           FxButton(
             label: '重试',

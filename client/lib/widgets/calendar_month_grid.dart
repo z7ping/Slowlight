@@ -1,4 +1,5 @@
 import 'dart:ui' show FontFeature;
+import 'package:slowlight/ui/fx.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -32,8 +33,8 @@ class CalendarMonthGrid extends StatelessWidget {
     required this.onShowMore,
   });
 
-  bool _largeText(BuildContext context) => MediaQuery.textScalerOf(context)
-          .scale(SlowlightTypography.captionSize) >=
+  bool _largeText(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(SlowlightTypography.captionSize) >=
       SlowlightTypography.captionSize * 1.3;
 
   @override
@@ -59,10 +60,7 @@ class CalendarMonthGrid extends StatelessWidget {
               return SingleChildScrollView(
                 key: const ValueKey('calendar-month-horizontal-scroll'),
                 scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: 560,
-                  child: content,
-                ),
+                child: SizedBox(width: 560, child: content),
               );
             }
             return content;
@@ -72,18 +70,14 @@ class CalendarMonthGrid extends StatelessWidget {
     );
   }
 
-  Widget _monthContent(
-    BuildContext context,
-    bool compact,
-    bool largeText,
-  ) {
+  Widget _monthContent(BuildContext context, bool compact, bool largeText) {
     return Column(
       children: [
         _weekdayHeader(context),
         if (loading)
           const SizedBox(
             height: 560,
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: FxCircularProgress()),
           )
         else
           GridView.builder(
@@ -99,8 +93,9 @@ class CalendarMonthGrid extends StatelessWidget {
                 (false, false) => 136.0,
               },
             ),
-            itemBuilder: (context, index) =>
-                _dayCell(context, _dates[index], compact, largeText),
+            itemBuilder:
+                (context, index) =>
+                    _dayCell(context, _dates[index], compact, largeText),
           ),
       ],
     );
@@ -153,31 +148,34 @@ class CalendarMonthGrid extends StatelessWidget {
     final dateHeaderHeight = largeText ? 38.0 : 23.0;
 
     return Material(
-      color: selected
-          ? activePalette.accent.withValues(alpha: .08)
-          : outside
+      color:
+          selected
+              ? activePalette.accent.withValues(alpha: .08)
+              : outside
               ? theme.colorScheme.surfaceContainerLow.withValues(alpha: .55)
               : theme.colorScheme.surfaceContainerLowest,
-      child: InkWell(
+      child: FxInkWell(
         onTap: () => onSelectDate(date),
         child: Container(
-          key:
-              ValueKey('calendar-day-${DateFormat('yyyy-MM-dd').format(date)}'),
+          key: ValueKey(
+            'calendar-day-${DateFormat('yyyy-MM-dd').format(date)}',
+          ),
           padding: EdgeInsets.fromLTRB(compact ? 4 : 7, 5, compact ? 4 : 7, 4),
           decoration: BoxDecoration(
             border: Border(
               right: BorderSide(color: theme.colorScheme.outlineVariant),
               bottom: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: activePalette.accent,
-                      spreadRadius: -1,
-                      blurRadius: 0,
-                    ),
-                  ]
-                : null,
+            boxShadow:
+                selected
+                    ? [
+                      BoxShadow(
+                        color: activePalette.accent,
+                        spreadRadius: -1,
+                        blurRadius: 0,
+                      ),
+                    ]
+                    : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,22 +190,25 @@ class CalendarMonthGrid extends StatelessWidget {
                         minHeight: largeText ? 34 : 22,
                       ),
                       alignment: Alignment.center,
-                      decoration: today
-                          ? BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: activePalette.accent,
-                            )
-                          : null,
+                      decoration:
+                          today
+                              ? BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: activePalette.accent,
+                              )
+                              : null,
                       child: Text(
                         '${date.day}',
                         maxLines: 1,
                         style: SlowlightTypography.caption(context).copyWith(
-                          fontWeight: selected || today
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: today
-                              ? Colors.white
-                              : outside
+                          fontWeight:
+                              selected || today
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                          color:
+                              today
+                                  ? Colors.white
+                                  : outside
                                   ? theme.colorScheme.onSurfaceVariant
                                       .withValues(alpha: .55)
                                   : theme.colorScheme.onSurfaceVariant,
@@ -217,7 +218,7 @@ class CalendarMonthGrid extends StatelessWidget {
                     ),
                     const Spacer(),
                     if (!compact)
-                      Tooltip(
+                      FxTooltip(
                         message: '在这天新建任务',
                         child: InkResponse(
                           radius: 18,
@@ -236,7 +237,7 @@ class CalendarMonthGrid extends StatelessWidget {
                 (record) => _recordChip(context, record, compact, largeText),
               ),
               if (remaining > 0)
-                InkWell(
+                FxInkWell(
                   onTap: () => onShowMore(date),
                   child: Padding(
                     padding: const EdgeInsets.only(left: 3, top: 3),
@@ -244,9 +245,9 @@ class CalendarMonthGrid extends StatelessWidget {
                       '还有 $remaining 条记录',
                       maxLines: largeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ),
@@ -271,15 +272,13 @@ class CalendarMonthGrid extends StatelessWidget {
       child: Material(
         color: color.withValues(alpha: .12),
         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        child: InkWell(
+        child: FxInkWell(
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
           onTap: () => onOpenRecord(record),
           child: Container(
             key: ValueKey('calendar-grid-record-${record.id}'),
             width: double.infinity,
-            constraints: BoxConstraints(
-              minHeight: largeText ? 36 : 24,
-            ),
+            constraints: BoxConstraints(minHeight: largeText ? 36 : 24),
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 6),
             child: Text(
@@ -287,9 +286,10 @@ class CalendarMonthGrid extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: SlowlightTypography.caption(context).copyWith(
-                color: record.completed
-                    ? theme.colorScheme.onSurfaceVariant
-                    : theme.colorScheme.onSurface,
+                color:
+                    record.completed
+                        ? theme.colorScheme.onSurfaceVariant
+                        : theme.colorScheme.onSurface,
               ),
             ),
           ),
@@ -298,8 +298,8 @@ class CalendarMonthGrid extends StatelessWidget {
     );
   }
 
-  List<CalendarRecord> _visibleRecords(DateTime date) =>
-      records.where((record) {
+  List<CalendarRecord> _visibleRecords(DateTime date) => records
+      .where((record) {
         if (!_sameDay(record.date, date)) return false;
         return switch (displayMode) {
           CalendarDisplayMode.all => true,
@@ -307,7 +307,8 @@ class CalendarMonthGrid extends StatelessWidget {
           CalendarDisplayMode.actual =>
             record.kind == CalendarRecordKind.actual,
         };
-      }).toList(growable: false);
+      })
+      .toList(growable: false);
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -320,19 +321,19 @@ class _WeekdayLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            style: SlowlightTypography.caption(context).copyWith(
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        style: SlowlightTypography.caption(context).copyWith(
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 Color calendarRecordColor(CalendarRecord record, BuildContext context) {

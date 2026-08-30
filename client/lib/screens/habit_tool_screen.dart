@@ -169,8 +169,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       return;
     }
     if (day.isAfter(today) ||
-        day.isBefore(DateTime(habit.createdAt.year, habit.createdAt.month,
-            habit.createdAt.day))) {
+        day.isBefore(
+          DateTime(
+            habit.createdAt.year,
+            habit.createdAt.month,
+            habit.createdAt.day,
+          ),
+        )) {
       return;
     }
     final detail = await HabitCheckinDialog.show(context, habit: habit);
@@ -193,7 +198,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final created = DateTime(
-        habit.createdAt.year, habit.createdAt.month, habit.createdAt.day);
+      habit.createdAt.year,
+      habit.createdAt.month,
+      habit.createdAt.day,
+    );
     final yesterday = today.subtract(const Duration(days: 1));
     final initial = yesterday.isBefore(created) ? created : yesterday;
     final date = await showFxDatePicker(
@@ -250,7 +258,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   @override
   Widget build(BuildContext context) {
     if (_controller.loading && _controller.habits.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: FxCircularProgress());
     }
     if (_controller.error != null && _controller.habits.isEmpty) {
       return Center(
@@ -261,7 +269,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         ),
       );
     }
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _controller.load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -359,8 +367,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                         color: color.withValues(alpha: .12),
                         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                       ),
-                      child:
-                          Text(habit.icon, style: const TextStyle(fontSize: 16)),
+                      child: Text(
+                        habit.icon,
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -371,13 +381,16 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                             habit.name,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: SlowlightTypography.secondary(context)
-                                .copyWith(fontWeight: FontWeight.w600),
+                            style: SlowlightTypography.secondary(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             _habitMeta(habit),
-                            style: SlowlightTypography.caption(context).copyWith(
+                            style: SlowlightTypography.caption(
+                              context,
+                            ).copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -401,22 +414,25 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: habit.checkedToday
-                                  ? color
-                                  : Colors.transparent,
+                              color:
+                                  habit.checkedToday
+                                      ? color
+                                      : Colors.transparent,
                               border: Border.all(
-                                color: habit.checkedToday
-                                    ? color
-                                    : theme.colorScheme.outlineVariant,
+                                color:
+                                    habit.checkedToday
+                                        ? color
+                                        : theme.colorScheme.outlineVariant,
                                 width: 1.5,
                               ),
                             ),
                             child: Icon(
                               LucideIcons.check,
                               size: 14,
-                              color: habit.checkedToday
-                                  ? Colors.white
-                                  : theme.colorScheme.outline,
+                              color:
+                                  habit.checkedToday
+                                      ? Colors.white
+                                      : theme.colorScheme.outline,
                             ),
                           ),
                         ),
@@ -470,13 +486,22 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                             if (value == 'backfill') _backfill(habit);
                             if (value == 'delete') _delete(habit);
                           },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'backfill', child: Text('补卡')),
-                            PopupMenuItem(value: 'delete', child: Text('删除')),
-                          ],
+                          itemBuilder:
+                              (_) => const [
+                                PopupMenuItem(
+                                  value: 'backfill',
+                                  child: Text('补卡'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('删除'),
+                                ),
+                              ],
                           child: const Padding(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -503,14 +528,16 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     final logs = _controller.logsFor(habit.id);
     final now = DateTime.now();
     final monthPrefix = '${now.year}-${_two(now.month)}-';
-    final monthCount = logs.where((log) => log.date.startsWith(monthPrefix)).length;
-    final target = habit.frequency == 'daily'
-        ? now.day
-        : (habit.targetDays <= 0 ? monthCount : habit.targetDays * 4);
+    final monthCount =
+        logs.where((log) => log.date.startsWith(monthPrefix)).length;
+    final target =
+        habit.frequency == 'daily'
+            ? now.day
+            : (habit.targetDays <= 0 ? monthCount : habit.targetDays * 4);
     final rate =
         target <= 0 ? 0 : (monthCount / target * 100).clamp(0, 100).round();
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.bodySize) >=
+    final largeText =
+        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.3;
     final values = [
       ('${habit.streakCount}', '连续'),
@@ -520,21 +547,25 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     if (largeText) {
       return Column(
         children: values
-            .map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: _miniStat(item.$1, item.$2),
-                ))
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _miniStat(item.$1, item.$2),
+              ),
+            )
             .toList(growable: false),
       );
     }
     return Row(
       children: values
-          .map((item) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _miniStat(item.$1, item.$2),
-                ),
-              ))
+          .map(
+            (item) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _miniStat(item.$1, item.$2),
+              ),
+            ),
+          )
           .toList(growable: false),
     );
   }
@@ -551,13 +582,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       ),
       child: Column(
         children: [
-          Text(value,
-              style: SlowlightTypography.cardTitle(context)
-                  .copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: SlowlightTypography.cardTitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 2),
-          Text(label,
-              style: SlowlightTypography.caption(context)
-                  .copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            label,
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
         ],
       ),
     );
@@ -571,8 +608,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     final first = DateTime(now.year, now.month, 1);
     final start = first.subtract(Duration(days: first.weekday - 1));
     final days = List.generate(35, (i) => start.add(Duration(days: i)));
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.captionSize) >=
+    final largeText =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(SlowlightTypography.captionSize) >=
         SlowlightTypography.captionSize * 1.3;
     final cell = largeText ? 28.0 : 19.0;
     final dot = largeText ? 22.0 : 16.0;
@@ -586,39 +625,46 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           children: [
             Row(
               children: labels
-                  .map((label) => SizedBox(
-                        width: cell,
-                        child: Text(label,
-                            textAlign: TextAlign.center,
-                            style: SlowlightTypography.caption(context)),
-                      ))
+                  .map(
+                    (label) => SizedBox(
+                      width: cell,
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: SlowlightTypography.caption(context),
+                      ),
+                    ),
+                  )
                   .toList(growable: false),
             ),
             const SizedBox(height: 3),
             Wrap(
               spacing: cell - dot,
               runSpacing: 3,
-              children: days.map((day) {
-                final inMonth = day.month == now.month;
-                final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
-                final active = checked.contains(key);
-                return Container(
-                  width: dot,
-                  height: dot,
-                  decoration: BoxDecoration(
-                    color: active
-                        ? color.withValues(alpha: .85)
-                        : Theme.of(context)
-                            .colorScheme
-                            .surfaceContainer
-                            .withValues(alpha: inMonth ? 1 : .35),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    border: _sameDay(day, today)
-                        ? Border.all(color: color, width: 2)
-                        : null,
-                  ),
-                );
-              }).toList(growable: false),
+              children: days
+                  .map((day) {
+                    final inMonth = day.month == now.month;
+                    final key =
+                        '${day.year}-${_two(day.month)}-${_two(day.day)}';
+                    final active = checked.contains(key);
+                    return Container(
+                      width: dot,
+                      height: dot,
+                      decoration: BoxDecoration(
+                        color:
+                            active
+                                ? color.withValues(alpha: .85)
+                                : Theme.of(context).colorScheme.surfaceContainer
+                                    .withValues(alpha: inMonth ? 1 : .35),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        border:
+                            _sameDay(day, today)
+                                ? Border.all(color: color, width: 2)
+                                : null,
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
             ),
           ],
         ),
@@ -652,9 +698,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                       shape: BoxShape.circle,
                       color: active ? color : Colors.transparent,
                       border: Border.all(
-                        color: active
-                            ? color
-                            : Theme.of(context).colorScheme.outlineVariant,
+                        color:
+                            active
+                                ? color
+                                : Theme.of(context).colorScheme.outlineVariant,
                         width: 1.5,
                       ),
                     ),
@@ -672,22 +719,24 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     if (_controller.isLoadingLogs(habit.id)) {
       return const SizedBox(
         height: 28,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: Center(child: FxCircularProgress(strokeWidth: 2)),
       );
     }
     final logs = _controller.logsFor(habit.id);
     if (logs.isEmpty) {
-      return Text('本月还没有记录。',
-          style: SlowlightTypography.caption(context).copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ));
+      return Text(
+        '本月还没有记录。',
+        style: SlowlightTypography.caption(
+          context,
+        ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      );
     }
     final visible = logs.take(3).toList(growable: false);
     return Column(
       children: List.generate(
         visible.length,
-        (index) => _logRow(
-            habit, visible[index], color, index == visible.length - 1),
+        (index) =>
+            _logRow(habit, visible[index], color, index == visible.length - 1),
       ),
     );
   }
@@ -708,16 +757,21 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       children: [
         SizedBox(
           width: 18,
-          child: Column(children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-            ),
-            if (!last)
+          child: Column(
+            children: [
               Container(
-                  width: 1, height: 42, color: color.withValues(alpha: .25)),
-          ]),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+              ),
+              if (!last)
+                Container(
+                  width: 1,
+                  height: 42,
+                  color: color.withValues(alpha: .25),
+                ),
+            ],
+          ),
         ),
         const SizedBox(width: 6),
         Expanded(
@@ -730,16 +784,21 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                   spacing: 8,
                   runSpacing: 4,
                   children: [
-                    Text(parts.join(' · '),
-                        style: SlowlightTypography.caption(context).copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        )),
+                    Text(
+                      parts.join(' · '),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
                     if (canCancel)
                       FxInkWell(
                         onTap: () => _toggleToday(habit),
-                        child: Text('取消',
-                            style: SlowlightTypography.caption(context)
-                                .copyWith(color: theme.colorScheme.error)),
+                        child: Text(
+                          '取消',
+                          style: SlowlightTypography.caption(
+                            context,
+                          ).copyWith(color: theme.colorScheme.error),
+                        ),
                       ),
                   ],
                 ),
@@ -763,12 +822,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   }
 
   String _periodText(String value) => switch (value) {
-        'morning' => '☀️ 早晨',
-        'afternoon' => '下午',
-        'evening' => '傍晚',
-        'night' => '🌙 晚间',
-        _ => value,
-      };
+    'morning' => '☀️ 早晨',
+    'afternoon' => '下午',
+    'evening' => '傍晚',
+    'night' => '🌙 晚间',
+    _ => value,
+  };
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;

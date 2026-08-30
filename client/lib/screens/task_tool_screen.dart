@@ -52,9 +52,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         _lists = values[3] as List<TodoList>;
         if (_selectedTask != null) {
           _selectedTask = _all.cast<Task?>().firstWhere(
-                (task) => task?.id == _selectedTask!.id,
-                orElse: () => null,
-              );
+            (task) => task?.id == _selectedTask!.id,
+            orElse: () => null,
+          );
         }
         _swipeOffsets.clear();
         _loading = false;
@@ -65,10 +65,10 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   List<Task> get _visible => switch (_segment) {
-        1 => _all,
-        2 => _completed,
-        _ => _today,
-      };
+    1 => _all,
+    2 => _completed,
+    _ => _today,
+  };
 
   Widget _card({required Widget child, EdgeInsetsGeometry? padding}) {
     final theme = Theme.of(context);
@@ -77,20 +77,21 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       color: fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );
   }
 
   Widget _segments() => FxSegmented(
-        labels: const ['今天', '全部', '已完成'],
-        selectedIndex: _segment,
-        onChanged: (index) => setState(() => _segment = index),
-        backgroundColor: fxSubtleSurface(context),
-        selectedColor: fxSurface(context),
-        borderRadius: AppTheme.radiusMd,
-      );
+    labels: const ['今天', '全部', '已完成'],
+    selectedIndex: _segment,
+    onChanged: (index) => setState(() => _segment = index),
+    backgroundColor: fxSubtleSurface(context),
+    selectedColor: fxSurface(context),
+    borderRadius: AppTheme.radiusMd,
+  );
 
   Future<void> _toggle(Task task) async {
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
@@ -150,61 +151,69 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     return LayoutBuilder(
       builder: (context, constraints) {
         final mobile = constraints.maxWidth < 600;
         final desktop = constraints.maxWidth >= 860;
-        return RefreshIndicator(
+        return FxRefresh(
           onRefresh: _load,
-          child: desktop
-              ? _desktopContent()
-              : ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
-                  children: [
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        _segments(),
-                        FxButton(
-                          label: '新建任务',
-                          icon: LucideIcons.plus,
-                          size: FxButtonSize.sm,
-                          onPressed: _create,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _card(
-                      child: _visible.isEmpty
-                          ? FxEmptyState(
-                              emoji: '🍃',
-                              title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
-                              subtitle: _segment == 0
-                                  ? '今天可以从一件真正想推进的事开始'
-                                  : '切换其他筛选看看',
-                              action: _segment == 0
-                                  ? FxButton(
-                                      label: '新建任务',
-                                      variant: FxButtonVariant.secondary,
-                                      onPressed: _create,
-                                    )
-                                  : null,
-                            )
-                          : Column(
-                              children: _visible
-                                  .map((task) => mobile
-                                      ? _swipeTaskRow(task)
-                                      : _taskRow(task))
-                                  .toList(growable: false),
-                            ),
-                    ),
-                  ],
-                ),
+          child:
+              desktop
+                  ? _desktopContent()
+                  : ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
+                    children: [
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _segments(),
+                          FxButton(
+                            label: '新建任务',
+                            icon: LucideIcons.plus,
+                            size: FxButtonSize.sm,
+                            onPressed: _create,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _card(
+                        child:
+                            _visible.isEmpty
+                                ? FxEmptyState(
+                                  emoji: '🍃',
+                                  title:
+                                      _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
+                                  subtitle:
+                                      _segment == 0
+                                          ? '今天可以从一件真正想推进的事开始'
+                                          : '切换其他筛选看看',
+                                  action:
+                                      _segment == 0
+                                          ? FxButton(
+                                            label: '新建任务',
+                                            variant: FxButtonVariant.secondary,
+                                            onPressed: _create,
+                                          )
+                                          : null,
+                                )
+                                : Column(
+                                  children: _visible
+                                      .map(
+                                        (task) =>
+                                            mobile
+                                                ? _swipeTaskRow(task)
+                                                : _taskRow(task),
+                                      )
+                                      .toList(growable: false),
+                                ),
+                      ),
+                    ],
+                  ),
         );
       },
     );
@@ -218,43 +227,47 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
           _toolbar(),
           const SizedBox(height: 14),
           Expanded(
-            child: _visible.isEmpty
-                ? _card(child: _emptyState())
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        width: 430,
-                        child: _card(
-                          child: ListView(
-                            children: _visible
-                                .map(
-                                  (task) => _taskRow(
-                                    task,
-                                    selected: _selectedTask?.id == task.id,
-                                  ),
-                                )
-                                .toList(growable: false),
+            child:
+                _visible.isEmpty
+                    ? _card(child: _emptyState())
+                    : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: 430,
+                          child: _card(
+                            child: ListView(
+                              children: _visible
+                                  .map(
+                                    (task) => _taskRow(
+                                      task,
+                                      selected: _selectedTask?.id == task.id,
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: _card(
-                          padding: EdgeInsets.zero,
-                          child: _selectedTask == null
-                              ? _desktopEmptyDetail()
-                              : HomeTaskDetailPanel(
-                                  key: ValueKey(_selectedTask!.id),
-                                  task: _selectedTask!,
-                                  onClose: () =>
-                                      setState(() => _selectedTask = null),
-                                  onRefresh: _load,
-                                ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: _card(
+                            padding: EdgeInsets.zero,
+                            child:
+                                _selectedTask == null
+                                    ? _desktopEmptyDetail()
+                                    : HomeTaskDetailPanel(
+                                      key: ValueKey(_selectedTask!.id),
+                                      task: _selectedTask!,
+                                      onClose:
+                                          () => setState(
+                                            () => _selectedTask = null,
+                                          ),
+                                      onRefresh: _load,
+                                    ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
           ),
         ],
       ),
@@ -262,30 +275,31 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Widget _toolbar() => Row(
-        children: [
-          _segments(),
-          const Spacer(),
-          FxButton(
-            label: '新建任务',
-            icon: LucideIcons.plus,
-            size: FxButtonSize.sm,
-            onPressed: _create,
-          ),
-        ],
-      );
+    children: [
+      _segments(),
+      const Spacer(),
+      FxButton(
+        label: '新建任务',
+        icon: LucideIcons.plus,
+        size: FxButtonSize.sm,
+        onPressed: _create,
+      ),
+    ],
+  );
 
   Widget _emptyState() => FxEmptyState(
-        emoji: '🍃',
-        title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
-        subtitle: _segment == 0 ? '今天可以从一件真正想推进的事开始' : '切换其他筛选看看',
-        action: _segment == 0
+    emoji: '🍃',
+    title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
+    subtitle: _segment == 0 ? '今天可以从一件真正想推进的事开始' : '切换其他筛选看看',
+    action:
+        _segment == 0
             ? FxButton(
-                label: '新建任务',
-                variant: FxButtonVariant.secondary,
-                onPressed: _create,
-              )
+              label: '新建任务',
+              variant: FxButtonVariant.secondary,
+              onPressed: _create,
+            )
             : null,
-      );
+  );
 
   Widget _desktopEmptyDetail() {
     final theme = Theme.of(context);
@@ -313,17 +327,17 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               const SizedBox(height: 22),
               Text(
                 '选择一个任务查看详情',
-                style: SlowlightTypography.pageTitle(context).copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: SlowlightTypography.pageTitle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(
                 '在左侧选择任务后，可以在这里查看和编辑任务信息。',
                 textAlign: TextAlign.center,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 22),
               FxButton(
@@ -337,9 +351,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               Text(
                 '提示：点击左侧任务即可在当前页面查看详情',
                 textAlign: TextAlign.center,
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: SlowlightTypography.caption(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -367,7 +381,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: InkWell(
+                          child: FxInkWell(
                             onTap: () => _postpone(task),
                             child: Container(
                               color: AppTheme.warning,
@@ -384,7 +398,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                           ),
                         ),
                         Expanded(
-                          child: InkWell(
+                          child: FxInkWell(
                             onTap: () => _toggle(task),
                             child: Container(
                               color: AppTheme.success,
@@ -459,19 +473,22 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       if (task.isCompleted && task.completedAt != null)
         '${_two(task.completedAt!.hour)}:${_two(task.completedAt!.minute)} 完成',
     ];
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.secondarySize) >=
+    final largeText =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(SlowlightTypography.secondarySize) >=
         SlowlightTypography.secondarySize * 1.3;
 
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () => _open(task),
       child: Container(
         padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 4),
         decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primary.withValues(alpha: .07)
-              : null,
+          color:
+              selected
+                  ? theme.colorScheme.primary.withValues(alpha: .07)
+                  : null,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           border: Border(bottom: BorderSide(color: fxSubtleSurface(context))),
         ),
@@ -487,7 +504,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            InkWell(
+            FxInkWell(
               borderRadius: BorderRadius.circular(999),
               onTap: () => _toggle(task),
               child: SizedBox(
@@ -500,19 +517,26 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(6),
-                      color: task.isCompleted
-                          ? AppTheme.success
-                          : Colors.transparent,
+                      color:
+                          task.isCompleted
+                              ? AppTheme.success
+                              : Colors.transparent,
                       border: Border.all(
-                        color: task.isCompleted
-                            ? AppTheme.success
-                            : theme.colorScheme.outline,
+                        color:
+                            task.isCompleted
+                                ? AppTheme.success
+                                : theme.colorScheme.outline,
                         width: 1.5,
                       ),
                     ),
-                    child: task.isCompleted
-                        ? const Icon(Icons.check, size: 11, color: Colors.white)
-                        : null,
+                    child:
+                        task.isCompleted
+                            ? const Icon(
+                              Icons.check,
+                              size: 11,
+                              color: Colors.white,
+                            )
+                            : null,
                   ),
                 ),
               ),
@@ -529,9 +553,10 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                       fontWeight: FontWeight.w500,
                       decoration:
                           task.isCompleted ? TextDecoration.lineThrough : null,
-                      color: task.isCompleted
-                          ? theme.colorScheme.onSurfaceVariant
-                          : theme.colorScheme.onSurface,
+                      color:
+                          task.isCompleted
+                              ? theme.colorScheme.onSurfaceVariant
+                              : theme.colorScheme.onSurface,
                     ),
                   ),
                   if (meta.isNotEmpty) ...[
@@ -540,9 +565,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                       meta.join(' · '),
                       maxLines: largeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ],
@@ -554,8 +579,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 backgroundColor: activePalette.accent.withValues(alpha: .12),
                 foregroundColor: activePalette.accent,
                 borderRadius: 999,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
               ),
           ],
         ),

@@ -23,12 +23,32 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   List<ObservationTag> _tags = const [];
 
   static const _presetEmojis = [
-    '🏃', '💪', '🧘', '🧠', '📚', '✍️', '💡', '🎯', '💼', '🏠', '👨‍👩‍👧', '🎨',
-    '🎵', '🌱', '🔧', '📊',
+    '🏃',
+    '💪',
+    '🧘',
+    '🧠',
+    '📚',
+    '✍️',
+    '💡',
+    '🎯',
+    '💼',
+    '🏠',
+    '👨‍👩‍👧',
+    '🎨',
+    '🎵',
+    '🌱',
+    '🔧',
+    '📊',
   ];
   static const _presetColors = [
-    '#52C41A', '#1890FF', '#FAAD14', '#FF6B6B', '#722ED1', '#13C2C2',
-    '#EB2F96', '#FA8C16',
+    '#52C41A',
+    '#1890FF',
+    '#FAAD14',
+    '#FF6B6B',
+    '#722ED1',
+    '#13C2C2',
+    '#EB2F96',
+    '#FA8C16',
   ];
 
   @override
@@ -62,20 +82,19 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
           .where((tag) => tag.dimensionKey == dimension.keyValue)
           .toList(growable: false);
       if (tags.isNotEmpty) {
-        groups.add(_ObservationTagGroup(
-          label: '${dimension.icon} ${dimension.name}',
-          tags: tags,
-        ));
+        groups.add(
+          _ObservationTagGroup(
+            label: '${dimension.icon} ${dimension.name}',
+            tags: tags,
+          ),
+        );
       }
     }
     final unclassified = _tags
         .where((tag) => tag.dimensionKey == null || tag.dimensionKey!.isEmpty)
         .toList(growable: false);
     if (unclassified.isNotEmpty) {
-      groups.add(_ObservationTagGroup(
-        label: '未归类 · 仅分析',
-        tags: unclassified,
-      ));
+      groups.add(_ObservationTagGroup(label: '未归类 · 仅分析', tags: unclassified));
     }
     return groups;
   }
@@ -91,7 +110,8 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       color: color ?? fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );
@@ -101,9 +121,10 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     final theme = Theme.of(context);
     return FxChip(
       label: label,
-      backgroundColor: accent
-          ? activePalette.accent.withValues(alpha: .12)
-          : fxSubtleSurface(context),
+      backgroundColor:
+          accent
+              ? activePalette.accent.withValues(alpha: .12)
+              : fxSubtleSurface(context),
       foregroundColor:
           accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
       borderRadius: 999,
@@ -113,11 +134,11 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _errorView();
 
     final groups = _groups();
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -187,16 +208,16 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         children: [
           Text(
             '标签和维度是两回事',
-            style: SlowlightTypography.secondary(context).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 5),
           Text(
             '身体、认知、产出、关系是固定长期坐标；标签是你自己的分类方式。标签可以归属某个维度，也可以保持“未归类 · 仅分析”。',
-            style: SlowlightTypography.secondary(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 9),
           Wrap(
@@ -266,9 +287,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
               children: [
                 Text(
                   '#${tag.name}',
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (tag.isDefault) _chip('默认'),
               ],
@@ -283,9 +304,10 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
             tooltip: tag.isDefault ? '默认标签不可删除' : '删除',
             onPressed: tag.isDefault ? null : () => _confirmDelete(tag),
             icon: LucideIcons.trash2,
-            foregroundColor: tag.isDefault
-                ? theme.colorScheme.onSurfaceVariant.withValues(alpha: .35)
-                : theme.colorScheme.error,
+            foregroundColor:
+                tag.isDefault
+                    ? theme.colorScheme.onSurfaceVariant.withValues(alpha: .35)
+                    : theme.colorScheme.error,
           ),
         ],
       ),
@@ -298,16 +320,19 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.circleAlert,
-              size: 32, color: theme.colorScheme.error),
+          Icon(
+            LucideIcons.circleAlert,
+            size: 32,
+            color: theme.colorScheme.error,
+          ),
           const SizedBox(height: 10),
           const Text('观察标签加载失败'),
           const SizedBox(height: 6),
           Text(
             _error!,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
           FxButton(
@@ -343,15 +368,18 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
             return FxChip(
               label: label,
               onTap: saving ? null : onTap,
-              backgroundColor: selected
-                  ? activePalette.accent.withValues(alpha: .12)
-                  : fxSubtleSurface(dialogContext),
-              foregroundColor: selected
-                  ? activePalette.accent
-                  : theme.colorScheme.onSurfaceVariant,
-              borderColor: selected
-                  ? activePalette.accent.withValues(alpha: .35)
-                  : theme.colorScheme.outlineVariant,
+              backgroundColor:
+                  selected
+                      ? activePalette.accent.withValues(alpha: .12)
+                      : fxSubtleSurface(dialogContext),
+              foregroundColor:
+                  selected
+                      ? activePalette.accent
+                      : theme.colorScheme.onSurfaceVariant,
+              borderColor:
+                  selected
+                      ? activePalette.accent.withValues(alpha: .35)
+                      : theme.colorScheme.outlineVariant,
               borderRadius: 999,
             );
           }
@@ -379,13 +407,16 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                         selected: dimensionKey == null || dimensionKey!.isEmpty,
                         onTap: () => setDialogState(() => dimensionKey = null),
                       ),
-                      ...DimensionCatalog.all.map((item) => selectableChip(
-                            label: '${item.icon} ${item.name}',
-                            selected: dimensionKey == item.keyValue,
-                            onTap: () => setDialogState(
-                              () => dimensionKey = item.keyValue,
-                            ),
-                          )),
+                      ...DimensionCatalog.all.map(
+                        (item) => selectableChip(
+                          label: '${item.icon} ${item.name}',
+                          selected: dimensionKey == item.keyValue,
+                          onTap:
+                              () => setDialogState(
+                                () => dimensionKey = item.keyValue,
+                              ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -394,11 +425,13 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                     spacing: 6,
                     runSpacing: 6,
                     children: _presetEmojis
-                        .map((item) => selectableChip(
-                              label: item,
-                              selected: item == icon,
-                              onTap: () => setDialogState(() => icon = item),
-                            ))
+                        .map(
+                          (item) => selectableChip(
+                            label: item,
+                            selected: item == icon,
+                            onTap: () => setDialogState(() => icon = item),
+                          ),
+                        )
                         .toList(growable: false),
                   ),
                   const SizedBox(height: 14),
@@ -406,43 +439,48 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
-                    children: _presetColors.map((item) {
-                      final selected =
-                          item.toLowerCase() == color.toLowerCase();
-                      return FxInkWell(
-                        onTap: saving
-                            ? null
-                            : () => setDialogState(() => color = item),
-                        borderRadius: BorderRadius.circular(22),
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Center(
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: ColorUtils.safeParse(item),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: selected
-                                      ? theme.colorScheme.onSurface
-                                      : Colors.transparent,
-                                  width: 2,
+                    children: _presetColors
+                        .map((item) {
+                          final selected =
+                              item.toLowerCase() == color.toLowerCase();
+                          return FxInkWell(
+                            onTap:
+                                saving
+                                    ? null
+                                    : () => setDialogState(() => color = item),
+                            borderRadius: BorderRadius.circular(22),
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: ColorUtils.safeParse(item),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color:
+                                          selected
+                                              ? theme.colorScheme.onSurface
+                                              : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      );
-                    }).toList(growable: false),
+                          );
+                        })
+                        .toList(growable: false),
                   ),
                   if (error != null) ...[
                     const SizedBox(height: 8),
                     Text(
                       error!,
-                      style: SlowlightTypography.caption(dialogContext)
-                          .copyWith(color: theme.colorScheme.error),
+                      style: SlowlightTypography.caption(
+                        dialogContext,
+                      ).copyWith(color: theme.colorScheme.error),
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -454,51 +492,53 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                       FxButton(
                         label: '取消',
                         variant: FxButtonVariant.outline,
-                        onPressed: saving
-                            ? null
-                            : () => Navigator.of(dialogContext).pop(false),
+                        onPressed:
+                            saving
+                                ? null
+                                : () => Navigator.of(dialogContext).pop(false),
                       ),
                       FxButton(
                         label: saving ? '保存中…' : '保存',
-                        onPressed: saving
-                            ? null
-                            : () async {
-                                final name = nameController.text.trim();
-                                if (name.isEmpty) {
-                                  setDialogState(() => error = '标签名称不能为空');
-                                  return;
-                                }
-                                setDialogState(() {
-                                  saving = true;
-                                  error = null;
-                                });
-                                try {
-                                  if (existing == null) {
-                                    await _repository.create(
-                                      name: name,
-                                      icon: icon,
-                                      color: color,
-                                      dimensionKey: dimensionKey,
-                                    );
-                                  } else {
-                                    await _repository.update(
-                                      existing,
-                                      name: name,
-                                      icon: icon,
-                                      color: color,
-                                      dimensionKey: dimensionKey,
-                                    );
+                        onPressed:
+                            saving
+                                ? null
+                                : () async {
+                                  final name = nameController.text.trim();
+                                  if (name.isEmpty) {
+                                    setDialogState(() => error = '标签名称不能为空');
+                                    return;
                                   }
-                                  if (dialogContext.mounted) {
-                                    Navigator.of(dialogContext).pop(true);
-                                  }
-                                } catch (e) {
                                   setDialogState(() {
-                                    saving = false;
-                                    error = e.toString();
+                                    saving = true;
+                                    error = null;
                                   });
-                                }
-                              },
+                                  try {
+                                    if (existing == null) {
+                                      await _repository.create(
+                                        name: name,
+                                        icon: icon,
+                                        color: color,
+                                        dimensionKey: dimensionKey,
+                                      );
+                                    } else {
+                                      await _repository.update(
+                                        existing,
+                                        name: name,
+                                        icon: icon,
+                                        color: color,
+                                        dimensionKey: dimensionKey,
+                                      );
+                                    }
+                                    if (dialogContext.mounted) {
+                                      Navigator.of(dialogContext).pop(true);
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() {
+                                      saving = false;
+                                      error = e.toString();
+                                    });
+                                  }
+                                },
                       ),
                     ],
                   ),
@@ -515,15 +555,15 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   }
 
   Widget _dialogLabel(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          text,
-          style: SlowlightTypography.caption(context).copyWith(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: SlowlightTypography.caption(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 
   Future<void> _confirmDelete(ObservationTag tag) async {
     final confirmed = await FxDialog.confirm(
@@ -539,9 +579,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('删除失败：$e')));
     }
   }
 }

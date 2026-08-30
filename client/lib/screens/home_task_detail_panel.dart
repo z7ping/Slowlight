@@ -191,7 +191,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
               ],
             ),
           ),
-          const Divider(height: 1),
+          const FxSeparator.horizontal(height: 1),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -304,7 +304,10 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
             ),
           ),
           if (_moreExpanded) ...[
-            Divider(height: 1, color: theme.colorScheme.outlineVariant),
+            FxSeparator.horizontal(
+              height: 1,
+              color: theme.colorScheme.outlineVariant,
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
               child: Column(

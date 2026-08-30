@@ -53,9 +53,9 @@ class _TagPickerState extends State<TagPicker> {
     } catch (_) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载标签失败')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('加载标签失败')));
       }
     }
   }
@@ -80,94 +80,104 @@ class _TagPickerState extends State<TagPicker> {
       title: '新建标签',
       width: 460,
       child: StatefulBuilder(
-        builder: (dialogContext, setDialogState) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            FxInput(
-              controller: nameController,
-              label: '标签名称',
-              placeholder: '输入标签名称…',
-              autofocus: true,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '选择颜色',
-              style: SlowlightTypography.secondary(dialogContext).copyWith(
-                color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: presetColors.map((value) {
-                final color = ColorUtils.safeParse(value);
-                final selected = value == selectedColor;
-                return FxInkWell(
-                  onTap: () => setDialogState(() => selectedColor = value),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                  child: SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: selected
-                                ? Theme.of(dialogContext).colorScheme.onSurface
-                                : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(growable: false),
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              runSpacing: 8,
+        builder:
+            (dialogContext, setDialogState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                FxButton(
-                  label: '取消',
-                  variant: FxButtonVariant.outline,
-                  onPressed: () => Navigator.of(dialogContext).pop(),
+                FxInput(
+                  controller: nameController,
+                  label: '标签名称',
+                  placeholder: '输入标签名称…',
+                  autofocus: true,
                 ),
-                FxButton(
-                  label: '创建',
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    if (name.isEmpty) return;
-                    try {
-                      final tag = await ApiService.createTag(
-                        name: name,
-                        color: selectedColor,
-                      );
-                      if (!mounted) return;
-                      setState(() => _allTags.add(tag));
-                      widget.onChanged([...widget.selectedTags, tag]);
-                      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-                    } catch (_) {
-                      if (dialogContext.mounted) {
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          const SnackBar(content: Text('创建标签失败')),
+                const SizedBox(height: 16),
+                Text(
+                  '选择颜色',
+                  style: SlowlightTypography.secondary(dialogContext).copyWith(
+                    color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: presetColors
+                      .map((value) {
+                        final color = ColorUtils.safeParse(value);
+                        final selected = value == selectedColor;
+                        return FxInkWell(
+                          onTap:
+                              () => setDialogState(() => selectedColor = value),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusMd,
+                          ),
+                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color:
+                                        selected
+                                            ? Theme.of(
+                                              dialogContext,
+                                            ).colorScheme.onSurface
+                                            : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         );
-                      }
-                    }
-                  },
+                      })
+                      .toList(growable: false),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FxButton(
+                      label: '取消',
+                      variant: FxButtonVariant.outline,
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                    ),
+                    FxButton(
+                      label: '创建',
+                      onPressed: () async {
+                        final name = nameController.text.trim();
+                        if (name.isEmpty) return;
+                        try {
+                          final tag = await ApiService.createTag(
+                            name: name,
+                            color: selectedColor,
+                          );
+                          if (!mounted) return;
+                          setState(() => _allTags.add(tag));
+                          widget.onChanged([...widget.selectedTags, tag]);
+                          if (dialogContext.mounted)
+                            Navigator.of(dialogContext).pop();
+                        } catch (_) {
+                          if (dialogContext.mounted) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(content: Text('创建标签失败')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
       ),
     );
     nameController.dispose();
@@ -178,7 +188,7 @@ class _TagPickerState extends State<TagPicker> {
     if (_isLoading) {
       return const SizedBox(
         height: 40,
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: FxCircularProgress()),
       );
     }
 
@@ -195,8 +205,7 @@ class _TagPickerState extends State<TagPicker> {
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             child: FxChip(
               label: tag.name,
-              backgroundColor:
-                  selected ? color : color.withValues(alpha: .10),
+              backgroundColor: selected ? color : color.withValues(alpha: .10),
               foregroundColor:
                   selected ? Colors.white : theme.colorScheme.onSurfaceVariant,
               borderColor: selected ? color : color.withValues(alpha: .32),

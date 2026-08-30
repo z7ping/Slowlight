@@ -145,15 +145,16 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                 onChanged: (index) => setState(() => _viewIndex = index),
                 expanded: compact,
               );
-              final period = _viewIndex == 0
-                  ? FxSegmented(
-                      labels: const ['今天', '本周', '本月'],
-                      selectedIndex: _periodIndex,
-                      onChanged: (index) =>
-                          setState(() => _periodIndex = index),
-                      expanded: compact,
-                    )
-                  : const SizedBox.shrink();
+              final period =
+                  _viewIndex == 0
+                      ? FxSegmented(
+                        labels: const ['今天', '本周', '本月'],
+                        selectedIndex: _periodIndex,
+                        onChanged:
+                            (index) => setState(() => _periodIndex = index),
+                        expanded: compact,
+                      )
+                      : const SizedBox.shrink();
 
               if (compact) {
                 return Column(
@@ -170,10 +171,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               return Row(
                 children: [
                   views,
-                  if (_viewIndex == 0) ...[
-                    const Spacer(),
-                    period,
-                  ],
+                  if (_viewIndex == 0) ...[const Spacer(), period],
                 ],
               );
             },
@@ -204,7 +202,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   Widget _overviewBody() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _errorView();
     return switch (_periodIndex) {
       1 => const WeeklyReviewScreen(),
@@ -227,7 +225,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         .take(2)
         .toList(growable: false);
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -249,11 +247,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
               if (!desktop) {
                 return Column(
-                  children: [
-                    factsCard,
-                    const SizedBox(height: 14),
-                    right,
-                  ],
+                  children: [factsCard, const SizedBox(height: 14), right],
                 );
               }
 
@@ -283,13 +277,15 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       items.add(
         ReviewTimelineItem(
           color: AppTheme.chartGreen,
-          time: task['completed_at']?.toString().isNotEmpty == true
-              ? task['completed_at'].toString()
-              : '今天',
+          time:
+              task['completed_at']?.toString().isNotEmpty == true
+                  ? task['completed_at'].toString()
+                  : '今天',
           title: '✅ 完成「${task['title'] ?? ''}」',
-          note: (task['list_name']?.toString() ?? '').isEmpty
-              ? null
-              : task['list_name'].toString(),
+          note:
+              (task['list_name']?.toString() ?? '').isEmpty
+                  ? null
+                  : task['list_name'].toString(),
         ),
       );
     }
@@ -325,9 +321,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       final distribution = (facts['tag_distribution'] as List? ?? const [])
           .whereType<Map>()
           .toList(growable: false);
-      final note = distribution.isEmpty
-          ? '当前数据源只提供今日专注汇总'
-          : '主要投入：${distribution.first['name'] ?? ''}';
+      final note =
+          distribution.isEmpty
+              ? '当前数据源只提供今日专注汇总'
+              : '主要投入：${distribution.first['name'] ?? ''}';
       items.add(
         ReviewTimelineItem(
           color: AppTheme.info,
@@ -363,9 +360,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           if (items.isEmpty)
             Text(
               '今天还没有足够的事实记录。先去记录几件事？',
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             )
           else
             ...List.generate(
@@ -393,12 +390,12 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   String _periodLabel(String value) => switch (value) {
-        'morning' => '☀️ 早晨',
-        'afternoon' => '下午',
-        'evening' => '傍晚',
-        'night' => '🌙 晚间',
-        _ => '',
-      };
+    'morning' => '☀️ 早晨',
+    'afternoon' => '下午',
+    'evening' => '傍晚',
+    'night' => '🌙 晚间',
+    _ => '',
+  };
 
   Widget _questionsCard(List<Map<String, dynamic>> questions) {
     final theme = Theme.of(context);
@@ -413,9 +410,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           if (questions.isEmpty)
             Text(
               '今天暂时没有需要回应的问题。',
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             )
           else
             ...List.generate(questions.length, (index) {
@@ -426,11 +423,12 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                 padding: EdgeInsets.only(
                   bottom: index == questions.length - 1 ? 0 : 10,
                 ),
-                child: InkWell(
+                child: FxInkWell(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                  onTap: index == 0
-                      ? null
-                      : () => setState(() {
+                  onTap:
+                      index == 0
+                          ? null
+                          : () => setState(() {
                             if (expanded) {
                               _expanded.remove(key);
                             } else {
@@ -442,8 +440,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
-                      border:
-                          Border.all(color: theme.colorScheme.outlineVariant),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
                       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                     ),
                     child: Column(
@@ -451,16 +450,17 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                       children: [
                         Text(
                           question['content']?.toString() ?? '',
-                          style: SlowlightTypography.body(context).copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: SlowlightTypography.body(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w600),
                         ),
                         if (!expanded) ...[
                           const SizedBox(height: 6),
                           Text(
                             '尚未回应 · 点击展开',
-                            style:
-                                SlowlightTypography.caption(context).copyWith(
+                            style: SlowlightTypography.caption(
+                              context,
+                            ).copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -472,8 +472,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                               border: Border.all(
                                 color: theme.colorScheme.outlineVariant,
                               ),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusMd),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusMd,
+                              ),
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: FxInput(
@@ -559,23 +560,20 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(
-            title: '休息',
-            trailing: '今日 · 来自休息提醒',
-          ),
+          const FxSectionHeader(title: '休息', trailing: '今日 · 来自休息提醒'),
           const SizedBox(height: 7),
           Text(
             '今天已记录专注 $focus 分钟；休息日志可在休息回顾中查看。',
-            style: SlowlightTypography.secondary(context).copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 6),
           Text(
             '查看休息回顾（日志 / 7 天 / 30 天 / 分析）→',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -592,10 +590,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       await ReflectionRepository().create(
         content: content,
         questionId: id.isEmpty ? null : id,
-        context: {
-          'source': 'review',
-          'question_type': question['type'] ?? '',
-        },
+        context: {'source': 'review', 'question_type': question['type'] ?? ''},
       );
       if (!mounted) return;
       setState(() {
@@ -625,7 +620,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final facts = Map<String, dynamic>.from(
       _review['facts'] as Map? ?? const {},
     );
-    final count = ((facts['task_completed'] as num?)?.toInt() ?? 0) +
+    final count =
+        ((facts['task_completed'] as num?)?.toInt() ?? 0) +
         ((facts['habit_checked'] as num?)?.toInt() ?? 0) +
         ((facts['focus_count'] as num?)?.toInt() ?? 0) +
         _reflections.where((entry) => _sameDay(entry.createdAt, now)).length;
@@ -642,10 +638,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '回顾数据加载失败',
-            style: SlowlightTypography.cardTitle(context),
-          ),
+          Text('回顾数据加载失败', style: SlowlightTypography.cardTitle(context)),
           const SizedBox(height: 12),
           FxButton(
             label: '重试',

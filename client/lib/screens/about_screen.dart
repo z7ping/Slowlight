@@ -52,8 +52,9 @@ class _AboutScreenState extends State<AboutScreen> {
                                 child: Text(
                                   '行为留下轨迹，时间让自我显影',
                                   textAlign: TextAlign.center,
-                                  style: SlowlightTypography.secondary(context)
-                                      .copyWith(
+                                  style: SlowlightTypography.secondary(
+                                    context,
+                                  ).copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
@@ -79,8 +80,9 @@ class _AboutScreenState extends State<AboutScreen> {
                               Text(
                                 '所行映我不是给人打分的教练，而是一面能记住行为和解释的镜子。',
                                 textAlign: TextAlign.center,
-                                style: SlowlightTypography.caption(context)
-                                    .copyWith(
+                                style: SlowlightTypography.caption(
+                                  context,
+                                ).copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
@@ -111,10 +113,7 @@ class _AboutScreenState extends State<AboutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '数据说明',
-            style: SlowlightTypography.cardTitle(context),
-          ),
+          Text('数据说明', style: SlowlightTypography.cardTitle(context)),
           const SizedBox(height: 10),
           _dataPoint(context, '本地优先', '记录默认保存在本机。'),
           _dataPoint(context, '云端数据', '登录后可使用服务端数据；切换模式不会自动上传本地模式中的记录。'),
@@ -150,9 +149,9 @@ class _AboutScreenState extends State<AboutScreen> {
                   TextSpan(text: text),
                 ],
               ),
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
         ],
@@ -162,9 +161,9 @@ class _AboutScreenState extends State<AboutScreen> {
 
   Widget _link(BuildContext context, String title, String url) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: () =>
-          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+    return FxInkWell(
+      onTap:
+          () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: Container(
         constraints: const BoxConstraints(minHeight: 52),
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -178,16 +177,16 @@ class _AboutScreenState extends State<AboutScreen> {
             Expanded(
               child: Text(
                 title,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             Text(
               'GitHub',
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: theme.colorScheme.primary,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.primary),
             ),
             const SizedBox(width: 4),
             Icon(Icons.open_in_new, size: 15, color: theme.colorScheme.primary),
@@ -212,18 +211,18 @@ class _AboutScreenState extends State<AboutScreen> {
         children: [
           Text(
             title,
-            style: SlowlightTypography.secondary(context).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
         ],

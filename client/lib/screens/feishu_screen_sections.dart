@@ -13,7 +13,8 @@ extension _FeishuScreenSections on _FeishuScreenState {
       color: color ?? fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: border ?? Border.all(color: fxBorder(context)),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );
@@ -23,9 +24,10 @@ extension _FeishuScreenSections on _FeishuScreenState {
     final theme = Theme.of(context);
     return FxChip(
       label: label,
-      backgroundColor: accent
-          ? activePalette.accent.withValues(alpha: .12)
-          : fxSubtleSurface(context),
+      backgroundColor:
+          accent
+              ? activePalette.accent.withValues(alpha: .12)
+              : fxSubtleSurface(context),
       foregroundColor:
           accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
       borderRadius: 999,
@@ -43,18 +45,23 @@ extension _FeishuScreenSections on _FeishuScreenState {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_outlined,
-                  size: 34, color: theme.colorScheme.error),
+              Icon(
+                Icons.cloud_off_outlined,
+                size: 34,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: AppTheme.spaceSm),
-              const Text('无法读取飞书配置',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text(
+                '无法读取飞书配置',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 4),
               Text(
                 _loadError!,
                 textAlign: TextAlign.center,
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: SlowlightTypography.caption(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: AppTheme.spaceMd),
               FxButton(
@@ -131,12 +138,15 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.primaryContainer.withValues(alpha: .55),
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: .55,
+                  ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
-                child: Icon(Icons.table_chart_outlined,
-                    color: theme.colorScheme.primary),
+                child: Icon(
+                  Icons.table_chart_outlined,
+                  color: theme.colorScheme.primary,
+                ),
               ),
               const SizedBox(width: AppTheme.spaceSm),
               Expanded(
@@ -145,16 +155,16 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   children: [
                     Text(
                       '飞书多维表格',
-                      style: SlowlightTypography.cardTitle(context).copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: SlowlightTypography.cardTitle(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       _isConfigured ? '连接已就绪，可按数据类型同步' : '填写应用凭据后创建或绑定数据表',
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -180,11 +190,13 @@ extension _FeishuScreenSections on _FeishuScreenState {
               ],
             );
           }
-          return Row(children: [
-            Expanded(child: identity),
-            const SizedBox(width: AppTheme.spaceMd),
-            badges,
-          ]);
+          return Row(
+            children: [
+              Expanded(child: identity),
+              const SizedBox(width: AppTheme.spaceMd),
+              badges,
+            ],
+          );
         },
       ),
     );
@@ -194,10 +206,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FxSectionHeader(
-          title: '连接配置',
-          trailing: '密钥保存在当前数据模式对应的安全存储中',
-        ),
+        const FxSectionHeader(title: '连接配置', trailing: '密钥保存在当前数据模式对应的安全存储中'),
         const SizedBox(height: AppTheme.spaceXs),
         _card(
           child: Column(
@@ -219,9 +228,10 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 trailing: FxIconButton(
                   tooltip: _showSecret ? '隐藏密钥' : '显示密钥',
                   onPressed: () => setState(() => _showSecret = !_showSecret),
-                  icon: _showSecret
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
+                  icon:
+                      _showSecret
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                 ),
               ),
               const SizedBox(height: AppTheme.spaceSm),
@@ -262,15 +272,18 @@ extension _FeishuScreenSections on _FeishuScreenState {
             children: [
               Row(
                 children: [
-                  Icon(Icons.auto_awesome,
-                      size: 20, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(width: AppTheme.spaceXs),
                   Expanded(
                     child: Text(
                       '创建标准的 8 张数据表',
-                      style: SlowlightTypography.secondary(context).copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: SlowlightTypography.secondary(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -368,9 +381,9 @@ extension _FeishuScreenSections on _FeishuScreenState {
           const SizedBox(height: AppTheme.spaceXs),
           Text(
             '本机模式当前只支持导出，不支持从飞书导入或双向冲突处理。',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
         if (_cloud) ...[
@@ -397,43 +410,48 @@ extension _FeishuScreenSections on _FeishuScreenState {
         ),
         const SizedBox(height: AppTheme.spaceXs),
         _card(
-          child: _isLoadingCalendars
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(AppTheme.spaceMd),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              : _calendars.isEmpty
+          child:
+              _isLoadingCalendars
+                  ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(AppTheme.spaceMd),
+                      child: FxCircularProgress(),
+                    ),
+                  )
+                  : _calendars.isEmpty
                   ? _calendarEmpty()
                   : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        FxSelect<String>(
-                          value: _selectedCalendarId,
-                          placeholder: '选择飞书日历',
-                          options: _calendars
-                              .map((item) => FxSelectOption<String>(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FxSelect<String>(
+                        value: _selectedCalendarId,
+                        placeholder: '选择飞书日历',
+                        options:
+                            _calendars
+                                .map(
+                                  (item) => FxSelectOption<String>(
                                     value: item['id']?.toString() ?? '',
                                     label:
                                         '${item['name'] ?? '未命名'}${item['is_primary'] == true ? ' · 主日历' : ''}',
-                                  ))
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => _selectedCalendarId = value),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            (value) =>
+                                setState(() => _selectedCalendarId = value),
+                      ),
+                      const SizedBox(height: AppTheme.spaceSm),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FxButton(
+                          label: _isSyncingCalendar ? '同步中…' : '同步到日历',
+                          icon: Icons.event_available_outlined,
+                          onPressed:
+                              _isSyncingCalendar ? null : _syncToCalendar,
                         ),
-                        const SizedBox(height: AppTheme.spaceSm),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: FxButton(
-                            label: _isSyncingCalendar ? '同步中…' : '同步到日历',
-                            icon: Icons.event_available_outlined,
-                            onPressed:
-                                _isSyncingCalendar ? null : _syncToCalendar,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
         ),
       ],
     );
@@ -445,15 +463,18 @@ extension _FeishuScreenSections on _FeishuScreenState {
       padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceSm),
       child: Row(
         children: [
-          Icon(Icons.event_busy_outlined,
-              size: 20, color: theme.colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.event_busy_outlined,
+            size: 20,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: AppTheme.spaceXs),
           Expanded(
             child: Text(
               '没有读取到可用日历，请检查应用权限后刷新。',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
         ],
@@ -477,13 +498,15 @@ extension _FeishuScreenSections on _FeishuScreenState {
         _card(
           color: theme.colorScheme.primaryContainer.withValues(alpha: .22),
           border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: .12)),
+            color: theme.colorScheme.primary.withValues(alpha: .12),
+          ),
           child: Column(
             children: List.generate(
               steps.length,
               (index) => Padding(
                 padding: EdgeInsets.only(
-                    bottom: index == steps.length - 1 ? 0 : AppTheme.spaceSm),
+                  bottom: index == steps.length - 1 ? 0 : AppTheme.spaceSm,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -550,11 +573,14 @@ class _FeishuActionTile extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minHeight: 68),
           padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
+            horizontal: AppTheme.spaceSm,
+            vertical: AppTheme.spaceXs,
+          ),
           decoration: BoxDecoration(
-            border: last
-                ? null
-                : Border(bottom: BorderSide(color: fxDivider(context))),
+            border:
+                last
+                    ? null
+                    : Border(bottom: BorderSide(color: fxDivider(context))),
           ),
           child: Row(
             children: [
@@ -562,8 +588,9 @@ class _FeishuActionTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.primaryContainer.withValues(alpha: .42),
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: .42,
+                  ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
                 child: Icon(icon, size: 19, color: theme.colorScheme.primary),
@@ -576,16 +603,16 @@ class _FeishuActionTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: SlowlightTypography.secondary(context).copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: SlowlightTypography.secondary(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -595,11 +622,14 @@ class _FeishuActionTile extends StatelessWidget {
                 const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: FxCircularProgress(strokeWidth: 2),
                 )
               else
-                Icon(Icons.chevron_right,
-                    size: 20, color: theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
             ],
           ),
         ),

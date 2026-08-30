@@ -37,39 +37,41 @@ class TaskDetailSheet extends StatefulWidget {
         barrierLabel: '关闭任务详情',
         barrierColor: Colors.black.withValues(alpha: .28),
         transitionDuration: const Duration(milliseconds: 180),
-        pageBuilder: (dialogContext, _, __) => Align(
-          alignment: Alignment.centerRight,
-          child: Material(
-            color: fxSurface(dialogContext),
-            elevation: 18,
-            shadowColor: Colors.black.withValues(alpha: .18),
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(AppTheme.radiusXl),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: SizedBox(
-              width: 420,
-              height: MediaQuery.sizeOf(dialogContext).height,
-              child: SafeArea(
-                child: TaskDetailSheet(
-                  task: task,
-                  lists: lists,
-                  onChanged: onChanged,
-                  sidePanel: true,
+        pageBuilder:
+            (dialogContext, _, __) => Align(
+              alignment: Alignment.centerRight,
+              child: Material(
+                color: fxSurface(dialogContext),
+                elevation: 18,
+                shadowColor: Colors.black.withValues(alpha: .18),
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(AppTheme.radiusXl),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: 420,
+                  height: MediaQuery.sizeOf(dialogContext).height,
+                  child: SafeArea(
+                    child: TaskDetailSheet(
+                      task: task,
+                      lists: lists,
+                      onChanged: onChanged,
+                      sidePanel: true,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-        transitionBuilder: (_, animation, __, child) => SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).animate(
-            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-          ),
-          child: child,
-        ),
+        transitionBuilder:
+            (_, animation, __, child) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
+              child: child,
+            ),
       );
     }
 
@@ -79,32 +81,34 @@ class TaskDetailSheet extends StatefulWidget {
       showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-        ),
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            width: 560,
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
+      builder:
+          (sheetContext) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
             ),
-            decoration: BoxDecoration(
-              color: fxSurface(sheetContext),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(18)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: TaskDetailSheet(
-              task: task,
-              lists: lists,
-              onChanged: onChanged,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: 560,
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
+                  maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
+                ),
+                decoration: BoxDecoration(
+                  color: fxSurface(sheetContext),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(18),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: TaskDetailSheet(
+                  task: task,
+                  lists: lists,
+                  onChanged: onChanged,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
     );
   }
 
@@ -140,9 +144,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _dueTime = _parseTime(task.dueTime);
     _repeatType = task.repeatType;
     _repeatInterval = task.repeatInterval;
-    _weekdays = task.repeatDays.isEmpty
-        ? <int>{}
-        : task.repeatDays.split(',').map(int.tryParse).whereType<int>().toSet();
+    _weekdays =
+        task.repeatDays.isEmpty
+            ? <int>{}
+            : task.repeatDays
+                .split(',')
+                .map(int.tryParse)
+                .whereType<int>()
+                .toSet();
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _systemTagId = task.systemTagId;
@@ -168,7 +177,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     return Column(
       children: [
         _header(),
-        Divider(height: 1, color: fxDivider(context)),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
         Expanded(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -176,7 +185,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             child: _form(),
           ),
         ),
-        Divider(height: 1, color: fxDivider(context)),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
         _footer(),
       ],
     );
@@ -204,9 +213,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               Expanded(
                 child: Text(
                   '任务详情',
-                  style: SlowlightTypography.cardTitle(context).copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: SlowlightTypography.cardTitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               if (widget.task.isCompleted)
@@ -215,8 +224,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   backgroundColor: activePalette.accent.withValues(alpha: .12),
                   foregroundColor: activePalette.accent,
                   borderRadius: 999,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
                 ),
               const SizedBox(width: 4),
               FxIconButton(
@@ -234,8 +245,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   Widget _form() {
     final theme = Theme.of(context);
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.bodySize) >=
+    final largeText =
+        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.3;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -243,8 +254,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         FxInput(
           controller: _title,
           enabled: !_saving,
-          style: SlowlightTypography.body(context)
-              .copyWith(fontWeight: FontWeight.w600),
+          style: SlowlightTypography.body(
+            context,
+          ).copyWith(fontWeight: FontWeight.w600),
           placeholder: '任务标题',
         ),
         const SizedBox(height: 8),
@@ -261,22 +273,27 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: widget.lists.map((list) {
-            final selected = _listId == list.id;
-            return FxChip(
-              label: '${list.icon} ${list.name}',
-              onTap: _saving ? null : () => setState(() => _listId = list.id),
-              backgroundColor: selected
-                  ? activePalette.accent.withValues(alpha: .12)
-                  : fxSubtleSurface(context),
-              foregroundColor: selected
-                  ? activePalette.accent
-                  : theme.colorScheme.onSurfaceVariant,
-              borderColor:
-                  selected ? activePalette.accent : fxBorder(context),
-              borderRadius: 999,
-            );
-          }).toList(growable: false),
+          children: widget.lists
+              .map((list) {
+                final selected = _listId == list.id;
+                return FxChip(
+                  label: '${list.icon} ${list.name}',
+                  onTap:
+                      _saving ? null : () => setState(() => _listId = list.id),
+                  backgroundColor:
+                      selected
+                          ? activePalette.accent.withValues(alpha: .12)
+                          : fxSubtleSurface(context),
+                  foregroundColor:
+                      selected
+                          ? activePalette.accent
+                          : theme.colorScheme.onSurfaceVariant,
+                  borderColor:
+                      selected ? activePalette.accent : fxBorder(context),
+                  borderRadius: 999,
+                );
+              })
+              .toList(growable: false),
         ),
         const SizedBox(height: 14),
         _fieldLabel('优先级'),
@@ -337,10 +354,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             FxSelectOption(value: 'weekly', label: '每周'),
             FxSelectOption(value: 'monthly', label: '每月'),
           ],
-          onChanged: (value) => setState(() {
-            _repeatType = value ?? 'none';
-            if (_repeatType != 'weekly') _weekdays.clear();
-          }),
+          onChanged:
+              (value) => setState(() {
+                _repeatType = value ?? 'none';
+                if (_repeatType != 'weekly') _weekdays.clear();
+              }),
         ),
         if (_repeatType == 'weekly') ...[
           const SizedBox(height: 8),
@@ -353,17 +371,20 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               final selected = _weekdays.contains(day);
               return FxChip(
                 label: labels[index],
-                onTap: _saving
-                    ? null
-                    : () => setState(() {
+                onTap:
+                    _saving
+                        ? null
+                        : () => setState(() {
                           selected ? _weekdays.remove(day) : _weekdays.add(day);
                         }),
-                backgroundColor: selected
-                    ? activePalette.accent.withValues(alpha: .12)
-                    : fxSubtleSurface(context),
-                foregroundColor: selected
-                    ? activePalette.accent
-                    : theme.colorScheme.onSurfaceVariant,
+                backgroundColor:
+                    selected
+                        ? activePalette.accent.withValues(alpha: .12)
+                        : fxSubtleSurface(context),
+                foregroundColor:
+                    selected
+                        ? activePalette.accent
+                        : theme.colorScheme.onSurfaceVariant,
                 borderColor:
                     selected ? activePalette.accent : fxBorder(context),
                 borderRadius: 999,
@@ -374,9 +395,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         const SizedBox(height: 14),
         _pickerField(
           label: '提醒',
-          value: _reminderAt == null
-              ? '不提醒'
-              : '${_dateLabel(_reminderAt!)} ${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}',
+          value:
+              _reminderAt == null
+                  ? '不提醒'
+                  : '${_dateLabel(_reminderAt!)} ${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}',
           icon: LucideIcons.bell,
           onTap: _pickReminder,
         ),
@@ -386,28 +408,33 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: _systemTags.map((tag) {
-              final id = tag['id'] as int?;
-              if (id == null) return const SizedBox.shrink();
-              final selected = id == _systemTagId;
-              return FxChip(
-                label: '${tag['icon'] ?? '🏷️'} ${tag['name'] ?? ''}',
-                onTap: _saving
-                    ? null
-                    : () => setState(
-                          () => _systemTagId = selected ? null : id,
-                        ),
-                backgroundColor: selected
-                    ? activePalette.accent.withValues(alpha: .12)
-                    : fxSubtleSurface(context),
-                foregroundColor: selected
-                    ? activePalette.accent
-                    : theme.colorScheme.onSurfaceVariant,
-                borderColor:
-                    selected ? activePalette.accent : fxBorder(context),
-                borderRadius: 999,
-              );
-            }).toList(growable: false),
+            children: _systemTags
+                .map((tag) {
+                  final id = tag['id'] as int?;
+                  if (id == null) return const SizedBox.shrink();
+                  final selected = id == _systemTagId;
+                  return FxChip(
+                    label: '${tag['icon'] ?? '🏷️'} ${tag['name'] ?? ''}',
+                    onTap:
+                        _saving
+                            ? null
+                            : () => setState(
+                              () => _systemTagId = selected ? null : id,
+                            ),
+                    backgroundColor:
+                        selected
+                            ? activePalette.accent.withValues(alpha: .12)
+                            : fxSubtleSurface(context),
+                    foregroundColor:
+                        selected
+                            ? activePalette.accent
+                            : theme.colorScheme.onSurfaceVariant,
+                    borderColor:
+                        selected ? activePalette.accent : fxBorder(context),
+                    borderRadius: 999,
+                  );
+                })
+                .toList(growable: false),
           ),
         ],
       ],
@@ -419,15 +446,16 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final theme = Theme.of(context);
     return FxChip(
       label: label,
-      onTap: _saving
-          ? null
-          : () => setState(() => _priority = selected ? 'none' : value),
-      backgroundColor: selected
-          ? activePalette.accent.withValues(alpha: .12)
-          : fxSubtleSurface(context),
-      foregroundColor: selected
-          ? activePalette.accent
-          : theme.colorScheme.onSurfaceVariant,
+      onTap:
+          _saving
+              ? null
+              : () => setState(() => _priority = selected ? 'none' : value),
+      backgroundColor:
+          selected
+              ? activePalette.accent.withValues(alpha: .12)
+              : fxSubtleSurface(context),
+      foregroundColor:
+          selected ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
       borderColor: selected ? activePalette.accent : fxBorder(context),
       borderRadius: 999,
     );
@@ -458,11 +486,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child:
-                      Text(value, style: SlowlightTypography.secondary(context)),
+                  child: Text(
+                    value,
+                    style: SlowlightTypography.secondary(context),
+                  ),
                 ),
-                Icon(icon,
-                    size: 15, color: theme.colorScheme.onSurfaceVariant),
+                Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -472,15 +501,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _fieldLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 5),
-        child: Text(
-          text,
-          style: SlowlightTypography.caption(context).copyWith(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 5),
+    child: Text(
+      text,
+      style: SlowlightTypography.caption(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 
   Widget _footer() {
     return SafeArea(
@@ -536,14 +565,20 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (date == null || !mounted) return;
     final time = await showFxTimePicker(
       context: context,
-      initialTime: _reminderAt == null
-          ? (_dueTime ?? TimeOfDay.now())
-          : TimeOfDay.fromDateTime(_reminderAt!),
+      initialTime:
+          _reminderAt == null
+              ? (_dueTime ?? TimeOfDay.now())
+              : TimeOfDay.fromDateTime(_reminderAt!),
     );
     if (time == null || !mounted) return;
     setState(() {
-      _reminderAt =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _reminderAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
       _reminderAdvanceMinutes = 0;
     });
   }
@@ -586,9 +621,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
     }
   }
 

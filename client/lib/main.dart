@@ -26,6 +26,7 @@ import 'services/cloud_sync_coordinator.dart';
 import 'widgets/app_error_view.dart';
 import 'widgets/rest_overlay.dart';
 import 'ui/widgets/slowlight_logo.dart';
+import 'package:slowlight/ui/fx.dart';
 
 /// 全局 NavigatorKey — 用于通知点击等外部事件驱动导航
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -110,9 +111,9 @@ void _registerGlobalErrorHandlers() {
     );
     return true;
   };
-  ErrorWidget.builder = (_) => AppErrorView(
-        logPath: kIsWeb ? null : AppErrorLogger.defaultLogPath,
-      );
+  ErrorWidget.builder =
+      (_) =>
+          AppErrorView(logPath: kIsWeb ? null : AppErrorLogger.defaultLogPath);
 }
 
 bool _restOverlayShown = false;
@@ -195,17 +196,20 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
-    final fontFamily = _themeSettings.resolvedFontFamily.isEmpty
-        ? null
-        : _themeSettings.resolvedFontFamily;
-    final isDark = _themeSettings.themeMode == ThemeMode.dark ||
+    final fontFamily =
+        _themeSettings.resolvedFontFamily.isEmpty
+            ? null
+            : _themeSettings.resolvedFontFamily;
+    final isDark =
+        _themeSettings.themeMode == ThemeMode.dark ||
         (_themeSettings.themeMode == ThemeMode.system &&
             MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
     return ShadTheme(
-      data: isDark
-          ? fx_theme.shadDarkTheme(fontFamily)
-          : fx_theme.shadLightTheme(fontFamily),
+      data:
+          isDark
+              ? fx_theme.shadDarkTheme(fontFamily)
+              : fx_theme.shadLightTheme(fontFamily),
       child: MaterialApp(
         title: kBrandDisplayName,
         navigatorKey: navigatorKey,
@@ -228,9 +232,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
           Widget content = child!;
           if (effectiveScale != systemScale) {
             content = MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(effectiveScale),
-              ),
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(effectiveScale)),
               child: content,
             );
           }
@@ -251,12 +255,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
                           Text(
                             '所行映我 · Slowlight',
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -336,9 +336,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: FxCircularProgress()));
     }
     return _hasAccess ? const HomeScreen() : const LoginScreen();
   }

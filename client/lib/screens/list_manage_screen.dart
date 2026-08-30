@@ -22,10 +22,28 @@ class _ListManageScreenState extends State<ListManageScreen> {
   List<Task> _tasks = const [];
 
   static const _presetIcons = [
-    '📁', '💼', '🏠', '🎯', '💡', '📚', '🎨', '🔧', '❤️', '🌟', '🌱', '📊',
+    '📁',
+    '💼',
+    '🏠',
+    '🎯',
+    '💡',
+    '📚',
+    '🎨',
+    '🔧',
+    '❤️',
+    '🌟',
+    '🌱',
+    '📊',
   ];
   static const _presetColors = [
-    '#1890FF', '#52C41A', '#FAAD14', '#FF6B6B', '#722ED1', '#13C2C2', '#EB2F96', '#FA8C16',
+    '#1890FF',
+    '#52C41A',
+    '#FAAD14',
+    '#FF6B6B',
+    '#722ED1',
+    '#13C2C2',
+    '#EB2F96',
+    '#FA8C16',
   ];
 
   @override
@@ -64,202 +82,235 @@ class _ListManageScreenState extends State<ListManageScreen> {
     final saved = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final theme = Theme.of(dialogContext);
-          return Dialog(
-            backgroundColor: theme.colorScheme.surface,
-            surfaceTintColor: Colors.transparent,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              side: BorderSide(color: theme.colorScheme.outlineVariant),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+      builder:
+          (dialogContext) => StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              final theme = Theme.of(dialogContext);
+              return Dialog(
+                backgroundColor: theme.colorScheme.surface,
+                surfaceTintColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                  side: BorderSide(color: theme.colorScheme.outlineVariant),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            existing == null ? '新建清单' : '编辑清单',
-                            style: SlowlightTypography.cardTitle(dialogContext),
-                          ),
-                        ),
-                        FxIconButton(
-                          tooltip: '关闭',
-                          onPressed: saving
-                              ? null
-                              : () => Navigator.pop(dialogContext, false),
-                          icon: LucideIcons.x,
-                          iconSize: 18,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    FxInput(
-                      controller: nameController,
-                      autofocus: true,
-                      enabled: !saving,
-                      placeholder: '清单名称',
-                      style: SlowlightTypography.body(dialogContext),
-                    ),
-                    const SizedBox(height: 14),
-                    _fieldLabel(dialogContext, '图标'),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: _presetIcons.map((icon) {
-                        final selected = icon == selectedIcon;
-                        return FxInkWell(
-                          onTap: saving
-                              ? null
-                              : () => setDialogState(() => selectedIcon = icon),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? activePalette.accent.withValues(alpha: .12)
-                                  : Colors.transparent,
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusMd),
-                              border: Border.all(
-                                color: selected
-                                    ? activePalette.accent
-                                    : theme.colorScheme.outlineVariant,
-                              ),
-                            ),
-                            child: Text(
-                              icon,
-                              style: const TextStyle(fontSize: 18),
-                            ),
-                          ),
-                        );
-                      }).toList(growable: false),
-                    ),
-                    const SizedBox(height: 14),
-                    _fieldLabel(dialogContext, '颜色'),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: _presetColors.map((value) {
-                        final selected = value == selectedColor;
-                        final color = ColorUtils.safeParse(value);
-                        return FxInkWell(
-                          onTap: saving
-                              ? null
-                              : () =>
-                                  setDialogState(() => selectedColor = value),
-                          borderRadius: BorderRadius.circular(22),
-                          child: SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: selected
-                                        ? theme.colorScheme.onSurface
-                                        : Colors.transparent,
-                                    width: 2,
-                                  ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                existing == null ? '新建清单' : '编辑清单',
+                                style: SlowlightTypography.cardTitle(
+                                  dialogContext,
                                 ),
                               ),
                             ),
+                            FxIconButton(
+                              tooltip: '关闭',
+                              onPressed:
+                                  saving
+                                      ? null
+                                      : () =>
+                                          Navigator.pop(dialogContext, false),
+                              icon: LucideIcons.x,
+                              iconSize: 18,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        FxInput(
+                          controller: nameController,
+                          autofocus: true,
+                          enabled: !saving,
+                          placeholder: '清单名称',
+                          style: SlowlightTypography.body(dialogContext),
+                        ),
+                        const SizedBox(height: 14),
+                        _fieldLabel(dialogContext, '图标'),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _presetIcons
+                              .map((icon) {
+                                final selected = icon == selectedIcon;
+                                return FxInkWell(
+                                  onTap:
+                                      saving
+                                          ? null
+                                          : () => setDialogState(
+                                            () => selectedIcon = icon,
+                                          ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusMd,
+                                  ),
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          selected
+                                              ? activePalette.accent.withValues(
+                                                alpha: .12,
+                                              )
+                                              : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMd,
+                                      ),
+                                      border: Border.all(
+                                        color:
+                                            selected
+                                                ? activePalette.accent
+                                                : theme
+                                                    .colorScheme
+                                                    .outlineVariant,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      icon,
+                                      style: const TextStyle(fontSize: 18),
+                                    ),
+                                  ),
+                                );
+                              })
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 14),
+                        _fieldLabel(dialogContext, '颜色'),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: _presetColors
+                              .map((value) {
+                                final selected = value == selectedColor;
+                                final color = ColorUtils.safeParse(value);
+                                return FxInkWell(
+                                  onTap:
+                                      saving
+                                          ? null
+                                          : () => setDialogState(
+                                            () => selectedColor = value,
+                                          ),
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: Center(
+                                      child: Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: color,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color:
+                                                selected
+                                                    ? theme
+                                                        .colorScheme
+                                                        .onSurface
+                                                    : Colors.transparent,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              })
+                              .toList(growable: false),
+                        ),
+                        if (error != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            error!,
+                            style: SlowlightTypography.caption(
+                              dialogContext,
+                            ).copyWith(color: theme.colorScheme.error),
                           ),
-                        );
-                      }).toList(growable: false),
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        error!,
-                        style:
-                            SlowlightTypography.caption(dialogContext).copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          onPressed: saving
-                              ? null
-                              : () => Navigator.pop(dialogContext, false),
-                        ),
-                        FxButton(
-                          label: saving
-                              ? '保存中…'
-                              : existing == null
-                                  ? '创建'
-                                  : '保存',
-                          onPressed: saving
-                              ? null
-                              : () async {
-                                  final name = nameController.text.trim();
-                                  if (name.isEmpty) {
-                                    setDialogState(() => error = '请输入清单名称');
-                                    return;
-                                  }
-                                  setDialogState(() {
-                                    saving = true;
-                                    error = null;
-                                  });
-                                  try {
-                                    if (existing == null) {
-                                      await DataService().createList(
-                                        name: name,
-                                        icon: selectedIcon,
-                                        color: selectedColor,
-                                      );
-                                    } else {
-                                      await DataService().updateList(
-                                        localId: existing.id,
-                                        serverId: existing.serverId,
-                                        name: name,
-                                        icon: selectedIcon,
-                                        color: selectedColor,
-                                      );
-                                    }
-                                    if (dialogContext.mounted) {
-                                      Navigator.pop(dialogContext, true);
-                                    }
-                                  } catch (e) {
-                                    setDialogState(() {
-                                      saving = false;
-                                      error = '保存失败：$e';
-                                    });
-                                  }
-                                },
+                        ],
+                        const SizedBox(height: 16),
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            FxButton(
+                              label: '取消',
+                              variant: FxButtonVariant.outline,
+                              onPressed:
+                                  saving
+                                      ? null
+                                      : () =>
+                                          Navigator.pop(dialogContext, false),
+                            ),
+                            FxButton(
+                              label:
+                                  saving
+                                      ? '保存中…'
+                                      : existing == null
+                                      ? '创建'
+                                      : '保存',
+                              onPressed:
+                                  saving
+                                      ? null
+                                      : () async {
+                                        final name = nameController.text.trim();
+                                        if (name.isEmpty) {
+                                          setDialogState(
+                                            () => error = '请输入清单名称',
+                                          );
+                                          return;
+                                        }
+                                        setDialogState(() {
+                                          saving = true;
+                                          error = null;
+                                        });
+                                        try {
+                                          if (existing == null) {
+                                            await DataService().createList(
+                                              name: name,
+                                              icon: selectedIcon,
+                                              color: selectedColor,
+                                            );
+                                          } else {
+                                            await DataService().updateList(
+                                              localId: existing.id,
+                                              serverId: existing.serverId,
+                                              name: name,
+                                              icon: selectedIcon,
+                                              color: selectedColor,
+                                            );
+                                          }
+                                          if (dialogContext.mounted) {
+                                            Navigator.pop(dialogContext, true);
+                                          }
+                                        } catch (e) {
+                                          setDialogState(() {
+                                            saving = false;
+                                            error = '保存失败：$e';
+                                          });
+                                        }
+                                      },
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
     );
 
     nameController.dispose();
@@ -267,15 +318,15 @@ class _ListManageScreenState extends State<ListManageScreen> {
   }
 
   Widget _fieldLabel(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          text,
-          style: SlowlightTypography.caption(context).copyWith(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: SlowlightTypography.caption(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 
   Future<void> _deleteList(TodoList list) async {
     final confirmed = await FxDialog.confirm(
@@ -291,17 +342,17 @@ class _ListManageScreenState extends State<ListManageScreen> {
       await _loadLists();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('删除失败：$e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     final theme = Theme.of(context);
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadLists,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -349,86 +400,97 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       expanded: true,
                       child: Column(
-                        children: _lists.map((list) {
-                          final color = ColorUtils.safeParse(list.color);
-                          final count = _taskCountFor(list);
-                          return Container(
-                            constraints: const BoxConstraints(minHeight: 60),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: theme.colorScheme.outlineVariant,
+                        children: _lists
+                            .map((list) {
+                              final color = ColorUtils.safeParse(list.color);
+                              final count = _taskCountFor(list);
+                              return Container(
+                                constraints: const BoxConstraints(
+                                  minHeight: 60,
                                 ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: color.withValues(alpha: .10),
-                                    borderRadius:
-                                        BorderRadius.circular(AppTheme.radiusMd),
-                                  ),
-                                  child: Text(
-                                    list.icon,
-                                    style: const TextStyle(fontSize: 17),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: theme.colorScheme.outlineVariant,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        list.name,
-                                        style:
-                                            SlowlightTypography.body(context)
-                                                .copyWith(
-                                          fontWeight: FontWeight.w600,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: .10),
+                                        borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusMd,
                                         ),
                                       ),
-                                      if (list.isInbox)
-                                        Text(
-                                          '默认收集箱',
-                                          style: SlowlightTypography.caption(
-                                            context,
-                                          ).copyWith(
-                                            color: theme
-                                                .colorScheme.onSurfaceVariant,
+                                      child: Text(
+                                        list.icon,
+                                        style: const TextStyle(fontSize: 17),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            list.name,
+                                            style: SlowlightTypography.body(
+                                              context,
+                                            ).copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
-                                        ),
-                                    ],
-                                  ),
+                                          if (list.isInbox)
+                                            Text(
+                                              '默认收集箱',
+                                              style:
+                                                  SlowlightTypography.caption(
+                                                    context,
+                                                  ).copyWith(
+                                                    color:
+                                                        theme
+                                                            .colorScheme
+                                                            .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '$count 条',
+                                      style: SlowlightTypography.caption(
+                                        context,
+                                      ).copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    FxIconButton(
+                                      tooltip: '编辑',
+                                      onPressed: () => _showEditor(list),
+                                      icon: LucideIcons.pencil,
+                                      iconSize: 17,
+                                    ),
+                                    if (!list.isInbox)
+                                      FxIconButton(
+                                        tooltip: '删除',
+                                        onPressed: () => _deleteList(list),
+                                        icon: LucideIcons.trash2,
+                                        iconSize: 17,
+                                      ),
+                                  ],
                                 ),
-                                Text(
-                                  '$count 条',
-                                  style: SlowlightTypography.caption(context)
-                                      .copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                FxIconButton(
-                                  tooltip: '编辑',
-                                  onPressed: () => _showEditor(list),
-                                  icon: LucideIcons.pencil,
-                                  iconSize: 17,
-                                ),
-                                if (!list.isInbox)
-                                  FxIconButton(
-                                    tooltip: '删除',
-                                    onPressed: () => _deleteList(list),
-                                    icon: LucideIcons.trash2,
-                                    iconSize: 17,
-                                  ),
-                              ],
-                            ),
-                          );
-                        }).toList(growable: false),
+                              );
+                            })
+                            .toList(growable: false),
                       ),
                     ),
                 ],

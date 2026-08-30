@@ -12,12 +12,12 @@ class MigrationHistoryDialog extends StatefulWidget {
   const MigrationHistoryDialog({super.key});
 
   static Future<void> show(BuildContext context) => FxDialog.show<void>(
-        context: context,
-        width: 720,
-        title: '迁移历史',
-        description: '本机留痕与云端审计分开保存，不会跨模式读取。',
-        child: const MigrationHistoryDialog(),
-      );
+    context: context,
+    width: 720,
+    title: '迁移历史',
+    description: '本机留痕与云端审计分开保存，不会跨模式读取。',
+    child: const MigrationHistoryDialog(),
+  );
 
   @override
   State<MigrationHistoryDialog> createState() => _MigrationHistoryDialogState();
@@ -58,31 +58,30 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             ),
             const SizedBox(height: AppTheme.spaceMd),
           ] else ...[
-            const FxChip(
-              label: '本机记录',
-              variant: FxChipVariant.secondary,
-            ),
+            const FxChip(label: '本机记录', variant: FxChipVariant.secondary),
             const SizedBox(height: AppTheme.spaceMd),
           ],
           ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: 180,
-              maxHeight:
-                  (MediaQuery.sizeOf(context).height - 260).clamp(240, 480),
+              maxHeight: (MediaQuery.sizeOf(context).height - 260).clamp(
+                240,
+                480,
+              ),
             ),
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _reports,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: FxCircularProgress());
                 }
                 if (snapshot.hasError) return _errorState(snapshot.error);
                 final reports = snapshot.data ?? const [];
                 if (reports.isEmpty) return _emptyState();
                 return ListView.separated(
                   itemCount: reports.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: AppTheme.spaceXs),
+                  separatorBuilder:
+                      (_, __) => const SizedBox(height: AppTheme.spaceXs),
                   itemBuilder: (_, index) => _report(reports[index]),
                 );
               },
@@ -101,16 +100,16 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
                   _source == 'local'
                       ? '失败的本机记录保留快照，可在云端模式下重试。'
                       : '云端审计不包含原始用户内容或应用密钥。',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.caption(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
               FxButton(
                 label: '关闭',
                 variant: FxButtonVariant.outline,
-                onPressed: () =>
-                    Navigator.of(context, rootNavigator: true).pop(),
+                onPressed:
+                    () => Navigator.of(context, rootNavigator: true).pop(),
               ),
             ],
           ),
@@ -135,9 +134,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
           Text(
             '$error',
             textAlign: TextAlign.center,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppTheme.spaceSm),
           FxButton(
@@ -171,9 +170,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
           Text(
             '完成一次迁移后，时间、策略与结果会显示在这里。',
             textAlign: TextAlign.center,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -204,9 +203,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
               Expanded(
                 child: Text(
                   _formatTime(report['created_at']),
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               const SizedBox(width: 8),
@@ -216,9 +215,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
           const SizedBox(height: AppTheme.spaceXs),
           Text(
             '${local ? '本机记录' : '云端审计'} · ${_policy(report['conflict_policy'])}',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppTheme.spaceSm),
           _countLine('扫描', report['scanned']),
@@ -228,9 +227,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             const SizedBox(height: AppTheme.spaceXs),
             Text(
               _error(report),
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.error,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.error),
             ),
           ],
           if (canRetry) ...[
@@ -255,14 +254,16 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
     final theme = Theme.of(context);
     final failed = status == 'failed';
     final running = status == 'running';
-    final color = failed
-        ? theme.colorScheme.error
-        : running
+    final color =
+        failed
+            ? theme.colorScheme.error
+            : running
             ? theme.colorScheme.tertiary
             : theme.colorScheme.primary;
-    final label = failed
-        ? '失败'
-        : running
+    final label =
+        failed
+            ? '失败'
+            : running
             ? '执行中'
             : '成功';
     return Container(
@@ -273,10 +274,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
       ),
       child: Text(
         label,
-        style: SlowlightTypography.caption(context).copyWith(
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+        style: SlowlightTypography.caption(
+          context,
+        ).copyWith(fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -290,9 +290,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
           width: 48,
           child: Text(
             label,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ),
         Expanded(
@@ -347,19 +347,20 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   }
 
   String _policy(Object? value) => switch (value) {
-        'local' => '保留本地，云端留备份',
-        'cloud' => '保留云端',
-        'both' => '两份都保留',
-        _ => '无冲突直接写入',
-      };
+    'local' => '保留本地，云端留备份',
+    'cloud' => '保留云端',
+    'both' => '两份都保留',
+    _ => '无冲突直接写入',
+  };
 
   String _counts(Object? value) {
     try {
-      final raw = value is Map
-          ? Map<String, dynamic>.from(value)
-          : Map<String, dynamic>.from(
-              jsonDecode(value?.toString() ?? '{}') as Map,
-            );
+      final raw =
+          value is Map
+              ? Map<String, dynamic>.from(value)
+              : Map<String, dynamic>.from(
+                jsonDecode(value?.toString() ?? '{}') as Map,
+              );
       const labels = {
         'lists': '清单',
         'tasks': '任务',

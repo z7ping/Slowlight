@@ -93,11 +93,12 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         baseUrl: _baseUrlController.text.trim(),
         username: _usernameController.text.trim(),
         password: _passwordController.text,
-        paths: _pathsController.text
-            .split('\n')
-            .where((p) => p.trim().isNotEmpty)
-            .map((p) => p.trim())
-            .toList(),
+        paths:
+            _pathsController.text
+                .split('\n')
+                .where((p) => p.trim().isNotEmpty)
+                .map((p) => p.trim())
+                .toList(),
       );
 
       if (mounted) {
@@ -155,11 +156,12 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         baseUrl: _baseUrlController.text.trim(),
         username: _usernameController.text.trim(),
         password: _passwordController.text,
-        paths: _pathsController.text
-            .split('\n')
-            .where((p) => p.trim().isNotEmpty)
-            .map((p) => p.trim())
-            .toList(),
+        paths:
+            _pathsController.text
+                .split('\n')
+                .where((p) => p.trim().isNotEmpty)
+                .map((p) => p.trim())
+                .toList(),
       );
 
       if (!mounted) return;
@@ -211,9 +213,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: errors?.isNotEmpty == true
-                ? AppTheme.warning
-                : AppTheme.success,
+            backgroundColor:
+                errors?.isNotEmpty == true
+                    ? AppTheme.warning
+                    : AppTheme.success,
             duration: const Duration(seconds: 5),
           ),
         );
@@ -249,25 +252,26 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         ],
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoCard(),
-                  const SizedBox(height: 16),
-                  _buildConfigForm(),
-                  const SizedBox(height: 16),
-                  if (_configured) _buildStatusCard(),
-                  if (_lastError != null) ...[
+      body:
+          _loading
+              ? const Center(child: FxCircularProgress())
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoCard(),
                     const SizedBox(height: 16),
-                    _buildErrorCard(),
+                    _buildConfigForm(),
+                    const SizedBox(height: 16),
+                    if (_configured) _buildStatusCard(),
+                    if (_lastError != null) ...[
+                      const SizedBox(height: 16),
+                      _buildErrorCard(),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
     );
   }
 
@@ -280,16 +284,19 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.info_outline,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    size: 20),
+                Icon(
+                  Icons.info_outline,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   'CalDAV 同步',
                   style: TextStyle(
-                      fontSize: AppTheme.textMd,
-                      height: 1.3,
-                      fontWeight: FontWeight.w600),
+                    fontSize: AppTheme.textMd,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -297,9 +304,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             const Text(
               '配置后系统将：',
               style: TextStyle(
-                  fontSize: AppTheme.textMd,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500),
+                fontSize: AppTheme.textMd,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 6),
             _buildInfoItem('📥', '自动同步远程任务到本地'),
@@ -312,8 +320,9 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: AppTheme.success.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: AppTheme.success.withValues(alpha: 0.25),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,10 +330,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   Text(
                     '📝 快速上手：',
                     style: TextStyle(
-                        fontSize: AppTheme.textMd,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.success),
+                      fontSize: AppTheme.textMd,
+                      height: 1.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.success,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -334,9 +344,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     '4. 点击「测试连接」验证\n'
                     '5. 点击「保存配置」完成',
                     style: TextStyle(
-                        fontSize: AppTheme.textXs,
-                        color: AppTheme.success,
-                        height: 1.5),
+                      fontSize: AppTheme.textXs,
+                      color: AppTheme.success,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
@@ -347,8 +358,9 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.info.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: AppTheme.info.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: AppTheme.info.withValues(alpha: 0.25),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,10 +368,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   Text(
                     '💡 支持的服务：',
                     style: TextStyle(
-                        fontSize: AppTheme.textMd,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.info),
+                      fontSize: AppTheme.textMd,
+                      height: 1.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.info,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -368,9 +381,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     '• Baïkal / Radicale — 轻量 CalDAV\n'
                     '• 任何兼容 CalDAV 协议的服务',
                     style: TextStyle(
-                        fontSize: AppTheme.textXs,
-                        color: AppTheme.info,
-                        height: 1.5),
+                      fontSize: AppTheme.textXs,
+                      color: AppTheme.info,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
@@ -382,7 +396,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                 color: AppTheme.priorityLow.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: AppTheme.priorityLow.withValues(alpha: 0.25)),
+                  color: AppTheme.priorityLow.withValues(alpha: 0.25),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,10 +405,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   Text(
                     '📍 项目路径获取：',
                     style: TextStyle(
-                        fontSize: AppTheme.textMd,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.priorityLow),
+                      fontSize: AppTheme.textMd,
+                      height: 1.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.priorityLow,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -401,9 +417,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     '• Nextcloud：任务设置 → 复制 CalDAV 地址\n'
                     '• 一般格式：/dav/projects/{数字ID}',
                     style: TextStyle(
-                        fontSize: AppTheme.textXs,
-                        color: AppTheme.priorityLow,
-                        height: 1.5),
+                      fontSize: AppTheme.textXs,
+                      color: AppTheme.priorityLow,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
@@ -419,8 +436,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Text(emoji,
-              style: const TextStyle(fontSize: AppTheme.textMd, height: 1.5)),
+          Text(
+            emoji,
+            style: const TextStyle(fontSize: AppTheme.textMd, height: 1.5),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -445,9 +464,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               const Text(
                 '连接配置',
                 style: TextStyle(
-                    fontSize: AppTheme.textMd,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600),
+                  fontSize: AppTheme.textMd,
+                  height: 1.3,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -495,12 +515,15 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   prefixIcon: const Icon(Icons.lock),
                   border: const OutlineInputBorder(),
                   suffixIcon: FxIconButton(
-                    icon: _obscurePassword
-                        ? Icons.visibility
-                        : Icons.visibility_off,
+                    icon:
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                     tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed:
+                        () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                   ),
                 ),
                 validator: (value) {
@@ -532,9 +555,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               Text(
                 '格式：/dav/projects/{项目ID}，可在 Vikunja 项目设置中查看',
                 style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    height: 1.4,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  fontSize: AppTheme.textXs,
+                  height: 1.4,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 24),
               Row(
@@ -576,9 +600,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                 const Text(
                   '同步状态',
                   style: TextStyle(
-                      fontSize: AppTheme.textMd,
-                      height: 1.3,
-                      fontWeight: FontWeight.w600),
+                    fontSize: AppTheme.textMd,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -591,9 +616,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               const Text(
                 '同步历史：',
                 style: TextStyle(
-                    fontSize: AppTheme.textMd,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500),
+                  fontSize: AppTheme.textMd,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 4),
               ...(_status!['states'] as List).map((state) {
@@ -603,8 +629,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Text(
                     '• $path - 最后同步：$lastSync',
-                    style:
-                        const TextStyle(fontSize: AppTheme.textXs, height: 1.4),
+                    style: const TextStyle(
+                      fontSize: AppTheme.textXs,
+                      height: 1.4,
+                    ),
                   ),
                 );
               }),
@@ -612,10 +640,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: FxButton(
-                label: '立即同步',
-                onPressed: _syncNow,
-              ),
+              child: FxButton(label: '立即同步', onPressed: _syncNow),
             ),
           ],
         ),
@@ -634,9 +659,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             child: Text(
               label,
               style: TextStyle(
-                  fontSize: AppTheme.textMd,
-                  height: 1.5,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                fontSize: AppTheme.textMd,
+                height: 1.5,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Expanded(
@@ -664,9 +690,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                 const Text(
                   '错误信息',
                   style: TextStyle(
-                      fontSize: AppTheme.textMd,
-                      height: 1.3,
-                      fontWeight: FontWeight.w600),
+                    fontSize: AppTheme.textMd,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -674,9 +701,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             Text(
               _lastError!,
               style: const TextStyle(
-                  fontSize: AppTheme.textMd,
-                  height: 1.5,
-                  color: AppTheme.error),
+                fontSize: AppTheme.textMd,
+                height: 1.5,
+                color: AppTheme.error,
+              ),
             ),
           ],
         ),

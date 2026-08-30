@@ -35,20 +35,27 @@ class TaskTodayTab extends StatelessWidget {
     final taskWeekDelta = patterns['task_week_delta'] ?? 0;
     final todayTasks = (facts['today_completed_tasks'] as List?) ?? [];
 
-    final taskQuestions = allQuestions.where((q) {
-      final question = q as Map<String, dynamic>;
-      final type = question['type'] as String? ?? '';
-      return [
-        'task_backlog',
-        'completion_rate',
-        'task_focus',
-        'quiet_day',
-      ].contains(type);
-    }).where((q) {
-      return !ignoredQuestionIds.contains((q as Map<String, dynamic>)['id']);
-    }).take(2).toList();
+    final taskQuestions =
+        allQuestions
+            .where((q) {
+              final question = q as Map<String, dynamic>;
+              final type = question['type'] as String? ?? '';
+              return [
+                'task_backlog',
+                'completion_rate',
+                'task_focus',
+                'quiet_day',
+              ].contains(type);
+            })
+            .where((q) {
+              return !ignoredQuestionIds.contains(
+                (q as Map<String, dynamic>)['id'],
+              );
+            })
+            .take(2)
+            .toList();
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: onRefresh ?? () async {},
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -58,11 +65,7 @@ class TaskTodayTab extends StatelessWidget {
           const SizedBox(height: 12),
           const ReflectionHistoryCard(),
           const SizedBox(height: 18),
-          _sectionLabel(
-            theme,
-            title: '事实',
-            subtitle: '这些只是今天留下的记录，不代表评价。',
-          ),
+          _sectionLabel(theme, title: '事实', subtitle: '这些只是今天留下的记录，不代表评价。'),
           const SizedBox(height: 8),
           _overviewCard(
             theme,
@@ -132,11 +135,12 @@ class TaskTodayTab extends StatelessWidget {
               label: '写下今天的观察',
               icon: Icons.edit_outlined,
               variant: FxButtonVariant.secondary,
-              onPressed: () => ReflectionComposer.show(
-                context,
-                prompt: '今天有什么值得记住、困惑或想补充的吗？',
-                contextData: const {'source': 'today_review'},
-              ),
+              onPressed:
+                  () => ReflectionComposer.show(
+                    context,
+                    prompt: '今天有什么值得记住、困惑或想补充的吗？',
+                    contextData: const {'source': 'today_review'},
+                  ),
             )
           else
             ...questions.map<Widget>((q) {
@@ -148,7 +152,9 @@ class TaskTodayTab extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.28),
+                  color: theme.colorScheme.secondaryContainer.withValues(
+                    alpha: 0.28,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -184,7 +190,8 @@ class TaskTodayTab extends StatelessWidget {
                           label: '先略过',
                           variant: FxButtonVariant.ghost,
                           size: FxButtonSize.sm,
-                          onPressed: id.isEmpty ? null : () => onIgnoreQuestion(id),
+                          onPressed:
+                              id.isEmpty ? null : () => onIgnoreQuestion(id),
                         ),
                       ],
                     ),
@@ -207,7 +214,9 @@ class TaskTodayTab extends StatelessWidget {
       children: [
         Text(
           title,
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
@@ -248,7 +257,7 @@ class TaskTodayTab extends StatelessWidget {
             ],
           ),
           if (hasDelta) ...[
-            const Divider(height: 24),
+            const FxSeparator.horizontal(height: 24),
             if (delta != 0) _deltaRow(theme, delta, '昨天'),
             if (weekDelta != 0) _deltaRow(theme, weekDelta, '上周今天'),
           ],
@@ -262,7 +271,9 @@ class TaskTodayTab extends StatelessWidget {
       children: [
         Text(
           value,
-          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
@@ -298,7 +309,9 @@ class TaskTodayTab extends StatelessWidget {
         children: [
           Text(
             '今天完成了什么',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           ...todayTasks.map<Widget>(
@@ -318,7 +331,11 @@ class TaskTodayTab extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline, size: 18, color: theme.colorScheme.primary),
+          Icon(
+            Icons.check_circle_outline,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -326,11 +343,15 @@ class TaskTodayTab extends StatelessWidget {
               children: [
                 Text(
                   task['title'] ?? '',
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (level.isNotEmpty || listName.isNotEmpty || completedAt.isNotEmpty) ...[
+                if (level.isNotEmpty ||
+                    listName.isNotEmpty ||
+                    completedAt.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     [

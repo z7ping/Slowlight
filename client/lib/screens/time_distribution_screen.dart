@@ -49,14 +49,15 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     final totalMin = (_data['total_min'] as num?)?.toInt() ?? 0;
-    final tags = (_data['tags'] as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    final tags =
+        (_data['tags'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadData,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -82,11 +83,13 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                             const SizedBox(height: 3),
                             Text(
                               '最近 7 天 · 看见时间实际流向了哪里',
-                              style: SlowlightTypography.secondary(context)
-                                  .copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                              style: SlowlightTypography.secondary(
+                                context,
+                              ).copyWith(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -110,11 +113,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       final daily = _dailyCard();
                       if (!wide) {
                         return Column(
-                          children: [
-                            pie,
-                            const SizedBox(height: 14),
-                            daily,
-                          ],
+                          children: [pie, const SizedBox(height: 14), daily],
                         );
                       }
                       return Row(
@@ -145,16 +144,8 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
         final cellWidth = (constraints.maxWidth - 10) / 2;
         final stacked = cellWidth < minCellWidth;
         final cells = [
-          FxStatCell(
-            value: '$totalMin',
-            label: '总专注时长',
-            suffix: ' 分钟',
-          ),
-          FxStatCell(
-            value: '$tagCount',
-            label: '覆盖分类',
-            suffix: ' 个',
-          ),
+          FxStatCell(value: '$totalMin', label: '总专注时长', suffix: ' 分钟'),
+          FxStatCell(value: '$tagCount', label: '覆盖分类', suffix: ' 个'),
         ];
         if (stacked) {
           return Column(
@@ -178,11 +169,11 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   Widget _distributionCard(List<Map<String, dynamic>> source) {
     final theme = Theme.of(context);
-    final tags = [...source]
-      ..sort(
-        (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0)
-            .compareTo((a['total_min'] as num?)?.toInt() ?? 0),
-      );
+    final tags = [...source]..sort(
+      (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0).compareTo(
+        (a['total_min'] as num?)?.toInt() ?? 0,
+      ),
+    );
 
     return FxCard(
       padding: const EdgeInsets.all(16),
@@ -198,9 +189,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               child: Center(
                 child: Text(
                   '暂无专注数据',
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
             )
@@ -254,10 +245,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                     ),
                     Text(
                       '${percent.toStringAsFixed(0)}%',
-                      style: SlowlightTypography.caption(context).copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: color,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w600, color: color),
                     ),
                   ],
                 ),
@@ -271,16 +261,14 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   Widget _dailyCard() {
     final theme = Theme.of(context);
-    final byDay = (_data['by_day'] as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    final byDay =
+        (_data['by_day'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
     final maxMin = byDay.fold<int>(
       0,
-      (max, item) => math.max(
-        max,
-        (item['total_min'] as num?)?.toInt() ?? 0,
-      ),
+      (max, item) => math.max(max, (item['total_min'] as num?)?.toInt() ?? 0),
     );
 
     return FxCard(
@@ -297,9 +285,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               child: Center(
                 child: Text(
                   '暂无每日记录',
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
             )
@@ -316,9 +304,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       width: 54,
                       child: Text(
                         _weekdayLabel(day['date']?.toString() ?? ''),
-                        style: SlowlightTypography.caption(context).copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ),
                     Expanded(
@@ -334,9 +322,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       child: Text(
                         min > 0 ? '$min 分钟 · $count 次' : '—',
                         textAlign: TextAlign.right,
-                        style: SlowlightTypography.caption(context).copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ),
                   ],

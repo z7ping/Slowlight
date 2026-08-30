@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fx_cursor.dart';
 
 import '../typography_tokens.dart';
 
@@ -46,7 +47,7 @@ class FxSegmented extends StatelessWidget {
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         children: List.generate(labels.length, (index) {
           final selected = index == selectedIndex;
-          final item = InkWell(
+          final item = FxInkWell(
             key: itemKeys?[index],
             borderRadius: BorderRadius.circular(borderRadius - 2),
             onTap: () => onChanged(index),
@@ -55,9 +56,10 @@ class FxSegmented extends StatelessWidget {
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: selected
-                    ? selectedColor ?? theme.colorScheme.surface
-                    : Colors.transparent,
+                color:
+                    selected
+                        ? selectedColor ?? theme.colorScheme.surface
+                        : Colors.transparent,
                 borderRadius: BorderRadius.circular(borderRadius - 2),
                 boxShadow: selected ? selectedShadow : null,
               ),
@@ -66,9 +68,10 @@ class FxSegmented extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: SlowlightTypography.secondary(context).copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurfaceVariant,
+                  color:
+                      selected
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

@@ -174,20 +174,21 @@ class _WebhookScreenState extends State<WebhookScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _webhooks.isEmpty
+      body:
+          _isLoading
+              ? const Center(child: FxCircularProgress())
+              : _webhooks.isEmpty
               ? FxEmptyState(
-                  emoji: '🔗',
-                  title: '还没有事件回调',
-                  subtitle: '连接 $kBrandDisplayName 到 n8n、Zapier 等外部服务',
-                  action: FxButton(
-                    label: '添加事件回调',
-                    variant: FxButtonVariant.outline,
-                    icon: Icons.add,
-                    onPressed: _addWebhook,
-                  ),
-                )
+                emoji: '🔗',
+                title: '还没有事件回调',
+                subtitle: '连接 $kBrandDisplayName 到 n8n、Zapier 等外部服务',
+                action: FxButton(
+                  label: '添加事件回调',
+                  variant: FxButtonVariant.outline,
+                  icon: Icons.add,
+                  onPressed: _addWebhook,
+                ),
+              )
               : _buildContent(),
     );
   }
@@ -207,14 +208,15 @@ class _WebhookScreenState extends State<WebhookScreen> {
     final eventKey = webhook['event']?.toString() ?? '';
     final def = webhookEvents.firstWhere(
       (event) => event.key == eventKey,
-      orElse: () => WebhookEventDef(
-        key: eventKey,
-        label: eventKey,
-        icon: '🔗',
-        description: '',
-        exampleUse: '',
-        examplePayload: '',
-      ),
+      orElse:
+          () => WebhookEventDef(
+            key: eventKey,
+            label: eventKey,
+            icon: '🔗',
+            description: '',
+            exampleUse: '',
+            examplePayload: '',
+          ),
     );
 
     return FxCard(
@@ -223,9 +225,10 @@ class _WebhookScreenState extends State<WebhookScreen> {
       padding: EdgeInsets.zero,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: webhook['is_active'] == true
-              ? AppTheme.primaryLight
-              : Theme.of(context).colorScheme.outlineVariant,
+          backgroundColor:
+              webhook['is_active'] == true
+                  ? AppTheme.primaryLight
+                  : Theme.of(context).colorScheme.outlineVariant,
           child: Text(def.icon),
         ),
         title: Text(
@@ -239,8 +242,9 @@ class _WebhookScreenState extends State<WebhookScreen> {
           children: [
             Text(
               '${def.icon} ${def.label}',
-              style: SlowlightTypography.caption(context)
-                  .copyWith(color: AppTheme.primary),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: AppTheme.primary),
             ),
             Text(
               webhook['url']?.toString() ?? '',
@@ -300,23 +304,22 @@ class _WebhookScreenState extends State<WebhookScreen> {
             children: [
               Text(def.icon),
               Text(def.label, style: SlowlightTypography.cardTitle(context)),
-              FxChip(
-                label: def.key,
-                variant: FxChipVariant.secondary,
-              ),
+              FxChip(label: def.key, variant: FxChipVariant.secondary),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             '触发：${def.description}',
-            style: SlowlightTypography.secondary(context)
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 2),
           Text(
             '用法：${def.exampleUse}',
-            style: SlowlightTypography.secondary(context)
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 6),
           FxButton(
@@ -326,7 +329,8 @@ class _WebhookScreenState extends State<WebhookScreen> {
             size: FxButtonSize.sm,
             onPressed: () => _showPayloadDialog(def),
           ),
-          if (def != webhookEvents.last) const Divider(height: 24),
+          if (def != webhookEvents.last)
+            const FxSeparator.horizontal(height: 24),
         ],
       ),
     );
@@ -346,9 +350,9 @@ class _WebhookScreenState extends State<WebhookScreen> {
             child: SingleChildScrollView(
               child: SelectableText(
                 def.examplePayload,
-                style: SlowlightTypography.caption(context).copyWith(
-                  fontFamily: 'monospace',
-                ),
+                style: SlowlightTypography.caption(
+                  context,
+                ).copyWith(fontFamily: 'monospace'),
               ),
             ),
           ),
@@ -400,10 +404,7 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
             const SizedBox(height: 12),
             FxInput(controller: _urlCtrl, placeholder: '回调地址'),
             const SizedBox(height: 16),
-            Text(
-              '选择触发事件（可多选）',
-              style: SlowlightTypography.cardTitle(context),
-            ),
+            Text('选择触发事件（可多选）', style: SlowlightTypography.cardTitle(context)),
             const SizedBox(height: 8),
             ...webhookEvents.map(_buildEventCheckbox),
             const SizedBox(height: 16),
@@ -415,7 +416,8 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
                 FxButton(
                   label: '取消',
                   variant: FxButtonVariant.ghost,
-                  onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                  onPressed:
+                      () => Navigator.of(context, rootNavigator: true).pop(),
                 ),
                 FxButton(
                   label: '添加 (${_selectedEvents.length})',
@@ -449,7 +451,10 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(def.label, style: SlowlightTypography.secondary(context)),
+                  Text(
+                    def.label,
+                    style: SlowlightTypography.secondary(context),
+                  ),
                   Text(
                     def.description,
                     style: SlowlightTypography.caption(context).copyWith(

@@ -53,7 +53,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     final desktop = MediaQuery.sizeOf(context).width >= 1024;
     final cells = [
       _quadrant(
@@ -62,18 +62,8 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         AppTheme.priorityUrgentImportant,
         desktop,
       ),
-      _quadrant(
-        '重要 · 不紧急',
-        'important',
-        AppTheme.priorityImportant,
-        desktop,
-      ),
-      _quadrant(
-        '不重要 · 紧急',
-        'urgent',
-        AppTheme.priorityUrgent,
-        desktop,
-      ),
+      _quadrant('重要 · 不紧急', 'important', AppTheme.priorityImportant, desktop),
+      _quadrant('不重要 · 紧急', 'urgent', AppTheme.priorityUrgent, desktop),
       _quadrant(
         '不重要 · 不紧急',
         'none',
@@ -89,7 +79,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           const gap = 12.0;
           final cellWidth = (constraints.maxWidth - padding * 2 - gap) / 2;
           final cellHeight = (constraints.maxHeight - padding * 2 - gap) / 2;
-          return RefreshIndicator(
+          return FxRefresh(
             onRefresh: _load,
             child: GridView.count(
               padding: const EdgeInsets.all(padding),
@@ -101,26 +91,22 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             ),
           );
         }
-        return RefreshIndicator(
+        return FxRefresh(
           onRefresh: _load,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
-            children: cells
-                .expand((cell) => [cell, const SizedBox(height: 12)])
-                .toList(),
+            children:
+                cells
+                    .expand((cell) => [cell, const SizedBox(height: 12)])
+                    .toList(),
           ),
         );
       },
     );
   }
 
-  Widget _quadrant(
-    String title,
-    String priority,
-    Color color,
-    bool desktop,
-  ) {
+  Widget _quadrant(String title, String priority, Color color, bool desktop) {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
@@ -135,9 +121,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             const SizedBox(height: 5),
             Text(
               '这里暂时没有任务 · 添加任务',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -149,11 +135,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       color: fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: Border.all(
-        color: hovering
-            ? Colors.transparent
-            : color.withValues(alpha: priority == 'none' ? 1 : .36),
+        color:
+            hovering
+                ? Colors.transparent
+                : color.withValues(alpha: priority == 'none' ? 1 : .36),
       ),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,9 +151,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Flexible(
                 child: Text(
                   title,
-                  style: SlowlightTypography.cardTitle(context).copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: SlowlightTypography.cardTitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               const SizedBox(width: 8),
@@ -199,10 +187,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 ? Expanded(child: emptyState)
                 : SizedBox(height: 96, child: emptyState)
           else
-            ...items.take(5).map(
-                  (task) => desktop
-                      ? _draggableTask(task, color)
-                      : _taskLine(task, color, desktop: false),
+            ...items
+                .take(5)
+                .map(
+                  (task) =>
+                      desktop
+                          ? _draggableTask(task, color)
+                          : _taskLine(task, color, desktop: false),
                 ),
         ],
       ),
@@ -251,7 +242,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             borderRadius: AppTheme.radiusLg,
             border: Border.all(color: fxBorder(context)),
             boxShadow:
-                theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+                theme.brightness == Brightness.light
+                    ? AppTheme.cardShadow
+                    : null,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -294,11 +287,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Expanded(
                 child: Text(
                   task.title,
-                  maxLines: MediaQuery.textScalerOf(context)
-                              .scale(SlowlightTypography.secondarySize) >=
-                          SlowlightTypography.secondarySize * 1.3
-                      ? 2
-                      : 1,
+                  maxLines:
+                      MediaQuery.textScalerOf(
+                                context,
+                              ).scale(SlowlightTypography.secondarySize) >=
+                              SlowlightTypography.secondarySize * 1.3
+                          ? 2
+                          : 1,
                   overflow: TextOverflow.ellipsis,
                   style: SlowlightTypography.secondary(context),
                 ),
@@ -312,12 +307,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   void _openTask(Task task) {
-    TaskDetailSheet.show(
-      context,
-      task: task,
-      lists: _lists,
-      onChanged: _load,
-    );
+    TaskDetailSheet.show(context, task: task, lists: _lists, onChanged: _load);
   }
 
   Future<void> _addTask(String priority) {
@@ -340,51 +330,47 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           top: Radius.circular(AppTheme.radiusXl),
         ),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          18 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '「${task.title}」移动到…',
-              style: SlowlightTypography.secondary(context).copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              0,
+              16,
+              18 + MediaQuery.viewInsetsOf(context).bottom,
             ),
-            const SizedBox(height: 8),
-            _moveOption('🔴', '重要 · 紧急', 'urgent_important', task.priority),
-            _moveOption('🔵', '重要 · 不紧急', 'important', task.priority),
-            _moveOption('🟠', '不重要 · 紧急', 'urgent', task.priority),
-            _moveOption('🍃', '不重要 · 不紧急', 'none', task.priority),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: double.infinity,
-              child: FxButton(
-                label: '取消',
-                variant: FxButtonVariant.ghost,
-                onPressed: () => Navigator.pop(context),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '「${task.title}」移动到…',
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                _moveOption('🔴', '重要 · 紧急', 'urgent_important', task.priority),
+                _moveOption('🔵', '重要 · 不紧急', 'important', task.priority),
+                _moveOption('🟠', '不重要 · 紧急', 'urgent', task.priority),
+                _moveOption('🍃', '不重要 · 不紧急', 'none', task.priority),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  child: FxButton(
+                    label: '取消',
+                    variant: FxButtonVariant.ghost,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
     if (result == null || result == task.priority) return;
     await _moveTask(task, result);
   }
 
-  Widget _moveOption(
-    String emoji,
-    String label,
-    String value,
-    String current,
-  ) {
+  Widget _moveOption(String emoji, String label, String value, String current) {
     final selected = value == current;
     return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -404,7 +390,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Text(emoji),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(label, style: SlowlightTypography.secondary(context)),
+                child: Text(
+                  label,
+                  style: SlowlightTypography.secondary(context),
+                ),
               ),
               if (selected)
                 FxChip(
@@ -412,8 +401,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                   backgroundColor: activePalette.accent.withValues(alpha: .12),
                   foregroundColor: activePalette.accent,
                   borderRadius: 999,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
                 ),
             ],
           ),
@@ -476,17 +467,15 @@ class _QuadrantDashedPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          Radius.circular(radius),
-        ),
-      );
+    final paint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+    final path =
+        Path()..addRRect(
+          RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+        );
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
