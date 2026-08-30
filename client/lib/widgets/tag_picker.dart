@@ -1,11 +1,9 @@
-import '../ui/widgets/fx_cursor.dart';
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+
 import '../models/tag.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import '../ui/widgets/fx_input.dart';
-import '../ui/widgets/fx_dialog.dart';
+import '../ui/fx.dart';
 import '../utils/color_utils.dart';
 
 class TagPicker extends StatefulWidget {
@@ -26,16 +24,15 @@ class _TagPickerState extends State<TagPicker> {
   List<Tag> _allTags = [];
   bool _isLoading = true;
 
-  // 预设颜色数组
   static const List<String> presetColors = [
-    '#0075de', // 蓝
-    '#52c41a', // 绿
-    '#fa8c16', // 橙
-    '#ff4d4f', // 红
-    '#722ed1', // 紫
-    '#13c2c2', // 青
-    '#eb2f96', // 粉
-    '#8c8c8c', // 灰
+    '#0075de',
+    '#52c41a',
+    '#fa8c16',
+    '#ff4d4f',
+    '#722ed1',
+    '#13c2c2',
+    '#eb2f96',
+    '#8c8c8c',
   ];
 
   @override
@@ -53,12 +50,11 @@ class _TagPickerState extends State<TagPicker> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('加载标签失败'), backgroundColor: AppTheme.priorityHigh),
+          const SnackBar(content: Text('加载标签失败')),
         );
       }
     }
@@ -66,178 +62,153 @@ class _TagPickerState extends State<TagPicker> {
 
   void _toggleTag(Tag tag) {
     final selected = List<Tag>.from(widget.selectedTags);
-    final index = selected.indexWhere((t) => t.id == tag.id);
-
+    final index = selected.indexWhere((item) => item.id == tag.id);
     if (index >= 0) {
       selected.removeAt(index);
     } else {
       selected.add(tag);
     }
-
     widget.onChanged(selected);
   }
 
-  void _showCreateTagDialog() {
+  Future<void> _showCreateTagDialog() async {
     final nameController = TextEditingController();
-    String selectedColor = presetColors[0];
+    var selectedColor = presetColors.first;
 
-    showShadDialog(
+    await FxDialog.show<void>(
       context: context,
-      barrierColor: FxDialog.barrierColor,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => ShadDialog(
-          title: const Text('新建标签'),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FxInput(
-                controller: nameController,
-                label: '标签名称',
-                placeholder: '输入标签名称...',
-                autofocus: true,
+      title: '新建标签',
+      width: 460,
+      child: StatefulBuilder(
+        builder: (dialogContext, setDialogState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FxInput(
+              controller: nameController,
+              label: '标签名称',
+              placeholder: '输入标签名称…',
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '选择颜色',
+              style: SlowlightTypography.secondary(dialogContext).copyWith(
+                color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
               ),
-              SizedBox(height: 16),
-              Text(
-                '选择颜色',
-                style: TextStyle(
-                    fontSize: AppTheme.textMd,
-                    height: 1.5,
-                    color: AppTheme.warmGray500),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: presetColors.map<Widget>((color) {
-                  final isSelected = color == selectedColor;
-                  return FxGestureDetector(
-                    onTap: () => setDialogState(() => selectedColor = color),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: ColorUtils.safeParse(color),
-                        borderRadius: BorderRadius.circular(8),
-                        border: isSelected
-                            ? Border.all(color: AppTheme.white, width: 2)
-                            : null,
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: ColorUtils.safeParse(color)
-                                      .withValues(alpha: 0.5),
-                                  blurRadius: 4,
-                                )
-                              ]
-                            : null,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: presetColors.map((value) {
+                final color = ColorUtils.safeParse(value);
+                final selected = value == selectedColor;
+                return FxInkWell(
+                  onTap: () => setDialogState(() => selectedColor = value),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected
+                                ? Theme.of(dialogContext).colorScheme.onSurface
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-          actions: [
-            ShadButton.outline(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
+                  ),
+                );
+              }).toList(growable: false),
             ),
-            ShadButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-
-                try {
-                  final tag = await ApiService.createTag(
-                    name: name,
-                    color: selectedColor,
-                  );
-
-                  setState(() => _allTags.add(tag));
-
-                  // 自动选中新创建的标签
-                  final selected = List<Tag>.from(widget.selectedTags);
-                  selected.add(tag);
-                  widget.onChanged(selected);
-
-                  if (context.mounted) Navigator.pop(context);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('创建标签失败'),
-                        backgroundColor: AppTheme.priorityHigh,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('创建'),
+            const SizedBox(height: 18),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FxButton(
+                  label: '取消',
+                  variant: FxButtonVariant.outline,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+                FxButton(
+                  label: '创建',
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+                    try {
+                      final tag = await ApiService.createTag(
+                        name: name,
+                        color: selectedColor,
+                      );
+                      if (!mounted) return;
+                      setState(() => _allTags.add(tag));
+                      widget.onChanged([...widget.selectedTags, tag]);
+                      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                    } catch (_) {
+                      if (dialogContext.mounted) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(content: Text('创建标签失败')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
+    nameController.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return SizedBox(
+      return const SizedBox(
         height: 40,
         child: Center(child: CircularProgressIndicator()),
       );
     }
 
+    final theme = Theme.of(context);
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        // 已有标签
         ..._allTags.map((tag) {
-          final isSelected = widget.selectedTags.any((t) => t.id == tag.id);
+          final selected = widget.selectedTags.any((item) => item.id == tag.id);
           final color = ColorUtils.safeParse(tag.color);
-
-          return FilterChip(
-            label: Text(tag.name),
-            labelStyle: TextStyle(
-              color: isSelected ? AppTheme.white : AppTheme.warmGray500,
-              fontSize: AppTheme.textMd,
-              fontWeight: FontWeight.w500,
+          return FxInkWell(
+            onTap: () => _toggleTag(tag),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            child: FxChip(
+              label: tag.name,
+              backgroundColor:
+                  selected ? color : color.withValues(alpha: .10),
+              foregroundColor:
+                  selected ? Colors.white : theme.colorScheme.onSurfaceVariant,
+              borderColor: selected ? color : color.withValues(alpha: .32),
+              borderRadius: AppTheme.radiusMd,
             ),
-            selected: isSelected,
-            selectedColor: color,
-            backgroundColor: color.withValues(alpha: 0.1),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(
-                color: isSelected ? color : color.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            checkmarkColor: AppTheme.white,
-            onSelected: (_) => _toggleTag(tag),
           );
         }),
-
-        // 新建标签按钮
-        ActionChip(
-          avatar: Icon(Icons.add, size: 16, color: AppTheme.warmGray500),
-          label: Text(
-            '新建',
-            style: TextStyle(
-              fontSize: AppTheme.textMd,
-              height: 1.5,
-              color: AppTheme.warmGray500,
-            ),
-          ),
-          backgroundColor: AppTheme.warmWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(color: AppTheme.warmBorder, width: 1),
-          ),
+        FxButton(
+          label: '新建',
+          icon: Icons.add,
+          variant: FxButtonVariant.outline,
+          size: FxButtonSize.sm,
           onPressed: _showCreateTagDialog,
         ),
       ],
