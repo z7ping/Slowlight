@@ -167,7 +167,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    FxNotice.showContent(context, Text(text));
   }
 
   @override

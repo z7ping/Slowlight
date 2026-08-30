@@ -621,9 +621,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
+      FxNotice.showContent(context, Text('保存失败：$e'));
     }
   }
 
@@ -636,53 +634,50 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       destructive: true,
     );
     if (confirmed != true || !mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
+    final notice = FxNotice.capture(context);
     final task = widget.task;
     try {
       await DataService().deleteTask(task.id, null);
       widget.onChanged();
       if (!mounted) return;
       Navigator.pop(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-          content: Text('已删除「${task.title}」'),
-          action: SnackBarAction(
-            label: '撤销',
-            onPressed: () async {
-              try {
-                await DataService().createTask(
-                  listId: task.listId,
-                  title: task.title,
-                  description: task.description,
-                  priority: task.priority,
-                  dueDate: task.dueDate,
-                  dueTime: task.dueTime,
-                  repeatType: task.repeatType,
-                  repeatInterval: task.repeatInterval,
-                  repeatDays: task.repeatDays,
-                  reminderAt: task.reminderAt,
-                  reminderAdvanceMinutes: task.reminderAdvanceMinutes,
-                  tagIds: task.tags.map((tag) => tag.id).toList(),
-                  systemTagId: task.systemTagId,
-                  taskType: task.taskType,
-                  moodBefore: task.moodBefore,
-                  moodAfter: task.moodAfter,
-                  isMilestone: task.isMilestone,
-                  relatedQuestId: task.relatedQuestId,
-                  obsidianLink: task.obsidianLink,
-                  outputLevel: task.outputLevel,
-                );
-                widget.onChanged();
-              } catch (_) {}
-            },
-          ),
+      notice.clear();
+      notice.showContent(
+        Text('已删除「${task.title}」'),
+        action: FxNoticeAction(
+          label: '撤销',
+          onPressed: () async {
+            try {
+              await DataService().createTask(
+                listId: task.listId,
+                title: task.title,
+                description: task.description,
+                priority: task.priority,
+                dueDate: task.dueDate,
+                dueTime: task.dueTime,
+                repeatType: task.repeatType,
+                repeatInterval: task.repeatInterval,
+                repeatDays: task.repeatDays,
+                reminderAt: task.reminderAt,
+                reminderAdvanceMinutes: task.reminderAdvanceMinutes,
+                tagIds: task.tags.map((tag) => tag.id).toList(),
+                systemTagId: task.systemTagId,
+                taskType: task.taskType,
+                moodBefore: task.moodBefore,
+                moodAfter: task.moodAfter,
+                isMilestone: task.isMilestone,
+                relatedQuestId: task.relatedQuestId,
+                obsidianLink: task.obsidianLink,
+                outputLevel: task.outputLevel,
+              );
+              widget.onChanged();
+            } catch (_) {}
+          },
         ),
+        duration: const Duration(seconds: 4),
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('删除失败：$e')));
+      notice.showContent(Text('删除失败：$e'));
     }
   }
 

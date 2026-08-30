@@ -150,9 +150,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       await _loadHabitLogs();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
+        FxNotice.showContent(context, Text('保存失败：$e'));
       }
     }
   }

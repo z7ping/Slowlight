@@ -158,7 +158,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
 
   void _showMsg(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    FxNotice.showContent(context, Text(msg));
   }
 
   @override

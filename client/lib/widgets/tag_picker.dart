@@ -53,9 +53,7 @@ class _TagPickerState extends State<TagPicker> {
     } catch (_) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('加载标签失败')));
+        FxNotice.showContent(context, Text('加载标签失败'));
       }
     }
   }
@@ -167,9 +165,7 @@ class _TagPickerState extends State<TagPicker> {
                             Navigator.of(dialogContext).pop();
                         } catch (_) {
                           if (dialogContext.mounted) {
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              const SnackBar(content: Text('创建标签失败')),
-                            );
+                            FxNotice.showContent(dialogContext, Text('创建标签失败'));
                           }
                         }
                       },

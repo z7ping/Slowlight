@@ -456,8 +456,6 @@ class _ReminderScreenState extends State<ReminderScreen> {
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 }

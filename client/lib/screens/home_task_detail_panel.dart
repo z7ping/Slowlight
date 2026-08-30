@@ -131,9 +131,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+        FxNotice.showContent(context, Text('保存失败: $e'));
       }
     }
   }
@@ -153,9 +151,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       if (mounted) widget.onClose();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+        FxNotice.showContent(context, Text('删除失败: $e'));
       }
     }
   }

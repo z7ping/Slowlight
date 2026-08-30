@@ -341,12 +341,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
   Future<void> _resolveConflict(int localId, {required bool keepLocal}) async {
     await _sync.resolveConflict(localId, keepLocal: keepLocal);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text(keepLocal ? '已保留本地版本' : '已使用服务端版本'),
-      ),
-    );
+    FxNotice.showContent(context, Text(keepLocal ? '已保留本地版本' : '已使用服务端版本'));
     await _loadConflicts();
   }
 }

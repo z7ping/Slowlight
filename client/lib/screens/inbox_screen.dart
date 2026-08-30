@@ -67,18 +67,14 @@ class _InboxScreenState extends State<InboxScreen> {
       setState(() => _tasks.insert(0, task));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('添加失败: $e')));
+        FxNotice.showContent(context, Text('添加失败: $e'));
       }
     }
   }
 
   Future<void> _moveTo(Task task) async {
     if (_allLists.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('还没有其他清单，先去创建一个吧')));
+      FxNotice.showContent(context, Text('还没有其他清单，先去创建一个吧'));
       return;
     }
 
@@ -96,18 +92,13 @@ class _InboxScreenState extends State<InboxScreen> {
       await ApiService.moveInboxTask(task.id, selected);
       if (!mounted) return;
       setState(() => _tasks.removeWhere((t) => t.id == task.id));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '已移动到「${_allLists.firstWhere((l) => l.id == selected).name}」',
-          ),
-        ),
+      FxNotice.showContent(
+        context,
+        Text('已移动到「${_allLists.firstWhere((l) => l.id == selected).name}」'),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('移动失败: $e')));
+        FxNotice.showContent(context, Text('移动失败: $e'));
       }
     }
   }
@@ -174,19 +165,18 @@ class _InboxScreenState extends State<InboxScreen> {
                                     (t) => t.id == task.id,
                                   ),
                                 );
-                                ScaffoldMessenger.of(context).clearSnackBars();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('已删除「${task.title}」'),
-                                    action: SnackBarAction(
-                                      label: '撤销',
-                                      onPressed: () {
-                                        undone = true;
-                                        setState(() => _tasks = originalTasks);
-                                      },
-                                    ),
-                                    duration: const Duration(seconds: 4),
+                                FxNotice.clear(context);
+                                FxNotice.showContent(
+                                  context,
+                                  Text('已删除「${task.title}」'),
+                                  action: FxNoticeAction(
+                                    label: '撤销',
+                                    onPressed: () {
+                                      undone = true;
+                                      setState(() => _tasks = originalTasks);
+                                    },
                                   ),
+                                  duration: const Duration(seconds: 4),
                                 );
                                 await Future.delayed(
                                   const Duration(seconds: 4),
@@ -197,11 +187,10 @@ class _InboxScreenState extends State<InboxScreen> {
                                 } catch (_) {
                                   if (mounted) {
                                     setState(() => _tasks = originalTasks);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text('删除失败'),
-                                        backgroundColor: AppTheme.priorityHigh,
-                                      ),
+                                    FxNotice.showContent(
+                                      context,
+                                      const Text('删除失败'),
+                                      variant: FxNoticeVariant.destructive,
                                     );
                                   }
                                 }

@@ -41,9 +41,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 
   Future<void> _createHabit() async {

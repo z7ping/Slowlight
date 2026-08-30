@@ -1023,8 +1023,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 }

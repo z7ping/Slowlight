@@ -199,9 +199,7 @@ class SyncStatusBadge extends StatelessWidget {
                         Navigator.pop(ctx);
                         await CloudSyncCoordinator().syncNow();
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('手动同步已触发')),
-                          );
+                          FxNotice.showContent(context, Text('手动同步已触发'));
                         }
                       },
                     ),

@@ -579,9 +579,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('删除失败：$e')));
+      FxNotice.showContent(context, Text('删除失败：$e'));
     }
   }
 }

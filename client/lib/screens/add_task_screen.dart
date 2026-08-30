@@ -127,9 +127,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 
   @override

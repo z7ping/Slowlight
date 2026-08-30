@@ -261,9 +261,7 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                                     failed > 0
                                         ? '顺延 ${overdueTasks.length - failed} 项完成，$failed 项失败'
                                         : '已将 ${overdueTasks.length} 个任务顺延至今天';
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).showSnackBar(SnackBar(content: Text(msg)));
+                                FxNotice.showContent(context, Text(msg));
                               }
                             },
                             borderRadius: BorderRadius.circular(4),

@@ -304,12 +304,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
   void _message(String message, {bool error = false}) {
     if (!mounted) return;
     final theme = Theme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: error ? theme.colorScheme.error : null,
-        content: Text(message),
-      ),
+    FxNotice.showContent(
+      context,
+      Text(message),
+      variant: error ? FxNoticeVariant.destructive : FxNoticeVariant.normal,
     );
   }
 

@@ -495,21 +495,11 @@ class _DashboardBodyState extends State<DashboardBody> {
       HapticFeedback.lightImpact();
       await DataService().postponeTask(task.id, null);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('已顺延到明天'),
-        ),
-      );
+      FxNotice.showContent(context, Text('已顺延到明天'));
       widget.onRefresh?.call();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('顺延任务失败'),
-        ),
-      );
+      FxNotice.showContent(context, Text('顺延任务失败'));
     }
   }
 

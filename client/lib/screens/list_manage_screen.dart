@@ -342,9 +342,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
       await _loadLists();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('删除失败：$e')));
+      FxNotice.showContent(context, Text('删除失败：$e'));
     }
   }
 

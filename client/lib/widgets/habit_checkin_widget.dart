@@ -58,11 +58,10 @@ class HabitCheckinWidget extends StatelessWidget {
       onCheckin?.call();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('打卡失败: $e'),
-            backgroundColor: AppTheme.error,
-          ),
+        FxNotice.showContent(
+          context,
+          Text('打卡失败: $e'),
+          variant: FxNoticeVariant.destructive,
         );
       }
     }

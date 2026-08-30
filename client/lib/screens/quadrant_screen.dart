@@ -439,22 +439,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         outputLevel: task.outputLevel,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('任务已移动'),
-          ),
-        );
+        FxNotice.showContent(context, Text('任务已移动'));
       }
       await _load();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('移动任务失败'),
-        ),
-      );
+      FxNotice.showContent(context, Text('移动任务失败'));
     }
   }
 }

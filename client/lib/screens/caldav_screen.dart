@@ -108,34 +108,32 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         final error = result['error'] as String?;
 
         String message;
-        Color color;
+        FxNoticeVariant noticeVariant;
         if (connected && queryOk) {
           message = '连接成功！找到 $taskCount 个任务';
-          color = AppTheme.success;
+          noticeVariant = FxNoticeVariant.success;
         } else if (connected) {
           message = '已连接，但查询失败：${error ?? "未知错误"}';
-          color = AppTheme.warning;
+          noticeVariant = FxNoticeVariant.warning;
         } else {
           message = '连接失败：${error ?? "未知错误"}';
-          color = AppTheme.error;
+          noticeVariant = FxNoticeVariant.destructive;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: color,
-            duration: const Duration(seconds: 3),
-          ),
+        FxNotice.showContent(
+          context,
+          Text(message),
+          duration: const Duration(seconds: 3),
+          variant: noticeVariant,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('测试失败：$e'),
-            backgroundColor: AppTheme.error,
-            duration: const Duration(seconds: 3),
-          ),
+        FxNotice.showContent(
+          context,
+          Text('测试失败：$e'),
+          duration: const Duration(seconds: 3),
+          variant: FxNoticeVariant.destructive,
         );
       }
     } finally {
@@ -172,12 +170,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
 
       _loadStatus();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('配置保存成功！系统将每5分钟自动同步'),
-          backgroundColor: AppTheme.success,
-          duration: Duration(seconds: 3),
-        ),
+      FxNotice.showContent(
+        context,
+        Text('配置保存成功！系统将每5分钟自动同步'),
+        duration: Duration(seconds: 3),
+        variant: FxNoticeVariant.success,
       );
     } catch (e) {
       if (!mounted) return;
@@ -186,12 +183,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         _lastError = e.toString();
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('保存失败：$e'),
-          backgroundColor: AppTheme.error,
-          duration: const Duration(seconds: 3),
-        ),
+      FxNotice.showContent(
+        context,
+        Text('保存失败：$e'),
+        duration: const Duration(seconds: 3),
+        variant: FxNoticeVariant.destructive,
       );
     }
   }
@@ -210,27 +206,25 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           message += '\n错误：${errors.length} 个';
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor:
-                errors?.isNotEmpty == true
-                    ? AppTheme.warning
-                    : AppTheme.success,
-            duration: const Duration(seconds: 5),
-          ),
+        FxNotice.showContent(
+          context,
+          Text(message),
+          duration: const Duration(seconds: 5),
+          variant:
+              errors?.isNotEmpty == true
+                  ? FxNoticeVariant.warning
+                  : FxNoticeVariant.success,
         );
 
         _loadStatus();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('同步失败：$e'),
-            backgroundColor: AppTheme.error,
-            duration: const Duration(seconds: 3),
-          ),
+        FxNotice.showContent(
+          context,
+          Text('同步失败：$e'),
+          duration: const Duration(seconds: 3),
+          variant: FxNoticeVariant.destructive,
         );
       }
     }

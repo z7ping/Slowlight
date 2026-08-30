@@ -208,14 +208,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     if (lastBackAt == null ||
         now.difference(lastBackAt) > const Duration(seconds: 2)) {
       _lastAndroidBackAt = now;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            duration: Duration(seconds: 2),
-            content: Text('再按一次退出 Slowlight'),
-          ),
-        );
+      FxNotice.clear(context);
+      FxNotice.showContent(
+        context,
+        Text('再按一次退出 Slowlight'),
+        duration: Duration(seconds: 2),
+      );
       return;
     }
 
@@ -347,9 +345,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 
   @override

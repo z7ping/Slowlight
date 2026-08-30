@@ -598,20 +598,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _expanded.remove(_questionKey(question));
         controller.clear();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('回应已保存'),
-        ),
-      );
+      FxNotice.showContent(context, Text('回应已保存'));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('保存回应失败'),
-        ),
-      );
+      FxNotice.showContent(context, Text('保存回应失败'));
     }
   }
 

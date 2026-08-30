@@ -52,8 +52,10 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载系统标签失败'), backgroundColor: Colors.red),
+        FxNotice.showContent(
+          context,
+          Text('加载系统标签失败'),
+          variant: FxNoticeVariant.destructive,
         );
       }
     }

@@ -42,14 +42,15 @@ class TaskCreateSheet extends StatefulWidget {
       showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (_) => TaskCreateSheet(
-        quickMode: true,
-        systemTagId: systemTagId,
-        systemTagName: systemTagName,
-        initialPriority: initialPriority,
-        defaultDueToday: defaultDueToday,
-        onCreated: onCreated,
-      ),
+      builder:
+          (_) => TaskCreateSheet(
+            quickMode: true,
+            systemTagId: systemTagId,
+            systemTagName: systemTagName,
+            initialPriority: initialPriority,
+            defaultDueToday: defaultDueToday,
+            onCreated: onCreated,
+          ),
     );
   }
 
@@ -67,9 +68,7 @@ class TaskCreateSheet extends StatefulWidget {
     final resolvedLists = lists ?? await DataService().getLists();
     if (!context.mounted) return false;
     if (resolvedLists.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先创建一个清单')),
-      );
+      FxNotice.showContent(context, Text('请先创建一个清单'));
       return false;
     }
 
@@ -98,8 +97,10 @@ class TaskCreateSheet extends StatefulWidget {
       builder: (dialogContext) {
         final size = MediaQuery.sizeOf(dialogContext);
         return Dialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
           backgroundColor: fxSurface(dialogContext),
           surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
@@ -211,9 +212,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               const SizedBox(height: 12),
               Text(
                 '记录任务',
-                style: SlowlightTypography.cardTitle(context).copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: SlowlightTypography.cardTitle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
               FxInput(
@@ -229,9 +230,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               if (_loadingLists)
                 Text(
                   '正在读取清单…',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.caption(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 )
               else
                 Wrap(
@@ -281,9 +282,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 const SizedBox(height: 10),
                 Text(
                   _error!,
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: theme.colorScheme.error,
-                  ),
+                  style: SlowlightTypography.caption(
+                    context,
+                  ).copyWith(color: theme.colorScheme.error),
                 ),
               ],
               const SizedBox(height: 14),
@@ -367,7 +368,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       _error = null;
     });
 
-    final messenger = ScaffoldMessenger.of(context);
+    final notice = FxNotice.capture(context);
     try {
       final listId = _selectedListId;
       late Task task;
@@ -414,9 +415,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       HapticFeedback.lightImpact();
       widget.onCreated?.call();
       Navigator.pop(context);
-      messenger.showSnackBar(
-        SnackBar(content: Text(_createdText(task))),
-      );
+      notice.showContent(Text(_createdText(task)));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -441,9 +440,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   String _createdText(Task task) {
     final listName = task.list?.name ?? _selectedListName();
     final dateText = _dueToday ? ' · 今天' : '';
-    final priorityText = _selectedPriority == 'none'
-        ? ''
-        : ' · ${_priorityLabel(_selectedPriority)}';
+    final priorityText =
+        _selectedPriority == 'none'
+            ? ''
+            : ' · ${_priorityLabel(_selectedPriority)}';
     final tagText =
         widget.systemTagId != null && (widget.systemTagName ?? '').isNotEmpty
             ? ' · ${widget.systemTagName}'
@@ -452,23 +452,23 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   }
 
   String _normalizePriority(String value) => switch (value) {
-        'urgent_important' || 'important' || 'urgent' || 'none' => value,
-        _ => 'none',
-      };
+    'urgent_important' || 'important' || 'urgent' || 'none' => value,
+    _ => 'none',
+  };
 
   String _priorityLabel(String value) => switch (value) {
-        'urgent_important' => '重要 · 紧急',
-        'important' => '重要 · 不紧急',
-        'urgent' => '不重要 · 紧急',
-        _ => '不重要 · 不紧急',
-      };
+    'urgent_important' => '重要 · 紧急',
+    'important' => '重要 · 不紧急',
+    'urgent' => '不重要 · 紧急',
+    _ => '不重要 · 不紧急',
+  };
 
   String _nextPriority(String value) => switch (value) {
-        'none' => 'urgent_important',
-        'urgent_important' => 'important',
-        'important' => 'urgent',
-        _ => 'none',
-      };
+    'none' => 'urgent_important',
+    'urgent_important' => 'important',
+    'important' => 'urgent',
+    _ => 'none',
+  };
 }
 
 class _QuickChip extends StatelessWidget {
@@ -495,13 +495,12 @@ class _QuickChip extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: .12)
-              : fxSubtleSurface(context),
+          color:
+              selected
+                  ? accent.withValues(alpha: .12)
+                  : fxSubtleSurface(context),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? accent : fxBorder(context),
-          ),
+          border: Border.all(color: selected ? accent : fxBorder(context)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -550,9 +549,9 @@ class _DefaultHint extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             text,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),

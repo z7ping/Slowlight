@@ -327,9 +327,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 
   String _formatTime(Object? value) {

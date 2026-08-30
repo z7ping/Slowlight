@@ -13,22 +13,17 @@ class MigrationPreviewDialog extends StatefulWidget {
   const MigrationPreviewDialog({super.key});
 
   static Future<void> show(BuildContext context) => FxDialog.show<void>(
-        context: context,
-        width: 880,
-        child: const MigrationPreviewDialog(),
-      );
+    context: context,
+    width: 880,
+    child: const MigrationPreviewDialog(),
+  );
 
   @override
   State<MigrationPreviewDialog> createState() => _MigrationPreviewDialogState();
 }
 
 class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
-  final _counts = <String, int>{
-    '任务': 0,
-    '习惯': 0,
-    '打卡记录': 0,
-    '专注记录': 0,
-  };
+  final _counts = <String, int>{'任务': 0, '习惯': 0, '打卡记录': 0, '专注记录': 0};
 
   bool _loading = true;
   String _choice = 'local';
@@ -49,9 +44,11 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
       final db = await LocalDb().database;
       final values = await Future.wait([
         db.rawQuery(
-            'SELECT COUNT(*) AS count FROM tasks WHERE deleted_at IS NULL'),
+          'SELECT COUNT(*) AS count FROM tasks WHERE deleted_at IS NULL',
+        ),
         db.rawQuery(
-            'SELECT COUNT(*) AS count FROM habits WHERE deleted_at IS NULL'),
+          'SELECT COUNT(*) AS count FROM habits WHERE deleted_at IS NULL',
+        ),
         db.rawQuery('SELECT COUNT(*) AS count FROM habit_logs'),
         db.rawQuery('SELECT COUNT(*) AS count FROM work_sessions'),
       ]);
@@ -65,18 +62,17 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         _lastReport = report?['created_at']?.toString();
         final preview = await MigrationService().preview();
         final summary = Map<String, dynamic>.from(preview['summary'] as Map);
-        _counts['任务'] =
-            (summary['tasks'] as num?)?.toInt() ?? _counts['任务']!;
-        _counts['习惯'] =
-            (summary['habits'] as num?)?.toInt() ?? _counts['习惯']!;
+        _counts['任务'] = (summary['tasks'] as num?)?.toInt() ?? _counts['任务']!;
+        _counts['习惯'] = (summary['habits'] as num?)?.toInt() ?? _counts['习惯']!;
         _counts['打卡记录'] =
             (summary['habit_logs'] as num?)?.toInt() ?? _counts['打卡记录']!;
         _counts['专注记录'] =
             (summary['sessions'] as num?)?.toInt() ?? _counts['专注记录']!;
-        _conflicts = (preview['conflicts'] as List? ?? const [])
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
+        _conflicts =
+            (preview['conflicts'] as List? ?? const [])
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList();
         _conflictCount = _conflicts.length;
       }
     } catch (e) {
@@ -102,7 +98,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
       color: fxSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );
@@ -112,9 +109,10 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     final theme = Theme.of(context);
     return FxChip(
       label: label,
-      backgroundColor: accent
-          ? activePalette.accent.withValues(alpha: .12)
-          : fxSubtleSurface(context),
+      backgroundColor:
+          accent
+              ? activePalette.accent.withValues(alpha: .12)
+              : fxSubtleSurface(context),
       foregroundColor:
           accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
       borderRadius: 999,
@@ -127,8 +125,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxWidth: 880,
-        maxHeight:
-            (MediaQuery.sizeOf(context).height - 96).clamp(520.0, 660.0),
+        maxHeight: (MediaQuery.sizeOf(context).height - 96).clamp(520.0, 660.0),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -158,11 +155,12 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                   const SizedBox(height: AppTheme.spaceLg),
                   FxSectionHeader(
                     title: '冲突处理',
-                    trailing: DataModeManager().isCloud
-                        ? (_conflictCount == 0
-                            ? '云端比对完成 · 无需处理'
-                            : '发现 $_conflictCount 项需要确认')
-                        : '登录云端后才会读取并比较云端数据',
+                    trailing:
+                        DataModeManager().isCloud
+                            ? (_conflictCount == 0
+                                ? '云端比对完成 · 无需处理'
+                                : '发现 $_conflictCount 项需要确认')
+                            : '登录云端后才会读取并比较云端数据',
                   ),
                   const SizedBox(height: AppTheme.spaceXs),
                   if (DataModeManager().isCloud && _conflictCount > 0)
@@ -191,16 +189,16 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             children: [
               Text(
                 '迁移本地数据到云端',
-                style: SlowlightTypography.pageTitle(context).copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: SlowlightTypography.pageTitle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 3),
               Text(
                 '先扫描和比较，再决定如何处理冲突；预览阶段不会写入或删除数据。',
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: SlowlightTypography.caption(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -228,8 +226,9 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.primaryContainer.withValues(alpha: .55),
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: .55,
+                  ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
                 child: Icon(
@@ -244,16 +243,16 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                   children: [
                     Text(
                       '本机数据 → Slowlight 云端',
-                      style: SlowlightTypography.cardTitle(context).copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: SlowlightTypography.cardTitle(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       '本地数据始终保留；只有最终确认后才会开始迁移。',
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -273,8 +272,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 _loading
                     ? '正在扫描'
                     : _previewError != null
-                        ? '比对异常'
-                        : '预览就绪',
+                    ? '比对异常'
+                    : '预览就绪',
                 accent: !_loading && _previewError == null,
               ),
             ],
@@ -310,9 +309,11 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 560 ||
-              MediaQuery.textScalerOf(context)
-                      .scale(SlowlightTypography.secondarySize) >=
+          final compact =
+              constraints.maxWidth < 560 ||
+              MediaQuery.textScalerOf(
+                    context,
+                  ).scale(SlowlightTypography.secondarySize) >=
                   SlowlightTypography.secondarySize * 1.3;
           if (compact) {
             return Wrap(
@@ -331,11 +332,13 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 return Expanded(
                   child: Container(
                     height: 1,
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: AppTheme.spaceXs),
-                    color: before < _currentStep
-                        ? Theme.of(context).colorScheme.primary
-                        : fxDivider(context),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spaceXs,
+                    ),
+                    color:
+                        before < _currentStep
+                            ? Theme.of(context).colorScheme.primary
+                            : fxDivider(context),
                   ),
                 );
               }
@@ -361,31 +364,39 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           height: 24,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: emphasized
-                ? theme.colorScheme.primary
-                : fxSubtleSurface(context),
+            color:
+                emphasized
+                    ? theme.colorScheme.primary
+                    : fxSubtleSurface(context),
             shape: BoxShape.circle,
           ),
-          child: completed
-              ? Icon(Icons.check, size: 14, color: theme.colorScheme.onPrimary)
-              : Text(
-                  '${index + 1}',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: current
-                        ? theme.colorScheme.onPrimary
-                        : theme.colorScheme.onSurfaceVariant,
+          child:
+              completed
+                  ? Icon(
+                    Icons.check,
+                    size: 14,
+                    color: theme.colorScheme.onPrimary,
+                  )
+                  : Text(
+                    '${index + 1}',
+                    style: SlowlightTypography.caption(context).copyWith(
+                      fontWeight: FontWeight.w700,
+                      color:
+                          current
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
         ),
         const SizedBox(width: 7),
         Text(
           label,
           style: SlowlightTypography.caption(context).copyWith(
             fontWeight: current ? FontWeight.w700 : FontWeight.w500,
-            color: emphasized
-                ? theme.colorScheme.onSurface
-                : theme.colorScheme.onSurfaceVariant,
+            color:
+                emphasized
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ],
@@ -393,27 +404,32 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   }
 
   Widget _countGrid() => LayoutBuilder(
-        builder: (context, constraints) {
-          final largeText = MediaQuery.textScalerOf(context)
-                  .scale(SlowlightTypography.bodySize) >=
-              SlowlightTypography.bodySize * 1.3;
-          final columns = largeText
+    builder: (context, constraints) {
+      final largeText =
+          MediaQuery.textScalerOf(
+            context,
+          ).scale(SlowlightTypography.bodySize) >=
+          SlowlightTypography.bodySize * 1.3;
+      final columns =
+          largeText
               ? 1
               : constraints.maxWidth < 520
-                  ? 2
-                  : 4;
-          return GridView.count(
-            crossAxisCount: columns,
-            mainAxisSpacing: AppTheme.spaceXs,
-            crossAxisSpacing: AppTheme.spaceXs,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: columns == 1
+              ? 2
+              : 4;
+      return GridView.count(
+        crossAxisCount: columns,
+        mainAxisSpacing: AppTheme.spaceXs,
+        crossAxisSpacing: AppTheme.spaceXs,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio:
+            columns == 1
                 ? 3.4
                 : columns == 2
-                    ? 2.45
-                    : 1.95,
-            children: _counts.entries
+                ? 2.45
+                : 1.95,
+        children:
+            _counts.entries
                 .map(
                   (entry) => FxStatCell(
                     label: entry.key,
@@ -421,9 +437,9 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                   ),
                 )
                 .toList(),
-          );
-        },
       );
+    },
+  );
 
   Widget _comparisonStateCard() {
     final theme = Theme.of(context);
@@ -451,18 +467,16 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               children: [
                 Text(
                   cloud ? '当前没有需要确认的冲突' : '登录云端后开始数据比对',
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  cloud
-                      ? '可以继续到确认迁移；本地数据仍不会被删除。'
-                      : '登录仅用于读取云端并生成冲突预览，确认前不会写入。',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  cloud ? '可以继续到确认迁移；本地数据仍不会被删除。' : '登录仅用于读取云端并生成冲突预览，确认前不会写入。',
+                  style: SlowlightTypography.caption(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -524,9 +538,9 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           const SizedBox(height: AppTheme.spaceXs),
           Text(
             '冲突策略将在确认迁移后应用；当前不会覆盖任何云端数据。',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -546,12 +560,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     return name == null || name.isEmpty ? entity : '$entity：$name';
   }
 
-  Widget _version(
-    ThemeData theme,
-    String title,
-    String item,
-    IconData icon,
-  ) =>
+  Widget _version(ThemeData theme, String title, String item, IconData icon) =>
       Container(
         width: double.infinity,
         padding: const EdgeInsets.all(AppTheme.spaceSm),
@@ -577,35 +586,33 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             const SizedBox(height: 4),
             Text(
               '状态、截止日期等字段存在差异',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ),
       );
 
   Widget _choiceButton(String value, String label, IconData icon) => FxButton(
-        label: label,
-        icon: icon,
-        variant: _choice == value
-            ? FxButtonVariant.primary
-            : FxButtonVariant.outline,
-        size: FxButtonSize.sm,
-        onPressed: () => setState(() => _choice = value),
-      );
+    label: label,
+    icon: icon,
+    variant:
+        _choice == value ? FxButtonVariant.primary : FxButtonVariant.outline,
+    size: FxButtonSize.sm,
+    onPressed: () => setState(() => _choice = value),
+  );
 
   Widget _footer() {
     final theme = Theme.of(context);
-    final status = _loading
-        ? '正在扫描本机数据…'
-        : _previewError != null
+    final status =
+        _loading
+            ? '正在扫描本机数据…'
+            : _previewError != null
             ? '云端比对失败：$_previewError'
             : DataModeManager().isCloud
-                ? (_lastReport == null
-                    ? '预览已就绪'
-                    : '预览已就绪 · 最近迁移 $_lastReport')
-                : '登录云端后将计算冲突';
+            ? (_lastReport == null ? '预览已就绪' : '预览已就绪 · 最近迁移 $_lastReport')
+            : '登录云端后将计算冲突';
 
     return Container(
       width: double.infinity,
@@ -623,23 +630,26 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               FxButton(
                 label: _previewError == null ? '取消' : '重试',
                 variant: FxButtonVariant.outline,
-                onPressed: _previewError == null
-                    ? () => Navigator.of(context, rootNavigator: true).pop()
-                    : () => setState(() {
+                onPressed:
+                    _previewError == null
+                        ? () => Navigator.of(context, rootNavigator: true).pop()
+                        : () => setState(() {
                           _loading = true;
                           _previewError = null;
                           _loadCounts();
                         }),
               ),
               FxButton(
-                label: _executing
-                    ? '正在迁移…'
-                    : DataModeManager().isCloud
+                label:
+                    _executing
+                        ? '正在迁移…'
+                        : DataModeManager().isCloud
                         ? '确认并迁移'
                         : '登录云端并预览',
-                icon: DataModeManager().isCloud
-                    ? Icons.cloud_upload_outlined
-                    : Icons.login_outlined,
+                icon:
+                    DataModeManager().isCloud
+                        ? Icons.cloud_upload_outlined
+                        : Icons.login_outlined,
                 onPressed: _executing ? null : _continue,
               ),
             ],
@@ -650,9 +660,10 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             maxLines: constraints.maxWidth < 620 ? null : 1,
             overflow: constraints.maxWidth < 620 ? null : TextOverflow.ellipsis,
             style: SlowlightTypography.caption(context).copyWith(
-              color: _previewError == null
-                  ? theme.colorScheme.onSurfaceVariant
-                  : theme.colorScheme.error,
+              color:
+                  _previewError == null
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.error,
             ),
           );
           if (constraints.maxWidth < 620) {
@@ -691,15 +702,11 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         '打卡 ${created['habit_logs'] ?? 0}',
         '专注 ${created['sessions'] ?? 0}',
       ].join(' · ');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('迁移完成：$report')),
-      );
+      FxNotice.showContent(context, Text('迁移完成：$report'));
       Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('迁移失败：$e')),
-        );
+        FxNotice.showContent(context, Text('迁移失败：$e'));
       }
     } finally {
       if (mounted) setState(() => _executing = false);
@@ -724,9 +731,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     final updatedToken = await AuthService.getToken();
     if (updatedToken == null || updatedToken.startsWith('local:')) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先登录云端账号后再迁移')),
-        );
+        FxNotice.showContent(context, Text('请先登录云端账号后再迁移'));
       }
       return;
     }
