@@ -226,9 +226,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     final theme = Theme.of(context);
     final open = _open == id;
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.secondarySize) >=
-        SlowlightTypography.secondarySize * 1.3;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final stackHeader =
+        scale >= 1.6 && MediaQuery.sizeOf(context).width < 520;
     return FxCard(
       padding: EdgeInsets.zero,
       color: fxSurface(context),
@@ -237,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       expanded: true,
       child: Column(
         children: [
-          InkWell(
+          FxInkWell(
             onTap: () => setState(() => _open = open ? '' : id),
             borderRadius: BorderRadius.circular(AppTheme.radiusLg),
             child: ConstrainedBox(
@@ -245,31 +245,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: largeText
+                child: stackHeader
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(children: [
-                            Icon(icon, size: 18),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                title,
-                                style: SlowlightTypography.secondary(context)
-                                    .copyWith(fontWeight: FontWeight.w600),
+                          Row(
+                            children: [
+                              Icon(icon, size: 18),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: SlowlightTypography.secondary(context)
+                                      .copyWith(fontWeight: FontWeight.w600),
+                                ),
                               ),
-                            ),
-                            Icon(
-                              open
-                                  ? Icons.keyboard_arrow_down
-                                  : Icons.chevron_right,
-                            ),
-                          ]),
+                              Icon(
+                                open
+                                    ? Icons.keyboard_arrow_down
+                                    : Icons.chevron_right,
+                                size: 18,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 4),
-                          Text(
-                            summary,
-                            style: SlowlightTypography.caption(context).copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                          Padding(
+                            padding: const EdgeInsets.only(left: 28),
+                            child: Text(
+                              summary,
+                              style: SlowlightTypography.caption(context)
+                                  .copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
                         ],
@@ -329,16 +337,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _segmented(List<String> labels, int selected, ValueChanged<int> change) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: FxSegmented(
-        labels: labels,
-        selectedIndex: selected,
-        onChanged: change,
-        backgroundColor: fxSubtleSurface(context),
-        selectedColor: fxSurface(context),
-        borderRadius: AppTheme.radiusMd,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        final expanded = constraints.maxWidth >= 320 && scale < 1.6;
+        final segmented = FxSegmented(
+          labels: labels,
+          selectedIndex: selected,
+          onChanged: change,
+          backgroundColor: fxSubtleSurface(context),
+          selectedColor: fxSurface(context),
+          borderRadius: AppTheme.radiusMd,
+          expanded: expanded,
+        );
+        if (expanded) {
+          return SizedBox(width: double.infinity, child: segmented);
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: segmented,
+        );
+      },
     );
   }
 
@@ -369,48 +388,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
           runSpacing: 8,
           children: allPalettes.map((palette) {
             final selected = settings.palette == palette.name;
-            return InkWell(
+            return FxInkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: () async {
                 await settings.setPalette(palette.name);
                 if (mounted) setState(() {});
               },
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 104, minHeight: 44),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: selected
-                        ? palette.accent
-                        : theme.colorScheme.outlineVariant,
-                    width: selected ? 2 : 1,
+              child: SizedBox(
+                width: 116,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: selected
+                          ? palette.accent
+                          : theme.colorScheme.outlineVariant,
+                      width: selected ? 2 : 1,
+                    ),
+                    color: theme.colorScheme.surface,
                   ),
-                  color: theme.colorScheme.surface,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 17,
-                      height: 17,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: palette.accent,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 17,
+                        height: 17,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: palette.accent,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 7),
-                    Text(
-                      palette.label,
-                      style: SlowlightTypography.caption(context)
-                          .copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    if (selected) ...[
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          palette.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.caption(context)
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                       const SizedBox(width: 6),
-                      Icon(Icons.check, size: 14, color: palette.accent),
+                      Opacity(
+                        opacity: selected ? 1 : 0,
+                        child: Icon(Icons.check, size: 14, color: palette.accent),
+                      ),
                     ],
-                  ],
+                  ),
                 ),
               ),
             );
@@ -429,11 +455,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-        Slider(
+        FxSlider(
           value: visibleScale,
           min: 1.0,
           max: 1.25,
           divisions: 5,
+          label: '${(visibleScale * 100).round()}%',
           onChanged: (value) {
             settings.setFontScale(value);
             setState(() {});
@@ -453,28 +480,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _label('字体'),
-            DropdownButton<String>(
-              value: settings.fontFamily,
-              items: ThemeSettings.fontFamilyOptions.entries
-                  .map((entry) => DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(entry.value),
-                      ))
-                  .toList(growable: false),
-              onChanged: (value) async {
-                if (value == null) return;
-                await settings.setFontFamily(value);
-                if (mounted) setState(() {});
-              },
-            ),
-          ],
+        _label('字体'),
+        FxSelect<String>(
+          value: settings.fontFamily,
+          options: ThemeSettings.fontFamilyOptions.entries
+              .map(
+                (entry) => FxSelectOption<String>(
+                  value: entry.key,
+                  label: entry.value,
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (value) async {
+            if (value == null) return;
+            await settings.setFontFamily(value);
+            if (mounted) setState(() {});
+          },
         ),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
           child: FxButton(
@@ -580,23 +603,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            '启用 AI',
-            style: SlowlightTypography.secondary(context)
-                .copyWith(fontWeight: FontWeight.w600),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FxSwitch(
+            value: _ai.enabled,
+            label: '启用 AI',
+            description: '提问引擎与回顾洞察',
+            onChanged: (value) =>
+                setState(() => _ai = _ai.copyWith(enabled: value)),
           ),
-          subtitle: Text(
-            '提问引擎与回顾洞察',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          value: _ai.enabled,
-          onChanged: (value) =>
-              setState(() => _ai = _ai.copyWith(enabled: value)),
         ),
+        const SizedBox(height: 12),
         _label('服务商'),
         _segmented(
           providers.map((provider) => provider.label).toList(growable: false),
@@ -605,28 +622,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 10),
         _label('接口地址'),
-        TextField(
+        FxInput(
           controller: _endpoint,
           style: SlowlightTypography.secondary(context),
         ),
         const SizedBox(height: 10),
         _label('模型'),
-        TextField(
+        FxInput(
           controller: _model,
           style: SlowlightTypography.secondary(context),
         ),
         if (_ai.provider != AiProviderType.ollama) ...[
           const SizedBox(height: 10),
           _label('访问密钥'),
-          TextField(
+          FxInput(
             controller: _key,
             obscureText: true,
             enableSuggestions: false,
             autocorrect: false,
             style: SlowlightTypography.secondary(context),
-            decoration: InputDecoration(
-              hintText: _hasKey ? '已安全保存；留空保持原值' : '仅保存在本机安全存储',
-            ),
+            placeholder: _hasKey ? '已安全保存；留空保持原值' : '仅保存在本机安全存储',
           ),
         ],
         const SizedBox(height: 10),
@@ -782,9 +797,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _settingLine(String title, String subtitle, {Widget? trailing}) {
     final theme = Theme.of(context);
-    final largeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.secondarySize) >=
-        SlowlightTypography.secondarySize * 1.3;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final stackTrailing =
+        trailing != null && scale >= 1.6 && MediaQuery.sizeOf(context).width < 520;
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -804,14 +819,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       constraints: const BoxConstraints(minHeight: 52),
       padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration:
-          BoxDecoration(border: Border(bottom: BorderSide(color: fxDivider(context)))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: fxDivider(context))),
+      ),
       child: trailing == null
           ? copy
-          : largeText
+          : stackTrailing
               ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [copy, const SizedBox(height: 8), trailing],
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    copy,
+                    const SizedBox(height: 8),
+                    Align(alignment: Alignment.centerRight, child: trailing),
+                  ],
                 )
               : Row(
                   children: [
