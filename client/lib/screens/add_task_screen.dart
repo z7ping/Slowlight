@@ -130,9 +130,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.embedded) {
-      return _editorShell(showBack: false);
-    }
+    if (widget.embedded) return _editorShell(showBack: false);
     return Scaffold(
       body: SafeArea(child: _editorShell(showBack: true)),
     );
@@ -176,14 +174,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   ),
                 ),
               ),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  tooltip: '关闭',
-                  onPressed: _isSaving ? null : () => Navigator.pop(context),
-                  icon: const Icon(LucideIcons.x, size: 18),
-                ),
+              FxIconButton(
+                tooltip: '关闭',
+                onPressed: _isSaving ? null : () => Navigator.pop(context),
+                icon: LucideIcons.x,
               ),
             ],
           ),
@@ -194,11 +188,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Widget _form() {
-    final desktop = MediaQuery.sizeOf(context).width >= 600;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final desktop = MediaQuery.sizeOf(context).width >= 700 && scale < 1.6;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
+        FxInput(
           controller: _titleController,
           autofocus: true,
           enabled: !_isSaving,
@@ -206,16 +201,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           style: SlowlightTypography.body(context).copyWith(
             fontWeight: FontWeight.w600,
           ),
-          decoration: const InputDecoration(hintText: '任务标题'),
+          placeholder: '任务标题',
         ),
         const SizedBox(height: 8),
-        TextField(
+        FxInput(
           controller: _descController,
           enabled: !_isSaving,
           minLines: 1,
           maxLines: 3,
           style: SlowlightTypography.secondary(context),
-          decoration: const InputDecoration(hintText: '描述（可选）'),
+          placeholder: '描述（可选）',
         ),
         const SizedBox(height: 14),
         if (desktop)
@@ -272,13 +267,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               final day = index + 1;
               const labels = ['一', '二', '三', '四', '五', '六', '日'];
               final selected = _selectedWeekdays.contains(day);
-              return ChoiceChip(
-                label: Text(labels[index]),
-                labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-                showCheckmark: false,
+              return _choiceChip(
+                labels[index],
                 selected: selected,
-                selectedColor: activePalette.accent.withValues(alpha: .12),
-                onSelected: (_) => setState(() {
+                onTap: () => setState(() {
                   selected
                       ? _selectedWeekdays.remove(day)
                       : _selectedWeekdays.add(day);
@@ -291,6 +283,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
+  Widget _choiceChip(
+    String label, {
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return FxChip(
+      label: label,
+      variant: selected ? FxChipVariant.secondary : FxChipVariant.outline,
+      backgroundColor:
+          selected ? activePalette.accent.withValues(alpha: .12) : null,
+      foregroundColor: selected ? activePalette.accent : null,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      onTap: _isSaving ? null : onTap,
+    );
+  }
+
   Widget _listField() {
     return _field(
       label: '清单',
@@ -299,13 +307,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         runSpacing: 6,
         children: widget.lists.map((list) {
           final selected = _selectedListId == list.id;
-          return ChoiceChip(
-            label: Text('${list.icon} ${list.name}'),
-            labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-            showCheckmark: false,
+          return _choiceChip(
+            '${list.icon} ${list.name}',
             selected: selected,
-            selectedColor: activePalette.accent.withValues(alpha: .12),
-            onSelected: (_) => setState(() => _selectedListId = list.id),
+            onTap: () => setState(() => _selectedListId = list.id),
           );
         }).toList(growable: false),
       ),
@@ -329,13 +334,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   Widget _priorityChip(String value, String label) {
     final selected = _priority == value;
-    return ChoiceChip(
-      label: Text(label),
-      labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-      showCheckmark: false,
+    return _choiceChip(
+      label,
       selected: selected,
-      selectedColor: activePalette.accent.withValues(alpha: .12),
-      onSelected: (on) => setState(() => _priority = on ? value : 'none'),
+      onTap: () => setState(() => _priority = selected ? 'none' : value),
     );
   }
 
@@ -387,24 +389,24 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     };
     return _field(
       label: '重复',
-      child: DropdownButtonFormField<String>(
-        value: _repeatType,
-        isExpanded: true,
-        decoration: const InputDecoration(isDense: true),
-        items: labels.entries
-            .map(
-              (entry) => DropdownMenuItem(
-                value: entry.key,
-                child: Text(entry.value),
-              ),
-            )
-            .toList(growable: false),
-        onChanged: _isSaving
-            ? null
-            : (value) => setState(() {
-                  _repeatType = value ?? 'none';
-                  if (_repeatType != 'weekly') _selectedWeekdays.clear();
-                }),
+      child: SizedBox(
+        width: double.infinity,
+        child: FxSelect<String>(
+          value: _repeatType,
+          enabled: !_isSaving,
+          options: labels.entries
+              .map(
+                (entry) => FxSelectOption<String>(
+                  value: entry.key,
+                  label: entry.value,
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (value) => setState(() {
+            _repeatType = value ?? 'none';
+            if (_repeatType != 'weekly') _selectedWeekdays.clear();
+          }),
+        ),
       ),
     );
   }
@@ -420,21 +422,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     };
     return _field(
       label: '提醒',
-      child: DropdownButtonFormField<int>(
-        value: _reminderAdvanceMinutes,
-        isExpanded: true,
-        decoration: const InputDecoration(isDense: true),
-        items: values.entries
-            .map(
-              (entry) => DropdownMenuItem(
-                value: entry.key,
-                child: Text(entry.value),
-              ),
-            )
-            .toList(growable: false),
-        onChanged: _isSaving
-            ? null
-            : (value) => setState(() => _reminderAdvanceMinutes = value ?? -1),
+      child: SizedBox(
+        width: double.infinity,
+        child: FxSelect<int>(
+          value: _reminderAdvanceMinutes,
+          enabled: !_isSaving,
+          options: values.entries
+              .map(
+                (entry) => FxSelectOption<int>(
+                  value: entry.key,
+                  label: entry.value,
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (value) =>
+              setState(() => _reminderAdvanceMinutes = value ?? -1),
+        ),
       ),
     );
   }
@@ -468,7 +471,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    return InkWell(
+    return FxInkWell(
       onTap: _isSaving ? null : onTap,
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       child: Container(
@@ -496,8 +499,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             if (widget.isEdit)
               FxButton(
@@ -507,7 +512,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     ? null
                     : () => Navigator.pop(context, 'delete'),
               ),
-            if (widget.isEdit) const SizedBox(width: 8),
             FxButton(
               label: _isSaving ? '保存中…' : '保存',
               onPressed: _isSaving ? null : _save,
@@ -520,7 +524,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   String _dateLabel(DateTime value) {
     final now = DateTime.now();
-    if (value.year == now.year && value.month == now.month && value.day == now.day) {
+    if (value.year == now.year &&
+        value.month == now.month &&
+        value.day == now.day) {
       return '今天';
     }
     return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
