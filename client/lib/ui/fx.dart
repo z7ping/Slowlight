@@ -2,6 +2,7 @@
 // 页面只 import 这一个文件，不直接依赖 shadcn_ui 或 material 具体组件
 
 export 'typography_tokens.dart';
+export 'widgets/fx_action_layout.dart';
 export 'widgets/fx_button.dart';
 export 'widgets/fx_icon_button.dart';
 export 'widgets/fx_slider.dart';
