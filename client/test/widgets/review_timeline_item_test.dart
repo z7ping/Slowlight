@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/widgets/review/review_timeline_item.dart';
 
+import '../support/fx_test_host.dart';
+
 void main() {
   testWidgets('ReviewTimelineItem 在 360dp + 200% 字体缩放下不溢出',
       (tester) async {
@@ -10,7 +12,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaler: const TextScaler.linear(2),
@@ -33,5 +35,6 @@ void main() {
 
     expect(find.text('今天 14:30'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 }

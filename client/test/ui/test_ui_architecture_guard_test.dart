@@ -42,31 +42,34 @@ void main() {
     return offenders;
   }
 
-  test('Screen Widget Test 统一通过 Fx 测试宿主验证产品 UI', () async {
-    final screens = Directory('test/screens');
-    expect(screens.existsSync(), isTrue, reason: '测试需从 client 目录运行');
-
-    final offenders = await inspectWidgetTests(screens);
+  Future<void> expectFxWidgetTests(Directory directory, String message) async {
+    expect(directory.existsSync(), isTrue, reason: '测试需从 client 目录运行');
+    final offenders = await inspectWidgetTests(directory);
     expect(
       offenders,
       isEmpty,
-      reason:
-          'Screen Widget Test 必须像正式页面一样从 Fx 产品层进入，避免测试继续锁定旧 Material/shadcn 实现细节：\n'
-          '${offenders.join('\n')}',
+      reason: '$message\n${offenders.join('\n')}',
+    );
+  }
+
+  test('Screen Widget Test 统一通过 Fx 测试宿主验证产品 UI', () async {
+    await expectFxWidgetTests(
+      Directory('test/screens'),
+      'Screen Widget Test 必须像正式页面一样从 Fx 产品层进入，避免测试继续锁定旧 Material/shadcn 实现细节：',
     );
   });
 
   test('Fx Widget Test 统一使用产品测试宿主，不自建平行视觉环境', () async {
-    final ui = Directory('test/ui');
-    expect(ui.existsSync(), isTrue, reason: '测试需从 client 目录运行');
+    await expectFxWidgetTests(
+      Directory('test/ui'),
+      'Fx Widget Test 应复用统一测试宿主，避免测试主题与正式应用视觉上下文漂移：',
+    );
+  });
 
-    final offenders = await inspectWidgetTests(ui);
-    expect(
-      offenders,
-      isEmpty,
-      reason:
-          'Fx Widget Test 应复用统一测试宿主，避免测试主题与正式应用视觉上下文漂移：\n'
-          '${offenders.join('\n')}',
+  test('Feature Widget Test 统一使用 Fx 测试宿主', () async {
+    await expectFxWidgetTests(
+      Directory('test/widgets'),
+      'Feature Widget Test 应通过 Fx 测试宿主运行，禁止继续维护独立 Material/shadcn 视觉环境：',
     );
   });
 }

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/task.dart';
-import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/typography_tokens.dart';
 import 'package:slowlight/widgets/task_tile.dart';
+
+import '../support/fx_test_host.dart';
 
 void main() {
   Task buildTask() => Task(
@@ -16,19 +16,11 @@ void main() {
         createdAt: DateTime(2026, 8, 30),
       );
 
-  Widget host(Widget child) => ShadTheme(
-        data: shadLightTheme(null),
-        child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: child,
-        ),
-      );
-
   testWidgets('TaskTile 紧凑模式在 360dp + 200% 字体缩放下允许标题换行',
       (tester) async {
     await tester.pumpWidget(
-      host(
-        MediaQuery(
+      buildFxTestHost(
+        home: MediaQuery(
           data: const MediaQueryData(
             size: Size(360, 800),
             textScaler: TextScaler.linear(2),
@@ -51,12 +43,13 @@ void main() {
     expect(title.style?.fontSize, SlowlightTypography.bodySize);
     expect(title.maxLines, 2);
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('TaskTile 默认字号仍保持紧凑标题单行', (tester) async {
     await tester.pumpWidget(
-      host(
-        Scaffold(
+      buildFxTestHost(
+        home: Scaffold(
           body: TaskTile(
             task: buildTask(),
             compact: true,
@@ -72,5 +65,6 @@ void main() {
     );
     expect(title.style?.fontSize, SlowlightTypography.bodySize);
     expect(title.maxLines, 1);
+    await disposeFxTestHost(tester);
   });
 }
