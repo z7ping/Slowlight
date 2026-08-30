@@ -6,8 +6,6 @@ import '../services/api/task_api.dart';
 import '../services/sync_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 /// 同步冲突：明确并排展示“本地版本 / 服务端版本”，再由用户选择。
 class ConflictScreen extends StatefulWidget {
@@ -66,7 +64,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            HfPageHeader(
+            FxPageHeader(
               title: '同步冲突',
               onBack: () => Navigator.maybePop(context),
             ),
@@ -103,8 +101,9 @@ class _ConflictScreenState extends State<ConflictScreen> {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 780),
-        child: HfCard(
+        child: FxCard(
           padding: const EdgeInsets.all(14),
+          expanded: true,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -117,9 +116,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
               Expanded(
                 child: Text(
                   '同一条任务在本机和服务端都发生了修改。请选择要保留的版本，处理后会继续同步。',
-                  style: TextStyle(
-                    fontSize: AppTheme.textSm,
-                    height: 1.5,
+                  style: SlowlightTypography.secondary(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -142,15 +139,14 @@ class _ConflictScreenState extends State<ConflictScreen> {
             color: AppTheme.success,
           ),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             '没有同步冲突',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            style: SlowlightTypography.cardTitle(context),
           ),
           const SizedBox(height: 4),
           Text(
             '本地数据和服务端数据已经一致',
-            style: TextStyle(
-              fontSize: AppTheme.textSm,
+            style: SlowlightTypography.secondary(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -180,12 +176,14 @@ class _ConflictScreenState extends State<ConflictScreen> {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 780),
-        child: HfCard(
+        child: FxCard(
           padding: const EdgeInsets.all(16),
+          expanded: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
                     LucideIcons.cloudAlert,
@@ -196,17 +194,17 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: SlowlightTypography.cardTitle(context),
                     ),
                   ),
-                  Text(
-                    '版本 ${local['version'] ?? 1}',
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
-                      color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '版本 ${local['version'] ?? 1}',
+                      textAlign: TextAlign.end,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -226,25 +224,23 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   ],
                 ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: FxButton(
-                      label: '保留本地版本',
-                      variant: FxButtonVariant.outline,
-                      onPressed: id == null
-                          ? null
-                          : () => _resolveConflict(id, keepLocal: true),
-                    ),
+                  FxButton(
+                    label: '保留本地版本',
+                    variant: FxButtonVariant.outline,
+                    onPressed: id == null
+                        ? null
+                        : () => _resolveConflict(id, keepLocal: true),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FxButton(
-                      label: '使用服务端版本',
-                      onPressed: id == null || remote == null
-                          ? null
-                          : () => _resolveConflict(id, keepLocal: false),
-                    ),
+                  FxButton(
+                    label: '使用服务端版本',
+                    onPressed: id == null || remote == null
+                        ? null
+                        : () => _resolveConflict(id, keepLocal: false),
                   ),
                 ],
               ),
@@ -269,14 +265,13 @@ class _ConflictScreenState extends State<ConflictScreen> {
             : theme.scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
-          color: accent ? activePalette.accent : hfBorder(context),
+          color: accent ? activePalette.accent : theme.colorScheme.outlineVariant,
         ),
       ),
       child: data == null
           ? Text(
               '暂时无法读取服务端版本',
-              style: TextStyle(
-                fontSize: AppTheme.textSm,
+              style: SlowlightTypography.secondary(context).copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             )
@@ -285,8 +280,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(context).copyWith(
                     fontWeight: FontWeight.w700,
                     color: accent
                         ? activePalette.accent
@@ -320,17 +314,16 @@ class _ConflictScreenState extends State<ConflictScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 48,
+            width: 64,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
+              style: SlowlightTypography.caption(context).copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           Expanded(
-            child: Text(text, style: const TextStyle(fontSize: AppTheme.textXs)),
+            child: Text(text, style: SlowlightTypography.caption(context)),
           ),
         ],
       ),
