@@ -59,11 +59,16 @@ void main() {
 
   Widget buildApp({
     Future<void> Function(BuildContext, DateTime)? createTask,
+    TextScaler textScaler = TextScaler.noScaling,
   }) {
     return ShadTheme(
       data: ThemeManager.shadLight,
       child: MaterialApp(
         theme: ThemeManager.lightTheme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+          child: child!,
+        ),
         home: Scaffold(
           body: CalendarScreen(
             monthLoader: loader,
@@ -79,12 +84,16 @@ void main() {
   Future<void> pumpCalendar(
     WidgetTester tester, {
     double width = 1200,
+    double height = 1000,
+    TextScaler textScaler = TextScaler.noScaling,
     Future<void> Function(BuildContext, DateTime)? createTask,
   }) async {
-    tester.view.physicalSize = Size(width, 1000);
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(buildApp(createTask: createTask));
+    await tester.pumpWidget(
+      buildApp(createTask: createTask, textScaler: textScaler),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -121,7 +130,7 @@ void main() {
 
     expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
         findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('calendar-filter-plan')));
+    await tester.tap(find.text('计划').first);
     await tester.pump();
 
     expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
@@ -174,6 +183,34 @@ void main() {
     await pumpCalendar(tester, width: 420);
 
     expect(find.byKey(const ValueKey('calendar-scroll-view')), findsOneWidget);
+    expect(find.text('当日任务'), findsOneWidget);
+    expect(find.text('当日足迹'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('360dp 与 200% 字体缩放下日历主路径无溢出', (tester) async {
+    await pumpCalendar(
+      tester,
+      width: 360,
+      height: 1000,
+      textScaler: const TextScaler.linear(2),
+    );
+
+    expect(find.text('2026 年 8 月'), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-scroll-view')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('calendar-selected-title')),
+      300,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('calendar-scroll-view')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('当日任务'), findsOneWidget);
     expect(find.text('当日足迹'), findsOneWidget);
     expect(tester.takeException(), isNull);
