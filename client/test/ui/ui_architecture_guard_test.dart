@@ -78,4 +78,44 @@ void main() {
           '${offenders.join('\n')}',
     );
   });
+
+  test('业务 UI 不直接使用已有 Fx 替代的 Material 视觉控件', () async {
+    final roots = [Directory('lib/screens'), Directory('lib/widgets')];
+    final forbidden = <String, RegExp>{
+      'TextButton': RegExp(r'(?<!Fx)\bTextButton\s*\('),
+      'ElevatedButton': RegExp(r'\bElevatedButton\s*\('),
+      'OutlinedButton': RegExp(r'\bOutlinedButton\s*\('),
+      'IconButton': RegExp(r'(?<!Fx)\bIconButton\s*\('),
+      'TextField': RegExp(r'(?<!Fx)\bTextField\s*\('),
+      'DropdownButton': RegExp(r'\bDropdownButton(?:<[^>]+>)?\s*\('),
+      'SwitchListTile': RegExp(r'\bSwitchListTile(?:\.adaptive)?\s*\('),
+      'Slider': RegExp(r'(?<!Fx)\bSlider\s*\('),
+      'Checkbox': RegExp(r'(?<!Fx)\bCheckbox\s*\('),
+      'Switch': RegExp(r'(?<!Fx)\bSwitch\s*\('),
+      'LinearProgressIndicator': RegExp(r'\bLinearProgressIndicator\s*\('),
+    };
+    final offenders = <String>[];
+
+    for (final root in roots) {
+      if (!root.existsSync()) continue;
+      await for (final entity in root.list(recursive: true, followLinks: false)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final normalized = entity.path.replaceAll('\\', '/');
+        final source = await entity.readAsString();
+        final hits = forbidden.entries
+            .where((entry) => entry.value.hasMatch(source))
+            .map((entry) => entry.key)
+            .toList(growable: false);
+        if (hits.isNotEmpty) offenders.add('$normalized: ${hits.join(', ')}');
+      }
+    }
+
+    offenders.sort();
+    expect(
+      offenders,
+      isEmpty,
+      reason: '业务视觉控件应通过 Fx* 使用；Material 仅保留布局、导航、滚动、动画、焦点及 Fx 内部明确的兼容实现：\n'
+          '${offenders.join('\n')}',
+    );
+  });
 }
