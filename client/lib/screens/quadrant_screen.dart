@@ -7,7 +7,7 @@ import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
+import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
@@ -135,8 +135,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             const SizedBox(height: 5),
             Text(
               '这里暂时没有任务 · 添加任务',
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
+              style: SlowlightTypography.caption(context).copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -145,22 +144,28 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       ),
     );
 
-    Widget card = HfCard(
+    Widget card = FxCard(
       padding: const EdgeInsets.all(16),
+      color: fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
       border: Border.all(
         color: hovering
             ? Colors.transparent
             : color.withValues(alpha: priority == 'none' ? 1 : .36),
       ),
+      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Flexible(
+                child: Text(
+                  title,
+                  style: SlowlightTypography.cardTitle(context).copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -169,13 +174,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: hfSubtleSurface(context),
+                  color: fxSubtleSurface(context),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   '${items.length}',
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(context).copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -237,6 +241,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Widget _draggableTask(Task task, Color color) {
+    final theme = Theme.of(context);
     return LongPressDraggable<Task>(
       data: task,
       dragAnchorStrategy: pointerDragAnchorStrategy,
@@ -244,8 +249,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         color: Colors.transparent,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 260),
-          child: HfCard(
+          child: FxCard(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            color: fxSurface(context),
+            borderRadius: AppTheme.radiusLg,
+            border: Border.all(color: fxBorder(context)),
+            boxShadow:
+                theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -256,7 +266,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                     task.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: AppTheme.textSm),
+                    style: SlowlightTypography.secondary(context),
                   ),
                 ),
               ],
@@ -288,9 +298,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Expanded(
                 child: Text(
                   task.title,
-                  maxLines: 1,
+                  maxLines: MediaQuery.textScalerOf(context)
+                              .scale(SlowlightTypography.secondarySize) >=
+                          SlowlightTypography.secondarySize * 1.3
+                      ? 2
+                      : 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: AppTheme.textSm),
+                  style: SlowlightTypography.secondary(context),
                 ),
               ),
               if (!desktop) const Icon(LucideIcons.ellipsis, size: 17),
@@ -343,8 +357,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           children: [
             Text(
               '「${task.title}」移动到…',
-              style: const TextStyle(
-                fontSize: AppTheme.textSm,
+              style: SlowlightTypography.secondary(context).copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -375,6 +388,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     String value,
     String current,
   ) {
+    final selected = value == current;
     return InkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () => Navigator.pop(context, value),
@@ -393,9 +407,17 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Text(emoji),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(label, style: const TextStyle(fontSize: 13)),
+                child: Text(label, style: SlowlightTypography.secondary(context)),
               ),
-              if (value == current) const HfChip('当前', accent: true),
+              if (selected)
+                FxChip(
+                  label: '当前',
+                  backgroundColor: activePalette.accent.withValues(alpha: .12),
+                  foregroundColor: activePalette.accent,
+                  borderRadius: 999,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                ),
             ],
           ),
         ),
