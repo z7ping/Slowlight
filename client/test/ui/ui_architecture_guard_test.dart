@@ -172,10 +172,6 @@ void main() {
     final roots = [Directory('lib/screens'), Directory('lib/widgets')];
     final offenders = <String>[];
 
-    // 编辑型任务 Footer 是显式语义例外：删除在左、保存修改在右。
-    // 后续迁移为 FxDialogActions 后可删除此白名单。
-    const allowed = {'lib/widgets/task_detail_sheet.dart'};
-
     for (final root in roots) {
       if (!root.existsSync()) continue;
       await for (final entity in root.list(
@@ -184,7 +180,6 @@ void main() {
       )) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final normalized = entity.path.replaceAll('\\', '/');
-        if (allowed.contains(normalized)) continue;
         final source = await entity.readAsString();
         if (source.contains('WrapAlignment.spaceBetween')) {
           offenders.add(normalized);
