@@ -277,6 +277,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 980),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _header(),
                   const SizedBox(height: 14),
@@ -305,26 +306,37 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Widget _header() {
     final theme = Theme.of(context);
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        FxChip(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        final stacked = constraints.maxWidth < 420 || scale >= 1.6;
+        final count = FxChip(
           label: '${_controller.habits.length} 个习惯',
+          variant: FxChipVariant.outline,
           backgroundColor: fxSubtleSurface(context),
           foregroundColor: theme.colorScheme.onSurfaceVariant,
+          borderColor: theme.colorScheme.outline,
           borderRadius: 999,
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-        ),
-        FxButton(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        );
+        final action = FxButton(
           label: '添加习惯',
           icon: LucideIcons.plus,
           size: FxButtonSize.sm,
           onPressed: _createHabit,
-        ),
-      ],
+        );
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(alignment: Alignment.centerLeft, child: count),
+              const SizedBox(height: 6),
+              Align(alignment: Alignment.centerRight, child: action),
+            ],
+          );
+        }
+        return Row(children: [count, const Spacer(), action]);
+      },
     );
   }
 
@@ -340,9 +352,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         borderRadius: AppTheme.radiusLg,
         border: Border(
           left: BorderSide(color: color, width: 3),
-          top: BorderSide(color: theme.colorScheme.outlineVariant),
-          right: BorderSide(color: theme.colorScheme.outlineVariant),
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+          top: BorderSide(color: theme.colorScheme.outline),
+          right: BorderSide(color: theme.colorScheme.outline),
+          bottom: BorderSide(color: theme.colorScheme.outline),
         ),
         boxShadow:
             theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -355,88 +367,97 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
               onLongPress: () => _openDetailedCheckin(habit),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 48),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: .12),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      ),
-                      child: Text(
-                        habit.icon,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            habit.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: SlowlightTypography.secondary(
-                              context,
-                            ).copyWith(fontWeight: FontWeight.w600),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final scale = MediaQuery.textScalerOf(context).scale(1);
+                    final showWeek =
+                        !expanded && constraints.maxWidth >= 560 && scale < 1.6;
+                    return Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: .12),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _habitMeta(habit),
-                            style: SlowlightTypography.caption(
-                              context,
-                            ).copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                          child: Text(
+                            habit.icon,
+                            style: const TextStyle(fontSize: 16),
                           ),
-                        ],
-                      ),
-                    ),
-                    if (!expanded) ...[
-                      SizedBox(width: 154, child: _weekDots(habit, color)),
-                      const SizedBox(width: 6),
-                    ],
-                    FxInkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: () => _toggleToday(habit),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Center(
-                          child: Container(
-                            width: 26,
-                            height: 26,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color:
-                                  habit.checkedToday
-                                      ? color
-                                      : Colors.transparent,
-                              border: Border.all(
-                                color:
-                                    habit.checkedToday
-                                        ? color
-                                        : theme.colorScheme.outlineVariant,
-                                width: 1.5,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                habit.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: SlowlightTypography.secondary(
+                                  context,
+                                ).copyWith(fontWeight: FontWeight.w600),
                               ),
-                            ),
-                            child: Icon(
-                              LucideIcons.check,
-                              size: 14,
-                              color:
-                                  habit.checkedToday
-                                      ? Colors.white
-                                      : theme.colorScheme.outline,
+                              const SizedBox(height: 2),
+                              Text(
+                                _habitMeta(habit),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: SlowlightTypography.caption(
+                                  context,
+                                ).copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (showWeek) ...[
+                          SizedBox(width: 154, child: _weekDots(habit, color)),
+                          const SizedBox(width: 6),
+                        ],
+                        FxInkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () => _toggleToday(habit),
+                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Container(
+                                width: 26,
+                                height: 26,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color:
+                                      habit.checkedToday
+                                          ? color
+                                          : Colors.transparent,
+                                  border: Border.all(
+                                    color:
+                                        habit.checkedToday
+                                            ? color
+                                            : theme.colorScheme.outline,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  LucideIcons.check,
+                                  size: 14,
+                                  color:
+                                      habit.checkedToday
+                                          ? Colors.white
+                                          : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -447,7 +468,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: .05),
-                  border: Border.all(color: color.withValues(alpha: .16)),
+                  border: Border.all(color: color.withValues(alpha: .24)),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
                 child: Column(
@@ -459,8 +480,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                     const SizedBox(height: 12),
                     Text(
                       '最近打卡',
-                      style: SlowlightTypography.caption(context).copyWith(
-                        fontWeight: FontWeight.w600,
+                      style: SlowlightTypography.fieldLabel(context).copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -534,36 +554,18 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
             : (habit.targetDays <= 0 ? monthCount : habit.targetDays * 4);
     final rate =
         target <= 0 ? 0 : (monthCount / target * 100).clamp(0, 100).round();
-    final largeText =
-        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
-        SlowlightTypography.bodySize * 1.3;
     final values = [
       ('${habit.streakCount}', '连续'),
       ('${habit.checkedDays.length}', '总计'),
       ('$rate%', '本月完成率'),
     ];
-    if (largeText) {
-      return Column(
-        children: values
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: _miniStat(item.$1, item.$2),
-              ),
-            )
-            .toList(growable: false),
-      );
-    }
-    return Row(
+    return FxResponsiveFormGrid(
+      minColumnWidth: 140,
+      maxColumns: 3,
+      horizontalGap: 8,
+      verticalGap: 8,
       children: values
-          .map(
-            (item) => Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: _miniStat(item.$1, item.$2),
-              ),
-            ),
-          )
+          .map((item) => _miniStat(item.$1, item.$2))
           .toList(growable: false),
     );
   }
@@ -575,7 +577,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: fxSurface(context),
-        border: Border.all(color: fxDivider(context)),
+        border: Border.all(color: theme.colorScheme.outline),
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       ),
       child: Column(
@@ -699,7 +701,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                         color:
                             active
                                 ? color
-                                : Theme.of(context).colorScheme.outlineVariant,
+                                : Theme.of(context).colorScheme.outline,
                         width: 1.5,
                       ),
                     ),
