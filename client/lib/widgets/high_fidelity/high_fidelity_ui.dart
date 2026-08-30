@@ -7,6 +7,7 @@ import '../../ui/widgets/fx_empty_state.dart';
 import '../../ui/widgets/fx_section_header.dart';
 import '../../ui/widgets/fx_segmented.dart';
 import '../../ui/widgets/fx_stat_cell.dart';
+import '../review/review_timeline_item.dart';
 
 Color hfSurface(BuildContext context) =>
     Theme.of(context).brightness == Brightness.light
@@ -55,8 +56,9 @@ class HfCard extends StatelessWidget {
       color: color ?? hfSurface(context),
       borderRadius: AppTheme.radiusLg,
       border: border ?? Border.all(color: hfBorder(context)),
-      boxShadow:
-          Theme.of(context).brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow: Theme.of(context).brightness == Brightness.light
+          ? AppTheme.cardShadow
+          : null,
       expanded: true,
       onTap: onTap,
       child: child,
@@ -176,6 +178,8 @@ class HfChip extends StatelessWidget {
   }
 }
 
+/// 兼容旧回顾调用；真实实现已下沉到 Review Feature Widget。
+@Deprecated('Use ReviewTimelineItem instead')
 class HfTimelineItem extends StatelessWidget {
   final Color color;
   final String time;
@@ -194,67 +198,12 @@ class HfTimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 14,
-            child: Column(
-              children: [
-                const SizedBox(height: 3),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration:
-                      BoxDecoration(shape: BoxShape.circle, color: color),
-                ),
-                if (!last)
-                  Expanded(
-                    child: Container(width: 1, color: hfDivider(context)),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: last ? 0 : 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    time,
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (note != null && note!.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      note!,
-                      style: TextStyle(
-                        fontSize: AppTheme.textXs,
-                        height: 1.45,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    return ReviewTimelineItem(
+      color: color,
+      time: time,
+      title: title,
+      note: note,
+      last: last,
     );
   }
 }
