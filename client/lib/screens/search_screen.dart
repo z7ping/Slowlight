@@ -52,6 +52,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void _changed(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () => _search(value));
+    setState(() {});
   }
 
   Future<void> _search(String raw) async {
@@ -135,29 +136,26 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
+                          FxInput(
                             controller: _controller,
                             focusNode: _focusNode,
                             onChanged: _changed,
-                            style: SlowlightTypography.body(context),
-                            decoration: InputDecoration(
-                              hintText: '搜索任务、习惯、回顾…',
-                              prefixIcon: const Icon(LucideIcons.search, size: 20),
-                              suffixIcon: _controller.text.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      tooltip: '清空',
-                                      onPressed: () {
-                                        _controller.clear();
-                                        _search('');
-                                        setState(() {});
-                                      },
-                                      icon: const Icon(LucideIcons.x, size: 18),
-                                    ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 11,
-                              ),
+                            placeholder: '搜索任务、习惯、回顾…',
+                            leading: const Icon(LucideIcons.search, size: 20),
+                            trailing: _controller.text.isEmpty
+                                ? null
+                                : FxIconButton(
+                                    tooltip: '清空',
+                                    onPressed: () {
+                                      _controller.clear();
+                                      _search('');
+                                      setState(() {});
+                                    },
+                                    icon: LucideIcons.x,
+                                  ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 11,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -247,7 +245,7 @@ class _SearchScreenState extends State<SearchScreen> {
       if (task.dueDate != null)
         '${task.dueDate!.month}/${task.dueDate!.day}${task.dueTime == null || task.dueTime!.isEmpty ? '' : ' ${task.dueTime}'}',
     ].join(' · ');
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () => TaskDetailSheet.show(
         context,
