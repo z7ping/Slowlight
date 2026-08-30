@@ -1,10 +1,10 @@
-import '../ui/widgets/fx_cursor.dart';
 import 'package:flutter/material.dart';
+
+import '../screens/conflict_screen.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
 import '../services/sync_service.dart';
-import '../screens/conflict_screen.dart';
-import '../ui/app_theme.dart';
+import '../ui/fx.dart';
 
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
 class SyncStatusBadge extends StatelessWidget {
@@ -99,8 +99,7 @@ class SyncStatusBadge extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             text,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               color: color,
               fontWeight: FontWeight.w500,
             ),
@@ -145,16 +144,16 @@ class SyncStatusBadge extends StatelessWidget {
             children: [
               Text(
                 '同步状态',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: SlowlightTypography.cardTitle(ctx).copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
-              _infoRow('状态', _getStatusText(sync.status)),
-              _infoRow('待同步', '$pending 项'),
+              _infoRow(ctx, '状态', _getStatusText(sync.status)),
+              _infoRow(ctx, '待同步', '$pending 项'),
               if (sync.lastError != null)
                 _infoRow(
+                  ctx,
                   '错误',
                   sync.lastError!
                       .substring(0, sync.lastError!.length.clamp(0, 80)),
@@ -166,11 +165,14 @@ class SyncStatusBadge extends StatelessWidget {
                   if (conflicts.isEmpty) return const SizedBox.shrink();
                   return Column(
                     children: [
-                      _infoRow('冲突', '${conflicts.length} 项'),
+                      _infoRow(ctx, '冲突', '${conflicts.length} 项'),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
+                        child: FxButton(
+                          label: '解决 ${conflicts.length} 个冲突',
+                          icon: Icons.warning_amber,
+                          variant: FxButtonVariant.outline,
                           onPressed: () {
                             Navigator.pop(ctx);
                             Navigator.push(
@@ -180,8 +182,6 @@ class SyncStatusBadge extends StatelessWidget {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.warning_amber, size: 18),
-                          label: Text('解决 ${conflicts.length} 个冲突'),
                         ),
                       ),
                     ],
@@ -191,7 +191,9 @@ class SyncStatusBadge extends StatelessWidget {
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
+                child: FxButton(
+                  label: '立即同步',
+                  icon: Icons.sync,
                   onPressed: () async {
                     Navigator.pop(ctx);
                     await CloudSyncCoordinator().syncNow();
@@ -201,8 +203,6 @@ class SyncStatusBadge extends StatelessWidget {
                       );
                     }
                   },
-                  icon: const Icon(Icons.sync, size: 18),
-                  label: const Text('立即同步'),
                 ),
               ),
             ],
@@ -212,7 +212,7 @@ class SyncStatusBadge extends StatelessWidget {
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _infoRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -221,15 +221,13 @@ class SyncStatusBadge extends StatelessWidget {
             width: 60,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: AppTheme.textSm,
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           Expanded(
-            child:
-                Text(value, style: const TextStyle(fontSize: AppTheme.textSm)),
+            child: Text(value, style: SlowlightTypography.caption(context)),
           ),
         ],
       ),
