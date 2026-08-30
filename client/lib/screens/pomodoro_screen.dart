@@ -9,7 +9,6 @@ import '../repositories/session_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
 import '../widgets/system_tag_picker.dart';
 
 class PomodoroScreen extends StatefulWidget {
@@ -431,7 +430,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       body: SafeArea(
         child: Column(
           children: [
-            HfPageHeader(
+            FxPageHeader(
               title: '专注',
               actionIcon: LucideIcons.settings,
               actionTooltip: '专注设置',
