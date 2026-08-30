@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// FxCheckbox — 复选框组件
+import '../typography_tokens.dart';
+
+/// FxCheckbox — 统一复选框组件。
 class FxCheckbox extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -21,7 +23,12 @@ class FxCheckbox extends StatelessWidget {
     return ShadCheckbox(
       value: value,
       onChanged: enabled ? onChanged : null,
-      label: label != null ? Text(label!) : null,
+      label: label == null
+          ? null
+          : Text(
+              label!,
+              style: SlowlightTypography.secondary(context),
+            ),
     );
   }
 }
