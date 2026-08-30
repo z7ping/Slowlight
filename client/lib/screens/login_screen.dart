@@ -160,64 +160,50 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  TextField(
+                  FxInput(
                     controller: _usernameController,
                     enabled: !_isLoading,
                     textInputAction: TextInputAction.next,
-                    style: SlowlightTypography.body(context),
-                    decoration: InputDecoration(
-                      hintText: _isLogin ? '邮箱或用户名' : '用户名',
-                    ),
+                    placeholder: _isLogin ? '邮箱或用户名' : '用户名',
                   ),
                   if (!_isLogin) ...[
                     const SizedBox(height: 8),
-                    TextField(
+                    FxInput(
                       controller: _emailController,
                       enabled: !_isLoading,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      style: SlowlightTypography.body(context),
-                      decoration: const InputDecoration(hintText: '邮箱'),
+                      placeholder: '邮箱',
                     ),
                   ],
                   const SizedBox(height: 8),
-                  TextField(
+                  FxInput(
                     controller: _passwordController,
                     enabled: !_isLoading,
                     obscureText: _obscurePassword,
                     textInputAction:
                         _isLogin ? TextInputAction.done : TextInputAction.next,
                     onSubmitted: _isLogin ? (_) => _submit() : null,
-                    style: SlowlightTypography.body(context),
-                    decoration: InputDecoration(
-                      hintText: '密码',
-                      suffixIcon: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                          icon: Icon(
-                            _obscurePassword
-                                ? LucideIcons.eye
-                                : LucideIcons.eyeOff,
-                            size: 17,
-                          ),
-                        ),
+                    placeholder: '密码',
+                    trailing: FxIconButton(
+                      tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+                      onPressed: () => setState(
+                        () => _obscurePassword = !_obscurePassword,
                       ),
+                      icon: _obscurePassword
+                          ? LucideIcons.eye
+                          : LucideIcons.eyeOff,
+                      iconSize: 17,
                     ),
                   ),
                   if (!_isLogin) ...[
                     const SizedBox(height: 8),
-                    TextField(
+                    FxInput(
                       controller: _nicknameController,
                       enabled: !_isLoading,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _submit(),
-                      style: SlowlightTypography.body(context),
-                      decoration: const InputDecoration(hintText: '昵称（可选）'),
+                      placeholder: '昵称（可选）',
                     ),
                   ],
                   const SizedBox(height: 12),
