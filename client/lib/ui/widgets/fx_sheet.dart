@@ -18,6 +18,7 @@ abstract final class FxSheet {
     bool useRootNavigator = false,
     bool draggable = true,
     bool? enableDrag,
+    bool? showDragHandle,
     bool isScrollControlled = true,
     bool useSafeArea = false,
     BoxConstraints? constraints,
@@ -35,6 +36,10 @@ abstract final class FxSheet {
     if (shape is RoundedRectangleBorder && shape.borderRadius is BorderRadius) {
       radius = shape.borderRadius as BorderRadius;
     }
+
+    // showDragHandle 仅用于兼容旧 Material 调用。shadcn_ui 0.26.5 没有等价的
+    // 独立 drag-handle 开关；拖拽能力仍由 draggable / enableDrag 控制。
+    final _ = showDragHandle;
 
     return showShadSheet<T>(
       context: context,
