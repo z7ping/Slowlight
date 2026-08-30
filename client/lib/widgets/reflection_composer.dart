@@ -6,7 +6,6 @@ import '../repositories/observation_tag_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'high_fidelity/high_fidelity_ui.dart';
 
 /// Observation / Reflection 的统一轻量输入入口。
 class ReflectionComposer {
@@ -81,7 +80,7 @@ class ReflectionComposer {
                   ),
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
                   decoration: BoxDecoration(
-                    color: hfSurface(sheetContext),
+                    color: fxSurface(sheetContext),
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(18)),
                     boxShadow: [
@@ -92,105 +91,58 @@ class ReflectionComposer {
                       ),
                     ],
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(
-                        alignment: Alignment.center,
-                        child: Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: hfDivider(sheetContext),
-                            borderRadius: BorderRadius.circular(2),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Align(
+                          alignment: Alignment.center,
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: fxDivider(sheetContext),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        '写下观察',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
+                        const SizedBox(height: 12),
+                        Text(
+                          '写下观察',
+                          style: SlowlightTypography.cardTitle(sheetContext)
+                              .copyWith(fontWeight: FontWeight.w700),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: controller,
-                        autofocus: true,
-                        enabled: !saving,
-                        minLines: 1,
-                        maxLines: 4,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: const InputDecoration(
-                          hintText: '此刻的观察，只描述事实…',
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: controller,
+                          autofocus: true,
+                          enabled: !saving,
+                          minLines: 1,
+                          maxLines: 4,
+                          style: SlowlightTypography.body(sheetContext),
+                          decoration: const InputDecoration(
+                            hintText: '此刻的观察，只描述事实…',
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '归属维度（可选）',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(height: 10),
+                        Text(
+                          '归属维度（可选）',
+                          style: SlowlightTypography.caption(sheetContext)
+                              .copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: DimensionCatalog.all.map((dimension) {
-                          final selected =
-                              selectedDimension == dimension.keyValue;
-                          return ChoiceChip(
-                            label: Text('${dimension.icon} ${dimension.name}'),
-                            labelStyle:
-                                const TextStyle(fontSize: AppTheme.textXs),
-                            showCheckmark: false,
-                            selected: selected,
-                            selectedColor:
-                                activePalette.accent.withValues(alpha: .12),
-                            side: BorderSide(
-                              color: selected
-                                  ? activePalette.accent
-                                  : hfBorder(sheetContext),
-                            ),
-                            onSelected: (_) => setSheetState(() {
-                              selectedDimension =
-                                  selected ? null : dimension.keyValue;
-                              if (selectedTagId != null) {
-                                final tag = tags.where(
-                                  (item) => item.id == selectedTagId,
-                                );
-                                if (tag.isNotEmpty &&
-                                    tag.first.dimensionKey != null &&
-                                    tag.first.dimensionKey!.isNotEmpty) {
-                                  selectedDimension = tag.first.dimensionKey;
-                                }
-                              }
-                            }),
-                          );
-                        }).toList(growable: false),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '标签',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          ...tags.take(8).map((tag) {
-                            final selected = selectedTagId == tag.id;
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: DimensionCatalog.all.map((dimension) {
+                            final selected =
+                                selectedDimension == dimension.keyValue;
                             return ChoiceChip(
-                              label: Text('#${tag.name}'),
+                              label: Text('${dimension.icon} ${dimension.name}'),
                               labelStyle:
                                   const TextStyle(fontSize: AppTheme.textXs),
                               showCheckmark: false,
@@ -200,107 +152,151 @@ class ReflectionComposer {
                               side: BorderSide(
                                 color: selected
                                     ? activePalette.accent
-                                    : hfBorder(sheetContext),
+                                    : fxBorder(sheetContext),
                               ),
                               onSelected: (_) => setSheetState(() {
-                                selectedTagId = selected ? null : tag.id;
-                                if (!selected &&
-                                    tag.dimensionKey != null &&
-                                    tag.dimensionKey!.isNotEmpty) {
-                                  selectedDimension = tag.dimensionKey;
+                                selectedDimension =
+                                    selected ? null : dimension.keyValue;
+                                if (selectedTagId != null) {
+                                  final tag = tags.where(
+                                    (item) => item.id == selectedTagId,
+                                  );
+                                  if (tag.isNotEmpty &&
+                                      tag.first.dimensionKey != null &&
+                                      tag.first.dimensionKey!.isNotEmpty) {
+                                    selectedDimension = tag.first.dimensionKey;
+                                  }
                                 }
                               }),
                             );
-                          }),
-                          ActionChip(
-                            label: const Text('+ 新建'),
-                            labelStyle:
-                                const TextStyle(fontSize: AppTheme.textXs),
-                            side: BorderSide(color: hfBorder(sheetContext)),
-                            backgroundColor: hfSurface(sheetContext),
-                            onPressed: saving
-                                ? null
-                                : () async {
-                                    final created = await _createObservationTag(
-                                      sheetContext,
-                                      dimensionKey: selectedDimension,
-                                    );
-                                    if (created == null ||
-                                        !sheetContext.mounted) {
-                                      return;
-                                    }
-                                    setSheetState(() {
-                                      tags = [...tags, created];
-                                      selectedTagId = created.id;
-                                      if (created.dimensionKey != null &&
-                                          created.dimensionKey!.isNotEmpty) {
-                                        selectedDimension =
-                                            created.dimensionKey;
-                                      }
-                                    });
-                                  },
-                          ),
-                        ],
-                      ),
-                      if (error != null) ...[
+                          }).toList(growable: false),
+                        ),
                         const SizedBox(height: 10),
                         Text(
-                          error!,
-                          style: TextStyle(
-                            fontSize: AppTheme.textXs,
-                            color: theme.colorScheme.error,
+                          '标签',
+                          style: SlowlightTypography.caption(sheetContext)
+                              .copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 14),
-                      FxButton(
-                        label: saving ? '保存中…' : '保存观察',
-                        onPressed: saving
-                            ? null
-                            : () async {
-                                final value = controller.text.trim();
-                                if (value.isEmpty) {
-                                  setSheetState(() => error = '先写一点观察');
-                                  return;
-                                }
-                                setSheetState(() {
-                                  saving = true;
-                                  error = null;
-                                });
-                                try {
-                                  ObservationTag? selectedTag;
-                                  for (final tag in tags) {
-                                    if (tag.id == selectedTagId) {
-                                      selectedTag = tag;
-                                      break;
-                                    }
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            ...tags.take(8).map((tag) {
+                              final selected = selectedTagId == tag.id;
+                              return ChoiceChip(
+                                label: Text('#${tag.name}'),
+                                labelStyle:
+                                    const TextStyle(fontSize: AppTheme.textXs),
+                                showCheckmark: false,
+                                selected: selected,
+                                selectedColor:
+                                    activePalette.accent.withValues(alpha: .12),
+                                side: BorderSide(
+                                  color: selected
+                                      ? activePalette.accent
+                                      : fxBorder(sheetContext),
+                                ),
+                                onSelected: (_) => setSheetState(() {
+                                  selectedTagId = selected ? null : tag.id;
+                                  if (!selected &&
+                                      tag.dimensionKey != null &&
+                                      tag.dimensionKey!.isNotEmpty) {
+                                    selectedDimension = tag.dimensionKey;
                                   }
-                                  await ReflectionRepository().create(
-                                    content: value,
-                                    entryType: 'observation',
-                                    questionId: questionId,
-                                    dimensionKey: selectedDimension,
-                                    context: {
-                                      ...contextData,
-                                      if (selectedTag != null)
-                                        'observation_tag_id': selectedTag.id,
-                                      if (selectedTag != null)
-                                        'observation_tag_name':
-                                            selectedTag.name,
+                                }),
+                              );
+                            }),
+                            ActionChip(
+                              label: const Text('+ 新建'),
+                              labelStyle:
+                                  const TextStyle(fontSize: AppTheme.textXs),
+                              side: BorderSide(color: fxBorder(sheetContext)),
+                              backgroundColor: fxSurface(sheetContext),
+                              onPressed: saving
+                                  ? null
+                                  : () async {
+                                      final created = await _createObservationTag(
+                                        sheetContext,
+                                        dimensionKey: selectedDimension,
+                                      );
+                                      if (created == null ||
+                                          !sheetContext.mounted) {
+                                        return;
+                                      }
+                                      setSheetState(() {
+                                        tags = [...tags, created];
+                                        selectedTagId = created.id;
+                                        if (created.dimensionKey != null &&
+                                            created.dimensionKey!.isNotEmpty) {
+                                          selectedDimension =
+                                              created.dimensionKey;
+                                        }
+                                      });
                                     },
-                                  );
-                                  if (sheetContext.mounted) {
-                                    Navigator.of(sheetContext).pop(true);
+                            ),
+                          ],
+                        ),
+                        if (error != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            error!,
+                            style: SlowlightTypography.caption(sheetContext)
+                                .copyWith(color: theme.colorScheme.error),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        FxButton(
+                          label: saving ? '保存中…' : '保存观察',
+                          onPressed: saving
+                              ? null
+                              : () async {
+                                  final value = controller.text.trim();
+                                  if (value.isEmpty) {
+                                    setSheetState(() => error = '先写一点观察');
+                                    return;
                                   }
-                                } catch (e) {
                                   setSheetState(() {
-                                    saving = false;
-                                    error = e.toString();
+                                    saving = true;
+                                    error = null;
                                   });
-                                }
-                              },
-                      ),
-                    ],
+                                  try {
+                                    ObservationTag? selectedTag;
+                                    for (final tag in tags) {
+                                      if (tag.id == selectedTagId) {
+                                        selectedTag = tag;
+                                        break;
+                                      }
+                                    }
+                                    await ReflectionRepository().create(
+                                      content: value,
+                                      entryType: 'observation',
+                                      questionId: questionId,
+                                      dimensionKey: selectedDimension,
+                                      context: {
+                                        ...contextData,
+                                        if (selectedTag != null)
+                                          'observation_tag_id': selectedTag.id,
+                                        if (selectedTag != null)
+                                          'observation_tag_name': selectedTag.name,
+                                      },
+                                    );
+                                    if (sheetContext.mounted) {
+                                      Navigator.of(sheetContext).pop(true);
+                                    }
+                                  } catch (e) {
+                                    setSheetState(() {
+                                      saving = false;
+                                      error = e.toString();
+                                    });
+                                  }
+                                },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -329,11 +325,11 @@ class ReflectionComposer {
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
           return Dialog(
-            backgroundColor: hfSurface(dialogContext),
+            backgroundColor: fxSurface(dialogContext),
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              side: BorderSide(color: hfBorder(dialogContext)),
+              side: BorderSide(color: fxBorder(dialogContext)),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
@@ -343,12 +339,10 @@ class ReflectionComposer {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '新建观察标签',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: SlowlightTypography.cardTitle(dialogContext)
+                          .copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 10),
                     TextField(
@@ -374,25 +368,23 @@ class ReflectionComposer {
                       const SizedBox(height: 8),
                       Text(
                         '默认归属当前选择的维度',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(dialogContext)
+                            .copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
                     if (error != null) ...[
                       const SizedBox(height: 8),
                       Text(
                         error!,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.error,
-                        ),
+                        style: SlowlightTypography.caption(dialogContext)
+                            .copyWith(color: theme.colorScheme.error),
                       ),
                     ],
                     const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         FxButton(
                           label: '取消',
@@ -402,7 +394,6 @@ class ReflectionComposer {
                               ? null
                               : () => Navigator.of(dialogContext).pop(),
                         ),
-                        const SizedBox(width: 8),
                         FxButton(
                           label: saving ? '创建中…' : '创建',
                           size: FxButtonSize.sm,
@@ -456,9 +447,7 @@ class ReflectionComposer {
         color: '#1890FF',
         dimensionKey: dimensionKey,
       );
-      if (dialogContext.mounted) {
-        Navigator.of(dialogContext).pop(tag);
-      }
+      if (dialogContext.mounted) Navigator.of(dialogContext).pop(tag);
     } catch (e) {
       setDialogState(() {
         setSaving(false);
@@ -485,117 +474,116 @@ class ReflectionComposer {
         builder: (dialogContext, setState) {
           final dimension = DimensionCatalog.byKey(dimensionKey);
           return Dialog(
-            backgroundColor: hfSurface(dialogContext),
+            backgroundColor: fxSurface(dialogContext),
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: hfBorder(dialogContext)),
+              side: BorderSide(color: fxBorder(dialogContext)),
             ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '写下想法',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (dimension != null) ...[
-                      const SizedBox(height: 10),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        '${dimension.icon} ${dimension.name}',
-                        style: const TextStyle(
-                          fontSize: AppTheme.textSm,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        '写下想法',
+                        style: SlowlightTypography.cardTitle(dialogContext)
+                            .copyWith(fontWeight: FontWeight.w700),
                       ),
-                    ],
-                    if (prompt != null && prompt.trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        prompt,
-                        style: TextStyle(
-                          fontSize: AppTheme.textSm,
-                          color: Theme.of(dialogContext)
-                              .colorScheme
-                              .onSurfaceVariant,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      minLines: 4,
-                      maxLines: 8,
-                      decoration: const InputDecoration(
-                        hintText: '只记录你的真实想法，不需要写成结论。',
-                      ),
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        error!,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: Theme.of(dialogContext).colorScheme.error,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          onPressed: saving
-                              ? null
-                              : () => Navigator.of(dialogContext).pop(false),
-                        ),
-                        const SizedBox(width: 8),
-                        FxButton(
-                          label: saving ? '保存中…' : '保存',
-                          onPressed: saving
-                              ? null
-                              : () async {
-                                  final value = controller.text.trim();
-                                  if (value.isEmpty) {
-                                    setState(() => error = '先写一点内容');
-                                    return;
-                                  }
-                                  setState(() {
-                                    saving = true;
-                                    error = null;
-                                  });
-                                  try {
-                                    await ReflectionRepository().create(
-                                      content: value,
-                                      questionId: questionId,
-                                      dimensionKey: dimensionKey,
-                                      context: contextData,
-                                    );
-                                    if (dialogContext.mounted) {
-                                      Navigator.of(dialogContext).pop(true);
-                                    }
-                                  } catch (e) {
-                                    setState(() {
-                                      saving = false;
-                                      error = e.toString();
-                                    });
-                                  }
-                                },
+                      if (dimension != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          '${dimension.icon} ${dimension.name}',
+                          style: SlowlightTypography.secondary(dialogContext)
+                              .copyWith(fontWeight: FontWeight.w600),
                         ),
                       ],
-                    ),
-                  ],
+                      if (prompt != null && prompt.trim().isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          prompt,
+                          style: SlowlightTypography.secondary(dialogContext)
+                              .copyWith(
+                            color: Theme.of(dialogContext)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: controller,
+                        autofocus: true,
+                        minLines: 4,
+                        maxLines: 8,
+                        style: SlowlightTypography.body(dialogContext),
+                        decoration: const InputDecoration(
+                          hintText: '只记录你的真实想法，不需要写成结论。',
+                        ),
+                      ),
+                      if (error != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          error!,
+                          style: SlowlightTypography.caption(dialogContext)
+                              .copyWith(
+                            color: Theme.of(dialogContext).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FxButton(
+                            label: '取消',
+                            variant: FxButtonVariant.outline,
+                            onPressed: saving
+                                ? null
+                                : () => Navigator.of(dialogContext).pop(false),
+                          ),
+                          FxButton(
+                            label: saving ? '保存中…' : '保存',
+                            onPressed: saving
+                                ? null
+                                : () async {
+                                    final value = controller.text.trim();
+                                    if (value.isEmpty) {
+                                      setState(() => error = '先写一点内容');
+                                      return;
+                                    }
+                                    setState(() {
+                                      saving = true;
+                                      error = null;
+                                    });
+                                    try {
+                                      await ReflectionRepository().create(
+                                        content: value,
+                                        questionId: questionId,
+                                        dimensionKey: dimensionKey,
+                                        context: contextData,
+                                      );
+                                      if (dialogContext.mounted) {
+                                        Navigator.of(dialogContext).pop(true);
+                                      }
+                                    } catch (e) {
+                                      setState(() {
+                                        saving = false;
+                                        error = e.toString();
+                                      });
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
