@@ -168,6 +168,41 @@ void main() {
     );
   });
 
+  test('业务操作栏不使用 WrapAlignment.spaceBetween 猜测左右位置', () async {
+    final roots = [Directory('lib/screens'), Directory('lib/widgets')];
+    final offenders = <String>[];
+
+    // 编辑型任务 Footer 是显式语义例外：删除在左、保存修改在右。
+    // 后续迁移为 FxDialogActions 后可删除此白名单。
+    const allowed = {'lib/widgets/task_detail_sheet.dart'};
+
+    for (final root in roots) {
+      if (!root.existsSync()) continue;
+      await for (final entity in root.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final normalized = entity.path.replaceAll('\\', '/');
+        if (allowed.contains(normalized)) continue;
+        final source = await entity.readAsString();
+        if (source.contains('WrapAlignment.spaceBetween')) {
+          offenders.add(normalized);
+        }
+      }
+    }
+
+    offenders.sort();
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          '页面/区块操作区必须使用 FxActionBar / FxDialogActions 或明确 Row 锚点；'
+          '禁止用 WrapAlignment.spaceBetween 让按钮在换行后随机落位：\n'
+          '${offenders.join('\n')}',
+    );
+  });
+
   test('RefreshIndicator 只允许存在于 FxRefresh 适配层', () async {
     final lib = Directory('lib');
     expect(lib.existsSync(), isTrue, reason: '测试需从 client 目录运行');
