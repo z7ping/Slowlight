@@ -92,14 +92,11 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                           ],
                         ),
                       ),
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          tooltip: '刷新',
-                          onPressed: _loadData,
-                          icon: const Icon(LucideIcons.refreshCw, size: 17),
-                        ),
+                      FxIconButton(
+                        icon: LucideIcons.refreshCw,
+                        tooltip: '刷新',
+                        iconSize: 17,
+                        onPressed: _loadData,
                       ),
                     ],
                   ),
@@ -142,10 +139,11 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   Widget _stats(int totalMin, int tagCount) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scaled = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.secondarySize);
-        final stacked = constraints.maxWidth < 520 ||
-            scaled >= SlowlightTypography.secondarySize * 1.3;
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final minCellWidth =
+            (190 + (textScale - 1) * 50).clamp(190, 240).toDouble();
+        final cellWidth = (constraints.maxWidth - 10) / 2;
+        final stacked = cellWidth < minCellWidth;
         final cells = [
           FxStatCell(
             value: '$totalMin',
@@ -180,7 +178,8 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   Widget _distributionCard(List<Map<String, dynamic>> source) {
     final theme = Theme.of(context);
-    final tags = [...source]..sort(
+    final tags = [...source]
+      ..sort(
         (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0)
             .compareTo((a['total_min'] as num?)?.toInt() ?? 0),
       );
@@ -323,14 +322,11 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       ),
                     ),
                     Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                        child: LinearProgressIndicator(
-                          value: ratio.clamp(0, 1),
-                          minHeight: 8,
-                          backgroundColor: theme.colorScheme.outlineVariant,
-                          color: activePalette.accent,
-                        ),
+                      child: FxProgress(
+                        value: ratio.clamp(0, 1).toDouble(),
+                        height: 8,
+                        backgroundColor: theme.colorScheme.outlineVariant,
+                        color: activePalette.accent,
                       ),
                     ),
                     const SizedBox(width: 8),
