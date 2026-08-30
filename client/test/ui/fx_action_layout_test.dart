@@ -29,6 +29,29 @@ void main() {
     );
   }
 
+  Widget dialogActions({required double width, required double scale}) {
+    return Center(
+      child: MediaQuery(
+        data: MediaQueryData(
+          size: Size(width, 800),
+          textScaler: TextScaler.linear(scale),
+        ),
+        child: SizedBox(
+          width: width,
+          child: FxDialogActions(
+            stackBelow: 340,
+            leading: FxButton(
+              label: '删除',
+              variant: FxButtonVariant.ghost,
+              onPressed: () {},
+            ),
+            actions: [FxButton(label: '保存', onPressed: () {})],
+          ),
+        ),
+      ),
+    );
+  }
+
   testWidgets('FxActionBar 宽布局固定左上下文与右侧动作', (tester) async {
     await tester.pumpWidget(
       buildFxTestHost(
@@ -87,6 +110,37 @@ void main() {
     final primary = tester.getRect(find.text('保存'));
     expect(primary.center.dx, greaterThan(destructive.center.dx));
     expect(primary.right, greaterThan(480));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('FxDialogActions 可按实际宽度保持紧凑编辑 Footer', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(body: dialogActions(width: 380, scale: 1)),
+      ),
+    );
+
+    final destructive = tester.getRect(find.text('删除'));
+    final primary = tester.getRect(find.text('保存'));
+    expect(primary.center.dy, closeTo(destructive.center.dy, 12));
+    expect(primary.center.dx, greaterThan(destructive.center.dx));
+    expect(primary.right, greaterThan(330));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('FxDialogActions 超大字体时仍会自然分行', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(body: dialogActions(width: 380, scale: 2)),
+      ),
+    );
+
+    final destructive = tester.getRect(find.text('删除'));
+    final primary = tester.getRect(find.text('保存'));
+    expect(primary.top, greaterThanOrEqualTo(destructive.bottom));
+    expect(primary.center.dx, greaterThan(280));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
