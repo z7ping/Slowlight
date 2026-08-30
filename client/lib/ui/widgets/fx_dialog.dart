@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// FxDialog — 弹窗组件
+import '../typography_tokens.dart';
+
+/// FxDialog — 统一弹窗组件。
 class FxDialog {
   static const Color barrierColor = Color(0x73000000);
 
@@ -19,8 +21,22 @@ class FxDialog {
       barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       builder: (ctx) => ShadDialog(
-        title: title != null ? Text(title) : null,
-        description: description != null ? Text(description) : null,
+        title: title != null
+            ? Text(
+                title,
+                style: SlowlightTypography.cardTitle(ctx).copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : null,
+        description: description != null
+            ? Text(
+                description,
+                style: SlowlightTypography.secondary(ctx).copyWith(
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
+              )
+            : null,
         constraints: width != null ? BoxConstraints(maxWidth: width) : null,
         child: Material(
           type: MaterialType.transparency,
@@ -30,7 +46,7 @@ class FxDialog {
     );
   }
 
-  /// 确认弹窗
+  /// 确认弹窗。
   static Future<bool?> confirm({
     required BuildContext context,
     required String title,
@@ -48,23 +64,33 @@ class FxDialog {
       variant:
           destructive ? ShadDialogVariant.alert : ShadDialogVariant.primary,
       builder: (ctx) => ShadDialog(
-        title: Text(title),
-        description: Text(content),
+        title: Text(
+          title,
+          style: SlowlightTypography.cardTitle(ctx).copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        description: Text(
+          content,
+          style: SlowlightTypography.secondary(ctx).copyWith(
+            color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+          ),
+        ),
         actions: [
           ShadButton.outline(
-            child: Text(cancelText),
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+            child: Text(cancelText, style: SlowlightTypography.button),
           ),
           destructive
               ? ShadButton.destructive(
-                  child: Text(confirmText),
                   onPressed: () =>
                       Navigator.of(ctx, rootNavigator: true).pop(true),
+                  child: Text(confirmText, style: SlowlightTypography.button),
                 )
               : ShadButton(
-                  child: Text(confirmText),
                   onPressed: () =>
                       Navigator.of(ctx, rootNavigator: true).pop(true),
+                  child: Text(confirmText, style: SlowlightTypography.button),
                 ),
         ],
       ),
