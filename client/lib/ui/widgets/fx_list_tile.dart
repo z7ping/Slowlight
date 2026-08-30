@@ -118,7 +118,6 @@ class FxListTile extends StatelessWidget {
     final effectivePadding = contentPadding ?? padding;
     final gap = horizontalTitleGap ?? AppTheme.spaceSm;
     final leadingWidth = minLeadingWidth ?? 0;
-    final verticalPadding = minVerticalPadding ?? (dense ? 4 : 8);
     final showSubtitle = subtitle is Widget ||
         (subtitle is String && (subtitle! as String).isNotEmpty);
     final effectiveMinHeight = visualDensity?.effectiveConstraints(
@@ -149,14 +148,7 @@ class FxListTile extends StatelessWidget {
 
     final row = Container(
       constraints: BoxConstraints(minHeight: effectiveMinHeight),
-      padding: effectivePadding == padding && contentPadding == null
-          ? EdgeInsets.fromLTRB(
-              (effectivePadding as EdgeInsets).left,
-              verticalPadding,
-              (effectivePadding).right,
-              verticalPadding,
-            )
-          : effectivePadding,
+      padding: effectivePadding,
       decoration: BoxDecoration(
         color: selected ? selectedTileColor ?? tileColor : tileColor,
         borderRadius: _borderRadius(),
