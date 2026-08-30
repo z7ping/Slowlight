@@ -1,9 +1,10 @@
-import 'fx_cursor.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../app_theme.dart';
 import '../typography_tokens.dart';
+import 'fx_cursor.dart';
 
 /// FxChip — 标签/徽章组件。
 ///
@@ -46,10 +47,7 @@ class FxChip extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: SlowlightTypography.caption(context).copyWith(
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
+            style: SlowlightTypography.chip(context).copyWith(color: color),
           ),
         ),
         if (onDeleted != null) ...[
@@ -71,7 +69,8 @@ class FxChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final hasExplicitVisualOverride = backgroundColor != null ||
+    final hasExplicitVisualOverride =
+        backgroundColor != null ||
         foregroundColor != null ||
         borderColor != null ||
         borderRadius != null ||
@@ -81,26 +80,29 @@ class FxChip extends StatelessWidget {
     if (!hasExplicitVisualOverride && variant == FxChipVariant.primary) {
       badge = ShadBadge(child: _content(context));
     } else {
-      final resolvedBackground = backgroundColor ?? switch (variant) {
-        FxChipVariant.primary => scheme.primary,
-        FxChipVariant.secondary => scheme.surfaceContainerHighest,
-        FxChipVariant.outline => Colors.transparent,
-        FxChipVariant.destructive => scheme.errorContainer,
-      };
-      final resolvedForeground = foregroundColor ?? switch (variant) {
-        FxChipVariant.primary => scheme.onPrimary,
-        FxChipVariant.secondary => scheme.onSurfaceVariant,
-        FxChipVariant.outline => scheme.onSurface,
-        FxChipVariant.destructive => scheme.onErrorContainer,
-      };
+      final resolvedBackground = backgroundColor ??
+          switch (variant) {
+            FxChipVariant.primary => scheme.primary,
+            FxChipVariant.secondary => scheme.surfaceContainerHighest,
+            FxChipVariant.outline => Colors.transparent,
+            FxChipVariant.destructive => scheme.errorContainer,
+          };
+      final resolvedForeground = foregroundColor ??
+          switch (variant) {
+            FxChipVariant.primary => scheme.onPrimary,
+            FxChipVariant.secondary => scheme.onSurface,
+            FxChipVariant.outline => scheme.onSurface,
+            FxChipVariant.destructive => scheme.onErrorContainer,
+          };
       final resolvedBorder = borderColor != null
           ? Border.all(color: borderColor!)
           : variant == FxChipVariant.outline
-              ? Border.all(color: scheme.outlineVariant)
-              : null;
+          ? Border.all(color: scheme.outline)
+          : null;
 
       badge = Container(
-        padding: padding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding:
+            padding ?? const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         decoration: BoxDecoration(
           color: resolvedBackground,
           border: resolvedBorder,
@@ -120,6 +122,47 @@ class FxChip extends StatelessWidget {
       badge = FxGestureDetector(onTap: onTap, child: badge);
     }
     return badge;
+  }
+}
+
+/// FxChoiceChip — 清单、优先级、标签等“可选择”项目的统一视觉。
+///
+/// 选中状态同时使用底色、文字色和边框表达，避免仅靠很浅的背景色区分。
+class FxChoiceChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final Color? selectionColor;
+
+  const FxChoiceChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    this.onTap,
+    this.icon,
+    this.selectionColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final selectedColor = selectionColor ?? activePalette.accent;
+    final selectedAlpha = theme.brightness == Brightness.dark ? .22 : .13;
+    return FxChip(
+      label: label,
+      icon: icon,
+      variant: FxChipVariant.outline,
+      backgroundColor:
+          selected
+              ? selectedColor.withValues(alpha: selectedAlpha)
+              : scheme.surfaceContainerLowest,
+      foregroundColor: selected ? selectedColor : scheme.onSurface,
+      borderColor: selected ? selectedColor : scheme.outline,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      onTap: onTap,
+    );
   }
 }
 
