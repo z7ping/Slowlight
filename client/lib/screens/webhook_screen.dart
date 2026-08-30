@@ -223,7 +223,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       borderRadius: AppTheme.radiusLg,
       padding: EdgeInsets.zero,
-      child: ListTile(
+      child: FxListTile(
         leading: CircleAvatar(
           backgroundColor:
               webhook['is_active'] == true
@@ -278,7 +278,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
     return FxCard(
       borderRadius: AppTheme.radiusLg,
       padding: EdgeInsets.zero,
-      child: ExpansionTile(
+      child: FxExpansionTile(
         leading: Icon(Icons.info_outline, color: AppTheme.primary),
         title: Text('事件说明', style: SlowlightTypography.cardTitle(context)),
         subtitle: Text(

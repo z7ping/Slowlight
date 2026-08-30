@@ -57,7 +57,7 @@ class ReflectionComposer {
     var saving = false;
     String? error;
 
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await FxSheet.show<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,

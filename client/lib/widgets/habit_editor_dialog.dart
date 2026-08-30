@@ -42,7 +42,7 @@ class HabitEditorDialog extends StatefulWidget {
   const HabitEditorDialog({super.key, this.habit});
 
   static Future<HabitEditorValue?> show(BuildContext context, {Habit? habit}) {
-    return showDialog<HabitEditorValue>(
+    return FxDialog.raw<HabitEditorValue>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: .45),
       builder: (_) => HabitEditorDialog(habit: habit),
@@ -211,7 +211,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final mobile = MediaQuery.sizeOf(context).width < 600;
-    return Dialog(
+    return FxDialogSurface(
       insetPadding: EdgeInsets.symmetric(
         horizontal: mobile ? 12 : 24,
         vertical: 24,

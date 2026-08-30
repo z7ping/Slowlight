@@ -478,7 +478,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                           size: FxButtonSize.sm,
                           onPressed: () => _editHabit(habit),
                         ),
-                        PopupMenuButton<String>(
+                        FxMenu<String>(
                           tooltip: '更多',
                           onSelected: (value) {
                             if (value == 'backfill') _backfill(habit);
@@ -486,11 +486,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                           },
                           itemBuilder:
                               (_) => const [
-                                PopupMenuItem(
+                                FxMenuItem(
                                   value: 'backfill',
                                   child: Text('补卡'),
                                 ),
-                                PopupMenuItem(
+                                FxMenuItem(
                                   value: 'delete',
                                   child: Text('删除'),
                                 ),

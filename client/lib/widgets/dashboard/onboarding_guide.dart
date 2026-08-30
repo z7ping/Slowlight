@@ -15,7 +15,7 @@ class OnboardingGuide extends StatefulWidget {
     BuildContext context, {
     required VoidCallback onComplete,
   }) async {
-    return showDialog(
+    return FxDialog.raw(
       context: context,
       barrierDismissible: false,
       builder: (_) => OnboardingGuide(onComplete: onComplete),
@@ -40,7 +40,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return FxDialogSurface(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         width: 400,

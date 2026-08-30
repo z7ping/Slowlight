@@ -512,7 +512,7 @@ class TaskTile extends StatelessWidget {
 
   /// 快捷操作底部菜单
   void _showQuickActions(BuildContext context) {
-    showModalBottomSheet(
+    FxSheet.show(
       context: context,
       showDragHandle: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -534,7 +534,7 @@ class TaskTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              ListTile(
+              FxListTile(
                 leading:
                     Icon(Icons.check_circle_outline, color: AppTheme.success),
                 title: const Text('完成'),
@@ -543,7 +543,7 @@ class TaskTile extends StatelessWidget {
                   onToggle();
                 },
               ),
-              ListTile(
+              FxListTile(
                 leading:
                     Icon(Icons.delete_outline, color: AppTheme.priorityHigh),
                 title: const Text('删除'),

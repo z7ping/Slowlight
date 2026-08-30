@@ -320,7 +320,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Future<void> _showMoveSheet(Task task) async {
-    final result = await showModalBottomSheet<String>(
+    final result = await FxSheet.show<String>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,

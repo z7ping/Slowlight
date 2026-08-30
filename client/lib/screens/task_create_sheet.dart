@@ -36,7 +36,7 @@ class TaskCreateSheet extends StatefulWidget {
     bool defaultDueToday = true,
     VoidCallback? onCreated,
   }) {
-    return showModalBottomSheet(
+    return FxSheet.show(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
@@ -91,12 +91,12 @@ class TaskCreateSheet extends StatefulWidget {
       );
     }
 
-    return showDialog<bool>(
+    return FxDialog.raw<bool>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: .45),
       builder: (dialogContext) {
         final size = MediaQuery.sizeOf(dialogContext);
-        return Dialog(
+        return FxDialogSurface(
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 24,
             vertical: 24,

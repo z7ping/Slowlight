@@ -400,7 +400,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _dateMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置日期',
       onSelected: (value) async {
         final now = DateTime.now();
@@ -422,10 +422,10 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       },
       itemBuilder:
           (_) => const [
-            PopupMenuItem(value: 'today', child: Text('今天')),
-            PopupMenuItem(value: 'tomorrow', child: Text('明天')),
-            PopupMenuItem(value: 'none', child: Text('无日期')),
-            PopupMenuItem(value: 'custom', child: Text('选择日期...')),
+            FxMenuItem(value: 'today', child: Text('今天')),
+            FxMenuItem(value: 'tomorrow', child: Text('明天')),
+            FxMenuItem(value: 'none', child: Text('无日期')),
+            FxMenuItem(value: 'custom', child: Text('选择日期...')),
           ],
       child: _propertyRow(
         icon: Icons.today_outlined,
@@ -437,14 +437,14 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _timeMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置时间',
       onSelected: (value) async {
         if (value == 'none') {
           setState(() => _dueTime = null);
           return;
         }
-        final time = await showTimePicker(
+        final time = await showFxTimePicker(
           context: context,
           initialTime: _dueTime ?? TimeOfDay.now(),
         );
@@ -452,8 +452,8 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       },
       itemBuilder:
           (_) => const [
-            PopupMenuItem(value: 'custom', child: Text('选择时间...')),
-            PopupMenuItem(value: 'none', child: Text('无时间')),
+            FxMenuItem(value: 'custom', child: Text('选择时间...')),
+            FxMenuItem(value: 'none', child: Text('无时间')),
           ],
       child: _propertyRow(
         icon: Icons.access_time_outlined,
@@ -465,13 +465,13 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _priorityMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置优先级',
       onSelected: (value) => setState(() => _priority = value),
       itemBuilder:
           (_) =>
               ['none', 'low', 'medium', 'high', 'urgent'].map((priority) {
-                return PopupMenuItem(
+                return FxMenuItem(
                   value: priority,
                   child: Row(
                     children: [
@@ -501,17 +501,17 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _systemTagMenu() {
-    return PopupMenuButton<int?>(
+    return FxMenu<int?>(
       tooltip: '设置状态标签',
       onSelected: (value) => setState(() => _systemTagId = value),
       itemBuilder:
           (_) => [
-            const PopupMenuItem<int?>(value: null, child: Text('无状态标签')),
+            const FxMenuItem<int?>(value: null, child: Text('无状态标签')),
             ..._systemTags.map((tag) {
               final id = tag['id'] as int;
               final name = tag['name'] as String? ?? '';
               final icon = tag['icon'] as String? ?? '';
-              return PopupMenuItem<int?>(
+              return FxMenuItem<int?>(
                 value: id,
                 child: Row(
                   children: [
@@ -536,13 +536,13 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _taskTypeMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置任务类型',
       onSelected: (value) => setState(() => _taskType = value),
       itemBuilder:
           (_) =>
               ['daily', 'branch', 'main', 'explore'].map((type) {
-                return PopupMenuItem(
+                return FxMenuItem(
                   value: type,
                   child: Text(_taskTypeLabel(type)),
                 );
@@ -556,7 +556,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _repeatMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置重复',
       onSelected: (value) {
         setState(() {
@@ -567,7 +567,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       itemBuilder:
           (_) =>
               ['none', 'daily', 'weekly', 'monthly'].map((type) {
-                return PopupMenuItem(
+                return FxMenuItem(
                   value: type,
                   child: Text(_repeatLabel(type)),
                 );
@@ -661,7 +661,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _reminderPicker() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置提醒',
       onSelected: (value) async {
         if (value == 'none') {
@@ -675,7 +675,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           lastDate: DateTime.now().add(const Duration(days: 365)),
         );
         if (picked == null) return;
-        final time = await showTimePicker(
+        final time = await showFxTimePicker(
           context: context,
           initialTime: TimeOfDay.fromDateTime(_reminderAt ?? DateTime.now()),
         );
@@ -692,8 +692,8 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       },
       itemBuilder:
           (_) => const [
-            PopupMenuItem(value: 'custom', child: Text('选择提醒时间...')),
-            PopupMenuItem(value: 'none', child: Text('无提醒')),
+            FxMenuItem(value: 'custom', child: Text('选择提醒时间...')),
+            FxMenuItem(value: 'none', child: Text('无提醒')),
           ],
       child: _propertyRow(
         icon: Icons.notifications_outlined,

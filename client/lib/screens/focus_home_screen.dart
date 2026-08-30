@@ -895,7 +895,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   }) {
     final theme = Theme.of(context);
     final accent = activePalette.accent;
-    return ListTile(
+    return FxListTile(
       minTileHeight: 44,
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 10),

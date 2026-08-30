@@ -131,7 +131,7 @@ class SyncStatusBadge extends StatelessWidget {
   }
 
   void _showDetail(BuildContext context, SyncService sync, int pending) {
-    showModalBottomSheet(
+    FxSheet.show(
       context: context,
       builder:
           (ctx) => SafeArea(

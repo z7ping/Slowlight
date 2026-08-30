@@ -24,7 +24,7 @@ class TaskFilterSortSheet extends StatefulWidget {
     required TaskFilterSort current,
     required List<TodoList> lists,
   }) {
-    return showModalBottomSheet<TaskFilterSort>(
+    return FxSheet.show<TaskFilterSort>(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,

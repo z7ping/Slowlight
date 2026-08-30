@@ -79,14 +79,14 @@ class _ListManageScreenState extends State<ListManageScreen> {
     var saving = false;
     String? error;
 
-    final saved = await showDialog<bool>(
+    final saved = await FxDialog.raw<bool>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: .45),
       builder:
           (dialogContext) => StatefulBuilder(
             builder: (dialogContext, setDialogState) {
               final theme = Theme.of(dialogContext);
-              return Dialog(
+              return FxDialogSurface(
                 backgroundColor: theme.colorScheme.surface,
                 surfaceTintColor: Colors.transparent,
                 insetPadding: const EdgeInsets.symmetric(

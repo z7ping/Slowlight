@@ -18,7 +18,7 @@ class SystemTagPicker extends StatefulWidget {
     int? defaultTagId,
     String title = '选择系统标签',
   }) async {
-    return showModalBottomSheet<int?>(
+    return FxSheet.show<int?>(
       context: context,
       isScrollControlled: false,
       showDragHandle: false,

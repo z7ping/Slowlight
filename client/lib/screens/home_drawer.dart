@@ -286,7 +286,7 @@ class HomeDrawer extends StatelessWidget {
                 ? Border(left: BorderSide(color: AppTheme.primary, width: 3))
                 : null,
       ),
-      child: ListTile(
+      child: FxListTile(
         leading: Icon(
           icon,
           size: 20,
@@ -540,7 +540,7 @@ class HomeDesktopSidebar extends StatelessWidget {
                 ? Border(left: BorderSide(color: AppTheme.primary, width: 3))
                 : null,
       ),
-      child: ListTile(
+      child: FxListTile(
         leading: Icon(
           icon,
           size: 20,

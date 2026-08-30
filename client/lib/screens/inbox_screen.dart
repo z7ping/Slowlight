@@ -78,7 +78,7 @@ class _InboxScreenState extends State<InboxScreen> {
       return;
     }
 
-    final selected = await showModalBottomSheet<int>(
+    final selected = await FxSheet.show<int>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

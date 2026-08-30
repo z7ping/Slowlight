@@ -75,7 +75,7 @@ class TaskDetailSheet extends StatefulWidget {
       );
     }
 
-    return showModalBottomSheet<void>(
+    return FxSheet.show<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,

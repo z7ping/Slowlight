@@ -16,7 +16,7 @@ class HabitCheckinDialog extends StatefulWidget {
     BuildContext context, {
     required Habit habit,
   }) {
-    return showModalBottomSheet(
+    return FxSheet.show(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
