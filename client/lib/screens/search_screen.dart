@@ -11,8 +11,7 @@ import '../repositories/habit_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
+import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -125,7 +124,7 @@ class _SearchScreenState extends State<SearchScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const HfPageHeader(title: '搜索'),
+            const FxPageHeader(title: '搜索'),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
@@ -140,7 +139,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             controller: _controller,
                             focusNode: _focusNode,
                             onChanged: _changed,
-                            style: const TextStyle(fontSize: 15),
+                            style: SlowlightTypography.body(context),
                             decoration: InputDecoration(
                               hintText: '搜索任务、习惯、回顾…',
                               prefixIcon: const Icon(LucideIcons.search, size: 20),
@@ -170,27 +169,17 @@ class _SearchScreenState extends State<SearchScreen> {
                               children: [
                                 Text(
                                   '最近：',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.textXs,
+                                  style: SlowlightTypography.caption(context).copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 ..._recentSearches.map(
-                                  (query) => InkWell(
-                                    borderRadius: BorderRadius.circular(999),
+                                  (query) => FxChip(
+                                    label: query,
+                                    variant: query == _query
+                                        ? FxChipVariant.primary
+                                        : FxChipVariant.secondary,
                                     onTap: () => _useRecent(query),
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        minWidth: 44,
-                                        minHeight: 44,
-                                      ),
-                                      child: Center(
-                                        child: HfChip(
-                                          query,
-                                          accent: query == _query,
-                                        ),
-                                      ),
-                                    ),
                                   ),
                                 ),
                               ],
@@ -204,7 +193,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                             )
                           else if (_query.isEmpty)
-                            const HfEmptyState(
+                            const FxEmptyState(
                               emoji: '🔍',
                               title: '输入关键词开始搜索',
                               subtitle: '可以查找任务、习惯和你写下的回顾',
@@ -212,7 +201,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           else if (_tasks.isEmpty &&
                               _habits.isEmpty &&
                               _reflections.isEmpty)
-                            const HfEmptyState(
+                            const FxEmptyState(
                               emoji: '🍃',
                               title: '没有找到相关内容',
                               subtitle: '没有结果也是一种明确答案',
@@ -243,8 +232,9 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _taskGroup() {
     return _group(
       '任务 · ${_tasks.length} 条',
-      HfCard(
+      FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        expanded: true,
         child: Column(children: _tasks.take(20).map(_taskRow).toList()),
       ),
     );
@@ -287,7 +277,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     _highlight(
                       task.title,
                       _query,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: SlowlightTypography.body(context).copyWith(
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -295,8 +285,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       const SizedBox(height: 2),
                       Text(
                         meta,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                        style: SlowlightTypography.caption(context).copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -312,11 +301,11 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _habitGroup() {
-    final theme = Theme.of(context);
     return _group(
       '习惯 · ${_habits.length} 条',
-      HfCard(
+      FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        expanded: true,
         child: Column(
           children: _habits
               .take(20)
@@ -331,11 +320,14 @@ class _SearchScreenState extends State<SearchScreen> {
                         child: _highlight(
                           habit.name,
                           _query,
-                          style: theme.textTheme.bodyMedium,
+                          style: SlowlightTypography.body(context),
                         ),
                       ),
                       if (habit.streakCount > 0)
-                        HfChip('🔥 ${habit.streakCount}'),
+                        FxChip(
+                          label: '🔥 ${habit.streakCount}',
+                          variant: FxChipVariant.secondary,
+                        ),
                     ],
                   ),
                 ),
@@ -350,8 +342,9 @@ class _SearchScreenState extends State<SearchScreen> {
     final theme = Theme.of(context);
     return _group(
       '回顾 · ${_reflections.length} 条',
-      HfCard(
+      FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        expanded: true,
         child: Column(
           children: _reflections
               .take(20)
@@ -370,13 +363,12 @@ class _SearchScreenState extends State<SearchScreen> {
                             _highlight(
                               entry.content,
                               _query,
-                              style: theme.textTheme.bodyMedium,
+                              style: SlowlightTypography.body(context),
                             ),
                             const SizedBox(height: 3),
                             Text(
                               '${entry.createdAt.month} 月 ${entry.createdAt.day} 日${entry.dimensionKey == null ? '' : ' · #${_dimensionLabel(entry.dimensionKey!)}'}',
-                              style: TextStyle(
-                                fontSize: AppTheme.textXs,
+                              style: SlowlightTypography.caption(context).copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
@@ -401,8 +393,7 @@ class _SearchScreenState extends State<SearchScreen> {
           padding: const EdgeInsets.only(bottom: 6),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
