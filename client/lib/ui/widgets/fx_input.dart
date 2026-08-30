@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app_theme.dart';
 import '../typography_tokens.dart';
 
 /// FxInput — 文本输入组件。
 ///
 /// 页面层统一使用 FxInput；内部保留原生 TextField 以保证桌面端中文输入法
-/// 的稳定性，但字号、占位文字和标签语义统一由 Slowlight Typography 管理。
+/// 的稳定性。视觉、字号、占位文字和标签语义统一由 Fx 层管理。
 class FxInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? placeholder;
@@ -64,6 +65,7 @@ class FxInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final radius = BorderRadius.circular(AppTheme.radiusMd);
     final input = TextField(
       controller: controller,
       onChanged: onChanged,
@@ -90,12 +92,33 @@ class FxInput extends StatelessWidget {
             ),
         prefixIcon: leading,
         suffixIcon: trailing,
-        border: InputBorder.none,
+        filled: true,
+        fillColor: enabled
+            ? theme.colorScheme.surfaceContainerLowest
+            : theme.colorScheme.surfaceContainerLow,
+        border: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: radius,
+          borderSide: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: .65),
+          ),
+        ),
         isDense: isDense,
         contentPadding: contentPadding ??
             EdgeInsets.symmetric(
-              horizontal: leading == null ? 0 : 12,
-              vertical: isDense ? 8 : 10,
+              horizontal: 12,
+              vertical: isDense ? 9 : 11,
             ),
       ),
     );
