@@ -38,7 +38,7 @@ class FxResponsiveFormGrid extends StatelessWidget {
             ((availableWidth + horizontalGap) /
                     (effectiveMinWidth + horizontalGap))
                 .floor();
-        columns = columns.clamp(1, maxColumns);
+        columns = columns.clamp(1, maxColumns).toInt();
         final width =
             (availableWidth - horizontalGap * (columns - 1)) / columns;
 
