@@ -17,6 +17,8 @@ class FxListTile extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double minHeight;
   final bool showDivider;
+  final TextStyle? titleStyle;
+  final TextStyle? subtitleStyle;
 
   const FxListTile({
     super.key,
@@ -28,6 +30,8 @@ class FxListTile extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
     this.minHeight = 52,
     this.showDivider = false,
+    this.titleStyle,
+    this.subtitleStyle,
   });
 
   @override
@@ -57,17 +61,19 @@ class FxListTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: SlowlightTypography.secondary(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: titleStyle ??
+                      SlowlightTypography.secondary(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 if (subtitle != null && subtitle!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    style: subtitleStyle ??
+                        SlowlightTypography.caption(context).copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                   ),
                 ],
               ],
