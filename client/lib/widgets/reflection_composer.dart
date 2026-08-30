@@ -67,6 +67,28 @@ class ReflectionComposer {
         builder: (sheetContext, setSheetState) {
           final theme = Theme.of(sheetContext);
           final bottomInset = MediaQuery.viewInsetsOf(sheetContext).bottom;
+
+          FxChip selectableChip({
+            required String label,
+            required bool selected,
+            required VoidCallback? onTap,
+          }) {
+            return FxChip(
+              label: label,
+              onTap: onTap,
+              backgroundColor: selected
+                  ? activePalette.accent.withValues(alpha: .12)
+                  : fxSubtleSurface(sheetContext),
+              foregroundColor: selected
+                  ? activePalette.accent
+                  : theme.colorScheme.onSurfaceVariant,
+              borderColor: selected
+                  ? activePalette.accent
+                  : fxBorder(sheetContext),
+              borderRadius: 999,
+            );
+          }
+
           return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: SafeArea(
@@ -114,16 +136,13 @@ class ReflectionComposer {
                               .copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 10),
-                        TextField(
+                        FxInput(
                           controller: controller,
                           autofocus: true,
                           enabled: !saving,
                           minLines: 1,
                           maxLines: 4,
-                          style: SlowlightTypography.body(sheetContext),
-                          decoration: const InputDecoration(
-                            hintText: '此刻的观察，只描述事实…',
-                          ),
+                          placeholder: '此刻的观察，只描述事实…',
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -141,33 +160,26 @@ class ReflectionComposer {
                           children: DimensionCatalog.all.map((dimension) {
                             final selected =
                                 selectedDimension == dimension.keyValue;
-                            return ChoiceChip(
-                              label: Text('${dimension.icon} ${dimension.name}'),
-                              labelStyle:
-                                  const TextStyle(fontSize: AppTheme.textXs),
-                              showCheckmark: false,
+                            return selectableChip(
+                              label: '${dimension.icon} ${dimension.name}',
                               selected: selected,
-                              selectedColor:
-                                  activePalette.accent.withValues(alpha: .12),
-                              side: BorderSide(
-                                color: selected
-                                    ? activePalette.accent
-                                    : fxBorder(sheetContext),
-                              ),
-                              onSelected: (_) => setSheetState(() {
-                                selectedDimension =
-                                    selected ? null : dimension.keyValue;
-                                if (selectedTagId != null) {
-                                  final tag = tags.where(
-                                    (item) => item.id == selectedTagId,
-                                  );
-                                  if (tag.isNotEmpty &&
-                                      tag.first.dimensionKey != null &&
-                                      tag.first.dimensionKey!.isNotEmpty) {
-                                    selectedDimension = tag.first.dimensionKey;
-                                  }
-                                }
-                              }),
+                              onTap: saving
+                                  ? null
+                                  : () => setSheetState(() {
+                                        selectedDimension =
+                                            selected ? null : dimension.keyValue;
+                                        if (selectedTagId != null) {
+                                          final tag = tags.where(
+                                            (item) => item.id == selectedTagId,
+                                          );
+                                          if (tag.isNotEmpty &&
+                                              tag.first.dimensionKey != null &&
+                                              tag.first.dimensionKey!.isNotEmpty) {
+                                            selectedDimension =
+                                                tag.first.dimensionKey;
+                                          }
+                                        }
+                                      }),
                             );
                           }).toList(growable: false),
                         ),
@@ -187,35 +199,26 @@ class ReflectionComposer {
                           children: [
                             ...tags.take(8).map((tag) {
                               final selected = selectedTagId == tag.id;
-                              return ChoiceChip(
-                                label: Text('#${tag.name}'),
-                                labelStyle:
-                                    const TextStyle(fontSize: AppTheme.textXs),
-                                showCheckmark: false,
+                              return selectableChip(
+                                label: '#${tag.name}',
                                 selected: selected,
-                                selectedColor:
-                                    activePalette.accent.withValues(alpha: .12),
-                                side: BorderSide(
-                                  color: selected
-                                      ? activePalette.accent
-                                      : fxBorder(sheetContext),
-                                ),
-                                onSelected: (_) => setSheetState(() {
-                                  selectedTagId = selected ? null : tag.id;
-                                  if (!selected &&
-                                      tag.dimensionKey != null &&
-                                      tag.dimensionKey!.isNotEmpty) {
-                                    selectedDimension = tag.dimensionKey;
-                                  }
-                                }),
+                                onTap: saving
+                                    ? null
+                                    : () => setSheetState(() {
+                                          selectedTagId = selected ? null : tag.id;
+                                          if (!selected &&
+                                              tag.dimensionKey != null &&
+                                              tag.dimensionKey!.isNotEmpty) {
+                                            selectedDimension = tag.dimensionKey;
+                                          }
+                                        }),
                               );
                             }),
-                            ActionChip(
-                              label: const Text('+ 新建'),
-                              labelStyle:
-                                  const TextStyle(fontSize: AppTheme.textXs),
-                              side: BorderSide(color: fxBorder(sheetContext)),
-                              backgroundColor: fxSurface(sheetContext),
+                            FxButton(
+                              label: '新建',
+                              icon: Icons.add,
+                              variant: FxButtonVariant.outline,
+                              size: FxButtonSize.sm,
                               onPressed: saving
                                   ? null
                                   : () async {
@@ -318,102 +321,84 @@ class ReflectionComposer {
     var saving = false;
     String? error;
 
-    final created = await showDialog<ObservationTag>(
+    final created = await FxDialog.show<ObservationTag>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (dialogContext) => StatefulBuilder(
+      title: '新建观察标签',
+      width: 420,
+      child: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
-          return Dialog(
-            backgroundColor: fxSurface(dialogContext),
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              side: BorderSide(color: fxBorder(dialogContext)),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '新建观察标签',
-                      style: SlowlightTypography.cardTitle(dialogContext)
-                          .copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      enabled: !saving,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: saving
-                          ? null
-                          : (_) => _saveQuickTag(
-                                dialogContext,
-                                controller: controller,
-                                dimensionKey: dimensionKey,
-                                setDialogState: setDialogState,
-                                setSaving: (value) => saving = value,
-                                setError: (value) => error = value,
-                              ),
-                      decoration: const InputDecoration(
-                        hintText: '例如：分心、心流、精力低谷',
-                      ),
-                    ),
-                    if (dimensionKey != null && dimensionKey.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '默认归属当前选择的维度',
-                        style: SlowlightTypography.caption(dialogContext)
-                            .copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                    if (error != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        error!,
-                        style: SlowlightTypography.caption(dialogContext)
-                            .copyWith(color: theme.colorScheme.error),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          size: FxButtonSize.sm,
-                          onPressed: saving
-                              ? null
-                              : () => Navigator.of(dialogContext).pop(),
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FxInput(
+                controller: controller,
+                autofocus: true,
+                enabled: !saving,
+                textInputAction: TextInputAction.done,
+                onSubmitted: saving
+                    ? null
+                    : (_) => _saveQuickTag(
+                          dialogContext,
+                          controller: controller,
+                          dimensionKey: dimensionKey,
+                          setDialogState: setDialogState,
+                          setSaving: (value) => saving = value,
+                          setError: (value) => error = value,
                         ),
-                        FxButton(
-                          label: saving ? '创建中…' : '创建',
-                          size: FxButtonSize.sm,
-                          onPressed: saving
-                              ? null
-                              : () => _saveQuickTag(
-                                    dialogContext,
-                                    controller: controller,
-                                    dimensionKey: dimensionKey,
-                                    setDialogState: setDialogState,
-                                    setSaving: (value) => saving = value,
-                                    setError: (value) => error = value,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                placeholder: '例如：分心、心流、精力低谷',
               ),
-            ),
+              if (dimensionKey != null && dimensionKey.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '默认归属当前选择的维度',
+                  style: SlowlightTypography.caption(dialogContext)
+                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  error!,
+                  style: SlowlightTypography.caption(dialogContext)
+                      .copyWith(color: theme.colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FxButton(
+                    label: '取消',
+                    variant: FxButtonVariant.outline,
+                    size: FxButtonSize.sm,
+                    onPressed: saving
+                        ? null
+                        : () => Navigator.of(
+                              dialogContext,
+                              rootNavigator: true,
+                            ).pop(),
+                  ),
+                  FxButton(
+                    label: saving ? '创建中…' : '创建',
+                    size: FxButtonSize.sm,
+                    onPressed: saving
+                        ? null
+                        : () => _saveQuickTag(
+                              dialogContext,
+                              controller: controller,
+                              dimensionKey: dimensionKey,
+                              setDialogState: setDialogState,
+                              setSaving: (value) => saving = value,
+                              setError: (value) => error = value,
+                            ),
+                  ),
+                ],
+              ),
+            ],
           );
         },
       ),
@@ -447,7 +432,9 @@ class ReflectionComposer {
         color: '#1890FF',
         dimensionKey: dimensionKey,
       );
-      if (dialogContext.mounted) Navigator.of(dialogContext).pop(tag);
+      if (dialogContext.mounted) {
+        Navigator.of(dialogContext, rootNavigator: true).pop(tag);
+      }
     } catch (e) {
       setDialogState(() {
         setSaving(false);
@@ -467,125 +454,109 @@ class ReflectionComposer {
     var saving = false;
     String? error;
 
-    final saved = await showDialog<bool>(
+    final saved = await FxDialog.show<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (dialogContext) => StatefulBuilder(
+      title: '写下想法',
+      width: 520,
+      child: StatefulBuilder(
         builder: (dialogContext, setState) {
           final dimension = DimensionCatalog.byKey(dimensionKey);
-          return Dialog(
-            backgroundColor: fxSurface(dialogContext),
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: fxBorder(dialogContext)),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '写下想法',
-                        style: SlowlightTypography.cardTitle(dialogContext)
-                            .copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      if (dimension != null) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          '${dimension.icon} ${dimension.name}',
-                          style: SlowlightTypography.secondary(dialogContext)
-                              .copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                      if (prompt != null && prompt.trim().isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          prompt,
-                          style: SlowlightTypography.secondary(dialogContext)
-                              .copyWith(
-                            color: Theme.of(dialogContext)
-                                .colorScheme
-                                .onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: controller,
-                        autofocus: true,
-                        minLines: 4,
-                        maxLines: 8,
-                        style: SlowlightTypography.body(dialogContext),
-                        decoration: const InputDecoration(
-                          hintText: '只记录你的真实想法，不需要写成结论。',
-                        ),
-                      ),
-                      if (error != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          error!,
-                          style: SlowlightTypography.caption(dialogContext)
-                              .copyWith(
-                            color: Theme.of(dialogContext).colorScheme.error,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-                      Wrap(
-                        alignment: WrapAlignment.end,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FxButton(
-                            label: '取消',
-                            variant: FxButtonVariant.outline,
-                            onPressed: saving
-                                ? null
-                                : () => Navigator.of(dialogContext).pop(false),
-                          ),
-                          FxButton(
-                            label: saving ? '保存中…' : '保存',
-                            onPressed: saving
-                                ? null
-                                : () async {
-                                    final value = controller.text.trim();
-                                    if (value.isEmpty) {
-                                      setState(() => error = '先写一点内容');
-                                      return;
-                                    }
-                                    setState(() {
-                                      saving = true;
-                                      error = null;
-                                    });
-                                    try {
-                                      await ReflectionRepository().create(
-                                        content: value,
-                                        questionId: questionId,
-                                        dimensionKey: dimensionKey,
-                                        context: contextData,
-                                      );
-                                      if (dialogContext.mounted) {
-                                        Navigator.of(dialogContext).pop(true);
-                                      }
-                                    } catch (e) {
-                                      setState(() {
-                                        saving = false;
-                                        error = e.toString();
-                                      });
-                                    }
-                                  },
-                          ),
-                        ],
-                      ),
-                    ],
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (dimension != null) ...[
+                  Text(
+                    '${dimension.icon} ${dimension.name}',
+                    style: SlowlightTypography.secondary(dialogContext)
+                        .copyWith(fontWeight: FontWeight.w600),
                   ),
+                ],
+                if (prompt != null && prompt.trim().isNotEmpty) ...[
+                  if (dimension != null) const SizedBox(height: 10),
+                  Text(
+                    prompt,
+                    style: SlowlightTypography.secondary(dialogContext)
+                        .copyWith(
+                      color: Theme.of(dialogContext)
+                          .colorScheme
+                          .onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                FxInput(
+                  controller: controller,
+                  autofocus: true,
+                  enabled: !saving,
+                  minLines: 4,
+                  maxLines: 8,
+                  placeholder: '只记录你的真实想法，不需要写成结论。',
                 ),
-              ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    error!,
+                    style: SlowlightTypography.caption(dialogContext).copyWith(
+                      color: Theme.of(dialogContext).colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FxButton(
+                      label: '取消',
+                      variant: FxButtonVariant.outline,
+                      onPressed: saving
+                          ? null
+                          : () => Navigator.of(
+                                dialogContext,
+                                rootNavigator: true,
+                              ).pop(false),
+                    ),
+                    FxButton(
+                      label: saving ? '保存中…' : '保存',
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              final value = controller.text.trim();
+                              if (value.isEmpty) {
+                                setState(() => error = '先写一点内容');
+                                return;
+                              }
+                              setState(() {
+                                saving = true;
+                                error = null;
+                              });
+                              try {
+                                await ReflectionRepository().create(
+                                  content: value,
+                                  questionId: questionId,
+                                  dimensionKey: dimensionKey,
+                                  context: contextData,
+                                );
+                                if (dialogContext.mounted) {
+                                  Navigator.of(
+                                    dialogContext,
+                                    rootNavigator: true,
+                                  ).pop(true);
+                                }
+                              } catch (e) {
+                                setState(() {
+                                  saving = false;
+                                  error = e.toString();
+                                });
+                              }
+                            },
+                    ),
+                  ],
+                ),
+              ],
             ),
           );
         },
