@@ -1,10 +1,11 @@
-import '../ui/fx.dart';
 import 'package:flutter/material.dart';
+
+import '../models/tag.dart';
 import '../models/task_filter_sort.dart';
 import '../models/todo_list.dart';
-import '../models/tag.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../ui/fx.dart';
 import '../utils/color_utils.dart';
 
 /// 任务筛选排序底部弹窗
@@ -18,7 +19,6 @@ class TaskFilterSortSheet extends StatefulWidget {
     required this.lists,
   });
 
-  /// 显示筛选排序弹窗，返回新的筛选排序状态
   static Future<TaskFilterSort?> show(
     BuildContext context, {
     required TaskFilterSort current,
@@ -62,11 +62,12 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
   Future<void> _loadTags() async {
     try {
       final tags = await ApiService.getTags();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _tags = tags;
           _loadingTags = false;
         });
+      }
     } catch (e) {
       if (mounted) setState(() => _loadingTags = false);
     }
@@ -112,7 +113,6 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 拖拽手柄
           Container(
             width: 36,
             height: 4,
@@ -122,59 +122,51 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // 标题行
           Row(
             children: [
-              Text('筛选与排序',
-                  style: TextStyle(
-                      fontSize: AppTheme.textLg,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textColor(context))),
+              Text(
+                '筛选与排序',
+                style: SlowlightTypography.cardTitle(context).copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const Spacer(),
-              TextButton(
+              FxButton(
+                label: '重置',
+                variant: FxButtonVariant.ghost,
+                size: FxButtonSize.sm,
                 onPressed: _reset,
-                child: Text('重置',
-                    style: TextStyle(
-                        color: AppTheme.warmGray500,
-                        fontSize: AppTheme.textMd)),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          // 可滚动内容
           Flexible(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ====== 排序 ======
                   _sectionTitle('排序方式'),
                   const SizedBox(height: 8),
                   _buildSortOptions(),
                   const SizedBox(height: 16),
-                  // ====== 排序方向 ======
                   _sectionTitle('排序方向'),
                   const SizedBox(height: 8),
                   _buildSortDirection(),
                   const SizedBox(height: 20),
                   Divider(color: AppTheme.warmBorder.withValues(alpha: 0.5)),
                   const SizedBox(height: 12),
-                  // ====== 筛选：清单 ======
                   _sectionTitle('按清单'),
                   const SizedBox(height: 8),
                   _buildListFilter(),
                   const SizedBox(height: 16),
-                  // ====== 筛选：标签 ======
                   _sectionTitle('按标签'),
                   const SizedBox(height: 8),
                   _buildTagFilter(),
                   const SizedBox(height: 16),
-                  // ====== 筛选：优先级 ======
                   _sectionTitle('按优先级'),
                   const SizedBox(height: 8),
                   _buildPriorityFilter(),
                   const SizedBox(height: 16),
-                  // ====== 筛选：完成状态 ======
                   _sectionTitle('按状态'),
                   const SizedBox(height: 8),
                   _buildCompletedFilter(),
@@ -183,21 +175,11 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
               ),
             ),
           ),
-          // 底部按钮
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
+            child: FxButton(
+              label: '应用',
               onPressed: _apply,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: AppTheme.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('应用',
-                  style: TextStyle(
-                      fontSize: AppTheme.textMd, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -206,14 +188,15 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
   }
 
   Widget _sectionTitle(String label) {
-    return Text(label,
-        style: TextStyle(
-            fontSize: AppTheme.textMd,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.warmGray500));
+    return Text(
+      label,
+      style: SlowlightTypography.secondary(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: AppTheme.warmGray500,
+      ),
+    );
   }
 
-  // ====== 排序方式选择 ======
   Widget _buildSortOptions() {
     final options = [
       (TaskSortBy.priority, '优先级', Icons.flag_outlined),
@@ -236,7 +219,6 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     );
   }
 
-  // ====== 排序方向 ======
   Widget _buildSortDirection() {
     return Row(
       children: [
@@ -261,7 +243,6 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     );
   }
 
-  // ====== 清单筛选 ======
   Widget _buildListFilter() {
     return Wrap(
       spacing: 8,
@@ -286,22 +267,26 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     );
   }
 
-  // ====== 标签筛选 ======
   Widget _buildTagFilter() {
     if (_loadingTags) {
-      return SizedBox(
+      return const SizedBox(
         height: 32,
         child: Center(
-            child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2))),
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
       );
     }
     if (_tags.isEmpty) {
-      return Text('暂无标签',
-          style: TextStyle(
-              fontSize: AppTheme.textXs, color: AppTheme.warmGray400));
+      return Text(
+        '暂无标签',
+        style: SlowlightTypography.caption(context).copyWith(
+          color: AppTheme.warmGray400,
+        ),
+      );
     }
     return Wrap(
       spacing: 8,
@@ -326,7 +311,6 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     );
   }
 
-  // ====== 优先级筛选 ======
   Widget _buildPriorityFilter() {
     final options = [
       (null, '全部', null),
@@ -351,7 +335,6 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     );
   }
 
-  // ====== 完成状态筛选 ======
   Widget _buildCompletedFilter() {
     final options = [
       (null, '全部', Icons.list),
@@ -377,7 +360,6 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
     );
   }
 
-  // ====== 通用 chip 组件 ======
   Widget _buildChip({
     required String label,
     required bool isSelected,
@@ -407,15 +389,16 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon,
-                  size: 14,
-                  color: isSelected ? chipColor : AppTheme.warmGray500),
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? chipColor : AppTheme.warmGray500,
+              ),
               const SizedBox(width: 4),
             ],
             Text(
               label,
-              style: TextStyle(
-                fontSize: AppTheme.textMd,
+              style: SlowlightTypography.secondary(context).copyWith(
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected ? chipColor : AppTheme.warmGray500,
               ),
