@@ -115,143 +115,135 @@ class _InboxScreenState extends State<InboxScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('📥 收集箱'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.of(context).pop(),
-          tooltip: '返回',
-        ),
-      ),
       backgroundColor: AppTheme.warmWhite,
-      body: Column(
-        children: [
-          _buildQuickAddBar(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _tasks.isEmpty
-                    ? _buildEmptyState()
-                    : RefreshIndicator(
-                        onRefresh: _loadAll,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          itemCount: _tasks.length,
-                          itemBuilder: (context, index) {
-                            final task = _tasks[index];
-                            return Dismissible(
-                              key: ValueKey(task.id),
-                              background: _buildSwipeBackground(
-                                color: AppTheme.success,
-                                icon: Icons.drive_file_move_outline,
-                                alignment: Alignment.centerLeft,
-                              ),
-                              secondaryBackground: _buildSwipeBackground(
-                                color: AppTheme.priorityHigh,
-                                icon: Icons.delete_outline,
-                                alignment: Alignment.centerRight,
-                              ),
-                              confirmDismiss: (direction) async {
-                                if (direction == DismissDirection.startToEnd) {
-                                  _moveTo(task);
-                                  return false;
-                                }
-
-                                final confirmed = await FxDialog.confirm(
-                                  context: context,
-                                  title: '删除任务',
-                                  content: '确定删除「${task.title}」？',
-                                  confirmText: '删除',
-                                  destructive: true,
-                                );
-                                if (confirmed != true) return false;
-
-                                final originalTasks = List<Task>.from(_tasks);
-                                var undone = false;
-                                setState(
-                                  () => _tasks.removeWhere(
-                                    (t) => t.id == task.id,
-                                  ),
-                                );
-                                ScaffoldMessenger.of(context).clearSnackBars();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('已删除「${task.title}」'),
-                                    action: SnackBarAction(
-                                      label: '撤销',
-                                      onPressed: () {
-                                        undone = true;
-                                        setState(() => _tasks = originalTasks);
-                                      },
-                                    ),
-                                    duration: const Duration(seconds: 4),
-                                  ),
-                                );
-                                await Future.delayed(
-                                  const Duration(seconds: 4),
-                                );
-                                if (undone) return false;
-                                try {
-                                  await ApiService.deleteTask(task.id);
-                                } catch (_) {
-                                  if (mounted) {
-                                    setState(() => _tasks = originalTasks);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text('删除失败'),
-                                        backgroundColor: AppTheme.priorityHigh,
-                                      ),
-                                    );
-                                  }
-                                }
-                                return false;
-                              },
-                              child: FxCard(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                borderRadius: 12,
-                                padding: EdgeInsets.zero,
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 4,
-                                  ),
-                                  title: Text(
-                                    task.title,
-                                    style: SlowlightTypography.body(context),
-                                  ),
-                                  subtitle: Text(
-                                    _timeAgo(task.createdAt),
-                                    style: SlowlightTypography.caption(context)
-                                        .copyWith(color: AppTheme.warmGray400),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: Icon(
-                                      Icons.drive_file_move_outline,
-                                      color: AppTheme.warmGray400,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _moveTo(task),
-                                    tooltip: '移动到清单',
-                                  ),
-                                  onTap: () {
-                                    TaskDetailSheet.show(
-                                      context,
-                                      task: task,
-                                      lists: _allLists,
-                                      onChanged: _loadAll,
-                                    );
-                                  },
+      body: SafeArea(
+        child: Column(
+          children: [
+            FxPageHeader(
+              title: '收集箱',
+              onBack: () => Navigator.of(context).pop(),
+            ),
+            _buildQuickAddBar(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _tasks.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadAll,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            itemCount: _tasks.length,
+                            itemBuilder: (context, index) {
+                              final task = _tasks[index];
+                              return Dismissible(
+                                key: ValueKey(task.id),
+                                background: _buildSwipeBackground(
+                                  color: AppTheme.success,
+                                  icon: Icons.drive_file_move_outline,
+                                  alignment: Alignment.centerLeft,
                                 ),
-                              ),
-                            );
-                          },
+                                secondaryBackground: _buildSwipeBackground(
+                                  color: AppTheme.priorityHigh,
+                                  icon: Icons.delete_outline,
+                                  alignment: Alignment.centerRight,
+                                ),
+                                confirmDismiss: (direction) async {
+                                  if (direction == DismissDirection.startToEnd) {
+                                    _moveTo(task);
+                                    return false;
+                                  }
+
+                                  final confirmed = await FxDialog.confirm(
+                                    context: context,
+                                    title: '删除任务',
+                                    content: '确定删除「${task.title}」？',
+                                    confirmText: '删除',
+                                    destructive: true,
+                                  );
+                                  if (confirmed != true) return false;
+
+                                  final originalTasks = List<Task>.from(_tasks);
+                                  var undone = false;
+                                  setState(
+                                    () => _tasks.removeWhere(
+                                      (t) => t.id == task.id,
+                                    ),
+                                  );
+                                  ScaffoldMessenger.of(context).clearSnackBars();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('已删除「${task.title}」'),
+                                      action: SnackBarAction(
+                                        label: '撤销',
+                                        onPressed: () {
+                                          undone = true;
+                                          setState(() => _tasks = originalTasks);
+                                        },
+                                      ),
+                                      duration: const Duration(seconds: 4),
+                                    ),
+                                  );
+                                  await Future.delayed(
+                                    const Duration(seconds: 4),
+                                  );
+                                  if (undone) return false;
+                                  try {
+                                    await ApiService.deleteTask(task.id);
+                                  } catch (_) {
+                                    if (mounted) {
+                                      setState(() => _tasks = originalTasks);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: const Text('删除失败'),
+                                          backgroundColor: AppTheme.priorityHigh,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                  return false;
+                                },
+                                child: FxCard(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  borderRadius: 12,
+                                  padding: EdgeInsets.zero,
+                                  child: FxListTile(
+                                    title: task.title,
+                                    subtitle: _timeAgo(task.createdAt),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 4,
+                                    ),
+                                    titleStyle: SlowlightTypography.body(context),
+                                    subtitleStyle:
+                                        SlowlightTypography.caption(context)
+                                            .copyWith(color: AppTheme.warmGray400),
+                                    trailing: FxIconButton(
+                                      icon: Icons.drive_file_move_outline,
+                                      iconSize: 20,
+                                      tooltip: '移动到清单',
+                                      onPressed: () => _moveTo(task),
+                                    ),
+                                    onTap: () {
+                                      TaskDetailSheet.show(
+                                        context,
+                                        task: task,
+                                        lists: _allLists,
+                                        onChanged: _loadAll,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -340,14 +332,14 @@ class _MoveToListSheet extends StatelessWidget {
                 style: SlowlightTypography.cardTitle(context),
               ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: fxDivider(context)),
             ...lists.map(
-              (list) => ListTile(
+              (list) => FxListTile(
+                title: list.name,
                 leading: Icon(
                   Icons.folder_outlined,
                   color: ColorUtils.safeParse(list.color),
                 ),
-                title: Text(list.name),
                 onTap: () => Navigator.pop(context, list.id),
               ),
             ),
