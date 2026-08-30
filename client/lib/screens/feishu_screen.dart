@@ -4,8 +4,6 @@ import '../repositories/feishu_integration_repository.dart';
 import '../services/data_mode_manager.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 part 'feishu_screen_sections.dart';
 
@@ -317,7 +315,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const HfPageHeader(title: '飞书集成'),
+            const FxPageHeader(title: '飞书集成'),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
