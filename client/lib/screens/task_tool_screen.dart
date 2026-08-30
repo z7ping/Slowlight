@@ -7,7 +7,6 @@ import '../models/todo_list.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import '../widgets/task_detail_sheet.dart';
 import 'home_task_detail_panel.dart';
 import 'task_create_sheet.dart';
@@ -71,10 +70,30 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         _ => _today,
       };
 
+  Widget _card({required Widget child, EdgeInsetsGeometry? padding}) {
+    final theme = Theme.of(context);
+    return FxCard(
+      padding: padding ?? const EdgeInsets.all(16),
+      color: fxSurface(context),
+      borderRadius: AppTheme.radiusLg,
+      border: Border.all(color: fxBorder(context)),
+      boxShadow: theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
+      child: child,
+    );
+  }
+
+  Widget _segments() => FxSegmented(
+        labels: const ['今天', '全部', '已完成'],
+        selectedIndex: _segment,
+        onChanged: (index) => setState(() => _segment = index),
+        backgroundColor: fxSubtleSurface(context),
+        selectedColor: fxSurface(context),
+        borderRadius: AppTheme.radiusMd,
+      );
+
   Future<void> _toggle(Task task) async {
-    if (MediaQuery.sizeOf(context).width < 600) {
-      HapticFeedback.lightImpact();
-    }
+    if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     try {
       if (task.isCompleted) {
         await DataService().uncompleteTask(task.id, null);
@@ -88,9 +107,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Future<void> _postpone(Task task) async {
-    if (MediaQuery.sizeOf(context).width < 600) {
-      HapticFeedback.lightImpact();
-    }
+    if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     try {
       await DataService().postponeTask(task.id, null);
       _message('已顺延到明天');
@@ -146,15 +163,13 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        HfSegmented(
-                          labels: const ['今天', '全部', '已完成'],
-                          selectedIndex: _segment,
-                          onChanged: (index) =>
-                              setState(() => _segment = index),
-                        ),
-                        const Spacer(),
+                        _segments(),
                         FxButton(
                           label: '新建任务',
                           icon: LucideIcons.plus,
@@ -164,10 +179,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    HfCard(
-                      padding: const EdgeInsets.all(16),
+                    _card(
                       child: _visible.isEmpty
-                          ? HfEmptyState(
+                          ? FxEmptyState(
                               emoji: '🍃',
                               title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
                               subtitle: _segment == 0
@@ -197,67 +211,59 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Widget _desktopContent() {
-    return LayoutBuilder(
-      builder: (context, constraints) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-        child: Column(
-          children: [
-            _toolbar(),
-            const SizedBox(height: 14),
-            Expanded(
-              child: _visible.isEmpty
-                  ? HfCard(child: _emptyState())
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: 430,
-                          child: HfCard(
-                            padding: const EdgeInsets.all(16),
-                            child: ListView(
-                              children: _visible
-                                  .map(
-                                    (task) => _taskRow(
-                                      task,
-                                      selected: _selectedTask?.id == task.id,
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: HfCard(
-                            padding: EdgeInsets.zero,
-                            child: _selectedTask == null
-                                ? _desktopEmptyDetail()
-                                : HomeTaskDetailPanel(
-                                    key: ValueKey(_selectedTask!.id),
-                                    task: _selectedTask!,
-                                    onClose: () => setState(
-                                      () => _selectedTask = null,
-                                    ),
-                                    onRefresh: _load,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+      child: Column(
+        children: [
+          _toolbar(),
+          const SizedBox(height: 14),
+          Expanded(
+            child: _visible.isEmpty
+                ? _card(child: _emptyState())
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: 430,
+                        child: _card(
+                          child: ListView(
+                            children: _visible
+                                .map(
+                                  (task) => _taskRow(
+                                    task,
+                                    selected: _selectedTask?.id == task.id,
                                   ),
+                                )
+                                .toList(growable: false),
                           ),
                         ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _card(
+                          padding: EdgeInsets.zero,
+                          child: _selectedTask == null
+                              ? _desktopEmptyDetail()
+                              : HomeTaskDetailPanel(
+                                  key: ValueKey(_selectedTask!.id),
+                                  task: _selectedTask!,
+                                  onClose: () =>
+                                      setState(() => _selectedTask = null),
+                                  onRefresh: _load,
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _toolbar() => Row(
         children: [
-          HfSegmented(
-            labels: const ['今天', '全部', '已完成'],
-            selectedIndex: _segment,
-            onChanged: (index) => setState(() => _segment = index),
-          ),
+          _segments(),
           const Spacer(),
           FxButton(
             label: '新建任务',
@@ -268,7 +274,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         ],
       );
 
-  Widget _emptyState() => HfEmptyState(
+  Widget _emptyState() => FxEmptyState(
         emoji: '🍃',
         title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
         subtitle: _segment == 0 ? '今天可以从一件真正想推进的事开始' : '切换其他筛选看看',
@@ -305,17 +311,17 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 ),
               ),
               const SizedBox(height: 22),
-              const Text(
+              Text(
                 '选择一个任务查看详情',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                style: SlowlightTypography.pageTitle(context).copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 '在左侧选择任务后，可以在这里查看和编辑任务信息。',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.55,
+                style: SlowlightTypography.secondary(context).copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -331,8 +337,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               Text(
                 '提示：点击左侧任务即可在当前页面查看详情',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
+                style: SlowlightTypography.caption(context).copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -454,6 +459,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       if (task.isCompleted && task.completedAt != null)
         '${_two(task.completedAt!.hour)}:${_two(task.completedAt!.minute)} 完成',
     ];
+    final largeText = MediaQuery.textScalerOf(context)
+            .scale(SlowlightTypography.secondarySize) >=
+        SlowlightTypography.secondarySize * 1.3;
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -465,9 +473,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               ? theme.colorScheme.primary.withValues(alpha: .07)
               : null,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          border: Border(
-            bottom: BorderSide(color: hfSubtleSurface(context)),
-          ),
+          border: Border(bottom: BorderSide(color: fxSubtleSurface(context))),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -517,12 +523,10 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 children: [
                   Text(
                     task.title,
-                    maxLines: 1,
+                    maxLines: largeText ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
+                    style: SlowlightTypography.secondary(context).copyWith(
                       fontWeight: FontWeight.w500,
-                    ).copyWith(
                       decoration:
                           task.isCompleted ? TextDecoration.lineThrough : null,
                       color: task.isCompleted
@@ -534,10 +538,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                     const SizedBox(height: 2),
                     Text(
                       meta.join(' · '),
-                      maxLines: 1,
+                      maxLines: largeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: AppTheme.textXs,
+                      style: SlowlightTypography.caption(context).copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -546,7 +549,14 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               ),
             ),
             if (!task.isCompleted && task.taskType == 'ongoing')
-              const HfChip('进行中', accent: true),
+              FxChip(
+                label: '进行中',
+                backgroundColor: activePalette.accent.withValues(alpha: .12),
+                foregroundColor: activePalette.accent,
+                borderRadius: 999,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              ),
           ],
         ),
       ),
