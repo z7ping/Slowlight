@@ -5,8 +5,6 @@ import '../models/todo_list.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final List<TodoList> lists;
@@ -144,7 +142,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return Column(
       children: [
         if (showBack)
-          HfPageHeader(
+          FxPageHeader(
             title: '新建任务',
             onBack: () => Navigator.maybePop(context),
           )
@@ -157,7 +155,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             child: _form(),
           ),
         ),
-        Divider(height: 1, color: hfDivider(context)),
+        Divider(height: 1, color: fxDivider(context)),
         _footer(),
       ],
     );
@@ -170,10 +168,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   '新建任务',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: SlowlightTypography.cardTitle(context).copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               SizedBox(
@@ -188,7 +188,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ],
           ),
         ),
-        Divider(height: 1, color: hfDivider(context)),
+        Divider(height: 1, color: fxDivider(context)),
       ],
     );
   }
@@ -203,7 +203,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           autofocus: true,
           enabled: !_isSaving,
           textInputAction: TextInputAction.next,
-          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          style: SlowlightTypography.body(context).copyWith(
+            fontWeight: FontWeight.w600,
+          ),
           decoration: const InputDecoration(hintText: '任务标题'),
         ),
         const SizedBox(height: 8),
@@ -212,7 +214,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           enabled: !_isSaving,
           minLines: 1,
           maxLines: 3,
-          style: const TextStyle(fontSize: 13),
+          style: SlowlightTypography.secondary(context),
           decoration: const InputDecoration(hintText: '描述（可选）'),
         ),
         const SizedBox(height: 14),
@@ -393,7 +395,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             .map(
               (entry) => DropdownMenuItem(
                 value: entry.key,
-                child: Text(entry.value, style: const TextStyle(fontSize: 12.5)),
+                child: Text(entry.value),
               ),
             )
             .toList(growable: false),
@@ -426,7 +428,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             .map(
               (entry) => DropdownMenuItem(
                 value: entry.key,
-                child: Text(entry.value, style: const TextStyle(fontSize: 12.5)),
+                child: Text(entry.value),
               ),
             )
             .toList(growable: false),
@@ -452,8 +454,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       padding: const EdgeInsets.only(bottom: 5),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: AppTheme.textXs,
+        style: SlowlightTypography.caption(context).copyWith(
           fontWeight: FontWeight.w600,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -476,12 +477,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         decoration: BoxDecoration(
           color: theme.scaffoldBackgroundColor,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          border: Border.all(color: hfBorder(context)),
+          border: Border.all(color: fxBorder(context)),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(text, style: const TextStyle(fontSize: 12.5)),
+              child: Text(text, style: SlowlightTypography.secondary(context)),
             ),
             Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
           ],
@@ -491,7 +492,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Widget _footer() {
-    final theme = Theme.of(context);
     return SafeArea(
       top: false,
       child: Padding(
