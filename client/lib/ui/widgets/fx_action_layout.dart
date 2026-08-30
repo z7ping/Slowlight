@@ -92,15 +92,21 @@ class FxActionBar extends StatelessWidget {
 class FxDialogActions extends StatelessWidget {
   final Widget? leading;
   final List<Widget> actions;
+  final double stackBelow;
 
-  const FxDialogActions({super.key, this.leading, required this.actions});
+  const FxDialogActions({
+    super.key,
+    this.leading,
+    required this.actions,
+    this.stackBelow = 440,
+  });
 
   @override
   Widget build(BuildContext context) {
     return FxActionBar(
       leading: leading,
       actions: actions,
-      stackBelow: 440,
+      stackBelow: stackBelow,
       gap: 8,
       runSpacing: 8,
     );
