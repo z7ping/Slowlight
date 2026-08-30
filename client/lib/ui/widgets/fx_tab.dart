@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// FxTab — 标签切换组件
+import '../typography_tokens.dart';
+
+/// FxTab — 标签切换组件。
 class FxTab extends StatelessWidget {
   final List<FxTabItem> tabs;
   final int currentIndex;
@@ -31,11 +33,16 @@ class FxTab extends StatelessWidget {
                 Icon(tab.icon, size: 16),
                 const SizedBox(width: 6),
               ],
-              Text(tab.label),
+              Text(
+                tab.label,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         );
-      }).toList(),
+      }).toList(growable: false),
     );
   }
 }
@@ -44,5 +51,6 @@ class FxTabItem {
   final String label;
   final IconData? icon;
   final Widget? content;
+
   const FxTabItem({required this.label, this.icon, this.content});
 }
