@@ -23,11 +23,11 @@ void main() {
     );
 
     expect(find.text('这是一个用于验证大字体布局的较长页面标题'), findsOneWidget);
-    expect(find.byType(IconButton), findsOneWidget);
+    expect(find.byType(FxIconButton), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('FxPageHeader 标题使用语义卡片标题字号', (tester) async {
+  testWidgets('FxPageHeader 标题使用页面标题语义字号', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme(),
@@ -36,6 +36,6 @@ void main() {
     );
 
     final text = tester.widget<Text>(find.text('测试页头'));
-    expect(text.style?.fontSize, SlowlightTypography.cardTitleSize);
+    expect(text.style?.fontSize, SlowlightTypography.pageTitleSize);
   });
 }
