@@ -28,11 +28,11 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pump();
 
-      expect(find.byType(TextField), findsNWidgets(2));
+      expect(find.byType(ShadInput), findsNWidgets(2));
       await tester.tap(find.text('注册'));
       await tester.pump();
 
-      expect(find.byType(TextField), findsNWidgets(4));
+      expect(find.byType(ShadInput), findsNWidgets(4));
     });
 
     testWidgets('注册缺少邮箱时不会进入远端提交', (tester) async {
@@ -42,7 +42,7 @@ void main() {
       await tester.tap(find.text('注册'));
       await tester.pump();
 
-      final fields = find.byType(TextField);
+      final fields = find.byType(ShadInput);
       await tester.enterText(fields.at(0), 'testuser');
       await tester.enterText(fields.at(2), 'password123');
       await tester.tap(find.text('注册'));
