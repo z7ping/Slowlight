@@ -33,7 +33,7 @@ class FxInput extends StatelessWidget {
   final TextStyle? style;
   final TextStyle? placeholderStyle;
   final List<TextInputFormatter>? inputFormatters;
-  final EdgeInsetsGeometry? contentPadding;
+  final EdgeInsets? contentPadding;
   final bool isDense;
 
   const FxInput({
