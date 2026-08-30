@@ -239,7 +239,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
             );
           }
           if (!kIsWeb && Platform.isWindows) {
-            return Column(
+            content = Column(
               children: [
                 SizedBox(
                   height: kWindowCaptionHeight,
@@ -267,7 +267,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
               ],
             );
           }
-          return content;
+          return FxNoticeHost(child: content);
         },
         home: const AuthGate(),
       ),
