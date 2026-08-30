@@ -78,7 +78,13 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
           ),
           const SizedBox(height: 10),
           if (_loading)
-            const FxProgress(value: .35, height: 2)
+            const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
           else if (_items.isEmpty)
             Text(
               '还没有自己的记录。这里保存的是你的解释，不是系统给你的结论。',
