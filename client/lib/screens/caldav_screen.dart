@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -46,6 +45,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   Future<void> _loadConfig() async {
     try {
       final config = await ApiService.getCalDAVConfig();
+      if (!mounted) return;
       setState(() {
         _configured = config['configured'] ?? false;
         if (_configured && config['value'] != null) {
@@ -65,6 +65,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         _loadStatus();
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _lastError = e.toString();
@@ -75,8 +76,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   Future<void> _loadStatus() async {
     try {
       final status = await ApiService.getCalDAVStatus();
-      setState(() => _status = status);
-    } catch (e) {}
+      if (mounted) setState(() => _status = status);
+    } catch (_) {}
   }
 
   Future<void> _testConnection() async {
@@ -161,6 +162,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             .toList(),
       );
 
+      if (!mounted) return;
       setState(() {
         _configured = true;
         _saving = false;
@@ -168,30 +170,27 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
 
       _loadStatus();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('配置保存成功！系统将每5分钟自动同步'),
-            backgroundColor: AppTheme.success,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('配置保存成功！系统将每5分钟自动同步'),
+          backgroundColor: AppTheme.success,
+          duration: Duration(seconds: 3),
+        ),
+      );
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _saving = false;
         _lastError = e.toString();
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('保存失败：$e'),
-            backgroundColor: AppTheme.error,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('保存失败：$e'),
+          backgroundColor: AppTheme.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -242,8 +241,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         elevation: 0,
         actions: [
           if (_configured)
-            IconButton(
-              icon: const Icon(Icons.sync),
+            FxIconButton(
+              icon: Icons.sync,
               onPressed: _syncNow,
               tooltip: '立即同步',
             ),
@@ -495,10 +494,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   hintText: '输入密码或访问令牌',
                   prefixIcon: const Icon(Icons.lock),
                   border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
+                  suffixIcon: FxIconButton(
+                    icon: _obscurePassword
                         ? Icons.visibility
-                        : Icons.visibility_off),
+                        : Icons.visibility_off,
+                    tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
@@ -599,7 +599,6 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               ...(_status!['states'] as List).map((state) {
                 final path = state['project_path'] ?? '未知';
                 final lastSync = state['last_synced_at'] ?? '从未同步';
-                final syncToken = state['sync_token'] ?? '';
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Text(
