@@ -32,6 +32,7 @@ export 'widgets/fx_list_tile.dart';
 export 'widgets/fx_menu.dart';
 export 'widgets/fx_expansion_tile.dart';
 export 'widgets/fx_surface.dart';
+export 'widgets/fx_responsive.dart';
 export 'widgets/section_title.dart';
 
 export 'widgets/fx_date_time_picker.dart';
