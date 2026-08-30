@@ -92,7 +92,7 @@ class FxInput extends StatelessWidget {
       placeholder: placeholder == null ? null : Text(placeholder!),
       placeholderStyle:
           placeholderStyle ??
-          SlowlightTypography.secondary(
+          SlowlightTypography.control(
             context,
           ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
@@ -125,10 +125,9 @@ class FxInput extends StatelessWidget {
       children: [
         Text(
           label!,
-          style: SlowlightTypography.secondary(context).copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: SlowlightTypography.fieldLabel(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 6),
         input,
