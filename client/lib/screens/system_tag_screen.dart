@@ -274,29 +274,18 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
               ],
             ),
           ),
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              tooltip: '编辑',
-              onPressed: () => _editTag(tag),
-              icon: const Icon(LucideIcons.pencil, size: 17),
-            ),
+          FxIconButton(
+            tooltip: '编辑',
+            onPressed: () => _editTag(tag),
+            icon: LucideIcons.pencil,
           ),
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: IconButton(
-              tooltip: tag.isDefault ? '默认标签不可删除' : '删除',
-              onPressed: tag.isDefault ? null : () => _confirmDelete(tag),
-              icon: Icon(
-                LucideIcons.trash2,
-                size: 17,
-                color: tag.isDefault
-                    ? theme.colorScheme.onSurfaceVariant.withValues(alpha: .35)
-                    : theme.colorScheme.error,
-              ),
-            ),
+          FxIconButton(
+            tooltip: tag.isDefault ? '默认标签不可删除' : '删除',
+            onPressed: tag.isDefault ? null : () => _confirmDelete(tag),
+            icon: LucideIcons.trash2,
+            foregroundColor: tag.isDefault
+                ? theme.colorScheme.onSurfaceVariant.withValues(alpha: .35)
+                : theme.colorScheme.error,
           ),
         ],
       ),
@@ -339,215 +328,181 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     var saving = false;
     String? error;
 
-    final saved = await showDialog<bool>(
+    final saved = await FxDialog.show<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (dialogContext) => StatefulBuilder(
+      title: existing == null ? '新建观察标签' : '编辑观察标签',
+      width: 540,
+      child: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
-          return Dialog(
-            backgroundColor: fxSurface(dialogContext),
-            surfaceTintColor: Colors.transparent,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              side: BorderSide(color: fxBorder(dialogContext)),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 540, maxHeight: 700),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            existing == null ? '新建观察标签' : '编辑观察标签',
-                            style: SlowlightTypography.cardTitle(dialogContext)
-                                .copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: IconButton(
-                            tooltip: '关闭',
-                            onPressed: saving
-                                ? null
-                                : () => Navigator.pop(dialogContext, false),
-                            icon: const Icon(LucideIcons.x, size: 18),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: nameController,
-                      autofocus: true,
-                      enabled: !saving,
-                      style: SlowlightTypography.body(dialogContext),
-                      decoration: const InputDecoration(
-                        hintText: '例如：分心、心流、精力低谷',
+          Widget selectableChip({
+            required String label,
+            required bool selected,
+            required VoidCallback onTap,
+          }) {
+            return FxChip(
+              label: label,
+              onTap: saving ? null : onTap,
+              backgroundColor: selected
+                  ? activePalette.accent.withValues(alpha: .12)
+                  : fxSubtleSurface(dialogContext),
+              foregroundColor: selected
+                  ? activePalette.accent
+                  : theme.colorScheme.onSurfaceVariant,
+              borderColor: selected
+                  ? activePalette.accent.withValues(alpha: .35)
+                  : theme.colorScheme.outlineVariant,
+              borderRadius: 999,
+            );
+          }
+
+          return ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 620),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FxInput(
+                    controller: nameController,
+                    autofocus: true,
+                    placeholder: '例如：分心、心流、精力低谷',
+                  ),
+                  const SizedBox(height: 14),
+                  _dialogLabel(dialogContext, '归属维度'),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      selectableChip(
+                        label: '未归类 · 仅分析',
+                        selected: dimensionKey == null || dimensionKey!.isEmpty,
+                        onTap: () => setDialogState(() => dimensionKey = null),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    _dialogLabel(dialogContext, '归属维度'),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('未归类 · 仅分析'),
-                          labelStyle:
-                              const TextStyle(fontSize: AppTheme.textXs),
-                          showCheckmark: false,
-                          selected:
-                              dimensionKey == null || dimensionKey!.isEmpty,
-                          selectedColor:
-                              activePalette.accent.withValues(alpha: .12),
-                          onSelected: (_) =>
-                              setDialogState(() => dimensionKey = null),
-                        ),
-                        ...DimensionCatalog.all.map((item) {
-                          final selected = dimensionKey == item.keyValue;
-                          return ChoiceChip(
-                            label: Text('${item.icon} ${item.name}'),
-                            labelStyle:
-                                const TextStyle(fontSize: AppTheme.textXs),
-                            showCheckmark: false,
-                            selected: selected,
-                            selectedColor:
-                                activePalette.accent.withValues(alpha: .12),
-                            onSelected: (_) => setDialogState(
+                      ...DimensionCatalog.all.map((item) => selectableChip(
+                            label: '${item.icon} ${item.name}',
+                            selected: dimensionKey == item.keyValue,
+                            onTap: () => setDialogState(
                               () => dimensionKey = item.keyValue,
                             ),
-                          );
-                        }),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _dialogLabel(dialogContext, '图标'),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: _presetEmojis.map((item) {
-                        final selected = item == icon;
-                        return ChoiceChip(
-                          label: Text(item),
-                          showCheckmark: false,
-                          selected: selected,
-                          selectedColor:
-                              activePalette.accent.withValues(alpha: .12),
-                          onSelected: (_) => setDialogState(() => icon = item),
-                        );
-                      }).toList(growable: false),
-                    ),
-                    const SizedBox(height: 14),
-                    _dialogLabel(dialogContext, '颜色'),
-                    Wrap(
-                      spacing: 8,
-                      children: _presetColors.map((item) {
-                        final selected =
-                            item.toLowerCase() == color.toLowerCase();
-                        return InkWell(
-                          onTap: saving
-                              ? null
-                              : () => setDialogState(() => color = item),
-                          borderRadius: BorderRadius.circular(22),
-                          child: SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: ColorUtils.safeParse(item),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: selected
-                                        ? theme.colorScheme.onSurface
-                                        : Colors.transparent,
-                                    width: 2,
-                                  ),
+                          )),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _dialogLabel(dialogContext, '图标'),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _presetEmojis
+                        .map((item) => selectableChip(
+                              label: item,
+                              selected: item == icon,
+                              onTap: () => setDialogState(() => icon = item),
+                            ))
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 14),
+                  _dialogLabel(dialogContext, '颜色'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _presetColors.map((item) {
+                      final selected =
+                          item.toLowerCase() == color.toLowerCase();
+                      return FxInkWell(
+                        onTap: saving
+                            ? null
+                            : () => setDialogState(() => color = item),
+                        borderRadius: BorderRadius.circular(22),
+                        child: SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Center(
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: ColorUtils.safeParse(item),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: selected
+                                      ? theme.colorScheme.onSurface
+                                      : Colors.transparent,
+                                  width: 2,
                                 ),
                               ),
                             ),
                           ),
-                        );
-                      }).toList(growable: false),
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        error!,
-                        style: SlowlightTypography.caption(dialogContext)
-                            .copyWith(color: theme.colorScheme.error),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          onPressed: saving
-                              ? null
-                              : () => Navigator.pop(dialogContext, false),
                         ),
-                        FxButton(
-                          label: saving ? '保存中…' : '保存',
-                          onPressed: saving
-                              ? null
-                              : () async {
-                                  final name = nameController.text.trim();
-                                  if (name.isEmpty) {
-                                    setDialogState(() => error = '标签名称不能为空');
-                                    return;
-                                  }
-                                  setDialogState(() {
-                                    saving = true;
-                                    error = null;
-                                  });
-                                  try {
-                                    if (existing == null) {
-                                      await _repository.create(
-                                        name: name,
-                                        icon: icon,
-                                        color: color,
-                                        dimensionKey: dimensionKey,
-                                      );
-                                    } else {
-                                      await _repository.update(
-                                        existing,
-                                        name: name,
-                                        icon: icon,
-                                        color: color,
-                                        dimensionKey: dimensionKey,
-                                      );
-                                    }
-                                    if (dialogContext.mounted) {
-                                      Navigator.pop(dialogContext, true);
-                                    }
-                                  } catch (e) {
-                                    setDialogState(() {
-                                      saving = false;
-                                      error = e.toString();
-                                    });
-                                  }
-                                },
-                        ),
-                      ],
+                      );
+                    }).toList(growable: false),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      style: SlowlightTypography.caption(dialogContext)
+                          .copyWith(color: theme.colorScheme.error),
                     ),
                   ],
-                ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FxButton(
+                        label: '取消',
+                        variant: FxButtonVariant.outline,
+                        onPressed: saving
+                            ? null
+                            : () => Navigator.of(dialogContext).pop(false),
+                      ),
+                      FxButton(
+                        label: saving ? '保存中…' : '保存',
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                final name = nameController.text.trim();
+                                if (name.isEmpty) {
+                                  setDialogState(() => error = '标签名称不能为空');
+                                  return;
+                                }
+                                setDialogState(() {
+                                  saving = true;
+                                  error = null;
+                                });
+                                try {
+                                  if (existing == null) {
+                                    await _repository.create(
+                                      name: name,
+                                      icon: icon,
+                                      color: color,
+                                      dimensionKey: dimensionKey,
+                                    );
+                                  } else {
+                                    await _repository.update(
+                                      existing,
+                                      name: name,
+                                      icon: icon,
+                                      color: color,
+                                      dimensionKey: dimensionKey,
+                                    );
+                                  }
+                                  if (dialogContext.mounted) {
+                                    Navigator.of(dialogContext).pop(true);
+                                  }
+                                } catch (e) {
+                                  setDialogState(() {
+                                    saving = false;
+                                    error = e.toString();
+                                  });
+                                }
+                              },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           );
