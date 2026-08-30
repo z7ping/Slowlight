@@ -159,10 +159,10 @@ class _LogTabState extends State<_LogTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
+              FxIconButton(
                 tooltip: '前一天',
                 onPressed: () => _move(-1),
-                icon: const Icon(Icons.chevron_left),
+                icon: Icons.chevron_left,
               ),
               Flexible(
                 child: Text(
@@ -172,10 +172,10 @@ class _LogTabState extends State<_LogTab> {
                   ),
                 ),
               ),
-              IconButton(
+              FxIconButton(
                 tooltip: '后一天',
                 onPressed: _date == today ? null : () => _move(1),
-                icon: const Icon(Icons.chevron_right),
+                icon: Icons.chevron_right,
               ),
             ],
           ),
@@ -375,9 +375,9 @@ class _RangeStatsTabState extends State<_RangeStatsTab> {
               children: [
                 SizedBox(width: 52, child: Text(label)),
                 Expanded(
-                  child: LinearProgressIndicator(
+                  child: FxProgress(
                     value: work == 0 ? 0 : (seconds / work).clamp(0, 1),
-                    minHeight: 8,
+                    height: 8,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -471,9 +471,9 @@ class _AnalysisTabState extends State<_AnalysisTab> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: LinearProgressIndicator(
+                    child: FxProgress(
                       value: max == 0 ? 0 : seconds / max,
-                      minHeight: 10,
+                      height: 10,
                     ),
                   ),
                   const SizedBox(width: 8),
