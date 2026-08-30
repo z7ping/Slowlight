@@ -20,6 +20,7 @@ class FxListTile extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
     this.contentPadding,
     this.minHeight = 52,
+    this.minTileHeight,
     this.showDivider = false,
     this.titleStyle,
     this.subtitleStyle,
@@ -62,6 +63,7 @@ class FxListTile extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry? contentPadding;
   final double minHeight;
+  final double? minTileHeight;
   final bool showDivider;
   final TextStyle? titleStyle;
   final TextStyle? subtitleStyle;
@@ -120,10 +122,11 @@ class FxListTile extends StatelessWidget {
     final leadingWidth = minLeadingWidth ?? 0;
     final showSubtitle = subtitle is Widget ||
         (subtitle is String && (subtitle! as String).isNotEmpty);
+    final baseMinHeight = minTileHeight ?? (dense ? minHeight - 8 : minHeight);
     final effectiveMinHeight = visualDensity?.effectiveConstraints(
-          BoxConstraints(minHeight: dense ? minHeight - 8 : minHeight),
+          BoxConstraints(minHeight: baseMinHeight),
         ).minHeight ??
-        (dense ? minHeight - 8 : minHeight);
+        baseMinHeight;
 
     final leadingWidget = leading == null
         ? null
