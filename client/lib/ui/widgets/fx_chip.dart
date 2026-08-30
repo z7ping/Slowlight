@@ -17,6 +17,7 @@ class FxChip extends StatelessWidget {
   final FxChipVariant variant;
   final Color? backgroundColor;
   final Color? foregroundColor;
+  final Color? borderColor;
   final double? borderRadius;
   final EdgeInsetsGeometry? padding;
 
@@ -29,6 +30,7 @@ class FxChip extends StatelessWidget {
     this.variant = FxChipVariant.primary,
     this.backgroundColor,
     this.foregroundColor,
+    this.borderColor,
     this.borderRadius,
     this.padding,
   });
@@ -71,6 +73,7 @@ class FxChip extends StatelessWidget {
     final scheme = theme.colorScheme;
     final hasExplicitVisualOverride = backgroundColor != null ||
         foregroundColor != null ||
+        borderColor != null ||
         borderRadius != null ||
         padding != null;
 
@@ -90,15 +93,17 @@ class FxChip extends StatelessWidget {
         FxChipVariant.outline => scheme.onSurface,
         FxChipVariant.destructive => scheme.onErrorContainer,
       };
-      final outlineBorder = variant == FxChipVariant.outline
-          ? Border.all(color: scheme.outlineVariant)
-          : null;
+      final resolvedBorder = borderColor != null
+          ? Border.all(color: borderColor!)
+          : variant == FxChipVariant.outline
+              ? Border.all(color: scheme.outlineVariant)
+              : null;
 
       badge = Container(
         padding: padding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: resolvedBackground,
-          border: outlineBorder,
+          border: resolvedBorder,
           borderRadius: BorderRadius.circular(borderRadius ?? 999),
         ),
         child: _content(context, color: resolvedForeground),
