@@ -47,43 +47,62 @@ class CalendarMonthGrid extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        child: Column(
-          children: [
-            _weekdayHeader(context),
-            if (loading)
-              const SizedBox(
-                height: 560,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 720;
-                  final largeText = _largeText(context);
-                  // 月格始终保持 7 列；系统字体放大时改为纵向增高，
-                  // 不通过继续缩小文字维持密度。
-                  final height = switch ((compact, largeText)) {
-                    (true, true) => 142.0,
-                    (true, false) => 100.0,
-                    (false, true) => 156.0,
-                    (false, false) => 124.0,
-                  };
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 42,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 7,
-                      mainAxisExtent: height,
-                    ),
-                    itemBuilder: (context, index) =>
-                        _dayCell(context, _dates[index], compact, largeText),
-                  );
-                },
-              ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 720;
+            final largeText = _largeText(context);
+            final content = _monthContent(context, compact, largeText);
+
+            // 360dp 等窄屏在大字体下无法同时容纳 7 个可读日期列。
+            // 保留真实系统字号并让整个月格横向滚动，而不是压缩字体。
+            if (compact && largeText && constraints.maxWidth < 560) {
+              return SingleChildScrollView(
+                key: const ValueKey('calendar-month-horizontal-scroll'),
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: 560,
+                  child: content,
+                ),
+              );
+            }
+            return content;
+          },
         ),
       ),
+    );
+  }
+
+  Widget _monthContent(
+    BuildContext context,
+    bool compact,
+    bool largeText,
+  ) {
+    return Column(
+      children: [
+        _weekdayHeader(context),
+        if (loading)
+          const SizedBox(
+            height: 560,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 42,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisExtent: switch ((compact, largeText)) {
+                (true, true) => 160.0,
+                (true, false) => 112.0,
+                (false, true) => 172.0,
+                (false, false) => 136.0,
+              },
+            ),
+            itemBuilder: (context, index) =>
+                _dayCell(context, _dates[index], compact, largeText),
+          ),
+      ],
     );
   }
 
@@ -130,7 +149,7 @@ class CalendarMonthGrid extends StatelessWidget {
     final items = _visibleRecords(date);
     final shown = items.take(compact ? 2 : 3).toList(growable: false);
     final remaining = items.length - shown.length;
-    final dateHeaderHeight = largeText ? 34.0 : 23.0;
+    final dateHeaderHeight = largeText ? 38.0 : 23.0;
 
     return Material(
       color: selected
@@ -168,12 +187,9 @@ class CalendarMonthGrid extends StatelessWidget {
                   children: [
                     Container(
                       constraints: BoxConstraints(
-                        minWidth: largeText ? 30 : 22,
-                        minHeight: largeText ? 30 : 22,
+                        minWidth: largeText ? 34 : 22,
+                        minHeight: largeText ? 34 : 22,
                       ),
-                      padding: largeText
-                          ? const EdgeInsets.symmetric(horizontal: 2)
-                          : EdgeInsets.zero,
                       alignment: Alignment.center,
                       decoration: today
                           ? BoxDecoration(
@@ -261,7 +277,7 @@ class CalendarMonthGrid extends StatelessWidget {
             key: ValueKey('calendar-grid-record-${record.id}'),
             width: double.infinity,
             constraints: BoxConstraints(
-              minHeight: largeText ? 32 : 24,
+              minHeight: largeText ? 36 : 24,
             ),
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 6),
