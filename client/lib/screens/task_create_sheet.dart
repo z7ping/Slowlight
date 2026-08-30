@@ -7,7 +7,6 @@ import '../models/todo_list.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import 'add_task_screen.dart';
 
 /// 任务快速记录入口。
@@ -101,12 +100,12 @@ class TaskCreateSheet extends StatefulWidget {
         return Dialog(
           insetPadding:
               const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          backgroundColor: hfSurface(dialogContext),
+          backgroundColor: fxSurface(dialogContext),
           surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-            side: BorderSide(color: hfBorder(dialogContext)),
+            side: BorderSide(color: fxBorder(dialogContext)),
           ),
           child: SizedBox(
             width: 600,
@@ -184,7 +183,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           ),
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
           decoration: BoxDecoration(
-            color: hfSurface(context),
+            color: fxSurface(context),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             boxShadow: [
               BoxShadow(
@@ -204,16 +203,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: hfDivider(context),
+                    color: fxDivider(context),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 '记录任务',
-                style: TextStyle(
-                  fontSize: 13.5,
+                style: SlowlightTypography.cardTitle(context).copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -224,7 +222,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 enabled: !_saving,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _createTask(),
-                style: const TextStyle(fontSize: 13),
+                style: SlowlightTypography.body(context),
                 decoration: const InputDecoration(
                   hintText: '例如：整理今天的会议记录',
                 ),
@@ -233,8 +231,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               if (_loadingLists)
                 Text(
                   '正在读取清单…',
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 )
@@ -286,8 +283,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 const SizedBox(height: 10),
                 Text(
                   _error!,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(context).copyWith(
                     color: theme.colorScheme.error,
                   ),
                 ),
@@ -503,10 +499,10 @@ class _QuickChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? accent.withValues(alpha: .12)
-              : hfSubtleSurface(context),
+              : fxSubtleSurface(context),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? accent : hfBorder(context),
+            color: selected ? accent : fxBorder(context),
           ),
         ),
         child: Row(
@@ -520,8 +516,7 @@ class _QuickChip extends StatelessWidget {
             const SizedBox(width: 5),
             Text(
               text,
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
+              style: SlowlightTypography.caption(context).copyWith(
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 color: selected ? accent : theme.colorScheme.onSurfaceVariant,
               ),
@@ -546,9 +541,9 @@ class _DefaultHint extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 32),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: hfSubtleSurface(context),
+        color: fxSubtleSurface(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: hfBorder(context)),
+        border: Border.all(color: fxBorder(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -557,8 +552,7 @@ class _DefaultHint extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             text,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
