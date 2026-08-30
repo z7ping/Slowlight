@@ -10,6 +10,9 @@ void main() {
       followLinks: false,
     )) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final normalized = entity.path.replaceAll('\\', '/');
+      if (normalized.endsWith('/test_ui_architecture_guard_test.dart')) continue;
+
       final source = await entity.readAsString();
       if (!source.contains('testWidgets(')) continue;
 
@@ -32,9 +35,7 @@ void main() {
       }
 
       if (reasons.isNotEmpty) {
-        offenders.add(
-          '${entity.path.replaceAll('\\', '/')}: ${reasons.join(', ')}',
-        );
+        offenders.add('$normalized: ${reasons.join(', ')}');
       }
     }
     offenders.sort();
