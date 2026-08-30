@@ -219,18 +219,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                 ),
               const SizedBox(width: 4),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  tooltip: '关闭',
-                  onPressed: _saving ? null : () => Navigator.pop(context),
-                  icon: Icon(
-                    LucideIcons.x,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              FxIconButton(
+                tooltip: '关闭',
+                onPressed: _saving ? null : () => Navigator.pop(context),
+                icon: LucideIcons.x,
+                foregroundColor: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -240,27 +233,28 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _form() {
+    final theme = Theme.of(context);
     final largeText = MediaQuery.textScalerOf(context)
             .scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.3;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
+        FxInput(
           controller: _title,
           enabled: !_saving,
           style: SlowlightTypography.body(context)
               .copyWith(fontWeight: FontWeight.w600),
-          decoration: const InputDecoration(hintText: '任务标题'),
+          placeholder: '任务标题',
         ),
         const SizedBox(height: 8),
-        TextField(
+        FxInput(
           controller: _description,
           enabled: !_saving,
           minLines: 2,
           maxLines: 4,
           style: SlowlightTypography.secondary(context),
-          decoration: const InputDecoration(hintText: '描述（可选）'),
+          placeholder: '描述（可选）',
         ),
         const SizedBox(height: 14),
         _fieldLabel('清单'),
@@ -269,14 +263,18 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           runSpacing: 6,
           children: widget.lists.map((list) {
             final selected = _listId == list.id;
-            return ChoiceChip(
-              label: Text('${list.icon} ${list.name}'),
-              labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-              showCheckmark: false,
-              selected: selected,
-              selectedColor: activePalette.accent.withValues(alpha: .12),
-              onSelected:
-                  _saving ? null : (_) => setState(() => _listId = list.id),
+            return FxChip(
+              label: '${list.icon} ${list.name}',
+              onTap: _saving ? null : () => setState(() => _listId = list.id),
+              backgroundColor: selected
+                  ? activePalette.accent.withValues(alpha: .12)
+                  : fxSubtleSurface(context),
+              foregroundColor: selected
+                  ? activePalette.accent
+                  : theme.colorScheme.onSurfaceVariant,
+              borderColor:
+                  selected ? activePalette.accent : fxBorder(context),
+              borderRadius: 999,
             );
           }).toList(growable: false),
         ),
@@ -330,22 +328,19 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ),
         const SizedBox(height: 14),
         _fieldLabel('重复'),
-        DropdownButtonFormField<String>(
+        FxSelect<String>(
           value: _repeatType,
-          isExpanded: true,
-          decoration: const InputDecoration(isDense: true),
-          items: const [
-            DropdownMenuItem(value: 'none', child: Text('不重复')),
-            DropdownMenuItem(value: 'daily', child: Text('每天')),
-            DropdownMenuItem(value: 'weekly', child: Text('每周')),
-            DropdownMenuItem(value: 'monthly', child: Text('每月')),
+          enabled: !_saving,
+          options: const [
+            FxSelectOption(value: 'none', label: '不重复'),
+            FxSelectOption(value: 'daily', label: '每天'),
+            FxSelectOption(value: 'weekly', label: '每周'),
+            FxSelectOption(value: 'monthly', label: '每月'),
           ],
-          onChanged: _saving
-              ? null
-              : (value) => setState(() {
-                    _repeatType = value ?? 'none';
-                    if (_repeatType != 'weekly') _weekdays.clear();
-                  }),
+          onChanged: (value) => setState(() {
+            _repeatType = value ?? 'none';
+            if (_repeatType != 'weekly') _weekdays.clear();
+          }),
         ),
         if (_repeatType == 'weekly') ...[
           const SizedBox(height: 8),
@@ -356,17 +351,22 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               final day = index + 1;
               const labels = ['一', '二', '三', '四', '五', '六', '日'];
               final selected = _weekdays.contains(day);
-              return ChoiceChip(
-                label: Text(labels[index]),
-                labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-                showCheckmark: false,
-                selected: selected,
-                selectedColor: activePalette.accent.withValues(alpha: .12),
-                onSelected: _saving
+              return FxChip(
+                label: labels[index],
+                onTap: _saving
                     ? null
-                    : (_) => setState(() {
+                    : () => setState(() {
                           selected ? _weekdays.remove(day) : _weekdays.add(day);
                         }),
+                backgroundColor: selected
+                    ? activePalette.accent.withValues(alpha: .12)
+                    : fxSubtleSurface(context),
+                foregroundColor: selected
+                    ? activePalette.accent
+                    : theme.colorScheme.onSurfaceVariant,
+                borderColor:
+                    selected ? activePalette.accent : fxBorder(context),
+                borderRadius: 999,
               );
             }),
           ),
@@ -390,16 +390,22 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               final id = tag['id'] as int?;
               if (id == null) return const SizedBox.shrink();
               final selected = id == _systemTagId;
-              return ChoiceChip(
-                label: Text('${tag['icon'] ?? '🏷️'} ${tag['name'] ?? ''}'),
-                labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-                showCheckmark: false,
-                selected: selected,
-                selectedColor: activePalette.accent.withValues(alpha: .12),
-                onSelected: _saving
+              return FxChip(
+                label: '${tag['icon'] ?? '🏷️'} ${tag['name'] ?? ''}',
+                onTap: _saving
                     ? null
-                    : (_) =>
-                        setState(() => _systemTagId = selected ? null : id),
+                    : () => setState(
+                          () => _systemTagId = selected ? null : id,
+                        ),
+                backgroundColor: selected
+                    ? activePalette.accent.withValues(alpha: .12)
+                    : fxSubtleSurface(context),
+                foregroundColor: selected
+                    ? activePalette.accent
+                    : theme.colorScheme.onSurfaceVariant,
+                borderColor:
+                    selected ? activePalette.accent : fxBorder(context),
+                borderRadius: 999,
               );
             }).toList(growable: false),
           ),
@@ -410,15 +416,20 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   Widget _priorityChip(String value, String label) {
     final selected = _priority == value;
-    return ChoiceChip(
-      label: Text(label),
-      labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-      showCheckmark: false,
-      selected: selected,
-      selectedColor: activePalette.accent.withValues(alpha: .12),
-      onSelected: _saving
+    final theme = Theme.of(context);
+    return FxChip(
+      label: label,
+      onTap: _saving
           ? null
-          : (on) => setState(() => _priority = on ? value : 'none'),
+          : () => setState(() => _priority = selected ? 'none' : value),
+      backgroundColor: selected
+          ? activePalette.accent.withValues(alpha: .12)
+          : fxSubtleSurface(context),
+      foregroundColor: selected
+          ? activePalette.accent
+          : theme.colorScheme.onSurfaceVariant,
+      borderColor: selected ? activePalette.accent : fxBorder(context),
+      borderRadius: 999,
     );
   }
 
@@ -433,7 +444,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _fieldLabel(label),
-        InkWell(
+        FxInkWell(
           onTap: _saving ? null : onTap,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           child: Container(
