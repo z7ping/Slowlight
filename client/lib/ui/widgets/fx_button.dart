@@ -27,15 +27,23 @@ class FxButton extends StatelessWidget {
     this.expanded = false,
   });
 
-  Widget _buildChild() {
-    final text = Text(label, style: SlowlightTypography.button);
+  bool get _isCompactAction =>
+      size == FxButtonSize.sm &&
+      (variant == FxButtonVariant.ghost || variant == FxButtonVariant.link);
+
+  Widget _buildChild(BuildContext context) {
+    final textStyle =
+        _isCompactAction
+            ? SlowlightTypography.compactAction(context)
+            : SlowlightTypography.button;
+    final text = Text(label, style: textStyle);
     if (icon != null) {
       return Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 8),
+          Icon(icon, size: _isCompactAction ? 15 : 16),
+          SizedBox(width: _isCompactAction ? 6 : 8),
           text,
         ],
       );
@@ -56,7 +64,7 @@ class FxButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _buildChild();
+    final child = _buildChild(context);
     final Widget button;
     switch (variant) {
       case FxButtonVariant.primary:
