@@ -150,13 +150,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    alignment: WrapAlignment.spaceBetween,
-                    children: [
-                      _chip('${_tags.length} 个标签'),
+                  FxActionBar(
+                    leading: _chip('${_tags.length} 个标签'),
+                    actions: [
                       FxButton(
                         label: '新建标签',
                         icon: LucideIcons.plus,
@@ -484,11 +480,8 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
+                  FxDialogActions(
+                    actions: [
                       FxButton(
                         label: '取消',
                         variant: FxButtonVariant.outline,
