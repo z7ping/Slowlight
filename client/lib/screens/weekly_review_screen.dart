@@ -241,33 +241,12 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Widget _statLayout(List<Widget> cells) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scaled = MediaQuery.textScalerOf(
-          context,
-        ).scale(SlowlightTypography.secondarySize);
-        final stacked =
-            constraints.maxWidth < 560 ||
-            scaled >= SlowlightTypography.secondarySize * 1.3;
-        if (stacked) {
-          return Column(
-            children: [
-              for (var index = 0; index < cells.length; index++) ...[
-                SizedBox(width: double.infinity, child: cells[index]),
-                if (index != cells.length - 1) const SizedBox(height: 8),
-              ],
-            ],
-          );
-        }
-        return Row(
-          children: [
-            for (var index = 0; index < cells.length; index++) ...[
-              Expanded(child: cells[index]),
-              if (index != cells.length - 1) const SizedBox(width: 10),
-            ],
-          ],
-        );
-      },
+    return FxResponsiveFormGrid(
+      minColumnWidth: 160,
+      maxColumns: 3,
+      horizontalGap: 10,
+      verticalGap: 8,
+      children: cells,
     );
   }
 
