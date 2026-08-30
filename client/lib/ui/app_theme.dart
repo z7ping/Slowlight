@@ -261,14 +261,13 @@ class AppTheme {
       Color color, {
       FontWeight? weight,
       double? height,
-    }) =>
-        TextStyle(
-          fontFamily: fontFamily,
-          fontSize: size,
-          color: color,
-          fontWeight: weight,
-          height: height,
-        );
+    }) => TextStyle(
+      fontFamily: fontFamily,
+      fontSize: size,
+      color: color,
+      fontWeight: weight,
+      height: height,
+    );
 
     return base.copyWith(
       displaySmall: style(text3Xl, primary, weight: FontWeight.w700),
@@ -323,23 +322,27 @@ class AppTheme {
   }
 
   static List<BoxShadow> get cardShadow => [
-        BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 4)),
-        BoxShadow(
-            color: Colors.black.withValues(alpha: 0.027),
-            blurRadius: 7.85,
-            offset: const Offset(0, 2)),
-        BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 2.93,
-            offset: const Offset(0, 0.8)),
-        BoxShadow(
-            color: Colors.black.withValues(alpha: 0.01),
-            blurRadius: 1.04,
-            offset: const Offset(0, 0.2)),
-      ];
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.04),
+      blurRadius: 18,
+      offset: const Offset(0, 4),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.027),
+      blurRadius: 7.85,
+      offset: const Offset(0, 2),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.02),
+      blurRadius: 2.93,
+      offset: const Offset(0, 0.8),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.01),
+      blurRadius: 1.04,
+      offset: const Offset(0, 0.2),
+    ),
+  ];
 
   static ThemeData lightTheme({String? fontFamily}) {
     final p = _active;
@@ -371,57 +374,55 @@ class AppTheme {
       ),
       materialTapTargetSize: MaterialTapTargetSize.padded,
       appBarTheme: AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-          scrolledUnderElevation: 0.5,
-          backgroundColor: p.bgCard,
-          foregroundColor: p.textPrimary,
-          titleTextStyle: TextStyle(
-              fontSize: AppTheme.textXl,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-              color: p.textPrimary),
-          surfaceTintColor: Colors.transparent),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        backgroundColor: p.bgCard,
+        foregroundColor: p.textPrimary,
+        titleTextStyle: TextStyle(
+          fontSize: AppTheme.textXl,
+          height: 1.2,
+          fontWeight: FontWeight.w600,
+          color: p.textPrimary,
+        ),
+        surfaceTintColor: Colors.transparent,
+      ),
       scaffoldBackgroundColor: p.bg,
       dividerTheme: DividerThemeData(color: p.divider, thickness: 1, space: 1),
       cardTheme: CardThemeData(
-          elevation: 0,
-          color: p.bgCard,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: p.border, width: 1)),
-          shadowColor: Colors.transparent,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4)),
+        elevation: 0,
+        color: p.bgCard,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: p.border, width: 1),
+        ),
+        shadowColor: Colors.transparent,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      ),
       inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: p.bg,
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: p.border, width: 1)),
-          enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: p.border, width: 1)),
-          focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: p.accent, width: 1)),
-          hoverColor: p.divider,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-              backgroundColor: p.primaryBtnBg,
-              foregroundColor: p.primaryBtnFg,
-              elevation: 0,
-              minimumSize: const Size(0, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)))),
+        filled: true,
+        fillColor: p.bg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: p.border, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: p.border, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: p.accent, width: 1),
+        ),
+        hoverColor: p.divider,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
       dialogTheme: DialogThemeData(
-          backgroundColor: p.bgCard,
-          surfaceTintColor: Colors.transparent,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+        backgroundColor: p.bgCard,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
         modalBackgroundColor: p.bgCard,
@@ -431,18 +432,16 @@ class AppTheme {
         ),
       ),
       iconButtonTheme: const IconButtonThemeData(
-        style: ButtonStyle(
-          minimumSize: WidgetStatePropertyAll(Size(44, 44)),
-        ),
+        style: ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(44, 44))),
       ),
       splashColor: p.primary.withValues(alpha: 0.10),
       highlightColor: p.primary.withValues(alpha: 0.08),
       hoverColor: p.primary.withValues(alpha: 0.06),
       focusColor: p.accent.withValues(alpha: 0.12),
       snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 
@@ -479,57 +478,58 @@ class AppTheme {
       materialTapTargetSize: MaterialTapTargetSize.padded,
       scaffoldBackgroundColor: p.darkBg,
       appBarTheme: AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-          scrolledUnderElevation: 0.5,
-          backgroundColor: p.darkCard,
-          foregroundColor: foreground,
-          titleTextStyle: TextStyle(
-              fontSize: AppTheme.textXl,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-              color: foreground),
-          surfaceTintColor: Colors.transparent),
-      dividerTheme:
-          DividerThemeData(color: p.darkDivider, thickness: 1, space: 1),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        backgroundColor: p.darkCard,
+        foregroundColor: foreground,
+        titleTextStyle: TextStyle(
+          fontSize: AppTheme.textXl,
+          height: 1.2,
+          fontWeight: FontWeight.w600,
+          color: foreground,
+        ),
+        surfaceTintColor: Colors.transparent,
+      ),
+      dividerTheme: DividerThemeData(
+        color: p.darkDivider,
+        thickness: 1,
+        space: 1,
+      ),
       cardTheme: CardThemeData(
-          elevation: 0,
-          color: p.darkCard,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: p.darkBorder, width: 1)),
-          shadowColor: Colors.transparent,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4)),
+        elevation: 0,
+        color: p.darkCard,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: p.darkBorder, width: 1),
+        ),
+        shadowColor: Colors.transparent,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      ),
       inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: p.darkBg,
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: p.darkBorder, width: 1)),
-          enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: p.darkBorder, width: 1)),
-          focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: p.accent, width: 1)),
-          hoverColor: p.darkDivider,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-              backgroundColor: p.darkPrimaryBtnBg,
-              foregroundColor: p.darkPrimaryBtnFg,
-              elevation: 0,
-              minimumSize: const Size(0, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)))),
+        filled: true,
+        fillColor: p.darkBg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: p.darkBorder, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: p.darkBorder, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: p.accent, width: 1),
+        ),
+        hoverColor: p.darkDivider,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
       dialogTheme: DialogThemeData(
-          backgroundColor: p.darkCard,
-          surfaceTintColor: Colors.transparent,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+        backgroundColor: p.darkCard,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
         modalBackgroundColor: p.darkCard,
@@ -539,18 +539,16 @@ class AppTheme {
         ),
       ),
       iconButtonTheme: const IconButtonThemeData(
-        style: ButtonStyle(
-          minimumSize: WidgetStatePropertyAll(Size(44, 44)),
-        ),
+        style: ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(44, 44))),
       ),
       splashColor: p.accent.withValues(alpha: 0.10),
       highlightColor: p.accent.withValues(alpha: 0.08),
       hoverColor: p.accent.withValues(alpha: 0.06),
       focusColor: p.accent.withValues(alpha: 0.12),
       snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 }
@@ -558,76 +556,89 @@ class AppTheme {
 ShadTextTheme _systemTextTheme([String? family]) {
   return ShadTextTheme.custom(
     h1Large: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textXl,
-        fontWeight: FontWeight.w800,
-        height: 1,
-        letterSpacing: -0.4),
+      fontFamily: family,
+      fontSize: AppTheme.textXl,
+      fontWeight: FontWeight.w800,
+      height: 1,
+      letterSpacing: -0.4,
+    ),
     h1: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textXl,
-        fontWeight: FontWeight.w800,
-        height: 40 / 36,
-        letterSpacing: -0.4),
+      fontFamily: family,
+      fontSize: AppTheme.textXl,
+      fontWeight: FontWeight.w800,
+      height: 40 / 36,
+      letterSpacing: -0.4,
+    ),
     h2: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textXl,
-        fontWeight: FontWeight.w600,
-        height: 36 / 30,
-        letterSpacing: -0.4),
+      fontFamily: family,
+      fontSize: AppTheme.textXl,
+      fontWeight: FontWeight.w600,
+      height: 36 / 30,
+      letterSpacing: -0.4,
+    ),
     h3: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textXl,
-        fontWeight: FontWeight.w600,
-        height: 32 / 24,
-        letterSpacing: -0.4),
+      fontFamily: family,
+      fontSize: AppTheme.textXl,
+      fontWeight: FontWeight.w600,
+      height: 32 / 24,
+      letterSpacing: -0.4,
+    ),
     h4: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textXl,
-        fontWeight: FontWeight.w600,
-        height: 28 / 20,
-        letterSpacing: -0.4),
+      fontFamily: family,
+      fontSize: AppTheme.textXl,
+      fontWeight: FontWeight.w600,
+      height: 28 / 20,
+      letterSpacing: -0.4,
+    ),
     p: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textLg,
-        fontWeight: FontWeight.w400,
-        height: 28 / 16),
+      fontFamily: family,
+      fontSize: AppTheme.textLg,
+      fontWeight: FontWeight.w400,
+      height: 28 / 16,
+    ),
     blockquote: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textLg,
-        fontWeight: FontWeight.w400,
-        fontStyle: FontStyle.italic,
-        height: 24 / 16),
+      fontFamily: family,
+      fontSize: AppTheme.textLg,
+      fontWeight: FontWeight.w400,
+      fontStyle: FontStyle.italic,
+      height: 24 / 16,
+    ),
     table: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textLg,
-        fontWeight: FontWeight.w700,
-        height: 24 / 16),
+      fontFamily: family,
+      fontSize: AppTheme.textLg,
+      fontWeight: FontWeight.w700,
+      height: 24 / 16,
+    ),
     list: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textLg,
-        fontWeight: FontWeight.w400,
-        height: 24 / 16),
+      fontFamily: family,
+      fontSize: AppTheme.textLg,
+      fontWeight: FontWeight.w400,
+      height: 24 / 16,
+    ),
     lead: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textXl,
-        fontWeight: FontWeight.w400,
-        height: 28 / 20),
+      fontFamily: family,
+      fontSize: AppTheme.textXl,
+      fontWeight: FontWeight.w400,
+      height: 28 / 20,
+    ),
     large: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textXl,
-        fontWeight: FontWeight.w600,
-        height: 28 / 18),
+      fontFamily: family,
+      fontSize: AppTheme.textXl,
+      fontWeight: FontWeight.w600,
+      height: 28 / 18,
+    ),
     small: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textMd,
-        fontWeight: FontWeight.w500,
-        height: 1),
+      fontFamily: family,
+      fontSize: AppTheme.textMd,
+      fontWeight: FontWeight.w500,
+      height: 1,
+    ),
     muted: TextStyle(
-        fontFamily: family,
-        fontSize: AppTheme.textMd,
-        fontWeight: FontWeight.w400,
-        height: 20 / 15),
+      fontFamily: family,
+      fontSize: AppTheme.textMd,
+      fontWeight: FontWeight.w400,
+      height: 20 / 15,
+    ),
     family: family ?? '',
   );
 }

@@ -90,21 +90,21 @@ class FxInput extends StatelessWidget {
       style: style ?? SlowlightTypography.body(context),
       inputFormatters: inputFormatters,
       placeholder: placeholder == null ? null : Text(placeholder!),
-      placeholderStyle: placeholderStyle ??
-          SlowlightTypography.secondary(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+      placeholderStyle:
+          placeholderStyle ??
+          SlowlightTypography.secondary(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
       trailing: trailing,
-      padding: contentPadding ??
-          EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: isDense ? 9 : 11,
-          ),
+      padding:
+          contentPadding ??
+          EdgeInsets.symmetric(horizontal: 12, vertical: isDense ? 9 : 11),
       decoration: ShadDecoration(
-        color: enabled
-            ? shadTheme.colorScheme.background
-            : shadTheme.colorScheme.muted,
+        color:
+            enabled
+                ? shadTheme.colorScheme.background
+                : shadTheme.colorScheme.muted,
         border: ShadBorder.all(
           color: shadTheme.colorScheme.border,
           width: 1,

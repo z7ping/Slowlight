@@ -23,7 +23,8 @@ void main() {
     expect(
       offenders,
       isEmpty,
-      reason: '请迁移到 Fx* 或 Feature Widget，禁止继续依赖 Hf 兼容层：\n'
+      reason:
+          '请迁移到 Fx* 或 Feature Widget，禁止继续依赖 Hf 兼容层：\n'
           '${offenders.join('\n')}',
     );
   });
@@ -43,7 +44,8 @@ void main() {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final normalized = entity.path.replaceAll('\\', '/');
       final source = await entity.readAsString();
-      if (stageFileName.hasMatch(normalized) || stageClassName.hasMatch(source)) {
+      if (stageFileName.hasMatch(normalized) ||
+          stageClassName.hasMatch(source)) {
         offenders.add(normalized);
       }
     }
@@ -52,7 +54,8 @@ void main() {
     expect(
       offenders,
       isEmpty,
-      reason: '正式 UI 禁止使用 new/old/final/high_fidelity/V2/V3 等阶段性实现命名：\n'
+      reason:
+          '正式 UI 禁止使用 new/old/final/high_fidelity/V2/V3 等阶段性实现命名：\n'
           '${offenders.join('\n')}',
     );
   });
@@ -62,7 +65,10 @@ void main() {
     if (!screens.existsSync()) return;
 
     final offenders = <String>[];
-    await for (final entity in screens.list(recursive: true, followLinks: false)) {
+    await for (final entity in screens.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final source = await entity.readAsString();
       if (source.contains("package:shadcn_ui/shadcn_ui.dart")) {
@@ -74,7 +80,8 @@ void main() {
     expect(
       offenders,
       isEmpty,
-      reason: '业务 Screen 应通过 Fx* / Feature Widget 使用视觉能力，不直接依赖 shadcn_ui：\n'
+      reason:
+          '业务 Screen 应通过 Fx* / Feature Widget 使用视觉能力，不直接依赖 shadcn_ui：\n'
           '${offenders.join('\n')}',
     );
   });
@@ -91,8 +98,9 @@ void main() {
       'IconButton': RegExp(r'\bIconButton(?:\.[A-Za-z]+)?\s*\('),
       'TextField': RegExp(r'\bTextField\s*\('),
       'DropdownButton': RegExp(r'\bDropdownButton(?:<[^>]+>)?\s*\('),
-      'DropdownButtonFormField':
-          RegExp(r'\bDropdownButtonFormField(?:<[^>]+>)?\s*\('),
+      'DropdownButtonFormField': RegExp(
+        r'\bDropdownButtonFormField(?:<[^>]+>)?\s*\(',
+      ),
       'ChoiceChip': RegExp(r'\bChoiceChip\s*\('),
       'FilterChip': RegExp(r'\bFilterChip\s*\('),
       'ActionChip': RegExp(r'\bActionChip\s*\('),
@@ -120,7 +128,8 @@ void main() {
     expect(
       offenders,
       isEmpty,
-      reason: '整个 lib 的业务视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点等非视觉基础设施：\n'
+      reason:
+          '整个 lib 的业务视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点等非视觉基础设施：\n'
           '${offenders.join('\n')}',
     );
   });
