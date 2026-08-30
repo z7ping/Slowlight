@@ -28,7 +28,6 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import re
 
           def replace_exact(path, old, new, expected=1):
               p = Path(path)
@@ -62,7 +61,7 @@ jobs:
               """          return FxChip(\n            label: entry.value,\n            backgroundColor:\n                selected ? AppTheme.primaryLight : fxSubtleSurface(context),\n            foregroundColor: selected\n                ? activePalette.accent\n                : Theme.of(context).colorScheme.onSurfaceVariant,\n            borderColor:\n                selected ? activePalette.accent : fxBorder(context),\n            borderRadius: 999,\n            onTap: () {\n              setState(() {\n                if (selected) {\n                  _selectedWeekdays.remove(day);\n                } else {\n                  _selectedWeekdays.add(day);\n                }\n              });\n            },\n          );""",
           )
 
-          # Mobile shell: four direct Material icon buttons.
+          # Mobile shell: app bar actions.
           replace_exact(
               'client/lib/screens/focus_home_screen.dart',
               """        leading: _navigation.isTool\n            ? IconButton(\n                icon: const Icon(LucideIcons.chevronLeft, size: 20),\n                tooltip: '返回',\n                onPressed: _closeTool,\n              )\n            : IconButton(\n                icon: const Icon(LucideIcons.menu, size: 20),\n                tooltip: '工具',\n                onPressed: _openMobileTools,\n              ),""",
@@ -72,6 +71,18 @@ jobs:
               'client/lib/screens/focus_home_screen.dart',
               """            SizedBox(\n              width: 44,\n              height: 44,\n              child: IconButton(\n                icon: const Icon(LucideIcons.pencil, size: 18),\n                tooltip: '写下观察',\n                onPressed: _writeObservation,\n              ),\n            ),\n            SizedBox(\n              width: 44,\n              height: 44,\n              child: IconButton(\n                icon: const Icon(LucideIcons.plus, size: 20),\n                tooltip: '记录任务',\n                onPressed: _quickAdd,\n              ),\n            ),""",
               """            FxIconButton(\n              icon: LucideIcons.pencil,\n              iconSize: 18,\n              tooltip: '写下观察',\n              onPressed: _writeObservation,\n            ),\n            FxIconButton(\n              icon: LucideIcons.plus,\n              iconSize: 20,\n              tooltip: '记录任务',\n              onPressed: _quickAdd,\n            ),""",
+          )
+
+          # Mobile drawer: close and About actions.
+          replace_exact(
+              'client/lib/screens/focus_home_screen.dart',
+              """                  if (closeDrawer)\n                    SizedBox(\n                      width: 44,\n                      height: 44,\n                      child: IconButton(\n                        tooltip: '关闭',\n                        icon: const Icon(LucideIcons.x, size: 20),\n                        onPressed: () => Navigator.pop(context),\n                      ),\n                    ),""",
+              """                  if (closeDrawer)\n                    FxIconButton(\n                      icon: LucideIcons.x,\n                      iconSize: 20,\n                      tooltip: '关闭',\n                      onPressed: () => Navigator.pop(context),\n                    ),""",
+          )
+          replace_exact(
+              'client/lib/screens/focus_home_screen.dart',
+              """                    SizedBox(\n                      width: 44,\n                      height: 44,\n                      child: IconButton(\n                        tooltip: '关于',\n                        icon: const Icon(LucideIcons.circleHelp, size: 18),\n                        onPressed: () => openPage(const AboutScreen()),\n                      ),\n                    ),""",
+              """                    FxIconButton(\n                      icon: LucideIcons.circleHelp,\n                      iconSize: 18,\n                      tooltip: '关于',\n                      onPressed: () => openPage(const AboutScreen()),\n                    ),""",
           )
 
       - name: Format targeted files
