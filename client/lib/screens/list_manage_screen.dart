@@ -70,7 +70,8 @@ class _ListManageScreenState extends State<ListManageScreen> {
           return Dialog(
             backgroundColor: theme.colorScheme.surface,
             surfaceTintColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
               side: BorderSide(color: theme.colorScheme.outlineVariant),
@@ -91,26 +92,23 @@ class _ListManageScreenState extends State<ListManageScreen> {
                             style: SlowlightTypography.cardTitle(dialogContext),
                           ),
                         ),
-                        SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: IconButton(
-                            tooltip: '关闭',
-                            onPressed: saving
-                                ? null
-                                : () => Navigator.pop(dialogContext, false),
-                            icon: const Icon(LucideIcons.x, size: 18),
-                          ),
+                        FxIconButton(
+                          tooltip: '关闭',
+                          onPressed: saving
+                              ? null
+                              : () => Navigator.pop(dialogContext, false),
+                          icon: LucideIcons.x,
+                          iconSize: 18,
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    TextField(
+                    FxInput(
                       controller: nameController,
                       autofocus: true,
                       enabled: !saving,
+                      placeholder: '清单名称',
                       style: SlowlightTypography.body(dialogContext),
-                      decoration: const InputDecoration(hintText: '清单名称'),
                     ),
                     const SizedBox(height: 14),
                     _fieldLabel(dialogContext, '图标'),
@@ -119,7 +117,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       runSpacing: 6,
                       children: _presetIcons.map((icon) {
                         final selected = icon == selectedIcon;
-                        return InkWell(
+                        return FxInkWell(
                           onTap: saving
                               ? null
                               : () => setDialogState(() => selectedIcon = icon),
@@ -132,14 +130,18 @@ class _ListManageScreenState extends State<ListManageScreen> {
                               color: selected
                                   ? activePalette.accent.withValues(alpha: .12)
                                   : Colors.transparent,
-                              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusMd),
                               border: Border.all(
                                 color: selected
                                     ? activePalette.accent
                                     : theme.colorScheme.outlineVariant,
                               ),
                             ),
-                            child: Text(icon, style: const TextStyle(fontSize: 18)),
+                            child: Text(
+                              icon,
+                              style: const TextStyle(fontSize: 18),
+                            ),
                           ),
                         );
                       }).toList(growable: false),
@@ -152,10 +154,11 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       children: _presetColors.map((value) {
                         final selected = value == selectedColor;
                         final color = ColorUtils.safeParse(value);
-                        return InkWell(
+                        return FxInkWell(
                           onTap: saving
                               ? null
-                              : () => setDialogState(() => selectedColor = value),
+                              : () =>
+                                  setDialogState(() => selectedColor = value),
                           borderRadius: BorderRadius.circular(22),
                           child: SizedBox(
                             width: 44,
@@ -184,7 +187,8 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       const SizedBox(height: 8),
                       Text(
                         error!,
-                        style: SlowlightTypography.caption(dialogContext).copyWith(
+                        style:
+                            SlowlightTypography.caption(dialogContext).copyWith(
                           color: theme.colorScheme.error,
                         ),
                       ),
@@ -365,27 +369,37 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     color: color.withValues(alpha: .10),
-                                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                                    borderRadius:
+                                        BorderRadius.circular(AppTheme.radiusMd),
                                   ),
-                                  child: Text(list.icon, style: const TextStyle(fontSize: 17)),
+                                  child: Text(
+                                    list.icon,
+                                    style: const TextStyle(fontSize: 17),
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
                                         list.name,
-                                        style: SlowlightTypography.body(context).copyWith(
+                                        style:
+                                            SlowlightTypography.body(context)
+                                                .copyWith(
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       if (list.isInbox)
                                         Text(
                                           '默认收集箱',
-                                          style: SlowlightTypography.caption(context).copyWith(
-                                            color: theme.colorScheme.onSurfaceVariant,
+                                          style: SlowlightTypography.caption(
+                                            context,
+                                          ).copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
                                           ),
                                         ),
                                     ],
@@ -393,32 +407,23 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                 ),
                                 Text(
                                   '$count 条',
-                                  style: SlowlightTypography.caption(context).copyWith(
+                                  style: SlowlightTypography.caption(context)
+                                      .copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                SizedBox(
-                                  width: 44,
-                                  height: 44,
-                                  child: IconButton(
-                                    tooltip: '编辑',
-                                    onPressed: () => _showEditor(list),
-                                    icon: const Icon(LucideIcons.pencil, size: 17),
-                                  ),
+                                FxIconButton(
+                                  tooltip: '编辑',
+                                  onPressed: () => _showEditor(list),
+                                  icon: LucideIcons.pencil,
+                                  iconSize: 17,
                                 ),
                                 if (!list.isInbox)
-                                  SizedBox(
-                                    width: 44,
-                                    height: 44,
-                                    child: IconButton(
-                                      tooltip: '删除',
-                                      onPressed: () => _deleteList(list),
-                                      icon: Icon(
-                                        LucideIcons.trash2,
-                                        size: 17,
-                                        color: theme.colorScheme.error,
-                                      ),
-                                    ),
+                                  FxIconButton(
+                                    tooltip: '删除',
+                                    onPressed: () => _deleteList(list),
+                                    icon: LucideIcons.trash2,
+                                    iconSize: 17,
                                   ),
                               ],
                             ),
