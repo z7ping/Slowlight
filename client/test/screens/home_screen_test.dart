@@ -3,19 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
-import 'package:slowlight/ui/theme_manager.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+
+import '../support/fx_test_host.dart';
 
 void main() {
-  Widget buildApp() {
-    return ShadTheme(
-      data: ThemeManager.shadLight,
-      child: MaterialApp(
-        theme: ThemeManager.lightTheme,
-        home: const HomeScreen(),
-      ),
-    );
-  }
+  Widget buildApp() => buildFxTestHost(home: const HomeScreen());
 
   Future<void> pumpAt(
     WidgetTester tester, {
@@ -69,28 +61,28 @@ void main() {
       // 避开 Android 系统返回手势占用的最外侧区域，从应用内近边缘滑动。
       await tester.dragFrom(const Offset(40, 240), const Offset(280, 0));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsOneWidget);
+      expect(fxTooltipFinder('关闭'), findsOneWidget);
 
       await tester.dragFrom(const Offset(260, 240), const Offset(-280, 0));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsNothing);
+      expect(fxTooltipFinder('关闭'), findsNothing);
     });
 
     testWidgets('移动端点击抽屉遮罩可以关闭', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
 
-      await tester.tap(find.byTooltip('工具'));
+      await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsOneWidget);
+      expect(fxTooltipFinder('关闭'), findsOneWidget);
 
       await tester.tapAt(const Offset(350, 300));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsNothing);
+      expect(fxTooltipFinder('关闭'), findsNothing);
     });
 
     testWidgets('Android 返回键先关闭工具页', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
-      await tester.tap(find.byTooltip('工具'));
+      await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('四象限'));
       await tester.pumpAndSettle();
