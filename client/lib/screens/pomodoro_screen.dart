@@ -260,23 +260,22 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   subtitle: '每轮工作分钟数',
                   trailing: Wrap(
                     spacing: 6,
+                    runSpacing: 6,
                     children: [25, 45, 60].map((minutes) {
                       final selected = work == minutes;
-                      return ChoiceChip(
-                        label: Text('$minutes'),
-                        selected: selected,
-                        showCheckmark: false,
-                        selectedColor:
-                            activePalette.accent.withValues(alpha: .12),
-                        labelStyle: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: selected
-                              ? activePalette.accent
-                              : theme.colorScheme.onSurface,
-                          fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                        onSelected: (_) => setDialogState(() => work = minutes),
+                      return FxChip(
+                        label: '$minutes',
+                        onTap: () => setDialogState(() => work = minutes),
+                        backgroundColor: selected
+                            ? activePalette.accent.withValues(alpha: .12)
+                            : fxSubtleSurface(dialogContext),
+                        foregroundColor: selected
+                            ? activePalette.accent
+                            : theme.colorScheme.onSurface,
+                        borderColor: selected
+                            ? activePalette.accent.withValues(alpha: .35)
+                            : theme.colorScheme.outlineVariant,
+                        borderRadius: 999,
                       );
                     }).toList(growable: false),
                   ),
@@ -307,30 +306,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   subtitle: '产出计入该任务',
                   trailing: SizedBox(
                     width: 150,
-                    child: DropdownButtonFormField<int>(
-                      value: linkedTaskId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(isDense: true),
-                      hint: const Text('不关联', style: TextStyle(fontSize: 12)),
-                      items: [
-                        const DropdownMenuItem<int>(
-                          value: null,
-                          child: Text('不关联', style: TextStyle(fontSize: 12)),
-                        ),
+                    child: FxSelect<int>(
+                      value: linkedTaskId ?? 0,
+                      options: [
+                        const FxSelectOption(value: 0, label: '不关联'),
                         ..._todayTasks.map(
-                          (task) => DropdownMenuItem<int>(
+                          (task) => FxSelectOption(
                             value: task.id,
-                            child: Text(
-                              task.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                            label: task.title,
                           ),
                         ),
                       ],
-                      onChanged: (value) =>
-                          setDialogState(() => linkedTaskId = value),
+                      onChanged: (value) => setDialogState(
+                        () => linkedTaskId = value == null || value == 0 ? null : value,
+                      ),
                     ),
                   ),
                 ),
@@ -401,16 +390,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: AppTheme.textSm,
+                  style: SlowlightTypography.secondary(dialogContext).copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                  style: SlowlightTypography.caption(dialogContext).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
