@@ -90,15 +90,16 @@ class _StatsScreenState extends State<StatsScreen> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final scaled = MediaQuery.textScalerOf(context)
-                  .scale(SlowlightTypography.secondarySize);
-              final columns = scaled >= SlowlightTypography.secondarySize * 1.3
-                  ? 1
-                  : desktop
-                      ? 4
-                      : 2;
-              final width =
-                  (constraints.maxWidth - 12 * (columns - 1)) / columns;
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              final minCellWidth =
+                  (140 + (textScale - 1) * 40).clamp(140, 180).toDouble();
+              var columns = desktop ? 4 : 2;
+              double cellWidth(int count) =>
+                  (constraints.maxWidth - 12 * (count - 1)) / count;
+              if (columns == 4 && cellWidth(4) < minCellWidth) columns = 2;
+              if (columns == 2 && cellWidth(2) < minCellWidth) columns = 1;
+
+              final width = cellWidth(columns);
               final cells = [
                 FxStatCell(
                   value: '${data.completedThisWeek}',
