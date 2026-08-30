@@ -165,14 +165,10 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                           ],
                         ),
                       ),
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          tooltip: '刷新',
-                          onPressed: _loadReview,
-                          icon: const Icon(LucideIcons.refreshCw, size: 17),
-                        ),
+                      FxIconButton(
+                        tooltip: '刷新',
+                        onPressed: _loadReview,
+                        icon: LucideIcons.refreshCw,
                       ),
                     ],
                   ),
@@ -378,7 +374,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             _deltaRow('专注时长', focusDelta, '分钟'),
           ],
           const SizedBox(height: 10),
-          InkWell(
+          FxInkWell(
             borderRadius: BorderRadius.circular(999),
             onTap: _generatingAi ? null : _generateAiReport,
             child: ConstrainedBox(
@@ -515,14 +511,11 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                       ],
                     ),
                     const SizedBox(height: 5),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      child: LinearProgressIndicator(
-                        value: (percent / 100).clamp(0, 1),
-                        minHeight: 6,
-                        backgroundColor: theme.colorScheme.outlineVariant,
-                        color: activePalette.accent,
-                      ),
+                    FxProgress(
+                      value: (percent / 100).clamp(0, 1),
+                      height: 6,
+                      backgroundColor: theme.colorScheme.outlineVariant,
+                      color: activePalette.accent,
                     ),
                   ],
                 ),
