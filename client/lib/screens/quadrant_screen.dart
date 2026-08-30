@@ -124,7 +124,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
-    final emptyState = InkWell(
+    final emptyState = FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () => _addTask(priority),
       child: Center(
@@ -186,14 +186,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 ),
               ),
               const Spacer(),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  tooltip: '在$title添加任务',
-                  onPressed: () => _addTask(priority),
-                  icon: const Icon(LucideIcons.plus, size: 18),
-                ),
+              FxIconButton(
+                tooltip: '在$title添加任务',
+                onPressed: () => _addTask(priority),
+                icon: LucideIcons.plus,
               ),
             ],
           ),
@@ -283,7 +279,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Widget _taskLine(Task task, Color color, {required bool desktop}) {
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () => desktop ? _openTask(task) : _showMoveSheet(task),
       onLongPress: desktop ? null : () => _openTask(task),
@@ -369,9 +365,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,
-              child: TextButton(
+              child: FxButton(
+                label: '取消',
+                variant: FxButtonVariant.ghost,
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
               ),
             ),
           ],
@@ -389,7 +386,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     String current,
   ) {
     final selected = value == current;
-    return InkWell(
+    return FxInkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: () => Navigator.pop(context, value),
       child: ConstrainedBox(
