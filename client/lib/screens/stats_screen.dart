@@ -295,15 +295,10 @@ class _StatsScreenState extends State<StatsScreen> {
                 ],
               ),
               const SizedBox(height: 5),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                child: LinearProgressIndicator(
-                  value: percent / 100,
-                  minHeight: 7,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainer,
-                  color: colors[index % colors.length],
-                ),
+              FxProgress(
+                value: percent / 100,
+                height: 7,
+                color: colors[index % colors.length],
               ),
             ],
           ),
