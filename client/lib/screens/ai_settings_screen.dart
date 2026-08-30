@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../ai/ai_config_store.dart';
 import '../ai/ai_models.dart';
 import '../ai/ai_service.dart';
-import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 
 class AiSettingsScreen extends StatefulWidget {
@@ -171,125 +170,137 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 设置')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                FxCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('启用 AI'),
-                        subtitle: const Text('AI 服务与本地/云端数据模式互不绑定'),
-                        value: _config.enabled,
-                        onChanged: (value) =>
-                            setState(() => _config = _config.copyWith(enabled: value)),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<AiProviderType>(
-                        value: _config.provider,
-                        decoration: const InputDecoration(labelText: 'AI 服务'),
-                        items: AiProviderType.values
-                            .map((item) => DropdownMenuItem(
-                                  value: item,
-                                  child: Text(item.label),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) _changeProvider(value);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _endpointController,
-                        decoration: const InputDecoration(
-                          labelText: '接口地址',
-                          hintText: '例如 http://localhost:11434/v1',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _modelController,
-                        decoration: const InputDecoration(
-                          labelText: '模型',
-                          hintText: '例如 qwen3:8b',
-                        ),
-                      ),
-                      if (_config.provider != AiProviderType.ollama) ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _keyController,
-                          obscureText: true,
-                          enableSuggestions: false,
-                          autocorrect: false,
-                          decoration: InputDecoration(
-                            labelText: _config.provider == AiProviderType.compatible
-                                ? '访问密钥（可选）'
-                                : '访问密钥',
-                            hintText: _hasStoredKey
-                                ? '已安全保存；留空表示保持原值'
-                                : '仅保存在本机安全存储',
+      body: SafeArea(
+        child: Column(
+          children: [
+            const FxPageHeader(title: 'AI 设置'),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        FxCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              FxSwitch(
+                                label: '启用 AI',
+                                description: 'AI 服务与本地/云端数据模式互不绑定',
+                                value: _config.enabled,
+                                onChanged: (value) => setState(
+                                  () => _config = _config.copyWith(enabled: value),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'AI 服务',
+                                style: SlowlightTypography.secondary(context)
+                                    .copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 6),
+                              FxSelect<AiProviderType>(
+                                value: _config.provider,
+                                options: AiProviderType.values
+                                    .map(
+                                      (item) => FxSelectOption(
+                                        value: item,
+                                        label: item.label,
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                                onChanged: (value) {
+                                  if (value != null) _changeProvider(value);
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              FxInput(
+                                controller: _endpointController,
+                                label: '接口地址',
+                                placeholder: '例如 http://localhost:11434/v1',
+                              ),
+                              const SizedBox(height: 12),
+                              FxInput(
+                                controller: _modelController,
+                                label: '模型',
+                                placeholder: '例如 qwen3:8b',
+                              ),
+                              if (_config.provider != AiProviderType.ollama) ...[
+                                const SizedBox(height: 12),
+                                FxInput(
+                                  controller: _keyController,
+                                  label: _config.provider == AiProviderType.compatible
+                                      ? '访问密钥（可选）'
+                                      : '访问密钥',
+                                  placeholder: _hasStoredKey
+                                      ? '已安全保存；留空表示保持原值'
+                                      : '仅保存在本机安全存储',
+                                  obscureText: true,
+                                  enableSuggestions: false,
+                                  autocorrect: false,
+                                ),
+                                if (_hasStoredKey)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: FxButton(
+                                      label: '清除已保存密钥',
+                                      variant: FxButtonVariant.ghost,
+                                      size: FxButtonSize.sm,
+                                      onPressed: _clearKey,
+                                    ),
+                                  ),
+                              ],
+                              if (kIsWeb) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  '网页版使用访问密钥时，请使用 HTTPS 或本机 localhost 环境。',
+                                  style: SlowlightTypography.caption(context)
+                                      .copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        if (_hasStoredKey)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _clearKey,
-                              child: const Text('清除已保存密钥'),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FxButton(
+                                label: _testing ? '测试中…' : '测试连接',
+                                variant: FxButtonVariant.secondary,
+                                onPressed: _testing || _saving ? null : _test,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FxButton(
+                                label: _saving ? '保存中…' : '保存',
+                                onPressed: _saving || _testing ? null : _save,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_testResult != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _testResult!,
+                            style: SlowlightTypography.secondary(context)
+                                .copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
+                        ],
                       ],
-                      if (kIsWeb) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '网页版使用访问密钥时，请使用 HTTPS 或本机 localhost 环境。',
-                          style: TextStyle(
-                            fontSize: AppTheme.textXs,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FxButton(
-                        label: _testing ? '测试中…' : '测试连接',
-                        variant: FxButtonVariant.secondary,
-                        onPressed: _testing || _saving ? null : _test,
-                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FxButton(
-                        label: _saving ? '保存中…' : '保存',
-                        onPressed: _saving || _testing ? null : _save,
-                      ),
-                    ),
-                  ],
-                ),
-                if (_testResult != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _testResult!,
-                    style: TextStyle(
-                      fontSize: AppTheme.textMd,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
             ),
+          ],
+        ),
+      ),
     );
   }
 }
