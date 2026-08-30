@@ -4,7 +4,7 @@ import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/fx.dart';
 
 void main() {
-  testWidgets('FxSectionHeader 使用统一标题与辅助信息排版', (tester) async {
+  testWidgets('FxSectionHeader 使用高密度分区标题与辅助信息排版', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme(),
@@ -19,8 +19,8 @@ void main() {
 
     final title = tester.widget<Text>(find.text('今日任务'));
     final trailing = tester.widget<Text>(find.text('3/5 已完成'));
-    expect(title.style?.fontSize, SlowlightTypography.cardTitleSize);
-    expect(trailing.style?.fontSize, SlowlightTypography.secondarySize);
+    expect(title.style?.fontSize, SlowlightTypography.secondarySize);
+    expect(trailing.style?.fontSize, SlowlightTypography.captionSize);
   });
 
   testWidgets('FxSectionHeader 在 360dp + 200% 字体缩放下不溢出', (tester) async {
