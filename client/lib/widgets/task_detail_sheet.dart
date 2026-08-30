@@ -7,7 +7,6 @@ import '../services/api_service.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'high_fidelity/high_fidelity_ui.dart';
 
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
@@ -41,7 +40,7 @@ class TaskDetailSheet extends StatefulWidget {
         pageBuilder: (dialogContext, _, __) => Align(
           alignment: Alignment.centerRight,
           child: Material(
-            color: hfSurface(dialogContext),
+            color: fxSurface(dialogContext),
             elevation: 18,
             shadowColor: Colors.black.withValues(alpha: .18),
             borderRadius: const BorderRadius.horizontal(
@@ -67,7 +66,8 @@ class TaskDetailSheet extends StatefulWidget {
             begin: const Offset(1, 0),
             end: Offset.zero,
           ).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          ),
           child: child,
         ),
       );
@@ -80,7 +80,6 @@ class TaskDetailSheet extends StatefulWidget {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
       builder: (sheetContext) => Padding(
-        // 键盘避让：备注/标题输入时 sheet 随 viewInsets 上移
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
         ),
@@ -93,7 +92,7 @@ class TaskDetailSheet extends StatefulWidget {
               maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
             ),
             decoration: BoxDecoration(
-              color: hfSurface(sheetContext),
+              color: fxSurface(sheetContext),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(18)),
             ),
@@ -169,7 +168,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     return Column(
       children: [
         _header(),
-        Divider(height: 1, color: hfDivider(context)),
+        Divider(height: 1, color: fxDivider(context)),
         Expanded(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -177,7 +176,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             child: _form(),
           ),
         ),
-        Divider(height: 1, color: hfDivider(context)),
+        Divider(height: 1, color: fxDivider(context)),
         _footer(),
       ],
     );
@@ -194,7 +193,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: hfDivider(context),
+                color: fxDivider(context),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -202,13 +201,23 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ],
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   '任务详情',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: SlowlightTypography.cardTitle(context).copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              if (widget.task.isCompleted) const HfChip('已完成', accent: true),
+              if (widget.task.isCompleted)
+                FxChip(
+                  label: '已完成',
+                  backgroundColor: activePalette.accent.withValues(alpha: .12),
+                  foregroundColor: activePalette.accent,
+                  borderRadius: 999,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                ),
               const SizedBox(width: 4),
               SizedBox(
                 width: 44,
@@ -231,14 +240,17 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _form() {
+    final largeText = MediaQuery.textScalerOf(context)
+            .scale(SlowlightTypography.bodySize) >=
+        SlowlightTypography.bodySize * 1.3;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
           controller: _title,
-          autofocus: false,
           enabled: !_saving,
-          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          style: SlowlightTypography.body(context)
+              .copyWith(fontWeight: FontWeight.w600),
           decoration: const InputDecoration(hintText: '任务标题'),
         ),
         const SizedBox(height: 8),
@@ -247,7 +259,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           enabled: !_saving,
           minLines: 2,
           maxLines: 4,
-          style: const TextStyle(fontSize: 13),
+          style: SlowlightTypography.secondary(context),
           decoration: const InputDecoration(hintText: '描述（可选）'),
         ),
         const SizedBox(height: 14),
@@ -280,27 +292,42 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ],
         ),
         const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: _pickerField(
-                label: '到期日期',
-                value: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
-                icon: LucideIcons.calendarDays,
-                onTap: _pickDate,
+        if (largeText) ...[
+          _pickerField(
+            label: '到期日期',
+            value: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
+            icon: LucideIcons.calendarDays,
+            onTap: _pickDate,
+          ),
+          const SizedBox(height: 10),
+          _pickerField(
+            label: '时间',
+            value: _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
+            icon: LucideIcons.clock3,
+            onTap: _pickTime,
+          ),
+        ] else
+          Row(
+            children: [
+              Expanded(
+                child: _pickerField(
+                  label: '到期日期',
+                  value: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
+                  icon: LucideIcons.calendarDays,
+                  onTap: _pickDate,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _pickerField(
-                label: '时间',
-                value: _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
-                icon: LucideIcons.clock3,
-                onTap: _pickTime,
+              const SizedBox(width: 8),
+              Expanded(
+                child: _pickerField(
+                  label: '时间',
+                  value: _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
+                  icon: LucideIcons.clock3,
+                  onTap: _pickTime,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         const SizedBox(height: 14),
         _fieldLabel('重复'),
         DropdownButtonFormField<String>(
@@ -401,6 +428,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -410,22 +438,20 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           child: Container(
             constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: theme.scaffoldBackgroundColor,
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              border: Border.all(color: hfBorder(context)),
+              border: Border.all(color: fxBorder(context)),
             ),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(value, style: const TextStyle(fontSize: 12.5)),
+                  child:
+                      Text(value, style: SlowlightTypography.secondary(context)),
                 ),
-                Icon(
-                  icon,
-                  size: 15,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                Icon(icon,
+                    size: 15, color: theme.colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -434,26 +460,26 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
-  Widget _fieldLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: AppTheme.textXs,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget _fieldLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Text(
+          text,
+          style: SlowlightTypography.caption(context).copyWith(
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-      ),
-    );
-  }
+      );
 
   Widget _footer() {
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-        child: Row(
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             FxButton(
               label: '删除',
@@ -461,7 +487,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               variant: FxButtonVariant.ghost,
               onPressed: _saving ? null : _delete,
             ),
-            const Spacer(),
             FxButton(
               label: _saving ? '保存中…' : '保存修改',
               onPressed: _saving ? null : _save,
@@ -565,7 +590,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       destructive: true,
     );
     if (confirmed != true || !mounted) return;
-
     final messenger = ScaffoldMessenger.of(context);
     final task = widget.task;
     try {
