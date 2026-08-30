@@ -3,8 +3,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import 'stats/stats_snapshot.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -60,7 +58,7 @@ class _StatsScreenState extends State<StatsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const HfPageHeader(title: '统计'),
+            const FxPageHeader(title: '统计'),
             Expanded(child: body),
           ],
         ),
@@ -92,17 +90,23 @@ class _StatsScreenState extends State<StatsScreen> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = desktop ? 4 : 2;
+              final scaled = MediaQuery.textScalerOf(context)
+                  .scale(SlowlightTypography.secondarySize);
+              final columns = scaled >= SlowlightTypography.secondarySize * 1.3
+                  ? 1
+                  : desktop
+                      ? 4
+                      : 2;
               final width =
                   (constraints.maxWidth - 12 * (columns - 1)) / columns;
               final cells = [
-                HfStatCell(
+                FxStatCell(
                   value: '${data.completedThisWeek}',
                   label: '本周完成任务',
                 ),
-                HfStatCell(value: '$habitChecks', label: '习惯打卡次数'),
-                HfStatCell(value: _focusText(focusMinutes), label: '专注总时长'),
-                HfStatCell(
+                FxStatCell(value: '$habitChecks', label: '习惯打卡次数'),
+                FxStatCell(value: _focusText(focusMinutes), label: '专注总时长'),
+                FxStatCell(
                   value: observations == null ? '—' : '$observations',
                   label: '写下观察',
                 ),
@@ -119,31 +123,32 @@ class _StatsScreenState extends State<StatsScreen> {
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              final chart = HfCard(
+              final chart = FxCard(
                 padding: const EdgeInsets.all(16),
+                expanded: true,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const HfSectionHeader(title: '每日专注时长', trailing: '分钟'),
+                    const FxSectionHeader(title: '每日专注时长', trailing: '分钟'),
                     const SizedBox(height: 18),
                     _bars(data),
                     const SizedBox(height: 10),
                     Text(
                       _factNote(data),
-                      style: TextStyle(
-                        fontSize: AppTheme.textXs,
+                      style: SlowlightTypography.caption(context).copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               );
-              final distribution = HfCard(
+              final distribution = FxCard(
                 padding: const EdgeInsets.all(16),
+                expanded: true,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const HfSectionHeader(title: '时间分配', trailing: '近 7 天'),
+                    const FxSectionHeader(title: '时间分配', trailing: '近 7 天'),
                     const SizedBox(height: 12),
                     _timeDistribution(data),
                   ],
@@ -190,7 +195,7 @@ class _StatsScreenState extends State<StatsScreen> {
     final max = values.fold<double>(1, (a, b) => b > a ? b : a);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     return SizedBox(
-      height: 150,
+      height: 166,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(values.length, (index) {
@@ -200,7 +205,7 @@ class _StatsScreenState extends State<StatsScreen> {
           final label = date == null ? '' : weekdays[date.weekday - 1];
           return Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 3),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -224,8 +229,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   const SizedBox(height: 6),
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                    style: SlowlightTypography.caption(context).copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -243,8 +247,7 @@ class _StatsScreenState extends State<StatsScreen> {
     if (raw is! List || raw.isEmpty) {
       return Text(
         '暂无时间分配数据',
-        style: TextStyle(
-          fontSize: AppTheme.textSm,
+        style: SlowlightTypography.secondary(context).copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       );
@@ -275,14 +278,17 @@ class _StatsScreenState extends State<StatsScreen> {
                   Expanded(
                     child: Text(
                       '${item['icon'] ?? ''} ${item['name'] ?? ''}'.trim(),
-                      style: const TextStyle(fontSize: AppTheme.textSm),
+                      style: SlowlightTypography.secondary(context),
                     ),
                   ),
-                  Text(
-                    _focusText(minutes),
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _focusText(minutes),
+                      textAlign: TextAlign.end,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -353,7 +359,10 @@ class _StatsScreenState extends State<StatsScreen> {
         children: [
           const Icon(LucideIcons.chartNoAxesColumn, size: 24),
           const SizedBox(height: 8),
-          const Text('统计数据加载失败'),
+          Text(
+            '统计数据加载失败',
+            style: SlowlightTypography.cardTitle(context),
+          ),
           const SizedBox(height: 12),
           FxButton(
             label: '重试',
