@@ -5,7 +5,6 @@ import '../models/observation_tag.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'high_fidelity/high_fidelity_ui.dart';
 
 class HabitEditorValue {
   final String name;
@@ -209,12 +208,12 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         horizontal: mobile ? 12 : 24,
         vertical: 24,
       ),
-      backgroundColor: hfSurface(context),
+      backgroundColor: fxSurface(context),
       surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: hfBorder(context)),
+        side: BorderSide(color: fxBorder(context)),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
@@ -229,7 +228,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: hfDivider(context),
+                      color: fxDivider(context),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -239,8 +238,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       Expanded(
                         child: Text(
                           widget.habit == null ? '添加习惯' : '编辑习惯',
-                          style: const TextStyle(
-                            fontSize: 13.5,
+                          style: SlowlightTypography.cardTitle(context).copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -259,7 +257,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                 ],
               ),
             ),
-            Divider(height: 1, color: hfDivider(context)),
+            Divider(height: 1, color: fxDivider(context)),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
@@ -270,8 +268,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     if (widget.habit == null) ...[
                       Text(
                         '快速添加',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                        style: SlowlightTypography.caption(context).copyWith(
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -295,7 +292,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                             side: BorderSide(
                               color: selected
                                   ? activePalette.accent
-                                  : hfBorder(context),
+                                  : fxBorder(context),
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(999),
@@ -310,7 +307,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       controller: _name,
                       autofocus: widget.habit == null,
                       onChanged: (_) => setState(() {}),
-                      style: const TextStyle(fontSize: 13),
+                      style: SlowlightTypography.body(context),
                       decoration: const InputDecoration(
                         hintText: '习惯名称',
                         labelText: null,
@@ -318,7 +315,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     ),
                     const SizedBox(height: 12),
                     _fieldLabel('频率'),
-                    HfSegmented(
+                    FxSegmented(
                       labels: const ['每天', '每周', '每月'],
                       selectedIndex: switch (_frequency) {
                         'weekly' => 1,
@@ -328,6 +325,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       onChanged: (index) => setState(() {
                         _frequency = const ['daily', 'weekly', 'monthly'][index];
                       }),
+                      backgroundColor: fxSubtleSurface(context),
+                      selectedColor: fxSurface(context),
+                      borderRadius: AppTheme.radiusMd,
                     ),
                     const SizedBox(height: 16),
                     _fieldLabel('图标'),
@@ -345,7 +345,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                               side: BorderSide(
                                 color: _icon == icon
                                     ? activePalette.accent
-                                    : hfBorder(context),
+                                    : fxBorder(context),
                               ),
                               onSelected: (_) => setState(() => _icon = icon),
                             ),
@@ -470,7 +470,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                 ),
               ),
             ),
-            Divider(height: 1, color: hfDivider(context)),
+            Divider(height: 1, color: fxDivider(context)),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               child: Row(
@@ -500,8 +500,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(
           text,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
+          style: SlowlightTypography.caption(context).copyWith(
             fontWeight: FontWeight.w600,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
