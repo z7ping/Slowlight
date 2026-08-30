@@ -9,6 +9,7 @@ class FxSelect<T> extends StatelessWidget {
   final List<FxSelectOption<T>> options;
   final ValueChanged<T?>? onChanged;
   final String? placeholder;
+  final bool enabled;
 
   const FxSelect({
     super.key,
@@ -16,6 +17,7 @@ class FxSelect<T> extends StatelessWidget {
     required this.options,
     this.onChanged,
     this.placeholder,
+    this.enabled = true,
   });
 
   @override
@@ -24,9 +26,10 @@ class FxSelect<T> extends StatelessWidget {
     return ShadSelect<T>(
       key: ValueKey(value),
       initialValue: value,
+      enabled: enabled,
       placeholder:
           placeholder != null ? Text(placeholder!, style: textStyle) : null,
-      onChanged: onChanged,
+      onChanged: enabled ? onChanged : null,
       selectedOptionBuilder: (context, value) {
         final opt = options.firstWhere((o) => o.value == value);
         return Text(opt.label, style: textStyle);
