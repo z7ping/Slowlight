@@ -5,10 +5,8 @@ import '../brand.dart';
 import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/data_mode_manager.dart';
-import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -120,15 +118,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SlowlightLogo(size: 52),
                   const SizedBox(height: 14),
-                  const Text(
+                  Text(
                     kBrandDisplayName,
-                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                    textAlign: TextAlign.center,
+                    style: SlowlightTypography.pageTitle(context),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '了解自己的系统 · 数据位置由你选择',
-                    style: TextStyle(
-                      fontSize: 12.5,
+                    textAlign: TextAlign.center,
+                    style: SlowlightTypography.secondary(context).copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -143,18 +142,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      Expanded(child: Divider(color: hfBorder(context))),
+                      Expanded(
+                        child: Divider(color: theme.colorScheme.outlineVariant),
+                      ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
                           '或登录使用云端数据',
-                          style: TextStyle(
-                            fontSize: AppTheme.textXs,
+                          style: SlowlightTypography.caption(context).copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
-                      Expanded(child: Divider(color: hfBorder(context))),
+                      Expanded(
+                        child: Divider(color: theme.colorScheme.outlineVariant),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -162,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _usernameController,
                     enabled: !_isLoading,
                     textInputAction: TextInputAction.next,
-                    style: const TextStyle(fontSize: 13),
+                    style: SlowlightTypography.body(context),
                     decoration: InputDecoration(
                       hintText: _isLogin ? '邮箱或用户名' : '用户名',
                     ),
@@ -174,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       enabled: !_isLoading,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      style: const TextStyle(fontSize: 13),
+                      style: SlowlightTypography.body(context),
                       decoration: const InputDecoration(hintText: '邮箱'),
                     ),
                   ],
@@ -186,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     textInputAction:
                         _isLogin ? TextInputAction.done : TextInputAction.next,
                     onSubmitted: _isLogin ? (_) => _submit() : null,
-                    style: const TextStyle(fontSize: 13),
+                    style: SlowlightTypography.body(context),
                     decoration: InputDecoration(
                       hintText: '密码',
                       suffixIcon: SizedBox(
@@ -214,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       enabled: !_isLoading,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _submit(),
-                      style: const TextStyle(fontSize: 13),
+                      style: SlowlightTypography.body(context),
                       decoration: const InputDecoration(hintText: '昵称（可选）'),
                     ),
                   ],
@@ -229,13 +231,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _isLoading ? null : _submit,
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
                     children: [
                       Text(
                         _isLogin ? '还没有账号？' : '已有账号？',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                        style: SlowlightTypography.caption(context).copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
