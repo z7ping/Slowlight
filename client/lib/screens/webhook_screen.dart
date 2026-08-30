@@ -167,9 +167,9 @@ class _WebhookScreenState extends State<WebhookScreen> {
       appBar: AppBar(
         title: const Text('事件回调'),
         actions: [
-          IconButton(
+          FxIconButton(
             tooltip: '添加事件回调',
-            icon: const Icon(Icons.add_circle_outline),
+            icon: Icons.add_circle_outline,
             onPressed: _addWebhook,
           ),
         ],
@@ -253,15 +253,15 @@ class _WebhookScreenState extends State<WebhookScreen> {
         trailing: Wrap(
           spacing: 4,
           children: [
-            IconButton(
+            FxIconButton(
               tooltip: '测试',
-              icon: const Icon(Icons.send, size: 20),
+              icon: Icons.send,
               onPressed: () => _testWebhook(webhook['id'] as int),
             ),
-            IconButton(
+            FxIconButton(
               tooltip: '删除',
-              icon: const Icon(Icons.delete_outline, size: 20),
-              color: AppTheme.error,
+              icon: Icons.delete_outline,
+              foregroundColor: AppTheme.error,
               onPressed: () => _deleteWebhook(webhook['id'] as int),
             ),
           ],
