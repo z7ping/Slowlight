@@ -147,7 +147,8 @@ class CalendarMonthGrid extends StatelessWidget {
     final selected = _sameDay(date, selectedDate);
     final today = _sameDay(date, DateTime.now());
     final items = _visibleRecords(date);
-    final shown = items.take(compact ? 2 : 3).toList(growable: false);
+    final previewCount = largeText ? 1 : (compact ? 2 : 3);
+    final shown = items.take(previewCount).toList(growable: false);
     final remaining = items.length - shown.length;
     final dateHeaderHeight = largeText ? 38.0 : 23.0;
 
