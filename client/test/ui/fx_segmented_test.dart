@@ -42,6 +42,7 @@ void main() {
     await tester.pump();
     expect(selected, 2);
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('FxSegmented 使用辅助信息语义字号', (tester) async {
@@ -61,6 +62,7 @@ void main() {
     final text = tester.widget<Text>(find.text('A'));
     expect(text.style?.fontSize, SlowlightTypography.secondarySize);
     expect(text.style?.height, closeTo(20 / 14, 0.0001));
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('FxSegmented 展开时等分可用宽度', (tester) async {
@@ -95,5 +97,6 @@ void main() {
           widths.reduce((a, b) => a < b ? a : b),
       lessThan(0.01),
     );
+    await disposeFxTestHost(tester);
   });
 }

@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/fx.dart';
 
+import '../support/fx_test_host.dart';
+
 void main() {
   testWidgets('FxSectionHeader 使用高密度分区标题与辅助信息排版', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         theme: AppTheme.lightTheme(),
         home: const Scaffold(
           body: FxSectionHeader(
@@ -21,11 +23,12 @@ void main() {
     final trailing = tester.widget<Text>(find.text('3/5 已完成'));
     expect(title.style?.fontSize, SlowlightTypography.secondarySize);
     expect(trailing.style?.fontSize, SlowlightTypography.captionSize);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('FxSectionHeader 在 360dp + 200% 字体缩放下不溢出', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         theme: AppTheme.lightTheme(),
         home: MediaQuery(
           data: const MediaQueryData(
@@ -46,5 +49,6 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 }
