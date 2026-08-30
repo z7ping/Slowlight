@@ -11,12 +11,16 @@ import 'package:slowlight/ui/theme_manager.dart';
 Widget buildFxTestHost({
   required Widget home,
   ThemeData? theme,
+  TransitionBuilder? builder,
 }) {
   return ShadTheme(
     data: ThemeManager.shadLight,
     child: MaterialApp(
       theme: theme ?? ThemeManager.lightTheme,
-      builder: (context, child) => FxNoticeHost(child: child!),
+      builder: (context, child) {
+        final hosted = FxNoticeHost(child: child!);
+        return builder == null ? hosted : builder(context, hosted);
+      },
       home: home,
     ),
   );

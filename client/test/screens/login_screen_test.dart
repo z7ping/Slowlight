@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/screens/login_screen.dart';
+import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -21,11 +21,11 @@ void main() {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
 
-      expect(find.byType(ShadInput), findsNWidgets(2));
+      expect(find.byType(FxInput), findsNWidgets(2));
       await tester.tap(find.text('注册'));
       await tester.pump();
 
-      expect(find.byType(ShadInput), findsNWidgets(4));
+      expect(find.byType(FxInput), findsNWidgets(4));
       await disposeFxTestHost(tester);
     });
 
@@ -36,7 +36,7 @@ void main() {
       await tester.tap(find.text('注册'));
       await tester.pump();
 
-      final fields = find.byType(ShadInput);
+      final fields = find.byType(FxInput);
       await tester.enterText(fields.at(0), 'testuser');
       await tester.enterText(fields.at(2), 'password123');
       await tester.tap(find.text('注册'));
