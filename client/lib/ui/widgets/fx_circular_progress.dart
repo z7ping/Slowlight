@@ -129,7 +129,7 @@ class _FxCircularProgressPainter extends CustomPainter {
     final center = size.center(Offset.zero);
     final shortestSide = math.min(size.width, size.height);
     final alignInset = strokeWidth * ((strokeAlign + 1) / 2);
-    final radius = math.max(0, shortestSide / 2 - alignInset);
+    final radius = math.max(0.0, shortestSide / 2 - alignInset);
     final rect = Rect.fromCircle(center: center, radius: radius);
 
     if (backgroundColor case final background?) {
@@ -153,7 +153,7 @@ class _FxCircularProgressPainter extends CustomPainter {
       canvas.drawArc(
         rect,
         -math.pi / 2,
-        math.pi * 2 * progress.clamp(0.0, 1.0),
+        math.pi * 2 * progress.clamp(0.0, 1.0).toDouble(),
         false,
         paint,
       );
