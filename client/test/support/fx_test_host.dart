@@ -22,6 +22,16 @@ Widget buildFxTestHost({
   );
 }
 
+/// 主动销毁 Fx 测试宿主，并推进一次虚拟时间。
+///
+/// shadcn/Sonner 与 flutter_animate 在入场、退场时可能创建零延时或短延时
+/// Timer。Widget test 在回调结束前必须先卸载整棵 UI 树，否则会把正常的
+/// 动画调度误报为 pending timer。这里统一承担测试环境的生命周期收尾。
+Future<void> disposeFxTestHost(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump(const Duration(seconds: 5));
+}
+
 Finder fxTooltipFinder(String message) => find.byWidgetPredicate(
       (widget) => widget is FxTooltip && widget.message == message,
       description: 'FxTooltip with message "$message"',

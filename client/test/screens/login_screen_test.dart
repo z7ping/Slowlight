@@ -1,31 +1,24 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/screens/login_screen.dart';
-import 'package:slowlight/ui/theme_manager.dart';
+
+import '../support/fx_test_host.dart';
 
 void main() {
-  Widget buildApp() => ShadTheme(
-        data: ThemeManager.shadLight,
-        child: MaterialApp(
-          theme: ThemeManager.lightTheme,
-          home: const LoginScreen(),
-        ),
-      );
-
   group('LoginScreen 稳定契约', () {
     testWidgets('空凭据提交会被本地校验拦截', (tester) async {
-      await tester.pumpWidget(buildApp());
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
 
       await tester.tap(find.text('登录'));
       await tester.pump();
 
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('请填写完整信息'), findsOneWidget);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('切换注册模式后提供注册所需输入能力', (tester) async {
-      await tester.pumpWidget(buildApp());
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
 
       expect(find.byType(ShadInput), findsNWidgets(2));
@@ -33,10 +26,11 @@ void main() {
       await tester.pump();
 
       expect(find.byType(ShadInput), findsNWidgets(4));
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('注册缺少邮箱时不会进入远端提交', (tester) async {
-      await tester.pumpWidget(buildApp());
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
 
       await tester.tap(find.text('注册'));
@@ -48,7 +42,8 @@ void main() {
       await tester.tap(find.text('注册'));
       await tester.pump();
 
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('请填写邮箱'), findsOneWidget);
+      await disposeFxTestHost(tester);
     });
   });
 }

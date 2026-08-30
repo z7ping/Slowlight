@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/stats_screen.dart';
 
+import '../support/fx_test_host.dart';
+
 void main() {
   group('StatsScreen 响应式稳定性', () {
     for (final size in [
@@ -15,11 +17,12 @@ void main() {
         addTearDown(tester.view.reset);
 
         await tester.pumpWidget(
-          const MaterialApp(home: Scaffold(body: StatsScreen())),
+          buildFxTestHost(home: const Scaffold(body: StatsScreen())),
         );
         await tester.pump();
 
         expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
       });
     }
   });

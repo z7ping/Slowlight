@@ -7,8 +7,6 @@ import 'package:slowlight/screens/quadrant_screen.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
-  Widget buildApp() => buildFxTestHost(home: const HomeScreen());
-
   Future<void> pumpAt(
     WidgetTester tester, {
     required Size size,
@@ -19,7 +17,7 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
     addTearDown(tester.view.reset);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await tester.pumpWidget(buildApp());
+    await tester.pumpWidget(buildFxTestHost(home: const HomeScreen()));
     await tester.pump();
   }
 
@@ -34,6 +32,7 @@ void main() {
           (tester) async {
         await pumpAt(tester, size: size);
         expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
       });
     }
 
@@ -44,6 +43,7 @@ void main() {
         textScale: 1.3,
       );
       expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('四象限入口可以进入实际功能页', (tester) async {
@@ -53,6 +53,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(QuadrantScreen), findsOneWidget);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('移动端支持左缘右滑打开并左滑关闭抽屉', (tester) async {
@@ -66,6 +67,7 @@ void main() {
       await tester.dragFrom(const Offset(260, 240), const Offset(-280, 0));
       await tester.pumpAndSettle();
       expect(fxTooltipFinder('关闭'), findsNothing);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('移动端点击抽屉遮罩可以关闭', (tester) async {
@@ -78,6 +80,7 @@ void main() {
       await tester.tapAt(const Offset(350, 300));
       await tester.pumpAndSettle();
       expect(fxTooltipFinder('关闭'), findsNothing);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('Android 返回键先关闭工具页', (tester) async {
@@ -93,6 +96,7 @@ void main() {
 
       expect(find.byType(QuadrantScreen), findsNothing);
       expect(find.text('再按一次退出 Slowlight'), findsNothing);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('Android 首页需要两次返回才退出', (tester) async {
@@ -120,6 +124,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pump();
       expect(exitCalls, 1);
+      await disposeFxTestHost(tester);
     });
   });
 }

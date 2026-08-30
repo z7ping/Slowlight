@@ -23,6 +23,7 @@ void main() {
 
       expect(find.text('请输入任务标题'), findsOneWidget);
       expect(find.byType(AddTaskScreen), findsOneWidget);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('窄屏表单不产生布局异常', (tester) async {
@@ -34,6 +35,7 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
     });
   });
 }
