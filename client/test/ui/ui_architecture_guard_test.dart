@@ -14,9 +14,7 @@ void main() {
       final source = await entity.readAsString();
       final importsLegacyLayer = source.contains('high_fidelity/');
       final usesHfSymbol = RegExp(r'\bHf[A-Z][A-Za-z0-9_]*\b').hasMatch(source);
-      if (importsLegacyLayer || usesHfSymbol) {
-        offenders.add(normalized);
-      }
+      if (importsLegacyLayer || usesHfSymbol) offenders.add(normalized);
     }
 
     offenders.sort();
@@ -44,8 +42,7 @@ void main() {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final normalized = entity.path.replaceAll('\\', '/');
       final source = await entity.readAsString();
-      if (stageFileName.hasMatch(normalized) ||
-          stageClassName.hasMatch(source)) {
+      if (stageFileName.hasMatch(normalized) || stageClassName.hasMatch(source)) {
         offenders.add(normalized);
       }
     }
@@ -120,6 +117,16 @@ void main() {
       'SnackBar': RegExp(r'\bSnackBar\s*\('),
       'SnackBarAction': RegExp(r'\bSnackBarAction\s*\('),
       'ScaffoldMessenger.of': RegExp(r'\bScaffoldMessenger\.of\s*\('),
+      'showModalBottomSheet': RegExp(
+        r'\bshowModalBottomSheet(?:<[^>]+>)?\s*\(',
+      ),
+      'PopupMenuButton': RegExp(r'\bPopupMenuButton(?:<[^>]+>)?\s*\('),
+      'PopupMenuItem': RegExp(r'\bPopupMenuItem(?:<[^>]+>)?\s*\('),
+      'showDialog': RegExp(r'\bshowDialog(?:<[^>]+>)?\s*\('),
+      'AlertDialog': RegExp(r'\bAlertDialog\s*\('),
+      'Dialog': RegExp(r'(?<![A-Za-z0-9_])Dialog\s*\('),
+      'ListTile': RegExp(r'(?<![A-Za-z0-9_])ListTile\s*\('),
+      'ExpansionTile': RegExp(r'\bExpansionTile\s*\('),
     };
     final offenders = <String>[];
 
@@ -139,7 +146,7 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          '整个 lib 的产品视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点等非视觉基础设施：\n'
+          '整个 lib 的产品视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点、页面骨架等非视觉基础设施：\n'
           '${offenders.join('\n')}',
     );
   });
