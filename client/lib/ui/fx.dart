@@ -16,6 +16,7 @@ export 'widgets/fx_chip.dart';
 export 'widgets/fx_tooltip.dart';
 export 'widgets/fx_progress.dart';
 export 'widgets/fx_spinner.dart';
+export 'widgets/fx_circular_progress.dart';
 export 'widgets/fx_separator.dart';
 export 'widgets/fx_notice.dart';
 export 'widgets/fx_sheet.dart';
