@@ -22,6 +22,8 @@ class FxSelect<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final textStyle = SlowlightTypography.secondary(context);
     return ShadSelect<T>(
+      key: ValueKey(value),
+      initialValue: value,
       placeholder:
           placeholder != null ? Text(placeholder!, style: textStyle) : null,
       onChanged: onChanged,
