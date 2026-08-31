@@ -131,7 +131,11 @@ class FxChip extends StatelessWidget {
                   ? SlowlightControlSize.minTouchTarget
                   : SlowlightControlSize.buttonSm,
         ),
-        child: Align(alignment: Alignment.center, child: badge),
+        child: Align(
+          alignment: Alignment.center,
+          widthFactor: 1,
+          child: badge,
+        ),
       );
       badge = FxGestureDetector(onTap: onTap, child: badge);
     }
