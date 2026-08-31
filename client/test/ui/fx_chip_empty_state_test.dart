@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -52,6 +51,39 @@ void main() {
     expect(find.text('次要'), findsOneWidget);
     expect(find.text('描边'), findsOneWidget);
     expect(find.text('危险'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('FxChoiceChip 在 Wrap 中保持内容宽度并横向排列', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FxChoiceChip(label: '工作', selected: true, onTap: () {}),
+                FxChoiceChip(label: '生活', selected: false, onTap: () {}),
+                FxChoiceChip(label: '学习', selected: false, onTap: () {}),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final firstChip = find.byType(FxChoiceChip).first;
+    expect(tester.getSize(firstChip).width, lessThan(160));
+
+    final workTop = tester.getTopLeft(find.text('工作')).dy;
+    final lifeTop = tester.getTopLeft(find.text('生活')).dy;
+    final studyTop = tester.getTopLeft(find.text('学习')).dy;
+    expect(lifeTop, closeTo(workTop, 0.5));
+    expect(studyTop, closeTo(workTop, 0.5));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
