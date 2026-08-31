@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../layout_tokens.dart';
-import '../typography_tokens.dart';
 
-/// FxButton — 按钮组件
+/// FxButton — 按钮组件。
+///
+/// Fx 统一按钮语义、尺寸、交互和触摸区域；文字视觉继续继承 ShadButton，
+/// 避免 Fx 迁移改变既有按钮字号和字重。
 enum FxButtonVariant { primary, secondary, outline, ghost, destructive, link }
 
 enum FxButtonSize { sm, md, lg }
@@ -28,32 +30,15 @@ class FxButton extends StatelessWidget {
     this.expanded = false,
   });
 
-  bool get _isCompactAction =>
-      size == FxButtonSize.sm &&
-      (variant == FxButtonVariant.ghost || variant == FxButtonVariant.link);
-
-  Widget _buildChild(BuildContext context) {
-    final textStyle =
-        _isCompactAction
-            ? SlowlightTypography.compactAction(context)
-            : SlowlightTypography.button;
-    final text = Text(label, style: textStyle);
+  Widget _buildChild() {
+    final text = Text(label);
     if (icon != null) {
       return Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size:
-                _isCompactAction
-                    ? SlowlightIconSize.compactAction
-                    : SlowlightIconSize.sm,
-          ),
-          SizedBox(
-            width:
-                _isCompactAction ? SlowlightSpacing.sm : SlowlightSpacing.md,
-          ),
+          Icon(icon, size: SlowlightIconSize.sm),
+          const SizedBox(width: SlowlightSpacing.md),
           text,
         ],
       );
@@ -74,7 +59,7 @@ class FxButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _buildChild(context);
+    final child = _buildChild();
     final Widget button;
     switch (variant) {
       case FxButtonVariant.primary:
