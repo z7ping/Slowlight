@@ -30,7 +30,7 @@ class FxSectionHeader extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: SlowlightTypography.componentSecondary(context).copyWith(
-              // Fx 化前 HfSectionHeader 使用 13px / 600；这里保持相同层级，
+              // Fx 化前正式分区标题组件使用 13px / 600；这里保持相同层级，
               // 不因为迁移到统一组件顺便把桌面分区标题加粗到 700。
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurface,
