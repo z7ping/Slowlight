@@ -49,7 +49,7 @@ abstract final class SlowlightTypography {
   static const double desktopSectionTitleSize = 16;
   static const double desktopDialogTitleSize = 15;
   static const double desktopPageTitleSize = 16;
-  // 统计主数值是数据强调语义，不等同于页面标题。Fx 化前 HfStatCell
+  // 统计主数值是数据强调语义，不等同于页面标题。Fx 化前正式统计组件
   // 使用约 20px；保留这一层级，避免组件迁移后被 pageTitle 的 16px 压小。
   static const double desktopStatValueSize = 20;
   // 高保真 .pagehead b 为约 14.5px / 700。二级页头与页面大标题分离，
@@ -218,7 +218,7 @@ abstract final class SlowlightTypography {
       );
 
   /// 统计/回顾中的主数值强调。Android 沿用 20px Page Title 阅读尺度；
-  /// Windows 恢复 Fx 化前 HfStatCell 的约 20px 数据层级，不与 16px 页面标题绑定。
+  /// Windows 恢复 Fx 化前正式统计组件的约 20px 数据层级，不与 16px 页面标题绑定。
   static TextStyle statValue(BuildContext context) {
     final size = useAndroidComponentTypography
         ? pageTitleSize
