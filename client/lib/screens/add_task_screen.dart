@@ -138,6 +138,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   Widget _editorShell({required bool showBack}) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showBack)
           FxPageHeader(title: '新建任务', onBack: () => Navigator.maybePop(context))
