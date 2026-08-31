@@ -81,7 +81,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
 
     final saved = await FxDialog.raw<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: .45),
+      barrierColor: FxDialog.barrierColor,
       builder:
           (dialogContext) => StatefulBuilder(
             builder: (dialogContext, setDialogState) {
@@ -160,7 +160,9 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                     ),
                                     child: Text(
                                       icon,
-                                      style: const TextStyle(fontSize: SlowlightTypography.sectionTitleSize),
+                                      style: const TextStyle(
+                                        fontSize: SlowlightIconSize.md,
+                                      ),
                                     ),
                                   ),
                                 );
@@ -342,9 +344,20 @@ class _ListManageScreenState extends State<ListManageScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   FxActionBar(
-                    leading: FxChip(
-                      label: '${_lists.length} 个清单',
-                      variant: FxChipVariant.secondary,
+                    leading: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          '清单管理',
+                          style: SlowlightTypography.sectionTitle(context),
+                        ),
+                        FxChip(
+                          label: '${_lists.length} 个清单',
+                          variant: FxChipVariant.secondary,
+                        ),
+                      ],
                     ),
                     actions: [
                       FxButton(
@@ -373,97 +386,66 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       expanded: true,
                       child: Column(
-                        children: _lists
-                            .map((list) {
-                              final color = ColorUtils.safeParse(list.color);
-                              final count = _taskCountFor(list);
-                              return Container(
-                                constraints: const BoxConstraints(
-                                  minHeight: 60,
+                        children: _lists.map((list) {
+                          final color = ColorUtils.safeParse(list.color);
+                          final count = _taskCountFor(list);
+                          return FxListTile(
+                            density: list.isInbox
+                                ? FxListTileDensity.detailed
+                                : FxListTileDensity.compact,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            showDivider: true,
+                            leading: Container(
+                              width: 32,
+                              height: 32,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(
+                                  SlowlightRadius.md,
                                 ),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: theme.colorScheme.outlineVariant,
-                                    ),
+                              ),
+                              child: Text(
+                                list.icon,
+                                style: const TextStyle(
+                                  fontSize: SlowlightIconSize.md,
+                                ),
+                              ),
+                            ),
+                            title: list.name,
+                            titleTextStyle: SlowlightTypography.secondary(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w600),
+                            subtitle: list.isInbox ? '默认收集箱' : null,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '$count 条',
+                                  style: SlowlightTypography.caption(
+                                    context,
+                                  ).copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: color.withValues(alpha: .10),
-                                        borderRadius: BorderRadius.circular(
-                                          SlowlightRadius.md,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        list.icon,
-                                        style: const TextStyle(fontSize: SlowlightIconSize.md),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            list.name,
-                                            style: SlowlightTypography.body(
-                                              context,
-                                            ).copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          if (list.isInbox)
-                                            Text(
-                                              '默认收集箱',
-                                              style:
-                                                  SlowlightTypography.caption(
-                                                    context,
-                                                  ).copyWith(
-                                                    color:
-                                                        theme
-                                                            .colorScheme
-                                                            .onSurfaceVariant,
-                                                  ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(
-                                      '$count 条',
-                                      style: SlowlightTypography.caption(
-                                        context,
-                                      ).copyWith(
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    FxIconButton(
-                                      tooltip: '编辑',
-                                      onPressed: () => _showEditor(list),
-                                      icon: LucideIcons.pencil,
-                                      iconSize: SlowlightIconSize.md,
-                                    ),
-                                    if (!list.isInbox)
-                                      FxIconButton(
-                                        tooltip: '删除',
-                                        onPressed: () => _deleteList(list),
-                                        icon: LucideIcons.trash2,
-                                        iconSize: SlowlightIconSize.md,
-                                      ),
-                                  ],
+                                const SizedBox(width: 4),
+                                FxIconButton(
+                                  tooltip: '编辑',
+                                  onPressed: () => _showEditor(list),
+                                  icon: LucideIcons.pencil,
+                                  iconSize: SlowlightIconSize.md,
                                 ),
-                              );
-                            })
-                            .toList(growable: false),
+                                if (!list.isInbox)
+                                  FxIconButton(
+                                    tooltip: '删除',
+                                    onPressed: () => _deleteList(list),
+                                    icon: LucideIcons.trash2,
+                                    iconSize: SlowlightIconSize.md,
+                                  ),
+                              ],
+                            ),
+                          );
+                        }).toList(growable: false),
                       ),
                     ),
                 ],
