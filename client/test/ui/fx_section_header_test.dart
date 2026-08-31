@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/app_theme.dart';
@@ -6,7 +7,10 @@ import 'package:slowlight/ui/fx.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
-  testWidgets('FxSectionHeader 使用高密度分区标题与辅助信息排版', (tester) async {
+  testWidgets('Android FxSectionHeader 使用可读分区字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         theme: AppTheme.lightTheme(),
@@ -26,7 +30,31 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Windows FxSectionHeader 保持桌面高密度字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: const Scaffold(
+          body: FxSectionHeader(
+            title: '今日任务',
+            trailing: '3/5 已完成',
+          ),
+        ),
+      ),
+    );
+
+    final title = tester.widget<Text>(find.text('今日任务'));
+    expect(title.style?.fontSize, SlowlightTypography.desktopSecondarySize);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('FxSectionHeader 在 360dp + 200% 字体缩放下不溢出', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         theme: AppTheme.lightTheme(),
@@ -53,6 +81,9 @@ void main() {
   });
 
   testWidgets('FxSectionHeader 大字体时将查看全部放到下一行右侧', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         theme: AppTheme.lightTheme(),
