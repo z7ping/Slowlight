@@ -229,23 +229,15 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.habit == null ? '添加习惯' : '编辑习惯',
-                      style: SlowlightTypography.cardTitle(
-                        context,
-                      ).copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  FxIconButton(
-                    tooltip: '关闭',
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icons.close,
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  widget.habit == null ? '添加习惯' : '编辑习惯',
+                  style: SlowlightTypography.cardTitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
             FxSeparator.horizontal(height: 1, color: fxDivider(context)),
