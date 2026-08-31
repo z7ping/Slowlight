@@ -36,11 +36,15 @@ abstract final class SlowlightTypography {
   static const double displaySize = 36;
   static const double displayLineHeight = 44;
 
-  // 桌面高密度组件基线。来源于既定高保真与 Fx 化前正式实现。
+  // 桌面高密度语义基线。来源于既定高保真与 Fx 化前正式实现。
+  static const double desktopCaptionSize = 12;
   static const double desktopSecondarySize = 13;
   static const double desktopFieldLabelSize = 12;
   static const double desktopControlSize = 13;
   static const double desktopChipSize = 12;
+  static const double desktopBodySize = 14;
+  static const double desktopCardTitleSize = 15;
+  static const double desktopSectionTitleSize = 16;
   static const double desktopDialogTitleSize = 15;
   static const double desktopPageTitleSize = 16;
   static const double desktopEmphasizedInputSize = 14.5;
@@ -54,54 +58,72 @@ abstract final class SlowlightTypography {
 
   static double _height(double size, double lineHeight) => lineHeight / size;
 
-  static TextStyle caption(BuildContext context) => Theme.of(context)
-      .textTheme
-      .labelSmall!
-      .copyWith(
-        fontSize: captionSize,
-        height: _height(captionSize, captionLineHeight),
-      );
+  static TextStyle caption(BuildContext context) {
+    final size =
+        useAndroidComponentTypography ? captionSize : desktopCaptionSize;
+    return Theme.of(context).textTheme.labelSmall!.copyWith(
+          fontSize: size,
+          height: _height(size, captionLineHeight),
+        );
+  }
 
-  static TextStyle secondary(BuildContext context) => Theme.of(context)
-      .textTheme
-      .bodySmall!
-      .copyWith(
-        fontSize: secondarySize,
-        height: _height(secondarySize, secondaryLineHeight),
-      );
+  static TextStyle secondary(BuildContext context) {
+    final size =
+        useAndroidComponentTypography ? secondarySize : desktopSecondarySize;
+    return Theme.of(context).textTheme.bodySmall!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? secondaryLineHeight : 19.5,
+          ),
+        );
+  }
 
-  static TextStyle fieldLabel(BuildContext context) => Theme.of(context)
-      .textTheme
-      .labelMedium!
-      .copyWith(
-        fontSize: fieldLabelSize,
-        height: _height(fieldLabelSize, fieldLabelLineHeight),
-        fontWeight: FontWeight.w600,
-      );
+  static TextStyle fieldLabel(BuildContext context) {
+    final size =
+        useAndroidComponentTypography ? fieldLabelSize : desktopFieldLabelSize;
+    return Theme.of(context).textTheme.labelMedium!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? fieldLabelLineHeight : 18,
+          ),
+          fontWeight: FontWeight.w600,
+        );
+  }
 
-  static TextStyle control(BuildContext context) => Theme.of(context)
-      .textTheme
-      .bodySmall!
-      .copyWith(
-        fontSize: controlSize,
-        height: _height(controlSize, controlLineHeight),
-      );
+  static TextStyle control(BuildContext context) {
+    final size =
+        useAndroidComponentTypography ? controlSize : desktopControlSize;
+    return Theme.of(context).textTheme.bodySmall!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? controlLineHeight : 19.5,
+          ),
+        );
+  }
 
-  static TextStyle chip(BuildContext context) => Theme.of(context)
-      .textTheme
-      .labelMedium!
-      .copyWith(
-        fontSize: chipSize,
-        height: _height(chipSize, chipLineHeight),
-        fontWeight: FontWeight.w500,
-      );
+  static TextStyle chip(BuildContext context) {
+    final size = useAndroidComponentTypography ? chipSize : desktopChipSize;
+    return Theme.of(context).textTheme.labelMedium!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? chipLineHeight : 18,
+          ),
+          fontWeight: FontWeight.w500,
+        );
+  }
 
   static TextStyle compactAction(BuildContext context) => Theme.of(context)
       .textTheme
       .labelMedium!
       .copyWith(
-        fontSize: compactActionSize,
-        height: _height(compactActionSize, compactActionLineHeight),
+        fontSize: useAndroidComponentTypography ? compactActionSize : 12,
+        height: useAndroidComponentTypography
+            ? _height(compactActionSize, compactActionLineHeight)
+            : 1.5,
         fontWeight: FontWeight.w600,
       );
 
@@ -111,32 +133,45 @@ abstract final class SlowlightTypography {
         fontWeight: FontWeight.w600,
       );
 
-  static TextStyle body(BuildContext context) => Theme.of(context)
-      .textTheme
-      .bodyLarge!
-      .copyWith(
-        fontSize: bodySize,
-        height: _height(bodySize, bodyLineHeight),
-      );
+  static TextStyle body(BuildContext context) {
+    final size = useAndroidComponentTypography ? bodySize : desktopBodySize;
+    return Theme.of(context).textTheme.bodyLarge!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? bodyLineHeight : 21,
+          ),
+        );
+  }
 
-  static TextStyle cardTitle(BuildContext context) => Theme.of(context)
-      .textTheme
-      .titleSmall!
-      .copyWith(
-        fontSize: cardTitleSize,
-        height: _height(cardTitleSize, cardTitleLineHeight),
-        fontWeight: FontWeight.w600,
-      );
+  static TextStyle cardTitle(BuildContext context) {
+    final size =
+        useAndroidComponentTypography ? cardTitleSize : desktopCardTitleSize;
+    return Theme.of(context).textTheme.titleSmall!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? cardTitleLineHeight : 21,
+          ),
+          fontWeight: FontWeight.w600,
+        );
+  }
 
-  static TextStyle sectionTitle(BuildContext context) => Theme.of(context)
-      .textTheme
-      .titleMedium!
-      .copyWith(
-        fontSize: sectionTitleSize,
-        height: _height(sectionTitleSize, sectionTitleLineHeight),
-        fontWeight: FontWeight.w600,
-      );
+  static TextStyle sectionTitle(BuildContext context) {
+    final size = useAndroidComponentTypography
+        ? sectionTitleSize
+        : desktopSectionTitleSize;
+    return Theme.of(context).textTheme.titleMedium!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? sectionTitleLineHeight : 22,
+          ),
+          fontWeight: FontWeight.w600,
+        );
+  }
 
+  /// Page Title 是页面级大标题语义；二级页面紧凑页头使用 [componentPageTitle]。
   static TextStyle pageTitle(BuildContext context) => Theme.of(context)
       .textTheme
       .titleLarge!
@@ -164,36 +199,17 @@ abstract final class SlowlightTypography {
         fontWeight: FontWeight.w700,
       );
 
-  /// 公共组件使用的平台解析语义。
+  /// 公共组件使用的平台解析语义。保留这些入口以表达组件意图，
+  /// 具体字号与基础语义保持同源，避免页面和 Fx 组件形成两套平台判断。
   static TextStyle componentSecondary(BuildContext context) =>
-      useAndroidComponentTypography
-          ? secondary(context)
-          : Theme.of(context).textTheme.bodySmall!.copyWith(
-                fontSize: desktopSecondarySize,
-              );
+      secondary(context);
 
   static TextStyle componentFieldLabel(BuildContext context) =>
-      useAndroidComponentTypography
-          ? fieldLabel(context)
-          : Theme.of(context).textTheme.labelSmall!.copyWith(
-                fontSize: desktopFieldLabelSize,
-                fontWeight: FontWeight.w600,
-              );
+      fieldLabel(context);
 
-  static TextStyle componentControl(BuildContext context) =>
-      useAndroidComponentTypography
-          ? control(context)
-          : Theme.of(context).textTheme.bodySmall!.copyWith(
-                fontSize: desktopControlSize,
-              );
+  static TextStyle componentControl(BuildContext context) => control(context);
 
-  static TextStyle componentChip(BuildContext context) =>
-      useAndroidComponentTypography
-          ? chip(context)
-          : Theme.of(context).textTheme.labelSmall!.copyWith(
-                fontSize: desktopChipSize,
-                fontWeight: FontWeight.w500,
-              );
+  static TextStyle componentChip(BuildContext context) => chip(context);
 
   static TextStyle componentDialogTitle(BuildContext context) =>
       useAndroidComponentTypography
