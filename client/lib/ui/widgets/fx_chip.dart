@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../app_theme.dart';
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 import 'fx_cursor.dart';
 
@@ -41,8 +42,8 @@ class FxChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
+          Icon(icon, size: SlowlightIconSize.xs, color: color),
+          const SizedBox(width: SlowlightSpacing.xs),
         ],
         Flexible(
           child: Text(
@@ -51,13 +52,19 @@ class FxChip extends StatelessWidget {
           ),
         ),
         if (onDeleted != null) ...[
-          const SizedBox(width: 4),
+          const SizedBox(width: SlowlightSpacing.xs),
           FxGestureDetector(
             onTap: onDeleted,
             child: SizedBox(
-              width: 44,
-              height: 44,
-              child: Center(child: Icon(Icons.close, size: 14, color: color)),
+              width: SlowlightControlSize.minTouchTarget,
+              height: SlowlightControlSize.minTouchTarget,
+              child: Center(
+                child: Icon(
+                  Icons.close,
+                  size: SlowlightIconSize.xs,
+                  color: color,
+                ),
+              ),
             ),
           ),
         ],
@@ -106,7 +113,9 @@ class FxChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: resolvedBackground,
           border: resolvedBorder,
-          borderRadius: BorderRadius.circular(borderRadius ?? 999),
+          borderRadius: BorderRadius.circular(
+            borderRadius ?? SlowlightRadius.pill,
+          ),
         ),
         child: _content(context, color: resolvedForeground),
       );
@@ -116,7 +125,12 @@ class FxChip extends StatelessWidget {
       final android =
           !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
       badge = ConstrainedBox(
-        constraints: BoxConstraints(minHeight: android ? 44 : 32),
+        constraints: BoxConstraints(
+          minHeight:
+              android
+                  ? SlowlightControlSize.minTouchTarget
+                  : SlowlightControlSize.buttonSm,
+        ),
         child: Align(alignment: Alignment.center, child: badge),
       );
       badge = FxGestureDetector(onTap: onTap, child: badge);

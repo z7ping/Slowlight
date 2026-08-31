@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 
 /// Slowlight 统一分区标题。
@@ -36,7 +37,7 @@ class FxSectionHeader extends StatelessWidget {
           ),
         ),
         if (trailing != null) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: SlowlightSpacing.md),
           Flexible(
             child: Text(
               trailing!,
@@ -61,19 +62,23 @@ class FxSectionHeader extends StatelessWidget {
         final action = trailingWidget;
         if (action == null) {
           return ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 32),
+            constraints: const BoxConstraints(
+              minHeight: SlowlightControlSize.buttonSm,
+            ),
             child: Align(alignment: Alignment.centerLeft, child: _copy(context)),
           );
         }
 
         if (narrow) {
           return ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 32),
+            constraints: const BoxConstraints(
+              minHeight: SlowlightControlSize.buttonSm,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _copy(context),
-                const SizedBox(height: 4),
+                const SizedBox(height: SlowlightSpacing.xs),
                 Align(alignment: Alignment.centerRight, child: action),
               ],
             ),
@@ -81,11 +86,13 @@ class FxSectionHeader extends StatelessWidget {
         }
 
         return ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 32),
+          constraints: const BoxConstraints(
+            minHeight: SlowlightControlSize.buttonSm,
+          ),
           child: Row(
             children: [
               Expanded(child: _copy(context)),
-              const SizedBox(width: 12),
+              const SizedBox(width: SlowlightSpacing.xl),
               action,
             ],
           ),

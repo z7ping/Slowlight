@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../app_theme.dart';
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 import 'fx_icon_button.dart';
 
@@ -43,8 +43,8 @@ class FxPageHeader extends StatelessWidget {
     return Wrap(
       alignment: WrapAlignment.end,
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: AppTheme.spaceXs,
-      runSpacing: AppTheme.spaceXs,
+      spacing: SlowlightSpacing.xs,
+      runSpacing: SlowlightSpacing.xs,
       children: _actions(context),
     );
   }
@@ -65,8 +65,8 @@ class FxPageHeader extends StatelessWidget {
         ),
       ),
       padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spaceSm,
-        vertical: AppTheme.spaceXs,
+        horizontal: SlowlightSpacing.md,
+        vertical: SlowlightSpacing.xs,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -81,10 +81,12 @@ class FxPageHeader extends StatelessWidget {
                 tooltip: '返回',
                 onPressed: back,
               ),
-              const SizedBox(width: AppTheme.spaceXs),
+              const SizedBox(width: SlowlightSpacing.xs),
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(top: largeText ? 6 : 0),
+                  padding: EdgeInsets.only(
+                    top: largeText ? SlowlightSpacing.sm : 0,
+                  ),
                   child: Text(
                     title,
                     maxLines: 2,
@@ -97,7 +99,7 @@ class FxPageHeader extends StatelessWidget {
                 ),
               ),
               if (hasActions && !stackActions) ...[
-                const SizedBox(width: AppTheme.spaceSm),
+                const SizedBox(width: SlowlightSpacing.md),
                 _actionGroup(context),
               ],
             ],
@@ -109,7 +111,7 @@ class FxPageHeader extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               titleRow,
-              const SizedBox(height: AppTheme.spaceXs),
+              const SizedBox(height: SlowlightSpacing.xs),
               Align(
                 alignment: Alignment.centerRight,
                 child: _actionGroup(context),

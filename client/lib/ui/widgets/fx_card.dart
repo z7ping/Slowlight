@@ -2,6 +2,8 @@ import 'fx_cursor.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../layout_tokens.dart';
+
 /// FxCard — 卡片组件
 class FxCard extends StatelessWidget {
   final Widget child;
@@ -36,7 +38,9 @@ class FxCard extends StatelessWidget {
         ? BorderRadius.circular(borderRadius!)
         : null;
     final resolvedPadding =
-        (padding ?? const EdgeInsets.all(16)).resolve(Directionality.of(context));
+        (padding ?? const EdgeInsets.all(SlowlightSpacing.xxxl)).resolve(
+          Directionality.of(context),
+        );
     final hasShadTheme =
         context.dependOnInheritedWidgetOfExactType<ShadInheritedTheme>() != null;
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import '../app_theme.dart';
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 
 /// FxInput — 文本输入组件。
@@ -68,7 +68,7 @@ class FxInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final radius = BorderRadius.circular(AppTheme.radiusMd);
+    final radius = BorderRadius.circular(SlowlightRadius.md);
     final shadTheme = ShadTheme.of(context);
     final input = ShadInput(
       controller: controller,
@@ -99,7 +99,10 @@ class FxInput extends StatelessWidget {
       trailing: trailing,
       padding:
           contentPadding ??
-          EdgeInsets.symmetric(horizontal: 12, vertical: isDense ? 9 : 11),
+          EdgeInsets.symmetric(
+            horizontal: SlowlightSpacing.xl,
+            vertical: isDense ? 9 : 11,
+          ),
       decoration: ShadDecoration(
         color:
             enabled
@@ -129,7 +132,7 @@ class FxInput extends StatelessWidget {
             context,
           ).copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: SlowlightSpacing.sm),
         input,
       ],
     );

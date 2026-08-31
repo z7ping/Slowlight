@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 
 /// FxButton — 按钮组件
@@ -42,8 +43,17 @@ class FxButton extends StatelessWidget {
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: _isCompactAction ? 15 : 16),
-          SizedBox(width: _isCompactAction ? 6 : 8),
+          Icon(
+            icon,
+            size:
+                _isCompactAction
+                    ? SlowlightIconSize.compactAction
+                    : SlowlightIconSize.sm,
+          ),
+          SizedBox(
+            width:
+                _isCompactAction ? SlowlightSpacing.sm : SlowlightSpacing.md,
+          ),
           text,
         ],
       );
@@ -114,7 +124,9 @@ class FxButton extends StatelessWidget {
       return button;
     }
     return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 44),
+      constraints: const BoxConstraints(
+        minHeight: SlowlightControlSize.minTouchTarget,
+      ),
       child: button,
     );
   }

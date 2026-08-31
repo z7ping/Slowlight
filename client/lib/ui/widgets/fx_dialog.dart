@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../color_tokens.dart';
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 
 /// FxDialog — 统一弹窗入口。
 class FxDialog {
-  static const Color barrierColor = Color(0x73000000);
+  static const Color barrierColor = SlowlightSemanticColor.dialogBarrier;
 
   static Future<T?> show<T>({
     required BuildContext context,
@@ -155,7 +157,12 @@ class FxAlertDialog extends StatelessWidget {
     this.alignment,
     this.scrollable = false,
     this.titlePadding,
-    this.contentPadding = const EdgeInsets.fromLTRB(24, 20, 24, 24),
+    this.contentPadding = const EdgeInsets.fromLTRB(
+      SlowlightSpacing.page,
+      SlowlightSpacing.section,
+      SlowlightSpacing.page,
+      SlowlightSpacing.page,
+    ),
     this.actionsPadding = EdgeInsets.zero,
   });
 
@@ -210,7 +217,7 @@ class FxAlertDialog extends StatelessWidget {
         children: [
           icon!,
           if (effectiveTitle != null) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: SlowlightSpacing.md),
             Flexible(child: effectiveTitle),
           ],
         ],

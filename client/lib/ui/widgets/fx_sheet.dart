@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../color_tokens.dart';
+
 /// Slowlight 统一 Sheet 入口。
 ///
 /// 业务代码不直接调用 Material showModalBottomSheet。这里保留既有调用常见参数，
@@ -45,7 +47,7 @@ abstract final class FxSheet {
       context: context,
       side: side,
       backgroundColor: backgroundColor,
-      barrierColor: barrierColor ?? const Color(0xcc000000),
+      barrierColor: barrierColor ?? SlowlightSemanticColor.sheetBarrier,
       barrierLabel: barrierLabel ??
           MaterialLocalizations.of(context).modalBarrierDismissLabel,
       shape: shape,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../layout_tokens.dart';
+
 /// Slowlight 操作区布局规则。
 ///
 /// 适用范围：页面内容区顶部工具栏、列表/筛选标题行、卡片顶部主操作、
@@ -26,8 +28,8 @@ class FxActionBar extends StatelessWidget {
     this.leading,
     required this.actions,
     this.stackBelow = 520,
-    this.gap = 12,
-    this.runSpacing = 8,
+    this.gap = SlowlightSpacing.xl,
+    this.runSpacing = SlowlightSpacing.md,
   });
 
   Widget _actionGroup() {
@@ -107,8 +109,8 @@ class FxDialogActions extends StatelessWidget {
       leading: leading,
       actions: actions,
       stackBelow: stackBelow,
-      gap: 8,
-      runSpacing: 8,
+      gap: SlowlightSpacing.md,
+      runSpacing: SlowlightSpacing.md,
     );
   }
 }

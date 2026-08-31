@@ -13,6 +13,14 @@ void main() {
     }
   }
 
+  Iterable<File> sharedFxFiles() sync* {
+    final root = Directory('lib/ui/widgets');
+    if (!root.existsSync()) return;
+    for (final entity in root.listSync(recursive: true, followLinks: false)) {
+      if (entity is File && entity.path.endsWith('.dart')) yield entity;
+    }
+  }
+
   test('全局响应式 Token 与 UI 规范保持一致', () {
     expect(SlowlightBreakpoints.tabletMin, 600);
     expect(SlowlightBreakpoints.desktopMin, 900);
@@ -132,6 +140,37 @@ void main() {
       offenders,
       isEmpty,
       reason: '产品点击反馈必须通过 FxInkWell / FxButton / FxIconButton 等产品层表达：\n${offenders.join('\n')}',
+    );
+  });
+
+  test('Fx 公共组件自身不绕过语义 Token', () async {
+    final offenders = <String>[];
+    final numericFontSize = RegExp(r'fontSize\s*:\s*-?\d+(?:\.\d+)?');
+    final legacyDesignToken = RegExp(
+      r'\bAppTheme\.(?:text(?:Xs|Sm|Md|Lg|Xl|2Xl|3Xl)|space(?:Xs|Sm|Md|Lg|Xl)|radius(?:Sm|Md|Lg|Xl))\b',
+    );
+    final rawColor = RegExp(r'(?<![A-Za-z0-9_])Color\s*\(\s*0x[0-9A-Fa-f]+\s*\)');
+
+    for (final file in sharedFxFiles()) {
+      final source = await file.readAsString();
+      final reasons = <String>[];
+      if (numericFontSize.hasMatch(source)) reasons.add('裸数字 fontSize');
+      if (legacyDesignToken.hasMatch(source)) reasons.add('旧 AppTheme 设计尺度别名');
+      if (rawColor.hasMatch(source)) reasons.add('裸固定 Color');
+      if (reasons.isNotEmpty) {
+        offenders.add(
+          '${file.path.replaceAll('\\', '/')}: ${reasons.join(', ')}',
+        );
+      }
+    }
+
+    offenders.sort();
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'Fx 公共组件的通用排版、布局尺度和固定产品色必须来自 Design Token；组件自身算法阈值与专属几何可继续局部定义：\n'
+          '${offenders.join('\n')}',
     );
   });
 }

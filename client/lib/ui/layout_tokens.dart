@@ -39,6 +39,10 @@ abstract final class SlowlightControlSize {
 
 abstract final class SlowlightIconSize {
   static const double xs = 14;
+
+  /// 紧凑文字操作中的配套图标，保持现有视觉比例。
+  static const double compactAction = 15;
+
   static const double sm = 16;
   static const double md = 18;
   static const double lg = 20;
