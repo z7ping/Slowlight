@@ -43,8 +43,8 @@ class FxPageHeader extends StatelessWidget {
     return Wrap(
       alignment: WrapAlignment.end,
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: SlowlightSpacing.xs,
-      runSpacing: SlowlightSpacing.xs,
+      spacing: 4,
+      runSpacing: 4,
       children: _actions(context),
     );
   }
@@ -64,10 +64,9 @@ class FxPageHeader extends StatelessWidget {
           bottom: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: SlowlightSpacing.md,
-        vertical: SlowlightSpacing.xs,
-      ),
+      // Windows 高保真页头使用 16px 水平留白；Android 的字号与触控目标
+      // 由 Theme / FxIconButton 自己处理，不反向撑大桌面页头。
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final stackActions =
@@ -81,12 +80,10 @@ class FxPageHeader extends StatelessWidget {
                 tooltip: '返回',
                 onPressed: back,
               ),
-              const SizedBox(width: SlowlightSpacing.xs),
+              const SizedBox(width: 4),
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(
-                    top: largeText ? SlowlightSpacing.sm : 0,
-                  ),
+                  padding: EdgeInsets.only(top: largeText ? 6 : 0),
                   child: Text(
                     title,
                     maxLines: 2,
@@ -98,7 +95,7 @@ class FxPageHeader extends StatelessWidget {
                 ),
               ),
               if (hasActions && !stackActions) ...[
-                const SizedBox(width: SlowlightSpacing.md),
+                const SizedBox(width: 8),
                 _actionGroup(context),
               ],
             ],
@@ -110,7 +107,7 @@ class FxPageHeader extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               titleRow,
-              const SizedBox(height: SlowlightSpacing.xs),
+              const SizedBox(height: 4),
               Align(
                 alignment: Alignment.centerRight,
                 child: _actionGroup(context),
