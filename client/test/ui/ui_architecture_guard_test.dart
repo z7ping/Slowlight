@@ -201,7 +201,7 @@ void main() {
   test('Fx 弹窗内容不重复自绘关闭按钮', () async {
     final roots = [Directory('lib/screens'), Directory('lib/widgets')];
     final offenders = <String>[];
-    final closeTooltip = RegExp(r"tooltip\s*:\s*['\"]关闭['\"]");
+    final closeTooltip = RegExp(r'''tooltip\s*:\s*['"]关闭['"]''');
 
     for (final root in roots) {
       if (!root.existsSync()) continue;
