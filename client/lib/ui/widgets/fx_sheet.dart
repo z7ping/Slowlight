@@ -22,6 +22,7 @@ abstract final class FxSheet {
     bool? enableDrag,
     bool? showDragHandle,
     bool isScrollControlled = true,
+    bool scrollable = false,
     bool useSafeArea = false,
     BoxConstraints? constraints,
     EdgeInsets? padding,
@@ -68,6 +69,7 @@ abstract final class FxSheet {
           backgroundColor: backgroundColor,
           draggable: effectiveDraggable,
           isScrollControlled: isScrollControlled,
+          scrollable: scrollable,
           child: content,
         );
       },
