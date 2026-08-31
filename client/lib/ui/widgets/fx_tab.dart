@@ -4,6 +4,8 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../typography_tokens.dart';
 
 /// FxTab — 标签切换组件。
+///
+/// Android 使用可读字号；桌面端继承 ShadTabs 既有文字视觉。
 class FxTab extends StatelessWidget {
   final List<FxTabItem> tabs;
   final int currentIndex;
@@ -18,6 +20,7 @@ class FxTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final android = SlowlightTypography.useAndroidComponentTypography;
     return ShadTabs<String>(
       value: currentIndex.toString(),
       onChanged: (value) => onChanged?.call(int.parse(value)),
@@ -35,9 +38,11 @@ class FxTab extends StatelessWidget {
               ],
               Text(
                 tab.label,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: android
+                    ? SlowlightTypography.secondary(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                      )
+                    : null,
               ),
             ],
           ),
