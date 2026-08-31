@@ -144,4 +144,29 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('FxButton 不覆盖 ShadButton 的原生文字字号和字重', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(
+          body: Column(
+            children: [
+              FxButton(label: '保存', onPressed: () {}),
+              FxButton(
+                label: '重置',
+                size: FxButtonSize.sm,
+                variant: FxButtonVariant.ghost,
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.widget<Text>(find.text('保存')).style, isNull);
+    expect(tester.widget<Text>(find.text('重置')).style, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
