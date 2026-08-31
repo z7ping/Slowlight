@@ -680,23 +680,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FxButton(
-              label: '测试连接',
-              variant: FxButtonVariant.outline,
-              size: FxButtonSize.sm,
-              onPressed: _savingAi ? null : _testAi,
-            ),
-            FxButton(
-              label: _savingAi ? '保存中…' : '保存',
-              size: FxButtonSize.sm,
-              onPressed: _savingAi ? null : _saveAi,
-            ),
-          ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FxButton(
+                label: '测试连接',
+                variant: FxButtonVariant.outline,
+                size: FxButtonSize.sm,
+                onPressed: _savingAi ? null : _testAi,
+              ),
+              FxButton(
+                label: _savingAi ? '保存中…' : '保存',
+                size: FxButtonSize.sm,
+                onPressed: _savingAi ? null : _saveAi,
+              ),
+            ],
+          ),
         ),
       ],
     );
