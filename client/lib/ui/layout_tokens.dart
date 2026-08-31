@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Slowlight 通用布局 Token。
 ///
 /// 这里只保留跨页面、跨组件确实需要共享的基础尺度。Feature 私有几何值
@@ -37,6 +39,24 @@ abstract final class SlowlightControlSize {
   static const double buttonSm = 32;
   static const double button = 36;
   static const double buttonLg = 40;
+}
+
+/// 平台密度只在这一层解析，Fx 组件消费已经解析后的可视/触控尺寸，
+/// 不再各自判断 Windows / Android。
+abstract final class SlowlightPlatformDensity {
+  static bool get usesMobileTouchTargets =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  static double get iconButtonVisualSize =>
+      usesMobileTouchTargets ? SlowlightControlSize.minTouchTarget : 30;
+
+  static double get segmentedItemMinHeight =>
+      usesMobileTouchTargets ? SlowlightControlSize.minTouchTarget : 32;
+
+  static double get chipDeleteTargetSize =>
+      usesMobileTouchTargets ? SlowlightControlSize.minTouchTarget : 18;
+
+  static bool get expandClickableChipHitArea => usesMobileTouchTargets;
 }
 
 abstract final class SlowlightIconSize {
