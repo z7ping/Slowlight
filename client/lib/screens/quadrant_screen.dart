@@ -7,7 +7,7 @@ import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
+import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
@@ -53,8 +53,8 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    final desktop = MediaQuery.sizeOf(context).width >= 1024;
+    if (_loading) return const Center(child: FxCircularProgress());
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
     final cells = [
       _quadrant(
         '重要 · 紧急',
@@ -62,18 +62,8 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         AppTheme.priorityUrgentImportant,
         desktop,
       ),
-      _quadrant(
-        '重要 · 不紧急',
-        'important',
-        AppTheme.priorityImportant,
-        desktop,
-      ),
-      _quadrant(
-        '不重要 · 紧急',
-        'urgent',
-        AppTheme.priorityUrgent,
-        desktop,
-      ),
+      _quadrant('重要 · 不紧急', 'important', AppTheme.priorityImportant, desktop),
+      _quadrant('不重要 · 紧急', 'urgent', AppTheme.priorityUrgent, desktop),
       _quadrant(
         '不重要 · 不紧急',
         'none',
@@ -89,7 +79,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           const gap = 12.0;
           final cellWidth = (constraints.maxWidth - padding * 2 - gap) / 2;
           final cellHeight = (constraints.maxHeight - padding * 2 - gap) / 2;
-          return RefreshIndicator(
+          return FxRefresh(
             onRefresh: _load,
             child: GridView.count(
               padding: const EdgeInsets.all(padding),
@@ -101,7 +91,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             ),
           );
         }
-        return RefreshIndicator(
+        return FxRefresh(
           onRefresh: _load,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -115,81 +105,79 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
-  Widget _quadrant(
-    String title,
-    String priority,
-    Color color,
-    bool desktop,
-  ) {
+  Widget _quadrant(String title, String priority, Color color, bool desktop) {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
-    final emptyState = InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      onTap: () => _addTask(priority),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(LucideIcons.plus, size: 20),
-            const SizedBox(height: 5),
-            Text(
-              '这里暂时没有任务 · 添加任务',
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+    final emptyState = Center(
+      child: Text(
+        '这里暂时没有任务',
+        textAlign: TextAlign.center,
+        style: SlowlightTypography.caption(
+          context,
+        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       ),
     );
 
-    Widget card = HfCard(
+    Widget card = FxCard(
       padding: const EdgeInsets.all(16),
+      color: fxSurface(context),
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(
         color: hovering
             ? Colors.transparent
             : color.withValues(alpha: priority == 'none' ? 1 : .36),
       ),
+      boxShadow:
+          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: SlowlightTypography.cardTitle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 22,
+                        minHeight: 22,
+                      ),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: fxSubtleSurface(context),
+                        borderRadius: BorderRadius.circular(
+                          SlowlightRadius.pill,
+                        ),
+                      ),
+                      child: Text(
+                        '${items.length}',
+                        style: SlowlightTypography.caption(context).copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                decoration: BoxDecoration(
-                  color: hfSubtleSurface(context),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '${items.length}',
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  tooltip: '在$title添加任务',
-                  onPressed: () => _addTask(priority),
-                  icon: const Icon(LucideIcons.plus, size: 18),
-                ),
+              FxIconButton(
+                tooltip: '在$title添加任务',
+                onPressed: () => _addTask(priority),
+                icon: LucideIcons.plus,
               ),
             ],
           ),
@@ -212,7 +200,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       card = CustomPaint(
         painter: _QuadrantDashedPainter(
           color: color.withValues(alpha: .8),
-          radius: AppTheme.radiusLg,
+          radius: SlowlightRadius.lg,
         ),
         child: card,
       );
@@ -237,6 +225,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Widget _draggableTask(Task task, Color color) {
+    final theme = Theme.of(context);
     return LongPressDraggable<Task>(
       data: task,
       dragAnchorStrategy: pointerDragAnchorStrategy,
@@ -244,19 +233,31 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         color: Colors.transparent,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 260),
-          child: HfCard(
+          child: FxCard(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            color: fxSurface(context),
+            borderRadius: SlowlightRadius.lg,
+            border: Border.all(color: fxBorder(context)),
+            boxShadow: theme.brightness == Brightness.light
+                ? AppTheme.cardShadow
+                : null,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('●', style: TextStyle(color: color, fontSize: 10)),
+                Text(
+                  '●',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: SlowlightTypography.captionSize,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     task.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: AppTheme.textSm),
+                    style: SlowlightTypography.secondary(context),
                   ),
                 ),
               ],
@@ -273,27 +274,44 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Widget _taskLine(Task task, Color color, {required bool desktop}) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+    return FxInkWell(
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => desktop ? _openTask(task) : _showMoveSheet(task),
       onLongPress: desktop ? null : () => _openTask(task),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
+        constraints: const BoxConstraints(
+          minHeight: SlowlightControlSize.minTouchTarget,
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
           child: Row(
             children: [
-              Text('●', style: TextStyle(color: color, fontSize: 10)),
+              Text(
+                '●',
+                style: TextStyle(
+                  color: color,
+                  fontSize: SlowlightTypography.captionSize,
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   task.title,
-                  maxLines: 1,
+                  maxLines: MediaQuery.textScalerOf(
+                                context,
+                              ).scale(SlowlightTypography.secondarySize) >=
+                          SlowlightTypography.secondarySize * 1.3
+                      ? 2
+                      : 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: AppTheme.textSm),
+                  style: SlowlightTypography.secondary(context),
                 ),
               ),
-              if (!desktop) const Icon(LucideIcons.ellipsis, size: 17),
+              if (!desktop)
+                const Icon(
+                  LucideIcons.ellipsis,
+                  size: SlowlightIconSize.md,
+                ),
             ],
           ),
         ),
@@ -302,12 +320,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   void _openTask(Task task) {
-    TaskDetailSheet.show(
-      context,
-      task: task,
-      lists: _lists,
-      onChanged: _load,
-    );
+    TaskDetailSheet.show(context, task: task, lists: _lists, onChanged: _load);
   }
 
   Future<void> _addTask(String priority) {
@@ -320,14 +333,14 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Future<void> _showMoveSheet(Task task) async {
-    final result = await showModalBottomSheet<String>(
+    final result = await FxSheet.show<String>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.radiusXl),
+          top: Radius.circular(SlowlightRadius.xl),
         ),
       ),
       builder: (context) => Padding(
@@ -343,10 +356,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           children: [
             Text(
               '「${task.title}」移动到…',
-              style: const TextStyle(
-                fontSize: AppTheme.textSm,
-                fontWeight: FontWeight.w700,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             _moveOption('🔴', '重要 · 紧急', 'urgent_important', task.priority),
@@ -356,9 +368,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,
-              child: TextButton(
+              child: FxButton(
+                label: '取消',
+                variant: FxButtonVariant.ghost,
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
               ),
             ),
           ],
@@ -369,14 +382,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     await _moveTask(task, result);
   }
 
-  Widget _moveOption(
-    String emoji,
-    String label,
-    String value,
-    String current,
-  ) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+  Widget _moveOption(String emoji, String label, String value, String current) {
+    final selected = value == current;
+    return FxInkWell(
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => Navigator.pop(context, value),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
@@ -393,9 +402,22 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Text(emoji),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(label, style: const TextStyle(fontSize: 13)),
+                child: Text(
+                  label,
+                  style: SlowlightTypography.secondary(context),
+                ),
               ),
-              if (value == current) const HfChip('当前', accent: true),
+              if (selected)
+                FxChip(
+                  label: '当前',
+                  backgroundColor: activePalette.accent.withValues(alpha: .12),
+                  foregroundColor: activePalette.accent,
+                  borderRadius: SlowlightRadius.pill,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
+                ),
             ],
           ),
         ),
@@ -429,22 +451,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         outputLevel: task.outputLevel,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text('任务已移动'),
-          ),
-        );
+        FxNotice.showContent(context, Text('任务已移动'));
       }
       await _load();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('移动任务失败'),
-        ),
-      );
+      FxNotice.showContent(context, Text('移动任务失败'));
     }
   }
 }
@@ -463,10 +475,7 @@ class _QuadrantDashedPainter extends CustomPainter {
       ..strokeWidth = 1.5;
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          Radius.circular(radius),
-        ),
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
       );
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;

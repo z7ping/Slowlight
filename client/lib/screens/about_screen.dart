@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../theme/app_theme.dart';
-import '../ui/widgets/slowlight_logo.dart';
 import '../services/app_info_service.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
+import '../theme/app_theme.dart';
+import '../ui/fx.dart';
+import '../ui/widgets/slowlight_logo.dart';
 
 /// 产品身份与版本信息页。
 class AboutScreen extends StatefulWidget {
@@ -25,7 +25,7 @@ class _AboutScreenState extends State<AboutScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const HfPageHeader(title: '关于所行映我'),
+            const FxPageHeader(title: '关于所行映我'),
             Expanded(
               child: FutureBuilder<PackageInfo>(
                 future: _packageInfo,
@@ -39,24 +39,23 @@ class _AboutScreenState extends State<AboutScreen> {
                           constraints: const BoxConstraints(maxWidth: 640),
                           child: Column(
                             children: [
-                              Center(child: SlowlightLogo(size: 92)),
+                              const Center(child: SlowlightLogo(size: 92)),
                               const SizedBox(height: 14),
                               Center(
                                 child: Text(
                                   '所行映我 · Slowlight',
-                                  style:
-                                      theme.textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: SlowlightTypography.hero(context),
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Center(
                                 child: Text(
                                   '行为留下轨迹，时间让自我显影',
-                                  style: TextStyle(
+                                  textAlign: TextAlign.center,
+                                  style: SlowlightTypography.secondary(
+                                    context,
+                                  ).copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
-                                    fontSize: AppTheme.textSm,
                                   ),
                                 ),
                               ),
@@ -73,7 +72,7 @@ class _AboutScreenState extends State<AboutScreen> {
                               _link(
                                 context,
                                 '项目主页',
-                                'https://github.com/z7ping/FocusList',
+                                'https://github.com/z7ping/Slowlight',
                               ),
                               const SizedBox(height: 28),
                               _dataExplanation(context),
@@ -81,10 +80,10 @@ class _AboutScreenState extends State<AboutScreen> {
                               Text(
                                 '所行映我不是给人打分的教练，而是一面能记住行为和解释的镜子。',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: SlowlightTypography.caption(
+                                  context,
+                                ).copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: AppTheme.textXs,
-                                  height: 1.6,
                                 ),
                               ),
                             ],
@@ -109,19 +108,12 @@ class _AboutScreenState extends State<AboutScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .45),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '数据说明',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: AppTheme.textSm,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
+          Text('数据说明', style: SlowlightTypography.cardTitle(context)),
           const SizedBox(height: 10),
           _dataPoint(context, '本地优先', '记录默认保存在本机。'),
           _dataPoint(context, '云端数据', '登录后可使用服务端数据；切换模式不会自动上传本地模式中的记录。'),
@@ -141,7 +133,7 @@ class _AboutScreenState extends State<AboutScreen> {
         children: [
           Text(
             '•  ',
-            style: TextStyle(
+            style: SlowlightTypography.secondary(context).copyWith(
               color: theme.colorScheme.primary,
               fontWeight: FontWeight.w700,
             ),
@@ -157,11 +149,9 @@ class _AboutScreenState extends State<AboutScreen> {
                   TextSpan(text: text),
                 ],
               ),
-              style: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: AppTheme.textXs,
-                height: 1.5,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
         ],
@@ -171,9 +161,9 @@ class _AboutScreenState extends State<AboutScreen> {
 
   Widget _link(BuildContext context, String title, String url) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: () =>
-          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+    return FxInkWell(
+      onTap:
+          () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: Container(
         constraints: const BoxConstraints(minHeight: 52),
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -184,20 +174,19 @@ class _AboutScreenState extends State<AboutScreen> {
         ),
         child: Row(
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: AppTheme.textSm,
+            Expanded(
+              child: Text(
+                title,
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
             ),
-            const Spacer(),
             Text(
               'GitHub',
-              style: TextStyle(
-                color: theme.colorScheme.primary,
-                fontSize: AppTheme.textSm,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.primary),
             ),
             const SizedBox(width: 4),
             Icon(Icons.open_in_new, size: 15, color: theme.colorScheme.primary),
@@ -218,20 +207,22 @@ class _AboutScreenState extends State<AboutScreen> {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: AppTheme.textSm,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: AppTheme.textSm,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
         ],

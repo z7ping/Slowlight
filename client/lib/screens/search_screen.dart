@@ -11,8 +11,7 @@ import '../repositories/habit_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
+import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -39,7 +38,9 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _focusNode.requestFocus(),
+    );
   }
 
   @override
@@ -53,6 +54,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void _changed(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () => _search(value));
+    setState(() {});
   }
 
   Future<void> _search(String raw) async {
@@ -125,7 +127,7 @@ class _SearchScreenState extends State<SearchScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const HfPageHeader(title: '搜索'),
+            const FxPageHeader(title: '搜索'),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
@@ -136,29 +138,27 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
+                          FxInput(
                             controller: _controller,
                             focusNode: _focusNode,
                             onChanged: _changed,
-                            style: const TextStyle(fontSize: 15),
-                            decoration: InputDecoration(
-                              hintText: '搜索任务、习惯、回顾…',
-                              prefixIcon: const Icon(LucideIcons.search, size: 20),
-                              suffixIcon: _controller.text.isEmpty
-                                  ? null
-                                  : IconButton(
+                            placeholder: '搜索任务、习惯、回顾…',
+                            leading: const Icon(LucideIcons.search, size: SlowlightIconSize.lg),
+                            trailing:
+                                _controller.text.isEmpty
+                                    ? null
+                                    : FxIconButton(
                                       tooltip: '清空',
                                       onPressed: () {
                                         _controller.clear();
                                         _search('');
                                         setState(() {});
                                       },
-                                      icon: const Icon(LucideIcons.x, size: 18),
+                                      icon: LucideIcons.x,
                                     ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 11,
-                              ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 11,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -170,27 +170,20 @@ class _SearchScreenState extends State<SearchScreen> {
                               children: [
                                 Text(
                                   '最近：',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.textXs,
+                                  style: SlowlightTypography.caption(
+                                    context,
+                                  ).copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 ..._recentSearches.map(
-                                  (query) => InkWell(
-                                    borderRadius: BorderRadius.circular(999),
+                                  (query) => FxChip(
+                                    label: query,
+                                    variant:
+                                        query == _query
+                                            ? FxChipVariant.primary
+                                            : FxChipVariant.secondary,
                                     onTap: () => _useRecent(query),
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        minWidth: 44,
-                                        minHeight: 44,
-                                      ),
-                                      child: Center(
-                                        child: HfChip(
-                                          query,
-                                          accent: query == _query,
-                                        ),
-                                      ),
-                                    ),
                                   ),
                                 ),
                               ],
@@ -200,11 +193,11 @@ class _SearchScreenState extends State<SearchScreen> {
                             const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(36),
-                                child: CircularProgressIndicator(),
+                                child: FxCircularProgress(),
                               ),
                             )
                           else if (_query.isEmpty)
-                            const HfEmptyState(
+                            const FxEmptyState(
                               emoji: '🔍',
                               title: '输入关键词开始搜索',
                               subtitle: '可以查找任务、习惯和你写下的回顾',
@@ -212,7 +205,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           else if (_tasks.isEmpty &&
                               _habits.isEmpty &&
                               _reflections.isEmpty)
-                            const HfEmptyState(
+                            const FxEmptyState(
                               emoji: '🍃',
                               title: '没有找到相关内容',
                               subtitle: '没有结果也是一种明确答案',
@@ -243,8 +236,9 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _taskGroup() {
     return _group(
       '任务 · ${_tasks.length} 条',
-      HfCard(
+      FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        expanded: true,
         child: Column(children: _tasks.take(20).map(_taskRow).toList()),
       ),
     );
@@ -257,14 +251,15 @@ class _SearchScreenState extends State<SearchScreen> {
       if (task.dueDate != null)
         '${task.dueDate!.month}/${task.dueDate!.day}${task.dueTime == null || task.dueTime!.isEmpty ? '' : ' ${task.dueTime}'}',
     ].join(' · ');
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      onTap: () => TaskDetailSheet.show(
-        context,
-        task: task,
-        lists: _lists,
-        onChanged: () => _search(_query),
-      ),
+    return FxInkWell(
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+      onTap:
+          () => TaskDetailSheet.show(
+            context,
+            task: task,
+            lists: _lists,
+            onChanged: () => _search(_query),
+          ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
@@ -287,18 +282,17 @@ class _SearchScreenState extends State<SearchScreen> {
                     _highlight(
                       task.title,
                       _query,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: SlowlightTypography.body(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w500),
                     ),
                     if (meta.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         meta,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ],
@@ -312,35 +306,42 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _habitGroup() {
-    final theme = Theme.of(context);
     return _group(
       '习惯 · ${_habits.length} 条',
-      HfCard(
+      FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        expanded: true,
         child: Column(
-          children: _habits
-              .take(20)
-              .map(
-                (habit) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Text(habit.icon, style: const TextStyle(fontSize: 17)),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: _highlight(
-                          habit.name,
-                          _query,
-                          style: theme.textTheme.bodyMedium,
-                        ),
+          children:
+              _habits
+                  .take(20)
+                  .map(
+                    (habit) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Text(
+                            habit.icon,
+                            style: const TextStyle(fontSize: SlowlightIconSize.md),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: _highlight(
+                              habit.name,
+                              _query,
+                              style: SlowlightTypography.body(context),
+                            ),
+                          ),
+                          if (habit.streakCount > 0)
+                            FxChip(
+                              label: '🔥 ${habit.streakCount}',
+                              variant: FxChipVariant.secondary,
+                            ),
+                        ],
                       ),
-                      if (habit.streakCount > 0)
-                        HfChip('🔥 ${habit.streakCount}'),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
+                    ),
+                  )
+                  .toList(),
         ),
       ),
     );
@@ -350,44 +351,47 @@ class _SearchScreenState extends State<SearchScreen> {
     final theme = Theme.of(context);
     return _group(
       '回顾 · ${_reflections.length} 条',
-      HfCard(
+      FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        expanded: true,
         child: Column(
-          children: _reflections
-              .take(20)
-              .map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 7),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(entry.entryType == 'observation' ? '📝' : '💬'),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _highlight(
-                              entry.content,
-                              _query,
-                              style: theme.textTheme.bodyMedium,
+          children:
+              _reflections
+                  .take(20)
+                  .map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(entry.entryType == 'observation' ? '📝' : '💬'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _highlight(
+                                  entry.content,
+                                  _query,
+                                  style: SlowlightTypography.body(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${entry.createdAt.month} 月 ${entry.createdAt.day} 日${entry.dimensionKey == null ? '' : ' · #${_dimensionLabel(entry.dimensionKey!)}'}',
+                                  style: SlowlightTypography.caption(
+                                    context,
+                                  ).copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${entry.createdAt.month} 月 ${entry.createdAt.day} 日${entry.dimensionKey == null ? '' : ' · #${_dimensionLabel(entry.dimensionKey!)}'}',
-                              style: TextStyle(
-                                fontSize: AppTheme.textXs,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
+                    ),
+                  )
+                  .toList(),
         ),
       ),
     );
@@ -401,8 +405,7 @@ class _SearchScreenState extends State<SearchScreen> {
           padding: const EdgeInsets.only(bottom: 6),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
+            style: SlowlightTypography.caption(context).copyWith(
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -448,10 +451,10 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   String _dimensionLabel(String key) => switch (key) {
-        'body' => '身体',
-        'cognition' => '认知',
-        'output' => '产出',
-        'relationship' => '关系',
-        _ => key,
-      };
+    'body' => '身体',
+    'cognition' => '认知',
+    'output' => '产出',
+    'relationship' => '关系',
+    _ => key,
+  };
 }

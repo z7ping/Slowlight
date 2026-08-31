@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_theme.dart';
-import '../high_fidelity/high_fidelity_ui.dart';
+import '../../ui/fx.dart';
 
 class CompletedTaskItemWidget extends StatelessWidget {
   final Map<String, dynamic> task;
@@ -22,9 +22,12 @@ class CompletedTaskItemWidget extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 52),
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: hfDivider(context))),
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 3,
@@ -41,11 +44,10 @@ class CompletedTaskItemWidget extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 13.5,
+                  style: SlowlightTypography.body(context).copyWith(
                     fontWeight: FontWeight.w500,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (level.isNotEmpty || listName.isNotEmpty || completedAt.isNotEmpty) ...[
@@ -55,20 +57,22 @@ class CompletedTaskItemWidget extends StatelessWidget {
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (level.isNotEmpty) HfChip(level),
+                      if (level.isNotEmpty)
+                        FxChip(
+                          label: level,
+                          variant: FxChipVariant.secondary,
+                        ),
                       if (listName.isNotEmpty)
                         Text(
                           listName,
-                          style: TextStyle(
-                            fontSize: AppTheme.textXs,
+                          style: SlowlightTypography.caption(context).copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       if (completedAt.isNotEmpty)
                         Text(
                           completedAt,
-                          style: TextStyle(
-                            fontSize: AppTheme.textXs,
+                          style: SlowlightTypography.caption(context).copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),

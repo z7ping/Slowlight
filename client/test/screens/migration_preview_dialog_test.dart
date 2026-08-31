@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/screens/migration_preview_dialog.dart';
-import 'package:slowlight/ui/theme_manager.dart';
+import 'package:slowlight/ui/fx.dart';
 
-Widget _host() => ShadTheme(
-      data: ThemeManager.shadLight,
-      child: MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: ElevatedButton(
-              onPressed: () => MigrationPreviewDialog.show(context),
-              child: const Text('打开'),
-            ),
+import '../support/fx_test_host.dart';
+
+Widget _host() => buildFxTestHost(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: FxButton(
+            label: '打开',
+            onPressed: () => MigrationPreviewDialog.show(context),
           ),
         ),
       ),
@@ -32,9 +30,7 @@ void main() {
     expect(find.textContaining('预览阶段不会写入或删除数据'), findsOneWidget);
     expect(find.textContaining('本地数据始终保留'), findsOneWidget);
     expect(tester.takeException(), isNull);
-
-    // 推进弹窗入场动画，避免 flutter_animate 的零延时 Timer 残留到测试结束。
-    await tester.pump(const Duration(seconds: 1));
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('数据迁移预览窄窗口不产生布局异常', (tester) async {
@@ -48,7 +44,6 @@ void main() {
 
     expect(find.byType(MigrationPreviewDialog), findsOneWidget);
     expect(tester.takeException(), isNull);
-
-    await tester.pump(const Duration(seconds: 1));
+    await disposeFxTestHost(tester);
   });
 }

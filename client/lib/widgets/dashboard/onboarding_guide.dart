@@ -8,14 +8,14 @@ import '../../services/api_service.dart';
 class OnboardingGuide extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const OnboardingGuide({
-    super.key,
-    required this.onComplete,
-  });
+  const OnboardingGuide({super.key, required this.onComplete});
 
   /// 显示引导弹窗
-  static Future<void> show(BuildContext context, {required VoidCallback onComplete}) async {
-    return showDialog(
+  static Future<void> show(
+    BuildContext context, {
+    required VoidCallback onComplete,
+  }) async {
+    return FxDialog.raw(
       context: context,
       barrierDismissible: false,
       builder: (_) => OnboardingGuide(onComplete: onComplete),
@@ -40,7 +40,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return FxDialogSurface(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         width: 400,
@@ -55,20 +55,20 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('👋', style: TextStyle(fontSize: 48)),
+        const Text('👋', style: TextStyle(fontSize: SlowlightIconSize.heroGlyph)),
         const SizedBox(height: 16),
         Text(
           '欢迎使用 $kBrandDisplayName',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         Text(
           '$kBrandDisplayName 帮你了解自己，而不是管理待办。',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.warmGray500,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppTheme.warmGray500),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
@@ -82,25 +82,27 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
             children: [
               Text(
                 '我们把生活分为四个维度：',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
-              ..._presetTags.map((tag) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(tag['icon']!, style: const TextStyle(fontSize: 20)),
-                    const SizedBox(width: 8),
-                    Text(
-                      tag['name']!,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
+              ..._presetTags.map(
+                (tag) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(tag['icon']!, style: const TextStyle(fontSize: SlowlightTypography.pageTitleSize)),
+                      const SizedBox(width: 8),
+                      Text(
+                        tag['name']!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
                 ),
-              )),
+              ),
             ],
           ),
         ),
@@ -123,16 +125,16 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
       children: [
         Text(
           '选择你最想关注的维度',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
           '可以多选，之后随时可以修改',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppTheme.warmGray500,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppTheme.warmGray500),
         ),
         const SizedBox(height: 24),
         ..._presetTags.map((tag) => _buildTagOption(tag)),
@@ -161,7 +163,9 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
 
   Widget _buildTagOption(Map<String, String> tag) {
     final isSelected = _selectedTags.contains(tag['name']);
-    final color = Color(int.parse(tag['color']!.replaceFirst('#', 'FF'), radix: 16));
+    final color = Color(
+      int.parse(tag['color']!.replaceFirst('#', 'FF'), radix: 16),
+    );
 
     return FxGestureDetector(
       onTap: () {
@@ -186,7 +190,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
         ),
         child: Row(
           children: [
-            Text(tag['icon']!, style: const TextStyle(fontSize: 24)),
+            Text(tag['icon']!, style: const TextStyle(fontSize: SlowlightTypography.heroSize)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -195,23 +199,25 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
                   Text(
                     tag['name']!,
                     style: TextStyle(
-                      fontSize: AppTheme.textLg,
+                      fontSize: SlowlightTypography.bodySize,
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? color : Theme.of(context).colorScheme.onSurface,
+                      color:
+                          isSelected
+                              ? color
+                              : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     _getTagDescription(tag['name']!),
                     style: TextStyle(
-                      fontSize: AppTheme.textSm,
+                      fontSize: SlowlightTypography.secondarySize,
                       color: AppTheme.warmGray500,
                     ),
                   ),
                 ],
               ),
             ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: color, size: 24),
+            if (isSelected) Icon(Icons.check_circle, color: color, size: 24),
           ],
         ),
       ),
@@ -220,11 +226,16 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
 
   String _getTagDescription(String name) {
     switch (name) {
-      case '身体': return '运动、睡眠、健康';
-      case '认知': return '学习、专注、思考';
-      case '产出': return '工作、创作、交付';
-      case '关系': return '社交、家庭、连接';
-      default: return '';
+      case '身体':
+        return '运动、睡眠、健康';
+      case '认知':
+        return '学习、专注、思考';
+      case '产出':
+        return '工作、创作、交付';
+      case '关系':
+        return '社交、家庭、连接';
+      default:
+        return '';
     }
   }
 
@@ -246,9 +257,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('创建标签失败: $e')),
-        );
+        FxNotice.showContent(context, Text('创建标签失败: $e'));
       }
     }
   }

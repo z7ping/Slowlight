@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../services/data_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import '../ui/widgets/fx_input.dart';
-import '../widgets/task_detail_sheet.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
+import '../widgets/task_detail_sheet.dart';
 
 /// 收集箱页面
 ///
@@ -68,22 +67,18 @@ class _InboxScreenState extends State<InboxScreen> {
       setState(() => _tasks.insert(0, task));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加失败: $e')),
-        );
+        FxNotice.showContent(context, Text('添加失败: $e'));
       }
     }
   }
 
   Future<void> _moveTo(Task task) async {
     if (_allLists.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('还没有其他清单，先去创建一个吧')),
-      );
+      FxNotice.showContent(context, Text('还没有其他清单，先去创建一个吧'));
       return;
     }
 
-    final selected = await showModalBottomSheet<int>(
+    final selected = await FxSheet.show<int>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -97,16 +92,13 @@ class _InboxScreenState extends State<InboxScreen> {
       await ApiService.moveInboxTask(task.id, selected);
       if (!mounted) return;
       setState(() => _tasks.removeWhere((t) => t.id == task.id));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                '已移动到「${_allLists.firstWhere((l) => l.id == selected).name}」')),
+      FxNotice.showContent(
+        context,
+        Text('已移动到「${_allLists.firstWhere((l) => l.id == selected).name}」'),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('移动失败: $e')),
-        );
+        FxNotice.showContent(context, Text('移动失败: $e'));
       }
     }
   }
@@ -114,31 +106,28 @@ class _InboxScreenState extends State<InboxScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('📥 收集箱'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.of(context).pop(),
-          tooltip: '返回',
-        ),
-      ),
       backgroundColor: AppTheme.warmWhite,
-      body: Column(
-        children: [
-          // 快速输入栏
-          _buildQuickAddBar(),
-
-          // 任务列表
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _tasks.isEmpty
-                    ? _buildEmptyState()
-                    : RefreshIndicator(
+      body: SafeArea(
+        child: Column(
+          children: [
+            FxPageHeader(
+              title: '收集箱',
+              onBack: () => Navigator.of(context).pop(),
+            ),
+            _buildQuickAddBar(),
+            Expanded(
+              child:
+                  _isLoading
+                      ? const Center(child: FxCircularProgress())
+                      : _tasks.isEmpty
+                      ? _buildEmptyState()
+                      : FxRefresh(
                         onRefresh: _loadAll,
                         child: ListView.builder(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           itemCount: _tasks.length,
                           itemBuilder: (context, index) {
                             final task = _tasks[index];
@@ -156,90 +145,84 @@ class _InboxScreenState extends State<InboxScreen> {
                               ),
                               confirmDismiss: (direction) async {
                                 if (direction == DismissDirection.startToEnd) {
-                                  // 右滑 → 移动到清单
                                   _moveTo(task);
                                   return false;
-                                } else {
-                                  // 左滑 → 删除确认
-                                  final confirmed = await FxDialog.confirm(
-                                    context: context,
-                                    title: '删除任务',
-                                    content: '确定删除「${task.title}」？',
-                                    confirmText: '删除',
-                                    destructive: true,
-                                  );
-                                  if (confirmed != true) return false;
-                                  // 乐观删除 + 撤销机制
-                                  final originalTasks = List<Task>.from(_tasks);
-                                  bool undone = false;
-                                  setState(() => _tasks
-                                      .removeWhere((t) => t.id == task.id));
-                                  ScaffoldMessenger.of(context)
-                                      .clearSnackBars();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('已删除「${task.title}」'),
-                                      action: SnackBarAction(
-                                        label: '撤销',
-                                        onPressed: () {
-                                          undone = true;
-                                          setState(
-                                              () => _tasks = originalTasks);
-                                        },
-                                      ),
-                                      duration: const Duration(seconds: 4),
-                                    ),
-                                  );
-                                  await Future.delayed(
-                                      const Duration(seconds: 4));
-                                  if (undone) return false;
-                                  try {
-                                    await ApiService.deleteTask(task.id);
-                                  } catch (e) {
-                                    if (mounted) {
-                                      setState(() => _tasks = originalTasks);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content: Text('删除失败'),
-                                            backgroundColor:
-                                                AppTheme.priorityHigh),
-                                      );
-                                    }
-                                  }
-                                  return false; // 已手动移除，不让 Dismissible 再删
                                 }
+
+                                final confirmed = await FxDialog.confirm(
+                                  context: context,
+                                  title: '删除任务',
+                                  content: '确定删除「${task.title}」？',
+                                  confirmText: '删除',
+                                  destructive: true,
+                                );
+                                if (confirmed != true) return false;
+
+                                final originalTasks = List<Task>.from(_tasks);
+                                var undone = false;
+                                setState(
+                                  () => _tasks.removeWhere(
+                                    (t) => t.id == task.id,
+                                  ),
+                                );
+                                FxNotice.clear(context);
+                                FxNotice.showContent(
+                                  context,
+                                  Text('已删除「${task.title}」'),
+                                  action: FxNoticeAction(
+                                    label: '撤销',
+                                    onPressed: () {
+                                      undone = true;
+                                      setState(() => _tasks = originalTasks);
+                                    },
+                                  ),
+                                  duration: const Duration(seconds: 4),
+                                );
+                                await Future.delayed(
+                                  const Duration(seconds: 4),
+                                );
+                                if (undone) return false;
+                                try {
+                                  await ApiService.deleteTask(task.id);
+                                } catch (_) {
+                                  if (mounted) {
+                                    setState(() => _tasks = originalTasks);
+                                    FxNotice.showContent(
+                                      context,
+                                      const Text('删除失败'),
+                                      variant: FxNoticeVariant.destructive,
+                                    );
+                                  }
+                                }
+                                return false;
                               },
                               child: FxCard(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 borderRadius: 12,
                                 padding: EdgeInsets.zero,
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 4),
-                                  title: Text(
-                                    task.title,
-                                    style: const TextStyle(
-                                        fontSize: AppTheme.textMd, height: 1.5),
+                                child: FxListTile(
+                                  title: task.title,
+                                  subtitle: _timeAgo(task.createdAt),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 4,
                                   ),
-                                  subtitle: Text(
-                                    _timeAgo(task.createdAt),
-                                    style: TextStyle(
-                                        fontSize: AppTheme.textXs,
-                                        color: AppTheme.warmGray400),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: Icon(Icons.drive_file_move_outline,
-                                        color: AppTheme.warmGray400, size: 20),
-                                    onPressed: () => _moveTo(task),
+                                  titleStyle: SlowlightTypography.body(context),
+                                  subtitleStyle: SlowlightTypography.caption(
+                                    context,
+                                  ).copyWith(color: AppTheme.warmGray400),
+                                  trailing: FxIconButton(
+                                    icon: Icons.drive_file_move_outline,
+                                    iconSize: 20,
                                     tooltip: '移动到清单',
+                                    onPressed: () => _moveTo(task),
                                   ),
                                   onTap: () {
                                     TaskDetailSheet.show(
                                       context,
                                       task: task,
                                       lists: _allLists,
-                                      onChanged: () => _loadAll(),
+                                      onChanged: _loadAll,
                                     );
                                   },
                                 ),
@@ -248,15 +231,16 @@ class _InboxScreenState extends State<InboxScreen> {
                           },
                         ),
                       ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildQuickAddBar() {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       color: Theme.of(context).colorScheme.surface,
       child: Row(
         children: [
@@ -265,53 +249,27 @@ class _InboxScreenState extends State<InboxScreen> {
               controller: _quickAddController,
               focusNode: _quickAddFocus,
               placeholder: '快速记录想法...',
-              placeholderStyle: TextStyle(
-                  color: AppTheme.warmGray400, fontSize: AppTheme.textMd),
-              style: const TextStyle(fontSize: AppTheme.textMd, height: 1.5),
+              placeholderStyle: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: AppTheme.warmGray400),
+              style: SlowlightTypography.body(context),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _quickAdd(),
               isDense: true,
             ),
           ),
-          SizedBox(width: 10),
-          SizedBox(
-            height: 38,
-            child: ShadButton(
-              onPressed: _quickAdd,
-              backgroundColor: AppTheme.primary,
-              foregroundColor: AppTheme.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: const Text('添加',
-                  style: TextStyle(fontSize: AppTheme.textMd, height: 1.5)),
-            ),
-          ),
+          const SizedBox(width: 10),
+          FxButton(label: '添加', size: FxButtonSize.sm, onPressed: _quickAdd),
         ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.inbox_outlined, size: 64, color: AppTheme.warmGray400),
-          SizedBox(height: 16),
-          Text(
-            '收集箱是空的',
-            style: TextStyle(
-                fontSize: AppTheme.textLg,
-                height: 1.3,
-                color: AppTheme.warmGray500),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '快速记录想法，稍后整理到清单',
-            style: TextStyle(
-                fontSize: AppTheme.textMd, color: AppTheme.warmGray400),
-          ),
-        ],
-      ),
+    return FxEmptyState(
+      emoji: '📥',
+      title: '收集箱是空的',
+      subtitle: '快速记录想法，稍后整理到清单',
     );
   }
 
@@ -340,37 +298,40 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 }
 
-/// 移动到清单的选择弹窗
 class _MoveToListSheet extends StatelessWidget {
   final List<TodoList> lists;
+
   const _MoveToListSheet({required this.lists});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              '移动到清单',
-              style: TextStyle(
-                  fontSize: AppTheme.textMd,
-                  height: 1.3,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.warmDark),
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                '移动到清单',
+                style: SlowlightTypography.cardTitle(context),
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          ...lists.map((list) => ListTile(
-                leading: Icon(Icons.folder_outlined,
-                    color: ColorUtils.safeParse(list.color)),
-                title: Text(list.name),
+            FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+            ...lists.map(
+              (list) => FxListTile(
+                title: list.name,
+                leading: Icon(
+                  Icons.folder_outlined,
+                  color: ColorUtils.safeParse(list.color),
+                ),
                 onTap: () => Navigator.pop(context, list.id),
-              )),
-        ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

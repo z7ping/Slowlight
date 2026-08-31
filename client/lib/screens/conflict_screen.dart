@@ -6,8 +6,6 @@ import '../services/api/task_api.dart';
 import '../services/sync_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 /// 同步冲突：明确并排展示“本地版本 / 服务端版本”，再由用户选择。
 class ConflictScreen extends StatefulWidget {
@@ -51,13 +49,13 @@ class _ConflictScreenState extends State<ConflictScreen> {
   }
 
   Map<String, dynamic> _taskPreview(Task task) => {
-        'title': task.title,
-        'description': task.description ?? '',
-        'priority': task.priority,
-        'due_date': task.dueDate?.toIso8601String(),
-        'due_time': task.dueTime ?? '',
-        'is_completed': task.isCompleted ? 1 : 0,
-      };
+    'title': task.title,
+    'description': task.description ?? '',
+    'priority': task.priority,
+    'due_date': task.dueDate?.toIso8601String(),
+    'due_time': task.dueTime ?? '',
+    'is_completed': task.isCompleted ? 1 : 0,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -66,32 +64,30 @@ class _ConflictScreenState extends State<ConflictScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            HfPageHeader(
+            FxPageHeader(
               title: '同步冲突',
               onBack: () => Navigator.maybePop(context),
             ),
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _conflicts.isEmpty
+              child:
+                  _loading
+                      ? const Center(child: FxCircularProgress())
+                      : _conflicts.isEmpty
                       ? _empty(theme)
-                      : RefreshIndicator(
-                          onRefresh: _loadConflicts,
-                          child: ListView.separated(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-                            itemCount: _conflicts.length + 1,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              if (index == 0) return _intro(theme);
-                              return _conflictCard(
-                                _conflicts[index - 1],
-                                theme,
-                              );
-                            },
-                          ),
+                      : FxRefresh(
+                        onRefresh: _loadConflicts,
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+                          itemCount: _conflicts.length + 1,
+                          separatorBuilder:
+                              (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            if (index == 0) return _intro(theme);
+                            return _conflictCard(_conflicts[index - 1], theme);
+                          },
                         ),
+                      ),
             ),
           ],
         ),
@@ -103,8 +99,9 @@ class _ConflictScreenState extends State<ConflictScreen> {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 780),
-        child: HfCard(
+        child: FxCard(
           padding: const EdgeInsets.all(14),
+          expanded: true,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -117,11 +114,9 @@ class _ConflictScreenState extends State<ConflictScreen> {
               Expanded(
                 child: Text(
                   '同一条任务在本机和服务端都发生了修改。请选择要保留的版本，处理后会继续同步。',
-                  style: TextStyle(
-                    fontSize: AppTheme.textSm,
-                    height: 1.5,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
             ],
@@ -136,23 +131,15 @@ class _ConflictScreenState extends State<ConflictScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            LucideIcons.circleCheck,
-            size: 38,
-            color: AppTheme.success,
-          ),
+          Icon(LucideIcons.circleCheck, size: 38, color: AppTheme.success),
           const SizedBox(height: 10),
-          const Text(
-            '没有同步冲突',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
+          Text('没有同步冲突', style: SlowlightTypography.cardTitle(context)),
           const SizedBox(height: 4),
           Text(
             '本地数据和服务端数据已经一致',
-            style: TextStyle(
-              fontSize: AppTheme.textSm,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -166,11 +153,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     final id = local['id'] as int?;
     final mobile = MediaQuery.sizeOf(context).width < 700;
 
-    final localCard = _versionCard(
-      title: '本地版本',
-      data: local,
-      accent: true,
-    );
+    final localCard = _versionCard(title: '本地版本', data: local, accent: true);
     final remoteCard = _versionCard(
       title: '服务端版本',
       data: remote,
@@ -180,12 +163,14 @@ class _ConflictScreenState extends State<ConflictScreen> {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 780),
-        child: HfCard(
+        child: FxCard(
           padding: const EdgeInsets.all(16),
+          expanded: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
                     LucideIcons.cloudAlert,
@@ -196,17 +181,17 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: SlowlightTypography.cardTitle(context),
                     ),
                   ),
-                  Text(
-                    '版本 ${local['version'] ?? 1}',
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
-                      color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '版本 ${local['version'] ?? 1}',
+                      textAlign: TextAlign.end,
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ],
@@ -226,25 +211,25 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   ],
                 ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: FxButton(
-                      label: '保留本地版本',
-                      variant: FxButtonVariant.outline,
-                      onPressed: id == null
-                          ? null
-                          : () => _resolveConflict(id, keepLocal: true),
-                    ),
+                  FxButton(
+                    label: '保留本地版本',
+                    variant: FxButtonVariant.outline,
+                    onPressed:
+                        id == null
+                            ? null
+                            : () => _resolveConflict(id, keepLocal: true),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FxButton(
-                      label: '使用服务端版本',
-                      onPressed: id == null || remote == null
-                          ? null
-                          : () => _resolveConflict(id, keepLocal: false),
-                    ),
+                  FxButton(
+                    label: '使用服务端版本',
+                    onPressed:
+                        id == null || remote == null
+                            ? null
+                            : () => _resolveConflict(id, keepLocal: false),
                   ),
                 ],
               ),
@@ -264,49 +249,51 @@ class _ConflictScreenState extends State<ConflictScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: accent
-            ? activePalette.accent.withValues(alpha: .05)
-            : theme.scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        color:
+            accent
+                ? activePalette.accent.withValues(alpha: .05)
+                : theme.scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(SlowlightRadius.lg),
         border: Border.all(
-          color: accent ? activePalette.accent : hfBorder(context),
+          color:
+              accent ? activePalette.accent : theme.colorScheme.outlineVariant,
         ),
       ),
-      child: data == null
-          ? Text(
-              '暂时无法读取服务端版本',
-              style: TextStyle(
-                fontSize: AppTheme.textSm,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    fontWeight: FontWeight.w700,
-                    color: accent
-                        ? activePalette.accent
-                        : theme.colorScheme.onSurfaceVariant,
+      child:
+          data == null
+              ? Text(
+                '暂时无法读取服务端版本',
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+              )
+              : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: SlowlightTypography.caption(context).copyWith(
+                      fontWeight: FontWeight.w700,
+                      color:
+                          accent
+                              ? activePalette.accent
+                              : theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                _field('标题', data['title']),
-                _field('描述', data['description']),
-                _field('优先级', _priorityLabel(data['priority']?.toString())),
-                _field('日期', _dateText(data['due_date'])),
-                _field('时间', data['due_time']),
-                _field(
-                  '状态',
-                  data['is_completed'] == 1 || data['is_completed'] == true
-                      ? '已完成'
-                      : '未完成',
-                ),
-              ],
-            ),
+                  const SizedBox(height: 8),
+                  _field('标题', data['title']),
+                  _field('描述', data['description']),
+                  _field('优先级', _priorityLabel(data['priority']?.toString())),
+                  _field('日期', _dateText(data['due_date'])),
+                  _field('时间', data['due_time']),
+                  _field(
+                    '状态',
+                    data['is_completed'] == 1 || data['is_completed'] == true
+                        ? '已完成'
+                        : '未完成',
+                  ),
+                ],
+              ),
     );
   }
 
@@ -320,17 +307,16 @@ class _ConflictScreenState extends State<ConflictScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 48,
+            width: 64,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: AppTheme.textXs,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
           Expanded(
-            child: Text(text, style: const TextStyle(fontSize: AppTheme.textXs)),
+            child: Text(text, style: SlowlightTypography.caption(context)),
           ),
         ],
       ),
@@ -338,11 +324,11 @@ class _ConflictScreenState extends State<ConflictScreen> {
   }
 
   String _priorityLabel(String? value) => switch (value) {
-        'high' || 'urgent_important' => '高',
-        'medium' || 'important' => '中',
-        'low' || 'urgent' => '低',
-        _ => '无',
-      };
+    'high' || 'urgent_important' => '高',
+    'medium' || 'important' => '中',
+    'low' || 'urgent' => '低',
+    _ => '无',
+  };
 
   String _dateText(Object? value) {
     final raw = value?.toString() ?? '';
@@ -355,12 +341,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
   Future<void> _resolveConflict(int localId, {required bool keepLocal}) async {
     await _sync.resolveConflict(localId, keepLocal: keepLocal);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text(keepLocal ? '已保留本地版本' : '已使用服务端版本'),
-      ),
-    );
+    FxNotice.showContent(context, Text(keepLocal ? '已保留本地版本' : '已使用服务端版本'));
     await _loadConflicts();
   }
 }

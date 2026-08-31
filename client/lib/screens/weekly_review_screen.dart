@@ -5,7 +5,6 @@ import '../ai/ai_service.dart';
 import '../services/api/analytics_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 /// 每周回顾：作为「更多工具」内容页嵌入主壳。
 class WeeklyReviewScreen extends StatefulWidget {
@@ -31,18 +30,21 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Future<void> _loadReview() async {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loading = true;
         _loadError = null;
       });
+    }
     try {
       final results = await Future.wait<dynamic>([
         AnalyticsApi.getWeeklyReview(),
-        AnalyticsApi.getOutputStats(period: 'week')
-            .catchError((_) => <String, dynamic>{}),
-        AnalyticsApi.getDailyTrend(days: 7)
-            .catchError((_) => <Map<String, dynamic>>[]),
+        AnalyticsApi.getOutputStats(
+          period: 'week',
+        ).catchError((_) => <String, dynamic>{}),
+        AnalyticsApi.getDailyTrend(
+          days: 7,
+        ).catchError((_) => <Map<String, dynamic>>[]),
       ]);
       if (!mounted) return;
       setState(() {
@@ -89,14 +91,12 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     if (_loadError != null) {
       return Center(
         child: Column(
@@ -104,14 +104,13 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
           children: [
             const Icon(LucideIcons.triangleAlert, size: 24),
             const SizedBox(height: 8),
-            const Text('每周回顾加载失败'),
+            Text('每周回顾加载失败', style: SlowlightTypography.cardTitle(context)),
             const SizedBox(height: 4),
             Text(
               '请检查网络或数据服务后重试',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
             FxButton(
@@ -127,7 +126,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final weekStart = _review['week_start']?.toString() ?? '';
     final weekEnd = _review['week_end']?.toString() ?? '';
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadReview,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -146,34 +145,28 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               '每周回顾',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: SlowlightTypography.pageTitle(context),
                             ),
                             const SizedBox(height: 3),
                             Text(
                               weekStart.isEmpty
                                   ? '回看这一周真实发生的变化'
                                   : '$weekStart — $weekEnd · 回看真实发生的变化',
-                              style: TextStyle(
-                                fontSize: 12.5,
+                              style: SlowlightTypography.secondary(
+                                context,
+                              ).copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          tooltip: '刷新',
-                          onPressed: _loadReview,
-                          icon: const Icon(LucideIcons.refreshCw, size: 17),
-                        ),
+                      FxIconButton(
+                        tooltip: '刷新',
+                        onPressed: _loadReview,
+                        icon: LucideIcons.refreshCw,
                       ),
                     ],
                   ),
@@ -225,40 +218,19 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final habitChecked = (_review['habit_checked'] as num?)?.toInt() ?? 0;
     final taskCompleted = (_review['task_completed'] as num?)?.toInt() ?? 0;
     final focusMinutes = (_review['focus_minutes'] as num?)?.toInt() ?? 0;
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(16),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: '本周记录'),
+          const FxSectionHeader(title: '本周记录'),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: HfStatCell(
-                  value: '$habitChecked',
-                  label: '习惯打卡',
-                  suffix: ' 次',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: HfStatCell(
-                  value: '$taskCompleted',
-                  label: '完成任务',
-                  suffix: ' 个',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: HfStatCell(
-                  value: '$focusMinutes',
-                  label: '专注',
-                  suffix: ' 分钟',
-                ),
-              ),
-            ],
-          ),
+          _statLayout([
+            FxStatCell(value: '$habitChecked', label: '习惯打卡', suffix: ' 次'),
+            FxStatCell(value: '$taskCompleted', label: '完成任务', suffix: ' 个'),
+            FxStatCell(value: '$focusMinutes', label: '专注', suffix: ' 分钟'),
+          ]),
           if (_dailyTrend.isNotEmpty) ...[
             const SizedBox(height: 14),
             _weeklyBars(),
@@ -268,13 +240,25 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     );
   }
 
+  Widget _statLayout(List<Widget> cells) {
+    return FxResponsiveFormGrid(
+      minColumnWidth: 160,
+      maxColumns: 3,
+      horizontalGap: 10,
+      verticalGap: 8,
+      children: cells,
+    );
+  }
+
   Widget _weeklyBars() {
     final theme = Theme.of(context);
-    final values = _dailyTrend.map((item) {
-      final tasks = (item['task_completed'] as num?)?.toInt() ?? 0;
-      final habits = (item['habit_checked'] as num?)?.toInt() ?? 0;
-      return tasks + habits;
-    }).toList(growable: false);
+    final values = _dailyTrend
+        .map((item) {
+          final tasks = (item['task_completed'] as num?)?.toInt() ?? 0;
+          final habits = (item['habit_checked'] as num?)?.toInt() ?? 0;
+          return tasks + habits;
+        })
+        .toList(growable: false);
     final max = values.fold<int>(1, (a, b) => b > a ? b : a);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -283,14 +267,13 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       children: [
         Text(
           '每日记录',
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 6),
         SizedBox(
-          height: 82,
+          height: 92,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: List.generate(_dailyTrend.length, (index) {
@@ -312,10 +295,11 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                             width: 18,
                             height: value <= 0 ? 3 : 54 * value / max,
                             decoration: BoxDecoration(
-                              color:
-                                  activePalette.accent.withValues(alpha: .82),
+                              color: activePalette.accent.withValues(
+                                alpha: .82,
+                              ),
                               borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(AppTheme.radiusSm),
+                                top: Radius.circular(SlowlightRadius.sm),
                               ),
                             ),
                           ),
@@ -324,10 +308,9 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                       const SizedBox(height: 5),
                       Text(
                         label,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -342,30 +325,34 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   Widget _comparison() {
     final theme = Theme.of(context);
-    final habitDelta = ((_review['habit_checked'] as num?)?.toInt() ?? 0) -
+    final habitDelta =
+        ((_review['habit_checked'] as num?)?.toInt() ?? 0) -
         ((_review['habit_last_week'] as num?)?.toInt() ?? 0);
-    final taskDelta = ((_review['task_completed'] as num?)?.toInt() ?? 0) -
+    final taskDelta =
+        ((_review['task_completed'] as num?)?.toInt() ?? 0) -
         ((_review['task_last_week'] as num?)?.toInt() ?? 0);
-    final focusDelta = ((_review['focus_minutes'] as num?)?.toInt() ?? 0) -
+    final focusDelta =
+        ((_review['focus_minutes'] as num?)?.toInt() ?? 0) -
         ((_review['focus_last_week'] as num?)?.toInt() ?? 0);
-    final hasData = (_review['habit_last_week'] ?? 0) != 0 ||
+    final hasData =
+        (_review['habit_last_week'] ?? 0) != 0 ||
         (_review['task_last_week'] ?? 0) != 0 ||
         (_review['focus_last_week'] ?? 0) != 0;
 
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(16),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: '和上周比'),
+          const FxSectionHeader(title: '和上周比'),
           const SizedBox(height: 10),
           if (!hasData)
             Text(
               '数据积累中，下周会有可对比记录。',
-              style: TextStyle(
-                fontSize: AppTheme.textSm,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             )
           else ...[
             _deltaRow('习惯打卡', habitDelta, '次'),
@@ -373,24 +360,25 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             _deltaRow('专注时长', focusDelta, '分钟'),
           ],
           const SizedBox(height: 10),
-          InkWell(
+          FxInkWell(
             borderRadius: BorderRadius.circular(999),
             onTap: _generatingAi ? null : _generateAiReport,
-            child: SizedBox(
-              height: 44,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: activePalette.accent.withValues(alpha: .12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     _generatingAi ? '正在生成 AI 周报…' : '生成 AI 周报 →',
-                    style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                    style: SlowlightTypography.caption(context).copyWith(
                       fontWeight: FontWeight.w600,
                       color: activePalette.accent,
                     ),
@@ -408,37 +396,41 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final theme = Theme.of(context);
     final positive = delta > 0;
     final zero = delta == 0;
-    final color = zero
-        ? theme.colorScheme.onSurfaceVariant
-        : positive
+    final color =
+        zero
+            ? theme.colorScheme.onSurfaceVariant
+            : positive
             ? AppTheme.success
             : AppTheme.warning;
     return Container(
-      constraints: const BoxConstraints(minHeight: 40),
+      constraints: const BoxConstraints(minHeight: 44),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: hfDivider(context))),
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 13)),
+            child: Text(label, style: SlowlightTypography.secondary(context)),
           ),
           Icon(
             zero
                 ? LucideIcons.minus
                 : positive
-                    ? LucideIcons.arrowUp
-                    : LucideIcons.arrowDown,
+                ? LucideIcons.arrowUp
+                : LucideIcons.arrowDown,
             size: 15,
             color: color,
           ),
           const SizedBox(width: 4),
-          Text(
-            '${delta > 0 ? '+' : ''}$delta $unit',
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
-              fontWeight: FontWeight.w600,
-              color: color,
+          Flexible(
+            child: Text(
+              '${delta > 0 ? '+' : ''}$delta $unit',
+              textAlign: TextAlign.end,
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(fontWeight: FontWeight.w600, color: color),
             ),
           ),
         ],
@@ -448,29 +440,31 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   Widget _distribution() {
     final theme = Theme.of(context);
-    final tags = (_review['time_distribution'] as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    final tags =
+        (_review['time_distribution'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
     tags.sort(
-      (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0)
-          .compareTo((a['total_min'] as num?)?.toInt() ?? 0),
+      (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0).compareTo(
+        (a['total_min'] as num?)?.toInt() ?? 0,
+      ),
     );
 
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(16),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: '时间分布'),
+          const FxSectionHeader(title: '时间分布'),
           const SizedBox(height: 10),
           if (tags.isEmpty)
             Text(
               '本周还没有足够的专注分布数据。',
-              style: TextStyle(
-                fontSize: AppTheme.textSm,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             )
           else
             ...tags.take(6).map((tag) {
@@ -486,28 +480,30 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                         Expanded(
                           child: Text(
                             name,
-                            style: const TextStyle(fontSize: 13),
+                            style: SlowlightTypography.secondary(context),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Text(
-                          '$minutes 分钟 · ${percent.toStringAsFixed(0)}%',
-                          style: TextStyle(
-                            fontSize: AppTheme.textXs,
-                            color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            '$minutes 分钟 · ${percent.toStringAsFixed(0)}%',
+                            textAlign: TextAlign.end,
+                            style: SlowlightTypography.caption(
+                              context,
+                            ).copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 5),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      child: LinearProgressIndicator(
-                        value: (percent / 100).clamp(0, 1),
-                        minHeight: 6,
-                        backgroundColor: hfDivider(context),
-                        color: activePalette.accent,
-                      ),
+                    FxProgress(
+                      value: (percent / 100).clamp(0, 1),
+                      height: 6,
+                      backgroundColor: theme.colorScheme.outlineVariant,
+                      color: activePalette.accent,
                     ),
                   ],
                 ),
@@ -520,20 +516,19 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   Widget _aiReportCard() {
     final theme = Theme.of(context);
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(16),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: 'AI 周报'),
+          const FxSectionHeader(title: 'AI 周报'),
           const SizedBox(height: 10),
           Text(
             _aiReport!,
-            style: TextStyle(
-              fontSize: AppTheme.textSm,
-              height: 1.65,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.body(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -551,22 +546,19 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final total = (_outputStats['total_count'] as num?)?.toInt() ?? 0;
     final week = (_outputStats['this_week'] as num?)?.toInt() ?? 0;
     final milestones = (_outputStats['milestones'] as num?)?.toInt() ?? 0;
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(16),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: '输出记录'),
+          const FxSectionHeader(title: '输出记录'),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: HfStatCell(value: '$week', label: '本周输出')),
-              const SizedBox(width: 10),
-              Expanded(child: HfStatCell(value: '$total', label: '累计输出')),
-              const SizedBox(width: 10),
-              Expanded(child: HfStatCell(value: '$milestones', label: '里程碑')),
-            ],
-          ),
+          _statLayout([
+            FxStatCell(value: '$week', label: '本周输出'),
+            FxStatCell(value: '$total', label: '累计输出'),
+            FxStatCell(value: '$milestones', label: '里程碑'),
+          ]),
         ],
       ),
     );

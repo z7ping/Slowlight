@@ -45,21 +45,24 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.task.title);
-    _descController =
-        TextEditingController(text: widget.task.description ?? '');
+    _descController = TextEditingController(
+      text: widget.task.description ?? '',
+    );
     _priority = widget.task.priority;
     _taskType = widget.task.taskType;
     _dueDate = widget.task.dueDate;
-    _dueTime = widget.task.dueTime != null
-        ? TimeOfDay(
-            hour: int.parse(widget.task.dueTime!.split(':')[0]),
-            minute: int.parse(widget.task.dueTime!.split(':')[1]),
-          )
-        : null;
+    _dueTime =
+        widget.task.dueTime != null
+            ? TimeOfDay(
+              hour: int.parse(widget.task.dueTime!.split(':')[0]),
+              minute: int.parse(widget.task.dueTime!.split(':')[1]),
+            )
+            : null;
     _repeatType = widget.task.repeatType;
     _repeatInterval = widget.task.repeatInterval;
-    _repeatIntervalController =
-        TextEditingController(text: _repeatInterval.toString());
+    _repeatIntervalController = TextEditingController(
+      text: _repeatInterval.toString(),
+    );
     if (widget.task.repeatDays.isNotEmpty) {
       _selectedWeekdays.addAll(
         widget.task.repeatDays
@@ -105,14 +108,16 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
         serverId: null,
         listId: widget.task.listId,
         title: _titleController.text.trim(),
-        description: _descController.text.trim().isEmpty
-            ? null
-            : _descController.text.trim(),
+        description:
+            _descController.text.trim().isEmpty
+                ? null
+                : _descController.text.trim(),
         priority: _priority,
         dueDate: _dueDate,
-        dueTime: _dueTime != null
-            ? '${_dueTime!.hour.toString().padLeft(2, "0")}:${_dueTime!.minute.toString().padLeft(2, "0")}'
-            : null,
+        dueTime:
+            _dueTime != null
+                ? '${_dueTime!.hour.toString().padLeft(2, "0")}:${_dueTime!.minute.toString().padLeft(2, "0")}'
+                : null,
         taskType: _taskType,
         repeatType: _repeatType,
         repeatInterval: _repeatInterval,
@@ -126,9 +131,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
-        );
+        FxNotice.showContent(context, Text('保存失败: $e'));
       }
     }
   }
@@ -148,9 +151,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       if (mounted) widget.onClose();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e')),
-        );
+        FxNotice.showContent(context, Text('删除失败: $e'));
       }
     }
   }
@@ -170,23 +171,23 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
                 Text(
                   '任务详情',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     height: 1.5,
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                FxIconButton(
+                  icon: Icons.close,
+                  iconSize: 20,
                   onPressed: widget.onClose,
                   tooltip: '关闭',
-                  splashRadius: 18,
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
+          const FxSeparator.horizontal(height: 1),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -217,7 +218,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           controller: _titleController,
           placeholder: '任务标题',
           style: const TextStyle(
-            fontSize: AppTheme.textXl,
+            fontSize: SlowlightTypography.sectionTitleSize,
             height: 1.3,
             fontWeight: FontWeight.w600,
           ),
@@ -229,7 +230,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           placeholder: '添加描述...',
           placeholderStyle: TextStyle(color: theme.colorScheme.outline),
           style: TextStyle(
-            fontSize: AppTheme.textMd,
+            fontSize: SlowlightTypography.buttonSize,
             height: 1.5,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -263,7 +264,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Column(
         children: [
@@ -283,7 +284,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
                   Text(
                     '更多设置',
                     style: TextStyle(
-                      fontSize: AppTheme.textMd,
+                      fontSize: SlowlightTypography.buttonSize,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -299,7 +300,10 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
             ),
           ),
           if (_moreExpanded) ...[
-            Divider(height: 1, color: theme.colorScheme.outlineVariant),
+            FxSeparator.horizontal(
+              height: 1,
+              color: theme.colorScheme.outlineVariant,
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
               child: Column(
@@ -346,7 +350,8 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
     Widget? trailing,
   }) {
     final theme = Theme.of(context);
-    final color = valueColor ??
+    final color =
+        valueColor ??
         (muted ? theme.colorScheme.outline : theme.colorScheme.onSurface);
     return Container(
       constraints: const BoxConstraints(minHeight: 44),
@@ -367,7 +372,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -376,7 +381,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 color: color,
                 fontWeight: muted ? FontWeight.w400 : FontWeight.w500,
               ),
@@ -395,7 +400,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _dateMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置日期',
       onSelected: (value) async {
         final now = DateTime.now();
@@ -415,12 +420,13 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           if (picked != null) setState(() => _dueDate = picked);
         }
       },
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: 'today', child: Text('今天')),
-        PopupMenuItem(value: 'tomorrow', child: Text('明天')),
-        PopupMenuItem(value: 'none', child: Text('无日期')),
-        PopupMenuItem(value: 'custom', child: Text('选择日期...')),
-      ],
+      itemBuilder:
+          (_) => const [
+            FxMenuItem(value: 'today', child: Text('今天')),
+            FxMenuItem(value: 'tomorrow', child: Text('明天')),
+            FxMenuItem(value: 'none', child: Text('无日期')),
+            FxMenuItem(value: 'custom', child: Text('选择日期...')),
+          ],
       child: _propertyRow(
         icon: Icons.today_outlined,
         label: '日期',
@@ -431,23 +437,24 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _timeMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置时间',
       onSelected: (value) async {
         if (value == 'none') {
           setState(() => _dueTime = null);
           return;
         }
-        final time = await showTimePicker(
+        final time = await showFxTimePicker(
           context: context,
           initialTime: _dueTime ?? TimeOfDay.now(),
         );
         if (time != null) setState(() => _dueTime = time);
       },
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: 'custom', child: Text('选择时间...')),
-        PopupMenuItem(value: 'none', child: Text('无时间')),
-      ],
+      itemBuilder:
+          (_) => const [
+            FxMenuItem(value: 'custom', child: Text('选择时间...')),
+            FxMenuItem(value: 'none', child: Text('无时间')),
+          ],
       child: _propertyRow(
         icon: Icons.access_time_outlined,
         label: '时间',
@@ -458,30 +465,32 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _priorityMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置优先级',
       onSelected: (value) => setState(() => _priority = value),
-      itemBuilder: (_) =>
-          ['none', 'low', 'medium', 'high', 'urgent'].map((priority) {
-        return PopupMenuItem(
-          value: priority,
-          child: Row(
-            children: [
-              Icon(
-                priority == _priority
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                size: 18,
-                color: priority == _priority
-                    ? _priorityColor(priority)
-                    : Theme.of(context).colorScheme.outline,
-              ),
-              const SizedBox(width: 8),
-              Text(_priorityLabel(priority)),
-            ],
-          ),
-        );
-      }).toList(),
+      itemBuilder:
+          (_) =>
+              ['none', 'low', 'medium', 'high', 'urgent'].map((priority) {
+                return FxMenuItem(
+                  value: priority,
+                  child: Row(
+                    children: [
+                      Icon(
+                        priority == _priority
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        size: 18,
+                        color:
+                            priority == _priority
+                                ? _priorityColor(priority)
+                                : Theme.of(context).colorScheme.outline,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_priorityLabel(priority)),
+                    ],
+                  ),
+                );
+              }).toList(),
       child: _propertyRow(
         icon: Icons.flag_outlined,
         label: '优先级',
@@ -492,27 +501,31 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _systemTagMenu() {
-    return PopupMenuButton<int?>(
+    return FxMenu<int?>(
       tooltip: '设置状态标签',
       onSelected: (value) => setState(() => _systemTagId = value),
-      itemBuilder: (_) => [
-        const PopupMenuItem<int?>(value: null, child: Text('无状态标签')),
-        ..._systemTags.map((tag) {
-          final id = tag['id'] as int;
-          final name = tag['name'] as String? ?? '';
-          final icon = tag['icon'] as String? ?? '';
-          return PopupMenuItem<int?>(
-            value: id,
-            child: Row(
-              children: [
-                Text(icon, style: const TextStyle(fontSize: AppTheme.textLg)),
-                const SizedBox(width: 8),
-                Text(name),
-              ],
-            ),
-          );
-        }),
-      ],
+      itemBuilder:
+          (_) => [
+            const FxMenuItem<int?>(value: null, child: Text('无状态标签')),
+            ..._systemTags.map((tag) {
+              final id = tag['id'] as int;
+              final name = tag['name'] as String? ?? '';
+              final icon = tag['icon'] as String? ?? '';
+              return FxMenuItem<int?>(
+                value: id,
+                child: Row(
+                  children: [
+                    Text(
+                      icon,
+                      style: const TextStyle(fontSize: SlowlightTypography.bodySize),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(name),
+                  ],
+                ),
+              );
+            }),
+          ],
       child: _propertyRow(
         icon: Icons.label_outline,
         label: '状态标签',
@@ -523,12 +536,17 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _taskTypeMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置任务类型',
       onSelected: (value) => setState(() => _taskType = value),
-      itemBuilder: (_) => ['daily', 'branch', 'main', 'explore'].map((type) {
-        return PopupMenuItem(value: type, child: Text(_taskTypeLabel(type)));
-      }).toList(),
+      itemBuilder:
+          (_) =>
+              ['daily', 'branch', 'main', 'explore'].map((type) {
+                return FxMenuItem(
+                  value: type,
+                  child: Text(_taskTypeLabel(type)),
+                );
+              }).toList(),
       child: _propertyRow(
         icon: Icons.category_outlined,
         label: '任务类型',
@@ -538,7 +556,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _repeatMenu() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置重复',
       onSelected: (value) {
         setState(() {
@@ -546,9 +564,14 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           _selectedWeekdays.clear();
         });
       },
-      itemBuilder: (_) => ['none', 'daily', 'weekly', 'monthly'].map((type) {
-        return PopupMenuItem(value: type, child: Text(_repeatLabel(type)));
-      }).toList(),
+      itemBuilder:
+          (_) =>
+              ['none', 'daily', 'weekly', 'monthly'].map((type) {
+                return FxMenuItem(
+                  value: type,
+                  child: Text(_repeatLabel(type)),
+                );
+              }).toList(),
       child: _propertyRow(
         icon: Icons.repeat_outlined,
         label: '重复',
@@ -564,24 +587,32 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       padding: const EdgeInsets.only(left: 34, bottom: 8),
       child: Wrap(
         spacing: 6,
-        children: days.asMap().entries.map((entry) {
-          final day = entry.key + 1;
-          final selected = _selectedWeekdays.contains(day);
-          return ChoiceChip(
-            label: Text(entry.value),
-            selected: selected,
-            selectedColor: AppTheme.primaryLight,
-            onSelected: (_) {
-              setState(() {
-                if (selected) {
-                  _selectedWeekdays.remove(day);
-                } else {
-                  _selectedWeekdays.add(day);
-                }
-              });
-            },
-          );
-        }).toList(),
+        children:
+            days.asMap().entries.map((entry) {
+              final day = entry.key + 1;
+              final selected = _selectedWeekdays.contains(day);
+              return FxChip(
+                label: entry.value,
+                backgroundColor:
+                    selected ? AppTheme.primaryLight : fxSubtleSurface(context),
+                foregroundColor:
+                    selected
+                        ? activePalette.accent
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                borderColor:
+                    selected ? activePalette.accent : fxBorder(context),
+                borderRadius: 999,
+                onTap: () {
+                  setState(() {
+                    if (selected) {
+                      _selectedWeekdays.remove(day);
+                    } else {
+                      _selectedWeekdays.add(day);
+                    }
+                  });
+                },
+              );
+            }).toList(),
       ),
     );
   }
@@ -595,7 +626,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           Text(
             '每',
             style: TextStyle(
-              fontSize: AppTheme.textMd,
+              fontSize: SlowlightTypography.buttonSize,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -606,8 +637,10 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
               controller: _repeatIntervalController,
               keyboardType: TextInputType.number,
               isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 8,
+              ),
               onChanged: (value) {
                 final parsed = int.tryParse(value);
                 if (parsed != null && parsed > 0) _repeatInterval = parsed;
@@ -618,7 +651,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           Text(
             {'daily': '天', 'weekly': '周', 'monthly': '月'}[_repeatType] ?? '',
             style: TextStyle(
-              fontSize: AppTheme.textMd,
+              fontSize: SlowlightTypography.buttonSize,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -628,7 +661,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
   }
 
   Widget _reminderPicker() {
-    return PopupMenuButton<String>(
+    return FxMenu<String>(
       tooltip: '设置提醒',
       onSelected: (value) async {
         if (value == 'none') {
@@ -642,7 +675,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           lastDate: DateTime.now().add(const Duration(days: 365)),
         );
         if (picked == null) return;
-        final time = await showTimePicker(
+        final time = await showFxTimePicker(
           context: context,
           initialTime: TimeOfDay.fromDateTime(_reminderAt ?? DateTime.now()),
         );
@@ -657,10 +690,11 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           );
         });
       },
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: 'custom', child: Text('选择提醒时间...')),
-        PopupMenuItem(value: 'none', child: Text('无提醒')),
-      ],
+      itemBuilder:
+          (_) => const [
+            FxMenuItem(value: 'custom', child: Text('选择提醒时间...')),
+            FxMenuItem(value: 'none', child: Text('无提醒')),
+          ],
       child: _propertyRow(
         icon: Icons.notifications_outlined,
         label: '提醒',

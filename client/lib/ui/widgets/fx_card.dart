@@ -2,15 +2,19 @@ import 'fx_cursor.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../layout_tokens.dart';
+
 /// FxCard — 卡片组件
 class FxCard extends StatelessWidget {
   final Widget child;
-  final EdgeInsets? padding;
+  final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
   final Color? color;
   final double? borderRadius;
   final EdgeInsets? margin;
   final Border? border;
+  final List<BoxShadow>? boxShadow;
+  final bool expanded;
   final Key? _deprecatedCardKey;
 
   const FxCard({
@@ -22,26 +26,71 @@ class FxCard extends StatelessWidget {
     this.borderRadius,
     this.margin,
     this.border,
+    this.boxShadow,
+    this.expanded = false,
     @Deprecated('Pass key directly to FxCard constructor instead')
     Key? cardKey,
   }) : _deprecatedCardKey = cardKey;
 
   @override
   Widget build(BuildContext context) {
-    Widget card = ShadCard(
-      key: _deprecatedCardKey,
-      padding: padding ?? const EdgeInsets.all(16),
-      backgroundColor: color,
-      radius: borderRadius != null
-          ? BorderRadius.circular(borderRadius!)
-          : null,
-      border: border,
-      columnMainAxisAlignment: MainAxisAlignment.start,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
-    );
+    final radius = borderRadius != null
+        ? BorderRadius.circular(borderRadius!)
+        : null;
+    final resolvedPadding =
+        (padding ?? const EdgeInsets.all(SlowlightSpacing.xxxl)).resolve(
+          Directionality.of(context),
+        );
+    final hasShadTheme =
+        context.dependOnInheritedWidgetOfExactType<ShadInheritedTheme>() != null;
+
+    Widget card;
+    if (hasShadTheme) {
+      card = ShadCard(
+        key: _deprecatedCardKey,
+        padding: resolvedPadding,
+        backgroundColor: color,
+        radius: radius,
+        border: border,
+        columnMainAxisAlignment: MainAxisAlignment.start,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
+      );
+    } else {
+      final materialRadius = radius ?? BorderRadius.zero;
+      card = Container(
+        key: _deprecatedCardKey,
+        padding: resolvedPadding,
+        decoration: BoxDecoration(
+          color: color ?? Theme.of(context).colorScheme.surface,
+          borderRadius: materialRadius,
+          border: border,
+        ),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
+      );
+    }
+
+    if (boxShadow != null && radius != null) {
+      card = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: boxShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: card,
+        ),
+      );
+    }
+
+    if (expanded) {
+      card = SizedBox(width: double.infinity, child: card);
+    }
 
     if (margin != null) {
       card = Padding(padding: margin!, child: card);

@@ -63,14 +63,15 @@ go build -o slowlight ./cmd
 
 UI 规则：
 
-- 页面优先使用 `client/lib/ui/fx.dart` 暴露的 Fx 组件。
-- 不无理由绕过 Fx 层直接堆 Material / shadcn_ui。
-- spacing、radius、font size 优先使用统一 Theme Token。
-- 避免硬编码颜色和一次性 magic number。
+- 页面优先使用 `client/lib/ui/fx.dart` 暴露的 Fx 组件；Screen / Feature Widget 不应绕过已有 Fx 视觉能力直接建立另一套 Material / shadcn_ui 实现。
+- `shadcn_ui` 是主要视觉底座；Fx 负责统一接口、状态、响应式与必要的平台适配，不因迁移重新设计既有高保真。
+- Fx 内部优先使用 shadcn_ui；Material 视觉控件仅允许作为有明确能力原因的平台适配例外，并保持 Slowlight 已确认视觉。
+- spacing、radius、font size 优先使用统一 Theme / Design Token，避免硬编码颜色和一次性 magic number。
+- 应用壳层断点使用 600 / 1024；组件内部根据真实可用宽度决定折叠，不自行扩散私有全局断点。
 - 同时支持亮色 / 暗色主题。
-- 可点击控件尽量不小于 44px。
+- Android 主要可点击热区以 44px 为最低基线；Windows 保持高密度可见尺寸，不能为了移动端触控目标把桌面控件和布局整体撑大。
 - 不在生产代码保留临时 `debugPrint`。
-- 不重新设计已经确定的 Slowlight Logo。
+- 不重新设计已经确定的 Slowlight Logo 或已经确认的高保真页面。
 
 验证：
 
@@ -79,6 +80,8 @@ cd client
 flutter test
 flutter build web
 ```
+
+UI 改动还需要按改动范围验证 Windows 常用窗口 / DPI / Hover / Focus 与 Android 窄屏 / 大字体 / Sheet / 返回手势；CI 绿不等于视觉验收完成。
 
 ## 安全与数据完整性
 

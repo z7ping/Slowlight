@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../ui/fx.dart';
 
 /// 习惯打卡月度热力图组件
 /// 类似 GitHub 贡献热力图，按月展示
@@ -74,7 +75,7 @@ class HabitHeatmap extends StatelessWidget {
               child: Text(
                 monthLabel,
                 style: TextStyle(
-                  fontSize: AppTheme.textMd, height: 1.5,
+                  fontSize: SlowlightTypography.buttonSize, height: 1.5,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.warmDark,
                 ),
@@ -91,7 +92,7 @@ class HabitHeatmap extends StatelessWidget {
                     child: Text(
                       _weekdayLabel(i),
                       style: TextStyle(
-                        fontSize: AppTheme.textXs, height: 1.4,
+                        fontSize: SlowlightTypography.captionSize, height: 1.4,
                         color: AppTheme.warmGray400,
                         fontWeight: FontWeight.w500,
                       ),

@@ -1,10 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+
 import '../services/lock_screen.dart';
 import '../services/reminder_service.dart';
-import '../ui/app_theme.dart';
+import '../ui/fx.dart';
 
 /// 全局休息遮罩 — 不依赖任何特定页面，通过 navigatorKey 挂载。
 /// 内部监听 ReminderService，状态离开 rest 时自动关闭。
@@ -50,6 +51,12 @@ class _RestOverlayState extends State<RestOverlay> {
   late int _remaining;
   Timer? _timer;
   bool _dismissed = false;
+
+  // 休息遮罩是独立高保真场景，这些字号只属于该组件，不扩散为全局 Token。
+  static const double _modeLabelFontSize = 11;
+  static const double _timerFontSize = 38;
+  static const double _tipFontSize = 14.5;
+  static const double _strictStatusFontSize = 11;
 
   static const List<String> _tips = [
     '站起来走走，活动一下筋骨',
@@ -140,52 +147,126 @@ class _RestOverlayState extends State<RestOverlay> {
   Widget build(BuildContext context) {
     final m = _remaining ~/ 60;
     final s = _remaining % 60;
-    final title = widget.isMicroRest ? '小憩一下' : '休息一下';
+    final progress = widget.restSeconds <= 0
+        ? 0.0
+        : (_remaining / widget.restSeconds).clamp(0.0, 1.0).toDouble();
+    final modeLabel = widget.isMicroRest ? 'MICRO BREAK' : 'LONG BREAK';
 
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: Colors.black87,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                widget.isMicroRest ? Icons.self_improvement : Icons.spa,
-                color: AppTheme.white54,
-                size: 64,
-              ),
-              const SizedBox(height: 32),
-              Text(title, style: TextStyle(color: AppTheme.white70, fontSize: AppTheme.text2Xl)),
-              const SizedBox(height: 8),
-              Text(_tip, style: TextStyle(color: AppTheme.white38, fontSize: AppTheme.textMd)),
-              const SizedBox(height: 32),
-              Text(
-                '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
-                style: TextStyle(color: AppTheme.white, fontSize: 48, fontWeight: FontWeight.w200),
-              ),
-              const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (widget.allowPostpone) ...[
-                    ShadButton.ghost(
-                      onPressed: _postponeRest,
-                      child: const Text('延后 5 分钟', style: TextStyle(color: AppTheme.white54)),
+        backgroundColor: Colors.transparent,
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                SlowlightSemanticColor.restGradientStart,
+                SlowlightSemanticColor.restGradientMiddle,
+                SlowlightSemanticColor.restGradientEnd,
+              ],
+              stops: [0, .6, 1],
+            ),
+          ),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 14,
+                  left: 18,
+                  child: Text(
+                    modeLabel,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: _modeLabelFontSize,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 3,
                     ),
-                    const SizedBox(width: 24),
-                  ],
-                  if (!widget.strict) ...[
-                    ShadButton.ghost(
-                      onPressed: _skipRest,
-                      child: const Text('跳过', style: TextStyle(color: AppTheme.white38)),
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FxProgressRing(
+                          value: progress,
+                          size: 190,
+                          strokeWidth: 8,
+                          color: SlowlightSemanticColor.successEmphasis,
+                          backgroundColor: Colors.white.withValues(alpha: .14),
+                          semanticsLabel: widget.isMicroRest
+                              ? '小憩剩余时间'
+                              : '长休息剩余时间',
+                          semanticsValue: '$_remaining 秒',
+                          child: Container(
+                            width: 154,
+                            height: 154,
+                            decoration: const BoxDecoration(
+                              color: SlowlightSemanticColor.restTimerSurface,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: _timerFontSize,
+                                  fontWeight: FontWeight.w700,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          _tip,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: _tipFontSize,
+                            height: 1.5,
+                          ),
+                        ),
+                        if (widget.allowPostpone) ...[
+                          const SizedBox(height: 14),
+                          FxButton(
+                            label: '延后 5 分钟',
+                            variant: FxButtonVariant.ghost,
+                            size: FxButtonSize.sm,
+                            foregroundColor: Colors.white54,
+                            onPressed: _postponeRest,
+                          ),
+                        ],
+                      ],
                     ),
-                  ] else ...[
-                    Text('🔒 严格模式', style: TextStyle(color: AppTheme.white38, fontSize: AppTheme.textSm)),
-                  ],
-                ],
-              ),
-            ],
+                  ),
+                ),
+                Positioned(
+                  right: 18,
+                  bottom: 14,
+                  child: widget.strict
+                      ? const Text(
+                          '严格模式 · 不可跳过',
+                          style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: _strictStatusFontSize,
+                            height: 1.4,
+                          ),
+                        )
+                      : FxButton(
+                          label: '跳过',
+                          variant: FxButtonVariant.ghost,
+                          size: FxButtonSize.sm,
+                          foregroundColor: Colors.white38,
+                          onPressed: _skipRest,
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

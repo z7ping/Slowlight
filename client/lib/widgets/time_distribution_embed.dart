@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/api/analytics_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -38,19 +39,30 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    if (_loading) {
+      return const Center(child: FxCircularProgress(strokeWidth: 2));
+    }
     final totalMin = (_data['total_min'] as num?)?.toInt() ?? 0;
-    final tags = (_data['tags'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-    final byDay = (_data['by_day'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+    final tags =
+        (_data['tags'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+    final byDay =
+        (_data['by_day'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
 
     if (tags.isEmpty) {
-      return Center(child: Text('暂无专注数据', style: TextStyle(color: AppTheme.warmGray400)));
+      return Center(
+        child: Text(
+          '暂无专注数据',
+          style: SlowlightTypography.secondary(
+            context,
+          ).copyWith(color: AppTheme.warmGray400),
+        ),
+      );
     }
     final h = (totalMin / 60).floor();
     final m = totalMin % 60;
     final pad = widget.dense ? 12.0 : 16.0;
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadData,
       color: AppTheme.primary,
       child: ListView(
@@ -61,7 +73,10 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.primary, AppTheme.primary.withValues(alpha: 0.8)],
+                colors: [
+                  AppTheme.primary,
+                  AppTheme.primary.withValues(alpha: 0.8),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -69,14 +84,30 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
             ),
             child: Column(
               children: [
-                const Text('近 7 天总投入', style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.white70)),
+                const Text(
+                  '近 7 天总投入',
+                  style: TextStyle(
+                    fontSize: SlowlightTypography.buttonSize,
+                    color: AppTheme.white70,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   h > 0 ? '$h 小时 $m 分钟' : '$m 分钟',
-                  style: const TextStyle(fontSize: AppTheme.textXl, fontWeight: FontWeight.bold, color: AppTheme.white),
+                  style: const TextStyle(
+                    fontSize: SlowlightTypography.sectionTitleSize,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.white,
+                  ),
                 ),
                 const SizedBox(height: 4),
-                Text('覆盖 ${tags.length} 个维度', style: const TextStyle(fontSize: AppTheme.textXs, color: AppTheme.white60)),
+                Text(
+                  '覆盖 ${tags.length} 个维度',
+                  style: const TextStyle(
+                    fontSize: SlowlightTypography.captionSize,
+                    color: AppTheme.white60,
+                  ),
+                ),
               ],
             ),
           ),
@@ -85,7 +116,13 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('时间分布', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmDark)),
+                Text(
+                  '时间分布',
+                  style: SlowlightTypography.secondary(context).copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.warmDark,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Center(
                   child: SizedBox(
@@ -110,24 +147,42 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                 const SizedBox(height: 16),
                 ...tags.asMap().entries.map((entry) {
                   final tag = entry.value;
-                  final color = [
-                    AppTheme.primary,
-                    AppTheme.success,
-                    AppTheme.warning,
-                    AppTheme.priorityHigh,
-                    AppTheme.warmGray400,
-                    AppTheme.warmGray300,
-                  ][entry.key % 6];
+                  final color =
+                      [
+                        AppTheme.primary,
+                        AppTheme.success,
+                        AppTheme.warning,
+                        AppTheme.priorityHigh,
+                        AppTheme.warmGray400,
+                        AppTheme.warmGray300,
+                      ][entry.key % 6];
                   final percent = (tag['percent'] as num?)?.toDouble() ?? 0;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       children: [
-                        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                         const SizedBox(width: 8),
-                        Text('${tag['icon'] ?? ''} ${tag['name'] ?? ''}', style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmDark)),
+                        Text(
+                          '${tag['icon'] ?? ''} ${tag['name'] ?? ''}',
+                          style: SlowlightTypography.secondary(
+                            context,
+                          ).copyWith(color: AppTheme.warmDark),
+                        ),
                         const Spacer(),
-                        Text('${percent.toStringAsFixed(0)}%', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: color)),
+                        Text(
+                          '${percent.toStringAsFixed(0)}%',
+                          style: SlowlightTypography.secondary(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w600, color: color),
+                        ),
                       ],
                     ),
                   );
@@ -141,7 +196,13 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('每日明细', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmDark)),
+                  Text(
+                    '每日明细',
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.warmDark,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   ...byDay.map((day) {
                     final dayMin = (day['total_min'] as num?)?.toInt() ?? 0;
@@ -153,29 +214,42 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                         children: [
                           SizedBox(
                             width: 40,
-                            child: Text(_weekdayLabel(day['date'] ?? ''), style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray500)),
+                            child: Text(
+                              _weekdayLabel(day['date'] ?? ''),
+                              style: SlowlightTypography.caption(
+                                context,
+                              ).copyWith(color: AppTheme.warmGray500),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: pct,
-                                minHeight: 6,
-                                backgroundColor: AppTheme.warmGray300,
-                                valueColor: AlwaysStoppedAnimation(AppTheme.primary),
-                              ),
+                            child: FxProgress(
+                              value: pct,
+                              height: 6,
+                              color: AppTheme.primary,
                             ),
                           ),
                           const SizedBox(width: 8),
                           SizedBox(
                             width: 55,
-                            child: Text('${dayMin}分钟', style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray500), textAlign: TextAlign.end),
+                            child: Text(
+                              '${dayMin}分钟',
+                              style: SlowlightTypography.caption(
+                                context,
+                              ).copyWith(color: AppTheme.warmGray500),
+                              textAlign: TextAlign.end,
+                            ),
                           ),
                           const SizedBox(width: 4),
                           SizedBox(
                             width: 28,
-                            child: Text('$workCount次', style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray400), textAlign: TextAlign.end),
+                            child: Text(
+                              '$workCount次',
+                              style: SlowlightTypography.caption(
+                                context,
+                              ).copyWith(color: AppTheme.warmGray400),
+                              textAlign: TextAlign.end,
+                            ),
                           ),
                         ],
                       ),
@@ -210,7 +284,11 @@ class _PieChartPainter extends CustomPainter {
   final int totalMin;
   final List<Color> colors;
 
-  _PieChartPainter({required this.tags, required this.totalMin, required this.colors});
+  _PieChartPainter({
+    required this.tags,
+    required this.totalMin,
+    required this.colors,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -224,7 +302,13 @@ class _PieChartPainter extends CustomPainter {
       final pct = (tags[i]['percent'] as num?)?.toDouble() ?? 0;
       final sweepAngle = (pct / 100) * 2 * 3.1415926535897932;
       paint.color = colors[i % colors.length];
-      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweepAngle, true, paint);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        true,
+        paint,
+      );
       startAngle += sweepAngle;
     }
 
@@ -235,9 +319,20 @@ class _PieChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
       text: TextSpan(
         text: '$totalMin',
-        style: TextStyle(fontSize: AppTheme.textXl, fontWeight: FontWeight.bold, color: AppTheme.warmDark),
+        style: TextStyle(
+          fontSize: SlowlightTypography.sectionTitleSize,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.warmDark,
+        ),
         children: [
-          TextSpan(text: '\n分钟', style: TextStyle(fontSize: AppTheme.textXs, fontWeight: FontWeight.normal, color: AppTheme.warmGray500)),
+          TextSpan(
+            text: '\n分钟',
+            style: TextStyle(
+              fontSize: SlowlightTypography.captionSize,
+              fontWeight: FontWeight.normal,
+              color: AppTheme.warmGray500,
+            ),
+          ),
         ],
       ),
       textAlign: TextAlign.center,

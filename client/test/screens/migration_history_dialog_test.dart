@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/screens/migration_history_dialog.dart';
-import 'package:slowlight/ui/theme_manager.dart';
+import 'package:slowlight/ui/fx.dart';
+
+import '../support/fx_test_host.dart';
 
 void main() {
   testWidgets('迁移历史弹窗可以从根导航正常打开和关闭', (tester) async {
     await tester.pumpWidget(
-      ShadTheme(
-        data: ThemeManager.shadLight,
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: ElevatedButton(
-                onPressed: () => MigrationHistoryDialog.show(context),
-                child: const Text('打开历史'),
-              ),
+      buildFxTestHost(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FxButton(
+              label: '打开历史',
+              onPressed: () => MigrationHistoryDialog.show(context),
             ),
           ),
         ),
@@ -34,5 +32,6 @@ void main() {
 
     expect(find.byType(MigrationHistoryDialog), findsNothing);
     expect(find.byType(ModalBarrier), findsNWidgets(barrierBaseline));
+    await disposeFxTestHost(tester);
   });
 }

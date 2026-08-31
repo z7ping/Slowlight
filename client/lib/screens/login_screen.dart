@@ -5,10 +5,8 @@ import '../brand.dart';
 import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/data_mode_manager.dart';
-import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -59,9 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
           username: _usernameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          nickname: _nicknameController.text.trim().isEmpty
-              ? null
-              : _nicknameController.text.trim(),
+          nickname:
+              _nicknameController.text.trim().isEmpty
+                  ? null
+                  : _nicknameController.text.trim(),
         );
       }
       await DataModeManager().setCloud();
@@ -101,9 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 
   @override
@@ -120,17 +117,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SlowlightLogo(size: 52),
                   const SizedBox(height: 14),
-                  const Text(
+                  Text(
                     kBrandDisplayName,
-                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                    textAlign: TextAlign.center,
+                    style: SlowlightTypography.pageTitle(context),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '了解自己的系统 · 数据位置由你选择',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    textAlign: TextAlign.center,
+                    style: SlowlightTypography.secondary(
+                      context,
+                    ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 22),
                   FxButton(
@@ -143,109 +141,107 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      Expanded(child: Divider(color: hfBorder(context))),
+                      Expanded(
+                        child: FxSeparator.horizontal(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
                           '或登录使用云端数据',
-                          style: TextStyle(
-                            fontSize: AppTheme.textXs,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                          style: SlowlightTypography.caption(
+                            context,
+                          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
-                      Expanded(child: Divider(color: hfBorder(context))),
+                      Expanded(
+                        child: FxSeparator.horizontal(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 18),
-                  TextField(
+                  FxInput(
                     controller: _usernameController,
                     enabled: !_isLoading,
                     textInputAction: TextInputAction.next,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: _isLogin ? '邮箱或用户名' : '用户名',
-                    ),
+                    placeholder: _isLogin ? '邮箱或用户名' : '用户名',
                   ),
                   if (!_isLogin) ...[
                     const SizedBox(height: 8),
-                    TextField(
+                    FxInput(
                       controller: _emailController,
                       enabled: !_isLoading,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(hintText: '邮箱'),
+                      placeholder: '邮箱',
                     ),
                   ],
                   const SizedBox(height: 8),
-                  TextField(
+                  FxInput(
                     controller: _passwordController,
                     enabled: !_isLoading,
                     obscureText: _obscurePassword,
                     textInputAction:
                         _isLogin ? TextInputAction.done : TextInputAction.next,
                     onSubmitted: _isLogin ? (_) => _submit() : null,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: '密码',
-                      suffixIcon: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                          onPressed: () => setState(
+                    placeholder: '密码',
+                    trailing: FxIconButton(
+                      tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+                      onPressed:
+                          () => setState(
                             () => _obscurePassword = !_obscurePassword,
                           ),
-                          icon: Icon(
-                            _obscurePassword
-                                ? LucideIcons.eye
-                                : LucideIcons.eyeOff,
-                            size: 17,
-                          ),
-                        ),
-                      ),
+                      icon:
+                          _obscurePassword
+                              ? LucideIcons.eye
+                              : LucideIcons.eyeOff,
+                      iconSize: 17,
                     ),
                   ),
                   if (!_isLogin) ...[
                     const SizedBox(height: 8),
-                    TextField(
+                    FxInput(
                       controller: _nicknameController,
                       enabled: !_isLoading,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _submit(),
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(hintText: '昵称（可选）'),
+                      placeholder: '昵称（可选）',
                     ),
                   ],
                   const SizedBox(height: 12),
                   FxButton(
-                    label: _isLoading
-                        ? '处理中…'
-                        : _isLogin
+                    label:
+                        _isLoading
+                            ? '处理中…'
+                            : _isLogin
                             ? '登录'
                             : '注册',
                     expanded: true,
                     onPressed: _isLoading ? null : _submit,
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
                     children: [
                       Text(
                         _isLogin ? '还没有账号？' : '已有账号？',
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                       FxButton(
                         label: _isLogin ? '注册' : '登录',
                         variant: FxButtonVariant.link,
                         size: FxButtonSize.sm,
-                        onPressed: _isLoading
-                            ? null
-                            : () => setState(() => _isLogin = !_isLogin),
+                        onPressed:
+                            _isLoading
+                                ? null
+                                : () => setState(() => _isLogin = !_isLogin),
                       ),
                     ],
                   ),

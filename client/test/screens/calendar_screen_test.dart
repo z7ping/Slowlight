@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
-import 'package:slowlight/ui/theme_manager.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+
+import '../support/fx_test_host.dart';
 
 void main() {
   final month = DateTime(2026, 8, 1);
@@ -59,18 +59,19 @@ void main() {
 
   Widget buildApp({
     Future<void> Function(BuildContext, DateTime)? createTask,
+    TextScaler textScaler = TextScaler.noScaling,
   }) {
-    return ShadTheme(
-      data: ThemeManager.shadLight,
-      child: MaterialApp(
-        theme: ThemeManager.lightTheme,
-        home: Scaffold(
-          body: CalendarScreen(
-            monthLoader: loader,
-            initialMonth: month,
-            initialSelectedDate: selected,
-            createTaskOverride: createTask,
-          ),
+    return buildFxTestHost(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: CalendarScreen(
+          monthLoader: loader,
+          initialMonth: month,
+          initialSelectedDate: selected,
+          createTaskOverride: createTask,
         ),
       ),
     );
@@ -79,12 +80,16 @@ void main() {
   Future<void> pumpCalendar(
     WidgetTester tester, {
     double width = 1200,
+    double height = 1000,
+    TextScaler textScaler = TextScaler.noScaling,
     Future<void> Function(BuildContext, DateTime)? createTask,
   }) async {
-    tester.view.physicalSize = Size(width, 1000);
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(buildApp(createTask: createTask));
+    await tester.pumpWidget(
+      buildApp(createTask: createTask, textScaler: textScaler),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -103,6 +108,7 @@ void main() {
     expect(find.text('习惯 1'), findsOneWidget);
     expect(find.text('专注 50min'), findsOneWidget);
     expect(find.text('观察 1'), findsOneWidget);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('切换日期后下方数据联动', (tester) async {
@@ -114,6 +120,7 @@ void main() {
     expect(find.text('8 月 22 日 · 周六'), findsOneWidget);
     expect(find.text('计划与实际 · 共 1 条完整记录'), findsOneWidget);
     expect(find.text('整理会议记录'), findsWidgets);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('计划筛选只影响月格，不隐藏下方完整数据', (tester) async {
@@ -121,7 +128,7 @@ void main() {
 
     expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
         findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('calendar-filter-plan')));
+    await tester.tap(find.text('计划').first);
     await tester.pump();
 
     expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
@@ -129,6 +136,7 @@ void main() {
     expect(find.byKey(const ValueKey('calendar-record-habit-read')),
         findsOneWidget);
     expect(find.text('计划与实际 · 共 4 条完整记录'), findsOneWidget);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('新建任务携带选中日期', (tester) async {
@@ -138,8 +146,9 @@ void main() {
       createTask: (_, date) async => createdFor = date,
     );
 
+    final addTask = find.byKey(const ValueKey('calendar-add-task'));
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('calendar-add-task')),
+      addTask,
       300,
       scrollable: find
           .descendant(
@@ -148,10 +157,13 @@ void main() {
           )
           .first,
     );
-    await tester.tap(find.byKey(const ValueKey('calendar-add-task')));
+    await tester.ensureVisible(addTask);
+    await tester.pumpAndSettle();
+    await tester.tap(addTask);
     await tester.pumpAndSettle();
 
     expect(createdFor, DateTime(2026, 8, 21));
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('点击足迹记录打开详情', (tester) async {
@@ -168,6 +180,7 @@ void main() {
 
     expect(find.text('连续工作块偏短。'), findsOneWidget);
     expect(find.text('观察 · 实际'), findsOneWidget);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('窄屏仍可浏览月格和当日列表', (tester) async {
@@ -177,5 +190,35 @@ void main() {
     expect(find.text('当日任务'), findsOneWidget);
     expect(find.text('当日足迹'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('360dp 与 200% 字体缩放下日历主路径无溢出', (tester) async {
+    await pumpCalendar(
+      tester,
+      width: 360,
+      height: 1000,
+      textScaler: const TextScaler.linear(2),
+    );
+
+    expect(find.text('2026 年 8 月'), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-scroll-view')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('calendar-selected-title')),
+      300,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('calendar-scroll-view')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('当日任务'), findsOneWidget);
+    expect(find.text('当日足迹'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 }

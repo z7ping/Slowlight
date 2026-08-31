@@ -1,10 +1,10 @@
-import '../ui/widgets/fx_cursor.dart';
 import 'package:flutter/material.dart';
+
+import '../screens/conflict_screen.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
 import '../services/sync_service.dart';
-import '../screens/conflict_screen.dart';
-import '../ui/app_theme.dart';
+import '../ui/fx.dart';
 
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
 class SyncStatusBadge extends StatelessWidget {
@@ -25,11 +25,11 @@ class SyncStatusBadge extends StatelessWidget {
         if (DataModeManager().isLocal) {
           return showLocal
               ? _statusPill(
-                  context,
-                  icon: Icons.check_circle_outline,
-                  text: '本地数据',
-                  color: Theme.of(context).colorScheme.primary,
-                )
+                context,
+                icon: Icons.check_circle_outline,
+                text: '本地数据',
+                color: Theme.of(context).colorScheme.primary,
+              )
               : const SizedBox.shrink();
         }
 
@@ -53,9 +53,10 @@ class SyncStatusBadge extends StatelessWidget {
                   onTap: () => _showDetail(context, sync, pending),
                   child: _statusPill(
                     context,
-                    icon: status == SyncStatusEnum.error
-                        ? Icons.cloud_off
-                        : Icons.cloud_queue,
+                    icon:
+                        status == SyncStatusEnum.error
+                            ? Icons.cloud_off
+                            : Icons.cloud_queue,
                     text: pending > 0 ? '$pending 待同步' : _getStatusText(status),
                     color: _getColor(status, context),
                     loading: status == SyncStatusEnum.syncing,
@@ -81,9 +82,7 @@ class SyncStatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -92,18 +91,16 @@ class SyncStatusBadge extends StatelessWidget {
             SizedBox(
               width: 12,
               height: 12,
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: color),
+              child: FxCircularProgress(strokeWidth: 1.5, color: color),
             )
           else
             Icon(icon, size: 13, color: color),
           const SizedBox(width: 6),
           Text(
             text,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
-              color: color,
-              fontWeight: FontWeight.w500,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: color, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -134,85 +131,87 @@ class SyncStatusBadge extends StatelessWidget {
   }
 
   void _showDetail(BuildContext context, SyncService sync, int pending) {
-    showModalBottomSheet(
+    FxSheet.show(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '同步状态',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              _infoRow('状态', _getStatusText(sync.status)),
-              _infoRow('待同步', '$pending 项'),
-              if (sync.lastError != null)
-                _infoRow(
-                  '错误',
-                  sync.lastError!
-                      .substring(0, sync.lastError!.length.clamp(0, 80)),
-                ),
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: sync.getConflicts('tasks'),
-                builder: (ctx, snap) {
-                  final conflicts = snap.data ?? [];
-                  if (conflicts.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    children: [
-                      _infoRow('冲突', '${conflicts.length} 项'),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ConflictScreen(),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.warning_amber, size: 18),
-                          label: Text('解决 ${conflicts.length} 个冲突'),
-                        ),
+      builder:
+          (ctx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '同步状态',
+                    style: SlowlightTypography.cardTitle(
+                      ctx,
+                    ).copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  _infoRow(ctx, '状态', _getStatusText(sync.status)),
+                  _infoRow(ctx, '待同步', '$pending 项'),
+                  if (sync.lastError != null)
+                    _infoRow(
+                      ctx,
+                      '错误',
+                      sync.lastError!.substring(
+                        0,
+                        sync.lastError!.length.clamp(0, 80),
                       ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await CloudSyncCoordinator().syncNow();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('手动同步已触发')),
+                    ),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: sync.getConflicts('tasks'),
+                    builder: (ctx, snap) {
+                      final conflicts = snap.data ?? [];
+                      if (conflicts.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        children: [
+                          _infoRow(ctx, '冲突', '${conflicts.length} 项'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FxButton(
+                              label: '解决 ${conflicts.length} 个冲突',
+                              icon: Icons.warning_amber,
+                              variant: FxButtonVariant.outline,
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ConflictScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       );
-                    }
-                  },
-                  icon: const Icon(Icons.sync, size: 18),
-                  label: const Text('立即同步'),
-                ),
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FxButton(
+                      label: '立即同步',
+                      icon: Icons.sync,
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await CloudSyncCoordinator().syncNow();
+                        if (context.mounted) {
+                          FxNotice.showContent(context, Text('手动同步已触发'));
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _infoRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -221,15 +220,13 @@ class SyncStatusBadge extends StatelessWidget {
             width: 60,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: AppTheme.textSm,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
           Expanded(
-            child:
-                Text(value, style: const TextStyle(fontSize: AppTheme.textSm)),
+            child: Text(value, style: SlowlightTypography.caption(context)),
           ),
         ],
       ),

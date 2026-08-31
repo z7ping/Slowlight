@@ -59,7 +59,12 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
   }
 
   String _periodLabel(String period) {
-    const labels = {'morning': '☀️ 早晨', 'afternoon': '🌤 下午', 'evening': '🌆 傍晚', 'night': '🌙 晚间'};
+    const labels = {
+      'morning': '☀️ 早晨',
+      'afternoon': '🌤 下午',
+      'evening': '🌆 傍晚',
+      'night': '🌙 晚间',
+    };
     return labels[period] ?? '';
   }
 
@@ -71,7 +76,10 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
       decoration: BoxDecoration(
         color: AppTheme.warmGray300.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.warmBorder.withValues(alpha: 0.5), width: 0.5),
+        border: Border.all(
+          color: AppTheme.warmBorder.withValues(alpha: 0.5),
+          width: 0.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,12 +95,18 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                   const SizedBox(width: 4),
                   Text(
                     '习惯 ${widget.habits.length} 项',
-                    style: TextStyle(fontSize: AppTheme.textMd, height: 1.4, fontWeight: FontWeight.w600, color: AppTheme.warmGray500),
+                    style: TextStyle(
+                      fontSize: SlowlightTypography.buttonSize,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.warmGray500,
+                    ),
                   ),
                   const Spacer(),
                   Icon(
                     widget.expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 16, color: AppTheme.warmGray400,
+                    size: 16,
+                    color: AppTheme.warmGray400,
                   ),
                 ],
               ),
@@ -103,10 +117,13 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
               ...widget.habits.map((habit) {
                 final color = ColorUtils.safeParse(habit['color'] ?? '#52c41a');
                 final now = DateTime.now();
-                final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                final todayStr =
+                    '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
                 final checkedToday = habit['checked_today'] == true;
                 final streak = habit['streak_count'] ?? 0;
-                final showDialog = habit['show_checkin_dialog'] == true || habit['show_checkin_dialog'] == 1;
+                final showDialog =
+                    habit['show_checkin_dialog'] == true ||
+                    habit['show_checkin_dialog'] == 1;
                 final habitId = (habit['id'] as num).toInt();
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3),
@@ -124,14 +141,18 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                             await ApiService.uncheckInHabit(habitId);
                             widget.onRefresh();
                             if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('已取消「${habit['name']}」的打卡'), duration: const Duration(seconds: 2)),
+                              FxNotice.showContent(
+                                context,
+                                Text('已取消「${habit['name']}」的打卡'),
+                                duration: const Duration(seconds: 2),
                               );
                             }
                           } catch (e) {
                             if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('取消失败：${e.toString()}'), backgroundColor: Theme.of(context).colorScheme.error),
+                              FxNotice.showContent(
+                                context,
+                                Text('取消失败：${e.toString()}'),
+                                variant: FxNoticeVariant.destructive,
                               );
                             }
                           }
@@ -140,22 +161,31 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                       }
                       // 根据设置决定是否弹窗
                       if (showDialog) {
-                        final result = await HabitCheckinDialog.show(context, habit: Habit.fromJson(habit));
+                        final result = await HabitCheckinDialog.show(
+                          context,
+                          habit: Habit.fromJson(habit),
+                        );
                         if (result == null || !mounted) return;
                         try {
-                          await ApiService.checkInHabit(habitId,
+                          await ApiService.checkInHabit(
+                            habitId,
                             durationMin: result['duration_min'] as int,
                             period: result['period'] as String,
                             note: result['note'] as String? ?? '',
                           );
                           widget.onRefresh();
                           if (mounted) {
-                            _showCheckinSuccess(context, habit['name'] as String);
+                            _showCheckinSuccess(
+                              context,
+                              habit['name'] as String,
+                            );
                           }
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('打卡失败：${e.toString()}'), backgroundColor: Theme.of(context).colorScheme.error),
+                            FxNotice.showContent(
+                              context,
+                              Text('打卡失败：${e.toString()}'),
+                              variant: FxNoticeVariant.destructive,
                             );
                           }
                         }
@@ -163,7 +193,8 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                       }
                       // 快速打卡
                       try {
-                        await ApiService.checkInHabit(habitId,
+                        await ApiService.checkInHabit(
+                          habitId,
                           durationMin: habit['duration_min'] as int? ?? 0,
                           period: habit['preferred_period'] as String? ?? '',
                         );
@@ -173,8 +204,10 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                         }
                       } catch (e) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('打卡失败：${e.toString()}'), backgroundColor: Theme.of(context).colorScheme.error),
+                          FxNotice.showContent(
+                            context,
+                            Text('打卡失败：${e.toString()}'),
+                            variant: FxNoticeVariant.destructive,
                           );
                         }
                       }
@@ -182,10 +215,14 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                     onLongPress: () async {
                       // 长按弹窗可填日志（无论 quick 还是 dialog 模式）
                       final h = Habit.fromJson(habit);
-                      final result = await HabitCheckinDialog.show(context, habit: h);
+                      final result = await HabitCheckinDialog.show(
+                        context,
+                        habit: h,
+                      );
                       if (result == null || !mounted) return;
                       try {
-                        await ApiService.checkInHabit(habitId,
+                        await ApiService.checkInHabit(
+                          habitId,
                           durationMin: result['duration_min'] as int,
                           period: result['period'] as String,
                           note: result['note'] as String? ?? '',
@@ -196,8 +233,10 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                         }
                       } catch (e) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('打卡失败：${e.toString()}'), backgroundColor: Theme.of(context).colorScheme.error),
+                          FxNotice.showContent(
+                            context,
+                            Text('打卡失败：${e.toString()}'),
+                            variant: FxNoticeVariant.destructive,
                           );
                         }
                       }
@@ -209,29 +248,46 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          border: checkedToday
-                              ? Border(left: BorderSide(color: color, width: 3))
-                              : null,
+                          border:
+                              checkedToday
+                                  ? Border(
+                                    left: BorderSide(color: color, width: 3),
+                                  )
+                                  : null,
                         ),
                         padding: EdgeInsets.only(left: checkedToday ? 4 : 7),
                         child: Row(
                           children: [
                             Container(
-                              width: 28, height: 28,
+                              width: 28,
+                              height: 28,
                               decoration: BoxDecoration(
-                                color: color.withValues(alpha: checkedToday ? 0.2 : 0.1),
+                                color: color.withValues(
+                                  alpha: checkedToday ? 0.2 : 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Center(child: Text(habit['icon'] ?? '✅', style: const TextStyle(fontSize: AppTheme.textMd))),
+                              child: Center(
+                                child: Text(
+                                  habit['icon'] ?? '✅',
+                                  style: const TextStyle(
+                                    fontSize: SlowlightTypography.buttonSize,
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 habit['name'] ?? '',
                                 style: TextStyle(
-                                  fontSize: AppTheme.textMd, height: 1.4,
+                                  fontSize: SlowlightTypography.buttonSize,
+                                  height: 1.4,
                                   color: AppTheme.textColor(context),
-                                  decoration: checkedToday ? TextDecoration.lineThrough : null,
+                                  decoration:
+                                      checkedToday
+                                          ? TextDecoration.lineThrough
+                                          : null,
                                 ),
                               ),
                             ),
@@ -240,13 +296,19 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                                 padding: const EdgeInsets.only(right: 4),
                                 child: Text(
                                   '🔥$streak',
-                                  style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray400),
+                                  style: TextStyle(
+                                    fontSize: SlowlightTypography.captionSize,
+                                    color: AppTheme.warmGray400,
+                                  ),
                                 ),
                               ),
                             Icon(
-                              checkedToday ? Icons.check_circle : Icons.check_circle_outline,
+                              checkedToday
+                                  ? Icons.check_circle
+                                  : Icons.check_circle_outline,
                               size: 20,
-                              color: checkedToday ? color : AppTheme.warmGray300,
+                              color:
+                                  checkedToday ? color : AppTheme.warmGray300,
                             ),
                           ],
                         ),
@@ -260,8 +322,14 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Column(
                   children: [
-                    Text('暂无习惯，去习惯页添加 🌱',
-                      style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmGray400, height: 1.4)),
+                    Text(
+                      '暂无习惯，去习惯页添加 🌱',
+                      style: TextStyle(
+                        fontSize: SlowlightTypography.buttonSize,
+                        color: AppTheme.warmGray400,
+                        height: 1.4,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -277,18 +345,38 @@ class _MiniStat extends StatelessWidget {
   final String emoji;
   final String value;
   final String label;
-  const _MiniStat({required this.emoji, required this.value, required this.label});
+  const _MiniStat({
+    required this.emoji,
+    required this.value,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(emoji, style: const TextStyle(fontSize: AppTheme.textMd, height: 1.2)),
+        Text(
+          emoji,
+          style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.2),
+        ),
         const SizedBox(width: 4),
-        Text(value, style: TextStyle(fontSize: AppTheme.textLg, fontWeight: FontWeight.w700, color: AppTheme.warmDark)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: SlowlightTypography.bodySize,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.warmDark,
+          ),
+        ),
         const SizedBox(width: 2),
-        Text(label, style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray500)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: SlowlightTypography.captionSize,
+            color: AppTheme.warmGray500,
+          ),
+        ),
       ],
     );
   }
@@ -299,10 +387,11 @@ void _showCheckinSuccess(BuildContext context, String habitName) {
   // 显示全屏动画覆盖层
   late OverlayEntry entry;
   entry = OverlayEntry(
-    builder: (context) => _CheckinAnimation(
-      habitName: habitName,
-      onComplete: () => entry.remove(),
-    ),
+    builder:
+        (context) => _CheckinAnimation(
+          habitName: habitName,
+          onComplete: () => entry.remove(),
+        ),
   );
   Overlay.of(context).insert(entry);
 }
@@ -311,10 +400,7 @@ class _CheckinAnimation extends StatefulWidget {
   final String habitName;
   final VoidCallback onComplete;
 
-  const _CheckinAnimation({
-    required this.habitName,
-    required this.onComplete,
-  });
+  const _CheckinAnimation({required this.habitName, required this.onComplete});
 
   @override
   State<_CheckinAnimation> createState() => _CheckinAnimationState();
@@ -334,21 +420,19 @@ class _CheckinAnimationState extends State<_CheckinAnimation>
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.5,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.5, curve: Curves.elasticOut),
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.elasticOut),
+      ),
+    );
 
-    _opacityAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
-    ));
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
+      ),
+    );
 
     _controller.forward().then((_) => widget.onComplete());
   }
@@ -368,12 +452,17 @@ class _CheckinAnimationState extends State<_CheckinAnimation>
           child: Opacity(
             opacity: _opacityAnimation.value,
             child: Container(
-              color: Colors.black.withValues(alpha: 0.3 * _opacityAnimation.value),
+              color: Colors.black.withValues(
+                alpha: 0.3 * _opacityAnimation.value,
+              ),
               child: Center(
                 child: Transform.scale(
                   scale: _scaleAnimation.value,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 24,
+                    ),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(20),
@@ -388,12 +477,12 @@ class _CheckinAnimationState extends State<_CheckinAnimation>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🎉', style: TextStyle(fontSize: 48)),
+                        const Text('🎉', style: TextStyle(fontSize: SlowlightIconSize.heroGlyph)),
                         const SizedBox(height: 16),
                         Text(
                           '打卡成功',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: SlowlightTypography.heroSize,
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -402,8 +491,9 @@ class _CheckinAnimationState extends State<_CheckinAnimation>
                         Text(
                           widget.habitName,
                           style: TextStyle(
-                            fontSize: 16,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: SlowlightTypography.bodySize,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],

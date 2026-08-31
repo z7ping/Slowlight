@@ -35,11 +35,14 @@ void main() {
   }) async {
     final db = await LocalDb().database;
     final now = DateTime.now();
-    final startedAt = now.subtract(Duration(seconds: durationSeconds));
+    // 测试统计按 started_at 的本地日历日期归属。固定在当天中午附近，
+    // 避免 CI 恰好在午夜后运行时，“向前减 30 分钟”跨到前一天。
+    final startedAt = DateTime(now.year, now.month, now.day, 12);
+    final endedAt = startedAt.add(Duration(seconds: durationSeconds));
     await db.insert('reminder_sessions', {
       'type': type,
       'started_at': startedAt.toIso8601String(),
-      'ended_at': now.toIso8601String(),
+      'ended_at': endedAt.toIso8601String(),
       'duration_seconds': durationSeconds,
       'skipped': skipped ? 1 : 0,
       'synced': 0,

@@ -4,8 +4,6 @@ import '../repositories/feishu_integration_repository.dart';
 import '../services/data_mode_manager.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 part 'feishu_screen_sections.dart';
 
@@ -131,9 +129,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
       await _integration.save(
         appId: _appIdController.text.trim(),
         appSecret: _appSecretController.text.trim(),
-        tableUrl: _tableUrlController.text.trim().isEmpty
-            ? null
-            : _tableUrlController.text.trim(),
+        tableUrl:
+            _tableUrlController.text.trim().isEmpty
+                ? null
+                : _tableUrlController.text.trim(),
       );
       if (!mounted) return;
       setState(() {
@@ -192,7 +191,8 @@ class _FeishuScreenState extends State<FeishuScreen> {
       });
       final allTables = (result['all_tables'] as List?)?.length;
       _showSuccess(
-          '绑定成功，识别到 ${_tables.length}${allTables == null ? '' : ' / $allTables'} 张表');
+        '绑定成功，识别到 ${_tables.length}${allTables == null ? '' : ' / $allTables'} 张表',
+      );
     } catch (error) {
       if (mounted) _showError('绑定失败：$error');
     } finally {
@@ -210,9 +210,11 @@ class _FeishuScreenState extends State<FeishuScreen> {
       final summary = results.entries
           .map((entry) => '${entry.key} ${entry.value} 条')
           .join(' · ');
-      _showSuccess(errors.isEmpty
-          ? (summary.isEmpty ? '同步完成' : '同步完成：$summary')
-          : '同步完成，但有 ${errors.length} 个数据表失败');
+      _showSuccess(
+        errors.isEmpty
+            ? (summary.isEmpty ? '同步完成' : '同步完成：$summary')
+            : '同步完成，但有 ${errors.length} 个数据表失败',
+      );
     } catch (error) {
       if (mounted) _showError('同步全部失败：$error');
     } finally {
@@ -221,44 +223,44 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _syncToFeishu() => _runAction(
-        start: () => _isSyncing = true,
-        finish: () => _isSyncing = false,
-        action: _integration.syncTasks,
-        fallback: '任务同步完成',
-        failure: '任务同步失败',
-      );
+    start: () => _isSyncing = true,
+    finish: () => _isSyncing = false,
+    action: _integration.syncTasks,
+    fallback: '任务同步完成',
+    failure: '任务同步失败',
+  );
 
   Future<void> _syncSessionsToFeishu() => _runAction(
-        start: () => _isSyncingSessions = true,
-        finish: () => _isSyncingSessions = false,
-        action: _integration.syncSessions,
-        fallback: '专注记录同步完成',
-        failure: '专注记录同步失败',
-      );
+    start: () => _isSyncingSessions = true,
+    finish: () => _isSyncingSessions = false,
+    action: _integration.syncSessions,
+    fallback: '专注记录同步完成',
+    failure: '专注记录同步失败',
+  );
 
   Future<void> _syncRemindersToFeishu() => _runAction(
-        start: () => _isSyncingReminders = true,
-        finish: () => _isSyncingReminders = false,
-        action: _integration.syncReminders,
-        fallback: '休息记录同步完成',
-        failure: '休息记录同步失败',
-      );
+    start: () => _isSyncingReminders = true,
+    finish: () => _isSyncingReminders = false,
+    action: _integration.syncReminders,
+    fallback: '休息记录同步完成',
+    failure: '休息记录同步失败',
+  );
 
   Future<void> _syncTagsToFeishu() => _runAction(
-        start: () => _isSyncingTags = true,
-        finish: () => _isSyncingTags = false,
-        action: _integration.syncTags,
-        fallback: '标签同步完成',
-        failure: '标签同步失败',
-      );
+    start: () => _isSyncingTags = true,
+    finish: () => _isSyncingTags = false,
+    action: _integration.syncTags,
+    fallback: '标签同步完成',
+    failure: '标签同步失败',
+  );
 
   Future<void> _importFromFeishu() => _runAction(
-        start: () => _isImporting = true,
-        finish: () => _isImporting = false,
-        action: _integration.importData,
-        fallback: '飞书数据导入完成',
-        failure: '导入失败',
-      );
+    start: () => _isImporting = true,
+    finish: () => _isImporting = false,
+    action: _integration.importData,
+    fallback: '飞书数据导入完成',
+    failure: '导入失败',
+  );
 
   Future<void> _runAction({
     required VoidCallback start,
@@ -302,12 +304,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
   void _message(String message, {bool error = false}) {
     if (!mounted) return;
     final theme = Theme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: error ? theme.colorScheme.error : null,
-        content: Text(message),
-      ),
+    FxNotice.showContent(
+      context,
+      Text(message),
+      variant: error ? FxNoticeVariant.destructive : FxNoticeVariant.normal,
     );
   }
 
@@ -317,11 +317,12 @@ class _FeishuScreenState extends State<FeishuScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const HfPageHeader(title: '飞书集成'),
+            const FxPageHeader(title: '飞书集成'),
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _loadError != null
+              child:
+                  _isLoading
+                      ? const Center(child: FxCircularProgress())
+                      : _loadError != null
                       ? _buildLoadError()
                       : _buildContent(),
             ),

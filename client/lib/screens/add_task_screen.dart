@@ -5,8 +5,6 @@ import '../models/todo_list.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final List<TodoList> lists;
@@ -50,7 +48,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   void initState() {
     super.initState();
     _titleController.text = widget.initialTitle;
-    _selectedListId = widget.selectedListId ??
+    _selectedListId =
+        widget.selectedListId ??
         (widget.lists.isEmpty ? null : widget.lists.first.id);
     _priority = widget.initialPriority;
     _dueDate = widget.defaultDueDate;
@@ -77,20 +76,23 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final dueTime = _dueTime == null
-          ? null
-          : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}';
+      final dueTime =
+          _dueTime == null
+              ? null
+              : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}';
       final reminderAt = _buildReminderAt();
-      final repeatDays = _repeatType == 'weekly' && _selectedWeekdays.isNotEmpty
-          ? (_selectedWeekdays.toList()..sort()).join(',')
-          : '';
+      final repeatDays =
+          _repeatType == 'weekly' && _selectedWeekdays.isNotEmpty
+              ? (_selectedWeekdays.toList()..sort()).join(',')
+              : '';
 
       await DataService().createTask(
         listId: listId,
         title: title,
-        description: _descController.text.trim().isEmpty
-            ? null
-            : _descController.text.trim(),
+        description:
+            _descController.text.trim().isEmpty
+                ? null
+                : _descController.text.trim(),
         priority: _priority,
         dueDate: _dueDate,
         dueTime: dueTime,
@@ -125,29 +127,21 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.embedded) {
-      return _editorShell(showBack: false);
-    }
-    return Scaffold(
-      body: SafeArea(child: _editorShell(showBack: true)),
-    );
+    if (widget.embedded) return _editorShell(showBack: false);
+    return Scaffold(body: SafeArea(child: _editorShell(showBack: true)));
   }
 
   Widget _editorShell({required bool showBack}) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showBack)
-          HfPageHeader(
-            title: '新建任务',
-            onBack: () => Navigator.maybePop(context),
-          )
+          FxPageHeader(title: '新建任务', onBack: () => Navigator.maybePop(context))
         else
           _dialogHeader(),
         Expanded(
@@ -157,7 +151,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             child: _form(),
           ),
         ),
-        Divider(height: 1, color: hfDivider(context)),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
         _footer(),
       ],
     );
@@ -165,101 +159,53 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   Widget _dialogHeader() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '新建任务',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-              ),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  tooltip: '关闭',
-                  onPressed: _isSaving ? null : () => Navigator.pop(context),
-                  icon: const Icon(LucideIcons.x, size: 18),
-                ),
-              ),
-            ],
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+          child: Text(
+            '新建任务',
+            style: SlowlightTypography.componentDialogTitle(context),
           ),
         ),
-        Divider(height: 1, color: hfDivider(context)),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
       ],
     );
   }
 
   Widget _form() {
-    final desktop = MediaQuery.sizeOf(context).width >= 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
+        FxInput(
           controller: _titleController,
           autofocus: true,
           enabled: !_isSaving,
           textInputAction: TextInputAction.next,
-          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
-          decoration: const InputDecoration(hintText: '任务标题'),
+          style: SlowlightTypography.emphasizedInput(context),
+          placeholder: '任务标题',
         ),
         const SizedBox(height: 8),
-        TextField(
+        FxInput(
           controller: _descController,
           enabled: !_isSaving,
           minLines: 1,
           maxLines: 3,
-          style: const TextStyle(fontSize: 13),
-          decoration: const InputDecoration(hintText: '描述（可选）'),
+          style: SlowlightTypography.componentSecondary(context),
+          placeholder: '描述（可选）',
         ),
-        const SizedBox(height: 14),
-        if (desktop)
-          Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _listField()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _priorityField()),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _dateField()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _timeField()),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _repeatField()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _reminderField()),
-                ],
-              ),
-            ],
-          )
-        else ...[
-          _listField(),
-          const SizedBox(height: 12),
-          _priorityField(),
-          const SizedBox(height: 12),
-          _dateField(),
-          const SizedBox(height: 12),
-          _timeField(),
-          const SizedBox(height: 12),
-          _repeatField(),
-          const SizedBox(height: 12),
-          _reminderField(),
-        ],
+        const SizedBox(height: 16),
+        FxResponsiveFormGrid(
+          minColumnWidth: 240,
+          children: [
+            _listField(),
+            _priorityField(),
+            _dateField(),
+            _timeField(),
+            _repeatField(),
+            _reminderField(),
+          ],
+        ),
         if (_repeatType == 'weekly') ...[
           const SizedBox(height: 12),
           _fieldLabel('每周重复'),
@@ -270,22 +216,34 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               final day = index + 1;
               const labels = ['一', '二', '三', '四', '五', '六', '日'];
               final selected = _selectedWeekdays.contains(day);
-              return ChoiceChip(
-                label: Text(labels[index]),
-                labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-                showCheckmark: false,
+              return _choiceChip(
+                labels[index],
                 selected: selected,
-                selectedColor: activePalette.accent.withValues(alpha: .12),
-                onSelected: (_) => setState(() {
-                  selected
-                      ? _selectedWeekdays.remove(day)
-                      : _selectedWeekdays.add(day);
-                }),
+                onTap:
+                    () => setState(() {
+                      selected
+                          ? _selectedWeekdays.remove(day)
+                          : _selectedWeekdays.add(day);
+                    }),
               );
             }),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _choiceChip(
+    String label, {
+    required bool selected,
+    required VoidCallback onTap,
+    Color? selectionColor,
+  }) {
+    return FxChoiceChip(
+      label: label,
+      selected: selected,
+      selectionColor: selectionColor,
+      onTap: _isSaving ? null : onTap,
     );
   }
 
@@ -295,17 +253,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       child: Wrap(
         spacing: 6,
         runSpacing: 6,
-        children: widget.lists.map((list) {
-          final selected = _selectedListId == list.id;
-          return ChoiceChip(
-            label: Text('${list.icon} ${list.name}'),
-            labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-            showCheckmark: false,
-            selected: selected,
-            selectedColor: activePalette.accent.withValues(alpha: .12),
-            onSelected: (_) => setState(() => _selectedListId = list.id),
-          );
-        }).toList(growable: false),
+        children: widget.lists
+            .map((list) {
+              final selected = _selectedListId == list.id;
+              return _choiceChip(
+                '${list.icon} ${list.name}',
+                selected: selected,
+                onTap: () => setState(() => _selectedListId = list.id),
+              );
+            })
+            .toList(growable: false),
       ),
     );
   }
@@ -317,23 +274,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         spacing: 6,
         runSpacing: 6,
         children: [
-          _priorityChip('urgent_important', '🔴 高'),
-          _priorityChip('important', '🔵 中'),
-          _priorityChip('urgent', '⚪ 低'),
+          _priorityChip('none', '无', Theme.of(context).colorScheme.onSurface),
+          _priorityChip('urgent_important', '高', AppTheme.priorityHigh),
+          _priorityChip('important', '中', AppTheme.priorityMedium),
+          _priorityChip('urgent', '低', AppTheme.priorityLow),
         ],
       ),
     );
   }
 
-  Widget _priorityChip(String value, String label) {
+  Widget _priorityChip(String value, String label, Color color) {
     final selected = _priority == value;
-    return ChoiceChip(
-      label: Text(label),
-      labelStyle: const TextStyle(fontSize: AppTheme.textXs),
-      showCheckmark: false,
+    return _choiceChip(
+      label,
       selected: selected,
-      selectedColor: activePalette.accent.withValues(alpha: .12),
-      onSelected: (on) => setState(() => _priority = on ? value : 'none'),
+      selectionColor: color,
+      onTap: () => setState(() => _priority = value),
     );
   }
 
@@ -360,9 +316,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return _field(
       label: '时间',
       child: _picker(
-        text: _dueTime == null
-            ? '未设置'
-            : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}',
+        text:
+            _dueTime == null
+                ? '未设置'
+                : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}',
         icon: LucideIcons.clock3,
         onTap: () async {
           final time = await showFxTimePicker(
@@ -385,24 +342,25 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     };
     return _field(
       label: '重复',
-      child: DropdownButtonFormField<String>(
-        value: _repeatType,
-        isExpanded: true,
-        decoration: const InputDecoration(isDense: true),
-        items: labels.entries
-            .map(
-              (entry) => DropdownMenuItem(
-                value: entry.key,
-                child: Text(entry.value, style: const TextStyle(fontSize: 12.5)),
-              ),
-            )
-            .toList(growable: false),
-        onChanged: _isSaving
-            ? null
-            : (value) => setState(() {
-                  _repeatType = value ?? 'none';
-                  if (_repeatType != 'weekly') _selectedWeekdays.clear();
-                }),
+      child: SizedBox(
+        width: double.infinity,
+        child: FxSelect<String>(
+          value: _repeatType,
+          enabled: !_isSaving,
+          options: labels.entries
+              .map(
+                (entry) => FxSelectOption<String>(
+                  value: entry.key,
+                  label: entry.value,
+                ),
+              )
+              .toList(growable: false),
+          onChanged:
+              (value) => setState(() {
+                _repeatType = value ?? 'none';
+                if (_repeatType != 'weekly') _selectedWeekdays.clear();
+              }),
+        ),
       ),
     );
   }
@@ -418,43 +376,34 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     };
     return _field(
       label: '提醒',
-      child: DropdownButtonFormField<int>(
-        value: _reminderAdvanceMinutes,
-        isExpanded: true,
-        decoration: const InputDecoration(isDense: true),
-        items: values.entries
-            .map(
-              (entry) => DropdownMenuItem(
-                value: entry.key,
-                child: Text(entry.value, style: const TextStyle(fontSize: 12.5)),
-              ),
-            )
-            .toList(growable: false),
-        onChanged: _isSaving
-            ? null
-            : (value) => setState(() => _reminderAdvanceMinutes = value ?? -1),
+      child: SizedBox(
+        width: double.infinity,
+        child: FxSelect<int>(
+          value: _reminderAdvanceMinutes,
+          enabled: !_isSaving,
+          options: values.entries
+              .map(
+                (entry) =>
+                    FxSelectOption<int>(value: entry.key, label: entry.value),
+              )
+              .toList(growable: false),
+          onChanged:
+              (value) => setState(() => _reminderAdvanceMinutes = value ?? -1),
+        ),
       ),
     );
   }
 
   Widget _field({required String label, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _fieldLabel(label),
-        child,
-      ],
-    );
+    return FxFormField(label: label, child: child);
   }
 
   Widget _fieldLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: AppTheme.textXs,
-          fontWeight: FontWeight.w600,
+        style: SlowlightTypography.componentFieldLabel(context).copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
@@ -467,23 +416,28 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    return InkWell(
+    return FxInkWell(
       onTap: _isSaving ? null : onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+      hoverColor: theme.colorScheme.onSurface.withValues(alpha: .04),
+      focusColor: activePalette.accent.withValues(alpha: .08),
       child: Container(
         constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          border: Border.all(color: hfBorder(context)),
+          color: fxSurface(context),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          border: Border.all(color: theme.colorScheme.outline),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(text, style: const TextStyle(fontSize: 12.5)),
+              child: Text(
+                text,
+                style: SlowlightTypography.componentControl(context),
+              ),
             ),
-            Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+            Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
           ],
         ),
       ),
@@ -491,23 +445,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Widget _footer() {
-    final theme = Theme.of(context);
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             if (widget.isEdit)
               FxButton(
                 label: '删除',
                 variant: FxButtonVariant.ghost,
-                onPressed: _isSaving
-                    ? null
-                    : () => Navigator.pop(context, 'delete'),
+                onPressed:
+                    _isSaving ? null : () => Navigator.pop(context, 'delete'),
               ),
-            if (widget.isEdit) const SizedBox(width: 8),
             FxButton(
               label: _isSaving ? '保存中…' : '保存',
               onPressed: _isSaving ? null : _save,
@@ -520,7 +473,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   String _dateLabel(DateTime value) {
     final now = DateTime.now();
-    if (value.year == now.year && value.month == now.month && value.day == now.day) {
+    if (value.year == now.year &&
+        value.month == now.month &&
+        value.day == now.day) {
       return '今天';
     }
     return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';

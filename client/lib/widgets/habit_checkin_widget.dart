@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+
 import '../models/habit.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
+import '../ui/fx.dart';
 
 /// 习惯滑动打卡组件
 ///
@@ -28,7 +30,6 @@ class HabitCheckinWidget extends StatelessWidget {
       key: Key('habit_${habit.id}'),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
-        // 滑动时先确认打卡，返回 false 阻止 Dismissible 移除
         await _checkIn(context);
         return false;
       },
@@ -38,15 +39,13 @@ class HabitCheckinWidget extends StatelessWidget {
         color: AppTheme.success,
         child: const Icon(Icons.check, color: Colors.white),
       ),
-      child: ListTile(
-        leading: Text(habit.icon, style: const TextStyle(fontSize: 24)),
-        title: Text(habit.name),
-        subtitle: Text('连续 ${habit.streakCount} 天'),
-        trailing: IconButton(
-          icon: Icon(
-            isCheckedToday ? Icons.check_circle : Icons.circle_outlined,
-            color: isCheckedToday ? AppTheme.success : AppTheme.warmGray400,
-          ),
+      child: FxListTile(
+        leading: Text(habit.icon, style: const TextStyle(fontSize: SlowlightTypography.heroSize)),
+        title: habit.name,
+        subtitle: '连续 ${habit.streakCount} 天',
+        trailing: FxIconButton(
+          icon: isCheckedToday ? Icons.check_circle : Icons.circle_outlined,
+          tooltip: isCheckedToday ? '今天已打卡' : '打卡',
           onPressed: () => _checkIn(context),
         ),
       ),
@@ -59,11 +58,10 @@ class HabitCheckinWidget extends StatelessWidget {
       onCheckin?.call();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('打卡失败: $e'),
-            backgroundColor: AppTheme.error,
-          ),
+        FxNotice.showContent(
+          context,
+          Text('打卡失败: $e'),
+          variant: FxNoticeVariant.destructive,
         );
       }
     }

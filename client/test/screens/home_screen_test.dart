@@ -3,20 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
-import 'package:slowlight/ui/theme_manager.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+
+import '../support/fx_test_host.dart';
 
 void main() {
-  Widget buildApp() {
-    return ShadTheme(
-      data: ThemeManager.shadLight,
-      child: MaterialApp(
-        theme: ThemeManager.lightTheme,
-        home: const HomeScreen(),
-      ),
-    );
-  }
-
   Future<void> pumpAt(
     WidgetTester tester, {
     required Size size,
@@ -27,7 +17,7 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
     addTearDown(tester.view.reset);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await tester.pumpWidget(buildApp());
+    await tester.pumpWidget(buildFxTestHost(home: const HomeScreen()));
     await tester.pump();
   }
 
@@ -42,6 +32,7 @@ void main() {
           (tester) async {
         await pumpAt(tester, size: size);
         expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
       });
     }
 
@@ -52,6 +43,7 @@ void main() {
         textScale: 1.3,
       );
       expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('四象限入口可以进入实际功能页', (tester) async {
@@ -61,6 +53,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(QuadrantScreen), findsOneWidget);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('移动端支持左缘右滑打开并左滑关闭抽屉', (tester) async {
@@ -69,28 +62,30 @@ void main() {
       // 避开 Android 系统返回手势占用的最外侧区域，从应用内近边缘滑动。
       await tester.dragFrom(const Offset(40, 240), const Offset(280, 0));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsOneWidget);
+      expect(fxTooltipFinder('关闭'), findsOneWidget);
 
       await tester.dragFrom(const Offset(260, 240), const Offset(-280, 0));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsNothing);
+      expect(fxTooltipFinder('关闭'), findsNothing);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('移动端点击抽屉遮罩可以关闭', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
 
-      await tester.tap(find.byTooltip('工具'));
+      await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsOneWidget);
+      expect(fxTooltipFinder('关闭'), findsOneWidget);
 
       await tester.tapAt(const Offset(350, 300));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('关闭'), findsNothing);
+      expect(fxTooltipFinder('关闭'), findsNothing);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('Android 返回键先关闭工具页', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
-      await tester.tap(find.byTooltip('工具'));
+      await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('四象限'));
       await tester.pumpAndSettle();
@@ -101,6 +96,7 @@ void main() {
 
       expect(find.byType(QuadrantScreen), findsNothing);
       expect(find.text('再按一次退出 Slowlight'), findsNothing);
+      await disposeFxTestHost(tester);
     });
 
     testWidgets('Android 首页需要两次返回才退出', (tester) async {
@@ -128,6 +124,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pump();
       expect(exitCalls, 1);
+      await disposeFxTestHost(tester);
     });
   });
 }

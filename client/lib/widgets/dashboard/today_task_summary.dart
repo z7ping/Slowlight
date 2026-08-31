@@ -60,7 +60,7 @@ class TodayTaskSummary extends StatelessWidget {
                 child: Text(
                   '$completedCount/${tasks.length}',
                   style: TextStyle(
-                    fontSize: AppTheme.textSm,
+                    fontSize: SlowlightTypography.secondarySize,
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -75,7 +75,7 @@ class TodayTaskSummary extends StatelessWidget {
                       Text(
                         '全部',
                         style: TextStyle(
-                          fontSize: AppTheme.textSm,
+                          fontSize: SlowlightTypography.secondarySize,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
@@ -113,7 +113,7 @@ class TodayTaskSummary extends StatelessWidget {
                     Text(
                       '快速添加...',
                       style: TextStyle(
-                        fontSize: AppTheme.textSm,
+                        fontSize: SlowlightTypography.secondarySize,
                         color: AppTheme.warmGray500,
                       ),
                     ),
@@ -162,7 +162,7 @@ class TodayTaskSummary extends StatelessWidget {
               child: Text(
                 task.title,
                 style: TextStyle(
-                  fontSize: AppTheme.textMd,
+                  fontSize: SlowlightTypography.buttonSize,
                   decoration: task.isCompleted ? TextDecoration.lineThrough : null,
                   color: task.isCompleted
                       ? AppTheme.warmGray500
@@ -183,7 +183,7 @@ class TodayTaskSummary extends StatelessWidget {
                 child: Text(
                   _getPriorityLabel(task.priority),
                   style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                    fontSize: SlowlightTypography.captionSize,
                     color: _getPriorityColor(task.priority),
                     fontWeight: FontWeight.w600,
                   ),
@@ -201,12 +201,12 @@ class TodayTaskSummary extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            const Text('✨', style: TextStyle(fontSize: 24)),
+            const Text('✨', style: TextStyle(fontSize: SlowlightTypography.heroSize)),
             const SizedBox(height: 8),
             Text(
               '今天没有待办任务',
               style: TextStyle(
-                fontSize: AppTheme.textSm,
+                fontSize: SlowlightTypography.secondarySize,
                 color: AppTheme.warmGray500,
               ),
             ),

@@ -9,7 +9,6 @@ import '../repositories/session_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/high_fidelity/hf_page_header.dart';
 import '../widgets/system_tag_picker.dart';
 
 class PomodoroScreen extends StatefulWidget {
@@ -111,10 +110,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   int _durationFor(String type) => switch (type) {
-        'long_break' => _longBreakMinutes,
-        'break' => _breakMinutes,
-        _ => _workMinutes,
-      };
+    'long_break' => _longBreakMinutes,
+    'break' => _breakMinutes,
+    _ => _workMinutes,
+  };
 
   void _startTicker() {
     _timer?.cancel();
@@ -161,10 +160,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (_sessionType == 'work') {
       int? tagId;
       if (mounted) {
-        tagId = await SystemTagPicker.show(
-          context,
-          title: '这次专注属于哪个维度？',
-        );
+        tagId = await SystemTagPicker.show(context, title: '这次专注属于哪个维度？');
       }
       try {
         if (_activeSession) await _sessions.endSession(systemTagId: tagId);
@@ -207,10 +203,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (_sessionType == 'work') {
         final elapsed = _workMinutes * 60 - _remainingSeconds;
         if (elapsed >= _workMinutes * 30 && mounted) {
-          tagId = await SystemTagPicker.show(
-            context,
-            title: '这次专注属于哪个维度？',
-          );
+          tagId = await SystemTagPicker.show(context, title: '这次专注属于哪个维度？');
         }
       }
       try {
@@ -261,25 +254,33 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   subtitle: '每轮工作分钟数',
                   trailing: Wrap(
                     spacing: 6,
-                    children: [25, 45, 60].map((minutes) {
-                      final selected = work == minutes;
-                      return ChoiceChip(
-                        label: Text('$minutes'),
-                        selected: selected,
-                        showCheckmark: false,
-                        selectedColor:
-                            activePalette.accent.withValues(alpha: .12),
-                        labelStyle: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: selected
-                              ? activePalette.accent
-                              : theme.colorScheme.onSurface,
-                          fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                        onSelected: (_) => setDialogState(() => work = minutes),
-                      );
-                    }).toList(growable: false),
+                    runSpacing: 6,
+                    children: [25, 45, 60]
+                        .map((minutes) {
+                          final selected = work == minutes;
+                          return FxChip(
+                            label: '$minutes',
+                            onTap: () => setDialogState(() => work = minutes),
+                            backgroundColor:
+                                selected
+                                    ? activePalette.accent.withValues(
+                                      alpha: .12,
+                                    )
+                                    : fxSubtleSurface(dialogContext),
+                            foregroundColor:
+                                selected
+                                    ? activePalette.accent
+                                    : theme.colorScheme.onSurface,
+                            borderColor:
+                                selected
+                                    ? activePalette.accent.withValues(
+                                      alpha: .35,
+                                    )
+                                    : theme.colorScheme.outlineVariant,
+                            borderRadius: 999,
+                          );
+                        })
+                        .toList(growable: false),
                   ),
                 ),
                 _settingsLine(
@@ -288,8 +289,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   subtitle: '短休息后直接进入专注',
                   trailing: FxSwitch(
                     value: autoStart,
-                    onChanged: (value) =>
-                        setDialogState(() => autoStart = value),
+                    onChanged:
+                        (value) => setDialogState(() => autoStart = value),
                   ),
                 ),
                 _settingsLine(
@@ -298,8 +299,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   subtitle: '铃声提醒本轮结束',
                   trailing: FxSwitch(
                     value: soundEnabled,
-                    onChanged: (value) =>
-                        setDialogState(() => soundEnabled = value),
+                    onChanged:
+                        (value) => setDialogState(() => soundEnabled = value),
                   ),
                 ),
                 _settingsLine(
@@ -308,30 +309,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   subtitle: '产出计入该任务',
                   trailing: SizedBox(
                     width: 150,
-                    child: DropdownButtonFormField<int>(
-                      value: linkedTaskId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(isDense: true),
-                      hint: const Text('不关联', style: TextStyle(fontSize: 12)),
-                      items: [
-                        const DropdownMenuItem<int>(
-                          value: null,
-                          child: Text('不关联', style: TextStyle(fontSize: 12)),
-                        ),
+                    child: FxSelect<int>(
+                      value: linkedTaskId ?? 0,
+                      options: [
+                        const FxSelectOption(value: 0, label: '不关联'),
                         ..._todayTasks.map(
-                          (task) => DropdownMenuItem<int>(
-                            value: task.id,
-                            child: Text(
-                              task.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
+                          (task) =>
+                              FxSelectOption(value: task.id, label: task.title),
                         ),
                       ],
-                      onChanged: (value) =>
-                          setDialogState(() => linkedTaskId = value),
+                      onChanged:
+                          (value) => setDialogState(
+                            () =>
+                                linkedTaskId =
+                                    value == null || value == 0 ? null : value,
+                          ),
                     ),
                   ),
                 ),
@@ -343,19 +335,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       label: '取消',
                       variant: FxButtonVariant.outline,
                       size: FxButtonSize.sm,
-                      onPressed: () => Navigator.of(
-                        dialogContext,
-                        rootNavigator: true,
-                      ).pop(false),
+                      onPressed:
+                          () => Navigator.of(
+                            dialogContext,
+                            rootNavigator: true,
+                          ).pop(false),
                     ),
                     const SizedBox(width: 8),
                     FxButton(
                       label: '保存设置',
                       size: FxButtonSize.sm,
-                      onPressed: () => Navigator.of(
-                        dialogContext,
-                        rootNavigator: true,
-                      ).pop(true),
+                      onPressed:
+                          () => Navigator.of(
+                            dialogContext,
+                            rootNavigator: true,
+                          ).pop(true),
                     ),
                   ],
                 ),
@@ -402,18 +396,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: AppTheme.textSm,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    dialogContext,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: AppTheme.textXs,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.caption(
+                    dialogContext,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -431,7 +423,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       body: SafeArea(
         child: Column(
           children: [
-            HfPageHeader(
+            FxPageHeader(
               title: '专注',
               actionIcon: LucideIcons.settings,
               actionTooltip: '专注设置',
@@ -454,18 +446,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Widget _timerBody() {
     final theme = Theme.of(context);
     final totalSeconds = _durationFor(_sessionType) * 60;
-    final progress = totalSeconds == 0
-        ? 0.0
-        : (1 - _remainingSeconds / totalSeconds).clamp(0.0, 1.0);
+    final progress =
+        totalSeconds == 0
+            ? 0.0
+            : (1 - _remainingSeconds / totalSeconds).clamp(0.0, 1.0);
     final isWork = _sessionType == 'work';
     final color = isWork ? activePalette.accent : AppTheme.success;
-    final stateLabel = isWork
-        ? (_running
-            ? '专注中'
-            : _activeSession
+    final stateLabel =
+        isWork
+            ? (_running
+                ? '专注中'
+                : _activeSession
                 ? '已暂停'
                 : '准备专注')
-        : (_sessionType == 'long_break' ? '长休息' : '休息中');
+            : (_sessionType == 'long_break' ? '长休息' : '休息中');
     final quietOpacity = _running ? .4 : 1.0;
 
     return Center(
@@ -486,7 +480,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 child: Text(
                   stateLabel,
                   style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                    fontSize: SlowlightTypography.captionSize,
                     fontWeight: FontWeight.w600,
                     color: color,
                   ),
@@ -501,7 +495,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 alignment: Alignment.center,
                 children: [
                   SizedBox.expand(
-                    child: CircularProgressIndicator(
+                    child: FxCircularProgress(
                       value: progress,
                       strokeWidth: 8,
                       backgroundColor: theme.colorScheme.surfaceContainer,
@@ -515,7 +509,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       Text(
                         _format(_remainingSeconds),
                         style: theme.textTheme.displaySmall?.copyWith(
-                          fontSize: 36,
+                          fontSize: SlowlightTypography.displaySize,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1,
                         ),
@@ -524,7 +518,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       Text(
                         isWork ? '专注' : '休息',
                         style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                          fontSize: SlowlightTypography.captionSize,
                           letterSpacing: 2,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -573,7 +567,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               child: Text(
                 '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟',
                 style: TextStyle(
-                  fontSize: AppTheme.textSm,
+                  fontSize: SlowlightTypography.secondarySize,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -614,7 +608,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              borderRadius: BorderRadius.circular(SlowlightRadius.lg),
               border: Border.all(
                 color: Theme.of(context).colorScheme.outlineVariant,
               ),
@@ -623,7 +617,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             child: Text(
               _completionMessage!,
               style: const TextStyle(
-                fontSize: AppTheme.textLg,
+                fontSize: SlowlightTypography.bodySize,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -638,8 +632,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(behavior: SnackBarBehavior.floating, content: Text(text)),
-    );
+    FxNotice.showContent(context, Text(text));
   }
 }

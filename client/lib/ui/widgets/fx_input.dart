@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../app_theme.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
-/// FxInput — 文本输入组件
-/// 页面层统一使用 FxInput；内部使用原生 TextField 以保持桌面端中文输入稳定。
+import '../layout_tokens.dart';
+import '../typography_tokens.dart';
+
+/// FxInput — 文本输入组件。
+///
+/// 页面层统一使用 FxInput；底层优先由 shadcn_ui 的 ShadInput 提供输入能力。
+/// Fx 不重复绘制 ShadInput 已由主题提供的边框 / Focus Ring；默认字号、占位符
+/// 与内边距均由当前平台 Theme / SlowlightTypography 解析，组件本身不判断平台。
 class FxInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? placeholder;
@@ -12,8 +18,11 @@ class FxInput extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onEditingComplete;
   final bool obscureText;
+  final bool enableSuggestions;
+  final bool autocorrect;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
+  final int? minLines;
   final int? maxLines;
   final int? maxLength;
   final bool enabled;
@@ -25,7 +34,7 @@ class FxInput extends StatelessWidget {
   final TextStyle? style;
   final TextStyle? placeholderStyle;
   final List<TextInputFormatter>? inputFormatters;
-  final EdgeInsetsGeometry? contentPadding;
+  final EdgeInsets? contentPadding;
   final bool isDense;
 
   const FxInput({
@@ -37,8 +46,11 @@ class FxInput extends StatelessWidget {
     this.onSubmitted,
     this.onEditingComplete,
     this.obscureText = false,
+    this.enableSuggestions = true,
+    this.autocorrect = true,
     this.keyboardType,
     this.textInputAction,
+    this.minLines,
     this.maxLines = 1,
     this.maxLength,
     this.enabled = true,
@@ -56,55 +68,51 @@ class FxInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 如果有 label，用 Column 包裹
-    final input = TextField(
+    final theme = Theme.of(context);
+    final input = ShadInput(
       controller: controller,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       onEditingComplete: onEditingComplete,
       obscureText: obscureText,
+      enableSuggestions: enableSuggestions,
+      autocorrect: autocorrect,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
+      minLines: minLines,
       maxLines: maxLines ?? 1,
       maxLength: maxLength,
       enabled: enabled,
       readOnly: readOnly,
       autofocus: autofocus,
       focusNode: focusNode,
-      style: style,
+      style: style ?? SlowlightTypography.body(context),
       inputFormatters: inputFormatters,
-      decoration: InputDecoration(
-        hintText: placeholder,
-        hintStyle: placeholderStyle,
-        prefixIcon: leading,
-        suffixIcon: trailing,
-        border: InputBorder.none,
-        isDense: isDense,
-        contentPadding: contentPadding ??
-            EdgeInsets.symmetric(
-              horizontal: leading == null ? 0 : 12,
-              vertical: isDense ? 8 : 10,
-            ),
-      ),
+      placeholder: placeholder == null ? null : Text(placeholder!),
+      placeholderStyle:
+          placeholderStyle ??
+          SlowlightTypography.control(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+      leading: leading,
+      trailing: trailing,
+      // null 时完全交给 ShadInputTheme；这样 Windows / Android 的密度差异
+      // 只在 Theme 层定义一次。isDense 仅保留旧调用兼容，不再另造平台分支。
+      padding: contentPadding,
     );
 
-    if (label != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label!,
-              style: TextStyle(
-                  fontSize: AppTheme.textMd,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.warmGray500)),
-          const SizedBox(height: 6),
-          input,
-        ],
-      );
-    }
-
-    return input;
+    if (label == null) return input;
+    final labelStyle = SlowlightTypography.fieldLabel(
+      context,
+    ).copyWith(color: theme.colorScheme.onSurfaceVariant);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label!, style: labelStyle),
+        const SizedBox(height: SlowlightSpacing.sm),
+        input,
+      ],
+    );
   }
 }

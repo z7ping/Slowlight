@@ -4,32 +4,40 @@
     android:height="108dp"
     android:viewportWidth="1024"
     android:viewportHeight="1024">
-    <path
-        android:pathData="M232,548 C215,382 284,236 422,177 C548,123 698,150 766,253 C800,304 810,356 793,409"
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="25"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M808,315 A24,24 0,1 1,760,315 A24,24 0,1 1,808,315"
-        android:fillColor="#FFFFFFFF" />
-    <path
-        android:pathData="M791,365 C803,393 798,419 777,443 C765,457 765,468 773,482 C781,497 775,511 758,519 C768,531 764,544 751,551 C759,565 752,579 736,584 C735,624 714,651 680,661 C652,670 629,661 603,646"
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="20"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M772,408 C718,455 650,479 580,509 C506,541 452,583 430,626 C406,672 423,722 484,755 C526,778 582,787 649,787"
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="30"
-        android:strokeLineCap="round" />
-    <path android:pathData="M200,705 A10,10 0,1 1,180,705 A10,10 0,1 1,200,705" android:fillColor="#FFFFFFFF" />
-    <path android:pathData="M243,681 A9,9 0,1 1,225,681 A9,9 0,1 1,243,681" android:fillColor="#FFFFFFFF" />
-    <path android:pathData="M285,657 A8,8 0,1 1,269,657 A8,8 0,1 1,285,657" android:fillColor="#FFFFFFFF" />
-    <path android:pathData="M326,634 A7,7 0,1 1,312,634 A7,7 0,1 1,326,634" android:fillColor="#FFFFFFFF" />
-    <path android:pathData="M366,611 A6,6 0,1 1,354,611 A6,6 0,1 1,366,611" android:fillColor="#FFFFFFFF" />
-    <path android:pathData="M404,590 A5,5 0,1 1,394,590 A5,5 0,1 1,404,590" android:fillColor="#FFFFFFFF" />
+    <group
+        android:pivotX="501.25"
+        android:pivotY="456.25"
+        android:scaleX="0.795"
+        android:scaleY="0.795"
+        android:translateX="10.75"
+        android:translateY="46.25">
+        <path
+            android:pathData="M232,548 C215,382 284,236 422,177 C548,123 698,150 766,253 C800,304 810,356 793,409"
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="25"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M808,315 A24,24 0,1 1,760,315 A24,24 0,1 1,808,315"
+            android:fillColor="#FFFFFFFF" />
+        <path
+            android:pathData="M791,365 C803,393 798,419 777,443 C765,457 765,468 773,482 C781,497 775,511 758,519 C768,531 764,544 751,551 C759,565 752,579 736,584 C735,624 714,651 680,661 C652,670 629,661 603,646"
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="20"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M772,408 C718,455 650,479 580,509 C506,541 452,583 430,626 C406,672 423,722 484,755 C526,778 582,787 649,787"
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="30"
+            android:strokeLineCap="round" />
+        <path android:pathData="M200,705 A10,10 0,1 1,180,705 A10,10 0,1 1,200,705" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M243,681 A9,9 0,1 1,225,681 A9,9 0,1 1,243,681" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M285,657 A8,8 0,1 1,269,657 A8,8 0,1 1,285,657" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M326,634 A7,7 0,1 1,312,634 A7,7 0,1 1,326,634" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M366,611 A6,6 0,1 1,354,611 A6,6 0,1 1,366,611" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M404,590 A5,5 0,1 1,394,590 A5,5 0,1 1,404,590" android:fillColor="#FFFFFFFF" />
+    </group>
 </vector>

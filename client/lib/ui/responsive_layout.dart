@@ -1,47 +1,53 @@
 import 'package:flutter/material.dart';
 
-/// 响应式布局工具
+import 'layout_tokens.dart';
+
+/// 窗口级响应式布局工具。
+///
+/// 全局设备档位只使用 SlowlightBreakpoints；组件内部能否横排仍应通过
+/// LayoutBuilder 判断自身真实可用宽度，不得把窗口档位代替组件级响应式。
 class ResponsiveLayout {
-  /// 判断是否为移动端（< 600px）
-  static bool isMobile(BuildContext context) {
-    return MediaQuery.of(context).size.width < 600;
-  }
+  static double widthOf(BuildContext context) => MediaQuery.sizeOf(context).width;
 
-  /// 判断是否为桌面端（>= 1024px）
-  static bool isDesktop(BuildContext context) {
-    return MediaQuery.of(context).size.width >= 1024;
-  }
+  static bool isMobile(BuildContext context) =>
+      widthOf(context) < SlowlightBreakpoints.tabletMin;
 
-  /// 判断是否为平板端（600px - 1023px）
   static bool isTablet(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    return width >= 600 && width < 1024;
+    final width = widthOf(context);
+    return width >= SlowlightBreakpoints.tabletMin &&
+        width < SlowlightBreakpoints.desktopMin;
   }
 
-  /// 根据平台返回对应组件
+  static bool isDesktop(BuildContext context) {
+    final width = widthOf(context);
+    return width >= SlowlightBreakpoints.desktopMin &&
+        width < SlowlightBreakpoints.wideMin;
+  }
+
+  static bool isWide(BuildContext context) =>
+      widthOf(context) >= SlowlightBreakpoints.wideMin;
+
+  /// 桌面 Shell、左右分栏等“桌面及以上”行为使用此判断。
+  static bool isDesktopOrWider(BuildContext context) =>
+      widthOf(context) >= SlowlightBreakpoints.desktopMin;
+
   static Widget build(
     BuildContext context, {
     required Widget mobile,
     Widget? tablet,
     required Widget desktop,
+    Widget? wide,
   }) {
-    if (isDesktop(context)) {
-      return desktop;
-    } else if (isTablet(context) && tablet != null) {
-      return tablet;
-    } else {
-      return mobile;
-    }
+    if (isWide(context)) return wide ?? desktop;
+    if (isDesktop(context)) return desktop;
+    if (isTablet(context) && tablet != null) return tablet;
+    return mobile;
   }
 
-  /// 返回网格列数
   static int gridColumns(BuildContext context) {
-    if (isDesktop(context)) {
-      return 4;
-    } else if (isTablet(context)) {
-      return 3;
-    } else {
-      return 2;
-    }
+    if (isWide(context)) return 4;
+    if (isDesktop(context)) return 3;
+    if (isTablet(context)) return 2;
+    return 1;
   }
 }

@@ -27,7 +27,9 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
     try {
       final results = await Future.wait([
         AnalyticsApi.getWeeklyReview(),
-        AnalyticsApi.getOutputStats(period: 'week').catchError((_) => <String, dynamic>{}),
+        AnalyticsApi.getOutputStats(
+          period: 'week',
+        ).catchError((_) => <String, dynamic>{}),
       ]);
       if (mounted) {
         setState(() {
@@ -43,21 +45,33 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    if (_loading) {
+      return const Center(child: FxCircularProgress(strokeWidth: 2));
+    }
 
     final weekStart = _review['week_start'] ?? '';
     final weekEnd = _review['week_end'] ?? '';
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadReview,
       color: AppTheme.primary,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(widget.dense ? 12 : 16, 12, widget.dense ? 12 : 16, 92),
+        padding: EdgeInsets.fromLTRB(
+          widget.dense ? 12 : 16,
+          12,
+          widget.dense ? 12 : 16,
+          92,
+        ),
         children: [
           if (weekStart.isNotEmpty && weekEnd.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text('$weekStart ~ $weekEnd', style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmGray500)),
+              child: Text(
+                '$weekStart ~ $weekEnd',
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(color: AppTheme.warmGray500),
+              ),
             ),
           _buildWeekSummary(),
           const SizedBox(height: 12),
@@ -71,14 +85,30 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
     );
   }
 
-  Widget _buildStatItem({required String emoji, required String value, required String label}) {
-    return Column(children: [
-      Text(emoji, style: const TextStyle(fontSize: AppTheme.textXl)),
-      const SizedBox(height: 4),
-      Text(value, style: TextStyle(fontSize: AppTheme.textXl, fontWeight: FontWeight.bold, color: AppTheme.warmDark)),
-      const SizedBox(height: 2),
-      Text(label, style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray500)),
-    ]);
+  Widget _buildStatItem({
+    required String emoji,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      children: [
+        Text(emoji, style: SlowlightTypography.pageTitle(context)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: SlowlightTypography.pageTitle(
+            context,
+          ).copyWith(fontWeight: FontWeight.bold, color: AppTheme.warmDark),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: AppTheme.warmGray500),
+        ),
+      ],
+    );
   }
 
   Widget _buildWeekSummary() {
@@ -89,15 +119,38 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
     final m = focusMinutes % 60;
 
     return FxCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('本周记录', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmDark)),
-        const SizedBox(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          _buildStatItem(emoji: '🔥', value: '$habitChecked', label: '习惯打卡'),
-          _buildStatItem(emoji: '✅', value: '$taskCompleted', label: '完成任务'),
-          _buildStatItem(emoji: '⏱️', value: h > 0 ? '${h}h${m}m' : '${m}m', label: '专注时长'),
-        ]),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '本周记录',
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600, color: AppTheme.warmDark),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                emoji: '🔥',
+                value: '$habitChecked',
+                label: '习惯打卡',
+              ),
+              _buildStatItem(
+                emoji: '✅',
+                value: '$taskCompleted',
+                label: '完成任务',
+              ),
+              _buildStatItem(
+                emoji: '⏱️',
+                value: h > 0 ? '${h}h${m}m' : '${m}m',
+                label: '专注时长',
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -105,17 +158,26 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
     final delta = current - last;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Text(label, style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmDark)),
-        const Spacer(),
-        Text('$current', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmDark)),
-        const SizedBox(width: 8),
-        if (delta != 0)
+      child: Row(
+        children: [
+          Text(label, style: SlowlightTypography.secondary(context)),
+          const Spacer(),
           Text(
-            delta > 0 ? '+$delta' : '$delta',
-            style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray500),
+            '$current',
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
-      ]),
+          const SizedBox(width: 8),
+          if (delta != 0)
+            Text(
+              delta > 0 ? '+$delta' : '$delta',
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: AppTheme.warmGray500),
+            ),
+        ],
+      ),
     );
   }
 
@@ -128,15 +190,23 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
     final focusLast = (_review['focus_last_week'] as num?)?.toInt() ?? 0;
 
     return FxCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('和上周比', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmDark)),
-        const SizedBox(height: 12),
-        _buildDeltaRow('习惯打卡', habitThis, habitLast),
-        const SizedBox(height: 4),
-        _buildDeltaRow('完成任务', taskThis, taskLast),
-        const SizedBox(height: 4),
-        _buildDeltaRow('专注时长(分钟)', focusThis, focusLast),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '和上周比',
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          _buildDeltaRow('习惯打卡', habitThis, habitLast),
+          const SizedBox(height: 4),
+          _buildDeltaRow('完成任务', taskThis, taskLast),
+          const SizedBox(height: 4),
+          _buildDeltaRow('专注时长(分钟)', focusThis, focusLast),
+        ],
+      ),
     );
   }
 
@@ -149,112 +219,157 @@ class _WeeklyReviewEmbedState extends State<WeeklyReviewEmbed> {
     final thisWeek = (_outputStats['this_week'] as num?)?.toInt() ?? 0;
     final thisMonth = (_outputStats['this_month'] as num?)?.toInt() ?? 0;
 
-    if (totalCount == 0 && thisWeek == 0 && thisMonth == 0) return const SizedBox.shrink();
+    if (totalCount == 0 && thisWeek == 0 && thisMonth == 0) {
+      return const SizedBox.shrink();
+    }
 
     return FxCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('输出记录', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmDark)),
-        const SizedBox(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          _buildStatItem(emoji: '📝', value: '$totalCount', label: '累计'),
-          _buildStatItem(emoji: '📅', value: '$thisWeek', label: '本周'),
-          _buildStatItem(emoji: '📆', value: '$thisMonth', label: '本月'),
-        ]),
-        if (byLevel.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: byLevel.entries.map((entry) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.warmGray300.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text('${entry.key} 级 ${entry.value}', style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmDark)),
-              );
-            }).toList(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '输出记录',
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
-        ],
-        if (byType.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: byType.entries.map((entry) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text('${_typeName(entry.key)} ${entry.value}', style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmDark)),
-              );
-            }).toList(),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(emoji: '📝', value: '$totalCount', label: '累计'),
+              _buildStatItem(emoji: '📅', value: '$thisWeek', label: '本周'),
+              _buildStatItem(emoji: '📆', value: '$thisMonth', label: '本月'),
+            ],
           ),
+          if (byLevel.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  byLevel.entries
+                      .map(
+                        (entry) => FxChip(
+                          label: '${entry.key} 级 ${entry.value}',
+                          variant: FxChipVariant.secondary,
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
+          if (byType.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  byType.entries
+                      .map(
+                        (entry) => FxChip(
+                          label: '${_typeName(entry.key)} ${entry.value}',
+                          variant: FxChipVariant.secondary,
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
+          if (milestones > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              '里程碑 $milestones 个',
+              style: SlowlightTypography.secondary(context),
+            ),
+          ],
         ],
-        if (milestones > 0) ...[
-          const SizedBox(height: 12),
-          Text('里程碑 $milestones 个', style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmDark)),
-        ],
-      ]),
+      ),
     );
   }
 
   String _typeName(String type) {
     switch (type) {
-      case 'main': return '主线';
-      case 'branch': return '分支';
-      case 'daily': return '日常';
-      case 'explore': return '探索';
-      default: return type;
+      case 'main':
+        return '主线';
+      case 'branch':
+        return '分支';
+      case 'daily':
+        return '日常';
+      case 'explore':
+        return '探索';
+      default:
+        return type;
     }
   }
 
   Widget _buildTimeDistribution() {
-    final timeDistribution = (_review['time_distribution'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+    final timeDistribution =
+        (_review['time_distribution'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
     if (timeDistribution.isEmpty) return const SizedBox.shrink();
 
     return FxCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('时间分布', style: TextStyle(fontSize: AppTheme.textMd, fontWeight: FontWeight.w600, color: AppTheme.warmDark)),
-        const SizedBox(height: 12),
-        ...timeDistribution.map((td) {
-          final name = td['name'] ?? '';
-          final icon = td['icon'] ?? '';
-          final totalMin = (td['total_min'] as num?)?.toInt() ?? 0;
-          final pct = (td['percent'] as num?)?.toDouble() ?? 0;
-          final h = totalMin ~/ 60;
-          final m = totalMin % 60;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(children: [
-              SizedBox(width: 24, child: Text(icon, style: const TextStyle(fontSize: AppTheme.textMd))),
-              const SizedBox(width: 8),
-              Expanded(flex: 2, child: Text(name, style: TextStyle(fontSize: AppTheme.textMd, color: AppTheme.warmDark))),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (pct / 100).clamp(0.0, 1.0),
-                    minHeight: 6,
-                    backgroundColor: AppTheme.warmGray300,
-                    valueColor: AlwaysStoppedAnimation(AppTheme.primary),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '时间分布',
+            style: SlowlightTypography.secondary(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          ...timeDistribution.map((td) {
+            final name = td['name'] ?? '';
+            final icon = td['icon'] ?? '';
+            final totalMin = (td['total_min'] as num?)?.toInt() ?? 0;
+            final pct = (td['percent'] as num?)?.toDouble() ?? 0;
+            final h = totalMin ~/ 60;
+            final m = totalMin % 60;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    child: Text(
+                      icon,
+                      style: SlowlightTypography.secondary(context),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      name,
+                      style: SlowlightTypography.secondary(context),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: FxProgress(
+                      value: (pct / 100).clamp(0.0, 1.0),
+                      height: 6,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      h > 0 ? '${h}h${m}m' : '${m}m',
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(color: AppTheme.warmGray500),
+                      textAlign: TextAlign.end,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 60,
-                child: Text(h > 0 ? '${h}h${m}m' : '${m}m', style: TextStyle(fontSize: AppTheme.textXs, color: AppTheme.warmGray500), textAlign: TextAlign.end),
-              ),
-            ]),
-          );
-        }),
-      ]),
+            );
+          }),
+        ],
+      ),
     );
   }
 }

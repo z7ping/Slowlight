@@ -7,7 +7,6 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
 
 /// 清单管理：作为「更多工具」中的一级内容页嵌入主壳，不再叠加第二层 AppBar。
 class ListManageScreen extends StatefulWidget {
@@ -80,209 +79,219 @@ class _ListManageScreenState extends State<ListManageScreen> {
     var saving = false;
     String? error;
 
-    final saved = await showDialog<bool>(
+    final saved = await FxDialog.raw<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final theme = Theme.of(dialogContext);
-          return Dialog(
-            backgroundColor: hfSurface(dialogContext),
-            surfaceTintColor: Colors.transparent,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              side: BorderSide(color: hfBorder(dialogContext)),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            existing == null ? '新建清单' : '编辑清单',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: IconButton(
-                            tooltip: '关闭',
-                            onPressed: saving
-                                ? null
-                                : () => Navigator.pop(dialogContext, false),
-                            icon: const Icon(LucideIcons.x, size: 18),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: nameController,
-                      autofocus: true,
-                      enabled: !saving,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(hintText: '清单名称'),
-                    ),
-                    const SizedBox(height: 14),
-                    _fieldLabel(dialogContext, '图标'),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: _presetIcons.map((icon) {
-                        final selected = icon == selectedIcon;
-                        return InkWell(
-                          onTap: saving
-                              ? null
-                              : () => setDialogState(() => selectedIcon = icon),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusMd),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? activePalette.accent.withValues(alpha: .12)
-                                  : Colors.transparent,
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusMd),
-                              border: Border.all(
-                                color: selected
-                                    ? activePalette.accent
-                                    : hfBorder(dialogContext),
-                              ),
-                            ),
-                            child: Text(icon,
-                                style: const TextStyle(fontSize: 18)),
-                          ),
-                        );
-                      }).toList(growable: false),
-                    ),
-                    const SizedBox(height: 14),
-                    _fieldLabel(dialogContext, '颜色'),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: _presetColors.map((value) {
-                        final selected = value == selectedColor;
-                        final color = ColorUtils.safeParse(value);
-                        return InkWell(
-                          onTap: saving
-                              ? null
-                              : () =>
-                                  setDialogState(() => selectedColor = value),
-                          borderRadius: BorderRadius.circular(22),
-                          child: SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: selected
-                                        ? theme.colorScheme.onSurface
-                                        : Colors.transparent,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(growable: false),
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        error!,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          onPressed: saving
-                              ? null
-                              : () => Navigator.pop(dialogContext, false),
-                        ),
-                        const SizedBox(width: 8),
-                        FxButton(
-                          label: saving
-                              ? '保存中…'
-                              : existing == null
-                                  ? '创建'
-                                  : '保存',
-                          onPressed: saving
-                              ? null
-                              : () async {
-                                  final name = nameController.text.trim();
-                                  if (name.isEmpty) {
-                                    setDialogState(() => error = '请输入清单名称');
-                                    return;
-                                  }
-                                  setDialogState(() {
-                                    saving = true;
-                                    error = null;
-                                  });
-                                  try {
-                                    if (existing == null) {
-                                      await DataService().createList(
-                                        name: name,
-                                        icon: selectedIcon,
-                                        color: selectedColor,
-                                      );
-                                    } else {
-                                      await DataService().updateList(
-                                        localId: existing.id,
-                                        serverId: existing.serverId,
-                                        name: name,
-                                        icon: selectedIcon,
-                                        color: selectedColor,
-                                      );
-                                    }
-                                    if (dialogContext.mounted) {
-                                      Navigator.pop(dialogContext, true);
-                                    }
-                                  } catch (e) {
-                                    setDialogState(() {
-                                      saving = false;
-                                      error = '保存失败：$e';
-                                    });
-                                  }
-                                },
-                        ),
-                      ],
-                    ),
-                  ],
+      barrierColor: FxDialog.barrierColor,
+      builder:
+          (dialogContext) => StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              final theme = Theme.of(dialogContext);
+              return FxDialogSurface(
+                backgroundColor: theme.colorScheme.surface,
+                surfaceTintColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(SlowlightRadius.xl),
+                  side: BorderSide(color: theme.colorScheme.outlineVariant),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          existing == null ? '新建清单' : '编辑清单',
+                          style: SlowlightTypography.cardTitle(dialogContext),
+                        ),
+                        const SizedBox(height: 8),
+                        FxInput(
+                          controller: nameController,
+                          autofocus: true,
+                          enabled: !saving,
+                          placeholder: '清单名称',
+                          style: SlowlightTypography.body(dialogContext),
+                        ),
+                        const SizedBox(height: 14),
+                        _fieldLabel(dialogContext, '图标'),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _presetIcons
+                              .map((icon) {
+                                final selected = icon == selectedIcon;
+                                return FxInkWell(
+                                  onTap:
+                                      saving
+                                          ? null
+                                          : () => setDialogState(
+                                            () => selectedIcon = icon,
+                                          ),
+                                  borderRadius: BorderRadius.circular(
+                                    SlowlightRadius.md,
+                                  ),
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          selected
+                                              ? activePalette.accent.withValues(
+                                                alpha: .12,
+                                              )
+                                              : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(
+                                        SlowlightRadius.md,
+                                      ),
+                                      border: Border.all(
+                                        color:
+                                            selected
+                                                ? activePalette.accent
+                                                : theme
+                                                    .colorScheme
+                                                    .outlineVariant,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      icon,
+                                      style: const TextStyle(
+                                        fontSize: SlowlightIconSize.md,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              })
+                              .toList(growable: false),
+                        ),
+                        const SizedBox(height: 14),
+                        _fieldLabel(dialogContext, '颜色'),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: _presetColors
+                              .map((value) {
+                                final selected = value == selectedColor;
+                                final color = ColorUtils.safeParse(value);
+                                return FxInkWell(
+                                  onTap:
+                                      saving
+                                          ? null
+                                          : () => setDialogState(
+                                            () => selectedColor = value,
+                                          ),
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: Center(
+                                      child: Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: color,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color:
+                                                selected
+                                                    ? theme
+                                                        .colorScheme
+                                                        .onSurface
+                                                    : Colors.transparent,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              })
+                              .toList(growable: false),
+                        ),
+                        if (error != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            error!,
+                            style: SlowlightTypography.caption(
+                              dialogContext,
+                            ).copyWith(color: theme.colorScheme.error),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        FxDialogActions(
+                          actions: [
+                            FxButton(
+                              label: '取消',
+                              variant: FxButtonVariant.outline,
+                              onPressed:
+                                  saving
+                                      ? null
+                                      : () =>
+                                          Navigator.pop(dialogContext, false),
+                            ),
+                            FxButton(
+                              label:
+                                  saving
+                                      ? '保存中…'
+                                      : existing == null
+                                      ? '创建'
+                                      : '保存',
+                              onPressed:
+                                  saving
+                                      ? null
+                                      : () async {
+                                        final name = nameController.text.trim();
+                                        if (name.isEmpty) {
+                                          setDialogState(
+                                            () => error = '请输入清单名称',
+                                          );
+                                          return;
+                                        }
+                                        setDialogState(() {
+                                          saving = true;
+                                          error = null;
+                                        });
+                                        try {
+                                          if (existing == null) {
+                                            await DataService().createList(
+                                              name: name,
+                                              icon: selectedIcon,
+                                              color: selectedColor,
+                                            );
+                                          } else {
+                                            await DataService().updateList(
+                                              localId: existing.id,
+                                              serverId: existing.serverId,
+                                              name: name,
+                                              icon: selectedIcon,
+                                              color: selectedColor,
+                                            );
+                                          }
+                                          if (dialogContext.mounted) {
+                                            Navigator.pop(dialogContext, true);
+                                          }
+                                        } catch (e) {
+                                          setDialogState(() {
+                                            saving = false;
+                                            error = '保存失败：$e';
+                                          });
+                                        }
+                                      },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
     );
 
     nameController.dispose();
@@ -290,16 +299,15 @@ class _ListManageScreenState extends State<ListManageScreen> {
   }
 
   Widget _fieldLabel(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: SlowlightTypography.caption(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 
   Future<void> _deleteList(TodoList list) async {
     final confirmed = await FxDialog.confirm(
@@ -315,17 +323,15 @@ class _ListManageScreenState extends State<ListManageScreen> {
       await _loadLists();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败：$e')),
-      );
+      FxNotice.showContent(context, Text('删除失败：$e'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     final theme = Theme.of(context);
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadLists,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -337,12 +343,23 @@ class _ListManageScreenState extends State<ListManageScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      HfChip('${_lists.length} 个清单'),
-                      const Spacer(),
-                      const SizedBox(width: 16),
+                  FxActionBar(
+                    leading: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          '清单管理',
+                          style: SlowlightTypography.sectionTitle(context),
+                        ),
+                        FxChip(
+                          label: '${_lists.length} 个清单',
+                          variant: FxChipVariant.secondary,
+                        ),
+                      ],
+                    ),
+                    actions: [
                       FxButton(
                         label: '新建清单',
                         icon: LucideIcons.plus,
@@ -353,7 +370,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                   ),
                   const SizedBox(height: 14),
                   if (_lists.isEmpty)
-                    HfEmptyState(
+                    FxEmptyState(
                       emoji: '📁',
                       title: '还没有清单',
                       subtitle: '用清单把不同方向的任务分开',
@@ -365,94 +382,65 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       ),
                     )
                   else
-                    HfCard(
+                    FxCard(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
+                      expanded: true,
                       child: Column(
                         children: _lists.map((list) {
                           final color = ColorUtils.safeParse(list.color);
                           final count = _taskCountFor(list);
-                          return Container(
-                            constraints: const BoxConstraints(minHeight: 60),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: hfDivider(context)),
+                          return FxListTile(
+                            density: list.isInbox
+                                ? FxListTileDensity.detailed
+                                : FxListTileDensity.compact,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            showDivider: true,
+                            leading: Container(
+                              width: 32,
+                              height: 32,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(
+                                  SlowlightRadius.md,
+                                ),
+                              ),
+                              child: Text(
+                                list.icon,
+                                style: const TextStyle(
+                                  fontSize: SlowlightIconSize.md,
+                                ),
                               ),
                             ),
-                            child: Row(
+                            title: list.name,
+                            titleTextStyle: SlowlightTypography.secondary(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w600),
+                            subtitle: list.isInbox ? '默认收集箱' : null,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: color.withValues(alpha: .10),
-                                    borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusMd),
-                                  ),
-                                  child: Text(
-                                    list.icon,
-                                    style: const TextStyle(fontSize: 17),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        list.name,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      if (list.isInbox)
-                                        Text(
-                                          '默认收集箱',
-                                          style: TextStyle(
-                                            fontSize: AppTheme.textXs,
-                                            color: theme
-                                                .colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
                                 Text(
                                   '$count 条',
-                                  style: TextStyle(
-                                    fontSize: AppTheme.textXs,
+                                  style: SlowlightTypography.caption(
+                                    context,
+                                  ).copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                const SizedBox(width: 2),
-                                SizedBox(
-                                  width: 44,
-                                  height: 44,
-                                  child: IconButton(
-                                    tooltip: '编辑',
-                                    onPressed: () => _showEditor(list),
-                                    icon: const Icon(
-                                      LucideIcons.pencil,
-                                      size: 17,
-                                    ),
-                                  ),
+                                const SizedBox(width: 4),
+                                FxIconButton(
+                                  tooltip: '编辑',
+                                  onPressed: () => _showEditor(list),
+                                  icon: LucideIcons.pencil,
+                                  iconSize: SlowlightIconSize.md,
                                 ),
                                 if (!list.isInbox)
-                                  SizedBox(
-                                    width: 44,
-                                    height: 44,
-                                    child: IconButton(
-                                      tooltip: '删除',
-                                      onPressed: () => _deleteList(list),
-                                      icon: Icon(
-                                        LucideIcons.trash2,
-                                        size: 17,
-                                        color: theme.colorScheme.error,
-                                      ),
-                                    ),
+                                  FxIconButton(
+                                    tooltip: '删除',
+                                    onPressed: () => _deleteList(list),
+                                    icon: LucideIcons.trash2,
+                                    iconSize: SlowlightIconSize.md,
                                   ),
                               ],
                             ),

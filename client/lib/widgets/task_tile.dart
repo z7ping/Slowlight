@@ -60,6 +60,10 @@ class TaskTile extends StatelessWidget {
     final isOverdue = task.dueDate != null &&
         !task.isCompleted &&
         task.dueDate!.isBefore(DateTime.now());
+    final scaledBodySize =
+        MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize);
+    final compactTitleMaxLines =
+        scaledBodySize >= SlowlightTypography.bodySize * 1.3 ? 2 : 1;
 
     // 紧凑模式：无卡片，单行布局，支持滑动手势
     if (compact) {
@@ -79,19 +83,9 @@ class TaskTile extends StatelessWidget {
                     width: 28,
                     height: 28,
                     child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Checkbox(
-                          value: task.isCompleted,
-                          onChanged: (_) => onToggle(),
-                          activeColor: AppTheme.primary,
-                          side: BorderSide(
-                              color: AppTheme.warmGray400, width: 1.5),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
+                      child: FxCheckbox(
+                        value: task.isCompleted,
+                        onChanged: (_) => onToggle(),
                       ),
                     ),
                   ),
@@ -100,9 +94,7 @@ class TaskTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       task.title,
-                      style: TextStyle(
-                        fontSize: AppTheme.textMd,
-                        height: 1.4,
+                      style: SlowlightTypography.body(context).copyWith(
                         fontWeight: FontWeight.w500,
                         color: task.isCompleted
                             ? AppTheme.warmGray400
@@ -112,7 +104,7 @@ class TaskTile extends StatelessWidget {
                             : null,
                         decorationColor: AppTheme.warmGray400,
                       ),
-                      maxLines: 1,
+                      maxLines: compactTitleMaxLines,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -327,18 +319,9 @@ class TaskTile extends StatelessWidget {
           width: 44,
           height: 44,
           child: Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: Checkbox(
-                value: task.isCompleted,
-                onChanged: (_) => onToggle(),
-                activeColor: AppTheme.primary,
-                side: BorderSide(
-                  color: AppTheme.warmGray400,
-                  width: 2,
-                ),
-              ),
+            child: FxCheckbox(
+              value: task.isCompleted,
+              onChanged: (_) => onToggle(),
             ),
           ),
         ),
@@ -353,9 +336,7 @@ class TaskTile extends StatelessWidget {
         // 任务标题
         Text(
           task.title,
-          style: TextStyle(
-            fontSize: AppTheme.textMd,
-            height: 1.5,
+          style: SlowlightTypography.body(context).copyWith(
             fontWeight: FontWeight.w500,
             color: task.isCompleted
                 ? AppTheme.warmGray500
@@ -445,29 +426,29 @@ class TaskTile extends StatelessWidget {
     required String text,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          if (text.isNotEmpty) ...[
-            const SizedBox(width: 3),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: AppTheme.textMd,
-                height: 1.5,
-                fontWeight: FontWeight.w500,
-                color: color,
+    return Builder(
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            if (text.isNotEmpty) ...[
+              const SizedBox(width: 3),
+              Text(
+                text,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -479,20 +460,20 @@ class TaskTile extends StatelessWidget {
       children: task.tags.map((tag) {
         final color =
             ColorUtils.safeParse(tag.color, fallback: AppTheme.warmGray300);
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-          ),
-          child: Text(
-            tag.name,
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
-              height: 1.4,
-              fontWeight: FontWeight.w500,
-              color: color,
+        return Builder(
+          builder: (context) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+            ),
+            child: Text(
+              tag.name,
+              style: SlowlightTypography.caption(context).copyWith(
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
             ),
           ),
         );
@@ -505,38 +486,33 @@ class TaskTile extends StatelessWidget {
         task.subtaskCount > 0 ? task.completedSubtask / task.subtaskCount : 0.0;
     final isAllDone = task.completedSubtask == task.subtaskCount;
 
-    return Row(
-      children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
+    return Builder(
+      builder: (context) => Row(
+        children: [
+          Expanded(
+            child: FxProgress(
               value: progress,
-              minHeight: 5,
+              height: 5,
               backgroundColor: AppTheme.warmBorder,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isAllDone ? AppTheme.success : AppTheme.primary,
-              ),
+              color: isAllDone ? AppTheme.success : AppTheme.primary,
             ),
           ),
-        ),
-        SizedBox(width: 8),
-        Text(
-          '${task.completedSubtask}/${task.subtaskCount}',
-          style: TextStyle(
-            fontSize: AppTheme.textXs,
-            height: 1.4,
-            fontWeight: FontWeight.w500,
-            color: isAllDone ? AppTheme.success : AppTheme.warmGray500,
+          SizedBox(width: 8),
+          Text(
+            '${task.completedSubtask}/${task.subtaskCount}',
+            style: SlowlightTypography.caption(context).copyWith(
+              fontWeight: FontWeight.w500,
+              color: isAllDone ? AppTheme.success : AppTheme.warmGray500,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   /// 快捷操作底部菜单
   void _showQuickActions(BuildContext context) {
-    showModalBottomSheet(
+    FxSheet.show(
       context: context,
       showDragHandle: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -558,7 +534,7 @@ class TaskTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              ListTile(
+              FxListTile(
                 leading:
                     Icon(Icons.check_circle_outline, color: AppTheme.success),
                 title: const Text('完成'),
@@ -567,7 +543,7 @@ class TaskTile extends StatelessWidget {
                   onToggle();
                 },
               ),
-              ListTile(
+              FxListTile(
                 leading:
                     Icon(Icons.delete_outline, color: AppTheme.priorityHigh),
                 title: const Text('删除'),

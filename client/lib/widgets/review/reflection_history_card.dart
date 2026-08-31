@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../models/dimension.dart';
 import '../../models/reflection_entry.dart';
 import '../../repositories/reflection_repository.dart';
-import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
 import '../reflection_composer.dart';
 
@@ -49,16 +48,18 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
         children: [
           Row(
             children: [
-              Icon(Icons.edit_note_outlined,
-                  size: 19, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.edit_note_outlined,
+                size: 19,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
                   '我的观察',
-                  style: TextStyle(
-                    fontSize: AppTheme.textMd,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               FxButton(
@@ -77,12 +78,17 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
           ),
           const SizedBox(height: 10),
           if (_loading)
-            const LinearProgressIndicator(minHeight: 2)
+            const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: FxCircularProgress(strokeWidth: 2),
+              ),
+            )
           else if (_items.isEmpty)
             Text(
               '还没有自己的记录。这里保存的是你的解释，不是系统给你的结论。',
-              style: TextStyle(
-                fontSize: AppTheme.textSm,
+              style: SlowlightTypography.caption(context).copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 height: 1.5,
               ),
@@ -107,15 +113,14 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
         children: [
           Text(
             item.content,
-            style: const TextStyle(fontSize: AppTheme.textSm, height: 1.5),
+            style: SlowlightTypography.caption(context).copyWith(height: 1.5),
           ),
           const SizedBox(height: 3),
           Text(
             '${dimension == null ? '' : '${dimension.icon} ${dimension.name} · '}$time',
-            style: TextStyle(
-              fontSize: AppTheme.textXs,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),

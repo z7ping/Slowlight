@@ -16,13 +16,15 @@ class HabitCheckinDialog extends StatefulWidget {
     BuildContext context, {
     required Habit habit,
   }) {
-    return showModalBottomSheet(
+    return FxSheet.show(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(SlowlightRadius.sheet),
+        ),
       ),
       builder: (_) => HabitCheckinDialog(habit: habit),
     );
@@ -91,14 +93,13 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                   children: [
                     Text(
                       widget.habit.icon,
-                      style: const TextStyle(fontSize: AppTheme.text2Xl),
+                      style: const TextStyle(fontSize: SlowlightTypography.pageTitleSize),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         widget.habit.name,
-                        style: const TextStyle(
-                          fontSize: 13.5,
+                        style: SlowlightTypography.secondary(context).copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -107,7 +108,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                       Text(
                         '下滑关闭',
                         style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                          fontSize: SlowlightTypography.captionSize,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -184,7 +185,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                     child: Text(
                       '键盘弹出时会自动避让',
                       style: TextStyle(
-                        fontSize: AppTheme.textXs,
+                        fontSize: SlowlightTypography.captionSize,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -211,7 +212,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     return Text(
       text,
       style: TextStyle(
-        fontSize: AppTheme.textXs,
+        fontSize: SlowlightTypography.captionSize,
         fontWeight: FontWeight.w600,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
@@ -263,7 +264,7 @@ class _PickChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 fontWeight: FontWeight.w600,
                 color: selected ? accent : theme.colorScheme.onSurface,
               ),
@@ -273,7 +274,7 @@ class _PickChip extends StatelessWidget {
               Text(
                 suffix!,
                 style: TextStyle(
-                  fontSize: AppTheme.textXs,
+                  fontSize: SlowlightTypography.captionSize,
                   color: selected ? accent : theme.colorScheme.onSurfaceVariant,
                 ),
               ),

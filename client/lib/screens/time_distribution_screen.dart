@@ -5,7 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/api/analytics_api.dart';
 import '../theme/app_theme.dart';
-import '../widgets/high_fidelity/high_fidelity_ui.dart';
+import '../ui/fx.dart';
 
 const _chartColors = [
   AppTheme.chartGreen,
@@ -49,14 +49,15 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: FxCircularProgress());
     final totalMin = (_data['total_min'] as num?)?.toInt() ?? 0;
-    final tags = (_data['tags'] as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    final tags =
+        (_data['tags'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: _loadData,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -75,57 +76,35 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               '时间分配',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: SlowlightTypography.pageTitle(context),
                             ),
                             const SizedBox(height: 3),
                             Text(
                               '最近 7 天 · 看见时间实际流向了哪里',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                              style: SlowlightTypography.secondary(
+                                context,
+                              ).copyWith(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          tooltip: '刷新',
-                          onPressed: _loadData,
-                          icon: const Icon(LucideIcons.refreshCw, size: 17),
-                        ),
+                      FxIconButton(
+                        icon: LucideIcons.refreshCw,
+                        tooltip: '刷新',
+                        iconSize: 17,
+                        onPressed: _loadData,
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: HfStatCell(
-                          value: '$totalMin',
-                          label: '总专注时长',
-                          suffix: ' 分钟',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: HfStatCell(
-                          value: '${tags.length}',
-                          label: '覆盖分类',
-                          suffix: ' 个',
-                        ),
-                      ),
-                    ],
-                  ),
+                  _stats(totalMin, tags.length),
                   const SizedBox(height: 14),
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -134,11 +113,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       final daily = _dailyCard();
                       if (!wide) {
                         return Column(
-                          children: [
-                            pie,
-                            const SizedBox(height: 14),
-                            daily,
-                          ],
+                          children: [pie, const SizedBox(height: 14), daily],
                         );
                       }
                       return Row(
@@ -160,19 +135,53 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
     );
   }
 
+  Widget _stats(int totalMin, int tagCount) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final minCellWidth =
+            (190 + (textScale - 1) * 50).clamp(190, 240).toDouble();
+        final cellWidth = (constraints.maxWidth - 10) / 2;
+        final stacked = cellWidth < minCellWidth;
+        final cells = [
+          FxStatCell(value: '$totalMin', label: '总专注时长', suffix: ' 分钟'),
+          FxStatCell(value: '$tagCount', label: '覆盖分类', suffix: ' 个'),
+        ];
+        if (stacked) {
+          return Column(
+            children: [
+              SizedBox(width: double.infinity, child: cells[0]),
+              const SizedBox(height: 8),
+              SizedBox(width: double.infinity, child: cells[1]),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: cells[0]),
+            const SizedBox(width: 10),
+            Expanded(child: cells[1]),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _distributionCard(List<Map<String, dynamic>> source) {
     final theme = Theme.of(context);
     final tags = [...source]..sort(
-        (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0)
-            .compareTo((a['total_min'] as num?)?.toInt() ?? 0),
-      );
+      (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0).compareTo(
+        (a['total_min'] as num?)?.toInt() ?? 0,
+      ),
+    );
 
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(16),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: '维度分布'),
+          const FxSectionHeader(title: '维度分布'),
           const SizedBox(height: 14),
           if (tags.isEmpty)
             Padding(
@@ -180,10 +189,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               child: Center(
                 child: Text(
                   '暂无专注数据',
-                  style: TextStyle(
-                    fontSize: AppTheme.textSm,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
             )
@@ -216,7 +224,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               final color = _chartColors[entry.key % _chartColors.length];
               final percent = (tag['percent'] as num?)?.toDouble() ?? 0;
               return Container(
-                constraints: const BoxConstraints(minHeight: 36),
+                constraints: const BoxConstraints(minHeight: 44),
                 child: Row(
                   children: [
                     Container(
@@ -232,16 +240,14 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       child: Text(
                         tag['name']?.toString() ?? '未分类',
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
+                        style: SlowlightTypography.secondary(context),
                       ),
                     ),
                     Text(
                       '${percent.toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontSize: AppTheme.textXs,
-                        fontWeight: FontWeight.w600,
-                        color: color,
-                      ),
+                      style: SlowlightTypography.caption(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w600, color: color),
                     ),
                   ],
                 ),
@@ -255,24 +261,23 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   Widget _dailyCard() {
     final theme = Theme.of(context);
-    final byDay = (_data['by_day'] as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    final byDay =
+        (_data['by_day'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
     final maxMin = byDay.fold<int>(
       0,
-      (max, item) => math.max(
-        max,
-        (item['total_min'] as num?)?.toInt() ?? 0,
-      ),
+      (max, item) => math.max(max, (item['total_min'] as num?)?.toInt() ?? 0),
     );
 
-    return HfCard(
+    return FxCard(
       padding: const EdgeInsets.all(16),
+      expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HfSectionHeader(title: '每日专注'),
+          const FxSectionHeader(title: '每日专注'),
           const SizedBox(height: 14),
           if (byDay.isEmpty)
             Padding(
@@ -280,10 +285,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               child: Center(
                 child: Text(
                   '暂无每日记录',
-                  style: TextStyle(
-                    fontSize: AppTheme.textSm,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: SlowlightTypography.secondary(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
             )
@@ -297,36 +301,30 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 42,
+                      width: 54,
                       child: Text(
                         _weekdayLabel(day['date']?.toString() ?? ''),
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ),
                     Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                        child: LinearProgressIndicator(
-                          value: ratio.clamp(0, 1),
-                          minHeight: 8,
-                          backgroundColor: hfDivider(context),
-                          color: activePalette.accent,
-                        ),
+                      child: FxProgress(
+                        value: ratio.clamp(0, 1).toDouble(),
+                        height: 8,
+                        backgroundColor: theme.colorScheme.outlineVariant,
+                        color: activePalette.accent,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    SizedBox(
-                      width: 92,
+                    Flexible(
                       child: Text(
                         min > 0 ? '$min 分钟 · $count 次' : '—',
                         textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: AppTheme.textXs,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ),
                   ],
@@ -412,7 +410,7 @@ class _PieChartPainter extends CustomPainter {
       text: TextSpan(
         text: '${total.toInt()}',
         style: TextStyle(
-          fontSize: 18,
+          fontSize: SlowlightTypography.sectionTitleSize,
           fontWeight: FontWeight.w700,
           color: textColor,
         ),
@@ -430,7 +428,7 @@ class _PieChartPainter extends CustomPainter {
     final unitPainter = TextPainter(
       text: TextSpan(
         text: '分钟',
-        style: TextStyle(fontSize: 12, color: secondaryTextColor),
+        style: TextStyle(fontSize: SlowlightTypography.captionSize, color: secondaryTextColor),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

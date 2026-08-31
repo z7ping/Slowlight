@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   client-tests:
-    name: Flutter tests
+    name: Flutter analyze and tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -38,8 +38,36 @@ jobs:
             git diff -- pubspec.lock
             exit 1
           fi
+      - name: Run static analysis
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - name: Run tests
         run: flutter test
+
+  android-build:
+    name: Android debug build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Verify lockfile is committed
+        run: git diff --exit-code -- pubspec.lock
+      - name: Build Android debug APK
+        run: flutter build apk --debug
 
   web-build:
     name: Web build (non-blocking for preview)

@@ -72,8 +72,11 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
         todayTasks.add(task);
         continue;
       }
-      final due =
-          DateTime(task.dueDate!.year, task.dueDate!.month, task.dueDate!.day);
+      final due = DateTime(
+        task.dueDate!.year,
+        task.dueDate!.month,
+        task.dueDate!.day,
+      );
       if (due.isBefore(today) && !task.isCompleted) {
         overdueTasks.add(task);
       } else {
@@ -89,7 +92,7 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
 
     final completedCount = todayTasks.where((t) => t.isCompleted).length;
 
-    return RefreshIndicator(
+    return FxRefresh(
       onRefresh: () async => widget.onRefresh(),
       color: AppTheme.primary,
       child: ListView(
@@ -104,8 +107,9 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
               color: AppTheme.warmGray300.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: AppTheme.warmBorder.withValues(alpha: 0.5),
-                  width: 0.5),
+                color: AppTheme.warmBorder.withValues(alpha: 0.5),
+                width: 0.5,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,21 +119,24 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: EdgeInsets.only(
-                        bottom: widget.todayTasksExpanded ? 8 : 0),
+                      bottom: widget.todayTasksExpanded ? 8 : 0,
+                    ),
                     child: Row(
                       children: [
-                        Icon(Icons.wb_sunny_outlined,
-                            size: 14, color: AppTheme.primary),
+                        Icon(
+                          Icons.wb_sunny_outlined,
+                          size: 14,
+                          color: AppTheme.primary,
+                        ),
                         const SizedBox(width: 4),
-                        Text(
-                          todayTasks.isEmpty
-                              ? '今日任务'
-                              : '今日任务 $completedCount/${todayTasks.length}',
-                          style: TextStyle(
-                            fontSize: AppTheme.textMd,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primary,
+                        Flexible(
+                          child: Text(
+                            todayTasks.isEmpty
+                                ? '今日任务'
+                                : '今日任务 $completedCount/${todayTasks.length}',
+                            style: SlowlightTypography.cardTitle(
+                              context,
+                            ).copyWith(color: AppTheme.primary),
                           ),
                         ),
                         const Spacer(),
@@ -146,26 +153,30 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                 ),
                 if (widget.todayTasksExpanded) ...[
                   if (todayTasks.isNotEmpty)
-                    ...todayTasks.map((task) => TaskTile(
-                          key: ValueKey(task.id),
-                          task: task,
-                          compact: true,
-                          isSelected: widget.selectedTaskIds.contains(task.id),
-                          onToggle: () => widget.onToggleTask(task),
-                          onDelete: () => widget.onDeleteTask(task),
-                          onPostpone: () => widget.onPostponeTask(task),
-                          onLongPress: () => widget.onLongPressTask(task),
-                          onTap: () => widget.onTapTask(task),
-                        ))
+                    ...todayTasks.map(
+                      (task) => TaskTile(
+                        key: ValueKey(task.id),
+                        task: task,
+                        compact: true,
+                        isSelected: widget.selectedTaskIds.contains(task.id),
+                        onToggle: () => widget.onToggleTask(task),
+                        onDelete: () => widget.onDeleteTask(task),
+                        onPostpone: () => widget.onPostponeTask(task),
+                        onLongPress: () => widget.onLongPressTask(task),
+                        onTap: () => widget.onTapTask(task),
+                      ),
+                    )
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Center(
-                        child: Text('今天清闲 ☀️ 加个任务？',
-                            style: TextStyle(
-                                fontSize: AppTheme.textMd,
-                                color: AppTheme.warmGray400,
-                                height: 1.4)),
+                        child: Text(
+                          '今天清闲 ☀️ 加个任务？',
+                          textAlign: TextAlign.center,
+                          style: SlowlightTypography.secondary(
+                            context,
+                          ).copyWith(color: AppTheme.warmGray400),
+                        ),
                       ),
                     ),
                 ],
@@ -193,8 +204,9 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
               color: AppTheme.warmGray300.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: AppTheme.warmBorder.withValues(alpha: 0.5),
-                  width: 0.5),
+                color: AppTheme.warmBorder.withValues(alpha: 0.5),
+                width: 0.5,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,20 +215,23 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                   onTap: widget.onToggleOverdueExpanded,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding:
-                        EdgeInsets.only(bottom: widget.overdueExpanded ? 8 : 0),
+                    padding: EdgeInsets.only(
+                      bottom: widget.overdueExpanded ? 8 : 0,
+                    ),
                     child: Row(
                       children: [
-                        Icon(Icons.history,
-                            size: 14, color: AppTheme.warmGray400),
+                        Icon(
+                          Icons.history,
+                          size: 14,
+                          color: AppTheme.warmGray400,
+                        ),
                         const SizedBox(width: 4),
-                        Text(
-                          '延期 ${overdueTasks.length} 项',
-                          style: TextStyle(
-                            fontSize: AppTheme.textMd,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.warmGray500,
+                        Flexible(
+                          child: Text(
+                            '延期 ${overdueTasks.length} 项',
+                            style: SlowlightTypography.cardTitle(
+                              context,
+                            ).copyWith(color: AppTheme.warmGray500),
                           ),
                         ),
                         const Spacer(),
@@ -242,28 +257,34 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                               }
                               widget.onRefresh();
                               if (mounted) {
-                                final msg = failed > 0
-                                    ? '顺延 ${overdueTasks.length - failed} 项完成，$failed 项失败'
-                                    : '已将 ${overdueTasks.length} 个任务顺延至今天';
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(msg)),
-                                );
+                                final msg =
+                                    failed > 0
+                                        ? '顺延 ${overdueTasks.length - failed} 项完成，$failed 项失败'
+                                        : '已将 ${overdueTasks.length} 个任务顺延至今天';
+                                FxNotice.showContent(context, Text(msg));
                               }
                             },
                             borderRadius: BorderRadius.circular(4),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.update,
-                                      size: 14, color: AppTheme.primary),
+                                  Icon(
+                                    Icons.update,
+                                    size: 14,
+                                    color: AppTheme.primary,
+                                  ),
                                   const SizedBox(width: 4),
-                                  Text('顺延至今',
-                                      style: TextStyle(
-                                          fontSize: AppTheme.textMd,
-                                          color: AppTheme.primary)),
+                                  Text(
+                                    '顺延至今',
+                                    style: SlowlightTypography.button.copyWith(
+                                      color: AppTheme.primary,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -288,11 +309,12 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Column(
                         children: [
-                          Text('无延期任务 ✨',
-                              style: TextStyle(
-                                  fontSize: AppTheme.textMd,
-                                  color: AppTheme.warmGray400,
-                                  height: 1.4)),
+                          Text(
+                            '无延期任务 ✨',
+                            style: SlowlightTypography.secondary(
+                              context,
+                            ).copyWith(color: AppTheme.warmGray400),
+                          ),
                         ],
                       ),
                     ),
@@ -307,6 +329,12 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
 
   /// 延期任务的小卡片
   Widget _buildOverdueTile(Task task) {
+    final scaledBodySize = MediaQuery.textScalerOf(
+      context,
+    ).scale(SlowlightTypography.bodySize);
+    final titleMaxLines =
+        scaledBodySize >= SlowlightTypography.bodySize * 1.3 ? 2 : 1;
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -335,12 +363,10 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
           Expanded(
             child: Text(
               task.title,
-              style: TextStyle(
-                fontSize: AppTheme.textMd,
-                height: 1.5,
-                color: AppTheme.warmGray500,
-              ),
-              maxLines: 1,
+              style: SlowlightTypography.body(
+                context,
+              ).copyWith(color: AppTheme.warmGray500),
+              maxLines: titleMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -357,9 +383,7 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
               ),
               child: Text(
                 '顺延',
-                style: TextStyle(
-                  fontSize: AppTheme.textXs,
-                  height: 1.4,
+                style: SlowlightTypography.caption(context).copyWith(
                   fontWeight: FontWeight.w500,
                   color: AppTheme.primary,
                 ),
@@ -384,11 +408,7 @@ class _HomeTodayBodyState extends State<HomeTodayBody> {
               width: 44,
               height: 44,
               child: Center(
-                child: Icon(
-                  Icons.close,
-                  size: 14,
-                  color: AppTheme.warmGray400,
-                ),
+                child: Icon(Icons.close, size: 14, color: AppTheme.warmGray400),
               ),
             ),
           ),
