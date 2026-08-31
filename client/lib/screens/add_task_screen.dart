@@ -158,25 +158,15 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   Widget _dialogHeader() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '新建任务',
-                  style: SlowlightTypography.cardTitle(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              FxIconButton(
-                tooltip: '关闭',
-                onPressed: _isSaving ? null : () => Navigator.pop(context),
-                icon: LucideIcons.x,
-              ),
-            ],
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+          child: Text(
+            '新建任务',
+            style: SlowlightTypography.cardTitle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         FxSeparator.horizontal(height: 1, color: fxDivider(context)),
