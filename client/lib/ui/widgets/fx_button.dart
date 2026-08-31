@@ -21,6 +21,7 @@ class FxButton extends StatelessWidget {
   final FxButtonSize size;
   final IconData? icon;
   final bool expanded;
+  final Color? foregroundColor;
 
   const FxButton({
     super.key,
@@ -30,6 +31,7 @@ class FxButton extends StatelessWidget {
     this.size = FxButtonSize.md,
     this.icon,
     this.expanded = false,
+    this.foregroundColor,
   });
 
   bool get _isCompactAction => size == FxButtonSize.sm;
@@ -38,7 +40,7 @@ class FxButton extends StatelessWidget {
     final textStyle = SlowlightTypography.componentButton(
       context,
       compact: _isCompactAction,
-    );
+    ).copyWith(color: foregroundColor);
     final text = Text(label, style: textStyle);
     if (icon != null) {
       return Row(
@@ -50,6 +52,7 @@ class FxButton extends StatelessWidget {
             size: _isCompactAction
                 ? SlowlightIconSize.compactAction
                 : SlowlightIconSize.sm,
+            color: foregroundColor,
           ),
           SizedBox(
             width: _isCompactAction
