@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/app_theme.dart';
@@ -7,6 +8,8 @@ import '../support/fx_test_host.dart';
 
 void main() {
   testWidgets('FxSegmented 在 360dp + 200% 字体缩放下可用', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     var selected = 0;
 
     await tester.pumpWidget(
@@ -45,7 +48,10 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('FxSegmented 使用辅助信息语义字号', (tester) async {
+  testWidgets('FxSegmented Android 使用可读字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         theme: AppTheme.lightTheme(),
@@ -60,8 +66,29 @@ void main() {
     );
 
     final text = tester.widget<Text>(find.text('A'));
-    expect(text.style?.fontSize, SlowlightTypography.secondarySize);
-    expect(text.style?.height, closeTo(20 / 14, 0.0001));
+    expect(text.style?.fontSize, SlowlightTypography.chipSize);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('FxSegmented Windows 保持紧凑字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: FxSegmented(
+            labels: const ['A', 'B'],
+            selectedIndex: 0,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(find.text('A'));
+    expect(text.style?.fontSize, SlowlightTypography.desktopChipSize);
     await disposeFxTestHost(tester);
   });
 
