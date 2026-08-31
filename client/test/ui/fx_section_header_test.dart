@@ -26,11 +26,12 @@ void main() {
     final title = tester.widget<Text>(find.text('今日任务'));
     final trailing = tester.widget<Text>(find.text('3/5 已完成'));
     expect(title.style?.fontSize, SlowlightTypography.secondarySize);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(trailing.style?.fontSize, SlowlightTypography.captionSize);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Windows FxSectionHeader 保持桌面高密度字号', (tester) async {
+  testWidgets('Windows FxSectionHeader 保持桌面高密度字号和既有字重', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
@@ -48,6 +49,7 @@ void main() {
 
     final title = tester.widget<Text>(find.text('今日任务'));
     expect(title.style?.fontSize, SlowlightTypography.desktopSecondarySize);
+    expect(title.style?.fontWeight, FontWeight.w600);
     await disposeFxTestHost(tester);
   });
 
