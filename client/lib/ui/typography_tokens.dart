@@ -61,11 +61,39 @@ abstract final class SlowlightTypography {
   static bool get useAndroidComponentTypography =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  /// 当前平台主题使用的解析后字号。Theme、ShadTheme 与 Fx 共享这些入口，
+  /// 避免全局 Theme 继续使用 Android 大字号而 Fx 又单独补桌面密度。
+  static double get resolvedCaptionSize =>
+      useAndroidComponentTypography ? captionSize : desktopCaptionSize;
+  static double get resolvedSecondarySize =>
+      useAndroidComponentTypography ? secondarySize : desktopSecondarySize;
+  static double get resolvedFieldLabelSize =>
+      useAndroidComponentTypography ? fieldLabelSize : desktopFieldLabelSize;
+  static double get resolvedControlSize =>
+      useAndroidComponentTypography ? controlSize : desktopControlSize;
+  static double get resolvedChipSize =>
+      useAndroidComponentTypography ? chipSize : desktopChipSize;
+  static double get resolvedCompactActionSize => useAndroidComponentTypography
+      ? compactActionSize
+      : desktopCompactActionSize;
+  static double get resolvedButtonSize =>
+      useAndroidComponentTypography ? buttonSize : desktopButtonSize;
+  static double get resolvedBodySize =>
+      useAndroidComponentTypography ? bodySize : desktopBodySize;
+  static double get resolvedCardTitleSize => useAndroidComponentTypography
+      ? cardTitleSize
+      : desktopCardTitleSize;
+  static double get resolvedSectionTitleSize => useAndroidComponentTypography
+      ? sectionTitleSize
+      : desktopSectionTitleSize;
+  static double get resolvedPageTitleSize => useAndroidComponentTypography
+      ? pageTitleSize
+      : desktopPageTitleSize;
+
   static double _height(double size, double lineHeight) => lineHeight / size;
 
   static TextStyle caption(BuildContext context) {
-    final size =
-        useAndroidComponentTypography ? captionSize : desktopCaptionSize;
+    final size = resolvedCaptionSize;
     return Theme.of(context).textTheme.labelSmall!.copyWith(
           fontSize: size,
           height: _height(size, captionLineHeight),
@@ -73,8 +101,7 @@ abstract final class SlowlightTypography {
   }
 
   static TextStyle secondary(BuildContext context) {
-    final size =
-        useAndroidComponentTypography ? secondarySize : desktopSecondarySize;
+    final size = resolvedSecondarySize;
     return Theme.of(context).textTheme.bodySmall!.copyWith(
           fontSize: size,
           height: _height(
@@ -85,8 +112,7 @@ abstract final class SlowlightTypography {
   }
 
   static TextStyle fieldLabel(BuildContext context) {
-    final size =
-        useAndroidComponentTypography ? fieldLabelSize : desktopFieldLabelSize;
+    final size = resolvedFieldLabelSize;
     return Theme.of(context).textTheme.labelMedium!.copyWith(
           fontSize: size,
           height: _height(
@@ -98,8 +124,7 @@ abstract final class SlowlightTypography {
   }
 
   static TextStyle control(BuildContext context) {
-    final size =
-        useAndroidComponentTypography ? controlSize : desktopControlSize;
+    final size = resolvedControlSize;
     return Theme.of(context).textTheme.bodySmall!.copyWith(
           fontSize: size,
           height: _height(
@@ -110,7 +135,7 @@ abstract final class SlowlightTypography {
   }
 
   static TextStyle chip(BuildContext context) {
-    final size = useAndroidComponentTypography ? chipSize : desktopChipSize;
+    final size = resolvedChipSize;
     return Theme.of(context).textTheme.labelMedium!.copyWith(
           fontSize: size,
           height: _height(
@@ -125,9 +150,7 @@ abstract final class SlowlightTypography {
       .textTheme
       .labelMedium!
       .copyWith(
-        fontSize: useAndroidComponentTypography
-            ? compactActionSize
-            : desktopCompactActionSize,
+        fontSize: resolvedCompactActionSize,
         height: useAndroidComponentTypography
             ? _height(compactActionSize, compactActionLineHeight)
             : 1.5,
@@ -142,7 +165,7 @@ abstract final class SlowlightTypography {
       );
 
   static TextStyle body(BuildContext context) {
-    final size = useAndroidComponentTypography ? bodySize : desktopBodySize;
+    final size = resolvedBodySize;
     return Theme.of(context).textTheme.bodyLarge!.copyWith(
           fontSize: size,
           height: _height(
@@ -153,8 +176,7 @@ abstract final class SlowlightTypography {
   }
 
   static TextStyle cardTitle(BuildContext context) {
-    final size =
-        useAndroidComponentTypography ? cardTitleSize : desktopCardTitleSize;
+    final size = resolvedCardTitleSize;
     return Theme.of(context).textTheme.titleSmall!.copyWith(
           fontSize: size,
           height: _height(
@@ -166,9 +188,7 @@ abstract final class SlowlightTypography {
   }
 
   static TextStyle sectionTitle(BuildContext context) {
-    final size = useAndroidComponentTypography
-        ? sectionTitleSize
-        : desktopSectionTitleSize;
+    final size = resolvedSectionTitleSize;
     return Theme.of(context).textTheme.titleMedium!.copyWith(
           fontSize: size,
           height: _height(
@@ -184,9 +204,7 @@ abstract final class SlowlightTypography {
       .textTheme
       .titleLarge!
       .copyWith(
-        fontSize: useAndroidComponentTypography
-            ? pageTitleSize
-            : desktopPageTitleSize,
+        fontSize: resolvedPageTitleSize,
         height: useAndroidComponentTypography
             ? _height(pageTitleSize, pageTitleLineHeight)
             : 1.4,
@@ -231,7 +249,7 @@ abstract final class SlowlightTypography {
     bool compact = false,
   }) {
     if (compact) return compactAction(context);
-    final size = useAndroidComponentTypography ? buttonSize : desktopButtonSize;
+    final size = resolvedButtonSize;
     return Theme.of(context).textTheme.labelLarge!.copyWith(
           fontSize: size,
           height: _height(
