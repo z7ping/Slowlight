@@ -33,7 +33,6 @@ void main() {
 
     testWidgets('窄屏表单不产生布局异常', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       tester.view.physicalSize = const Size(360, 740);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -47,7 +46,6 @@ void main() {
 
     testWidgets('桌面嵌入表单只保留弹窗壳关闭入口且操作区靠右', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
       await tester.pumpWidget(
         buildFxTestHost(
@@ -71,7 +69,6 @@ void main() {
 
     testWidgets('Windows 新建任务保持桌面高密度排版', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
       await tester.pumpWidget(
         buildFxTestHost(
@@ -86,7 +83,8 @@ void main() {
       );
       await tester.pump();
 
-      final titleInput = tester.widget<EditableText>(find.byType(EditableText).first);
+      final titleInput =
+          tester.widget<EditableText>(find.byType(EditableText).first);
       expect(
         titleInput.style.fontSize,
         SlowlightTypography.desktopEmphasizedInputSize,
@@ -95,8 +93,11 @@ void main() {
         tester.widget<Text>(find.text('清单')).style?.fontSize,
         SlowlightTypography.desktopFieldLabelSize,
       );
+      final workChip = tester.widget<FxChoiceChip>(
+        find.byType(FxChoiceChip).first,
+      );
       expect(
-        tester.widget<Text>(find.text('工作')).style?.fontSize,
+        tester.widget<Text>(find.text(workChip.label)).style?.fontSize,
         SlowlightTypography.desktopChipSize,
       );
       expect(tester.takeException(), isNull);
@@ -105,7 +106,6 @@ void main() {
 
     testWidgets('Android 新建任务使用 Android 可读排版', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
       await tester.pumpWidget(
         buildFxTestHost(
@@ -120,14 +120,18 @@ void main() {
       );
       await tester.pump();
 
-      final titleInput = tester.widget<EditableText>(find.byType(EditableText).first);
+      final titleInput =
+          tester.widget<EditableText>(find.byType(EditableText).first);
       expect(titleInput.style.fontSize, SlowlightTypography.bodySize);
       expect(
         tester.widget<Text>(find.text('清单')).style?.fontSize,
         SlowlightTypography.fieldLabelSize,
       );
+      final workChip = tester.widget<FxChoiceChip>(
+        find.byType(FxChoiceChip).first,
+      );
       expect(
-        tester.widget<Text>(find.text('工作')).style?.fontSize,
+        tester.widget<Text>(find.text(workChip.label)).style?.fontSize,
         SlowlightTypography.chipSize,
       );
       expect(tester.takeException(), isNull);
