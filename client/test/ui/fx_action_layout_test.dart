@@ -144,7 +144,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Windows FxButton 不注入 Android 按钮排版', (tester) async {
+  testWidgets('Windows FxButton 恢复高密度按钮字号', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
@@ -166,8 +166,12 @@ void main() {
       ),
     );
 
-    expect(tester.widget<Text>(find.text('保存')).style, isNull);
-    expect(tester.widget<Text>(find.text('重置')).style, isNull);
+    final regular = tester.widget<Text>(find.text('保存')).style;
+    final compact = tester.widget<Text>(find.text('重置')).style;
+    expect(regular?.fontSize, SlowlightTypography.desktopButtonSize);
+    expect(regular?.fontWeight, FontWeight.w600);
+    expect(compact?.fontSize, SlowlightTypography.desktopCompactActionSize);
+    expect(compact?.fontWeight, FontWeight.w600);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
