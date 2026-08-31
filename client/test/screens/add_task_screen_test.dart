@@ -41,7 +41,7 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('桌面嵌入表单不重复渲染关闭按钮', (tester) async {
+    testWidgets('桌面嵌入表单只保留弹窗壳关闭入口且操作区靠右', (tester) async {
       await tester.pumpWidget(
         buildFxTestHost(
           home: Scaffold(
@@ -57,6 +57,7 @@ void main() {
 
       expect(find.text('新建任务'), findsOneWidget);
       expect(find.byTooltip('关闭'), findsNothing);
+      expect(tester.getCenter(find.text('保存')).dx, greaterThan(450));
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
