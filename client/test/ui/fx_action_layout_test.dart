@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/fx.dart';
@@ -96,9 +97,7 @@ void main() {
                   variant: FxButtonVariant.ghost,
                   onPressed: () {},
                 ),
-                actions: [
-                  FxButton(label: '保存', onPressed: () {}),
-                ],
+                actions: [FxButton(label: '保存', onPressed: () {})],
               ),
             ),
           ),
@@ -145,7 +144,10 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('FxButton 不覆盖 ShadButton 的原生文字字号和字重', (tester) async {
+  testWidgets('Windows FxButton 不注入 Android 按钮排版', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         home: Scaffold(
@@ -166,6 +168,23 @@ void main() {
 
     expect(tester.widget<Text>(find.text('保存')).style, isNull);
     expect(tester.widget<Text>(find.text('重置')).style, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android FxButton 使用 Android 主要操作字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(body: FxButton(label: '保存', onPressed: () {})),
+      ),
+    );
+
+    final style = tester.widget<Text>(find.text('保存')).style;
+    expect(style?.fontSize, SlowlightTypography.buttonSize);
+    expect(style?.fontWeight, FontWeight.w600);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
