@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import '../app_theme.dart';
 import '../typography_tokens.dart';
 
 /// FxSwitch — 统一开关组件。
@@ -38,7 +37,10 @@ class FxSwitch extends StatelessWidget {
                     ? SlowlightTypography.secondary(
                         context,
                       ).copyWith(fontWeight: FontWeight.w600)
-                    : const TextStyle(fontSize: AppTheme.textMd, height: 1.5),
+                    : const TextStyle(
+                        fontSize: SlowlightTypography.buttonSize,
+                        height: 1.5,
+                      ),
               ),
               if (description != null && description!.isNotEmpty) ...[
                 const SizedBox(height: 2),
