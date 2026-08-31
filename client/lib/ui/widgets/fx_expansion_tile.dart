@@ -110,7 +110,9 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
                   ],
                   Expanded(
                     child: DefaultTextStyle.merge(
-                      style: SlowlightTypography.secondary(context).copyWith(
+                      style: SlowlightTypography.componentSecondary(
+                        context,
+                      ).copyWith(
                         color: foreground,
                         fontWeight: FontWeight.w600,
                       ),
