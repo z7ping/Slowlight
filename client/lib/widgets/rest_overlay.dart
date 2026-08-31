@@ -52,6 +52,12 @@ class _RestOverlayState extends State<RestOverlay> {
   Timer? _timer;
   bool _dismissed = false;
 
+  // 休息遮罩是独立高保真场景，这些字号只属于该组件，不扩散为全局 Token。
+  static const double _modeLabelFontSize = 11;
+  static const double _timerFontSize = 38;
+  static const double _tipFontSize = 14.5;
+  static const double _strictStatusFontSize = 11;
+
   static const List<String> _tips = [
     '站起来走走，活动一下筋骨',
     '看看远处，让眼睛休息一下',
@@ -156,9 +162,9 @@ class _RestOverlayState extends State<RestOverlay> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF0F2027),
-                Color(0xFF203A43),
-                Color(0xFF2C5364),
+                SlowlightSemanticColor.restGradientStart,
+                SlowlightSemanticColor.restGradientMiddle,
+                SlowlightSemanticColor.restGradientEnd,
               ],
               stops: [0, .6, 1],
             ),
@@ -173,7 +179,7 @@ class _RestOverlayState extends State<RestOverlay> {
                     modeLabel,
                     style: const TextStyle(
                       color: Colors.white54,
-                      fontSize: 11,
+                      fontSize: _modeLabelFontSize,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 3,
                     ),
@@ -189,15 +195,17 @@ class _RestOverlayState extends State<RestOverlay> {
                           value: progress,
                           size: 190,
                           strokeWidth: 8,
-                          color: const Color(0xFF4ADE80),
+                          color: SlowlightSemanticColor.successEmphasis,
                           backgroundColor: Colors.white.withValues(alpha: .14),
-                          semanticsLabel: widget.isMicroRest ? '小憩剩余时间' : '长休息剩余时间',
+                          semanticsLabel: widget.isMicroRest
+                              ? '小憩剩余时间'
+                              : '长休息剩余时间',
                           semanticsValue: '$_remaining 秒',
                           child: Container(
                             width: 154,
                             height: 154,
                             decoration: const BoxDecoration(
-                              color: Color(0xFF16272E),
+                              color: SlowlightSemanticColor.restTimerSurface,
                               shape: BoxShape.circle,
                             ),
                             child: Center(
@@ -205,7 +213,7 @@ class _RestOverlayState extends State<RestOverlay> {
                                 '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 38,
+                                  fontSize: _timerFontSize,
                                   fontWeight: FontWeight.w700,
                                   fontFeatures: [FontFeature.tabularFigures()],
                                 ),
@@ -219,7 +227,7 @@ class _RestOverlayState extends State<RestOverlay> {
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 14.5,
+                            fontSize: _tipFontSize,
                             height: 1.5,
                           ),
                         ),
@@ -245,7 +253,7 @@ class _RestOverlayState extends State<RestOverlay> {
                           '严格模式 · 不可跳过',
                           style: TextStyle(
                             color: Colors.white38,
-                            fontSize: 11,
+                            fontSize: _strictStatusFontSize,
                             height: 1.4,
                           ),
                         )
