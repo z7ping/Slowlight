@@ -19,14 +19,15 @@ jobs:
           ref: fix/android-typography-fx-foundation
           fetch-depth: 0
 
-      - name: Replace legacy layout aliases
+      - name: Replace Feishu part-file legacy layout aliases
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          roots = [Path('client/lib/screens'), Path('client/lib/widgets')]
-          files = [p for root in roots for p in root.rglob('*.dart')]
+          path = Path('client/lib/screens/feishu_screen_sections.dart')
+          source = path.read_text(encoding='utf-8')
+          original = source
           replacements = {
               'AppTheme.spaceXs': 'SlowlightSpacing.xs',
               'AppTheme.spaceSm': 'SlowlightSpacing.md',
@@ -37,39 +38,21 @@ jobs:
               'AppTheme.radiusMd': 'SlowlightRadius.md',
               'AppTheme.radiusLg': 'SlowlightRadius.lg',
               'AppTheme.radiusXl': 'SlowlightRadius.xl',
+              'borderRadius: 999': 'borderRadius: SlowlightRadius.pill',
           }
-
-          changed = []
-          skipped = []
-          for path in files:
-              source = path.read_text(encoding='utf-8')
-              if not any(old in source for old in replacements):
-                  continue
-              if 'ui/fx.dart' not in source:
-                  skipped.append(path.as_posix())
-                  continue
-              original = source
-              for old, new in replacements.items():
-                  source = source.replace(old, new)
-              if source != original:
-                  path.write_text(source, encoding='utf-8')
-                  changed.append(path.as_posix())
-
-          print('Changed files:')
-          print('\n'.join(changed) if changed else '(none)')
-          print('Skipped files without Fx import:')
-          print('\n'.join(skipped) if skipped else '(none)')
+          for old, new in replacements.items():
+              source = source.replace(old, new)
+          if source == original:
+              raise SystemExit('Expected Feishu layout aliases were not found; refuse empty rewrite')
+          path.write_text(source, encoding='utf-8')
+          print('Updated', path)
           PY
 
       - name: Commit cleanup
         shell: bash
         run: |
-          if git diff --quiet -- client/lib/screens client/lib/widgets; then
-            echo "No cleanup changes"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add client/lib/screens client/lib/widgets
-          git commit -m "refactor(ui): 业务布局统一使用 Slowlight Token"
+          git add client/lib/screens/feishu_screen_sections.dart
+          git commit -m "refactor(ui): 飞书界面统一使用 Slowlight 布局 Token"
           git push origin HEAD:fix/android-typography-fx-foundation
