@@ -1,6 +1,8 @@
 // Fx 组件抽象层
-// 页面只 import 这一个文件，不直接依赖 shadcn_ui 或 material 具体组件
+// 页面只 import 这一个文件，不直接依赖 shadcn_ui 或 material 具体视觉组件。
 
+export 'layout_tokens.dart';
+export 'responsive_layout.dart';
 export 'typography_tokens.dart';
 export 'widgets/fx_action_layout.dart';
 export 'widgets/fx_button.dart';
@@ -35,5 +37,4 @@ export 'widgets/fx_expansion_tile.dart';
 export 'widgets/fx_surface.dart';
 export 'widgets/fx_responsive.dart';
 export 'widgets/section_title.dart';
-
 export 'widgets/fx_date_time_picker.dart';
