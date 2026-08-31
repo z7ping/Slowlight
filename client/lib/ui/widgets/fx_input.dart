@@ -7,9 +7,9 @@ import '../typography_tokens.dart';
 
 /// FxInput — 文本输入组件。
 ///
-/// 页面层统一使用 FxInput；底层统一由 shadcn_ui 的 ShadInput 提供输入能力。
-/// Android 采用 Issue #9 的可读性排版；桌面端不因 Fx 迁移强制覆盖输入正文
-/// 与占位文字的基础组件字体。
+/// 页面层统一使用 FxInput；底层优先由 shadcn_ui 的 ShadInput 提供输入能力。
+/// Fx 不重复绘制 ShadInput 已由主题提供的边框 / Focus Ring，避免 Windows
+/// 出现双层框线。平台差异只保留可读性与密度所需的输入内容尺寸。
 class FxInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? placeholder;
@@ -69,8 +69,6 @@ class FxInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final radius = BorderRadius.circular(SlowlightRadius.md);
-    final shadTheme = ShadTheme.of(context);
     final useAndroidTypography =
         SlowlightTypography.useAndroidComponentTypography;
     final input = ShadInput(
@@ -107,25 +105,9 @@ class FxInput extends StatelessWidget {
       padding:
           contentPadding ??
           EdgeInsets.symmetric(
-            horizontal: SlowlightSpacing.xl,
-            vertical: isDense ? 9 : 11,
+            horizontal: useAndroidTypography ? 14 : 12,
+            vertical: useAndroidTypography ? (isDense ? 9 : 12) : 8,
           ),
-      decoration: ShadDecoration(
-        color:
-            enabled
-                ? shadTheme.colorScheme.background
-                : shadTheme.colorScheme.muted,
-        border: ShadBorder.all(
-          color: shadTheme.colorScheme.border,
-          width: 1,
-          radius: radius,
-        ),
-        focusedBorder: ShadBorder.all(
-          color: shadTheme.colorScheme.ring,
-          width: 1.5,
-          radius: radius,
-        ),
-      ),
     );
 
     if (label == null) return input;
@@ -134,7 +116,7 @@ class FxInput extends StatelessWidget {
             context,
           ).copyWith(color: theme.colorScheme.onSurfaceVariant)
         : TextStyle(
-            fontSize: SlowlightTypography.buttonSize,
+            fontSize: SlowlightTypography.desktopControlSize,
             height: 1.5,
             fontWeight: FontWeight.w500,
             color: theme.colorScheme.onSurfaceVariant,
