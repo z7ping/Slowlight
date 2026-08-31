@@ -10,8 +10,11 @@ void main() {
     TodoList(id: 1, name: '工作', color: '#ff0000', createdAt: DateTime(2026)),
   ];
 
-  AddTaskScreen buildScreen() =>
-      AddTaskScreen(lists: testLists, selectedListId: 1);
+  AddTaskScreen buildScreen({bool embedded = false}) => AddTaskScreen(
+    lists: testLists,
+    selectedListId: 1,
+    embedded: embedded,
+  );
 
   group('AddTaskScreen 稳定契约', () {
     testWidgets('空标题提交会被校验拦截', (tester) async {
@@ -34,6 +37,26 @@ void main() {
       await tester.pumpWidget(buildFxTestHost(home: buildScreen()));
       await tester.pump();
 
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('桌面嵌入表单不重复渲染关闭按钮', (tester) async {
+      await tester.pumpWidget(
+        buildFxTestHost(
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              height: 560,
+              child: buildScreen(embedded: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('新建任务'), findsOneWidget);
+      expect(find.byTooltip('关闭'), findsNothing);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
