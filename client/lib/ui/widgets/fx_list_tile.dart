@@ -182,7 +182,7 @@ class FxListTile extends StatelessWidget {
                     title,
                     fallbackStyle: titleTextStyle ??
                         titleStyle ??
-                        SlowlightTypography.secondary(context).copyWith(
+                        SlowlightTypography.componentSecondary(context).copyWith(
                           fontWeight: FontWeight.w600,
                           color: effectiveForeground,
                         ),
