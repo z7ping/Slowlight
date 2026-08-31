@@ -94,7 +94,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                   vertical: 24,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.xl),
                   side: BorderSide(color: theme.colorScheme.outlineVariant),
                 ),
                 child: ConstrainedBox(
@@ -151,7 +151,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                             () => selectedIcon = icon,
                                           ),
                                   borderRadius: BorderRadius.circular(
-                                    AppTheme.radiusMd,
+                                    SlowlightRadius.md,
                                   ),
                                   child: Container(
                                     width: 44,
@@ -165,7 +165,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                               )
                                               : Colors.transparent,
                                       borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusMd,
+                                        SlowlightRadius.md,
                                       ),
                                       border: Border.all(
                                         color:
@@ -415,7 +415,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                       decoration: BoxDecoration(
                                         color: color.withValues(alpha: .10),
                                         borderRadius: BorderRadius.circular(
-                                          AppTheme.radiusMd,
+                                          SlowlightRadius.md,
                                         ),
                                       ),
                                       child: Text(

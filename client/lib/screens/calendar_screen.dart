@@ -241,7 +241,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppTheme.warning.withValues(alpha: .09),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Text(
         '${labels.join('、')}记录暂时不可用，其他数据仍可浏览。',

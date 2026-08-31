@@ -225,7 +225,7 @@ class _TaskWeekTabState extends State<TaskWeekTab> {
                     decoration: BoxDecoration(
                       color: activePalette.accent.withValues(alpha: .84),
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(AppTheme.radiusSm),
+                        top: Radius.circular(SlowlightRadius.sm),
                       ),
                     ),
                   ),

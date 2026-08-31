@@ -299,7 +299,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                                 alpha: .82,
                               ),
                               borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(AppTheme.radiusSm),
+                                top: Radius.circular(SlowlightRadius.sm),
                               ),
                             ),
                           ),

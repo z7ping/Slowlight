@@ -45,7 +45,7 @@ class TaskDetailSheet extends StatefulWidget {
                 elevation: 18,
                 shadowColor: Colors.black.withValues(alpha: .18),
                 borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(AppTheme.radiusXl),
+                  left: Radius.circular(SlowlightRadius.xl),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
@@ -454,13 +454,13 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         _fieldLabel(label),
         FxInkWell(
           onTap: _saving ? null : onTap,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           child: Container(
             constraints: const BoxConstraints(minHeight: 44),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: theme.scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
               border: Border.all(color: fxBorder(context)),
             ),
             child: Row(

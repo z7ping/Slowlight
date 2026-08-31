@@ -264,7 +264,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Column(
         children: [

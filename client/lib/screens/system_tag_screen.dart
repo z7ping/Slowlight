@@ -108,7 +108,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     return FxCard(
       padding: padding,
       color: color ?? fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -270,7 +270,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: color.withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
             child: Text(tag.icon, style: const TextStyle(fontSize: SlowlightTypography.bodySize)),
           ),

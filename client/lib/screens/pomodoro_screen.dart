@@ -608,7 +608,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              borderRadius: BorderRadius.circular(SlowlightRadius.lg),
               border: Border.all(
                 color: Theme.of(context).colorScheme.outlineVariant,
               ),

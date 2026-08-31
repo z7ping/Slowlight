@@ -431,7 +431,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     final theme = Theme.of(context);
     return FxInkWell(
       onTap: _isSaving ? null : onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       hoverColor: theme.colorScheme.onSurface.withValues(alpha: .04),
       focusColor: activePalette.accent.withValues(alpha: .08),
       child: Container(
@@ -439,7 +439,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: fxSurface(context),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           border: Border.all(color: theme.colorScheme.outline),
         ),
         child: Row(

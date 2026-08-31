@@ -75,7 +75,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     return FxCard(
       padding: padding ?? const EdgeInsets.all(16),
       color: fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -90,7 +90,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     onChanged: (index) => setState(() => _segment = index),
     backgroundColor: fxSubtleSurface(context),
     selectedColor: fxSurface(context),
-    borderRadius: AppTheme.radiusMd,
+    borderRadius: SlowlightRadius.md,
   );
 
   Widget _taskActionBar() => FxActionBar(
@@ -351,7 +351,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
         child: SizedBox(
           height: 62,
           child: Stack(
@@ -463,7 +463,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         SlowlightTypography.secondarySize * 1.3;
 
     return FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => _open(task),
       child: Container(
         padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 4),
@@ -472,7 +472,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               selected
                   ? theme.colorScheme.primary.withValues(alpha: .07)
                   : null,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           border: Border(bottom: BorderSide(color: fxSubtleSurface(context))),
         ),
         child: Row(

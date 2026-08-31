@@ -71,7 +71,7 @@ class _ReminderReviewBodyState extends State<ReminderReviewBody>
                 onChanged: (index) => setState(() => _tabs.index = index),
                 backgroundColor: fxSubtleSurface(context),
                 selectedColor: fxSurface(context),
-                borderRadius: AppTheme.radiusMd,
+                borderRadius: SlowlightRadius.md,
               ),
             ),
           ),
@@ -354,7 +354,7 @@ class _RangeStatsTabState extends State<_RangeStatsTab> {
       children: [
         FxCard(
           color: fxSurface(context),
-          borderRadius: AppTheme.radiusLg,
+          borderRadius: SlowlightRadius.lg,
           border: Border.all(color: fxBorder(context)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,7 +467,7 @@ class _AnalysisTabState extends State<_AnalysisTab> {
 
   Widget _card(Widget child) => FxCard(
     color: fxSurface(context),
-    borderRadius: AppTheme.radiusLg,
+    borderRadius: SlowlightRadius.lg,
     border: Border.all(color: fxBorder(context)),
     child: child,
   );

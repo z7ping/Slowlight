@@ -118,7 +118,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     return FxCard(
       padding: padding ?? const EdgeInsets.all(16),
       color: fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -299,7 +299,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       decoration: BoxDecoration(
         color: color.withValues(alpha: .06),
         border: Border.all(color: color.withValues(alpha: .18)),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Row(
         children: [
@@ -380,7 +380,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.3;
     final row = FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => widget.onTaskTap?.call(task),
       child: Container(
         constraints: const BoxConstraints(minHeight: 52),
@@ -541,7 +541,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     final theme = Theme.of(context);
     final color = _parseColor(habit.color);
     return FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap:
           widget.onHabitToggle == null
               ? null
@@ -569,7 +569,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                borderRadius: BorderRadius.circular(SlowlightRadius.md),
               ),
               child: Text(habit.icon, style: const TextStyle(fontSize: SlowlightTypography.bodySize)),
             ),
@@ -676,19 +676,19 @@ class _DashboardBodyState extends State<DashboardBody> {
         .toList(growable: false);
     final insight = visible.isEmpty ? null : visible.first;
     return FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+      borderRadius: BorderRadius.circular(SlowlightRadius.lg),
       onTap: insight == null ? null : () => _respond(insight),
       child: CustomPaint(
         painter: _DashedBorderPainter(
           color: fxDivider(context),
-          radius: AppTheme.radiusLg,
+          radius: SlowlightRadius.lg,
         ),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: fxSurface(context),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            borderRadius: BorderRadius.circular(SlowlightRadius.lg),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -814,7 +814,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: AppTheme.warmGray300.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          borderRadius: BorderRadius.circular(SlowlightRadius.lg),
         ),
       ),
     ),
@@ -877,7 +877,7 @@ class _MobileTaskSwipeRowState extends State<_MobileTaskSwipeRow> {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+      borderRadius: BorderRadius.circular(SlowlightRadius.lg),
       child: Stack(
         children: [
           Positioned.fill(

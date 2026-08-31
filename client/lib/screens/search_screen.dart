@@ -252,7 +252,7 @@ class _SearchScreenState extends State<SearchScreen> {
         '${task.dueDate!.month}/${task.dueDate!.day}${task.dueTime == null || task.dueTime!.isEmpty ? '' : ' ${task.dueTime}'}',
     ].join(' · ');
     return FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap:
           () => TaskDetailSheet.show(
             context,

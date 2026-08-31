@@ -105,7 +105,7 @@ class TaskCreateSheet extends StatefulWidget {
           surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+            borderRadius: BorderRadius.circular(SlowlightRadius.xl),
             side: BorderSide(color: fxBorder(dialogContext)),
           ),
           child: SizedBox(

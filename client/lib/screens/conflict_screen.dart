@@ -253,7 +253,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
             accent
                 ? activePalette.accent.withValues(alpha: .05)
                 : theme.scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(SlowlightRadius.lg),
         border: Border.all(
           color:
               accent ? activePalette.accent : theme.colorScheme.outlineVariant,

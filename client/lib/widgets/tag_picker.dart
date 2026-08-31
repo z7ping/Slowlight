@@ -108,7 +108,7 @@ class _TagPickerState extends State<TagPicker> {
                           onTap:
                               () => setDialogState(() => selectedColor = value),
                           borderRadius: BorderRadius.circular(
-                            AppTheme.radiusMd,
+                            SlowlightRadius.md,
                           ),
                           child: SizedBox(
                             width: 44,
@@ -198,14 +198,14 @@ class _TagPickerState extends State<TagPicker> {
           final color = ColorUtils.safeParse(tag.color);
           return FxInkWell(
             onTap: () => _toggleTag(tag),
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
             child: FxChip(
               label: tag.name,
               backgroundColor: selected ? color : color.withValues(alpha: .10),
               foregroundColor:
                   selected ? Colors.white : theme.colorScheme.onSurfaceVariant,
               borderColor: selected ? color : color.withValues(alpha: .32),
-              borderRadius: AppTheme.radiusMd,
+              borderRadius: SlowlightRadius.md,
             ),
           );
         }),

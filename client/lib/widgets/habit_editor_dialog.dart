@@ -301,7 +301,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                             }),
                         backgroundColor: fxSubtleSurface(context),
                         selectedColor: fxSurface(context),
-                        borderRadius: AppTheme.radiusMd,
+                        borderRadius: SlowlightRadius.md,
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -527,7 +527,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         constraints: const BoxConstraints(minHeight: 44),
         decoration: BoxDecoration(
           color: fxSurface(context),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           border: Border.all(color: theme.colorScheme.outline),
         ),
         child: Row(

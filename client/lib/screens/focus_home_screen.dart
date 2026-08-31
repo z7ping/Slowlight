@@ -779,7 +779,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   Widget _organizeToolsToggle() {
     final theme = Theme.of(context);
     return FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap:
           () =>
               setState(() => _organizeToolsExpanded = !_organizeToolsExpanded),
@@ -820,7 +820,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     return Material(
       color: Colors.transparent,
       child: FxInkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 44),
@@ -828,7 +828,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLowest,
             border: Border.all(color: theme.colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
           ),
           child: Row(
             children: [
@@ -856,7 +856,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
                     border: Border.all(color: theme.colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    borderRadius: BorderRadius.circular(SlowlightRadius.sm),
                   ),
                   child: Text(
                     'Ctrl K',
@@ -907,7 +907,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       iconColor: theme.colorScheme.onSurfaceVariant,
       textColor: theme.colorScheme.onSurfaceVariant,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       onTap: onTap,
     );

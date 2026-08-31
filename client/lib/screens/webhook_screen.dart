@@ -221,7 +221,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
 
     return FxCard(
       margin: const EdgeInsets.only(bottom: 8),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       padding: EdgeInsets.zero,
       child: FxListTile(
         leading: CircleAvatar(
@@ -276,7 +276,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
 
   Widget _buildEventGuide() {
     return FxCard(
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       padding: EdgeInsets.zero,
       child: FxExpansionTile(
         leading: Icon(Icons.info_outline, color: AppTheme.primary),
@@ -435,7 +435,7 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
     final selected = _selectedEvents.contains(def.key);
     return FxInkWell(
       onTap: () => _setSelected(def.key, !selected),
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(

@@ -424,7 +424,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                   bottom: index == questions.length - 1 ? 0 : 10,
                 ),
                 child: FxInkWell(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
                   onTap:
                       index == 0
                           ? null
@@ -443,7 +443,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                       border: Border.all(
                         color: theme.colorScheme.outlineVariant,
                       ),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      borderRadius: BorderRadius.circular(SlowlightRadius.md),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +473,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                                 color: theme.colorScheme.outlineVariant,
                               ),
                               borderRadius: BorderRadius.circular(
-                                AppTheme.radiusMd,
+                                SlowlightRadius.md,
                               ),
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 12),

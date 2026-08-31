@@ -231,14 +231,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return FxCard(
       padding: EdgeInsets.zero,
       color: fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
       expanded: true,
       child: Column(
         children: [
           FxInkWell(
             onTap: () => setState(() => _open = open ? '' : id),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            borderRadius: BorderRadius.circular(SlowlightRadius.lg),
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 56),
               child: Padding(
@@ -357,7 +357,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onChanged: change,
           backgroundColor: fxSubtleSurface(context),
           selectedColor: fxSurface(context),
-          borderRadius: AppTheme.radiusMd,
+          borderRadius: SlowlightRadius.md,
           expanded: expanded,
         );
         if (expanded) {

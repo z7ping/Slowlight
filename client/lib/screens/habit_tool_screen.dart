@@ -349,7 +349,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       child: FxCard(
         padding: const EdgeInsets.fromLTRB(13, 13, 14, 13),
         color: fxSurface(context),
-        borderRadius: AppTheme.radiusLg,
+        borderRadius: SlowlightRadius.lg,
         border: Border(
           left: BorderSide(color: color, width: 3),
           top: BorderSide(color: theme.colorScheme.outline),
@@ -362,7 +362,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         child: Column(
           children: [
             FxInkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
               onTap: () => _toggleExpanded(habit),
               onLongPress: () => _openDetailedCheckin(habit),
               child: ConstrainedBox(
@@ -380,7 +380,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: .12),
-                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                            borderRadius: BorderRadius.circular(SlowlightRadius.md),
                           ),
                           child: Text(
                             habit.icon,
@@ -469,7 +469,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: .05),
                   border: Border.all(color: color.withValues(alpha: .24)),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,7 +578,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       decoration: BoxDecoration(
         color: fxSurface(context),
         border: Border.all(color: theme.colorScheme.outline),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Column(
         children: [
@@ -656,7 +656,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                                 ? color.withValues(alpha: .85)
                                 : Theme.of(context).colorScheme.surfaceContainer
                                     .withValues(alpha: inMonth ? 1 : .35),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        borderRadius: BorderRadius.circular(SlowlightRadius.sm),
                         border:
                             _sameDay(day, today)
                                 ? Border.all(color: color, width: 2)

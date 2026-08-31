@@ -56,10 +56,10 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
                 },
               ),
             ),
-            const SizedBox(height: AppTheme.spaceMd),
+            const SizedBox(height: SlowlightSpacing.xl),
           ] else ...[
             const FxChip(label: '本机记录', variant: FxChipVariant.secondary),
-            const SizedBox(height: AppTheme.spaceMd),
+            const SizedBox(height: SlowlightSpacing.xl),
           ],
           ConstrainedBox(
             constraints: BoxConstraints(
@@ -81,18 +81,18 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
                 return ListView.separated(
                   itemCount: reports.length,
                   separatorBuilder:
-                      (_, __) => const SizedBox(height: AppTheme.spaceXs),
+                      (_, __) => const SizedBox(height: SlowlightSpacing.xs),
                   itemBuilder: (_, index) => _report(reports[index]),
                 );
               },
             ),
           ),
-          const SizedBox(height: AppTheme.spaceMd),
+          const SizedBox(height: SlowlightSpacing.xl),
           Wrap(
             alignment: WrapAlignment.end,
             crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: AppTheme.spaceSm,
-            runSpacing: AppTheme.spaceSm,
+            spacing: SlowlightSpacing.md,
+            runSpacing: SlowlightSpacing.md,
             children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 500),
@@ -125,7 +125,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.error_outline, color: theme.colorScheme.error),
-          const SizedBox(height: AppTheme.spaceXs),
+          const SizedBox(height: SlowlightSpacing.xs),
           Text(
             '读取${_source == 'local' ? '本机' : '云端'}迁移历史失败',
             style: SlowlightTypography.cardTitle(context),
@@ -138,7 +138,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
               context,
             ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
-          const SizedBox(height: AppTheme.spaceSm),
+          const SizedBox(height: SlowlightSpacing.md),
           FxButton(
             label: '重新加载',
             variant: FxButtonVariant.outline,
@@ -161,7 +161,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             size: 30,
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(height: AppTheme.spaceXs),
+          const SizedBox(height: SlowlightSpacing.xs),
           Text(
             _source == 'local' ? '还没有本机迁移记录' : '还没有云端审计记录',
             style: SlowlightTypography.cardTitle(context),
@@ -186,7 +186,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
     final canRetry = local && status == 'failed' && id != null;
     final theme = Theme.of(context);
     return FxCard(
-      padding: const EdgeInsets.all(AppTheme.spaceSm),
+      padding: const EdgeInsets.all(SlowlightSpacing.md),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,7 +199,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
                 size: 18,
                 color: theme.colorScheme.primary,
               ),
-              const SizedBox(width: AppTheme.spaceXs),
+              const SizedBox(width: SlowlightSpacing.xs),
               Expanded(
                 child: Text(
                   _formatTime(report['created_at']),
@@ -212,19 +212,19 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
               _statusBadge(status),
             ],
           ),
-          const SizedBox(height: AppTheme.spaceXs),
+          const SizedBox(height: SlowlightSpacing.xs),
           Text(
             '${local ? '本机记录' : '云端审计'} · ${_policy(report['conflict_policy'])}',
             style: SlowlightTypography.caption(
               context,
             ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
-          const SizedBox(height: AppTheme.spaceSm),
+          const SizedBox(height: SlowlightSpacing.md),
           _countLine('扫描', report['scanned']),
           const SizedBox(height: 4),
           _countLine('写入', report['created']),
           if (_error(report).isNotEmpty) ...[
-            const SizedBox(height: AppTheme.spaceXs),
+            const SizedBox(height: SlowlightSpacing.xs),
             Text(
               _error(report),
               style: SlowlightTypography.caption(
@@ -233,7 +233,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             ),
           ],
           if (canRetry) ...[
-            const SizedBox(height: AppTheme.spaceSm),
+            const SizedBox(height: SlowlightSpacing.md),
             Align(
               alignment: Alignment.centerRight,
               child: FxButton(

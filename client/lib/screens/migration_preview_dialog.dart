@@ -96,7 +96,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     return FxCard(
       padding: padding,
       color: fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -131,28 +131,28 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _dialogHeader(),
-          const SizedBox(height: AppTheme.spaceMd),
+          const SizedBox(height: SlowlightSpacing.xl),
           Flexible(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _overviewCard(),
-                  const SizedBox(height: AppTheme.spaceLg),
+                  const SizedBox(height: SlowlightSpacing.xxxl),
                   const FxSectionHeader(
                     title: '迁移进度',
                     trailing: '先扫描、再比对，最后由你确认写入',
                   ),
-                  const SizedBox(height: AppTheme.spaceXs),
+                  const SizedBox(height: SlowlightSpacing.xs),
                   _progressCard(),
-                  const SizedBox(height: AppTheme.spaceLg),
+                  const SizedBox(height: SlowlightSpacing.xxxl),
                   const FxSectionHeader(
                     title: '迁移数据',
                     trailing: '当前只读取数量，不会修改本地数据',
                   ),
-                  const SizedBox(height: AppTheme.spaceXs),
+                  const SizedBox(height: SlowlightSpacing.xs),
                   _countGrid(),
-                  const SizedBox(height: AppTheme.spaceLg),
+                  const SizedBox(height: SlowlightSpacing.xxxl),
                   FxSectionHeader(
                     title: '冲突处理',
                     trailing:
@@ -162,7 +162,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                                 : '发现 $_conflictCount 项需要确认')
                             : '登录云端后才会读取并比较云端数据',
                   ),
-                  const SizedBox(height: AppTheme.spaceXs),
+                  const SizedBox(height: SlowlightSpacing.xs),
                   if (DataModeManager().isCloud && _conflictCount > 0)
                     _conflictCard()
                   else
@@ -171,7 +171,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               ),
             ),
           ),
-          const SizedBox(height: AppTheme.spaceMd),
+          const SizedBox(height: SlowlightSpacing.xl),
           _footer(),
         ],
       ),
@@ -216,7 +216,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   Widget _overviewCard() {
     final theme = Theme.of(context);
     return _card(
-      padding: const EdgeInsets.all(AppTheme.spaceMd),
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 620;
@@ -229,14 +229,14 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                   color: theme.colorScheme.primaryContainer.withValues(
                     alpha: .55,
                   ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
                 ),
                 child: Icon(
                   Icons.cloud_upload_outlined,
                   color: theme.colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: AppTheme.spaceSm),
+              const SizedBox(width: SlowlightSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,8 +260,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             ],
           );
           final badges = Wrap(
-            spacing: AppTheme.spaceXs,
-            runSpacing: AppTheme.spaceXs,
+            spacing: SlowlightSpacing.xs,
+            runSpacing: SlowlightSpacing.xs,
             children: [
               _chip('本机 → 云端'),
               _chip(
@@ -283,7 +283,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 identity,
-                const SizedBox(height: AppTheme.spaceSm),
+                const SizedBox(height: SlowlightSpacing.md),
                 badges,
               ],
             );
@@ -291,7 +291,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           return Row(
             children: [
               Expanded(child: identity),
-              const SizedBox(width: AppTheme.spaceMd),
+              const SizedBox(width: SlowlightSpacing.xl),
               badges,
             ],
           );
@@ -304,8 +304,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     const labels = ['扫描数据', '处理冲突', '确认迁移', '完成'];
     return _card(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spaceMd,
-        vertical: AppTheme.spaceSm,
+        horizontal: SlowlightSpacing.xl,
+        vertical: SlowlightSpacing.md,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -317,8 +317,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                   SlowlightTypography.secondarySize * 1.3;
           if (compact) {
             return Wrap(
-              spacing: AppTheme.spaceMd,
-              runSpacing: AppTheme.spaceSm,
+              spacing: SlowlightSpacing.xl,
+              runSpacing: SlowlightSpacing.md,
               children: List.generate(
                 labels.length,
                 (index) => _progressItem(index, labels[index]),
@@ -333,7 +333,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                   child: Container(
                     height: 1,
                     margin: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.spaceXs,
+                      horizontal: SlowlightSpacing.xs,
                     ),
                     color:
                         before < _currentStep
@@ -418,8 +418,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               : 4;
       return GridView.count(
         crossAxisCount: columns,
-        mainAxisSpacing: AppTheme.spaceXs,
-        crossAxisSpacing: AppTheme.spaceXs,
+        mainAxisSpacing: SlowlightSpacing.xs,
+        crossAxisSpacing: SlowlightSpacing.xs,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         childAspectRatio:
@@ -452,7 +452,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
             height: 40,
             decoration: BoxDecoration(
               color: theme.colorScheme.primaryContainer.withValues(alpha: .42),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
             child: Icon(
               cloud ? Icons.cloud_done_outlined : Icons.login_outlined,
@@ -460,7 +460,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               color: theme.colorScheme.primary,
             ),
           ),
-          const SizedBox(width: AppTheme.spaceSm),
+          const SizedBox(width: SlowlightSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,7 +511,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 return Column(
                   children: [
                     local,
-                    const SizedBox(height: AppTheme.spaceXs),
+                    const SizedBox(height: SlowlightSpacing.xs),
                     cloud,
                   ],
                 );
@@ -519,23 +519,23 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               return Row(
                 children: [
                   Expanded(child: local),
-                  const SizedBox(width: AppTheme.spaceSm),
+                  const SizedBox(width: SlowlightSpacing.md),
                   Expanded(child: cloud),
                 ],
               );
             },
           ),
-          const SizedBox(height: AppTheme.spaceSm),
+          const SizedBox(height: SlowlightSpacing.md),
           Wrap(
-            spacing: AppTheme.spaceXs,
-            runSpacing: AppTheme.spaceXs,
+            spacing: SlowlightSpacing.xs,
+            runSpacing: SlowlightSpacing.xs,
             children: [
               _choiceButton('local', '保留本地', Icons.computer_outlined),
               _choiceButton('cloud', '保留云端', Icons.cloud_outlined),
               _choiceButton('both', '两份都保留', Icons.copy_outlined),
             ],
           ),
-          const SizedBox(height: AppTheme.spaceXs),
+          const SizedBox(height: SlowlightSpacing.xs),
           Text(
             '冲突策略将在确认迁移后应用；当前不会覆盖任何云端数据。',
             style: SlowlightTypography.caption(
@@ -563,10 +563,10 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   Widget _version(ThemeData theme, String title, String item, IconData icon) =>
       Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(AppTheme.spaceSm),
+        padding: const EdgeInsets.all(SlowlightSpacing.md),
         decoration: BoxDecoration(
           color: fxSubtleSurface(context).withValues(alpha: .45),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,7 +581,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: AppTheme.spaceSm),
+            const SizedBox(height: SlowlightSpacing.md),
             Text(item),
             const SizedBox(height: 4),
             Text(
@@ -616,7 +616,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: AppTheme.spaceSm),
+      padding: const EdgeInsets.only(top: SlowlightSpacing.md),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: fxDivider(context))),
       ),
@@ -624,8 +624,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         builder: (context, constraints) {
           final actions = Wrap(
             alignment: WrapAlignment.end,
-            spacing: AppTheme.spaceXs,
-            runSpacing: AppTheme.spaceXs,
+            spacing: SlowlightSpacing.xs,
+            runSpacing: SlowlightSpacing.xs,
             children: [
               FxButton(
                 label: _previewError == null ? '取消' : '重试',
@@ -671,7 +671,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 statusText,
-                const SizedBox(height: AppTheme.spaceXs),
+                const SizedBox(height: SlowlightSpacing.xs),
                 actions,
               ],
             );
@@ -679,7 +679,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           return Row(
             children: [
               Expanded(child: statusText),
-              const SizedBox(width: AppTheme.spaceMd),
+              const SizedBox(width: SlowlightSpacing.xl),
               actions,
             ],
           );

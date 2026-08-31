@@ -108,7 +108,7 @@ class _AboutScreenState extends State<AboutScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .45),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
