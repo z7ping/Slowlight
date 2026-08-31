@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -8,8 +7,8 @@ import '../typography_tokens.dart';
 /// FxButton — 按钮组件。
 ///
 /// Fx 统一按钮语义、尺寸、交互和触摸区域；视觉仍以 ShadButton 为底座。
-/// 文字尺度由 SlowlightTypography 的平台语义统一解析，避免 Fx 化把 Windows
-/// 既有高密度按钮误放大为 Android 尺度。
+/// 文字尺度由 SlowlightTypography 的平台语义统一解析，触控密度由平台密度层
+/// 统一提供，避免 Fx 组件各自判断 Windows / Android。
 enum FxButtonVariant { primary, secondary, outline, ghost, destructive, link }
 
 enum FxButtonSize { sm, md, lg }
@@ -125,7 +124,7 @@ class FxButton extends StatelessWidget {
         );
         break;
     }
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (!SlowlightPlatformDensity.usesMobileTouchTargets) {
       return button;
     }
     return ConstrainedBox(
