@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 /// Slowlight 语义排版 Token。
 ///
 /// 页面和业务组件应优先表达“这段文字是什么”，而不是自行选择字号。
-/// 同一字号可以承担不同语义，但字重、行高和使用场景由 Token 统一管理。
-///
-/// Android 的可读性提升属于平台专项：公共 Fx 组件只有在原生 Android
-/// 上才应强制采用 Android 语义字号；Windows / Web / 其他桌面端在 Fx
-/// 重构时应优先保留基础组件或既有高保真的视觉默认值。
+/// Android 的阅读尺度治理与桌面端高密度视觉是两个平台目标：
+/// - Android 按 Issue #9 使用更易读的语义字号；
+/// - Windows / Web / 其他桌面端在 Fx 重构时保留既定高保真密度。
 abstract final class SlowlightTypography {
+  // Android / 通用阅读语义基线。
   static const double captionSize = 12;
   static const double captionLineHeight = 16;
   static const double secondarySize = 14;
@@ -37,12 +36,18 @@ abstract final class SlowlightTypography {
   static const double displaySize = 36;
   static const double displayLineHeight = 44;
 
+  // 桌面高密度组件基线。来源于既定高保真与 Fx 化前正式实现。
+  static const double desktopSecondarySize = 13;
+  static const double desktopFieldLabelSize = 12;
+  static const double desktopControlSize = 13;
+  static const double desktopChipSize = 12;
+  static const double desktopDialogTitleSize = 15;
+  static const double desktopEmphasizedInputSize = 14.5;
+
   /// 全屏休息等大号倒计时，独立于普通标题/统计展示。
   static const double timerDisplaySize = 48;
 
   /// Issue #9 的 Android 字体治理只作用于原生 Android。
-  ///
-  /// Fx 组件可使用此标记决定是否覆盖 shadcn / 既有桌面视觉默认值。
   static bool get useAndroidComponentTypography =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -157,4 +162,51 @@ abstract final class SlowlightTypography {
         height: _height(displaySize, displayLineHeight),
         fontWeight: FontWeight.w700,
       );
+
+  /// 公共表单/选择组件使用的平台解析语义。
+  static TextStyle componentSecondary(BuildContext context) =>
+      useAndroidComponentTypography
+          ? secondary(context)
+          : Theme.of(context).textTheme.bodySmall!.copyWith(
+                fontSize: desktopSecondarySize,
+              );
+
+  static TextStyle componentFieldLabel(BuildContext context) =>
+      useAndroidComponentTypography
+          ? fieldLabel(context)
+          : Theme.of(context).textTheme.labelSmall!.copyWith(
+                fontSize: desktopFieldLabelSize,
+                fontWeight: FontWeight.w600,
+              );
+
+  static TextStyle componentControl(BuildContext context) =>
+      useAndroidComponentTypography
+          ? control(context)
+          : Theme.of(context).textTheme.bodySmall!.copyWith(
+                fontSize: desktopControlSize,
+              );
+
+  static TextStyle componentChip(BuildContext context) =>
+      useAndroidComponentTypography
+          ? chip(context)
+          : Theme.of(context).textTheme.labelSmall!.copyWith(
+                fontSize: desktopChipSize,
+                fontWeight: FontWeight.w500,
+              );
+
+  static TextStyle componentDialogTitle(BuildContext context) =>
+      useAndroidComponentTypography
+          ? cardTitle(context).copyWith(fontWeight: FontWeight.w700)
+          : Theme.of(context).textTheme.titleSmall!.copyWith(
+                fontSize: desktopDialogTitleSize,
+                fontWeight: FontWeight.w700,
+              );
+
+  static TextStyle emphasizedInput(BuildContext context) =>
+      useAndroidComponentTypography
+          ? body(context).copyWith(fontWeight: FontWeight.w600)
+          : Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: desktopEmphasizedInputSize,
+                fontWeight: FontWeight.w600,
+              );
 }
