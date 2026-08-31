@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../layout_tokens.dart';
+import '../typography_tokens.dart';
 
 /// FxButton — 按钮组件。
 ///
-/// Fx 统一按钮语义、尺寸、交互和触摸区域；文字视觉继续继承 ShadButton，
-/// 避免 Fx 迁移改变既有按钮字号和字重。
+/// Fx 统一按钮语义、尺寸、交互和触摸区域。Android 按 Issue #9
+/// 使用更易读的语义字号；Windows / Web / 其他桌面端继续继承 ShadButton
+/// 的既有文字视觉，避免 Fx 重构顺便放大、加粗按钮。
 enum FxButtonVariant { primary, secondary, outline, ghost, destructive, link }
 
 enum FxButtonSize { sm, md, lg }
@@ -30,15 +32,35 @@ class FxButton extends StatelessWidget {
     this.expanded = false,
   });
 
-  Widget _buildChild() {
-    final text = Text(label);
+  bool get _isCompactAction =>
+      size == FxButtonSize.sm &&
+      (variant == FxButtonVariant.ghost || variant == FxButtonVariant.link);
+
+  Widget _buildChild(BuildContext context) {
+    final textStyle = SlowlightTypography.useAndroidComponentTypography
+        ? (_isCompactAction
+            ? SlowlightTypography.compactAction(context)
+            : SlowlightTypography.button)
+        : null;
+    final text = Text(label, style: textStyle);
     if (icon != null) {
       return Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: SlowlightIconSize.sm),
-          const SizedBox(width: SlowlightSpacing.md),
+          Icon(
+            icon,
+            size: _isCompactAction &&
+                    SlowlightTypography.useAndroidComponentTypography
+                ? SlowlightIconSize.compactAction
+                : SlowlightIconSize.sm,
+          ),
+          SizedBox(
+            width: _isCompactAction &&
+                    SlowlightTypography.useAndroidComponentTypography
+                ? SlowlightSpacing.sm
+                : SlowlightSpacing.md,
+          ),
           text,
         ],
       );
@@ -59,7 +81,7 @@ class FxButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _buildChild();
+    final child = _buildChild(context);
     final Widget button;
     switch (variant) {
       case FxButtonVariant.primary:
