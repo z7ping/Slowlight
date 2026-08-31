@@ -22,7 +22,9 @@ class HabitCheckinDialog extends StatefulWidget {
       showDragHandle: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(SlowlightRadius.sheet),
+        ),
       ),
       builder: (_) => HabitCheckinDialog(habit: habit),
     );
@@ -97,8 +99,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                     Expanded(
                       child: Text(
                         widget.habit.name,
-                        style: const TextStyle(
-                          fontSize: 13.5,
+                        style: SlowlightTypography.secondary(context).copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),

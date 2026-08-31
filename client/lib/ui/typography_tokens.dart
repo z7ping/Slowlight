@@ -32,6 +32,8 @@ abstract final class SlowlightTypography {
   static const double heroLineHeight = 32;
   static const double displaySize = 36;
   static const double displayLineHeight = 44;
+  /// 全屏休息等大号倒计时，独立于普通标题/统计展示。
+  static const double timerDisplaySize = 48;
 
   static double _height(double size, double lineHeight) => lineHeight / size;
 

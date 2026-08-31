@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../app_theme.dart';
+import '../typography_tokens.dart';
 
 // ═══════════════════════════════════════════
 // FxDatePicker — ShadCN 风格日期选择器
@@ -97,7 +98,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
                   child: Text(
                     d,
                     style: TextStyle(
-                      fontSize: AppTheme.textSm,
+                      fontSize: SlowlightTypography.secondarySize,
                       fontWeight: FontWeight.w500,
                       color: isWeekend
                           ? AppTheme.priorityHigh.withValues(alpha: 0.7)
@@ -159,7 +160,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
                         child: Text(
                           '${day.day}',
                           style: TextStyle(
-                            fontSize: AppTheme.textMd,
+                            fontSize: SlowlightTypography.buttonSize,
                             fontWeight: isSelected || isToday
                                 ? FontWeight.w600
                                 : FontWeight.w400,
@@ -253,7 +254,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
                 Text(
                   DateFormat('yyyy年M月').format(_focusedMonth),
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     fontWeight: FontWeight.w600,
                     color: textColor,
                   ),
@@ -430,7 +431,7 @@ class FxCalendar<T> extends StatelessWidget {
         titleTextFormatter: (date, locale) =>
             '${date.year}年${date.month}月',
         titleTextStyle: TextStyle(
-          fontSize: AppTheme.textLg,
+          fontSize: SlowlightTypography.bodySize,
           height: 1.3,
           fontWeight: FontWeight.w600,
           color: onSurface,
@@ -442,13 +443,13 @@ class FxCalendar<T> extends StatelessWidget {
       ),
       daysOfWeekStyle: DaysOfWeekStyle(
         weekdayStyle: TextStyle(
-          fontSize: AppTheme.textMd,
+          fontSize: SlowlightTypography.buttonSize,
           fontWeight: FontWeight.w500,
           color: AppTheme.warmGray500,
           height: 1.5,
         ),
         weekendStyle: TextStyle(
-          fontSize: AppTheme.textMd,
+          fontSize: SlowlightTypography.buttonSize,
           fontWeight: FontWeight.w500,
           color: AppTheme.priorityHigh,
           height: 1.5,
@@ -457,13 +458,13 @@ class FxCalendar<T> extends StatelessWidget {
       calendarStyle: CalendarStyle(
         outsideDaysVisible: false,
         defaultTextStyle: TextStyle(
-          fontSize: AppTheme.textMd,
+          fontSize: SlowlightTypography.buttonSize,
           fontWeight: FontWeight.w500,
           color: onSurface,
           height: 1.5,
         ),
         weekendTextStyle: TextStyle(
-          fontSize: AppTheme.textMd,
+          fontSize: SlowlightTypography.buttonSize,
           fontWeight: FontWeight.w500,
           color: AppTheme.priorityHigh,
           height: 1.5,
@@ -473,7 +474,7 @@ class FxCalendar<T> extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         todayTextStyle: TextStyle(
-          fontSize: AppTheme.textMd,
+          fontSize: SlowlightTypography.buttonSize,
           fontWeight: FontWeight.w600,
           color: AppTheme.primary,
           height: 1.5,
@@ -483,7 +484,7 @@ class FxCalendar<T> extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         selectedTextStyle: const TextStyle(
-          fontSize: AppTheme.textMd,
+          fontSize: SlowlightTypography.buttonSize,
           fontWeight: FontWeight.w600,
           color: AppTheme.white,
           height: 1.5,

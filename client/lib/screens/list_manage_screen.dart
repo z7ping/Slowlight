@@ -420,7 +420,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                       ),
                                       child: Text(
                                         list.icon,
-                                        style: const TextStyle(fontSize: 17),
+                                        style: const TextStyle(fontSize: SlowlightIconSize.md),
                                       ),
                                     ),
                                     const SizedBox(width: 10),
@@ -468,14 +468,14 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                       tooltip: '编辑',
                                       onPressed: () => _showEditor(list),
                                       icon: LucideIcons.pencil,
-                                      iconSize: 17,
+                                      iconSize: SlowlightIconSize.md,
                                     ),
                                     if (!list.isInbox)
                                       FxIconButton(
                                         tooltip: '删除',
                                         onPressed: () => _deleteList(list),
                                         icon: LucideIcons.trash2,
-                                        iconSize: 17,
+                                        iconSize: SlowlightIconSize.md,
                                       ),
                                   ],
                                 ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_theme.dart';
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 
 /// FxStatCell — 统计值展示单元。
@@ -21,14 +21,17 @@ class FxStatCell extends StatelessWidget {
     this.suffix,
     this.backgroundColor,
     this.border,
-    this.borderRadius = AppTheme.radiusLg,
+    this.borderRadius = SlowlightRadius.lg,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: SlowlightSpacing.xl,
+        vertical: SlowlightSpacing.xl,
+      ),
       decoration: BoxDecoration(
         color: backgroundColor ?? theme.colorScheme.surface,
         border: border,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../app_theme.dart';
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 import 'fx_cursor.dart';
 
@@ -85,18 +85,18 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
         color: _expanded
             ? widget.backgroundColor
             : widget.collapsedBackgroundColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           FxInkWell(
             onTap: widget.enabled ? _toggle : null,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
             child: Padding(
               padding: widget.tilePadding ??
                   EdgeInsets.symmetric(
-                    horizontal: AppTheme.spaceMd,
+                    horizontal: SlowlightSpacing.xl,
                     vertical: widget.dense ? 8 : 12,
                   ),
               child: Row(
@@ -106,7 +106,7 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
                       data: IconThemeData(color: iconForeground),
                       child: widget.leading!,
                     ),
-                    const SizedBox(width: AppTheme.spaceSm),
+                    const SizedBox(width: SlowlightSpacing.md),
                   ],
                   Expanded(
                     child: DefaultTextStyle.merge(

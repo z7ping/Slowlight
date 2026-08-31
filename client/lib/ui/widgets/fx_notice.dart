@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../app_theme.dart';
+import '../color_tokens.dart';
 import 'fx_button.dart';
 
 /// Slowlight 全局通知承载层。
@@ -267,8 +268,8 @@ abstract final class FxNotice {
           border: const Border.fromBorderSide(
             BorderSide(color: AppTheme.success),
           ),
-          titleStyle: const TextStyle(color: Color(0xFF052E16)),
-          descriptionStyle: const TextStyle(color: Color(0xFF052E16)),
+          titleStyle: const TextStyle(color: SlowlightSemanticColor.noticeSuccessForeground),
+          descriptionStyle: const TextStyle(color: SlowlightSemanticColor.noticeSuccessForeground),
         ),
       FxNoticeVariant.warning => ShadToast(
           title: content,
@@ -279,8 +280,8 @@ abstract final class FxNotice {
           border: const Border.fromBorderSide(
             BorderSide(color: AppTheme.warning),
           ),
-          titleStyle: const TextStyle(color: Color(0xFF431407)),
-          descriptionStyle: const TextStyle(color: Color(0xFF431407)),
+          titleStyle: const TextStyle(color: SlowlightSemanticColor.noticeWarningForeground),
+          descriptionStyle: const TextStyle(color: SlowlightSemanticColor.noticeWarningForeground),
         ),
     };
   }

@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import '../services/lock_screen.dart';
 import '../services/reminder_service.dart';
-import '../ui/app_theme.dart';
+import '../ui/fx.dart';
 
 /// 全局休息遮罩 — 不依赖任何特定页面，通过 navigatorKey 挂载。
 /// 内部监听 ReminderService，状态离开 rest 时自动关闭。
@@ -153,16 +153,16 @@ class _RestOverlayState extends State<RestOverlay> {
               Icon(
                 widget.isMicroRest ? Icons.self_improvement : Icons.spa,
                 color: AppTheme.white54,
-                size: 64,
+                size: SlowlightIconSize.overlay,
               ),
               const SizedBox(height: 32),
-              Text(title, style: TextStyle(color: AppTheme.white70, fontSize: AppTheme.text2Xl)),
+              Text(title, style: TextStyle(color: AppTheme.white70, fontSize: SlowlightTypography.pageTitleSize)),
               const SizedBox(height: 8),
-              Text(_tip, style: TextStyle(color: AppTheme.white38, fontSize: AppTheme.textMd)),
+              Text(_tip, style: TextStyle(color: AppTheme.white38, fontSize: SlowlightTypography.buttonSize)),
               const SizedBox(height: 32),
               Text(
                 '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
-                style: TextStyle(color: AppTheme.white, fontSize: 48, fontWeight: FontWeight.w200),
+                style: TextStyle(color: AppTheme.white, fontSize: SlowlightTypography.timerDisplaySize, fontWeight: FontWeight.w200),
               ),
               const SizedBox(height: 48),
               Row(
@@ -181,7 +181,7 @@ class _RestOverlayState extends State<RestOverlay> {
                       child: const Text('跳过', style: TextStyle(color: AppTheme.white38)),
                     ),
                   ] else ...[
-                    Text('🔒 严格模式', style: TextStyle(color: AppTheme.white38, fontSize: AppTheme.textSm)),
+                    Text('🔒 严格模式', style: TextStyle(color: AppTheme.white38, fontSize: SlowlightTypography.secondarySize)),
                   ],
                 ],
               ),

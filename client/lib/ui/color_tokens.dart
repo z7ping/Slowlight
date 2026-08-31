@@ -15,4 +15,6 @@ abstract final class SlowlightSemanticColor {
   /// Dialog 与 Sheet 使用不同遮罩强度，但都由统一语义入口管理。
   static const Color dialogBarrier = Color(0x73000000);
   static const Color sheetBarrier = Color(0xCC000000);
+  static const Color noticeSuccessForeground = Color(0xFF052E16);
+  static const Color noticeWarningForeground = Color(0xFF431407);
 }

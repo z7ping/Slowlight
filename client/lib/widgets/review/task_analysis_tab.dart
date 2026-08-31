@@ -63,7 +63,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('📊', style: TextStyle(fontSize: 48)),
+            const Text('📊', style: TextStyle(fontSize: SlowlightIconSize.heroGlyph)),
             Text('数据积累中', style: SlowlightTypography.secondary(context)),
           ],
         ),
@@ -128,7 +128,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
   Widget _totalCard(ThemeData theme, int total, int wk, int mo, int ms) {
     return FxCard(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: 16,
+      borderRadius: SlowlightRadius.xl,
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
@@ -192,7 +192,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
             .toDouble();
     return FxCard(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: 16,
+      borderRadius: SlowlightRadius.xl,
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
@@ -250,7 +250,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
     };
     return FxCard(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: 16,
+      borderRadius: SlowlightRadius.xl,
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [

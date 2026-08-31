@@ -48,6 +48,8 @@ abstract final class SlowlightIconSize {
   static const double lg = 20;
   static const double xl = 24;
   static const double xxl = 30;
+  static const double heroGlyph = 48;
+  static const double overlay = 64;
 }
 
 /// 全局窗口级断点。

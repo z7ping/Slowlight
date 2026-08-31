@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../app_theme.dart';
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 import 'fx_cursor.dart';
 
@@ -108,7 +108,7 @@ class FxListTile extends StatelessWidget {
         effectiveShape.borderRadius is BorderRadius) {
       return effectiveShape.borderRadius as BorderRadius;
     }
-    return BorderRadius.circular(AppTheme.radiusMd);
+    return BorderRadius.circular(SlowlightRadius.md);
   }
 
   @override
@@ -118,7 +118,7 @@ class FxListTile extends StatelessWidget {
         ? selectedColor ?? textColor ?? theme.colorScheme.onSurface
         : textColor ?? theme.colorScheme.onSurface;
     final effectivePadding = contentPadding ?? padding;
-    final gap = horizontalTitleGap ?? AppTheme.spaceSm;
+    final gap = horizontalTitleGap ?? SlowlightSpacing.md;
     final leadingWidth = minLeadingWidth ?? 0;
     final showSubtitle = subtitle is Widget ||
         (subtitle is String && (subtitle! as String).isNotEmpty);

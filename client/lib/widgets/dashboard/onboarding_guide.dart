@@ -55,7 +55,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('👋', style: TextStyle(fontSize: 48)),
+        const Text('👋', style: TextStyle(fontSize: SlowlightIconSize.heroGlyph)),
         const SizedBox(height: 16),
         Text(
           '欢迎使用 $kBrandDisplayName',

@@ -143,7 +143,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             focusNode: _focusNode,
                             onChanged: _changed,
                             placeholder: '搜索任务、习惯、回顾…',
-                            leading: const Icon(LucideIcons.search, size: 20),
+                            leading: const Icon(LucideIcons.search, size: SlowlightIconSize.lg),
                             trailing:
                                 _controller.text.isEmpty
                                     ? null
@@ -322,7 +322,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         children: [
                           Text(
                             habit.icon,
-                            style: const TextStyle(fontSize: 17),
+                            style: const TextStyle(fontSize: SlowlightIconSize.md),
                           ),
                           const SizedBox(width: 9),
                           Expanded(
