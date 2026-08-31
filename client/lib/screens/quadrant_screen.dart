@@ -54,7 +54,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: FxCircularProgress());
-    final desktop = MediaQuery.sizeOf(context).width >= 1024;
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
     final cells = [
       _quadrant(
         '重要 · 紧急',
@@ -111,13 +111,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
     final emptyState = FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => _addTask(priority),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.plus, size: 20),
+            const Icon(LucideIcons.plus, size: SlowlightIconSize.lg),
             const SizedBox(height: 5),
             Text(
               '这里暂时没有任务 · 添加任务',
@@ -133,7 +133,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     Widget card = FxCard(
       padding: const EdgeInsets.all(16),
       color: fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(
         color:
             hovering
@@ -163,7 +163,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
                   color: fxSubtleSurface(context),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.pill),
                 ),
                 child: Text(
                   '${items.length}',
@@ -203,7 +203,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       card = CustomPaint(
         painter: _QuadrantDashedPainter(
           color: color.withValues(alpha: .8),
-          radius: AppTheme.radiusLg,
+          radius: SlowlightRadius.lg,
         ),
         child: card,
       );
@@ -239,7 +239,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           child: FxCard(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             color: fxSurface(context),
-            borderRadius: AppTheme.radiusLg,
+            borderRadius: SlowlightRadius.lg,
             border: Border.all(color: fxBorder(context)),
             boxShadow:
                 theme.brightness == Brightness.light
@@ -248,7 +248,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('●', style: TextStyle(color: color, fontSize: 10)),
+                Text(
+                  '●',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: SlowlightTypography.captionSize,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -273,16 +279,24 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
 
   Widget _taskLine(Task task, Color color, {required bool desktop}) {
     return FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => desktop ? _openTask(task) : _showMoveSheet(task),
       onLongPress: desktop ? null : () => _openTask(task),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
+        constraints: const BoxConstraints(
+          minHeight: SlowlightControlSize.minTouchTarget,
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
           child: Row(
             children: [
-              Text('●', style: TextStyle(color: color, fontSize: 10)),
+              Text(
+                '●',
+                style: TextStyle(
+                  color: color,
+                  fontSize: SlowlightTypography.captionSize,
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -298,7 +312,11 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                   style: SlowlightTypography.secondary(context),
                 ),
               ),
-              if (!desktop) const Icon(LucideIcons.ellipsis, size: 17),
+              if (!desktop)
+                const Icon(
+                  LucideIcons.ellipsis,
+                  size: SlowlightIconSize.md,
+                ),
             ],
           ),
         ),
@@ -327,7 +345,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.radiusXl),
+          top: Radius.circular(SlowlightRadius.xl),
         ),
       ),
       builder:
@@ -373,7 +391,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   Widget _moveOption(String emoji, String label, String value, String current) {
     final selected = value == current;
     return FxInkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => Navigator.pop(context, value),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
@@ -400,7 +418,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                   label: '当前',
                   backgroundColor: activePalette.accent.withValues(alpha: .12),
                   foregroundColor: activePalette.accent,
-                  borderRadius: 999,
+                  borderRadius: SlowlightRadius.pill,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 9,
                     vertical: 3,
