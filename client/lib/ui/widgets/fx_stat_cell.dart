@@ -5,7 +5,7 @@ import '../typography_tokens.dart';
 
 /// FxStatCell — 统计值展示单元。
 ///
-/// value 使用页面标题级别强调，suffix/label 使用辅助与说明文字语义。
+/// value 使用独立的数据强调语义，suffix/label 使用辅助与说明文字语义。
 class FxStatCell extends StatelessWidget {
   final String value;
   final String label;
@@ -42,9 +42,7 @@ class FxStatCell extends StatelessWidget {
         children: [
           Text.rich(
             TextSpan(
-              style: SlowlightTypography.pageTitle(context).copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: SlowlightTypography.statValue(context),
               children: [
                 TextSpan(text: value),
                 if (suffix != null)
