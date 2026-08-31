@@ -93,7 +93,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Windows FxPageHeader 保持既有桌面标题密度', (tester) async {
+  testWidgets('Windows FxPageHeader 使用高保真二级页头字号', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
@@ -105,7 +105,10 @@ void main() {
     );
 
     final text = tester.widget<Text>(find.text('测试页头'));
-    expect(text.style?.fontSize, SlowlightTypography.desktopPageTitleSize);
+    expect(
+      text.style?.fontSize,
+      SlowlightTypography.desktopSecondaryPageTitleSize,
+    );
     await disposeFxTestHost(tester);
   });
 
