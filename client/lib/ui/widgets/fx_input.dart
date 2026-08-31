@@ -8,8 +8,8 @@ import '../typography_tokens.dart';
 /// FxInput — 文本输入组件。
 ///
 /// 页面层统一使用 FxInput；底层优先由 shadcn_ui 的 ShadInput 提供输入能力。
-/// Fx 不重复绘制 ShadInput 已由主题提供的边框 / Focus Ring，避免 Windows
-/// 出现双层框线。平台差异只保留可读性与密度所需的输入内容尺寸。
+/// Fx 不重复绘制 ShadInput 已由主题提供的边框 / Focus Ring；默认字号、占位符
+/// 与内边距均由当前平台 Theme / SlowlightTypography 解析，组件本身不判断平台。
 class FxInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? placeholder;
@@ -69,8 +69,6 @@ class FxInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final useAndroidTypography =
-        SlowlightTypography.useAndroidComponentTypography;
     final input = ShadInput(
       controller: controller,
       onChanged: onChanged,
@@ -88,39 +86,25 @@ class FxInput extends StatelessWidget {
       readOnly: readOnly,
       autofocus: autofocus,
       focusNode: focusNode,
-      style:
-          style ??
-          (useAndroidTypography ? SlowlightTypography.body(context) : null),
+      style: style ?? SlowlightTypography.body(context),
       inputFormatters: inputFormatters,
       placeholder: placeholder == null ? null : Text(placeholder!),
       placeholderStyle:
           placeholderStyle ??
-          (useAndroidTypography
-              ? SlowlightTypography.control(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant)
-              : null),
+          SlowlightTypography.control(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
       trailing: trailing,
-      padding:
-          contentPadding ??
-          EdgeInsets.symmetric(
-            horizontal: useAndroidTypography ? 14 : 12,
-            vertical: useAndroidTypography ? (isDense ? 9 : 12) : 8,
-          ),
+      // null 时完全交给 ShadInputTheme；这样 Windows / Android 的密度差异
+      // 只在 Theme 层定义一次。isDense 仅保留旧调用兼容，不再另造平台分支。
+      padding: contentPadding,
     );
 
     if (label == null) return input;
-    final labelStyle = useAndroidTypography
-        ? SlowlightTypography.fieldLabel(
-            context,
-          ).copyWith(color: theme.colorScheme.onSurfaceVariant)
-        : TextStyle(
-            fontSize: SlowlightTypography.desktopControlSize,
-            height: 1.5,
-            fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onSurfaceVariant,
-          );
+    final labelStyle = SlowlightTypography.fieldLabel(
+      context,
+    ).copyWith(color: theme.colorScheme.onSurfaceVariant);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
