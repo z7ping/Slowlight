@@ -42,6 +42,8 @@ abstract final class SlowlightTypography {
   static const double desktopFieldLabelSize = 12;
   static const double desktopControlSize = 13;
   static const double desktopChipSize = 12;
+  static const double desktopCompactActionSize = 12;
+  static const double desktopButtonSize = 13;
   static const double desktopBodySize = 14;
   static const double desktopCardTitleSize = 15;
   static const double desktopSectionTitleSize = 16;
@@ -53,6 +55,9 @@ abstract final class SlowlightTypography {
   static const double timerDisplaySize = 48;
 
   /// Issue #9 的 Android 字体治理只作用于原生 Android。
+  ///
+  /// 平台判断集中在语义排版层；Fx 组件应读取这里解析后的语义样式，
+  /// 不再自行判断 Windows / Android 后硬编码字号。
   static bool get useAndroidComponentTypography =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -120,13 +125,16 @@ abstract final class SlowlightTypography {
       .textTheme
       .labelMedium!
       .copyWith(
-        fontSize: useAndroidComponentTypography ? compactActionSize : 12,
+        fontSize: useAndroidComponentTypography
+            ? compactActionSize
+            : desktopCompactActionSize,
         height: useAndroidComponentTypography
             ? _height(compactActionSize, compactActionLineHeight)
             : 1.5,
         fontWeight: FontWeight.w600,
       );
 
+  /// 兼容旧调用的 Android 基线。新的 Fx 按钮应使用 [componentButton]。
   static TextStyle get button => TextStyle(
         fontSize: buttonSize,
         height: _height(buttonSize, buttonLineHeight),
@@ -176,8 +184,12 @@ abstract final class SlowlightTypography {
       .textTheme
       .titleLarge!
       .copyWith(
-        fontSize: pageTitleSize,
-        height: _height(pageTitleSize, pageTitleLineHeight),
+        fontSize: useAndroidComponentTypography
+            ? pageTitleSize
+            : desktopPageTitleSize,
+        height: useAndroidComponentTypography
+            ? _height(pageTitleSize, pageTitleLineHeight)
+            : 1.4,
         fontWeight: FontWeight.w600,
       );
 
@@ -210,6 +222,25 @@ abstract final class SlowlightTypography {
   static TextStyle componentControl(BuildContext context) => control(context);
 
   static TextStyle componentChip(BuildContext context) => chip(context);
+
+  /// Slowlight 按钮语义：Windows 高保真为普通 13px / 紧凑 12px，
+  /// Android 保持主要操作 15px / 紧凑操作 14px。FxButton 只消费该语义，
+  /// 不再在组件内部重新判断平台。
+  static TextStyle componentButton(
+    BuildContext context, {
+    bool compact = false,
+  }) {
+    if (compact) return compactAction(context);
+    final size = useAndroidComponentTypography ? buttonSize : desktopButtonSize;
+    return Theme.of(context).textTheme.labelLarge!.copyWith(
+          fontSize: size,
+          height: _height(
+            size,
+            useAndroidComponentTypography ? buttonLineHeight : 20,
+          ),
+          fontWeight: FontWeight.w600,
+        );
+  }
 
   static TextStyle componentDialogTitle(BuildContext context) =>
       useAndroidComponentTypography
