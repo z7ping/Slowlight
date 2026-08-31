@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -107,6 +106,38 @@ void main() {
 
     final text = tester.widget<Text>(find.text('测试页头'));
     expect(text.style?.fontSize, SlowlightTypography.desktopPageTitleSize);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Windows FxPageHeader 把右侧操作稳定锚定到页头右侧', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 720,
+              child: FxPageHeader(
+                title: 'AI 服务',
+                onBack: () {},
+                trailing: FxButton(
+                  label: '保存',
+                  size: FxButtonSize.sm,
+                  onPressed: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final action = tester.getRect(find.text('保存'));
+    expect(action.right, greaterThan(680));
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 }
