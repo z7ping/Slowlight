@@ -165,9 +165,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
           child: Text(
             '新建任务',
-            style: SlowlightTypography.cardTitle(
-              context,
-            ).copyWith(fontWeight: FontWeight.w700),
+            style: SlowlightTypography.componentDialogTitle(context),
           ),
         ),
         FxSeparator.horizontal(height: 1, color: fxDivider(context)),
@@ -184,9 +182,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           autofocus: true,
           enabled: !_isSaving,
           textInputAction: TextInputAction.next,
-          style: SlowlightTypography.body(
-            context,
-          ).copyWith(fontWeight: FontWeight.w600),
+          style: SlowlightTypography.emphasizedInput(context),
           placeholder: '任务标题',
         ),
         const SizedBox(height: 8),
@@ -195,7 +191,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           enabled: !_isSaving,
           minLines: 1,
           maxLines: 3,
-          style: SlowlightTypography.secondary(context),
+          style: SlowlightTypography.componentSecondary(context),
           placeholder: '描述（可选）',
         ),
         const SizedBox(height: 16),
@@ -407,7 +403,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         label,
-        style: SlowlightTypography.fieldLabel(context).copyWith(
+        style: SlowlightTypography.componentFieldLabel(context).copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
@@ -436,7 +432,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         child: Row(
           children: [
             Expanded(
-              child: Text(text, style: SlowlightTypography.control(context)),
+              child: Text(
+                text,
+                style: SlowlightTypography.componentControl(context),
+              ),
             ),
             Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
           ],
