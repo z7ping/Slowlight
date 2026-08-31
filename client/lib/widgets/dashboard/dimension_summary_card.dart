@@ -68,28 +68,32 @@ class DimensionSummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
     return FxCard(
       color: theme.colorScheme.surfaceContainerLowest,
-      borderRadius: 16,
+      borderRadius: SlowlightRadius.xl,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.radar_outlined, color: theme.colorScheme.primary, size: 20),
+              Icon(
+                Icons.radar_outlined,
+                color: theme.colorScheme.primary,
+                size: SlowlightIconSize.lg,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '四维近况',
-                  style: SlowlightTypography.cardTitle(context).copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: SlowlightTypography.cardTitle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
               Text(
                 '本周',
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: SlowlightTypography.caption(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -97,9 +101,9 @@ class DimensionSummaryCard extends StatelessWidget {
           if (dimensions.isEmpty)
             Text(
               '还没有可用的维度数据。',
-              style: SlowlightTypography.secondary(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
             )
           else
             ...dimensions.map((dim) => _buildItem(context, dim)),
@@ -110,11 +114,12 @@ class DimensionSummaryCard extends StatelessWidget {
               icon: Icons.edit_outlined,
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
-              onPressed: () => ReflectionComposer.show(
-                context,
-                entryType: 'observation',
-                prompt: '今天有什么值得留下的观察？',
-              ),
+              onPressed:
+                  () => ReflectionComposer.show(
+                    context,
+                    entryType: 'observation',
+                    prompt: '今天有什么值得留下的观察？',
+                  ),
             ),
           ],
         ],
@@ -129,7 +134,9 @@ class DimensionSummaryCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       onTap: () => onDimensionTap?.call(dim),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
+        constraints: const BoxConstraints(
+          minHeight: SlowlightControlSize.minTouchTarget,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         child: Row(
           children: [
@@ -141,40 +148,46 @@ class DimensionSummaryCard extends StatelessWidget {
                 color: color.withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Text(dim.icon, style: const TextStyle(fontSize: 15)),
+              child: Text(
+                dim.icon,
+                style: const TextStyle(
+                  fontSize: SlowlightTypography.buttonSize,
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 dim.name,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: SlowlightTypography.secondary(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             Text(
               '${dim.value}${dim.unit.isEmpty ? '' : ' ${dim.unit}'}',
-              style: SlowlightTypography.secondary(context).copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(width: 10),
             Icon(
               _trendIcon(dim.trend),
-              size: 18,
+              size: SlowlightIconSize.md,
               color: _trendColor(context, dim.trend),
             ),
             const SizedBox(width: 2),
             FxIconButton(
               icon: Icons.edit_outlined,
-              iconSize: 16,
+              iconSize: SlowlightIconSize.sm,
               tooltip: '记录关于${dim.name}的观察',
-              onPressed: () => ReflectionComposer.show(
-                context,
-                entryType: 'observation',
-                dimensionKey: dim.key,
-                prompt: '关于「${dim.name}」，此刻你自己观察到了什么？',
-              ),
+              onPressed:
+                  () => ReflectionComposer.show(
+                    context,
+                    entryType: 'observation',
+                    dimensionKey: dim.key,
+                    prompt: '关于「${dim.name}」，此刻你自己观察到了什么？',
+                  ),
             ),
           ],
         ),
