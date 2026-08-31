@@ -7,9 +7,9 @@ import '../typography_tokens.dart';
 
 /// FxButton — 按钮组件。
 ///
-/// Fx 统一按钮语义、尺寸、交互和触摸区域。Android 按 Issue #9
-/// 使用更易读的语义字号；Windows / Web / 其他桌面端继续继承 ShadButton
-/// 的既有文字视觉，避免 Fx 重构顺便放大、加粗按钮。
+/// Fx 统一按钮语义、尺寸、交互和触摸区域；视觉仍以 ShadButton 为底座。
+/// 文字尺度由 SlowlightTypography 的平台语义统一解析，避免 Fx 化把 Windows
+/// 既有高密度按钮误放大为 Android 尺度。
 enum FxButtonVariant { primary, secondary, outline, ghost, destructive, link }
 
 enum FxButtonSize { sm, md, lg }
@@ -32,16 +32,13 @@ class FxButton extends StatelessWidget {
     this.expanded = false,
   });
 
-  bool get _isCompactAction =>
-      size == FxButtonSize.sm &&
-      (variant == FxButtonVariant.ghost || variant == FxButtonVariant.link);
+  bool get _isCompactAction => size == FxButtonSize.sm;
 
   Widget _buildChild(BuildContext context) {
-    final textStyle = SlowlightTypography.useAndroidComponentTypography
-        ? (_isCompactAction
-            ? SlowlightTypography.compactAction(context)
-            : SlowlightTypography.button)
-        : null;
+    final textStyle = SlowlightTypography.componentButton(
+      context,
+      compact: _isCompactAction,
+    );
     final text = Text(label, style: textStyle);
     if (icon != null) {
       return Row(
@@ -50,14 +47,12 @@ class FxButton extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: _isCompactAction &&
-                    SlowlightTypography.useAndroidComponentTypography
+            size: _isCompactAction
                 ? SlowlightIconSize.compactAction
                 : SlowlightIconSize.sm,
           ),
           SizedBox(
-            width: _isCompactAction &&
-                    SlowlightTypography.useAndroidComponentTypography
+            width: _isCompactAction
                 ? SlowlightSpacing.sm
                 : SlowlightSpacing.md,
           ),
