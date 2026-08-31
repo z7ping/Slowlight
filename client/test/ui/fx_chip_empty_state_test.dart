@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/fx.dart';
@@ -84,6 +85,48 @@ void main() {
     final studyTop = tester.getTopLeft(find.text('学习')).dy;
     expect(lifeTop, closeTo(workTop, 0.5));
     expect(studyTop, closeTo(workTop, 0.5));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Windows FxChoiceChip 保持桌面紧凑字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: FxChoiceChip(label: '工作', selected: true, onTap: () {}),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Text>(find.text('工作')).style?.fontSize,
+      SlowlightTypography.desktopChipSize,
+    );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android FxChoiceChip 使用 Android 可读字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: FxChoiceChip(label: '工作', selected: true, onTap: () {}),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Text>(find.text('工作')).style?.fontSize,
+      SlowlightTypography.chipSize,
+    );
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
