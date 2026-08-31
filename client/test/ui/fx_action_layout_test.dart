@@ -170,8 +170,10 @@ void main() {
     final compact = tester.widget<Text>(find.text('重置')).style;
     expect(regular?.fontSize, SlowlightTypography.desktopButtonSize);
     expect(regular?.fontWeight, FontWeight.w600);
+    expect(regular?.color, isNull);
     expect(compact?.fontSize, SlowlightTypography.desktopCompactActionSize);
     expect(compact?.fontWeight, FontWeight.w600);
+    expect(compact?.color, isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -189,6 +191,26 @@ void main() {
     final style = tester.widget<Text>(find.text('保存')).style;
     expect(style?.fontSize, SlowlightTypography.buttonSize);
     expect(style?.fontWeight, FontWeight.w600);
+    expect(style?.color, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('FxButton 显式前景色仍可覆盖 Shad 变体', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(
+          body: FxButton(
+            label: '自定义',
+            foregroundColor: Colors.purple,
+            onPressed: () {},
+          ),
+        ),
+      ),
+    );
+
+    final style = tester.widget<Text>(find.text('自定义')).style;
+    expect(style?.color, Colors.purple);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
