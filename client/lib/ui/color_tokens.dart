@@ -7,4 +7,8 @@ import 'package:flutter/material.dart';
 abstract final class SlowlightSemanticColor {
   static const Color focus = Color(0xFF8B5CF6);
   static const Color successEmphasis = Color(0xFF4ADE80);
+
+  static const Color restGradientStart = Color(0xFF0F2027);
+  static const Color restGradientMiddle = Color(0xFF203A43);
+  static const Color restGradientEnd = Color(0xFF2C5364);
 }
