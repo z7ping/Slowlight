@@ -105,27 +105,9 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                existing == null ? '新建清单' : '编辑清单',
-                                style: SlowlightTypography.cardTitle(
-                                  dialogContext,
-                                ),
-                              ),
-                            ),
-                            FxIconButton(
-                              tooltip: '关闭',
-                              onPressed:
-                                  saving
-                                      ? null
-                                      : () =>
-                                          Navigator.pop(dialogContext, false),
-                              icon: LucideIcons.x,
-                              iconSize: 18,
-                            ),
-                          ],
+                        Text(
+                          existing == null ? '新建清单' : '编辑清单',
+                          style: SlowlightTypography.cardTitle(dialogContext),
                         ),
                         const SizedBox(height: 8),
                         FxInput(
