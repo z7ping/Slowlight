@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -12,6 +13,7 @@ import 'add_task_screen.dart';
 /// 任务快速记录入口。
 class TaskCreateSheet extends StatefulWidget {
   final bool quickMode;
+  final bool desktopDialog;
   final int? systemTagId;
   final String? systemTagName;
   final String initialPriority;
@@ -21,12 +23,20 @@ class TaskCreateSheet extends StatefulWidget {
   const TaskCreateSheet({
     super.key,
     this.quickMode = false,
+    this.desktopDialog = false,
     this.systemTagId,
     this.systemTagName,
     this.initialPriority = 'none',
     this.defaultDueToday = true,
     this.onCreated,
   });
+
+  static bool _useDesktopDialog(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= 600 &&
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   static Future<void> showQuickCreate(
     BuildContext context, {
@@ -35,22 +45,32 @@ class TaskCreateSheet extends StatefulWidget {
     String initialPriority = 'none',
     bool defaultDueToday = true,
     VoidCallback? onCreated,
-  }) {
-    return FxSheet.show(
+  }) async {
+    final editor = TaskCreateSheet(
+      quickMode: true,
+      desktopDialog: _useDesktopDialog(context),
+      systemTagId: systemTagId,
+      systemTagName: systemTagName,
+      initialPriority: initialPriority,
+      defaultDueToday: defaultDueToday,
+      onCreated: onCreated,
+    );
+
+    if (_useDesktopDialog(context)) {
+      await FxDialog.show<void>(
+        context: context,
+        title: '记录任务',
+        width: 560,
+        child: editor,
+      );
+      return;
+    }
+
+    await FxSheet.show<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: .45),
-      builder:
-          (_) => TaskCreateSheet(
-            quickMode: true,
-            systemTagId: systemTagId,
-            systemTagName: systemTagName,
-            initialPriority: initialPriority,
-            defaultDueToday: defaultDueToday,
-            onCreated: onCreated,
-          ),
+      builder: (_) => editor,
     );
   }
 
@@ -93,7 +113,7 @@ class TaskCreateSheet extends StatefulWidget {
 
     return FxDialog.raw<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: .45),
+      barrierColor: FxDialog.barrierColor,
       builder: (dialogContext) {
         final size = MediaQuery.sizeOf(dialogContext);
         return FxDialogSurface(
@@ -168,142 +188,138 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     return null;
   }
 
+  Widget _editorContent(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FxInput(
+          controller: _titleController,
+          autofocus: true,
+          enabled: !_saving,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _createTask(),
+          style: SlowlightTypography.body(context),
+          placeholder: '例如：整理今天的会议记录',
+        ),
+        const SizedBox(height: 12),
+        if (_loadingLists)
+          Text(
+            '正在读取清单…',
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+          )
+        else
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              ..._quickLists().map(
+                (list) => _QuickChip(
+                  icon: LucideIcons.folder,
+                  text: list.name,
+                  selected: _selectedListId == list.id,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedListId = list.id);
+                  },
+                ),
+              ),
+              _QuickChip(
+                icon: LucideIcons.calendarDays,
+                text: '今天',
+                selected: _dueToday,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _dueToday = !_dueToday);
+                },
+              ),
+              _QuickChip(
+                icon: LucideIcons.flag,
+                text: _priorityLabel(_selectedPriority),
+                selected: _selectedPriority != 'none',
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _selectedPriority = _nextPriority(_selectedPriority);
+                  });
+                },
+              ),
+              if (widget.systemTagId != null &&
+                  (widget.systemTagName ?? '').isNotEmpty)
+                _DefaultHint(
+                  icon: LucideIcons.tag,
+                  text: widget.systemTagName!,
+                ),
+            ],
+          ),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _error!,
+            style: SlowlightTypography.caption(
+              context,
+            ).copyWith(color: theme.colorScheme.error),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FxButton(
+                label: '更多设置',
+                variant: FxButtonVariant.outline,
+                size: FxButtonSize.sm,
+                onPressed: _saving ? null : _openFullCreate,
+              ),
+              FxButton(
+                label: _saving ? '记录中…' : '记录任务',
+                size: FxButtonSize.sm,
+                onPressed: _saving ? null : _createTask,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    if (widget.desktopDialog) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .7,
+        ),
+        child: SingleChildScrollView(child: _editorContent(context)),
+      );
+    }
 
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: SafeArea(
         top: false,
-        child: Container(
-          width: 560,
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * .94,
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-          decoration: BoxDecoration(
-            color: fxSurface(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .10),
-                blurRadius: 40,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: Alignment.center,
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: fxDivider(context),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               Text(
                 '记录任务',
                 style: SlowlightTypography.cardTitle(
                   context,
                 ).copyWith(fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 10),
-              FxInput(
-                controller: _titleController,
-                autofocus: true,
-                enabled: !_saving,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _createTask(),
-                style: SlowlightTypography.body(context),
-                placeholder: '例如：整理今天的会议记录',
-              ),
-              const SizedBox(height: 10),
-              if (_loadingLists)
-                Text(
-                  '正在读取清单…',
-                  style: SlowlightTypography.caption(
-                    context,
-                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                )
-              else
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    ..._quickLists().map(
-                      (list) => _QuickChip(
-                        icon: LucideIcons.folder,
-                        text: list.name,
-                        selected: _selectedListId == list.id,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          setState(() => _selectedListId = list.id);
-                        },
-                      ),
-                    ),
-                    _QuickChip(
-                      icon: LucideIcons.calendarDays,
-                      text: '今天',
-                      selected: _dueToday,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _dueToday = !_dueToday);
-                      },
-                    ),
-                    _QuickChip(
-                      icon: LucideIcons.flag,
-                      text: _priorityLabel(_selectedPriority),
-                      selected: _selectedPriority != 'none',
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _selectedPriority = _nextPriority(_selectedPriority);
-                        });
-                      },
-                    ),
-                    if (widget.systemTagId != null &&
-                        (widget.systemTagName ?? '').isNotEmpty)
-                      _DefaultHint(
-                        icon: LucideIcons.tag,
-                        text: widget.systemTagName!,
-                      ),
-                  ],
-                ),
-              if (_error != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  _error!,
-                  style: SlowlightTypography.caption(
-                    context,
-                  ).copyWith(color: theme.colorScheme.error),
-                ),
-              ],
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  FxButton(
-                    label: '更多设置',
-                    variant: FxButtonVariant.outline,
-                    onPressed: _saving ? null : _openFullCreate,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FxButton(
-                      label: _saving ? '记录中…' : '记录任务',
-                      onPressed: _saving ? null : _createTask,
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 12),
+              Flexible(child: SingleChildScrollView(child: _editorContent(context))),
             ],
           ),
         ),
@@ -486,41 +502,12 @@ class _QuickChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = activePalette.accent;
-    return FxInkWell(
-      borderRadius: BorderRadius.circular(999),
+    return FxChoiceChip(
+      label: text,
+      icon: icon,
+      selected: selected,
+      selectionColor: activePalette.accent,
       onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color:
-              selected
-                  ? accent.withValues(alpha: .12)
-                  : fxSubtleSurface(context),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: selected ? accent : fxBorder(context)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: selected ? accent : theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              text,
-              style: SlowlightTypography.caption(context).copyWith(
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected ? accent : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -533,28 +520,13 @@ class _DefaultHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 32),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: fxSubtleSurface(context),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: fxBorder(context)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 5),
-          Text(
-            text,
-            style: SlowlightTypography.caption(
-              context,
-            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
+    return FxChip(
+      label: text,
+      icon: icon,
+      backgroundColor: fxSubtleSurface(context),
+      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      borderColor: fxBorder(context),
+      borderRadius: 999,
     );
   }
 }
