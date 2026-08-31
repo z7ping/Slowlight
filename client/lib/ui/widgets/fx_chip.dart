@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -11,7 +10,7 @@ import 'fx_cursor.dart';
 ///
 /// 默认仍以 ShadBadge 为视觉基础；需要 secondary / outline / destructive
 /// 或迁移旧组件既定视觉时，由 Fx 层统一解析语义，不让页面自行手写 Chip。
-/// Windows 保持 22–26px 左右的紧凑视觉；44px 触控目标只属于 Android。
+/// Windows 保持 22–26px 左右的紧凑视觉；移动端命中尺寸由平台密度层解析。
 class FxChip extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -38,12 +37,8 @@ class FxChip extends StatelessWidget {
     this.padding,
   });
 
-  bool get _android =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-
   Widget _content(BuildContext context, {Color? color}) {
-    final deleteTargetSize =
-        _android ? SlowlightControlSize.minTouchTarget : 18.0;
+    final deleteTargetSize = SlowlightPlatformDensity.chipDeleteTargetSize;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -130,7 +125,7 @@ class FxChip extends StatelessWidget {
     }
 
     if (onTap != null) {
-      if (_android) {
+      if (SlowlightPlatformDensity.expandClickableChipHitArea) {
         badge = ConstrainedBox(
           constraints: const BoxConstraints(
             minHeight: SlowlightControlSize.minTouchTarget,
