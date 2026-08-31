@@ -23,8 +23,8 @@ void main() {
 
   test('全局响应式 Token 与 UI 规范保持一致', () {
     expect(SlowlightBreakpoints.tabletMin, 600);
-    expect(SlowlightBreakpoints.desktopMin, 900);
-    expect(SlowlightBreakpoints.wideMin, 1200);
+    expect(SlowlightBreakpoints.desktopMin, 1024);
+    expect(SlowlightBreakpoints.wideMin, 1024);
     expect(SlowlightControlSize.minTouchTarget, 44);
   });
 
@@ -101,15 +101,15 @@ void main() {
     );
   });
 
-  test('业务 UI 不使用历史 1024 窗口断点', () async {
+  test('业务 UI 不直接硬编码壳层 1024 窗口断点', () async {
     final offenders = <String>[];
-    final legacyBreakpoint = RegExp(
+    final shellBreakpoint = RegExp(
       r'(?:MediaQuery\.sizeOf\([^)]*\)\.width|constraints\.maxWidth)\s*(?:>=|>|<=|<)\s*1024(?:\.0)?',
     );
 
     for (final file in businessUiFiles()) {
       final source = await file.readAsString();
-      if (legacyBreakpoint.hasMatch(source)) {
+      if (shellBreakpoint.hasMatch(source)) {
         offenders.add(file.path.replaceAll('\\', '/'));
       }
     }
