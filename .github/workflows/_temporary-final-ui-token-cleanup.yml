@@ -1,0 +1,275 @@
+name: Temporary Final UI Token Cleanup
+
+on:
+  push:
+    branches:
+      - fix/android-typography-fx-foundation
+    paths:
+      - .github/workflows/_temporary-final-ui-token-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/android-typography-fx-foundation
+          fetch-depth: 0
+
+      - name: Apply exact final token cleanup
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_exact(path, old, new, count=None):
+              p = Path(path)
+              source = p.read_text(encoding='utf-8')
+              actual = source.count(old)
+              if count is not None and actual != count:
+                  raise SystemExit(f'{path}: expected {count} occurrences, found {actual}: {old!r}')
+              if actual == 0:
+                  raise SystemExit(f'{path}: expected text not found: {old!r}')
+              p.write_text(source.replace(old, new), encoding='utf-8')
+
+          # Token definitions: decorative glyphs and timer display are distinct semantics.
+          replace_exact(
+              'client/lib/ui/layout_tokens.dart',
+              '  static const double xxl = 30;\n',
+              '  static const double xxl = 30;\n  static const double heroGlyph = 48;\n  static const double overlay = 64;\n',
+              1,
+          )
+          replace_exact(
+              'client/lib/ui/typography_tokens.dart',
+              '  static const double displayLineHeight = 44;\n',
+              '  static const double displayLineHeight = 44;\n  /// 全屏休息等大号倒计时，独立于普通标题/统计展示。\n  static const double timerDisplaySize = 48;\n',
+              1,
+          )
+          replace_exact(
+              'client/lib/ui/color_tokens.dart',
+              '  static const Color sheetBarrier = Color(0xCC000000);\n',
+              '  static const Color sheetBarrier = Color(0xCC000000);\n  static const Color noticeSuccessForeground = Color(0xFF052E16);\n  static const Color noticeWarningForeground = Color(0xFF431407);\n',
+              1,
+          )
+
+          # Business UI residuals reported by ui_token_guard_test.dart.
+          replace_exact(
+              'client/lib/screens/home_habits_section.dart',
+              "const Text('🎉', style: TextStyle(fontSize: 48))",
+              "const Text('🎉', style: TextStyle(fontSize: SlowlightIconSize.heroGlyph))",
+              1,
+          )
+          replace_exact(
+              'client/lib/screens/list_manage_screen.dart',
+              'style: const TextStyle(fontSize: 17)',
+              'style: const TextStyle(fontSize: SlowlightIconSize.md)',
+              1,
+          )
+          replace_exact(
+              'client/lib/screens/list_manage_screen.dart',
+              'iconSize: 17,',
+              'iconSize: SlowlightIconSize.md,',
+              2,
+          )
+          replace_exact(
+              'client/lib/screens/search_screen.dart',
+              'style: const TextStyle(fontSize: 17)',
+              'style: const TextStyle(fontSize: SlowlightIconSize.md)',
+              1,
+          )
+          replace_exact(
+              'client/lib/screens/search_screen.dart',
+              'leading: const Icon(LucideIcons.search, size: 20),',
+              'leading: const Icon(LucideIcons.search, size: SlowlightIconSize.lg),',
+              1,
+          )
+          replace_exact(
+              'client/lib/widgets/dashboard/onboarding_guide.dart',
+              "const Text('👋', style: TextStyle(fontSize: 48))",
+              "const Text('👋', style: TextStyle(fontSize: SlowlightIconSize.heroGlyph))",
+              1,
+          )
+
+          # Habit check-in had the last undersized 13.5px title; normalize to Secondary 14/20 semantics.
+          p = Path('client/lib/widgets/habit_checkin_dialog.dart')
+          source = p.read_text(encoding='utf-8')
+          pattern = re.compile(
+              r'style: const TextStyle\(\s*fontSize: 13\.5,\s*fontWeight: FontWeight\.w700,\s*\),'
+          )
+          source, n = pattern.subn(
+              'style: SlowlightTypography.secondary(context).copyWith(\n                          fontWeight: FontWeight.w700,\n                        ),',
+              source,
+              count=1,
+          )
+          if n != 1:
+              raise SystemExit(f'habit_checkin_dialog.dart: expected 1 13.5px title, found {n}')
+          source = source.replace(
+              'borderRadius: BorderRadius.vertical(top: Radius.circular(18)),',
+              'borderRadius: BorderRadius.vertical(\n          top: Radius.circular(SlowlightRadius.sheet),\n        ),',
+          )
+          p.write_text(source, encoding='utf-8')
+
+          replace_exact(
+              'client/lib/widgets/habit_heatmap.dart',
+              "import '../theme/app_theme.dart';\n",
+              "import '../theme/app_theme.dart';\nimport '../ui/fx.dart';\n",
+              1,
+          )
+          replace_exact('client/lib/widgets/habit_heatmap.dart', 'AppTheme.textMd', 'SlowlightTypography.buttonSize', 1)
+          replace_exact('client/lib/widgets/habit_heatmap.dart', 'AppTheme.textXs', 'SlowlightTypography.captionSize', 1)
+
+          replace_exact(
+              'client/lib/widgets/rest_overlay.dart',
+              "import '../ui/app_theme.dart';\n",
+              "import '../ui/fx.dart';\n",
+              1,
+          )
+          replace_exact('client/lib/widgets/rest_overlay.dart', 'AppTheme.text2Xl', 'SlowlightTypography.pageTitleSize', 1)
+          replace_exact('client/lib/widgets/rest_overlay.dart', 'AppTheme.textMd', 'SlowlightTypography.buttonSize', 1)
+          replace_exact('client/lib/widgets/rest_overlay.dart', 'AppTheme.textSm', 'SlowlightTypography.secondarySize', 1)
+          replace_exact('client/lib/widgets/rest_overlay.dart', 'fontSize: 48', 'fontSize: SlowlightTypography.timerDisplaySize', 1)
+          replace_exact('client/lib/widgets/rest_overlay.dart', 'size: 64,', 'size: SlowlightIconSize.overlay,', 1)
+
+          replace_exact(
+              'client/lib/widgets/review/task_analysis_tab.dart',
+              "const Text('📊', style: TextStyle(fontSize: 48))",
+              "const Text('📊', style: TextStyle(fontSize: SlowlightIconSize.heroGlyph))",
+              1,
+          )
+          replace_exact('client/lib/widgets/review/task_analysis_tab.dart', 'borderRadius: 16,', 'borderRadius: SlowlightRadius.xl,', 3)
+
+          # Shared Fx residuals.
+          p = Path('client/lib/ui/widgets/fx_date_time_picker.dart')
+          source = p.read_text(encoding='utf-8')
+          if "import '../typography_tokens.dart';" not in source:
+              source = source.replace(
+                  "import '../app_theme.dart';\n",
+                  "import '../app_theme.dart';\nimport '../typography_tokens.dart';\n",
+                  1,
+              )
+          expected = {
+              'AppTheme.textSm': ('SlowlightTypography.secondarySize', 1),
+              'AppTheme.textMd': ('SlowlightTypography.buttonSize', 7),
+              'AppTheme.textLg': ('SlowlightTypography.bodySize', 1),
+          }
+          for old, (new, wanted) in expected.items():
+              actual = source.count(old)
+              if actual != wanted:
+                  raise SystemExit(f'fx_date_time_picker.dart: {old} expected {wanted}, found {actual}')
+              source = source.replace(old, new)
+          p.write_text(source, encoding='utf-8')
+
+          replace_exact(
+              'client/lib/ui/widgets/fx_expansion_tile.dart',
+              "import '../app_theme.dart';\n",
+              "import '../layout_tokens.dart';\n",
+              1,
+          )
+          replace_exact('client/lib/ui/widgets/fx_expansion_tile.dart', 'AppTheme.radiusMd', 'SlowlightRadius.md', 2)
+          replace_exact('client/lib/ui/widgets/fx_expansion_tile.dart', 'AppTheme.spaceMd', 'SlowlightSpacing.xl', 1)
+          replace_exact('client/lib/ui/widgets/fx_expansion_tile.dart', 'AppTheme.spaceSm', 'SlowlightSpacing.md', 1)
+
+          replace_exact(
+              'client/lib/ui/widgets/fx_list_tile.dart',
+              "import '../app_theme.dart';\n",
+              "import '../layout_tokens.dart';\n",
+              1,
+          )
+          replace_exact('client/lib/ui/widgets/fx_list_tile.dart', 'AppTheme.radiusMd', 'SlowlightRadius.md', 1)
+          replace_exact('client/lib/ui/widgets/fx_list_tile.dart', 'AppTheme.spaceSm', 'SlowlightSpacing.md', 1)
+
+          replace_exact(
+              'client/lib/ui/widgets/fx_notice.dart',
+              "import '../app_theme.dart';\n",
+              "import '../app_theme.dart';\nimport '../color_tokens.dart';\n",
+              1,
+          )
+          replace_exact('client/lib/ui/widgets/fx_notice.dart', 'Color(0xFF052E16)', 'SlowlightSemanticColor.noticeSuccessForeground', 2)
+          replace_exact('client/lib/ui/widgets/fx_notice.dart', 'Color(0xFF431407)', 'SlowlightSemanticColor.noticeWarningForeground', 2)
+
+          replace_exact(
+              'client/lib/ui/widgets/fx_stat_cell.dart',
+              "import '../../theme/app_theme.dart';\n",
+              "import '../layout_tokens.dart';\n",
+              1,
+          )
+          replace_exact('client/lib/ui/widgets/fx_stat_cell.dart', 'AppTheme.radiusLg', 'SlowlightRadius.lg', 1)
+          replace_exact(
+              'client/lib/ui/widgets/fx_stat_cell.dart',
+              'padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),',
+              'padding: const EdgeInsets.symmetric(\n        horizontal: SlowlightSpacing.xl,\n        vertical: SlowlightSpacing.xl,\n      ),',
+              1,
+          )
+
+          # Fx surfaces must follow the active Theme instead of maintaining parallel fixed surface colors.
+          Path('client/lib/ui/widgets/fx_surface.dart').write_text(
+              """import 'package:flutter/material.dart';
+
+/// Fx 层统一管理的基础表面颜色；具体明暗值来自当前 Theme，而不是 Fx 再维护一套固定色。
+Color fxSurface(BuildContext context) =>
+    Theme.of(context).colorScheme.surfaceContainerLowest;
+
+/// 卡片、输入框和按钮边界使用的基础边框色。
+Color fxBorder(BuildContext context) => Theme.of(context).colorScheme.outline;
+
+/// 列表和区块内部使用的弱分隔线色。
+Color fxDivider(BuildContext context) =>
+    Theme.of(context).colorScheme.outlineVariant;
+
+/// 低强调背景表面。
+Color fxSubtleSurface(BuildContext context) =>
+    Theme.of(context).colorScheme.surfaceContainerLow;
+""",
+              encoding='utf-8',
+          )
+
+          # Re-run the same structural checks before committing; do not weaken the guard.
+          roots = [Path('client/lib/screens'), Path('client/lib/widgets')]
+          business = [p for root in roots for p in root.rglob('*.dart')]
+          numeric_font = re.compile(r'fontSize\s*:\s*-?\d+(?:\.\d+)?')
+          legacy_text = re.compile(r'\bAppTheme\.text(?:Xs|Sm|Md|Lg|Xl|2Xl|3Xl)\b')
+          legacy_layout = re.compile(r'\bAppTheme\.(?:space(?:Xs|Sm|Md|Lg|Xl)|radius(?:Sm|Md|Lg|Xl))\b')
+          raw_color = re.compile(r'(?<![A-Za-z0-9_])Color\s*\(\s*0x[0-9A-Fa-f]+\s*\)')
+          old_1024 = re.compile(r'(?:MediaQuery\.sizeOf\([^)]*\)\.width|constraints\.maxWidth)\s*(?:>=|>|<=|<)\s*1024(?:\.0)?')
+          raw_ink = re.compile(r'\bInkResponse\s*\(')
+          offenders = []
+          for p in business:
+              s = p.read_text(encoding='utf-8')
+              reasons = []
+              if numeric_font.search(s): reasons.append('numeric fontSize')
+              if legacy_text.search(s): reasons.append('legacy text token')
+              if legacy_layout.search(s): reasons.append('legacy layout token')
+              if raw_color.search(s): reasons.append('raw Color')
+              if old_1024.search(s): reasons.append('1024 breakpoint')
+              if raw_ink.search(s): reasons.append('InkResponse')
+              if reasons: offenders.append(f'{p}: {", ".join(reasons)}')
+
+          for p in Path('client/lib/ui/widgets').rglob('*.dart'):
+              s = p.read_text(encoding='utf-8')
+              reasons = []
+              if numeric_font.search(s): reasons.append('numeric fontSize')
+              if legacy_text.search(s) or legacy_layout.search(s): reasons.append('legacy AppTheme scale')
+              if raw_color.search(s): reasons.append('raw Color')
+              if reasons: offenders.append(f'{p}: {", ".join(reasons)}')
+
+          if offenders:
+              raise SystemExit('Token offenders remain:\n' + '\n'.join(sorted(offenders)))
+          print('Token structural cleanup: clean')
+          PY
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client/lib client/test/ui/ui_token_guard_test.dart
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 1
+          fi
+          git commit -m "refactor(ui): 清零业务与 Fx Token 残留"
+          git push origin HEAD:fix/android-typography-fx-foundation
