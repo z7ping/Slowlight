@@ -57,9 +57,19 @@ abstract final class FxSheet {
       routeSettings: routeSettings,
       anchorPoint: anchorPoint,
       builder: (sheetContext) {
+        final viewInsets = MediaQuery.viewInsetsOf(sheetContext);
+        final insetPadding = switch (side) {
+          ShadSheetSide.bottom => EdgeInsets.only(bottom: viewInsets.bottom),
+          ShadSheetSide.top => EdgeInsets.only(top: viewInsets.top),
+          ShadSheetSide.left => EdgeInsets.only(left: viewInsets.left),
+          ShadSheetSide.right => EdgeInsets.only(right: viewInsets.right),
+        };
+        final hasInset = insetPadding != EdgeInsets.zero;
+
         Widget content = builder(sheetContext);
         if (useSafeArea) content = SafeArea(child: content);
-        return ShadSheet(
+
+        content = ShadSheet(
           title: title,
           description: description,
           actions: actions,
@@ -71,6 +81,22 @@ abstract final class FxSheet {
           isScrollControlled: isScrollControlled,
           scrollable: scrollable,
           child: content,
+        );
+
+        if (!hasInset) return content;
+
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.linearToEaseOut,
+          padding: insetPadding,
+          child: MediaQuery.removeViewInsets(
+            context: sheetContext,
+            removeBottom: side == ShadSheetSide.bottom,
+            removeTop: side == ShadSheetSide.top,
+            removeLeft: side == ShadSheetSide.left,
+            removeRight: side == ShadSheetSide.right,
+            child: content,
+          ),
         );
       },
     );
