@@ -66,7 +66,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
   Widget _content(StatsSnapshot data) {
     final theme = Theme.of(context);
-    final desktop = MediaQuery.sizeOf(context).width >= 1024;
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
     final last7 = data.last7Trend;
     final habitChecks = last7.fold<int>(
       0,
@@ -216,7 +216,7 @@ class _StatsScreenState extends State<StatsScreen> {
                             alpha: index == values.length - 2 ? .48 : .88,
                           ),
                           borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(AppTheme.radiusSm),
+                            top: Radius.circular(SlowlightRadius.sm),
                           ),
                         ),
                       ),
