@@ -39,7 +39,11 @@ void main() {
       final fields = find.byType(FxInput);
       await tester.enterText(fields.at(0), 'testuser');
       await tester.enterText(fields.at(2), 'password123');
-      await tester.tap(find.text('注册'));
+
+      final submit = find.text('注册');
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      await tester.tap(submit);
       await tester.pump();
 
       expect(find.text('请填写邮箱'), findsOneWidget);
