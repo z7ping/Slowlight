@@ -323,6 +323,9 @@ Future<TimeOfDay?> showFxTimePicker({
           width: 320,
           child: ShadTimePicker(
             initialValue: initial,
+            hourLabel: const Text('时'),
+            minuteLabel: const Text('分'),
+            secondLabel: const Text('秒'),
             onChanged: (v) => selected = v,
           ),
         ),
