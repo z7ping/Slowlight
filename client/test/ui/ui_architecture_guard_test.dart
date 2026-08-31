@@ -57,19 +57,21 @@ void main() {
     );
   });
 
-  test('Screen 不直接依赖 shadcn_ui 视觉组件', () async {
-    final screens = Directory('lib/screens');
-    if (!screens.existsSync()) return;
-
+  test('Screen / 业务 Widget 不直接依赖 shadcn_ui 视觉组件', () async {
+    final roots = [Directory('lib/screens'), Directory('lib/widgets')];
     final offenders = <String>[];
-    await for (final entity in screens.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final source = await entity.readAsString();
-      if (source.contains("package:shadcn_ui/shadcn_ui.dart")) {
-        offenders.add(entity.path.replaceAll('\\', '/'));
+
+    for (final root in roots) {
+      if (!root.existsSync()) continue;
+      await for (final entity in root.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final source = await entity.readAsString();
+        if (source.contains("package:shadcn_ui/shadcn_ui.dart")) {
+          offenders.add(entity.path.replaceAll('\\', '/'));
+        }
       }
     }
 
@@ -78,15 +80,13 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          '业务 Screen 应通过 Fx* / Feature Widget 使用视觉能力，不直接依赖 shadcn_ui：\n'
+          '业务层应通过 Fx* / Feature Widget 使用视觉能力；shadcn_ui 由 Fx 作为主要视觉底座统一封装：\n'
           '${offenders.join('\n')}',
     );
   });
 
-  test('整个 lib 不直接使用已有 Fx 替代的 Material 视觉控件', () async {
-    final lib = Directory('lib');
-    expect(lib.existsSync(), isTrue, reason: '测试需从 client 目录运行');
-
+  test('Screen / 业务 Widget 不绕过 Fx 使用已有 Material 视觉控件', () async {
+    final roots = [Directory('lib/screens'), Directory('lib/widgets')];
     final forbidden = <String, RegExp>{
       'TextButton': RegExp(r'\bTextButton(?:\.[A-Za-z]+)?\s*\('),
       'ElevatedButton': RegExp(r'\bElevatedButton(?:\.[A-Za-z]+)?\s*\('),
@@ -147,15 +147,21 @@ void main() {
     };
     final offenders = <String>[];
 
-    await for (final entity in lib.list(recursive: true, followLinks: false)) {
-      if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final normalized = entity.path.replaceAll('\\', '/');
-      final source = await entity.readAsString();
-      final hits = forbidden.entries
-          .where((entry) => entry.value.hasMatch(source))
-          .map((entry) => entry.key)
-          .toList(growable: false);
-      if (hits.isNotEmpty) offenders.add('$normalized: ${hits.join(', ')}');
+    for (final root in roots) {
+      if (!root.existsSync()) continue;
+      await for (final entity in root.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final normalized = entity.path.replaceAll('\\', '/');
+        final source = await entity.readAsString();
+        final hits = forbidden.entries
+            .where((entry) => entry.value.hasMatch(source))
+            .map((entry) => entry.key)
+            .toList(growable: false);
+        if (hits.isNotEmpty) offenders.add('$normalized: ${hits.join(', ')}');
+      }
     }
 
     offenders.sort();
@@ -163,7 +169,7 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          '整个 lib 的产品视觉控件必须通过 Fx* / shadcn 封装使用；Material 仅保留布局、导航、滚动、动画、焦点、页面骨架等非视觉基础设施：\n'
+          'Screen / 业务 Widget 必须通过 Fx* 使用产品视觉控件。Fx 适配层可以 Shad 优先，并在有明确平台能力原因时封装 Material：\n'
           '${offenders.join('\n')}',
     );
   });
@@ -251,7 +257,7 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          'shadcn_ui 0.26.5 暂无 pull-to-refresh；Material RefreshIndicator 只能封装在 FxRefresh 适配层，业务代码不得直接使用：\n'
+          'shadcn_ui 暂无 pull-to-refresh；Material RefreshIndicator 只能封装在 FxRefresh 适配层，业务代码不得直接使用：\n'
           '${offenders.join('\n')}',
     );
   });
