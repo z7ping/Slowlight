@@ -6,6 +6,8 @@ import 'package:slowlight/ui/app_theme.dart';
 import 'package:slowlight/ui/typography_tokens.dart';
 import 'package:slowlight/utils/platform_font.dart';
 
+import '../support/fx_test_host.dart';
+
 void main() {
   test('Android 字号层级清晰且不提供缩小档', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -60,13 +62,12 @@ void main() {
 
   testWidgets('Windows 语义样式不会继承 Android 放大字号', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
     late TextStyle secondary;
     late TextStyle body;
     late TextStyle cardTitle;
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         home: Builder(
           builder: (context) {
             secondary = SlowlightTypography.secondary(context);
@@ -81,17 +82,17 @@ void main() {
     expect(secondary.fontSize, SlowlightTypography.desktopSecondarySize);
     expect(body.fontSize, SlowlightTypography.desktopBodySize);
     expect(cardTitle.fontSize, SlowlightTypography.desktopCardTitleSize);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('Android 语义样式保持可读字号', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
     late TextStyle secondary;
     late TextStyle body;
     late TextStyle cardTitle;
     await tester.pumpWidget(
-      MaterialApp(
+      buildFxTestHost(
         home: Builder(
           builder: (context) {
             secondary = SlowlightTypography.secondary(context);
@@ -106,6 +107,7 @@ void main() {
     expect(secondary.fontSize, SlowlightTypography.secondarySize);
     expect(body.fontSize, SlowlightTypography.bodySize);
     expect(cardTitle.fontSize, SlowlightTypography.cardTitleSize);
+    await disposeFxTestHost(tester);
   });
 
   test('按钮排版不覆盖按钮变体提供的前景色', () {
