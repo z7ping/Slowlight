@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -9,8 +10,9 @@ enum FxIconButtonVariant { ghost, outline }
 /// FxIconButton — 统一图标按钮。
 ///
 /// 业务页面不直接依赖 Material IconButton；视觉由 shadcn_ui 的专用
-/// ShadIconButton 承载，避免把普通文字按钮的水平内边距硬塞进正方形尺寸。
-/// Slowlight 统一使用最小触控目标 Token。
+/// ShadIconButton 承载。Windows 保持高保真中的 30px 紧凑可见尺寸，
+/// Android 才使用 44px 最低触控目标，避免移动端触控规则撑大桌面 Header、
+/// Row 与 hover 背景。
 class FxIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
@@ -31,19 +33,22 @@ class FxIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final android =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final visualSize = android ? SlowlightControlSize.minTouchTarget : 30.0;
     final iconWidget = Icon(icon, size: iconSize, color: foregroundColor);
     final Widget button = switch (variant) {
       FxIconButtonVariant.ghost => ShadIconButton.ghost(
-          width: SlowlightControlSize.minTouchTarget,
-          height: SlowlightControlSize.minTouchTarget,
+          width: visualSize,
+          height: visualSize,
           padding: EdgeInsets.zero,
           onPressed: onPressed,
           iconSize: iconSize,
           icon: iconWidget,
         ),
       FxIconButtonVariant.outline => ShadIconButton.outline(
-          width: SlowlightControlSize.minTouchTarget,
-          height: SlowlightControlSize.minTouchTarget,
+          width: visualSize,
+          height: visualSize,
           padding: EdgeInsets.zero,
           onPressed: onPressed,
           iconSize: iconSize,
