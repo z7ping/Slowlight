@@ -48,7 +48,9 @@ class FxChip extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: SlowlightTypography.chip(context).copyWith(color: color),
+            style: SlowlightTypography.componentChip(
+              context,
+            ).copyWith(color: color),
           ),
         ),
         if (onDeleted != null) ...[
