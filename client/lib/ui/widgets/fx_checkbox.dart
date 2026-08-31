@@ -4,6 +4,8 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../typography_tokens.dart';
 
 /// FxCheckbox — 统一复选框组件。
+///
+/// Android 使用可读字号；桌面端继承 ShadCheckbox 既有标签视觉。
 class FxCheckbox extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -27,7 +29,9 @@ class FxCheckbox extends StatelessWidget {
           ? null
           : Text(
               label!,
-              style: SlowlightTypography.secondary(context),
+              style: SlowlightTypography.useAndroidComponentTypography
+                  ? SlowlightTypography.secondary(context)
+                  : null,
             ),
     );
   }
