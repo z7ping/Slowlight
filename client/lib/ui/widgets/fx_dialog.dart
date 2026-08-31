@@ -114,18 +114,18 @@ class FxDialog {
         actions: [
           ShadButton.outline(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: Text(cancelText, style: SlowlightTypography.button),
+            child: Text(cancelText),
           ),
           destructive
               ? ShadButton.destructive(
                   onPressed: () =>
                       Navigator.of(ctx, rootNavigator: true).pop(true),
-                  child: Text(confirmText, style: SlowlightTypography.button),
+                  child: Text(confirmText),
                 )
               : ShadButton(
                   onPressed: () =>
                       Navigator.of(ctx, rootNavigator: true).pop(true),
-                  child: Text(confirmText, style: SlowlightTypography.button),
+                  child: Text(confirmText),
                 ),
         ],
       ),
