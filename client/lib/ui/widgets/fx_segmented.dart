@@ -1,12 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 import 'fx_cursor.dart';
 
 /// FxSegmented — 紧凑的互斥分段选择组件。
 ///
-/// 与页面级 Tab 不同，它用于同一区域内少量选项的即时切换。
-/// Android 使用可读字号；桌面端保持高保真中的紧凑分段密度。
+/// 与页面级 Tab 不同，它用于同一区域内少量选项的即时切换。Windows 保持
+/// 高保真中的约 36px 总可视高度；Android 单独放大触控尺寸，不把移动端
+/// 最低触控目标扩散到桌面视觉。
 class FxSegmented extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;
@@ -38,8 +41,12 @@ class FxSegmented extends StatelessWidget {
     assert(itemKeys == null || itemKeys!.length == labels.length);
 
     final theme = Theme.of(context);
+    final android =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final itemMinHeight =
+        android ? SlowlightControlSize.minTouchTarget : 32.0;
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: backgroundColor ?? theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(borderRadius),
@@ -53,14 +60,13 @@ class FxSegmented extends StatelessWidget {
             borderRadius: BorderRadius.circular(borderRadius - 2),
             onTap: () => onChanged(index),
             child: Container(
-              constraints: const BoxConstraints(minHeight: 44, minWidth: 52),
+              constraints: BoxConstraints(minHeight: itemMinHeight, minWidth: 52),
               alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color:
-                    selected
-                        ? selectedColor ?? theme.colorScheme.surface
-                        : Colors.transparent,
+                color: selected
+                    ? selectedColor ?? theme.colorScheme.surface
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(borderRadius - 2),
                 boxShadow: selected ? selectedShadow : null,
               ),
@@ -69,10 +75,9 @@ class FxSegmented extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: SlowlightTypography.componentChip(context).copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color:
-                      selected
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurfaceVariant,
+                  color: selected
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
