@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/app_theme.dart';
@@ -7,6 +8,9 @@ import '../support/fx_test_host.dart';
 
 void main() {
   testWidgets('FxPageHeader 在真实 360dp + 200% 字体下保持可用', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         theme: AppTheme.lightTheme(),
@@ -36,6 +40,9 @@ void main() {
   });
 
   testWidgets('FxPageHeader 大字体时右侧动作下移并保持右对齐', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         theme: AppTheme.lightTheme(),
@@ -71,7 +78,10 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('FxPageHeader 标题使用页面标题语义字号', (tester) async {
+  testWidgets('Android FxPageHeader 使用页面标题可读字号', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
     await tester.pumpWidget(
       buildFxTestHost(
         theme: AppTheme.lightTheme(),
@@ -81,6 +91,22 @@ void main() {
 
     final text = tester.widget<Text>(find.text('测试页头'));
     expect(text.style?.fontSize, SlowlightTypography.pageTitleSize);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Windows FxPageHeader 保持既有桌面标题密度', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: const Scaffold(body: FxPageHeader(title: '测试页头')),
+      ),
+    );
+
+    final text = tester.widget<Text>(find.text('测试页头'));
+    expect(text.style?.fontSize, SlowlightTypography.desktopPageTitleSize);
     await disposeFxTestHost(tester);
   });
 }
