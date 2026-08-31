@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import '../app_theme.dart';
 import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 
@@ -135,7 +134,7 @@ class FxInput extends StatelessWidget {
             context,
           ).copyWith(color: theme.colorScheme.onSurfaceVariant)
         : TextStyle(
-            fontSize: AppTheme.textMd,
+            fontSize: SlowlightTypography.buttonSize,
             height: 1.5,
             fontWeight: FontWeight.w500,
             color: theme.colorScheme.onSurfaceVariant,
