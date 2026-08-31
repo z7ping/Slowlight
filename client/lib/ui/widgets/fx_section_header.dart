@@ -6,8 +6,7 @@ import '../typography_tokens.dart';
 /// Slowlight 统一分区标题。
 ///
 /// 分区标题属于卡片内部的高密度导航/说明层级，不与页面标题或卡片主标题抢层级。
-/// 右侧操作由本组件负责定位：宽布局固定靠右，窄布局或超大字体时落到下一行靠右，
-/// 避免“查看全部”等按钮挤压标题或随机换位。
+/// Android 使用可读的辅助层级；桌面端保持既定高密度字号。
 class FxSectionHeader extends StatelessWidget {
   final String title;
   final String? trailing;
@@ -30,7 +29,7 @@ class FxSectionHeader extends StatelessWidget {
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: SlowlightTypography.secondary(context).copyWith(
+            style: SlowlightTypography.componentSecondary(context).copyWith(
               fontWeight: FontWeight.w700,
               color: theme.colorScheme.onSurface,
             ),
