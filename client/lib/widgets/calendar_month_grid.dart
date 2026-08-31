@@ -1,5 +1,4 @@
 import 'dart:ui' show FontFeature;
-import 'package:slowlight/ui/fx.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -7,7 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/calendar_record.dart';
 import '../theme/app_theme.dart';
-import '../ui/typography_tokens.dart';
+import '../ui/fx.dart';
 
 class CalendarMonthGrid extends StatelessWidget {
   final DateTime focusedMonth;
@@ -44,10 +43,10 @@ class CalendarMonthGrid extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(SlowlightRadius.lg),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(SlowlightRadius.lg),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 720;
@@ -146,14 +145,15 @@ class CalendarMonthGrid extends StatelessWidget {
     final shown = items.take(previewCount).toList(growable: false);
     final remaining = items.length - shown.length;
     final dateHeaderHeight = largeText ? 38.0 : 23.0;
+    final surfaceColor =
+        selected
+            ? activePalette.accent.withValues(alpha: .08)
+            : outside
+            ? theme.colorScheme.surfaceContainerLow.withValues(alpha: .55)
+            : theme.colorScheme.surfaceContainerLowest;
 
-    return Material(
-      color:
-          selected
-              ? activePalette.accent.withValues(alpha: .08)
-              : outside
-              ? theme.colorScheme.surfaceContainerLow.withValues(alpha: .55)
-              : theme.colorScheme.surfaceContainerLowest,
+    return ColoredBox(
+      color: surfaceColor,
       child: FxInkWell(
         onTap: () => onSelectDate(date),
         child: Container(
@@ -207,7 +207,7 @@ class CalendarMonthGrid extends StatelessWidget {
                                   : FontWeight.w500,
                           color:
                               today
-                                  ? Colors.white
+                                  ? theme.colorScheme.onPrimary
                                   : outside
                                   ? theme.colorScheme.onSurfaceVariant
                                       .withValues(alpha: .55)
@@ -220,13 +220,18 @@ class CalendarMonthGrid extends StatelessWidget {
                     if (!compact)
                       FxTooltip(
                         message: '在这天新建任务',
-                        child: InkResponse(
-                          radius: 18,
+                        child: FxInkWell(
+                          borderRadius: BorderRadius.circular(
+                            SlowlightRadius.pill,
+                          ),
                           onTap: () => onAddTask(date),
                           child: const SizedBox(
                             width: 28,
                             height: 28,
-                            child: Icon(LucideIcons.plus, size: 14),
+                            child: Icon(
+                              LucideIcons.plus,
+                              size: SlowlightIconSize.xs,
+                            ),
                           ),
                         ),
                       ),
@@ -267,13 +272,16 @@ class CalendarMonthGrid extends StatelessWidget {
     final theme = Theme.of(context);
     final color = calendarRecordColor(record, context);
     final suffix = record.durationMin > 0 ? ' · ${record.durationMin}m' : '';
+    final radius = BorderRadius.circular(SlowlightRadius.sm);
     return Padding(
       padding: const EdgeInsets.only(top: 3),
-      child: Material(
-        color: color.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .12),
+          borderRadius: radius,
+        ),
         child: FxInkWell(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          borderRadius: radius,
           onTap: () => onOpenRecord(record),
           child: Container(
             key: ValueKey('calendar-grid-record-${record.id}'),
@@ -342,7 +350,7 @@ Color calendarRecordColor(CalendarRecord record, BuildContext context) {
   return switch (record.type) {
     CalendarRecordType.task => AppTheme.priorityColor(record.priority),
     CalendarRecordType.habit => AppTheme.success,
-    CalendarRecordType.focus => const Color(0xFF8B5CF6),
+    CalendarRecordType.focus => SlowlightSemanticColor.focus,
     CalendarRecordType.reflection => AppTheme.warning,
   };
 }
