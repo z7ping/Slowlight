@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import 'layout_tokens.dart';
+import 'typography_tokens.dart';
+
 /// Slowlight 统一主题 — Zinc 中性表面 + 可切换品牌强调色。
 /// 高保真原型中 palette 只改变 primary / accent，不改变页面基础表面。
-
 class ThemePalette {
   final String name;
   final String label;
@@ -240,14 +242,14 @@ class AppTheme {
   static const Color chartPurple = Color(0xFF722ED1);
   static const Color chartCyan = Color(0xFF13C2C2);
 
-  /// 语义字号下限。Android 上非装饰性文字不得低于 [textXs]。
-  static const double textXs = 12;
-  static const double textSm = 14;
-  static const double textMd = 15;
-  static const double textLg = 16;
-  static const double textXl = 18;
-  static const double text2Xl = 20;
-  static const double text3Xl = 24;
+  /// 兼容旧调用。业务 UI 不再直接使用本组名称；数值由语义 Typography Token 单向提供。
+  static const double textXs = SlowlightTypography.captionSize;
+  static const double textSm = SlowlightTypography.secondarySize;
+  static const double textMd = SlowlightTypography.buttonSize;
+  static const double textLg = SlowlightTypography.bodySize;
+  static const double textXl = SlowlightTypography.sectionTitleSize;
+  static const double text2Xl = SlowlightTypography.pageTitleSize;
+  static const double text3Xl = SlowlightTypography.heroSize;
 
   static TextTheme _materialTextTheme({
     required Brightness brightness,
@@ -270,30 +272,81 @@ class AppTheme {
     );
 
     return base.copyWith(
-      displaySmall: style(text3Xl, primary, weight: FontWeight.w700),
-      headlineSmall: style(text2Xl, primary, weight: FontWeight.w700),
-      titleLarge: style(text2Xl, primary, weight: FontWeight.w700),
-      titleMedium: style(textXl, primary, weight: FontWeight.w600),
-      titleSmall: style(textLg, primary, weight: FontWeight.w600),
-      bodyLarge: style(textLg, primary, height: 1.5),
-      bodyMedium: style(textMd, primary, height: 1.5),
-      bodySmall: style(textSm, secondary, height: 1.45),
-      labelLarge: style(textMd, primary, weight: FontWeight.w600),
-      labelMedium: style(textSm, primary, weight: FontWeight.w600),
-      labelSmall: style(textXs, secondary, weight: FontWeight.w500),
+      displaySmall: style(
+        SlowlightTypography.heroSize,
+        primary,
+        weight: FontWeight.w700,
+      ),
+      headlineSmall: style(
+        SlowlightTypography.pageTitleSize,
+        primary,
+        weight: FontWeight.w700,
+      ),
+      titleLarge: style(
+        SlowlightTypography.pageTitleSize,
+        primary,
+        weight: FontWeight.w700,
+      ),
+      titleMedium: style(
+        SlowlightTypography.sectionTitleSize,
+        primary,
+        weight: FontWeight.w600,
+      ),
+      titleSmall: style(
+        SlowlightTypography.cardTitleSize,
+        primary,
+        weight: FontWeight.w600,
+      ),
+      bodyLarge: style(
+        SlowlightTypography.bodySize,
+        primary,
+        height:
+            SlowlightTypography.bodyLineHeight /
+            SlowlightTypography.bodySize,
+      ),
+      bodyMedium: style(
+        SlowlightTypography.buttonSize,
+        primary,
+        height:
+            SlowlightTypography.buttonLineHeight /
+            SlowlightTypography.buttonSize,
+      ),
+      bodySmall: style(
+        SlowlightTypography.secondarySize,
+        secondary,
+        height:
+            SlowlightTypography.secondaryLineHeight /
+            SlowlightTypography.secondarySize,
+      ),
+      labelLarge: style(
+        SlowlightTypography.buttonSize,
+        primary,
+        weight: FontWeight.w600,
+      ),
+      labelMedium: style(
+        SlowlightTypography.secondarySize,
+        primary,
+        weight: FontWeight.w600,
+      ),
+      labelSmall: style(
+        SlowlightTypography.captionSize,
+        secondary,
+        weight: FontWeight.w500,
+      ),
     );
   }
 
-  static const double spaceXs = 4;
-  static const double spaceSm = 8;
-  static const double spaceMd = 12;
-  static const double spaceLg = 16;
-  static const double spaceXl = 24;
+  /// 兼容旧布局调用，数值由统一布局 Token 提供。
+  static const double spaceXs = SlowlightSpacing.xs;
+  static const double spaceSm = SlowlightSpacing.md;
+  static const double spaceMd = SlowlightSpacing.xl;
+  static const double spaceLg = SlowlightSpacing.xxxl;
+  static const double spaceXl = SlowlightSpacing.page;
 
-  static const double radiusSm = 4;
-  static const double radiusMd = 8;
-  static const double radiusLg = 12;
-  static const double radiusXl = 16;
+  static const double radiusSm = SlowlightRadius.sm;
+  static const double radiusMd = SlowlightRadius.md;
+  static const double radiusLg = SlowlightRadius.lg;
+  static const double radiusXl = SlowlightRadius.xl;
 
   static Color priorityColor(String priority) {
     switch (priority) {
@@ -380,8 +433,10 @@ class AppTheme {
         backgroundColor: p.bgCard,
         foregroundColor: p.textPrimary,
         titleTextStyle: TextStyle(
-          fontSize: AppTheme.textXl,
-          height: 1.2,
+          fontSize: SlowlightTypography.sectionTitleSize,
+          height:
+              SlowlightTypography.sectionTitleLineHeight /
+              SlowlightTypography.sectionTitleSize,
           fontWeight: FontWeight.w600,
           color: p.textPrimary,
         ),
@@ -394,7 +449,7 @@ class AppTheme {
         color: p.bgCard,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SlowlightRadius.lg),
           side: BorderSide(color: p.border, width: 1),
         ),
         shadowColor: Colors.transparent,
@@ -404,15 +459,15 @@ class AppTheme {
         filled: true,
         fillColor: p.bg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           borderSide: BorderSide(color: p.border, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           borderSide: BorderSide(color: p.border, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           borderSide: BorderSide(color: p.accent, width: 1),
         ),
         hoverColor: p.divider,
@@ -421,18 +476,26 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: p.bgCard,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SlowlightRadius.xl),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
         modalBackgroundColor: p.bgCard,
         modalBarrierColor: const Color(0x73000000),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(SlowlightRadius.sheet),
+          ),
         ),
       ),
       iconButtonTheme: const IconButtonThemeData(
-        style: ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(44, 44))),
+        style: ButtonStyle(
+          minimumSize: WidgetStatePropertyAll(
+            Size.square(SlowlightControlSize.minTouchTarget),
+          ),
+        ),
       ),
       splashColor: p.primary.withValues(alpha: 0.10),
       highlightColor: p.primary.withValues(alpha: 0.08),
@@ -484,8 +547,10 @@ class AppTheme {
         backgroundColor: p.darkCard,
         foregroundColor: foreground,
         titleTextStyle: TextStyle(
-          fontSize: AppTheme.textXl,
-          height: 1.2,
+          fontSize: SlowlightTypography.sectionTitleSize,
+          height:
+              SlowlightTypography.sectionTitleLineHeight /
+              SlowlightTypography.sectionTitleSize,
           fontWeight: FontWeight.w600,
           color: foreground,
         ),
@@ -501,7 +566,7 @@ class AppTheme {
         color: p.darkCard,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(SlowlightRadius.lg),
           side: BorderSide(color: p.darkBorder, width: 1),
         ),
         shadowColor: Colors.transparent,
@@ -511,15 +576,15 @@ class AppTheme {
         filled: true,
         fillColor: p.darkBg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           borderSide: BorderSide(color: p.darkBorder, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           borderSide: BorderSide(color: p.darkBorder, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
           borderSide: BorderSide(color: p.accent, width: 1),
         ),
         hoverColor: p.darkDivider,
@@ -528,18 +593,26 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: p.darkCard,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SlowlightRadius.xl),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
         modalBackgroundColor: p.darkCard,
         modalBarrierColor: const Color(0x73000000),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(SlowlightRadius.sheet),
+          ),
         ),
       ),
       iconButtonTheme: const IconButtonThemeData(
-        style: ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(44, 44))),
+        style: ButtonStyle(
+          minimumSize: WidgetStatePropertyAll(
+            Size.square(SlowlightControlSize.minTouchTarget),
+          ),
+        ),
       ),
       splashColor: p.accent.withValues(alpha: 0.10),
       highlightColor: p.accent.withValues(alpha: 0.08),
@@ -557,87 +630,97 @@ ShadTextTheme _systemTextTheme([String? family]) {
   return ShadTextTheme.custom(
     h1Large: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textXl,
+      fontSize: SlowlightTypography.sectionTitleSize,
       fontWeight: FontWeight.w800,
       height: 1,
       letterSpacing: -0.4,
     ),
     h1: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textXl,
+      fontSize: SlowlightTypography.sectionTitleSize,
       fontWeight: FontWeight.w800,
       height: 40 / 36,
       letterSpacing: -0.4,
     ),
     h2: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textXl,
+      fontSize: SlowlightTypography.sectionTitleSize,
       fontWeight: FontWeight.w600,
       height: 36 / 30,
       letterSpacing: -0.4,
     ),
     h3: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textXl,
+      fontSize: SlowlightTypography.sectionTitleSize,
       fontWeight: FontWeight.w600,
       height: 32 / 24,
       letterSpacing: -0.4,
     ),
     h4: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textXl,
+      fontSize: SlowlightTypography.sectionTitleSize,
       fontWeight: FontWeight.w600,
       height: 28 / 20,
       letterSpacing: -0.4,
     ),
     p: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textLg,
+      fontSize: SlowlightTypography.bodySize,
       fontWeight: FontWeight.w400,
-      height: 28 / 16,
+      height:
+          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
     ),
     blockquote: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textLg,
+      fontSize: SlowlightTypography.bodySize,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.italic,
-      height: 24 / 16,
+      height:
+          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
     ),
     table: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textLg,
+      fontSize: SlowlightTypography.bodySize,
       fontWeight: FontWeight.w700,
-      height: 24 / 16,
+      height:
+          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
     ),
     list: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textLg,
+      fontSize: SlowlightTypography.bodySize,
       fontWeight: FontWeight.w400,
-      height: 24 / 16,
+      height:
+          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
     ),
     lead: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textXl,
+      fontSize: SlowlightTypography.sectionTitleSize,
       fontWeight: FontWeight.w400,
-      height: 28 / 20,
+      height:
+          SlowlightTypography.sectionTitleLineHeight /
+          SlowlightTypography.sectionTitleSize,
     ),
     large: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textXl,
+      fontSize: SlowlightTypography.sectionTitleSize,
       fontWeight: FontWeight.w600,
-      height: 28 / 18,
+      height:
+          SlowlightTypography.sectionTitleLineHeight /
+          SlowlightTypography.sectionTitleSize,
     ),
     small: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textMd,
+      fontSize: SlowlightTypography.buttonSize,
       fontWeight: FontWeight.w500,
-      height: 1,
+      height:
+          SlowlightTypography.buttonLineHeight / SlowlightTypography.buttonSize,
     ),
     muted: TextStyle(
       fontFamily: family,
-      fontSize: AppTheme.textMd,
+      fontSize: SlowlightTypography.buttonSize,
       fontWeight: FontWeight.w400,
-      height: 20 / 15,
+      height:
+          SlowlightTypography.buttonLineHeight / SlowlightTypography.buttonSize,
     ),
     family: family ?? '',
   );
@@ -645,18 +728,18 @@ ShadTextTheme _systemTextTheme([String? family]) {
 
 ShadButtonTheme _buttonTheme() {
   return ShadButtonTheme(
-    height: 36,
+    height: SlowlightControlSize.button,
     sizesTheme: ShadButtonSizesTheme(
       regular: ShadButtonSizeTheme(
-        height: 36,
+        height: SlowlightControlSize.button,
         padding: const EdgeInsets.symmetric(horizontal: 14),
       ),
       sm: ShadButtonSizeTheme(
-        height: 32,
+        height: SlowlightControlSize.buttonSm,
         padding: const EdgeInsets.symmetric(horizontal: 10),
       ),
       lg: ShadButtonSizeTheme(
-        height: 40,
+        height: SlowlightControlSize.buttonLg,
         padding: const EdgeInsets.symmetric(horizontal: 18),
       ),
     ),
@@ -671,12 +754,12 @@ ShadInputTheme _inputTheme() {
       border: ShadBorder.all(
         color: p.border,
         width: 1,
-        radius: BorderRadius.circular(8),
+        radius: BorderRadius.circular(SlowlightRadius.md),
       ),
       focusedBorder: ShadBorder.all(
         color: p.accent,
         width: 1,
-        radius: BorderRadius.circular(8),
+        radius: BorderRadius.circular(SlowlightRadius.md),
       ),
     ),
   );
@@ -705,7 +788,7 @@ ShadThemeData shadLightTheme([String? fontFamily]) {
       ring: p.accent,
     ),
     brightness: Brightness.light,
-    radius: BorderRadius.circular(8),
+    radius: BorderRadius.circular(SlowlightRadius.md),
     textTheme: _systemTextTheme(fontFamily),
     primaryButtonTheme: _buttonTheme(),
     secondaryButtonTheme: _buttonTheme(),
@@ -715,7 +798,7 @@ ShadThemeData shadLightTheme([String? fontFamily]) {
     linkButtonTheme: _buttonTheme(),
     cardTheme: ShadCardTheme(
       backgroundColor: p.bgCard,
-      radius: BorderRadius.circular(12),
+      radius: BorderRadius.circular(SlowlightRadius.lg),
     ),
     inputTheme: _inputTheme(),
   );
@@ -746,7 +829,7 @@ ShadThemeData shadDarkTheme([String? fontFamily]) {
       ring: p.accent,
     ),
     brightness: Brightness.dark,
-    radius: BorderRadius.circular(8),
+    radius: BorderRadius.circular(SlowlightRadius.md),
     textTheme: _systemTextTheme(fontFamily),
     primaryButtonTheme: _buttonTheme(),
     secondaryButtonTheme: _buttonTheme(),
@@ -756,7 +839,7 @@ ShadThemeData shadDarkTheme([String? fontFamily]) {
     linkButtonTheme: _buttonTheme(),
     cardTheme: ShadCardTheme(
       backgroundColor: p.darkCard,
-      radius: BorderRadius.circular(12),
+      radius: BorderRadius.circular(SlowlightRadius.lg),
     ),
     inputTheme: _inputTheme(),
   );
