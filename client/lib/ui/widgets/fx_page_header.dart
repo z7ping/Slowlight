@@ -7,8 +7,8 @@ import 'fx_icon_button.dart';
 
 /// Slowlight 二级页面统一页头：返回 + 标题 + 右侧动作。
 ///
-/// 页面标题统一使用 Page Title 语义；动作在宽布局固定锚定页头右侧，
-/// 窄屏或超大字体时动作整体落到下一行并继续右对齐，避免挤压标题。
+/// Android 使用 Page Title 可读层级；桌面端保持既有高保真二级页头密度。
+/// 动作在宽布局固定锚定页头右侧，窄屏或超大字体时动作整体落到下一行。
 class FxPageHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onBack;
@@ -91,10 +91,9 @@ class FxPageHeader extends StatelessWidget {
                     title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: SlowlightTypography.pageTitle(context).copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: SlowlightTypography.componentPageTitle(
+                      context,
+                    ).copyWith(color: theme.colorScheme.onSurface),
                   ),
                 ),
               ),
