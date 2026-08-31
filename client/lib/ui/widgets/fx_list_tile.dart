@@ -4,9 +4,24 @@ import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 import 'fx_cursor.dart';
 
+enum FxListTileDensity {
+  /// 主壳侧栏导航项。
+  sidebar,
+
+  /// 单行管理列表、紧凑选择列表。
+  compact,
+
+  /// 普通业务列表默认规格。
+  standard,
+
+  /// 明确包含副标题、状态或额外信息的列表行。
+  detailed,
+}
+
 /// FxListTile — 统一列表行。
 ///
 /// 保留 Material ListTile 常用命名参数作为迁移兼容层，但视觉与交互始终由 Fx 控制。
+/// 不再用一个固定高度覆盖所有业务场景；调用方优先选择 [density] 语义。
 class FxListTile extends StatelessWidget {
   const FxListTile({
     super.key,
@@ -19,7 +34,8 @@ class FxListTile extends StatelessWidget {
     this.onFocusChange,
     this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
     this.contentPadding,
-    this.minHeight = 52,
+    this.density = FxListTileDensity.standard,
+    this.minHeight,
     this.minTileHeight,
     this.showDivider = false,
     this.titleStyle,
@@ -62,7 +78,8 @@ class FxListTile extends StatelessWidget {
   final ValueChanged<bool>? onFocusChange;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry? contentPadding;
-  final double minHeight;
+  final FxListTileDensity density;
+  final double? minHeight;
   final double? minTileHeight;
   final bool showDivider;
   final TextStyle? titleStyle;
@@ -94,6 +111,13 @@ class FxListTile extends StatelessWidget {
   final ListTileTitleAlignment? titleAlignment;
   final bool? internalAddSemanticForOnTap;
 
+  double get _semanticMinHeight => switch (density) {
+        FxListTileDensity.sidebar => 44,
+        FxListTileDensity.compact => 44,
+        FxListTileDensity.standard => 52,
+        FxListTileDensity.detailed => 58,
+      };
+
   Widget _content(
     Object value, {
     required TextStyle fallbackStyle,
@@ -122,7 +146,8 @@ class FxListTile extends StatelessWidget {
     final leadingWidth = minLeadingWidth ?? 0;
     final showSubtitle = subtitle is Widget ||
         (subtitle is String && (subtitle! as String).isNotEmpty);
-    final baseMinHeight = minTileHeight ?? (dense ? minHeight - 8 : minHeight);
+    final resolvedBaseHeight = minTileHeight ?? minHeight ?? _semanticMinHeight;
+    final baseMinHeight = dense ? resolvedBaseHeight - 8 : resolvedBaseHeight;
     final effectiveMinHeight = visualDensity?.effectiveConstraints(
           BoxConstraints(minHeight: baseMinHeight),
         ).minHeight ??
