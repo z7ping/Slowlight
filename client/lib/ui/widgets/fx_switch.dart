@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../app_theme.dart';
 import '../typography_tokens.dart';
 
 /// FxSwitch — 统一开关组件。
 ///
-/// label / description 统一由产品排版 Token 管理，业务页面不再通过
-/// SwitchListTile 等 Material 视觉组件自行拼装。
+/// Android 使用新的语义排版；桌面端保留迁移前开关标签的字号和正常字重。
 class FxSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -24,6 +24,8 @@ class FxSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final useAndroidTypography =
+        SlowlightTypography.useAndroidComponentTypography;
     final labelWidget = label == null
         ? null
         : Column(
@@ -32,9 +34,11 @@ class FxSwitch extends StatelessWidget {
             children: [
               Text(
                 label!,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: useAndroidTypography
+                    ? SlowlightTypography.secondary(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w600)
+                    : const TextStyle(fontSize: AppTheme.textMd, height: 1.5),
               ),
               if (description != null && description!.isNotEmpty) ...[
                 const SizedBox(height: 2),
