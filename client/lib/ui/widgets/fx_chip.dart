@@ -11,6 +11,7 @@ import 'fx_cursor.dart';
 ///
 /// 默认仍以 ShadBadge 为视觉基础；需要 secondary / outline / destructive
 /// 或迁移旧组件既定视觉时，由 Fx 层统一解析语义，不让页面自行手写 Chip。
+/// Windows 保持 22–26px 左右的紧凑视觉；44px 触控目标只属于 Android。
 class FxChip extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -37,7 +38,12 @@ class FxChip extends StatelessWidget {
     this.padding,
   });
 
+  bool get _android =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   Widget _content(BuildContext context, {Color? color}) {
+    final deleteTargetSize =
+        _android ? SlowlightControlSize.minTouchTarget : 18.0;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -58,8 +64,8 @@ class FxChip extends StatelessWidget {
           FxGestureDetector(
             onTap: onDeleted,
             child: SizedBox(
-              width: SlowlightControlSize.minTouchTarget,
-              height: SlowlightControlSize.minTouchTarget,
+              width: deleteTargetSize,
+              height: deleteTargetSize,
               child: Center(
                 child: Icon(
                   Icons.close,
@@ -124,21 +130,25 @@ class FxChip extends StatelessWidget {
     }
 
     if (onTap != null) {
-      final android =
-          !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-      badge = ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight:
-              android
-                  ? SlowlightControlSize.minTouchTarget
-                  : SlowlightControlSize.buttonSm,
-        ),
-        child: Align(
+      if (_android) {
+        badge = ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: SlowlightControlSize.minTouchTarget,
+          ),
+          child: Align(
+            alignment: Alignment.center,
+            widthFactor: 1,
+            child: badge,
+          ),
+        );
+      } else {
+        // 保持 Wrap 中的固有内容宽度，不使用桌面无意义的 32/44px 最小高度。
+        badge = Align(
           alignment: Alignment.center,
           widthFactor: 1,
           child: badge,
-        ),
-      );
+        );
+      }
       badge = FxGestureDetector(onTap: onTap, child: badge);
     }
     return badge;
@@ -174,13 +184,12 @@ class FxChoiceChip extends StatelessWidget {
       label: label,
       icon: icon,
       variant: FxChipVariant.outline,
-      backgroundColor:
-          selected
-              ? selectedColor.withValues(alpha: selectedAlpha)
-              : scheme.surfaceContainerLowest,
+      backgroundColor: selected
+          ? selectedColor.withValues(alpha: selectedAlpha)
+          : scheme.surfaceContainerLowest,
       foregroundColor: selected ? selectedColor : scheme.onSurface,
       borderColor: selected ? selectedColor : scheme.outline,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       onTap: onTap,
     );
   }
