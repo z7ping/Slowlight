@@ -96,10 +96,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
-            children:
-                cells
-                    .expand((cell) => [cell, const SizedBox(height: 12)])
-                    .toList(),
+            children: cells
+                .expand((cell) => [cell, const SizedBox(height: 12)])
+                .toList(),
           ),
         );
       },
@@ -110,23 +109,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
-    final emptyState = FxInkWell(
-      borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      onTap: () => _addTask(priority),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(LucideIcons.plus, size: SlowlightIconSize.lg),
-            const SizedBox(height: 5),
-            Text(
-              '这里暂时没有任务 · 添加任务',
-              style: SlowlightTypography.caption(
-                context,
-              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+    final emptyState = Center(
+      child: Text(
+        '这里暂时没有任务',
+        textAlign: TextAlign.center,
+        style: SlowlightTypography.caption(
+          context,
+        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       ),
     );
 
@@ -135,10 +124,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(
-        color:
-            hovering
-                ? Colors.transparent
-                : color.withValues(alpha: priority == 'none' ? 1 : .36),
+        color: hovering
+            ? Colors.transparent
+            : color.withValues(alpha: priority == 'none' ? 1 : .36),
       ),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -148,32 +136,44 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         children: [
           Row(
             children: [
-              Flexible(
-                child: Text(
-                  title,
-                  style: SlowlightTypography.cardTitle(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w700),
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: SlowlightTypography.cardTitle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 22,
+                        minHeight: 22,
+                      ),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: fxSubtleSurface(context),
+                        borderRadius: BorderRadius.circular(
+                          SlowlightRadius.pill,
+                        ),
+                      ),
+                      child: Text(
+                        '${items.length}',
+                        style: SlowlightTypography.caption(context).copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                decoration: BoxDecoration(
-                  color: fxSubtleSurface(context),
-                  borderRadius: BorderRadius.circular(SlowlightRadius.pill),
-                ),
-                child: Text(
-                  '${items.length}',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const Spacer(),
               FxIconButton(
                 tooltip: '在$title添加任务',
                 onPressed: () => _addTask(priority),
@@ -187,13 +187,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 ? Expanded(child: emptyState)
                 : SizedBox(height: 96, child: emptyState)
           else
-            ...items
-                .take(5)
-                .map(
-                  (task) =>
-                      desktop
-                          ? _draggableTask(task, color)
-                          : _taskLine(task, color, desktop: false),
+            ...items.take(5).map(
+                  (task) => desktop
+                      ? _draggableTask(task, color)
+                      : _taskLine(task, color, desktop: false),
                 ),
         ],
       ),
@@ -241,10 +238,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             color: fxSurface(context),
             borderRadius: SlowlightRadius.lg,
             border: Border.all(color: fxBorder(context)),
-            boxShadow:
-                theme.brightness == Brightness.light
-                    ? AppTheme.cardShadow
-                    : null,
+            boxShadow: theme.brightness == Brightness.light
+                ? AppTheme.cardShadow
+                : null,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -301,13 +297,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Expanded(
                 child: Text(
                   task.title,
-                  maxLines:
-                      MediaQuery.textScalerOf(
+                  maxLines: MediaQuery.textScalerOf(
                                 context,
                               ).scale(SlowlightTypography.secondarySize) >=
-                              SlowlightTypography.secondarySize * 1.3
-                          ? 2
-                          : 1,
+                          SlowlightTypography.secondarySize * 1.3
+                      ? 2
+                      : 1,
                   overflow: TextOverflow.ellipsis,
                   style: SlowlightTypography.secondary(context),
                 ),
@@ -348,41 +343,40 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           top: Radius.circular(SlowlightRadius.xl),
         ),
       ),
-      builder:
-          (context) => Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              18 + MediaQuery.viewInsetsOf(context).bottom,
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          18 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '「${task.title}」移动到…',
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '「${task.title}」移动到…',
-                  style: SlowlightTypography.secondary(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                _moveOption('🔴', '重要 · 紧急', 'urgent_important', task.priority),
-                _moveOption('🔵', '重要 · 不紧急', 'important', task.priority),
-                _moveOption('🟠', '不重要 · 紧急', 'urgent', task.priority),
-                _moveOption('🍃', '不重要 · 不紧急', 'none', task.priority),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: double.infinity,
-                  child: FxButton(
-                    label: '取消',
-                    variant: FxButtonVariant.ghost,
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 8),
+            _moveOption('🔴', '重要 · 紧急', 'urgent_important', task.priority),
+            _moveOption('🔵', '重要 · 不紧急', 'important', task.priority),
+            _moveOption('🟠', '不重要 · 紧急', 'urgent', task.priority),
+            _moveOption('🍃', '不重要 · 不紧急', 'none', task.priority),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: FxButton(
+                label: '取消',
+                variant: FxButtonVariant.ghost,
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
     );
     if (result == null || result == task.priority) return;
     await _moveTask(task, result);
@@ -475,15 +469,14 @@ class _QuadrantDashedPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5;
-    final path =
-        Path()..addRRect(
-          RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
-        );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
