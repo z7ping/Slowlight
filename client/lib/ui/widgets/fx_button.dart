@@ -35,12 +35,26 @@ class FxButton extends StatelessWidget {
 
   bool get _isCompactAction => size == FxButtonSize.sm;
 
-  Widget _buildChild(BuildContext context) {
-    final textStyle = SlowlightTypography.componentButton(
+  TextStyle _textMetrics(BuildContext context) {
+    final source = SlowlightTypography.componentButton(
       context,
       compact: _isCompactAction,
-    ).copyWith(color: foregroundColor);
-    final text = Text(label, style: textStyle);
+    );
+
+    // Fx 只覆写排版尺度，不接管 ShadButton 各变体的前景色。
+    // color 保持 null 时会继承 ShadButton 的 DefaultTextStyle：例如亮色主题
+    // primary 的黑底白字、dark zinc 的浅底深字，以及 destructive 等语义色。
+    return TextStyle(
+      fontSize: source.fontSize,
+      fontWeight: source.fontWeight,
+      height: source.height,
+      letterSpacing: source.letterSpacing,
+      color: foregroundColor,
+    );
+  }
+
+  Widget _buildChild(BuildContext context) {
+    final text = Text(label, style: _textMetrics(context));
     if (icon != null) {
       return Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
