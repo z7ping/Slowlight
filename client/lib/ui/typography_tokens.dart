@@ -49,6 +49,9 @@ abstract final class SlowlightTypography {
   static const double desktopSectionTitleSize = 16;
   static const double desktopDialogTitleSize = 15;
   static const double desktopPageTitleSize = 16;
+  // 高保真 .pagehead b 为约 14.5px / 700。二级页头与页面大标题分离，
+  // 避免 FxPageHeader 误复用 16px Page Title 后把桌面导航页头整体放大。
+  static const double desktopSecondaryPageTitleSize = 14.5;
   static const double desktopEmphasizedInputSize = 14.5;
 
   /// 全屏休息等大号倒计时，独立于普通标题/统计展示。
@@ -272,7 +275,7 @@ abstract final class SlowlightTypography {
       useAndroidComponentTypography
           ? pageTitle(context).copyWith(fontWeight: FontWeight.w700)
           : Theme.of(context).textTheme.titleSmall!.copyWith(
-                fontSize: desktopPageTitleSize,
+                fontSize: desktopSecondaryPageTitleSize,
                 fontWeight: FontWeight.w700,
               );
 
