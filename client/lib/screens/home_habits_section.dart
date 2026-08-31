@@ -96,7 +96,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                   Text(
                     '习惯 ${widget.habits.length} 项',
                     style: TextStyle(
-                      fontSize: AppTheme.textMd,
+                      fontSize: SlowlightTypography.buttonSize,
                       height: 1.4,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.warmGray500,
@@ -271,7 +271,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                                 child: Text(
                                   habit['icon'] ?? '✅',
                                   style: const TextStyle(
-                                    fontSize: AppTheme.textMd,
+                                    fontSize: SlowlightTypography.buttonSize,
                                   ),
                                 ),
                               ),
@@ -281,7 +281,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                               child: Text(
                                 habit['name'] ?? '',
                                 style: TextStyle(
-                                  fontSize: AppTheme.textMd,
+                                  fontSize: SlowlightTypography.buttonSize,
                                   height: 1.4,
                                   color: AppTheme.textColor(context),
                                   decoration:
@@ -297,7 +297,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                                 child: Text(
                                   '🔥$streak',
                                   style: TextStyle(
-                                    fontSize: AppTheme.textXs,
+                                    fontSize: SlowlightTypography.captionSize,
                                     color: AppTheme.warmGray400,
                                   ),
                                 ),
@@ -325,7 +325,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                     Text(
                       '暂无习惯，去习惯页添加 🌱',
                       style: TextStyle(
-                        fontSize: AppTheme.textMd,
+                        fontSize: SlowlightTypography.buttonSize,
                         color: AppTheme.warmGray400,
                         height: 1.4,
                       ),
@@ -358,13 +358,13 @@ class _MiniStat extends StatelessWidget {
       children: [
         Text(
           emoji,
-          style: const TextStyle(fontSize: AppTheme.textMd, height: 1.2),
+          style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.2),
         ),
         const SizedBox(width: 4),
         Text(
           value,
           style: TextStyle(
-            fontSize: AppTheme.textLg,
+            fontSize: SlowlightTypography.bodySize,
             fontWeight: FontWeight.w700,
             color: AppTheme.warmDark,
           ),
@@ -373,7 +373,7 @@ class _MiniStat extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: AppTheme.textXs,
+            fontSize: SlowlightTypography.captionSize,
             color: AppTheme.warmGray500,
           ),
         ),
@@ -482,7 +482,7 @@ class _CheckinAnimationState extends State<_CheckinAnimation>
                         Text(
                           '打卡成功',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: SlowlightTypography.heroSize,
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -491,7 +491,7 @@ class _CheckinAnimationState extends State<_CheckinAnimation>
                         Text(
                           widget.habitName,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: SlowlightTypography.bodySize,
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant,
                           ),

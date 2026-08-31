@@ -480,7 +480,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 child: Text(
                   stateLabel,
                   style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                    fontSize: SlowlightTypography.captionSize,
                     fontWeight: FontWeight.w600,
                     color: color,
                   ),
@@ -509,7 +509,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       Text(
                         _format(_remainingSeconds),
                         style: theme.textTheme.displaySmall?.copyWith(
-                          fontSize: 36,
+                          fontSize: SlowlightTypography.displaySize,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1,
                         ),
@@ -518,7 +518,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       Text(
                         isWork ? '专注' : '休息',
                         style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                          fontSize: SlowlightTypography.captionSize,
                           letterSpacing: 2,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -567,7 +567,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               child: Text(
                 '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟',
                 style: TextStyle(
-                  fontSize: AppTheme.textSm,
+                  fontSize: SlowlightTypography.secondarySize,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -617,7 +617,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             child: Text(
               _completionMessage!,
               style: const TextStyle(
-                fontSize: AppTheme.textLg,
+                fontSize: SlowlightTypography.bodySize,
                 fontWeight: FontWeight.w600,
               ),
             ),

@@ -32,7 +32,7 @@ class TodayFocusSummary extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Center(
-              child: Text('🍅', style: TextStyle(fontSize: 20)),
+              child: Text('🍅', style: TextStyle(fontSize: SlowlightTypography.pageTitleSize)),
             ),
           ),
           const SizedBox(width: 12),
@@ -44,7 +44,7 @@ class TodayFocusSummary extends StatelessWidget {
                 Text(
                   '今日专注',
                   style: TextStyle(
-                    fontSize: AppTheme.textSm,
+                    fontSize: SlowlightTypography.secondarySize,
                     color: AppTheme.warmGray500,
                   ),
                 ),
@@ -54,7 +54,7 @@ class TodayFocusSummary extends StatelessWidget {
                     Text(
                       '$sessionCount 个番茄',
                       style: TextStyle(
-                        fontSize: AppTheme.textMd,
+                        fontSize: SlowlightTypography.buttonSize,
                         fontWeight: FontWeight.w600,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
@@ -63,14 +63,14 @@ class TodayFocusSummary extends StatelessWidget {
                       Text(
                         ' · ',
                         style: TextStyle(
-                          fontSize: AppTheme.textMd,
+                          fontSize: SlowlightTypography.buttonSize,
                           color: AppTheme.warmGray400,
                         ),
                       ),
                       Text(
                         '$totalMinutes 分钟',
                         style: TextStyle(
-                          fontSize: AppTheme.textMd,
+                          fontSize: SlowlightTypography.buttonSize,
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),

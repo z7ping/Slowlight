@@ -93,7 +93,7 @@ class InsightCard extends StatelessWidget {
       child: Text(
         '今天暂时没有特别需要关注的变化。',
         style: TextStyle(
-          fontSize: AppTheme.textSm,
+          fontSize: SlowlightTypography.secondarySize,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),

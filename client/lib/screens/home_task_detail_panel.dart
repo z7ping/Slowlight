@@ -171,7 +171,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
                 Text(
                   '任务详情',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     height: 1.5,
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurfaceVariant,
@@ -218,7 +218,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           controller: _titleController,
           placeholder: '任务标题',
           style: const TextStyle(
-            fontSize: AppTheme.textXl,
+            fontSize: SlowlightTypography.sectionTitleSize,
             height: 1.3,
             fontWeight: FontWeight.w600,
           ),
@@ -230,7 +230,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           placeholder: '添加描述...',
           placeholderStyle: TextStyle(color: theme.colorScheme.outline),
           style: TextStyle(
-            fontSize: AppTheme.textMd,
+            fontSize: SlowlightTypography.buttonSize,
             height: 1.5,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -284,7 +284,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
                   Text(
                     '更多设置',
                     style: TextStyle(
-                      fontSize: AppTheme.textMd,
+                      fontSize: SlowlightTypography.buttonSize,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -372,7 +372,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
@@ -381,7 +381,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 color: color,
                 fontWeight: muted ? FontWeight.w400 : FontWeight.w500,
               ),
@@ -517,7 +517,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
                   children: [
                     Text(
                       icon,
-                      style: const TextStyle(fontSize: AppTheme.textLg),
+                      style: const TextStyle(fontSize: SlowlightTypography.bodySize),
                     ),
                     const SizedBox(width: 8),
                     Text(name),
@@ -626,7 +626,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           Text(
             '每',
             style: TextStyle(
-              fontSize: AppTheme.textMd,
+              fontSize: SlowlightTypography.buttonSize,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -651,7 +651,7 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
           Text(
             {'daily': '天', 'weekly': '周', 'monthly': '月'}[_repeatType] ?? '',
             style: TextStyle(
-              fontSize: AppTheme.textMd,
+              fontSize: SlowlightTypography.buttonSize,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),

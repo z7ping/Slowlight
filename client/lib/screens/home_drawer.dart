@@ -204,7 +204,7 @@ class HomeDrawer extends StatelessWidget {
                 Text(
                   kBrandDisplayName,
                   style: TextStyle(
-                    fontSize: AppTheme.textLg,
+                    fontSize: SlowlightTypography.bodySize,
                     height: 1.3,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textColor(context),
@@ -214,7 +214,7 @@ class HomeDrawer extends StatelessWidget {
                 Text(
                   '${lists.length} 个清单',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     height: 1.5,
                     color: AppTheme.warmGray500,
                   ),
@@ -256,7 +256,7 @@ class HomeDrawer extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: AppTheme.textXs,
+                fontSize: SlowlightTypography.captionSize,
                 height: 1.2,
                 color: isActive ? AppTheme.primary : AppTheme.warmGray500,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
@@ -297,7 +297,7 @@ class HomeDrawer extends StatelessWidget {
         title: Text(
           title,
           style: TextStyle(
-            fontSize: AppTheme.textMd,
+            fontSize: SlowlightTypography.buttonSize,
             height: 1.5,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             color:
@@ -347,7 +347,7 @@ class HomeDesktopSidebar extends StatelessWidget {
                 Text(
                   kBrandDisplayName,
                   style: TextStyle(
-                    fontSize: AppTheme.textLg,
+                    fontSize: SlowlightTypography.bodySize,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textColor(context),
                   ),
@@ -510,7 +510,7 @@ class HomeDesktopSidebar extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: AppTheme.textXs,
+                fontSize: SlowlightTypography.captionSize,
                 height: 1.2,
                 color: isActive ? AppTheme.primary : AppTheme.warmGray500,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
@@ -551,7 +551,7 @@ class HomeDesktopSidebar extends StatelessWidget {
         title: Text(
           title,
           style: TextStyle(
-            fontSize: AppTheme.textMd,
+            fontSize: SlowlightTypography.buttonSize,
             height: 1.5,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             color:

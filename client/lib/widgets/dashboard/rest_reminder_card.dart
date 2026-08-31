@@ -96,7 +96,7 @@ class RestReminderCard extends StatelessWidget {
                   child: Text(
                     '进行中',
                     style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                      fontSize: SlowlightTypography.captionSize,
                       color: AppTheme.success,
                       fontWeight: FontWeight.w600,
                     ),
@@ -176,7 +176,7 @@ class RestReminderCard extends StatelessWidget {
                     child: Text(
                       '已经工作 ${_formatMinutes(stats!.workMinutes)}，休息不足！建议休息 15 分钟。',
                       style: TextStyle(
-                        fontSize: AppTheme.textSm,
+                        fontSize: SlowlightTypography.secondarySize,
                         color: AppTheme.warning,
                       ),
                     ),
@@ -203,7 +203,7 @@ class RestReminderCard extends StatelessWidget {
               child: Text(
                 '今日跳过 ${stats!.skippedCount} 次休息',
                 style: TextStyle(
-                  fontSize: AppTheme.textXs,
+                  fontSize: SlowlightTypography.captionSize,
                   color: AppTheme.warmGray500,
                 ),
               ),
@@ -228,7 +228,7 @@ class RestReminderCard extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: AppTheme.textLg,
+            fontSize: SlowlightTypography.bodySize,
             fontWeight: FontWeight.bold,
             color: Theme.of(context).colorScheme.onSurface,
           ),
@@ -236,7 +236,7 @@ class RestReminderCard extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: AppTheme.textXs,
+            fontSize: SlowlightTypography.captionSize,
             color: AppTheme.warmGray500,
           ),
         ),

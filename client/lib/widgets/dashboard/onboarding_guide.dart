@@ -93,7 +93,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(tag['icon']!, style: const TextStyle(fontSize: 20)),
+                      Text(tag['icon']!, style: const TextStyle(fontSize: SlowlightTypography.pageTitleSize)),
                       const SizedBox(width: 8),
                       Text(
                         tag['name']!,
@@ -190,7 +190,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
         ),
         child: Row(
           children: [
-            Text(tag['icon']!, style: const TextStyle(fontSize: 24)),
+            Text(tag['icon']!, style: const TextStyle(fontSize: SlowlightTypography.heroSize)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -199,7 +199,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
                   Text(
                     tag['name']!,
                     style: TextStyle(
-                      fontSize: AppTheme.textLg,
+                      fontSize: SlowlightTypography.bodySize,
                       fontWeight: FontWeight.w600,
                       color:
                           isSelected
@@ -210,7 +210,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
                   Text(
                     _getTagDescription(tag['name']!),
                     style: TextStyle(
-                      fontSize: AppTheme.textSm,
+                      fontSize: SlowlightTypography.secondarySize,
                       color: AppTheme.warmGray500,
                     ),
                   ),

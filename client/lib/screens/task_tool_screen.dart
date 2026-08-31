@@ -373,7 +373,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                                 '⏱ 顺延',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: AppTheme.textXs,
+                                  fontSize: SlowlightTypography.captionSize,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -390,7 +390,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                                 '✓ 完成',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: AppTheme.textXs,
+                                  fontSize: SlowlightTypography.captionSize,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),

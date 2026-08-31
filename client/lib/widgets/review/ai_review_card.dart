@@ -81,7 +81,7 @@ class _AiReviewCardState extends State<AiReviewCard> {
                 child: Text(
                   'AI 解读',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -96,14 +96,14 @@ class _AiReviewCardState extends State<AiReviewCard> {
           ),
           if (_result != null) ...[
             const SizedBox(height: 10),
-            Text(_result!, style: const TextStyle(fontSize: AppTheme.textMd, height: 1.6)),
+            Text(_result!, style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.6)),
           ],
           if (_error != null) ...[
             const SizedBox(height: 10),
             Text(
               _error!,
               style: TextStyle(
-                fontSize: AppTheme.textXs,
+                fontSize: SlowlightTypography.captionSize,
                 color: Theme.of(context).colorScheme.error,
               ),
             ),

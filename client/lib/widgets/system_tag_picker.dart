@@ -145,7 +145,7 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
                               Text(
                                 icon,
                                 style: const TextStyle(
-                                  fontSize: AppTheme.textXl,
+                                  fontSize: SlowlightTypography.sectionTitleSize,
                                   height: 1.2,
                                 ),
                               ),

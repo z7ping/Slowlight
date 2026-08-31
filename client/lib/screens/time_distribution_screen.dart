@@ -410,7 +410,7 @@ class _PieChartPainter extends CustomPainter {
       text: TextSpan(
         text: '${total.toInt()}',
         style: TextStyle(
-          fontSize: 18,
+          fontSize: SlowlightTypography.sectionTitleSize,
           fontWeight: FontWeight.w700,
           color: textColor,
         ),
@@ -428,7 +428,7 @@ class _PieChartPainter extends CustomPainter {
     final unitPainter = TextPainter(
       text: TextSpan(
         text: '分钟',
-        style: TextStyle(fontSize: 12, color: secondaryTextColor),
+        style: TextStyle(fontSize: SlowlightTypography.captionSize, color: secondaryTextColor),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

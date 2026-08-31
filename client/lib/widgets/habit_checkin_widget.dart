@@ -40,7 +40,7 @@ class HabitCheckinWidget extends StatelessWidget {
         child: const Icon(Icons.check, color: Colors.white),
       ),
       child: FxListTile(
-        leading: Text(habit.icon, style: const TextStyle(fontSize: 24)),
+        leading: Text(habit.icon, style: const TextStyle(fontSize: SlowlightTypography.heroSize)),
         title: habit.name,
         subtitle: '连续 ${habit.streakCount} 天',
         trailing: FxIconButton(

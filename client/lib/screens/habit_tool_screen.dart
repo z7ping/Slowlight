@@ -384,7 +384,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                           ),
                           child: Text(
                             habit.icon,
-                            style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(fontSize: SlowlightTypography.bodySize),
                           ),
                         ),
                         const SizedBox(width: 10),

@@ -350,7 +350,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final desktop = MediaQuery.sizeOf(context).width >= 1024;
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
     final content =
         _loading ? const Center(child: FxCircularProgress()) : _buildContent();
 
@@ -394,7 +394,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
             title: Text(
               _navigation.title,
               style: theme.textTheme.titleSmall?.copyWith(
-                fontSize: 15,
+                fontSize: SlowlightTypography.buttonSize,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -518,7 +518,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                    fontSize: SlowlightTypography.captionSize,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                     color: color,
                   ),
@@ -793,7 +793,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 child: Text(
                   '组织工具',
                   style: TextStyle(
-                    fontSize: AppTheme.textXs,
+                    fontSize: SlowlightTypography.captionSize,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -842,7 +842,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 child: Text(
                   '搜索',
                   style: TextStyle(
-                    fontSize: AppTheme.textSm,
+                    fontSize: SlowlightTypography.secondarySize,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -861,7 +861,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                   child: Text(
                     'Ctrl K',
                     style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                      fontSize: SlowlightTypography.captionSize,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -879,7 +879,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: AppTheme.textXs,
+          fontSize: SlowlightTypography.captionSize,
           fontWeight: FontWeight.w600,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -900,7 +900,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
       leading: Icon(icon, size: 18),
-      title: Text(label, style: const TextStyle(fontSize: AppTheme.textSm)),
+      title: Text(label, style: const TextStyle(fontSize: SlowlightTypography.secondarySize)),
       selected: selected,
       selectedColor: accent,
       selectedTileColor: accent.withValues(alpha: .12),

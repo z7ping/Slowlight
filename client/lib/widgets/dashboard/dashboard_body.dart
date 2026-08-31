@@ -131,7 +131,7 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget build(BuildContext context) {
     if (_loading) return _skeleton();
     if (_error != null) return _errorView();
-    final desktop = MediaQuery.sizeOf(context).width >= 1024;
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
     return FxRefresh(
       onRefresh: () async {
         await _load();
@@ -250,7 +250,7 @@ class _DashboardBodyState extends State<DashboardBody> {
   );
 
   Widget _dimensionCard() {
-    final mobile = MediaQuery.sizeOf(context).width < 1024;
+    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     return _card(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,12 +262,11 @@ class _DashboardBodyState extends State<DashboardBody> {
           else
             LayoutBuilder(
               builder: (context, constraints) {
-                final largeText =
-                    MediaQuery.textScalerOf(
-                      context,
-                    ).scale(SlowlightTypography.secondarySize) >=
-                    SlowlightTypography.secondarySize * 1.3;
-                final columns = largeText ? 1 : 2;
+                // 四维卡片只根据当前组件真实宽度决定列数；
+
+                // 字体放大通过内容自然增高处理，不在 130% 强制单列。
+
+                final columns = constraints.maxWidth >= 320 ? 2 : 1;
                 final gap = 8.0;
                 final width =
                     (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -572,7 +571,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                 color: color.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               ),
-              child: Text(habit.icon, style: const TextStyle(fontSize: 16)),
+              child: Text(habit.icon, style: const TextStyle(fontSize: SlowlightTypography.bodySize)),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -942,7 +941,7 @@ class _SwipeAction extends StatelessWidget {
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: AppTheme.textXs,
+                fontSize: SlowlightTypography.captionSize,
                 fontWeight: FontWeight.w600,
               ),
             ),

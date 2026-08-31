@@ -495,7 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Text(
             '预览：所行映我帮你了解自己',
-            style: TextStyle(fontSize: 14 * visibleScale),
+            style: TextStyle(fontSize: SlowlightTypography.secondarySize * visibleScale),
           ),
         ),
         const SizedBox(height: 12),

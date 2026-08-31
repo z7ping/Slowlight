@@ -87,7 +87,7 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                 const Text(
                   '近 7 天总投入',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     color: AppTheme.white70,
                   ),
                 ),
@@ -95,7 +95,7 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                 Text(
                   h > 0 ? '$h 小时 $m 分钟' : '$m 分钟',
                   style: const TextStyle(
-                    fontSize: AppTheme.textXl,
+                    fontSize: SlowlightTypography.sectionTitleSize,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.white,
                   ),
@@ -104,7 +104,7 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                 Text(
                   '覆盖 ${tags.length} 个维度',
                   style: const TextStyle(
-                    fontSize: AppTheme.textXs,
+                    fontSize: SlowlightTypography.captionSize,
                     color: AppTheme.white60,
                   ),
                 ),
@@ -320,7 +320,7 @@ class _PieChartPainter extends CustomPainter {
       text: TextSpan(
         text: '$totalMin',
         style: TextStyle(
-          fontSize: AppTheme.textXl,
+          fontSize: SlowlightTypography.sectionTitleSize,
           fontWeight: FontWeight.bold,
           color: AppTheme.warmDark,
         ),
@@ -328,7 +328,7 @@ class _PieChartPainter extends CustomPainter {
           TextSpan(
             text: '\n分钟',
             style: TextStyle(
-              fontSize: AppTheme.textXs,
+              fontSize: SlowlightTypography.captionSize,
               fontWeight: FontWeight.normal,
               color: AppTheme.warmGray500,
             ),

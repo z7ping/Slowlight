@@ -178,7 +178,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                     ),
                                     child: Text(
                                       icon,
-                                      style: const TextStyle(fontSize: 18),
+                                      style: const TextStyle(fontSize: SlowlightTypography.sectionTitleSize),
                                     ),
                                   ),
                                 );

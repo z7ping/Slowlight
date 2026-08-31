@@ -124,7 +124,7 @@ class TaskTodayTab extends StatelessWidget {
                 ? '今天有什么值得记住、困惑或想补充的吗？'
                 : '系统看到了一些变化。先不用找答案，只写下你自己的理解。',
             style: TextStyle(
-              fontSize: AppTheme.textSm,
+              fontSize: SlowlightTypography.secondarySize,
               height: 1.5,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -222,7 +222,7 @@ class TaskTodayTab extends StatelessWidget {
         Text(
           subtitle,
           style: TextStyle(
-            fontSize: AppTheme.textXs,
+            fontSize: SlowlightTypography.captionSize,
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),

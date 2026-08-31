@@ -272,7 +272,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
               color: color.withValues(alpha: .10),
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
-            child: Text(tag.icon, style: const TextStyle(fontSize: 16)),
+            child: Text(tag.icon, style: const TextStyle(fontSize: SlowlightTypography.bodySize)),
           ),
           const SizedBox(width: 10),
           Expanded(

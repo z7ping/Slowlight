@@ -287,7 +287,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                 const Text(
                   'CalDAV 同步',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     height: 1.3,
                     fontWeight: FontWeight.w600,
                   ),
@@ -298,7 +298,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             const Text(
               '配置后系统将：',
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 height: 1.5,
                 fontWeight: FontWeight.w500,
               ),
@@ -324,7 +324,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   Text(
                     '📝 快速上手：',
                     style: TextStyle(
-                      fontSize: AppTheme.textMd,
+                      fontSize: SlowlightTypography.buttonSize,
                       height: 1.5,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.success,
@@ -338,7 +338,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     '4. 点击「测试连接」验证\n'
                     '5. 点击「保存配置」完成',
                     style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                      fontSize: SlowlightTypography.captionSize,
                       color: AppTheme.success,
                       height: 1.5,
                     ),
@@ -362,7 +362,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   Text(
                     '💡 支持的服务：',
                     style: TextStyle(
-                      fontSize: AppTheme.textMd,
+                      fontSize: SlowlightTypography.buttonSize,
                       height: 1.5,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.info,
@@ -375,7 +375,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     '• Baïkal / Radicale — 轻量 CalDAV\n'
                     '• 任何兼容 CalDAV 协议的服务',
                     style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                      fontSize: SlowlightTypography.captionSize,
                       color: AppTheme.info,
                       height: 1.5,
                     ),
@@ -399,7 +399,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   Text(
                     '📍 项目路径获取：',
                     style: TextStyle(
-                      fontSize: AppTheme.textMd,
+                      fontSize: SlowlightTypography.buttonSize,
                       height: 1.5,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.priorityLow,
@@ -411,7 +411,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     '• Nextcloud：任务设置 → 复制 CalDAV 地址\n'
                     '• 一般格式：/dav/projects/{数字ID}',
                     style: TextStyle(
-                      fontSize: AppTheme.textXs,
+                      fontSize: SlowlightTypography.captionSize,
                       color: AppTheme.priorityLow,
                       height: 1.5,
                     ),
@@ -432,13 +432,13 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         children: [
           Text(
             emoji,
-            style: const TextStyle(fontSize: AppTheme.textMd, height: 1.5),
+            style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: AppTheme.textMd, height: 1.5),
+              style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
             ),
           ),
         ],
@@ -458,7 +458,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               const Text(
                 '连接配置',
                 style: TextStyle(
-                  fontSize: AppTheme.textMd,
+                  fontSize: SlowlightTypography.buttonSize,
                   height: 1.3,
                   fontWeight: FontWeight.w600,
                 ),
@@ -549,7 +549,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               Text(
                 '格式：/dav/projects/{项目ID}，可在 Vikunja 项目设置中查看',
                 style: TextStyle(
-                  fontSize: AppTheme.textXs,
+                  fontSize: SlowlightTypography.captionSize,
                   height: 1.4,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -594,7 +594,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                 const Text(
                   '同步状态',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     height: 1.3,
                     fontWeight: FontWeight.w600,
                   ),
@@ -610,7 +610,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               const Text(
                 '同步历史：',
                 style: TextStyle(
-                  fontSize: AppTheme.textMd,
+                  fontSize: SlowlightTypography.buttonSize,
                   height: 1.5,
                   fontWeight: FontWeight.w500,
                 ),
@@ -624,7 +624,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   child: Text(
                     '• $path - 最后同步：$lastSync',
                     style: const TextStyle(
-                      fontSize: AppTheme.textXs,
+                      fontSize: SlowlightTypography.captionSize,
                       height: 1.4,
                     ),
                   ),
@@ -653,7 +653,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 height: 1.5,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -662,7 +662,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: AppTheme.textMd, height: 1.5),
+              style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
             ),
           ),
         ],
@@ -684,7 +684,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                 const Text(
                   '错误信息',
                   style: TextStyle(
-                    fontSize: AppTheme.textMd,
+                    fontSize: SlowlightTypography.buttonSize,
                     height: 1.3,
                     fontWeight: FontWeight.w600,
                   ),
@@ -695,7 +695,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             Text(
               _lastError!,
               style: const TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 height: 1.5,
                 color: AppTheme.error,
               ),

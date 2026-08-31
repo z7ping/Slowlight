@@ -108,7 +108,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
   Widget _statCol(ThemeData theme, String emoji, String value, String label) {
     return Column(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: AppTheme.text2Xl)),
+        Text(emoji, style: const TextStyle(fontSize: SlowlightTypography.pageTitleSize)),
         Text(
           value,
           style: SlowlightTypography.pageTitle(

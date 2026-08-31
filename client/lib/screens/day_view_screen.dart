@@ -182,7 +182,7 @@ class DayViewScreenState extends State<DayViewScreen> {
                       Text(
                         '周${weekdayNames[day.weekday - 1]}',
                         style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                          fontSize: SlowlightTypography.captionSize,
                           color:
                               isSelected
                                   ? AppTheme.white.withValues(alpha: 0.8)
@@ -193,7 +193,7 @@ class DayViewScreenState extends State<DayViewScreen> {
                       Text(
                         '${day.day}',
                         style: TextStyle(
-                          fontSize: AppTheme.textLg,
+                          fontSize: SlowlightTypography.bodySize,
                           fontWeight:
                               isSelected || isToday
                                   ? FontWeight.w700
@@ -271,7 +271,7 @@ class DayViewScreenState extends State<DayViewScreen> {
           '这天没有安排 🌤️',
           style: TextStyle(
             color: AppTheme.warmGray300,
-            fontSize: AppTheme.textMd,
+            fontSize: SlowlightTypography.buttonSize,
           ),
         ),
       );

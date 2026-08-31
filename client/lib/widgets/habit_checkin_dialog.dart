@@ -91,7 +91,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                   children: [
                     Text(
                       widget.habit.icon,
-                      style: const TextStyle(fontSize: AppTheme.text2Xl),
+                      style: const TextStyle(fontSize: SlowlightTypography.pageTitleSize),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -107,7 +107,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                       Text(
                         '下滑关闭',
                         style: TextStyle(
-                          fontSize: AppTheme.textXs,
+                          fontSize: SlowlightTypography.captionSize,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -184,7 +184,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                     child: Text(
                       '键盘弹出时会自动避让',
                       style: TextStyle(
-                        fontSize: AppTheme.textXs,
+                        fontSize: SlowlightTypography.captionSize,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -211,7 +211,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     return Text(
       text,
       style: TextStyle(
-        fontSize: AppTheme.textXs,
+        fontSize: SlowlightTypography.captionSize,
         fontWeight: FontWeight.w600,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
@@ -263,7 +263,7 @@ class _PickChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: AppTheme.textMd,
+                fontSize: SlowlightTypography.buttonSize,
                 fontWeight: FontWeight.w600,
                 color: selected ? accent : theme.colorScheme.onSurface,
               ),
@@ -273,7 +273,7 @@ class _PickChip extends StatelessWidget {
               Text(
                 suffix!,
                 style: TextStyle(
-                  fontSize: AppTheme.textXs,
+                  fontSize: SlowlightTypography.captionSize,
                   color: selected ? accent : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
