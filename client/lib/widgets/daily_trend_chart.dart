@@ -18,10 +18,10 @@ class _DailyTrendChartState extends State<DailyTrendChart> {
   String _metric = 'focus_minutes';
 
   static const _metrics = {
-    'focus_minutes': {'label': '专注分钟', 'color': Color(0xFF52C41A)},
-    'task_completed': {'label': '完成任务', 'color': Color(0xFF1890FF)},
-    'completion_rate': {'label': '完成率%', 'color': Color(0xFFFAAD14)},
-    'habit_checked': {'label': '习惯打卡', 'color': Color(0xFFFF6B6B)},
+    'focus_minutes': {'label': '专注分钟', 'color': AppTheme.chartGreen},
+    'task_completed': {'label': '完成任务', 'color': AppTheme.chartBlue},
+    'completion_rate': {'label': '完成率%', 'color': AppTheme.chartYellow},
+    'habit_checked': {'label': '习惯打卡', 'color': AppTheme.chartRed},
   };
 
   @override
@@ -249,8 +249,10 @@ class _TrendLinePainter extends CustomPainter {
     }
 
     final textStyle = TextStyle(
-      fontSize: AppTheme.textXs,
-      height: 1.4,
+      fontSize: SlowlightTypography.captionSize,
+      height:
+          SlowlightTypography.captionLineHeight /
+          SlowlightTypography.captionSize,
       color: theme.colorScheme.onSurfaceVariant,
     );
     for (int i = 0; i < pointCount; i++) {
@@ -264,8 +266,10 @@ class _TrendLinePainter extends CustomPainter {
     }
 
     final valueStyle = TextStyle(
-      fontSize: AppTheme.textXs,
-      height: 1.4,
+      fontSize: SlowlightTypography.captionSize,
+      height:
+          SlowlightTypography.captionLineHeight /
+          SlowlightTypography.captionSize,
       fontWeight: FontWeight.w600,
       color: color,
     );
