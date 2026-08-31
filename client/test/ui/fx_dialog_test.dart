@@ -33,8 +33,13 @@ void main() {
 
     final barriers = tester.widgetList<ModalBarrier>(find.byType(ModalBarrier));
     expect(find.byType(ModalBarrier), findsNWidgets(barrierBaseline + 1));
-    expect(barriers.any((barrier) => barrier.color == FxDialog.barrierColor),
-        isTrue);
+    expect(
+      barriers.any((barrier) => barrier.color == FxDialog.barrierColor),
+      isTrue,
+    );
+
+    expect(tester.widget<Text>(find.text('取消')).style, isNull);
+    expect(tester.widget<Text>(find.text('删除')).style, isNull);
 
     await tester.tapAt(const Offset(4, 4));
     await tester.pumpAndSettle();
