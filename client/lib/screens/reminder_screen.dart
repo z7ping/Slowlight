@@ -99,7 +99,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                       working
                           ? activePalette.accent
                           : theme.colorScheme.onSurfaceVariant,
-                  borderRadius: 999,
+                  borderRadius: SlowlightRadius.pill,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 9,
                     vertical: 3,
@@ -202,8 +202,6 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   void _postponeUpcoming() {
-    // 当前服务的延后动作只接受“已进入休息”的状态；这里先进入当前小憩，
-    // 再立即执行延后，保持 UI 操作与既有状态机一致。
     _service.forceRest();
     _service.postponeRest();
     _message('已延后 5 分钟');
@@ -220,10 +218,19 @@ class _ReminderScreenState extends State<ReminderScreen> {
     final workMinutes = _service.todayWorkSeconds ~/ 60;
     final restMinutes = _service.todayRestSeconds ~/ 60;
     final skipRate = (_service.todaySkipRate * 100).round();
+    final cells = [
+      FxStatCell(value: _duration(workMinutes), label: '工作'),
+      FxStatCell(value: '$restMinutes', suffix: '分', label: '休息'),
+      FxStatCell(value: '$skipRate%', label: '跳过率'),
+      FxStatCell(
+        value: '${_service.todayLongestNoSkipStreak}',
+        label: '连续不跳过',
+      ),
+    ];
     return FxCard(
       padding: const EdgeInsets.all(12),
       color: fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -233,36 +240,12 @@ class _ReminderScreenState extends State<ReminderScreen> {
         children: [
           const FxSectionHeader(title: '今日统计', trailing: '→ 写入行为事件'),
           const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final scaled = MediaQuery.textScalerOf(
-                context,
-              ).scale(SlowlightTypography.bodySize);
-              final columns =
-                  scaled >= SlowlightTypography.bodySize * 1.3
-                      ? 1
-                      : constraints.maxWidth < 420
-                      ? 2
-                      : 4;
-              final width =
-                  (constraints.maxWidth - 6 * (columns - 1)) / columns;
-              final cells = [
-                FxStatCell(value: _duration(workMinutes), label: '工作'),
-                FxStatCell(value: '$restMinutes', suffix: '分', label: '休息'),
-                FxStatCell(value: '$skipRate%', label: '跳过率'),
-                FxStatCell(
-                  value: '${_service.todayLongestNoSkipStreak}',
-                  label: '连续不跳过',
-                ),
-              ];
-              return Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: cells
-                    .map((cell) => SizedBox(width: width, child: cell))
-                    .toList(growable: false),
-              );
-            },
+          FxResponsiveFormGrid(
+            minColumnWidth: 120,
+            maxColumns: 4,
+            horizontalGap: 6,
+            verticalGap: 6,
+            children: cells,
           ),
         ],
       ),
@@ -276,7 +259,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
+          Icon(
+            icon,
+            size: SlowlightTypography.buttonSize,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -293,7 +280,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
     return FxCard(
       padding: const EdgeInsets.all(12),
       color: fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -316,8 +303,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
                 label: '新增需求',
                 backgroundColor: fxSubtleSurface(context),
                 foregroundColor: theme.colorScheme.onSurfaceVariant,
-                borderRadius: 999,
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                borderRadius: SlowlightRadius.pill,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 3,
+                ),
               ),
             ],
           ),
@@ -346,7 +336,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+          colors: [
+            SlowlightSemanticColor.restGradientStart,
+            SlowlightSemanticColor.restGradientMiddle,
+            SlowlightSemanticColor.restGradientEnd,
+          ],
         ),
       ),
       child: Stack(
@@ -356,16 +350,18 @@ class _ReminderScreenState extends State<ReminderScreen> {
             left: 18,
             child: Text(
               micro ? '小憩' : '长休息',
-              style: const TextStyle(
+              style: SlowlightTypography.caption(context).copyWith(
                 color: Colors.white54,
-                fontSize: AppTheme.textXs,
                 letterSpacing: 3,
               ),
             ),
           ),
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 24,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -383,16 +379,14 @@ class _ReminderScreenState extends State<ReminderScreen> {
                             backgroundColor: Colors.white.withValues(
                               alpha: .14,
                             ),
-                            color: const Color(0xFF4ADE80),
+                            color: SlowlightSemanticColor.successEmphasis,
                           ),
                         ),
                         Text(
                           _format(_service.remainingSeconds),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 38,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: SlowlightTypography.display(
+                            context,
+                          ).copyWith(color: Colors.white),
                         ),
                       ],
                     ),
@@ -401,7 +395,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   Text(
                     micro ? '眨眨眼，看看六米外的地方' : '离开屏幕，活动一下身体',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: SlowlightTypography.body(
+                      context,
+                    ).copyWith(color: Colors.white),
                   ),
                   const SizedBox(height: 18),
                   if (!strict)
@@ -434,10 +430,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
             bottom: 14,
             child: Text(
               strict ? '严格模式 · 不可跳过' : '非严格模式',
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: AppTheme.textXs,
-              ),
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: Colors.white38),
             ),
           ),
         ],
