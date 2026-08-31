@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'fx_cursor.dart';
 
 import '../typography_tokens.dart';
+import 'fx_cursor.dart';
 
 /// FxSegmented — 紧凑的互斥分段选择组件。
 ///
 /// 与页面级 Tab 不同，它用于同一区域内少量选项的即时切换。
+/// Android 使用可读字号；桌面端保持高保真中的紧凑分段密度。
 class FxSegmented extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;
@@ -66,7 +67,7 @@ class FxSegmented extends StatelessWidget {
               child: Text(
                 labels[index],
                 textAlign: TextAlign.center,
-                style: SlowlightTypography.secondary(context).copyWith(
+                style: SlowlightTypography.componentChip(context).copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   color:
                       selected
