@@ -76,7 +76,7 @@ class FxFormField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: SlowlightTypography.fieldLabel(context).copyWith(
+          style: SlowlightTypography.componentFieldLabel(context).copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
