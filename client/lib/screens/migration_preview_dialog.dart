@@ -180,34 +180,21 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   Widget _dialogHeader() {
     final theme = Theme.of(context);
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '迁移本地数据到云端',
-                style: SlowlightTypography.pageTitle(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '先扫描和比较，再决定如何处理冲突；预览阶段不会写入或删除数据。',
-                style: SlowlightTypography.caption(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
+        Text(
+          '迁移本地数据到云端',
+          style: SlowlightTypography.pageTitle(
+            context,
+          ).copyWith(fontWeight: FontWeight.w700),
         ),
-        FxIconButton(
-          tooltip: '关闭',
-          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-          icon: Icons.close,
-          iconSize: 19,
+        const SizedBox(height: 3),
+        Text(
+          '先扫描和比较，再决定如何处理冲突；预览阶段不会写入或删除数据。',
+          style: SlowlightTypography.caption(
+            context,
+          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
     );
