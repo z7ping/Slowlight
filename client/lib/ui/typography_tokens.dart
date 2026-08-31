@@ -42,6 +42,7 @@ abstract final class SlowlightTypography {
   static const double desktopControlSize = 13;
   static const double desktopChipSize = 12;
   static const double desktopDialogTitleSize = 15;
+  static const double desktopPageTitleSize = 16;
   static const double desktopEmphasizedInputSize = 14.5;
 
   /// 全屏休息等大号倒计时，独立于普通标题/统计展示。
@@ -163,7 +164,7 @@ abstract final class SlowlightTypography {
         fontWeight: FontWeight.w700,
       );
 
-  /// 公共表单/选择组件使用的平台解析语义。
+  /// 公共组件使用的平台解析语义。
   static TextStyle componentSecondary(BuildContext context) =>
       useAndroidComponentTypography
           ? secondary(context)
@@ -199,6 +200,14 @@ abstract final class SlowlightTypography {
           ? cardTitle(context).copyWith(fontWeight: FontWeight.w700)
           : Theme.of(context).textTheme.titleSmall!.copyWith(
                 fontSize: desktopDialogTitleSize,
+                fontWeight: FontWeight.w700,
+              );
+
+  static TextStyle componentPageTitle(BuildContext context) =>
+      useAndroidComponentTypography
+          ? pageTitle(context).copyWith(fontWeight: FontWeight.w700)
+          : Theme.of(context).textTheme.titleSmall!.copyWith(
+                fontSize: desktopPageTitleSize,
                 fontWeight: FontWeight.w700,
               );
 
