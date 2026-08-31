@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../typography_tokens.dart';
 
 /// FxEmptyState — 空状态统一表达。
+///
+/// Android 使用更易读的空状态说明；桌面端保持高保真中的紧凑标题/说明密度。
 class FxEmptyState extends StatelessWidget {
   final String emoji;
   final String title;
@@ -24,6 +26,7 @@ class FxEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final android = SlowlightTypography.useAndroidComponentTypography;
     return Padding(
       padding: padding,
       child: Column(
@@ -34,15 +37,16 @@ class FxEmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: SlowlightTypography.cardTitle(context),
+            style: SlowlightTypography.componentDialogTitle(context),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: SlowlightTypography.secondary(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: (android
+                    ? SlowlightTypography.secondary(context)
+                    : SlowlightTypography.caption(context))
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           if (action != null) ...[
             const SizedBox(height: 12),
