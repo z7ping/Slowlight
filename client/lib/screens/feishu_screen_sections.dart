@@ -11,7 +11,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
     return FxCard(
       padding: padding,
       color: color ?? fxSurface(context),
-      borderRadius: AppTheme.radiusLg,
+      borderRadius: SlowlightRadius.lg,
       border: border ?? Border.all(color: fxBorder(context)),
       boxShadow:
           theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
@@ -30,7 +30,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
               : fxSubtleSurface(context),
       foregroundColor:
           accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
-      borderRadius: 999,
+      borderRadius: SlowlightRadius.pill,
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
     );
   }
@@ -41,7 +41,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spaceLg),
+          padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -50,7 +50,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 size: 34,
                 color: theme.colorScheme.error,
               ),
-              const SizedBox(height: AppTheme.spaceSm),
+              const SizedBox(height: SlowlightSpacing.md),
               const Text(
                 '无法读取飞书配置',
                 style: TextStyle(fontWeight: FontWeight.w700),
@@ -63,7 +63,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   context,
                 ).copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
-              const SizedBox(height: AppTheme.spaceMd),
+              const SizedBox(height: SlowlightSpacing.xl),
               FxButton(
                 label: '重新加载',
                 icon: Icons.refresh,
@@ -89,10 +89,10 @@ extension _FeishuScreenSections on _FeishuScreenState {
         final wide = constraints.maxWidth >= 920;
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
-            AppTheme.spaceMd,
-            AppTheme.spaceMd,
-            AppTheme.spaceMd,
-            AppTheme.spaceXl,
+            SlowlightSpacing.xl,
+            SlowlightSpacing.xl,
+            SlowlightSpacing.xl,
+            SlowlightSpacing.page,
           ),
           child: Center(
             child: ConstrainedBox(
@@ -101,19 +101,19 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildOverview(),
-                  const SizedBox(height: AppTheme.spaceLg),
+                  const SizedBox(height: SlowlightSpacing.xxxl),
                   if (wide)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(flex: 5, child: _buildConfigurationColumn()),
-                        const SizedBox(width: AppTheme.spaceLg),
+                        const SizedBox(width: SlowlightSpacing.xxxl),
                         Expanded(flex: 6, child: _buildOperationsColumn()),
                       ],
                     )
                   else ...[
                     _buildConfigurationColumn(),
-                    const SizedBox(height: AppTheme.spaceLg),
+                    const SizedBox(height: SlowlightSpacing.xxxl),
                     _buildOperationsColumn(),
                   ],
                 ],
@@ -128,7 +128,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
   Widget _buildOverview() {
     final theme = Theme.of(context);
     return _card(
-      padding: const EdgeInsets.all(AppTheme.spaceMd),
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 620;
@@ -141,14 +141,14 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   color: theme.colorScheme.primaryContainer.withValues(
                     alpha: .55,
                   ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
                 ),
                 child: Icon(
                   Icons.table_chart_outlined,
                   color: theme.colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: AppTheme.spaceSm),
+              const SizedBox(width: SlowlightSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,8 +172,8 @@ extension _FeishuScreenSections on _FeishuScreenState {
             ],
           );
           final badges = Wrap(
-            spacing: AppTheme.spaceXs,
-            runSpacing: AppTheme.spaceXs,
+            spacing: SlowlightSpacing.xs,
+            runSpacing: SlowlightSpacing.xs,
             children: [
               _chip(_cloud ? '云端配置' : '本机配置'),
               _chip(_isConfigured ? '已连接' : '未连接', accent: _isConfigured),
@@ -185,7 +185,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 identity,
-                const SizedBox(height: AppTheme.spaceSm),
+                const SizedBox(height: SlowlightSpacing.md),
                 badges,
               ],
             );
@@ -193,7 +193,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           return Row(
             children: [
               Expanded(child: identity),
-              const SizedBox(width: AppTheme.spaceMd),
+              const SizedBox(width: SlowlightSpacing.xl),
               badges,
             ],
           );
@@ -207,7 +207,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const FxSectionHeader(title: '连接配置', trailing: '密钥保存在当前数据模式对应的安全存储中'),
-        const SizedBox(height: AppTheme.spaceXs),
+        const SizedBox(height: SlowlightSpacing.xs),
         _card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -218,7 +218,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 placeholder: 'cli_xxxxxxxxxxxxxxxx',
                 leading: const Icon(Icons.key_outlined, size: 18),
               ),
-              const SizedBox(height: AppTheme.spaceSm),
+              const SizedBox(height: SlowlightSpacing.md),
               FxInput(
                 controller: _appSecretController,
                 label: '应用密钥',
@@ -234,18 +234,18 @@ extension _FeishuScreenSections on _FeishuScreenState {
                           : Icons.visibility_outlined,
                 ),
               ),
-              const SizedBox(height: AppTheme.spaceSm),
+              const SizedBox(height: SlowlightSpacing.md),
               FxInput(
                 controller: _tableUrlController,
                 label: '多维表格链接',
                 placeholder: 'https://my.feishu.cn/base/xxxxx',
                 leading: const Icon(Icons.link, size: 18),
               ),
-              const SizedBox(height: AppTheme.spaceMd),
+              const SizedBox(height: SlowlightSpacing.xl),
               Wrap(
                 alignment: WrapAlignment.end,
-                spacing: AppTheme.spaceXs,
-                runSpacing: AppTheme.spaceXs,
+                spacing: SlowlightSpacing.xs,
+                runSpacing: SlowlightSpacing.xs,
                 children: [
                   FxButton(
                     label: _isConnecting ? '绑定中…' : '绑定现有表格',
@@ -263,9 +263,9 @@ extension _FeishuScreenSections on _FeishuScreenState {
             ],
           ),
         ),
-        const SizedBox(height: AppTheme.spaceLg),
+        const SizedBox(height: SlowlightSpacing.xxxl),
         const FxSectionHeader(title: '数据模板', trailing: '首次连接建议从这里开始'),
-        const SizedBox(height: AppTheme.spaceXs),
+        const SizedBox(height: SlowlightSpacing.xs),
         _card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +277,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                     size: 20,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: AppTheme.spaceXs),
+                  const SizedBox(width: SlowlightSpacing.xs),
                   Expanded(
                     child: Text(
                       '创建标准的 8 张数据表',
@@ -288,14 +288,14 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   ),
                 ],
               ),
-              const SizedBox(height: AppTheme.spaceXs),
+              const SizedBox(height: SlowlightSpacing.xs),
               Text(
                 '任务、子任务、清单、习惯、习惯记录、专注、休息记录和标签。创建后会自动填入表格链接。',
                 style: SlowlightTypography.caption(context).copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: AppTheme.spaceSm),
+              const SizedBox(height: SlowlightSpacing.md),
               FxButton(
                 label: _isCreatingTemplate ? '创建中…' : '创建数据模板',
                 icon: Icons.auto_awesome,
@@ -305,7 +305,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             ],
           ),
         ),
-        const SizedBox(height: AppTheme.spaceLg),
+        const SizedBox(height: SlowlightSpacing.xxxl),
         _buildGuide(),
       ],
     );
@@ -326,7 +326,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             onPressed: disabled || _isSyncingAll ? null : _syncAll,
           ),
         ),
-        const SizedBox(height: AppTheme.spaceXs),
+        const SizedBox(height: SlowlightSpacing.xs),
         _card(
           padding: EdgeInsets.zero,
           child: Column(
@@ -378,7 +378,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           ),
         ),
         if (!_cloud) ...[
-          const SizedBox(height: AppTheme.spaceXs),
+          const SizedBox(height: SlowlightSpacing.xs),
           Text(
             '本机模式当前只支持导出，不支持从飞书导入或双向冲突处理。',
             style: SlowlightTypography.caption(
@@ -387,7 +387,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           ),
         ],
         if (_cloud) ...[
-          const SizedBox(height: AppTheme.spaceLg),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           _buildCalendarSection(),
         ],
       ],
@@ -408,13 +408,13 @@ extension _FeishuScreenSections on _FeishuScreenState {
             onPressed: _isLoadingCalendars ? null : _loadCalendars,
           ),
         ),
-        const SizedBox(height: AppTheme.spaceXs),
+        const SizedBox(height: SlowlightSpacing.xs),
         _card(
           child:
               _isLoadingCalendars
                   ? const Center(
                     child: Padding(
-                      padding: EdgeInsets.all(AppTheme.spaceMd),
+                      padding: EdgeInsets.all(SlowlightSpacing.xl),
                       child: FxCircularProgress(),
                     ),
                   )
@@ -440,7 +440,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                             (value) =>
                                 setState(() => _selectedCalendarId = value),
                       ),
-                      const SizedBox(height: AppTheme.spaceSm),
+                      const SizedBox(height: SlowlightSpacing.md),
                       Align(
                         alignment: Alignment.centerRight,
                         child: FxButton(
@@ -460,7 +460,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
   Widget _calendarEmpty() {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceSm),
+      padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
       child: Row(
         children: [
           Icon(
@@ -468,7 +468,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             size: 20,
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: AppTheme.spaceXs),
+          const SizedBox(width: SlowlightSpacing.xs),
           Expanded(
             child: Text(
               '没有读取到可用日历，请检查应用权限后刷新。',
@@ -494,7 +494,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const FxSectionHeader(title: '连接步骤'),
-        const SizedBox(height: AppTheme.spaceXs),
+        const SizedBox(height: SlowlightSpacing.xs),
         _card(
           color: theme.colorScheme.primaryContainer.withValues(alpha: .22),
           border: Border.all(
@@ -505,7 +505,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
               steps.length,
               (index) => Padding(
                 padding: EdgeInsets.only(
-                  bottom: index == steps.length - 1 ? 0 : AppTheme.spaceSm,
+                  bottom: index == steps.length - 1 ? 0 : SlowlightSpacing.md,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,7 +526,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                         ),
                       ),
                     ),
-                    const SizedBox(width: AppTheme.spaceXs),
+                    const SizedBox(width: SlowlightSpacing.xs),
                     Expanded(
                       child: Text(
                         steps[index],
@@ -573,8 +573,8 @@ class _FeishuActionTile extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minHeight: 68),
           padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spaceSm,
-            vertical: AppTheme.spaceXs,
+            horizontal: SlowlightSpacing.md,
+            vertical: SlowlightSpacing.xs,
           ),
           decoration: BoxDecoration(
             border:
@@ -591,11 +591,11 @@ class _FeishuActionTile extends StatelessWidget {
                   color: theme.colorScheme.primaryContainer.withValues(
                     alpha: .42,
                   ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
                 ),
                 child: Icon(icon, size: 19, color: theme.colorScheme.primary),
               ),
-              const SizedBox(width: AppTheme.spaceSm),
+              const SizedBox(width: SlowlightSpacing.md),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -617,7 +617,7 @@ class _FeishuActionTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: AppTheme.spaceXs),
+              const SizedBox(width: SlowlightSpacing.xs),
               if (busy)
                 const SizedBox(
                   width: 18,
