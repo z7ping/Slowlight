@@ -198,6 +198,38 @@ void main() {
     );
   });
 
+  test('Fx 弹窗内容不重复自绘关闭按钮', () async {
+    final roots = [Directory('lib/screens'), Directory('lib/widgets')];
+    final offenders = <String>[];
+    final closeTooltip = RegExp(r"tooltip\s*:\s*['\"]关闭['\"]");
+
+    for (final root in roots) {
+      if (!root.existsSync()) continue;
+      await for (final entity in root.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final normalized = entity.path.replaceAll('\\', '/');
+        final source = await entity.readAsString();
+        final ownsDialogChrome =
+            source.contains('FxDialogSurface(') || source.contains('FxDialog.show');
+        if (ownsDialogChrome && closeTooltip.hasMatch(source)) {
+          offenders.add(normalized);
+        }
+      }
+    }
+
+    offenders.sort();
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'FxDialog / FxDialogSurface 已负责弹窗关闭入口，内容区不得再次自绘“关闭”按钮：\n'
+          '${offenders.join('\n')}',
+    );
+  });
+
   test('RefreshIndicator 只允许存在于 FxRefresh 适配层', () async {
     final lib = Directory('lib');
     expect(lib.existsSync(), isTrue, reason: '测试需从 client 目录运行');
