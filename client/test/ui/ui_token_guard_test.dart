@@ -49,6 +49,29 @@ void main() {
     );
   });
 
+  test('业务 UI 不继续使用旧 AppTheme 间距 / 圆角别名', () async {
+    final offenders = <String>[];
+    final legacyLayoutToken = RegExp(
+      r'\bAppTheme\.(?:space(?:Xs|Sm|Md|Lg|Xl)|radius(?:Sm|Md|Lg|Xl))\b',
+    );
+
+    for (final file in businessUiFiles()) {
+      final source = await file.readAsString();
+      if (legacyLayoutToken.hasMatch(source)) {
+        offenders.add(file.path.replaceAll('\\', '/'));
+      }
+    }
+
+    offenders.sort();
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          '业务布局统一使用 SlowlightSpacing / SlowlightRadius；AppTheme 旧布局字段只作为兼容出口，不再作为业务层第二套 Token：\n'
+          '${offenders.join('\n')}',
+    );
+  });
+
   test('业务 UI 不直接定义产品色值', () async {
     final offenders = <String>[];
     final rawColor = RegExp(r'(?<![A-Za-z0-9_])Color\s*\(\s*0x[0-9A-Fa-f]+\s*\)');
