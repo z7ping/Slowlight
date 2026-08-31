@@ -9,6 +9,23 @@ import '../typography_tokens.dart';
 class FxDialog {
   static const Color barrierColor = SlowlightSemanticColor.dialogBarrier;
 
+  static TextStyle? _titleStyle(BuildContext context) =>
+      SlowlightTypography.useAndroidComponentTypography
+          ? SlowlightTypography.componentDialogTitle(context)
+          : null;
+
+  static TextStyle? _descriptionStyle(BuildContext context) =>
+      SlowlightTypography.useAndroidComponentTypography
+          ? SlowlightTypography.secondary(context).copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            )
+          : null;
+
+  static TextStyle? _buttonStyle() =>
+      SlowlightTypography.useAndroidComponentTypography
+          ? SlowlightTypography.button
+          : null;
+
   static Future<T?> show<T>({
     required BuildContext context,
     required Widget child,
@@ -23,21 +40,10 @@ class FxDialog {
       barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       builder: (ctx) => ShadDialog(
-        title: title != null
-            ? Text(
-                title,
-                style: SlowlightTypography.cardTitle(ctx).copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              )
-            : null,
+        title:
+            title != null ? Text(title, style: _titleStyle(ctx)) : null,
         description: description != null
-            ? Text(
-                description,
-                style: SlowlightTypography.secondary(ctx).copyWith(
-                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                ),
-              )
+            ? Text(description, style: _descriptionStyle(ctx))
             : null,
         constraints: width != null ? BoxConstraints(maxWidth: width) : null,
         child: Material(
@@ -99,33 +105,23 @@ class FxDialog {
       variant:
           destructive ? ShadDialogVariant.alert : ShadDialogVariant.primary,
       builder: (ctx) => ShadDialog(
-        title: Text(
-          title,
-          style: SlowlightTypography.cardTitle(ctx).copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        description: Text(
-          content,
-          style: SlowlightTypography.secondary(ctx).copyWith(
-            color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-          ),
-        ),
+        title: Text(title, style: _titleStyle(ctx)),
+        description: Text(content, style: _descriptionStyle(ctx)),
         actions: [
           ShadButton.outline(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: Text(cancelText),
+            child: Text(cancelText, style: _buttonStyle()),
           ),
           destructive
               ? ShadButton.destructive(
                   onPressed: () =>
                       Navigator.of(ctx, rootNavigator: true).pop(true),
-                  child: Text(confirmText),
+                  child: Text(confirmText, style: _buttonStyle()),
                 )
               : ShadButton(
                   onPressed: () =>
                       Navigator.of(ctx, rootNavigator: true).pop(true),
-                  child: Text(confirmText),
+                  child: Text(confirmText, style: _buttonStyle()),
                 ),
         ],
       ),
