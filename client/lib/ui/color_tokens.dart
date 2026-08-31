@@ -11,6 +11,7 @@ abstract final class SlowlightSemanticColor {
   static const Color restGradientStart = Color(0xFF0F2027);
   static const Color restGradientMiddle = Color(0xFF203A43);
   static const Color restGradientEnd = Color(0xFF2C5364);
+  static const Color restTimerSurface = Color(0xFF16272E);
 
   /// Dialog 与 Sheet 使用不同遮罩强度，但都由统一语义入口管理。
   static const Color dialogBarrier = Color(0x73000000);
