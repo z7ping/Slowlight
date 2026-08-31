@@ -258,6 +258,13 @@ class AppTheme {
     String? fontFamily,
   }) {
     final base = ThemeData(brightness: brightness).textTheme;
+    final pageTitleSize = SlowlightTypography.resolvedPageTitleSize;
+    final sectionTitleSize = SlowlightTypography.resolvedSectionTitleSize;
+    final cardTitleSize = SlowlightTypography.resolvedCardTitleSize;
+    final bodySize = SlowlightTypography.resolvedBodySize;
+    final buttonSize = SlowlightTypography.resolvedButtonSize;
+    final secondarySize = SlowlightTypography.resolvedSecondarySize;
+    final captionSize = SlowlightTypography.resolvedCaptionSize;
     TextStyle style(
       double size,
       Color color, {
@@ -278,63 +285,76 @@ class AppTheme {
         weight: FontWeight.w700,
       ),
       headlineSmall: style(
-        SlowlightTypography.pageTitleSize,
+        pageTitleSize,
         primary,
         weight: FontWeight.w700,
+        height: SlowlightTypography.useAndroidComponentTypography ? 1.4 : 1.375,
       ),
       titleLarge: style(
-        SlowlightTypography.pageTitleSize,
+        pageTitleSize,
         primary,
         weight: FontWeight.w700,
+        height: SlowlightTypography.useAndroidComponentTypography ? 1.4 : 1.375,
       ),
       titleMedium: style(
-        SlowlightTypography.sectionTitleSize,
+        sectionTitleSize,
         primary,
         weight: FontWeight.w600,
+        height: SlowlightTypography.useAndroidComponentTypography ? 4 / 3 : 1.375,
       ),
       titleSmall: style(
-        SlowlightTypography.cardTitleSize,
+        cardTitleSize,
         primary,
         weight: FontWeight.w600,
+        height: SlowlightTypography.useAndroidComponentTypography ? 1.5 : 1.4,
       ),
       bodyLarge: style(
-        SlowlightTypography.bodySize,
+        bodySize,
         primary,
-        height:
-            SlowlightTypography.bodyLineHeight /
-            SlowlightTypography.bodySize,
+        height: SlowlightTypography.useAndroidComponentTypography ? 1.5 : 1.5,
       ),
       bodyMedium: style(
-        SlowlightTypography.buttonSize,
+        buttonSize,
         primary,
-        height:
-            SlowlightTypography.buttonLineHeight /
-            SlowlightTypography.buttonSize,
+        height: SlowlightTypography.useAndroidComponentTypography
+            ? SlowlightTypography.buttonLineHeight / SlowlightTypography.buttonSize
+            : 20 / SlowlightTypography.desktopButtonSize,
       ),
       bodySmall: style(
-        SlowlightTypography.secondarySize,
+        secondarySize,
         secondary,
-        height:
-            SlowlightTypography.secondaryLineHeight /
-            SlowlightTypography.secondarySize,
+        height: SlowlightTypography.useAndroidComponentTypography
+            ? SlowlightTypography.secondaryLineHeight /
+                SlowlightTypography.secondarySize
+            : 19.5 / SlowlightTypography.desktopSecondarySize,
       ),
       labelLarge: style(
-        SlowlightTypography.buttonSize,
+        buttonSize,
         primary,
         weight: FontWeight.w600,
       ),
       labelMedium: style(
-        SlowlightTypography.secondarySize,
+        SlowlightTypography.resolvedControlSize,
         primary,
         weight: FontWeight.w600,
       ),
       labelSmall: style(
-        SlowlightTypography.captionSize,
+        captionSize,
         secondary,
         weight: FontWeight.w500,
       ),
     );
   }
+
+  static MaterialTapTargetSize get _materialTapTargetSize =>
+      SlowlightTypography.useAndroidComponentTypography
+          ? MaterialTapTargetSize.padded
+          : MaterialTapTargetSize.shrinkWrap;
+
+  static double get _materialIconButtonSize =>
+      SlowlightTypography.useAndroidComponentTypography
+          ? SlowlightControlSize.minTouchTarget
+          : 30;
 
   /// 兼容旧布局调用，数值由统一布局 Token 提供。
   static const double spaceXs = SlowlightSpacing.xs;
@@ -425,7 +445,7 @@ class AppTheme {
         secondary: p.textSecondary,
         fontFamily: fontFamily,
       ),
-      materialTapTargetSize: MaterialTapTargetSize.padded,
+      materialTapTargetSize: _materialTapTargetSize,
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
@@ -433,10 +453,8 @@ class AppTheme {
         backgroundColor: p.bgCard,
         foregroundColor: p.textPrimary,
         titleTextStyle: TextStyle(
-          fontSize: SlowlightTypography.sectionTitleSize,
-          height:
-              SlowlightTypography.sectionTitleLineHeight /
-              SlowlightTypography.sectionTitleSize,
+          fontSize: SlowlightTypography.resolvedSectionTitleSize,
+          height: SlowlightTypography.useAndroidComponentTypography ? 4 / 3 : 1.375,
           fontWeight: FontWeight.w600,
           color: p.textPrimary,
         ),
@@ -471,7 +489,10 @@ class AppTheme {
           borderSide: BorderSide(color: p.accent, width: 1),
         ),
         hoverColor: p.divider,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: SlowlightTypography.useAndroidComponentTypography ? 14 : 12,
+          vertical: SlowlightTypography.useAndroidComponentTypography ? 12 : 8,
+        ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.bgCard,
@@ -490,10 +511,10 @@ class AppTheme {
           ),
         ),
       ),
-      iconButtonTheme: const IconButtonThemeData(
+      iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
           minimumSize: WidgetStatePropertyAll(
-            Size.square(SlowlightControlSize.minTouchTarget),
+            Size.square(_materialIconButtonSize),
           ),
         ),
       ),
@@ -538,7 +559,7 @@ class AppTheme {
         secondary: secondary,
         fontFamily: fontFamily,
       ),
-      materialTapTargetSize: MaterialTapTargetSize.padded,
+      materialTapTargetSize: _materialTapTargetSize,
       scaffoldBackgroundColor: p.darkBg,
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -547,10 +568,8 @@ class AppTheme {
         backgroundColor: p.darkCard,
         foregroundColor: foreground,
         titleTextStyle: TextStyle(
-          fontSize: SlowlightTypography.sectionTitleSize,
-          height:
-              SlowlightTypography.sectionTitleLineHeight /
-              SlowlightTypography.sectionTitleSize,
+          fontSize: SlowlightTypography.resolvedSectionTitleSize,
+          height: SlowlightTypography.useAndroidComponentTypography ? 4 / 3 : 1.375,
           fontWeight: FontWeight.w600,
           color: foreground,
         ),
@@ -588,7 +607,10 @@ class AppTheme {
           borderSide: BorderSide(color: p.accent, width: 1),
         ),
         hoverColor: p.darkDivider,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: SlowlightTypography.useAndroidComponentTypography ? 14 : 12,
+          vertical: SlowlightTypography.useAndroidComponentTypography ? 12 : 8,
+        ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.darkCard,
@@ -607,10 +629,10 @@ class AppTheme {
           ),
         ),
       ),
-      iconButtonTheme: const IconButtonThemeData(
+      iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
           minimumSize: WidgetStatePropertyAll(
-            Size.square(SlowlightControlSize.minTouchTarget),
+            Size.square(_materialIconButtonSize),
           ),
         ),
       ),
@@ -627,120 +649,127 @@ class AppTheme {
 }
 
 ShadTextTheme _systemTextTheme([String? family]) {
+  final pageTitleSize = SlowlightTypography.resolvedPageTitleSize;
+  final sectionTitleSize = SlowlightTypography.resolvedSectionTitleSize;
+  final bodySize = SlowlightTypography.resolvedBodySize;
+  final buttonSize = SlowlightTypography.resolvedButtonSize;
   return ShadTextTheme.custom(
     h1Large: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.sectionTitleSize,
+      fontSize: pageTitleSize,
       fontWeight: FontWeight.w800,
-      height: 1,
+      height: SlowlightTypography.useAndroidComponentTypography ? 1.4 : 1.375,
       letterSpacing: -0.4,
     ),
     h1: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.sectionTitleSize,
+      fontSize: pageTitleSize,
       fontWeight: FontWeight.w800,
-      height: 40 / 36,
+      height: SlowlightTypography.useAndroidComponentTypography ? 1.4 : 1.375,
       letterSpacing: -0.4,
     ),
     h2: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.sectionTitleSize,
+      fontSize: sectionTitleSize,
       fontWeight: FontWeight.w600,
-      height: 36 / 30,
+      height: SlowlightTypography.useAndroidComponentTypography ? 4 / 3 : 1.375,
       letterSpacing: -0.4,
     ),
     h3: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.sectionTitleSize,
+      fontSize: sectionTitleSize,
       fontWeight: FontWeight.w600,
-      height: 32 / 24,
+      height: SlowlightTypography.useAndroidComponentTypography ? 4 / 3 : 1.375,
       letterSpacing: -0.4,
     ),
     h4: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.sectionTitleSize,
+      fontSize: SlowlightTypography.resolvedCardTitleSize,
       fontWeight: FontWeight.w600,
-      height: 28 / 20,
-      letterSpacing: -0.4,
+      height: SlowlightTypography.useAndroidComponentTypography ? 1.5 : 1.4,
+      letterSpacing: -0.2,
     ),
     p: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.bodySize,
+      fontSize: bodySize,
       fontWeight: FontWeight.w400,
-      height:
-          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
+      height: 1.5,
     ),
     blockquote: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.bodySize,
+      fontSize: bodySize,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.italic,
-      height:
-          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
+      height: 1.5,
     ),
     table: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.bodySize,
+      fontSize: bodySize,
       fontWeight: FontWeight.w700,
-      height:
-          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
+      height: 1.5,
     ),
     list: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.bodySize,
+      fontSize: bodySize,
       fontWeight: FontWeight.w400,
-      height:
-          SlowlightTypography.bodyLineHeight / SlowlightTypography.bodySize,
+      height: 1.5,
     ),
     lead: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.sectionTitleSize,
+      fontSize: sectionTitleSize,
       fontWeight: FontWeight.w400,
-      height:
-          SlowlightTypography.sectionTitleLineHeight /
-          SlowlightTypography.sectionTitleSize,
+      height: SlowlightTypography.useAndroidComponentTypography ? 4 / 3 : 1.375,
     ),
     large: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.sectionTitleSize,
+      fontSize: sectionTitleSize,
       fontWeight: FontWeight.w600,
-      height:
-          SlowlightTypography.sectionTitleLineHeight /
-          SlowlightTypography.sectionTitleSize,
+      height: SlowlightTypography.useAndroidComponentTypography ? 4 / 3 : 1.375,
     ),
     small: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.buttonSize,
+      fontSize: buttonSize,
       fontWeight: FontWeight.w500,
-      height:
-          SlowlightTypography.buttonLineHeight / SlowlightTypography.buttonSize,
+      height: SlowlightTypography.useAndroidComponentTypography
+          ? SlowlightTypography.buttonLineHeight / SlowlightTypography.buttonSize
+          : 20 / SlowlightTypography.desktopButtonSize,
     ),
     muted: TextStyle(
       fontFamily: family,
-      fontSize: SlowlightTypography.buttonSize,
+      fontSize: SlowlightTypography.resolvedSecondarySize,
       fontWeight: FontWeight.w400,
-      height:
-          SlowlightTypography.buttonLineHeight / SlowlightTypography.buttonSize,
+      height: SlowlightTypography.useAndroidComponentTypography
+          ? SlowlightTypography.secondaryLineHeight /
+              SlowlightTypography.secondarySize
+          : 19.5 / SlowlightTypography.desktopSecondarySize,
     ),
     family: family ?? '',
   );
 }
 
 ShadButtonTheme _buttonTheme() {
+  final android = SlowlightTypography.useAndroidComponentTypography;
+  final regularHeight = android
+      ? SlowlightControlSize.minTouchTarget
+      : SlowlightControlSize.button;
+  final smallHeight = android
+      ? SlowlightControlSize.minTouchTarget
+      : SlowlightControlSize.buttonSm;
+  final largeHeight = android ? 48.0 : SlowlightControlSize.buttonLg;
   return ShadButtonTheme(
-    height: SlowlightControlSize.button,
+    height: regularHeight,
     sizesTheme: ShadButtonSizesTheme(
       regular: ShadButtonSizeTheme(
-        height: SlowlightControlSize.button,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        height: regularHeight,
+        padding: EdgeInsets.symmetric(horizontal: android ? 16 : 14),
       ),
       sm: ShadButtonSizeTheme(
-        height: SlowlightControlSize.buttonSm,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        height: smallHeight,
+        padding: EdgeInsets.symmetric(horizontal: android ? 14 : 10),
       ),
       lg: ShadButtonSizeTheme(
-        height: SlowlightControlSize.buttonLg,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        height: largeHeight,
+        padding: EdgeInsets.symmetric(horizontal: android ? 20 : 18),
       ),
     ),
   );
@@ -748,8 +777,12 @@ ShadButtonTheme _buttonTheme() {
 
 ShadInputTheme _inputTheme() {
   final p = _active;
+  final android = SlowlightTypography.useAndroidComponentTypography;
   return ShadInputTheme(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    padding: EdgeInsets.symmetric(
+      horizontal: android ? 14 : 12,
+      vertical: android ? 12 : 8,
+    ),
     decoration: ShadDecoration(
       border: ShadBorder.all(
         color: p.border,
