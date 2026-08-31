@@ -103,15 +103,16 @@ jobs:
 
               if path.as_posix().endswith('widgets/dashboard/dashboard_body.dart'):
                   pattern = re.compile(
-                      r'(?P<indent>\s*)final largeText\s*=\s*MediaQuery\.textScalerOf\(\s*context\s*\)'
+                      r'(?P<indent>\s*)final largeText\s*=\s*MediaQuery\.textScalerOf\(\s*context\s*,?\s*\)'
                       r'\.scale\(SlowlightTypography\.secondarySize\)\s*>=\s*'
                       r'SlowlightTypography\.secondarySize\s*\*\s*1\.3\s*;\s*'
                       r'final columns\s*=\s*largeText\s*\?\s*1\s*:\s*2\s*;',
                       re.MULTILINE,
                   )
-                  match = pattern.search(source)
-                  if match is None:
-                      raise SystemExit('Dashboard responsive block not found; refuse unsafe rewrite')
+                  matches = list(pattern.finditer(source))
+                  if len(matches) != 1:
+                      raise SystemExit(f'Dashboard responsive block matches={len(matches)}; refuse unsafe rewrite')
+                  match = matches[0]
                   indent = match.group('indent')
                   replacement = (
                       f'{indent}// 四维卡片只根据当前组件真实宽度决定列数；\n'
