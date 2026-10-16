@@ -38,6 +38,14 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // 第四个象限通常在 360dp 首屏以下，需要先滚动进入可见范围。
+    await tester.scrollUntilVisible(
+      find.text('未设优先级'),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('未设优先级'), findsOneWidget);
     expect(find.text('不重要 · 不紧急'), findsNothing);
     expect(fxTooltipFinder('移动到其他象限'), findsOneWidget);
