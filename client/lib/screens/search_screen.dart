@@ -402,7 +402,13 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(entry.entryType == 'observation' ? '📝' : '💬'),
+                          Icon(
+                            entry.entryType == 'observation'
+                                ? LucideIcons.fileText
+                                : LucideIcons.messageCircle,
+                            size: SlowlightIconSize.md,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
