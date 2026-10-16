@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/api/analytics_api.dart';
 import '../theme/app_theme.dart';
@@ -66,7 +67,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
     if (_loadError) {
       return Center(
         child: FxEmptyState(
-          emoji: '⚠️',
+          icon: LucideIcons.triangleAlert,
           title: '时间分配暂时不可用',
           subtitle: '数据读取失败，请稍后重试。',
           action: FxButton(
