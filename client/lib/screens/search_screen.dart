@@ -14,8 +14,19 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
 
+typedef SearchResultData = ({
+  List<Task> tasks,
+  List<Habit> habits,
+  List<ReflectionEntry> reflections,
+  List<TodoList> lists,
+});
+
+typedef SearchDataLoader = Future<SearchResultData> Function(String query);
+
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final SearchDataLoader? dataLoader;
+
+  const SearchScreen({super.key, this.dataLoader});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -27,6 +38,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Timer? _debounce;
   int _searchSeq = 0;
   bool _loading = false;
+  bool _error = false;
   String _query = '';
   List<Task> _tasks = const [];
   List<Habit> _habits = const [];
@@ -64,6 +76,7 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!mounted) return;
       setState(() {
         _query = '';
+        _error = false;
         _tasks = const [];
         _habits = const [];
         _reflections = const [];
@@ -75,26 +88,23 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() {
       _query = query;
       _loading = true;
+      _error = false;
     });
     try {
-      final values = await Future.wait<dynamic>([
-        DataService().searchTasks(query),
-        HabitRepository().getAll(),
-        ReflectionRepository().recent(limit: 100),
-        DataService().getLists(),
-      ]);
+      final values = await (widget.dataLoader?.call(query) ?? _loadSearchData(query));
       if (!mounted || seq != _searchSeq) return;
       final lower = query.toLowerCase();
       setState(() {
-        _tasks = values[0] as List<Task>;
-        _habits = (values[1] as List<Habit>)
+        _tasks = values.tasks;
+        _habits = values.habits
             .where((habit) => habit.name.toLowerCase().contains(lower))
             .toList(growable: false);
-        _reflections = (values[2] as List<ReflectionEntry>)
+        _reflections = values.reflections
             .where((entry) => entry.content.toLowerCase().contains(lower))
             .toList(growable: false);
-        _lists = values[3] as List<TodoList>;
+        _lists = values.lists;
         _loading = false;
+        _error = false;
       });
       _remember(query);
     } catch (_) {
@@ -103,9 +113,26 @@ class _SearchScreenState extends State<SearchScreen> {
         _tasks = const [];
         _habits = const [];
         _reflections = const [];
+        _lists = const [];
         _loading = false;
+        _error = true;
       });
     }
+  }
+
+  Future<SearchResultData> _loadSearchData(String query) async {
+    final values = await Future.wait<dynamic>([
+      DataService().searchTasks(query),
+      HabitRepository().getAll(),
+      ReflectionRepository().recent(limit: 100),
+      DataService().getLists(),
+    ]);
+    return (
+      tasks: values[0] as List<Task>,
+      habits: values[1] as List<Habit>,
+      reflections: values[2] as List<ReflectionEntry>,
+      lists: values[3] as List<TodoList>,
+    );
   }
 
   void _remember(String query) {
@@ -201,6 +228,17 @@ class _SearchScreenState extends State<SearchScreen> {
                               emoji: '🔍',
                               title: '输入关键词开始搜索',
                               subtitle: '可以查找任务、习惯和你写下的回顾',
+                            )
+                          else if (_error)
+                            FxEmptyState(
+                              emoji: '⚠️',
+                              title: '搜索暂时不可用',
+                              subtitle: '记录没有丢失，请检查数据服务后重试。',
+                              action: FxButton(
+                                label: '重试搜索',
+                                variant: FxButtonVariant.secondary,
+                                onPressed: () => _search(_query),
+                              ),
                             )
                           else if (_tasks.isEmpty &&
                               _habits.isEmpty &&
