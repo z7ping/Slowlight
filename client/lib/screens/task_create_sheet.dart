@@ -243,8 +243,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             children: [
               ..._quickLists().map(
                 (list) => _QuickChip(
-                  icon: LucideIcons.folder,
-                  text: list.name,
+                  // 使用清单自身图标，与完整表单保持一致。
+                  text: '${list.icon} ${list.name}',
                   selected: _selectedListId == list.id,
                   onTap: () {
                     HapticFeedback.selectionClick();
@@ -539,13 +539,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 }
 
 class _QuickChip extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final String text;
   final bool selected;
   final VoidCallback onTap;
 
   const _QuickChip({
-    required this.icon,
+    this.icon,
     required this.text,
     required this.selected,
     required this.onTap,
