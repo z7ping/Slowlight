@@ -225,13 +225,13 @@ class _SearchScreenState extends State<SearchScreen> {
                             )
                           else if (_query.isEmpty)
                             const FxEmptyState(
-                              emoji: '🔍',
+                              icon: LucideIcons.search,
                               title: '输入关键词开始搜索',
                               subtitle: '可以查找任务、习惯和你写下的回顾',
                             )
                           else if (_error)
                             FxEmptyState(
-                              emoji: '⚠️',
+                              icon: LucideIcons.triangleAlert,
                               title: '搜索暂时不可用',
                               subtitle: '记录没有丢失，请检查数据服务后重试。',
                               action: FxButton(
@@ -244,7 +244,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               _habits.isEmpty &&
                               _reflections.isEmpty)
                             const FxEmptyState(
-                              emoji: '🍃',
+                              icon: LucideIcons.search,
                               title: '没有找到相关内容',
                               subtitle: '没有结果也是一种明确答案',
                             )
