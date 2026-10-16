@@ -5,13 +5,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../controllers/habit_controller.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import '../repositories/habit_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/habit_checkin_dialog.dart';
 import '../widgets/habit_editor_dialog.dart';
 
 class HabitToolScreen extends StatefulWidget {
-  const HabitToolScreen({super.key});
+  final HabitRepository? repository;
+
+  const HabitToolScreen({super.key, this.repository});
 
   @override
   State<HabitToolScreen> createState() => _HabitToolScreenState();
@@ -24,7 +27,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = HabitController()..addListener(_onChanged);
+    _controller = HabitController(repository: widget.repository)
+      ..addListener(_onChanged);
     _controller.load();
   }
 
@@ -306,37 +310,26 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Widget _header() {
     final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scale = MediaQuery.textScalerOf(context).scale(1);
-        final stacked = constraints.maxWidth < 420 || scale >= 1.6;
-        final count = FxChip(
-          label: '${_controller.habits.length} 个习惯',
-          variant: FxChipVariant.outline,
-          backgroundColor: fxSubtleSurface(context),
-          foregroundColor: theme.colorScheme.onSurfaceVariant,
-          borderColor: theme.colorScheme.outline,
-          borderRadius: 999,
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        );
-        final action = FxButton(
+    return FxActionBar(
+      // Android 360dp 的实际内容区有足够宽度放下计数与操作。
+      // 过窄和超大字体时再统一按 FxActionBar 规则折行。
+      stackBelow: 300,
+      leading: FxChip(
+        label: '${_controller.habits.length} 个习惯',
+        variant: FxChipVariant.outline,
+        backgroundColor: fxSubtleSurface(context),
+        foregroundColor: theme.colorScheme.onSurfaceVariant,
+        borderColor: theme.colorScheme.outline,
+        borderRadius: SlowlightRadius.pill,
+      ),
+      actions: [
+        FxButton(
           label: '添加习惯',
           icon: LucideIcons.plus,
           size: FxButtonSize.sm,
           onPressed: _createHabit,
-        );
-        if (stacked) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(alignment: Alignment.centerLeft, child: count),
-              const SizedBox(height: 6),
-              Align(alignment: Alignment.centerRight, child: action),
-            ],
-          );
-        }
-        return Row(children: [count, const Spacer(), action]);
-      },
+        ),
+      ],
     );
   }
 
