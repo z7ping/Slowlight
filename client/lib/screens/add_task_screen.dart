@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/todo_list.dart';
+import '../services/task_dimension_assignment.dart';
+import '../widgets/task_dimension_field.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -13,6 +15,8 @@ class AddTaskScreen extends StatefulWidget {
   final String initialTitle;
   final String initialPriority;
   final int? systemTagId;
+  final String? initialDimensionKey;
+  final bool dimensionChanged;
   final bool isEdit;
   final bool embedded;
 
@@ -24,6 +28,8 @@ class AddTaskScreen extends StatefulWidget {
     this.initialTitle = '',
     this.initialPriority = 'none',
     this.systemTagId,
+    this.initialDimensionKey,
+    this.dimensionChanged = false,
     this.isEdit = false,
     this.embedded = false,
   });
@@ -35,6 +41,9 @@ class AddTaskScreen extends StatefulWidget {
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
+  final _dimensionAssignment = TaskDimensionAssignment();
+  String? _selectedDimensionKey;
+  bool _dimensionChanged = false;
   int? _selectedListId;
   late String _priority;
   DateTime? _dueDate;
@@ -53,6 +62,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         (widget.lists.isEmpty ? null : widget.lists.first.id);
     _priority = widget.initialPriority;
     _dueDate = widget.defaultDueDate;
+    _selectedDimensionKey = widget.initialDimensionKey;
+    _dimensionChanged = widget.dimensionChanged;
+    _loadInitialDimension();
   }
 
   @override
@@ -60,6 +72,18 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _titleController.dispose();
     _descController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadInitialDimension() async {
+    if (_dimensionChanged || widget.systemTagId == null) return;
+    try {
+      final key = await _dimensionAssignment.dimensionOf(widget.systemTagId);
+      if (mounted && !_dimensionChanged) {
+        setState(() => _selectedDimensionKey = key);
+      }
+    } catch (_) {
+      // 维度辅助信息暂时不可用时，仍保留已有观察标签。
+    }
   }
 
   Future<void> _save() async {
@@ -76,6 +100,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
     setState(() => _isSaving = true);
     try {
+      final systemTagId = await _dimensionAssignment.resolve(
+        dimensionKey: _selectedDimensionKey,
+        originalTagId: widget.systemTagId,
+        changed: _dimensionChanged,
+      );
       final dueTime =
           _dueTime == null
               ? null
@@ -102,7 +131,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         reminderAt: reminderAt,
         reminderAdvanceMinutes:
             _reminderAdvanceMinutes < 0 ? 0 : _reminderAdvanceMinutes,
-        systemTagId: widget.systemTagId,
+        systemTagId: systemTagId,
         taskType: 'daily',
       );
       if (mounted) Navigator.pop(context, true);
@@ -133,7 +162,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.embedded) return _editorShell(showBack: false);
-    return Scaffold(body: SafeArea(child: _editorShell(showBack: true)));
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(child: _editorShell(showBack: true)),
+    );
   }
 
   Widget _editorShell({required bool showBack}) {
@@ -200,6 +232,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           children: [
             _listField(),
             _priorityField(),
+            TaskDimensionField(
+              selectedKey: _selectedDimensionKey,
+              enabled: !_isSaving,
+              onChanged: (key) => setState(() {
+                _selectedDimensionKey = key;
+                _dimensionChanged = true;
+              }),
+            ),
             _dateField(),
             _timeField(),
             _repeatField(),
@@ -449,18 +489,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (widget.isEdit)
-              FxButton(
-                label: '删除',
-                variant: FxButtonVariant.ghost,
-                onPressed:
-                    _isSaving ? null : () => Navigator.pop(context, 'delete'),
-              ),
+        child: FxDialogActions(
+          leading: widget.isEdit ? FxButton(
+            label: '删除',
+            variant: FxButtonVariant.ghost,
+            onPressed: _isSaving ? null : () => Navigator.pop(context, 'delete'),
+          ) : null,
+          actions: [
             FxButton(
               label: _isSaving ? '保存中…' : '保存',
               onPressed: _isSaving ? null : _save,

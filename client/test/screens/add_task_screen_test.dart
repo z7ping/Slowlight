@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/widgets/task_dimension_field.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -100,6 +101,32 @@ void main() {
         tester.widget<Text>(find.text(workChip.label)).style?.fontSize,
         SlowlightTypography.desktopChipSize,
       );
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('完整新建任务可见四维归属并支持预设选择', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await tester.pumpWidget(
+        buildFxTestHost(
+          home: AddTaskScreen(
+            lists: testLists,
+            selectedListId: 1,
+            initialTitle: '会议记录',
+            initialDimensionKey: 'body',
+            dimensionChanged: true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final dimension = tester.widget<TaskDimensionField>(
+        find.byType(TaskDimensionField),
+      );
+      expect(dimension.selectedKey, 'body');
+      expect(find.text('归属维度（可选）'), findsOneWidget);
+      expect(find.text('🧠 认知'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
