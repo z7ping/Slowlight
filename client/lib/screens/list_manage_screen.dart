@@ -374,12 +374,6 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       emoji: '📁',
                       title: '还没有清单',
                       subtitle: '用清单把不同方向的任务分开',
-                      action: FxButton(
-                        label: '创建第一个清单',
-                        variant: FxButtonVariant.outline,
-                        size: FxButtonSize.sm,
-                        onPressed: () => _showEditor(),
-                      ),
                     )
                   else
                     FxCard(
