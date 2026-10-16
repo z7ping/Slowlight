@@ -188,14 +188,6 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                                       _segment == 0
                                           ? '今天可以从一件真正想推进的事开始'
                                           : '切换其他筛选看看',
-                                  action:
-                                      _segment == 0
-                                          ? FxButton(
-                                            label: '新建任务',
-                                            variant: FxButtonVariant.secondary,
-                                            onPressed: _create,
-                                          )
-                                          : null,
                                 )
                                 : Column(
                                   children: _visible
@@ -274,14 +266,6 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     emoji: '🍃',
     title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
     subtitle: _segment == 0 ? '今天可以从一件真正想推进的事开始' : '切换其他筛选看看',
-    action:
-        _segment == 0
-            ? FxButton(
-              label: '新建任务',
-              variant: FxButtonVariant.secondary,
-              onPressed: _create,
-            )
-            : null,
   );
 
   Widget _desktopEmptyDetail() {
