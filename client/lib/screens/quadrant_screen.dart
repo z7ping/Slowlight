@@ -11,8 +11,15 @@ import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
+typedef QuadrantData = ({
+  List<Task> tasks,
+  List<TodoList> lists,
+});
+
 class QuadrantScreen extends StatefulWidget {
-  const QuadrantScreen({super.key});
+  final Future<QuadrantData> Function()? dataLoader;
+
+  const QuadrantScreen({super.key, this.dataLoader});
 
   @override
   State<QuadrantScreen> createState() => _QuadrantScreenState();
@@ -33,22 +40,30 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
     try {
-      final data = DataService();
-      final values = await Future.wait<dynamic>([
-        data.getAllTasks(),
-        data.getLists(),
-      ]);
+      final values = await (widget.dataLoader?.call() ?? _loadDefault());
       if (!mounted) return;
       setState(() {
-        _tasks = (values[0] as List<Task>)
+        _tasks = values.tasks
             .where((task) => !task.isCompleted)
             .toList(growable: false);
-        _lists = values[1] as List<TodoList>;
+        _lists = values.lists;
         _loading = false;
       });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<QuadrantData> _loadDefault() async {
+    final data = DataService();
+    final values = await Future.wait<dynamic>([
+      data.getAllTasks(),
+      data.getLists(),
+    ]);
+    return (
+      tasks: values[0] as List<Task>,
+      lists: values[1] as List<TodoList>,
+    );
   }
 
   @override
@@ -65,7 +80,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       _quadrant('重要 · 不紧急', 'important', AppTheme.priorityImportant, desktop),
       _quadrant('不重要 · 紧急', 'urgent', AppTheme.priorityUrgent, desktop),
       _quadrant(
-        '不重要 · 不紧急',
+        '未设优先级',
         'none',
         Theme.of(context).colorScheme.outlineVariant,
         desktop,
@@ -276,8 +291,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   Widget _taskLine(Task task, Color color, {required bool desktop}) {
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      onTap: () => desktop ? _openTask(task) : _showMoveSheet(task),
-      onLongPress: desktop ? null : () => _openTask(task),
+      // 安卓点击任务与其他任务列表一致：打开详情。
+      // 移动象限使用右侧明确的“更多”操作，不隐藏在长按手势里。
+      onTap: () => _openTask(task),
+      onLongPress: desktop ? null : () => _showMoveSheet(task),
       child: ConstrainedBox(
         constraints: const BoxConstraints(
           minHeight: SlowlightControlSize.minTouchTarget,
@@ -308,9 +325,11 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 ),
               ),
               if (!desktop)
-                const Icon(
-                  LucideIcons.ellipsis,
-                  size: SlowlightIconSize.md,
+                FxIconButton(
+                  icon: LucideIcons.ellipsis,
+                  tooltip: '移动到其他象限',
+                  iconSize: SlowlightIconSize.md,
+                  onPressed: () => _showMoveSheet(task),
                 ),
             ],
           ),
@@ -361,10 +380,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            _moveOption('🔴', '重要 · 紧急', 'urgent_important', task.priority),
-            _moveOption('🔵', '重要 · 不紧急', 'important', task.priority),
-            _moveOption('🟠', '不重要 · 紧急', 'urgent', task.priority),
-            _moveOption('🍃', '不重要 · 不紧急', 'none', task.priority),
+            _moveOption('重要 · 紧急', 'urgent_important', task.priority),
+            _moveOption('重要 · 不紧急', 'important', task.priority),
+            _moveOption('不重要 · 紧急', 'urgent', task.priority),
+            _moveOption('未设优先级', 'none', task.priority),
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,
@@ -382,7 +401,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     await _moveTask(task, result);
   }
 
-  Widget _moveOption(String emoji, String label, String value, String current) {
+  Widget _moveOption(String label, String value, String current) {
     final selected = value == current;
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -399,7 +418,11 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           ),
           child: Row(
             children: [
-              Text(emoji),
+              Icon(
+                LucideIcons.flag,
+                size: SlowlightIconSize.md,
+                color: AppTheme.priorityColor(value),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
