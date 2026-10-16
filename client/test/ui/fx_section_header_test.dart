@@ -82,6 +82,50 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  for (final scale in [1.0, 1.3]) {
+    testWidgets('FxSectionHeader 360dp 常规字体 $scale 时标题操作同一行', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      await tester.pumpWidget(
+        buildFxTestHost(
+          theme: AppTheme.lightTheme(),
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(360, 800),
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  // 首页卡片在 360dp 设备上的真实内容宽度。
+                  width: 304,
+                  child: FxSectionHeader(
+                    title: '今日任务',
+                    trailing: '0/1 完成',
+                    trailingWidget: FxButton(
+                      label: '查看全部',
+                      variant: FxButtonVariant.ghost,
+                      size: FxButtonSize.sm,
+                      onPressed: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final titleRect = tester.getRect(find.text('今日任务'));
+      final actionRect = tester.getRect(find.text('查看全部'));
+      expect((titleRect.center.dy - actionRect.center.dy).abs(), lessThan(24));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('FxSectionHeader 大字体时将查看全部放到下一行右侧', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
