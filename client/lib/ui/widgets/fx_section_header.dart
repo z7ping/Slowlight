@@ -59,7 +59,10 @@ class FxSectionHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
-        final narrow = constraints.maxWidth < 440 || scale >= 1.6;
+        // 优先单行呈现：普通 Android 窄屏容得下标题和短操作，不应按全局宽度强制换行。
+        // 仅在真正紧窄或超大字体时退化为右对齐的第二行。
+        final narrow = constraints.maxWidth < 300 ||
+            (scale >= 1.6 && constraints.maxWidth < 440);
         final action = trailingWidget;
         if (action == null) {
           return ConstrainedBox(
