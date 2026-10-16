@@ -371,7 +371,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                   const SizedBox(height: 14),
                   if (_lists.isEmpty)
                     FxEmptyState(
-                      emoji: '📁',
+                      icon: LucideIcons.folder,
                       title: '还没有清单',
                       subtitle: '用清单把不同方向的任务分开',
                     )
