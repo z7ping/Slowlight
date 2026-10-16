@@ -523,11 +523,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     _ => 'none',
   };
 
+  // 与完整表单的优先级选项保持同名，避免快捷记录出现冗长的第二行。
   String _priorityLabel(String value) => switch (value) {
-    'urgent_important' => '重要 · 紧急',
-    'important' => '重要 · 不紧急',
-    'urgent' => '不重要 · 紧急',
-    _ => '不重要 · 不紧急',
+    'urgent_important' => '高',
+    'important' => '中',
+    'urgent' => '低',
+    _ => '无',
   };
 
   String _nextPriority(String value) => switch (value) {
