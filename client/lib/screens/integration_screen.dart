@@ -11,8 +11,12 @@ class IntegrationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('平台集成')),
-      body: ListView(
+      body: SafeArea(
+        child: Column(
+          children: [
+            const FxPageHeader(title: '平台集成'),
+            Expanded(
+              child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: [
           Center(
@@ -80,6 +84,10 @@ class IntegrationScreen extends StatelessWidget {
             ),
           ),
         ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
