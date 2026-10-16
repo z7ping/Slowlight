@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../brand.dart';
 import '../services/api_service.dart';
@@ -164,32 +165,29 @@ class _WebhookScreenState extends State<WebhookScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('事件回调'),
-        actions: [
-          FxIconButton(
-            tooltip: '添加事件回调',
-            icon: Icons.add_circle_outline,
-            onPressed: _addWebhook,
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            FxPageHeader(
+              title: '事件回调',
+              actionIcon: LucideIcons.plus,
+              actionTooltip: '添加事件回调',
+              onAction: _addWebhook,
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: FxCircularProgress())
+                  : _webhooks.isEmpty
+                  ? FxEmptyState(
+                      emoji: '🔗',
+                      title: '还没有事件回调',
+                      subtitle: '连接 $kBrandDisplayName 到 n8n、Zapier 等外部服务',
+                    )
+                  : _buildContent(),
+            ),
+          ],
+        ),
       ),
-      body:
-          _isLoading
-              ? const Center(child: FxCircularProgress())
-              : _webhooks.isEmpty
-              ? FxEmptyState(
-                emoji: '🔗',
-                title: '还没有事件回调',
-                subtitle: '连接 $kBrandDisplayName 到 n8n、Zapier 等外部服务',
-                action: FxButton(
-                  label: '添加事件回调',
-                  variant: FxButtonVariant.outline,
-                  icon: Icons.add,
-                  onPressed: _addWebhook,
-                ),
-              )
-              : _buildContent(),
     );
   }
 
