@@ -9,7 +9,7 @@ import '../ui/fx.dart';
 class WebhookEventDef {
   final String key;
   final String label;
-  final String icon;
+  final IconData icon;
   final String description;
   final String exampleUse;
   final String examplePayload;
@@ -28,7 +28,7 @@ const webhookEvents = [
   WebhookEventDef(
     key: 'task.completed',
     label: '任务完成',
-    icon: '✅',
+    icon: LucideIcons.check,
     description: '用户标记任务为已完成时触发',
     exampleUse: '完成任务后自动同步到飞书、发 Slack 通知',
     examplePayload:
@@ -37,7 +37,7 @@ const webhookEvents = [
   WebhookEventDef(
     key: 'task.created',
     label: '任务创建',
-    icon: '📝',
+    icon: LucideIcons.plus,
     description: '用户创建新任务时触发',
     exampleUse: '新任务自动创建 Notion 页面、推送到 Todoist',
     examplePayload:
@@ -46,7 +46,7 @@ const webhookEvents = [
   WebhookEventDef(
     key: 'task.updated',
     label: '任务更新',
-    icon: '✏️',
+    icon: LucideIcons.pencil,
     description: '用户编辑任务标题、描述、优先级等字段时触发',
     exampleUse: '任务变更时同步到外部系统',
     examplePayload:
@@ -55,7 +55,7 @@ const webhookEvents = [
   WebhookEventDef(
     key: 'task.deleted',
     label: '任务删除',
-    icon: '🗑️',
+    icon: LucideIcons.trash2,
     description: '用户删除任务时触发',
     exampleUse: '删除任务时清理外部系统的对应记录',
     examplePayload: '{"event":"task.deleted","data":{"id":42,"title":"写周报"}}',
@@ -63,7 +63,7 @@ const webhookEvents = [
   WebhookEventDef(
     key: 'habit.checked',
     label: '习惯打卡',
-    icon: '🔥',
+    icon: LucideIcons.repeat2,
     description: '用户完成一次习惯打卡时触发',
     exampleUse: '打卡后自动写入 Google Sheets、发朋友圈文案',
     examplePayload:
@@ -72,7 +72,7 @@ const webhookEvents = [
   WebhookEventDef(
     key: 'session.ended',
     label: '番茄钟结束',
-    icon: '🍅',
+    icon: LucideIcons.timer,
     description: '一次番茄钟专注或休息结束时触发',
     exampleUse: '专注结束自动记录 Toggl、更新日历',
     examplePayload:
@@ -210,7 +210,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
           () => WebhookEventDef(
             key: eventKey,
             label: eventKey,
-            icon: '🔗',
+            icon: LucideIcons.link2,
             description: '',
             exampleUse: '',
             examplePayload: '',
@@ -227,7 +227,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
               webhook['is_active'] == true
                   ? AppTheme.primaryLight
                   : Theme.of(context).colorScheme.outlineVariant,
-          child: Text(def.icon),
+          child: Icon(def.icon, size: SlowlightIconSize.md),
         ),
         title: Text(
           webhook['name']?.toString().isNotEmpty == true
@@ -239,7 +239,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${def.icon} ${def.label}',
+              '${def.label}',
               style: SlowlightTypography.caption(
                 context,
               ).copyWith(color: AppTheme.primary),
@@ -300,7 +300,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
             spacing: 8,
             runSpacing: 6,
             children: [
-              Text(def.icon),
+              Icon(def.icon, size: SlowlightIconSize.md),
               Text(def.label, style: SlowlightTypography.cardTitle(context)),
               FxChip(label: def.key, variant: FxChipVariant.secondary),
             ],
@@ -337,7 +337,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
   Future<void> _showPayloadDialog(WebhookEventDef def) {
     return FxDialog.show<void>(
       context: context,
-      title: '${def.icon} ${def.label} — 示例数据',
+      title: '${def.label} — 示例数据',
       width: 560,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -443,7 +443,7 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
               onChanged: (value) => _setSelected(def.key, value),
             ),
             const SizedBox(width: 10),
-            Text(def.icon),
+            Icon(def.icon, size: SlowlightIconSize.md),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
