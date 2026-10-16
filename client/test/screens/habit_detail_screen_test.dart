@@ -25,6 +25,52 @@ void main() {
     );
   }
 
+  test('08 补卡日期来自 date 而不是记录的创建时间', () {
+    final date = habitLogCalendarDay({
+      'date': '2026-10-05',
+      'created_at': '2026-10-16T08:14:00',
+    });
+    expect(date, DateTime(2026, 10, 5));
+  });
+
+  testWidgets('08 历史详情使用主题背景并且读取失败可重试', (tester) async {
+    var attempts = 0;
+    Future<Map<String, dynamic>> load(int habitId, String month) async {
+      attempts++;
+      if (attempts == 1) throw StateError('offline');
+      return {
+        'logs': <Map<String, dynamic>>[
+          {
+            'id': 1,
+            'date': '2026-10-05',
+            'created_at': '2026-10-16T08:14:00',
+            'duration_min': 25,
+            'note': '补卡',
+          },
+        ],
+      };
+    }
+
+    await tester.pumpWidget(buildFxTestHost(
+      theme: AppTheme.darkTheme(),
+      home: HabitDetailScreen(
+        habit: habit(id: 3, name: '读书', streakCount: 1),
+        logsLoader: load,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor, isNull);
+    expect(find.text('打卡记录暂时不可用'), findsOneWidget);
+
+    await tester.tap(find.text('重新加载'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.text('打卡记录暂时不可用'), findsNothing);
+    expect(find.textContaining('2026-10-05'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   group('HabitDetailScreen 稳定性', () {
     testWidgets('数据加载失败时页面仍保持可用', (tester) async {
       await tester.pumpWidget(

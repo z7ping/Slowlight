@@ -280,27 +280,23 @@ class ReflectionComposer {
         showDragHandle: false,
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
-            final bottomInset = MediaQuery.viewInsetsOf(sheetContext).bottom;
-            return Padding(
-              padding: EdgeInsets.only(bottom: bottomInset),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        '写下观察',
-                        style: SlowlightTypography.cardTitle(
-                          sheetContext,
-                        ).copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 12),
-                      Flexible(child: buildFields(sheetContext, setSheetState)),
-                    ],
-                  ),
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '写下观察',
+                      style: SlowlightTypography.cardTitle(
+                        sheetContext,
+                      ).copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(child: buildFields(sheetContext, setSheetState)),
+                  ],
                 ),
               ),
             );

@@ -68,11 +68,8 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     final mobile = MediaQuery.sizeOf(context).width < 600;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding:
-            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: SingleChildScrollView(
-          child: Padding(
+      child: SingleChildScrollView(
+        child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -194,7 +191,6 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
               ],
             ),
           ),
-        ),
       ),
     );
   }

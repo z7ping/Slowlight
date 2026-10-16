@@ -1,16 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/habit.dart';
 import '../services/api_service.dart';
-import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
 import '../widgets/habit_heatmap.dart';
 
+/// 兼容旧页面；正式习惯入口已集中在 HabitToolScreen。
+///
+/// 习惯日历应使用 HabitLog.date，不能把补卡当天错误记成录入时间。
+DateTime habitLogCalendarDay(Map<String, dynamic> log) {
+  final date = DateTime.tryParse(log['date']?.toString() ?? '');
+  if (date != null) return DateTime(date.year, date.month, date.day);
+  final createdAt = DateTime.tryParse(
+    log['created_at']?.toString() ?? '',
+  )?.toLocal();
+  if (createdAt == null) throw const FormatException('习惯记录日期无效');
+  return DateTime(createdAt.year, createdAt.month, createdAt.day);
+}
+
 class HabitDetailScreen extends StatefulWidget {
   final Habit habit;
+  final Future<Map<String, dynamic>> Function(int habitId, String month)?
+  logsLoader;
 
-  const HabitDetailScreen({super.key, required this.habit});
+  const HabitDetailScreen({super.key, required this.habit, this.logsLoader});
 
   @override
   State<HabitDetailScreen> createState() => _HabitDetailScreenState();
@@ -18,6 +33,7 @@ class HabitDetailScreen extends StatefulWidget {
 
 class _HabitDetailScreenState extends State<HabitDetailScreen> {
   bool _isLoading = true;
+  bool _loadError = false;
   List<Map<String, dynamic>> _logs = [];
   int _totalCheckIns = 0;
   double _completionRate = 0.0;
@@ -29,27 +45,21 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   }
 
   Future<void> _loadHabitLogs() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = false;
+    });
     try {
       final now = DateTime.now();
       final monthStr = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-      final data = await ApiService.getHabitLogs(
-        widget.habit.id,
-        month: monthStr,
-      );
+      final data = widget.logsLoader == null
+          ? await ApiService.getHabitLogs(widget.habit.id, month: monthStr)
+          : await widget.logsLoader!(widget.habit.id, monthStr);
       final logs =
           (data['logs'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
 
       final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-      final uniqueDays =
-          logs
-              .map((log) => DateTime.parse(log['created_at'] as String))
-              .map(
-                (d) =>
-                    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
-              )
-              .toSet()
-              .length;
+      final uniqueDays = logs.map(habitLogCalendarDay).toSet().length;
 
       if (!mounted) return;
       setState(() {
@@ -57,9 +67,14 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
         _totalCheckIns = logs.length;
         _completionRate = daysInMonth > 0 ? uniqueDays / daysInMonth : 0;
         _isLoading = false;
+        _loadError = false;
       });
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = true;
+      });
     }
   }
 
@@ -113,23 +128,17 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     final mobile = MediaQuery.sizeOf(context).width < 600;
     final result =
         mobile
-            ? await showModalBottomSheet<Map<String, dynamic>>(
-              context: context,
-              isScrollControlled: true,
-              builder:
-                  (sheetContext) => Padding(
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-                    ),
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-                        child: editor(sheetContext, showTitle: true),
-                      ),
-                    ),
+            ? await FxSheet.show<Map<String, dynamic>>(
+                context: context,
+                isScrollControlled: true,
+                builder: (sheetContext) => SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+                    child: editor(sheetContext, showTitle: true),
                   ),
-            )
+                ),
+              )
             : await FxDialog.show<Map<String, dynamic>>(
               context: context,
               title: '编辑打卡记录',
@@ -159,13 +168,9 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   Widget build(BuildContext context) {
     final habit = widget.habit;
     final habitColor = ColorUtils.safeParse(habit.color);
-    final checkInDates =
-        _logs
-            .map((log) => DateTime.parse(log['created_at'] as String))
-            .toList();
+    final checkInDates = _logs.map(habitLogCalendarDay).toList();
 
     return Scaffold(
-      backgroundColor: AppTheme.warmWhite,
       body: SafeArea(
         child: Column(
           children: [
@@ -177,6 +182,19 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               child:
                   _isLoading
                       ? const Center(child: FxCircularProgress())
+                      : _loadError
+                      ? Center(
+                          child: FxEmptyState(
+                            icon: LucideIcons.triangleAlert,
+                            title: '打卡记录暂时不可用',
+                            subtitle: '数据读取失败，请重试。',
+                            action: FxButton(
+                              label: '重新加载',
+                              variant: FxButtonVariant.secondary,
+                              onPressed: _loadHabitLogs,
+                            ),
+                          ),
+                        )
                       : FxRefresh(
                         onRefresh: _loadHabitLogs,
                         child: ListView(
@@ -201,7 +219,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                                 context,
                               ).copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.warmDark,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -223,7 +241,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                                         '暂无打卡记录',
                                         style: SlowlightTypography.secondary(
                                           context,
-                                        ).copyWith(color: AppTheme.warmGray500),
+                                        ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                                       ),
                                     ],
                                   ),
@@ -237,7 +255,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                                     itemCount: _logs.length.clamp(0, 30),
                                     separatorBuilder:
                                         (_, __) => FxSeparator.horizontal(
-                                          color: AppTheme.warmBorder,
+                                          color: fxDivider(context),
                                           height: 1,
                                         ),
                                     itemBuilder:
@@ -303,7 +321,8 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   }
 
   Widget _logRow(Map<String, dynamic> log, Color habitColor) {
-    final checkedAt = DateTime.parse(log['created_at'] as String);
+    final checkedAt = DateTime.parse(log['created_at'] as String).toLocal();
+    final logDate = habitLogCalendarDay(log);
     final note = log['note'] as String? ?? '';
     final dMin = log['duration_min'] as int? ?? 0;
     final period = log['period'] as String? ?? '';
@@ -332,10 +351,10 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      _formatDateTime(checkedAt),
+                      _formatDateTime(logDate, checkedAt),
                       style: SlowlightTypography.secondary(context).copyWith(
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.warmDark,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     if (dMin > 0)
@@ -343,14 +362,14 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                         '$dMin 分钟',
                         style: SlowlightTypography.caption(
                           context,
-                        ).copyWith(color: AppTheme.warmGray500),
+                        ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     if (period.isNotEmpty)
                       Text(
                         _periodLabel(period),
                         style: SlowlightTypography.caption(
                           context,
-                        ).copyWith(color: AppTheme.warmGray500),
+                        ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                   ],
                 ),
@@ -360,7 +379,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                     note,
                     style: SlowlightTypography.secondary(
                       context,
-                    ).copyWith(color: AppTheme.warmGray500),
+                    ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -389,12 +408,12 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     return labels[period] ?? '';
   }
 
-  String _formatDateTime(DateTime dt) {
-    final month = dt.month.toString().padLeft(2, '0');
-    final day = dt.day.toString().padLeft(2, '0');
-    final hour = dt.hour.toString().padLeft(2, '0');
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '${dt.year}-$month-$day $hour:$minute';
+  String _formatDateTime(DateTime date, DateTime createdAt) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    final hour = createdAt.hour.toString().padLeft(2, '0');
+    final minute = createdAt.minute.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day $hour:$minute';
   }
 }
 
@@ -431,7 +450,7 @@ class _StatCard extends StatelessWidget {
             label,
             style: SlowlightTypography.caption(
               context,
-            ).copyWith(color: AppTheme.warmGray500),
+            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),

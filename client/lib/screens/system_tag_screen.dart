@@ -166,15 +166,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                   const SizedBox(height: 12),
                   if (_tags.isEmpty)
                     FxEmptyState(
-                      emoji: '🏷️',
+                      icon: LucideIcons.tag,
                       title: '还没有观察标签',
                       subtitle: '标签用于分类事实；不归属维度时只参与分类与分析',
-                      action: FxButton(
-                        label: '创建标签',
-                        variant: FxButtonVariant.outline,
-                        size: FxButtonSize.sm,
-                        onPressed: () => _editTag(),
-                      ),
                     )
                   else
                     ...List.generate(groups.length, (index) {
