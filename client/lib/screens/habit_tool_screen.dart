@@ -290,12 +290,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                       emoji: '🌱',
                       title: '还没有习惯记录',
                       subtitle: '从一个小习惯开始，比如每天喝一杯水',
-                      action: FxButton(
-                        label: '添加第一个习惯',
-                        variant: FxButtonVariant.outline,
-                        size: FxButtonSize.sm,
-                        onPressed: _createHabit,
-                      ),
                     )
                   else
                     ..._controller.habits.map(_habitCard),
