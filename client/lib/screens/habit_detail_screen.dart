@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/habit.dart';
 import '../services/api_service.dart';
@@ -184,7 +185,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                       : _loadError
                       ? Center(
                           child: FxEmptyState(
-                            emoji: '⚠️',
+                            icon: LucideIcons.triangleAlert,
                             title: '打卡记录暂时不可用',
                             subtitle: '数据读取失败，请重试。',
                             action: FxButton(
