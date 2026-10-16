@@ -172,7 +172,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _toolbar() {
-    final compact = MediaQuery.sizeOf(context).width < 720;
     final navigation = Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 6,
@@ -201,7 +200,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
     return FxActionBar(
       leading: navigation,
-      actions: [if (!compact) _filter()],
+      // 月格筛选始终可见；当日明细保留全量事实（既有产品约定）。
+      actions: [
+        Text(
+          '月格筛选',
+          style: SlowlightTypography.caption(context).copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        _filter(),
+      ],
       stackBelow: 760,
       gap: 12,
     );
@@ -552,6 +560,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ),
   );
 
+  // 与月格筛选独立：当日事实始终完整，见 CalendarScreen 的页面测试。
   List<CalendarRecord> _recordsForDay(DateTime date) => _records
       .where((record) => _sameDay(record.date, date))
       .toList(growable: false);
