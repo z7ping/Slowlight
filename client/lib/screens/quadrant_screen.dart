@@ -363,12 +363,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         ),
       ),
       builder: (context) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          18 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
