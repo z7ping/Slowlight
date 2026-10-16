@@ -281,7 +281,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               task['completed_at']?.toString().isNotEmpty == true
                   ? task['completed_at'].toString()
                   : '今天',
-          title: '✅ 完成「${task['title'] ?? ''}」',
+          title: '完成「${task['title'] ?? ''}」',
           note:
               (task['list_name']?.toString() ?? '').isEmpty
                   ? null
