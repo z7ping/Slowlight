@@ -233,39 +233,39 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('CalDAV 同步'),
-        elevation: 0,
-        actions: [
-          if (_configured)
-            FxIconButton(
-              icon: Icons.sync,
-              onPressed: _syncNow,
-              tooltip: '立即同步',
+      body: SafeArea(
+        child: Column(
+          children: [
+            FxPageHeader(
+              title: 'CalDAV 同步',
+              actionIcon: _configured ? Icons.sync : null,
+              actionTooltip: '立即同步',
+              onAction: _configured ? _syncNow : null,
             ),
-        ],
+            Expanded(
+              child: _loading
+                  ? const Center(child: FxCircularProgress())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInfoCard(),
+                          const SizedBox(height: 16),
+                          _buildConfigForm(),
+                          const SizedBox(height: 16),
+                          if (_configured) _buildStatusCard(),
+                          if (_lastError != null) ...[
+                            const SizedBox(height: 16),
+                            _buildErrorCard(),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body:
-          _loading
-              ? const Center(child: FxCircularProgress())
-              : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoCard(),
-                    const SizedBox(height: 16),
-                    _buildConfigForm(),
-                    const SizedBox(height: 16),
-                    if (_configured) _buildStatusCard(),
-                    if (_lastError != null) ...[
-                      const SizedBox(height: 16),
-                      _buildErrorCard(),
-                    ],
-                  ],
-                ),
-              ),
     );
   }
 
