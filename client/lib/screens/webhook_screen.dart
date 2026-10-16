@@ -179,7 +179,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
                   ? const Center(child: FxCircularProgress())
                   : _webhooks.isEmpty
                   ? FxEmptyState(
-                      emoji: '🔗',
+                      icon: LucideIcons.link2,
                       title: '还没有事件回调',
                       subtitle: '连接 $kBrandDisplayName 到 n8n、Zapier 等外部服务',
                     )
