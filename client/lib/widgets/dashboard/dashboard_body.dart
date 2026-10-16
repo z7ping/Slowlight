@@ -292,6 +292,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     final theme = Theme.of(context);
     final color = _parseColor(item['color']?.toString());
     final active = _activeDays(item);
+    final activeCount = _lastSevenDays().where((day) => active.contains(_dateKey(day))).length;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -309,14 +310,24 @@ class _DashboardBodyState extends State<DashboardBody> {
               ).copyWith(fontWeight: FontWeight.w600),
             ),
           ),
-          if (compact)
+          if (compact) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: FxProgress(
+                value: activeCount / 7,
+                height: 6,
+                color: color,
+                backgroundColor: color.withValues(alpha: .12),
+              ),
+            ),
+            const SizedBox(width: 8),
             Text(
-              '${active.length}/7 天',
+              '$activeCount/7 天',
               style: SlowlightTypography.caption(
                 context,
               ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-            )
-          else
+            ),
+          ] else
             ..._lastSevenDays().map(
               (day) => Container(
                 width: 7,
