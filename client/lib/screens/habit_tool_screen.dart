@@ -287,7 +287,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                   const SizedBox(height: 14),
                   if (_controller.habits.isEmpty)
                     FxEmptyState(
-                      emoji: '🌱',
+                      icon: LucideIcons.repeat2,
                       title: '还没有习惯记录',
                       subtitle: '从一个小习惯开始，比如每天喝一杯水',
                     )
