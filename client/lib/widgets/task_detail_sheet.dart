@@ -86,34 +86,29 @@ class TaskDetailSheet extends StatefulWidget {
       showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder:
-          (sheetContext) => Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-            ),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                width: 560,
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
-                  maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
-                ),
-                decoration: BoxDecoration(
-                  color: fxSurface(sheetContext),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(18),
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: TaskDetailSheet(
-                  task: task,
-                  lists: lists,
-                  onChanged: onChanged,
-                ),
-              ),
+      // 键盘避让由 FxSheet 统一处理，业务 Sheet 不再二次叠加 insets。
+      builder: (sheetContext) => Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          width: 560,
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
+          ),
+          decoration: BoxDecoration(
+            color: fxSurface(sheetContext),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(SlowlightRadius.sheet),
             ),
           ),
+          clipBehavior: Clip.antiAlias,
+          child: TaskDetailSheet(
+            task: task,
+            lists: lists,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
     );
   }
 
