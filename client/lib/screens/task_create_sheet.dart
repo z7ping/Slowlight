@@ -71,8 +71,9 @@ class TaskCreateSheet extends StatefulWidget {
 
     await FxSheet.show<void>(
       context: context,
-      isScrollControlled: true,
-      // 记录任务由表单滚动处理高度，不让可拖动 Sheet 占满键盘上方空间。
+      // 快捷表单按内容高度展示；键盘出现时内部表单滚动，
+      // 不让 Sheet 自动扩展到全屏。
+      isScrollControlled: false,
       draggable: false,
       showDragHandle: false,
       builder: (_) => editor,
