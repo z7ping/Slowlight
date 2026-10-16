@@ -299,25 +299,25 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             ).copyWith(color: theme.colorScheme.error),
           ),
         ],
-        const SizedBox(height: 16),
-        FxDialogActions(
-          actions: [
-              FxButton(
-                label: '更多设置',
-                variant: FxButtonVariant.outline,
-                size: FxButtonSize.sm,
-                onPressed: _saving ? null : _openFullCreate,
-              ),
-              FxButton(
-                label: _saving ? '记录中…' : '记录任务',
-                size: FxButtonSize.sm,
-                onPressed: _saving ? null : _createTask,
-              ),
-          ],
-        ),
       ],
     );
   }
+
+  Widget _editorActions() => FxDialogActions(
+    actions: [
+      FxButton(
+        label: '更多设置',
+        variant: FxButtonVariant.outline,
+        size: FxButtonSize.sm,
+        onPressed: _saving ? null : _openFullCreate,
+      ),
+      FxButton(
+        label: _saving ? '记录中…' : '记录任务',
+        size: FxButtonSize.sm,
+        onPressed: _saving ? null : _createTask,
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -326,7 +326,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(context).height * .7,
         ),
-        child: SingleChildScrollView(child: _editorContent(context)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: SingleChildScrollView(child: _editorContent(context))),
+            const SizedBox(height: 12),
+            _editorActions(),
+          ],
+        ),
       );
     }
 
@@ -352,6 +359,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 child: _editorContent(context),
               ),
             ),
+            const SizedBox(height: 12),
+            _editorActions(),
           ],
         ),
       ),
