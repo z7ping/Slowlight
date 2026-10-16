@@ -353,13 +353,20 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             child: Container(
                               color: AppTheme.warning,
                               alignment: Alignment.center,
-                              child: const Text(
-                                '⏱ 顺延',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: SlowlightTypography.captionSize,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(LucideIcons.clock3, size: 14, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '顺延',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: SlowlightTypography.captionSize,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -370,13 +377,20 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             child: Container(
                               color: AppTheme.success,
                               alignment: Alignment.center,
-                              child: const Text(
-                                '✓ 完成',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: SlowlightTypography.captionSize,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(LucideIcons.check, size: 14, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '完成',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: SlowlightTypography.captionSize,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
