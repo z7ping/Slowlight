@@ -17,7 +17,9 @@ const _chartColors = [
 ];
 
 class TimeDistributionScreen extends StatefulWidget {
-  const TimeDistributionScreen({super.key});
+  final Future<Map<String, dynamic>> Function()? dataLoader;
+
+  const TimeDistributionScreen({super.key, this.dataLoader});
 
   @override
   State<TimeDistributionScreen> createState() => _TimeDistributionScreenState();
@@ -25,6 +27,7 @@ class TimeDistributionScreen extends StatefulWidget {
 
 class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   bool _loading = true;
+  bool _loadError = false;
   Map<String, dynamic> _data = {};
 
   @override
@@ -34,22 +37,46 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   }
 
   Future<void> _loadData() async {
-    if (mounted) setState(() => _loading = true);
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = false;
+      });
+    }
     try {
-      final data = await AnalyticsApi.getTimeDistribution();
+      final data = await (widget.dataLoader?.call() ?? AnalyticsApi.getTimeDistribution());
       if (!mounted) return;
       setState(() {
         _data = data;
         _loading = false;
+        _loadError = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = true;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: FxCircularProgress());
+    if (_loadError) {
+      return Center(
+        child: FxEmptyState(
+          emoji: '⚠️',
+          title: '时间分配暂时不可用',
+          subtitle: '数据读取失败，请稍后重试。',
+          action: FxButton(
+            label: '重新加载',
+            variant: FxButtonVariant.secondary,
+            onPressed: _loadData,
+          ),
+        ),
+      );
+    }
     final totalMin = (_data['total_min'] as num?)?.toInt() ?? 0;
     final tags =
         (_data['tags'] as List? ?? const [])
@@ -181,7 +208,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '维度分布'),
+          const FxSectionHeader(title: '观察标签分布'),
           const SizedBox(height: 14),
           if (tags.isEmpty)
             Padding(
