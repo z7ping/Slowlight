@@ -181,7 +181,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                         child:
                             _visible.isEmpty
                                 ? FxEmptyState(
-                                  emoji: '🍃',
+                                  icon: LucideIcons.listTodo,
                                   title:
                                       _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
                                   subtitle:
@@ -263,7 +263,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Widget _emptyState() => FxEmptyState(
-    emoji: '🍃',
+    icon: LucideIcons.listTodo,
     title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
     subtitle: _segment == 0 ? '今天可以从一件真正想推进的事开始' : '切换其他筛选看看',
   );
