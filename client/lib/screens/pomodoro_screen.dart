@@ -464,7 +464,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     // 专注刻度盘根据真实宽度与文字缩放适度伸展，不再固定 220dp。
     final scale = MediaQuery.textScalerOf(context).scale(1);
     final availableWidth = MediaQuery.sizeOf(context).width - 48;
-    final desired = 220.0 + (scale - 1).clamp(0.0, 1.0) * 64;
+    final desired = 220.0 + (scale - 1).clamp(0.0, 1.0).toDouble() * 64.0;
     final dialSize = desired > availableWidth ? availableWidth : desired;
 
     return Center(
