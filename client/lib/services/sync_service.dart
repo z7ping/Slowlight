@@ -230,7 +230,8 @@ class SyncService extends ChangeNotifier {
       final db = await _db.database;
       String? firstFailure;
       for (final item in await _orderedQueue(db, 50)) {
-        firstFailure ??= await _processQueueItem(db, item);
+        final failure = await _processQueueItem(db, item);
+        firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
       if (firstFailure != null) {
@@ -663,7 +664,8 @@ class SyncService extends ChangeNotifier {
       final db = await _db.database;
       String? firstFailure;
       for (final item in await _orderedQueue(db, batchSize)) {
-        firstFailure ??= await _processQueueItem(db, item);
+        final failure = await _processQueueItem(db, item);
+        firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
       _status = firstFailure == null ? SyncStatusEnum.idle : SyncStatusEnum.error;
