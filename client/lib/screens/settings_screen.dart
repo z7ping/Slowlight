@@ -43,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _hasKey = false;
   int _conflictCount = 0;
   bool _conflictCheckFailed = false;
+  SyncStatusEnum? _observedSyncStatus;
 
   bool get _reminderSupported =>
       !kIsWeb &&
@@ -55,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _open = widget.initialSection;
     _reminder.addListener(_reminderChanged);
+    SyncService().addListener(_syncStatusChanged);
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
   }
@@ -62,6 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _reminder.removeListener(_reminderChanged);
+    SyncService().removeListener(_syncStatusChanged);
     _endpoint.dispose();
     _model.dispose();
     _key.dispose();
@@ -70,6 +73,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _reminderChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _syncStatusChanged() {
+    final status = SyncService().status;
+    if (status == _observedSyncStatus) return;
+    _observedSyncStatus = status;
+    if (status != SyncStatusEnum.syncing) _loadConflictCount();
   }
 
   Future<void> _load() async {
