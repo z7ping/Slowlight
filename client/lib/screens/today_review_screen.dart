@@ -359,13 +359,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     }
 
     // 仅已知精确时间的记录参与时间排序；无时间的汇总置于末尾。
-    items.sort((a, b) {
-      final aTime = _minuteOfDay(a.time);
-      final bTime = _minuteOfDay(b.time);
-      if (aTime == null) return bTime == null ? 0 : 1;
-      if (bTime == null) return -1;
-      return aTime.compareTo(bTime);
-    });
+    items.sort(compareReviewTimelineItems);
 
     return FxCard(
       padding: const EdgeInsets.all(16),
@@ -679,17 +673,6 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   String _clockTime(DateTime value) =>
       '${_two(value.hour)}:${_two(value.minute)}';
 
-  int? _minuteOfDay(String value) {
-    final parts = value.split(':');
-    if (parts.length != 2) return null;
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null ||
-        hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-      return null;
-    }
-    return hour * 60 + minute;
-  }
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
