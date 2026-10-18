@@ -116,6 +116,94 @@ void main() {
     );
   });
 
+
+  Future<void> prepareCloud() async {
+    await signInCloudUser();
+    await DataModeManager().setCloud();
+    await SyncService().init(startPeriodic: false);
+  }
+
+  Future<int> addQueuedUnsupportedOperation(Database db, {int retries = 0}) {
+    final now = DateTime.now().toUtc().toIso8601String();
+    return db.insert('sync_queue', {
+      'entity_type': 'unsupported_entity',
+      'entity_local_id': 999,
+      'operation': 'update',
+      'retry_count': retries,
+      'last_error': 'previous error',
+      'created_at': now,
+      'updated_at': now,
+    });
+  }
+
+  test('失败重试与清理均不删除未同步记录', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    await addQueuedUnsupportedOperation(db, retries: 3);
+
+    await SyncService().cleanupFailedItems();
+    expect(await db.query('sync_queue'), hasLength(1));
+
+    await SyncService().retryFailed();
+    final queued = (await db.query('sync_queue')).single;
+    expect(queued['retry_count'], 1);
+    expect(SyncService().status, SyncStatusEnum.error);
+    expect(SyncService().pendingCount, 1);
+  });
+
+  test('单条上传失败时 manualSync 返回 false 且保留队列', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    await addQueuedUnsupportedOperation(db);
+
+    final result = await SyncService().manualSync();
+    expect(result, isFalse);
+    expect(SyncService().status, SyncStatusEnum.error);
+    expect(SyncService().lastError, contains('unsupported_entity'));
+    expect(SyncService().pendingCount, 1);
+    expect(await db.query('sync_queue'), hasLength(1));
+  });
+
+  test('非任务冲突可查询且后台同步不覆盖冲突记录', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '冲突清单',
+      'server_id': 301,
+      'sync_status': 'conflict',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists',
+      'entity_local_id': listId,
+      'entity_server_id': 301,
+      'operation': 'update',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await db.insert('habits', {
+      'name': '冲突习惯',
+      'server_id': 401,
+      'sync_status': 'conflict',
+      'created_at': now,
+      'updated_at': now,
+    });
+    final conflicts = await SyncService().getAllConflicts();
+    expect(conflicts.map((c) => c['_entity_type']),
+        containsAll(<String>['lists', 'habits']));
+
+    expect(await SyncService().manualSync(), isFalse);
+    expect(SyncService().lastError, contains('待处理的冲突'));
+    expect(await db.query('sync_queue'), hasLength(1));
+    expect(
+      (await db.query('lists', where: 'id = ?', whereArgs: [listId]))
+          .single['sync_status'],
+      'conflict',
+    );
+  });
+
   test('保留既有 SyncService 公开能力', () {
     final sync = SyncService();
     expect(sync.detectConflict, isA<Function>());
