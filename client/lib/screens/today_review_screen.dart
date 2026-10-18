@@ -227,7 +227,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               (id.isEmpty ||
                   !_reflections.any((entry) => entry.questionId == id));
         })
-        .take(2)
+        .take(1)
         .toList(growable: false);
 
     return FxRefresh(
@@ -578,6 +578,19 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (entry.context['question_prompt']
+                          ?.toString()
+                          .trim()
+                          .isNotEmpty ==
+                      true) ...[
+                    Text(
+                      '回应：${entry.context['question_prompt']}',
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   Text(
                     entry.content,
                     style: SlowlightTypography.body(context),
@@ -639,7 +652,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       final saved = await ReflectionRepository().create(
         content: content,
         questionId: id.isEmpty ? null : id,
-        context: {'source': 'review', 'question_type': question['type'] ?? ''},
+        context: {
+          'source': 'review',
+          'question_type': question['type'] ?? '',
+          'question_prompt': question['content']?.toString() ?? '',
+        },
       );
       if (!mounted) return;
       setState(() {
