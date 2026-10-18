@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../models/observation_tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
-import '../services/api_service.dart';
+import '../repositories/observation_tag_repository.dart';
+import '../services/task_dimension_assignment.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
+import 'task_dimension_field.dart';
 
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
@@ -14,6 +17,7 @@ class TaskDetailSheet extends StatefulWidget {
   final List<TodoList> lists;
   final VoidCallback onChanged;
   final bool sidePanel;
+  final ObservationTagRepository? tagsRepository;
 
   const TaskDetailSheet({
     super.key,
@@ -21,6 +25,7 @@ class TaskDetailSheet extends StatefulWidget {
     required this.lists,
     required this.onChanged,
     this.sidePanel = false,
+    this.tagsRepository,
   });
 
   static Future<void> show(
@@ -81,34 +86,29 @@ class TaskDetailSheet extends StatefulWidget {
       showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder:
-          (sheetContext) => Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-            ),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                width: 560,
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
-                  maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
-                ),
-                decoration: BoxDecoration(
-                  color: fxSurface(sheetContext),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(18),
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: TaskDetailSheet(
-                  task: task,
-                  lists: lists,
-                  onChanged: onChanged,
-                ),
-              ),
+      // 键盘避让由 FxSheet 统一处理，业务 Sheet 不再二次叠加 insets。
+      builder: (sheetContext) => Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          width: 560,
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
+          ),
+          decoration: BoxDecoration(
+            color: fxSurface(sheetContext),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(SlowlightRadius.sheet),
             ),
           ),
+          clipBehavior: Clip.antiAlias,
+          child: TaskDetailSheet(
+            task: task,
+            lists: lists,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
     );
   }
 
@@ -129,7 +129,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late DateTime? _reminderAt;
   late int _reminderAdvanceMinutes;
   late int? _systemTagId;
-  List<Map<String, dynamic>> _systemTags = const [];
+  late final ObservationTagRepository _tagsRepository;
+  late final TaskDimensionAssignment _dimensionAssignment;
+  List<ObservationTag> _systemTags = const [];
+  String? _selectedDimensionKey;
+  bool _dimensionChanged = false;
   bool _saving = false;
 
   @override
@@ -155,6 +159,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _systemTagId = task.systemTagId;
+    _tagsRepository = widget.tagsRepository ?? ObservationTagRepository();
+    _dimensionAssignment = TaskDimensionAssignment(repository: _tagsRepository);
     _loadSystemTags();
   }
 
@@ -167,9 +173,23 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   Future<void> _loadSystemTags() async {
     try {
-      final tags = await ApiService.getSystemTags();
-      if (mounted) setState(() => _systemTags = tags);
-    } catch (_) {}
+      final tags = await _tagsRepository.getAll();
+      if (!mounted) return;
+      setState(() {
+        _systemTags = tags;
+        // 用户已经主动选择维度时，异步标签加载不能覆盖其输入。
+        if (!_dimensionChanged) {
+          for (final tag in tags) {
+            if (tag.id == _systemTagId) {
+              _selectedDimensionKey = tag.dimensionKey;
+              break;
+            }
+          }
+        }
+      });
+    } catch (_) {
+      // 读取失败时保留任务原始 system_tag_id，仍可修改其他信息。
+    }
   }
 
   @override
@@ -298,9 +318,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            _priorityChip('urgent_important', '🔴 高'),
-            _priorityChip('important', '🔵 中'),
-            _priorityChip('urgent', '⚪ 低'),
+            _priorityChip('none', '无'),
+            _priorityChip('urgent_important', '高'),
+            _priorityChip('important', '中'),
+            _priorityChip('urgent', '低'),
           ],
         ),
         const SizedBox(height: 14),
@@ -333,6 +354,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             FxSelectOption(value: 'daily', label: '每天'),
             FxSelectOption(value: 'weekly', label: '每周'),
             FxSelectOption(value: 'monthly', label: '每月'),
+            FxSelectOption(value: 'yearly', label: '每年'),
           ],
           onChanged:
               (value) => setState(() {
@@ -382,64 +404,53 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           icon: LucideIcons.bell,
           onTap: _pickReminder,
         ),
+        const SizedBox(height: 14),
+        TaskDimensionField(
+          selectedKey: _selectedDimensionKey,
+          enabled: !_saving,
+          onChanged: (key) {
+            if (key == _selectedDimensionKey && !_dimensionChanged) return;
+            setState(() {
+              _selectedDimensionKey = key;
+              _dimensionChanged = true;
+            });
+          },
+        ),
         if (_systemTags.isNotEmpty) ...[
           const SizedBox(height: 14),
           _fieldLabel('观察标签'),
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: _systemTags
-                .map((tag) {
-                  final id = tag['id'] as int?;
-                  if (id == null) return const SizedBox.shrink();
-                  final selected = id == _systemTagId;
-                  return FxChip(
-                    label: '${tag['icon'] ?? '🏷️'} ${tag['name'] ?? ''}',
-                    onTap:
-                        _saving
-                            ? null
-                            : () => setState(
-                              () => _systemTagId = selected ? null : id,
-                            ),
-                    backgroundColor:
-                        selected
-                            ? activePalette.accent.withValues(alpha: .12)
-                            : fxSubtleSurface(context),
-                    foregroundColor:
-                        selected
-                            ? activePalette.accent
-                            : theme.colorScheme.onSurfaceVariant,
-                    borderColor:
-                        selected ? activePalette.accent : fxBorder(context),
-                    borderRadius: 999,
-                  );
-                })
-                .toList(growable: false),
+            children: _systemTags.map((tag) {
+              final selected = !_dimensionChanged && tag.id == _systemTagId;
+              return FxChoiceChip(
+                label: '${tag.icon} ${tag.name}',
+                selected: selected,
+                onTap: _saving
+                    ? null
+                    : () => setState(() {
+                        _systemTagId = selected ? null : tag.id;
+                        _selectedDimensionKey =
+                            selected ? null : tag.dimensionKey;
+                        _dimensionChanged = false;
+                      }),
+              );
+            }).toList(growable: false),
           ),
         ],
       ],
     );
   }
 
-  Widget _priorityChip(String value, String label) {
-    final selected = _priority == value;
-    final theme = Theme.of(context);
-    return FxChip(
-      label: label,
-      onTap:
-          _saving
-              ? null
-              : () => setState(() => _priority = selected ? 'none' : value),
-      backgroundColor:
-          selected
-              ? activePalette.accent.withValues(alpha: .12)
-              : fxSubtleSurface(context),
-      foregroundColor:
-          selected ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
-      borderColor: selected ? activePalette.accent : fxBorder(context),
-      borderRadius: 999,
-    );
-  }
+  Widget _priorityChip(String value, String label) => FxChoiceChip(
+    label: label,
+    selected: _priority == value,
+    selectionColor: value == 'none'
+        ? Theme.of(context).colorScheme.onSurface
+        : AppTheme.priorityColor(value),
+    onTap: _saving ? null : () => setState(() => _priority = value),
+  );
 
   Widget _pickerField({
     required String label,
@@ -568,6 +579,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (title.isEmpty || listId == null) return;
     setState(() => _saving = true);
     try {
+      final systemTagId = await _dimensionAssignment.resolve(
+        dimensionKey: _selectedDimensionKey,
+        originalTagId: _systemTagId,
+        changed: _dimensionChanged,
+      );
       await DataService().updateTask(
         localId: widget.task.id,
         serverId: null,
@@ -585,7 +601,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         reminderAt: _reminderAt,
         reminderAdvanceMinutes: _reminderAdvanceMinutes,
         tagIds: widget.task.tags.map((tag) => tag.id).toList(),
-        systemTagId: _systemTagId,
+        systemTagId: systemTagId,
         taskType: widget.task.taskType,
         moodBefore: widget.task.moodBefore,
         moodAfter: widget.task.moodAfter,

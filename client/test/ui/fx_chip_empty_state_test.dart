@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -127,6 +128,22 @@ void main() {
       tester.widget<Text>(find.text('工作')).style?.fontSize,
       SlowlightTypography.chipSize,
     );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('13 FxEmptyState 优先使用统一线性图标，兼容历史 emoji', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(
+        body: FxEmptyState(
+          icon: LucideIcons.listTodo,
+          title: '暂无任务',
+          subtitle: '从记录一件事开始',
+        ),
+      ),
+    ));
+    expect(find.byIcon(LucideIcons.listTodo), findsOneWidget);
+    expect(find.text('暂无任务'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });

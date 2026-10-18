@@ -6,7 +6,8 @@ import '../typography_tokens.dart';
 ///
 /// Android 使用更易读的空状态说明；桌面端保持高保真中的紧凑标题/说明密度。
 class FxEmptyState extends StatelessWidget {
-  final String emoji;
+  final String? emoji;
+  final IconData? icon;
   final String title;
   final String subtitle;
   final Widget? action;
@@ -15,13 +16,14 @@ class FxEmptyState extends StatelessWidget {
 
   const FxEmptyState({
     super.key,
-    required this.emoji,
+    this.emoji,
+    this.icon,
     required this.title,
     required this.subtitle,
     this.action,
     this.padding = const EdgeInsets.symmetric(vertical: 48),
     this.emojiSize = 30,
-  });
+  }) : assert(emoji != null || icon != null);
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +34,14 @@ class FxEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(emoji, style: TextStyle(fontSize: emojiSize)),
+          if (icon != null)
+            Icon(
+              icon,
+              size: emojiSize,
+              color: theme.colorScheme.onSurfaceVariant,
+            )
+          else
+            Text(emoji!, style: TextStyle(fontSize: emojiSize)),
           const SizedBox(height: 8),
           Text(
             title,

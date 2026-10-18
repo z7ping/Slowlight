@@ -823,54 +823,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _settingLine(String title, String subtitle, {Widget? trailing}) {
     final theme = Theme.of(context);
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    final stackTrailing =
-        trailing != null &&
-        scale >= 1.6 &&
-        MediaQuery.sizeOf(context).width < 520;
-    final copy = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: SlowlightTypography.secondary(
-            context,
-          ).copyWith(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          style: SlowlightTypography.caption(
-            context,
-          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-    return Container(
-      constraints: const BoxConstraints(minHeight: 52),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: fxDivider(context))),
-      ),
-      child:
-          trailing == null
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        // 根据该设置行的真实内容宽度折行，不读取整机屏幕宽度。
+        final stackTrailing =
+            trailing != null &&
+            (constraints.maxWidth < 360 ||
+                (scale >= 1.6 && constraints.maxWidth < 520));
+        final copy = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: SlowlightTypography.secondary(
+                context,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: SlowlightTypography.caption(
+                context,
+              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        );
+        return Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: fxDivider(context))),
+          ),
+          child: trailing == null
               ? copy
               : stackTrailing
               ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  copy,
-                  const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerRight, child: trailing),
-                ],
-              )
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    copy,
+                    const SizedBox(height: 8),
+                    Align(alignment: Alignment.centerRight, child: trailing),
+                  ],
+                )
               : Row(
-                children: [
-                  Expanded(child: copy),
-                  const SizedBox(width: 10),
-                  trailing,
-                ],
-              ),
+                  children: [
+                    Expanded(child: copy),
+                    const SizedBox(width: 10),
+                    trailing,
+                  ],
+                ),
+        );
+      },
     );
   }
 

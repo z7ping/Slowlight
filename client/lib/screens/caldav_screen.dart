@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -9,6 +10,26 @@ class CalDAVScreen extends StatefulWidget {
 
   @override
   State<CalDAVScreen> createState() => _CalDAVScreenState();
+}
+
+/// 保留旧 CalDAV 表单的验证语义；视觉统一不应削弱校验。
+abstract final class CalDavFormValidation {
+  static String? serverUrl(String value) {
+    if (value.trim().isEmpty) return '请输入服务器地址';
+    if (!value.startsWith('http://') && !value.startsWith('https://')) {
+      return '请输入有效地址（以 http:// 或 https:// 开头）';
+    }
+    return null;
+  }
+
+  static String? username(String value) =>
+      value.trim().isEmpty ? '请输入用户名' : null;
+
+  static String? password(String value) =>
+      value.isEmpty ? '请输入密码或访问令牌' : null;
+
+  static String? paths(String value) =>
+      value.trim().isEmpty ? '请至少输入一个项目路径' : null;
 }
 
 class _CalDAVScreenState extends State<CalDAVScreen> {
@@ -233,39 +254,39 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('CalDAV 同步'),
-        elevation: 0,
-        actions: [
-          if (_configured)
-            FxIconButton(
-              icon: Icons.sync,
-              onPressed: _syncNow,
-              tooltip: '立即同步',
+      body: SafeArea(
+        child: Column(
+          children: [
+            FxPageHeader(
+              title: 'CalDAV 同步',
+              actionIcon: _configured ? Icons.sync : null,
+              actionTooltip: '立即同步',
+              onAction: _configured ? _syncNow : null,
             ),
-        ],
+            Expanded(
+              child: _loading
+                  ? const Center(child: FxCircularProgress())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInfoCard(),
+                          const SizedBox(height: 16),
+                          _buildConfigForm(),
+                          const SizedBox(height: 16),
+                          if (_configured) _buildStatusCard(),
+                          if (_lastError != null) ...[
+                            const SizedBox(height: 16),
+                            _buildErrorCard(),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body:
-          _loading
-              ? const Center(child: FxCircularProgress())
-              : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoCard(),
-                    const SizedBox(height: 16),
-                    _buildConfigForm(),
-                    const SizedBox(height: 16),
-                    if (_configured) _buildStatusCard(),
-                    if (_lastError != null) ...[
-                      const SizedBox(height: 16),
-                      _buildErrorCard(),
-                    ],
-                  ],
-                ),
-              ),
     );
   }
 
@@ -446,6 +467,48 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
     );
   }
 
+  /// 原生 FormField 保留 Form.validate() 规则；视觉交给现有 FxInput。
+  Widget _validatedInput({
+    required TextEditingController controller,
+    required String label,
+    required String placeholder,
+    required String? Function(String value) validate,
+    IconData? icon,
+    Widget? trailing,
+    bool obscureText = false,
+    int maxLines = 1,
+  }) {
+    return FormField<String>(
+      validator: (_) => validate(controller.text),
+      builder: (field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FxInput(
+            controller: controller,
+            label: label,
+            placeholder: placeholder,
+            enabled: !_saving && !_testing,
+            leading: icon == null ? null : Icon(icon, size: SlowlightIconSize.md),
+            trailing: trailing,
+            obscureText: obscureText,
+            minLines: maxLines,
+            maxLines: maxLines,
+            onChanged: field.didChange,
+          ),
+          if (field.hasError) ...[
+            const SizedBox(height: SlowlightSpacing.xs),
+            Text(
+              field.errorText!,
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildConfigForm() {
     return FxCard(
       child: Padding(
@@ -453,123 +516,68 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                '连接配置',
-                style: TextStyle(
-                  fontSize: SlowlightTypography.buttonSize,
-                  height: 1.3,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text('连接配置', style: SlowlightTypography.cardTitle(context)),
               const SizedBox(height: 16),
-              TextFormField(
+              _validatedInput(
                 controller: _baseUrlController,
-                decoration: const InputDecoration(
-                  labelText: '服务器地址',
-                  hintText: 'https://vikunja.example.com',
-                  prefixIcon: Icon(Icons.link),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '请输入服务器地址';
-                  }
-                  if (!value.startsWith('http://') &&
-                      !value.startsWith('https://')) {
-                    return '请输入有效地址（以 http:// 或 https:// 开头）';
-                  }
-                  return null;
-                },
+                label: '服务器地址',
+                placeholder: 'https://vikunja.example.com',
+                icon: LucideIcons.link2,
+                validate: CalDavFormValidation.serverUrl,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _validatedInput(
                 controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: '用户名',
-                  hintText: '输入 CalDAV 用户名',
-                  prefixIcon: Icon(Icons.person),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '请输入用户名';
-                  }
-                  return null;
-                },
+                label: '用户名',
+                placeholder: '输入 CalDAV 用户名',
+                icon: LucideIcons.user,
+                validate: CalDavFormValidation.username,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _validatedInput(
                 controller: _passwordController,
+                label: '密码 / 访问令牌',
+                placeholder: '输入密码或访问令牌',
+                icon: LucideIcons.lock,
                 obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: '密码 / 访问令牌',
-                  hintText: '输入密码或访问令牌',
-                  prefixIcon: const Icon(Icons.lock),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: FxIconButton(
-                    icon:
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                    tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                    onPressed:
-                        () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
+                trailing: FxIconButton(
+                  icon: _obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff,
+                  tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+                  onPressed: () => setState(
+                    () => _obscurePassword = !_obscurePassword,
                   ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '请输入密码或访问令牌';
-                  }
-                  return null;
-                },
+                validate: CalDavFormValidation.password,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _validatedInput(
                 controller: _pathsController,
+                label: '项目路径（每行一个）',
+                placeholder: '/dav/projects/5\n/dav/projects/8',
+                icon: LucideIcons.folder,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: '项目路径（每行一个）',
-                  hintText: '/dav/projects/5\n/dav/projects/8',
-                  prefixIcon: Icon(Icons.folder),
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '请至少输入一个项目路径';
-                  }
-                  return null;
-                },
+                validate: CalDavFormValidation.paths,
               ),
               const SizedBox(height: 8),
               Text(
                 '格式：/dav/projects/{项目ID}，可在 Vikunja 项目设置中查看',
-                style: TextStyle(
-                  fontSize: SlowlightTypography.captionSize,
-                  height: 1.4,
+                style: SlowlightTypography.caption(context).copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: FxButton(
-                      label: '测试连接',
-                      onPressed: _testing ? null : _testConnection,
-                      variant: FxButtonVariant.outline,
-                    ),
+              FxDialogActions(
+                actions: [
+                  FxButton(
+                    label: '测试连接',
+                    onPressed: _testing || _saving ? null : _testConnection,
+                    variant: FxButtonVariant.outline,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FxButton(
-                      label: '保存配置',
-                      onPressed: _saving ? null : _saveConfig,
-                    ),
+                  FxButton(
+                    label: '保存配置',
+                    onPressed: _testing || _saving ? null : _saveConfig,
                   ),
                 ],
               ),

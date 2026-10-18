@@ -281,7 +281,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               task['completed_at']?.toString().isNotEmpty == true
                   ? task['completed_at'].toString()
                   : '今天',
-          title: '✅ 完成「${task['title'] ?? ''}」',
+          title: '完成「${task['title'] ?? ''}」',
           note:
               (task['list_name']?.toString() ?? '').isEmpty
                   ? null
@@ -466,23 +466,12 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           ),
                         ] else ...[
                           const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).scaffoldBackgroundColor,
-                              border: Border.all(
-                                color: theme.colorScheme.outlineVariant,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                SlowlightRadius.md,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: FxInput(
-                              controller: _controllerFor(question),
-                              placeholder: '直接在这里写下你的回应…',
-                              maxLines: 4,
-                              style: SlowlightTypography.body(context),
-                            ),
+                          // FxInput 自带表面、焦点边框，不叠加第二层容器边框。
+                          FxInput(
+                            controller: _controllerFor(question),
+                            placeholder: '直接在这里写下你的回应…',
+                            maxLines: 4,
+                            style: SlowlightTypography.body(context),
                           ),
                           const SizedBox(height: 6),
                           Align(

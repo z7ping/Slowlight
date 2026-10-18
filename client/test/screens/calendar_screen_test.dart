@@ -183,6 +183,23 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('01 Android 窄屏可切换月格筛选，日明细仍展示完整事实', (tester) async {
+    await pumpCalendar(tester, width: 360);
+
+    expect(find.text('月格筛选'), findsOneWidget);
+    expect(find.text('计划'), findsOneWidget);
+    await tester.tap(find.text('计划').first);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('calendar-record-habit-read')),
+        findsOneWidget);
+    expect(find.text('计划与实际 · 共 4 条完整记录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('窄屏仍可浏览月格和当日列表', (tester) async {
     await pumpCalendar(tester, width: 420);
 
@@ -202,6 +219,7 @@ void main() {
     );
 
     expect(find.text('2026 年 8 月'), findsOneWidget);
+    expect(find.text('计划'), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-scroll-view')), findsOneWidget);
 
     await tester.scrollUntilVisible(

@@ -461,6 +461,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 : '准备专注')
             : (_sessionType == 'long_break' ? '长休息' : '休息中');
     final quietOpacity = _running ? .4 : 1.0;
+    // 专注刻度盘根据真实宽度与文字缩放适度伸展，不再固定 220dp。
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final availableWidth = MediaQuery.sizeOf(context).width - 48;
+    final desired = 220.0 + (scale - 1).clamp(0.0, 1.0).toDouble() * 64.0;
+    final dialSize = desired > availableWidth ? availableWidth : desired;
 
     return Center(
       child: SingleChildScrollView(
@@ -489,8 +494,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             ),
             const SizedBox(height: 24),
             SizedBox(
-              width: 220,
-              height: 220,
+              key: const ValueKey('pomodoro-dial'),
+              width: dialSize,
+              height: dialSize,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -506,12 +512,19 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _format(_remainingSeconds),
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          fontSize: SlowlightTypography.displaySize,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _format(_remainingSeconds),
+                            maxLines: 1,
+                            style: theme.textTheme.displaySmall?.copyWith(
+                              fontSize: SlowlightTypography.displaySize,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 2),

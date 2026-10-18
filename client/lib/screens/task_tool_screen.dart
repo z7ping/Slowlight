@@ -181,21 +181,13 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                         child:
                             _visible.isEmpty
                                 ? FxEmptyState(
-                                  emoji: '🍃',
+                                  icon: LucideIcons.listTodo,
                                   title:
                                       _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
                                   subtitle:
                                       _segment == 0
                                           ? '今天可以从一件真正想推进的事开始'
                                           : '切换其他筛选看看',
-                                  action:
-                                      _segment == 0
-                                          ? FxButton(
-                                            label: '新建任务',
-                                            variant: FxButtonVariant.secondary,
-                                            onPressed: _create,
-                                          )
-                                          : null,
                                 )
                                 : Column(
                                   children: _visible
@@ -271,17 +263,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Widget _emptyState() => FxEmptyState(
-    emoji: '🍃',
+    icon: LucideIcons.listTodo,
     title: _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
     subtitle: _segment == 0 ? '今天可以从一件真正想推进的事开始' : '切换其他筛选看看',
-    action:
-        _segment == 0
-            ? FxButton(
-              label: '新建任务',
-              variant: FxButtonVariant.secondary,
-              onPressed: _create,
-            )
-            : null,
   );
 
   Widget _desktopEmptyDetail() {
@@ -369,13 +353,20 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             child: Container(
                               color: AppTheme.warning,
                               alignment: Alignment.center,
-                              child: const Text(
-                                '⏱ 顺延',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: SlowlightTypography.captionSize,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(LucideIcons.clock3, size: 14, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '顺延',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: SlowlightTypography.captionSize,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -386,13 +377,20 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             child: Container(
                               color: AppTheme.success,
                               alignment: Alignment.center,
-                              child: const Text(
-                                '✓ 完成',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: SlowlightTypography.captionSize,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(LucideIcons.check, size: 14, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    '完成',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: SlowlightTypography.captionSize,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
