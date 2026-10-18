@@ -90,3 +90,25 @@ class ReviewTimelineItem extends StatelessWidget {
     );
   }
 }
+
+ 
+/// 时间已知的事实按发生时刻排列；只有“今天”的汇总放在最后。
+int compareReviewTimelineItems(ReviewTimelineItem a, ReviewTimelineItem b) {
+  int? minutes(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null ||
+        hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return hour * 60 + minute;
+  }
+
+  final first = minutes(a.time);
+  final second = minutes(b.time);
+  if (first == null) return second == null ? 0 : 1;
+  if (second == null) return -1;
+  return first.compareTo(second);
+}
