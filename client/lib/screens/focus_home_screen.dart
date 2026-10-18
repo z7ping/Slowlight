@@ -420,12 +420,6 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                   tooltip: '写下观察',
                   onPressed: _writeObservation,
                 ),
-                FxIconButton(
-                  icon: LucideIcons.plus,
-                  iconSize: 20,
-                  tooltip: '记录任务',
-                  onPressed: _quickAdd,
-                ),
               ],
               const SizedBox(width: 4),
             ],
