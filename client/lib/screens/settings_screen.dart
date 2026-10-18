@@ -43,7 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   AiConfig _ai = const AiConfig();
   bool _hasKey = false;
   int _conflictCount = 0;
-  bool _conflictCheckFailed = false;
+  // 首次查询完成前不能把未知冲突状态宣称为正常。
+  bool _conflictCheckFailed = true;
   SyncStatusEnum? _observedSyncStatus;
 
   bool get _reminderSupported =>
