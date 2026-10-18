@@ -36,10 +36,10 @@ void main() {
       });
     }
 
-    testWidgets('移动端保留可拖动的悬浮快速添加任务入口', (tester) async {
+    testWidgets('移动端只保留悬浮快速添加任务主入口', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
       expect(fxTooltipFinder('快速记录任务（按住可拖动）'), findsOneWidget);
-      expect(fxTooltipFinder('记录任务'), findsOneWidget);
+      expect(fxTooltipFinder('记录任务'), findsNothing);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
