@@ -12,6 +12,7 @@ import '../services/sync_service.dart';
 import '../services/theme_settings.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
+import '../ui/sync_status_text.dart';
 import 'conflict_screen.dart';
 import 'integration_screen.dart';
 import 'login_screen.dart';
@@ -237,16 +238,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _dataSummary() {
     if (DataModeManager().isLocal) return '本地优先 · 仅保存在设备';
     final sync = SyncService();
-    if (_syncing || sync.status == SyncStatusEnum.syncing) {
-      return '云同步 · 同步中…';
-    }
-    if (_conflictCheckFailed) return '云同步 · 冲突状态待确认';
-    if (_conflictCount > 0) return '云同步 · $_conflictCount 个冲突待处理';
-    if (sync.status == SyncStatusEnum.error) return '云同步 · 同步失败';
-    final pending = sync.pendingCount +
-        CloudSyncCoordinator().standalonePendingCount.value;
-    if (pending > 0) return '云同步 · $pending 项待同步';
-    return '云同步 · 当前无待处理项';
+    return cloudSyncSummary(
+      status: sync.status,
+      isSyncing: _syncing,
+      conflictCheckFailed: _conflictCheckFailed,
+      conflictCount: _conflictCount,
+      pendingCount: sync.pendingCount +
+          CloudSyncCoordinator().standalonePendingCount.value,
+    );
   }
 
   String _aiSummary() {
