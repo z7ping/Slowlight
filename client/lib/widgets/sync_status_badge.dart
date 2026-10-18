@@ -42,14 +42,17 @@ class SyncStatusBadge extends StatelessWidget {
               builder: (context, standalonePending, _) {
                 final pending = sync.pendingCount + standalonePending;
                 final status = sync.status;
-
-                if (!showHealthy &&
-                    pending == 0 &&
-                    status != SyncStatusEnum.error) {
-                  return const SizedBox.shrink();
-                }
-
-                return FxGestureDetector(
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: sync.getAllConflicts(),
+                  builder: (context, snapshot) {
+                    final conflicts = snapshot.data ?? const [];
+                    if (!showHealthy &&
+                        pending == 0 &&
+                        conflicts.isEmpty &&
+                        status != SyncStatusEnum.error) {
+                      return const SizedBox.shrink();
+                    }
+                    return FxGestureDetector(
                   onTap: () => _showDetail(context, sync, pending),
                   child: _statusPill(
                     context,
@@ -57,10 +60,18 @@ class SyncStatusBadge extends StatelessWidget {
                         status == SyncStatusEnum.error
                             ? Icons.cloud_off
                             : Icons.cloud_queue,
-                    text: pending > 0 ? '$pending 待同步' : _getStatusText(status),
+                    text: status == SyncStatusEnum.error
+                        ? '同步失败'
+                        : conflicts.isNotEmpty
+                            ? '${conflicts.length} 个冲突'
+                            : pending > 0
+                                ? '$pending 待同步'
+                                : _getStatusText(status),
                     color: _getColor(status, context),
                     loading: status == SyncStatusEnum.syncing,
                   ),
+                    );
+                  },
                 );
               },
             );
@@ -160,7 +171,7 @@ class SyncStatusBadge extends StatelessWidget {
                       ),
                     ),
                   FutureBuilder<List<Map<String, dynamic>>>(
-                    future: sync.getConflicts('tasks'),
+                    future: sync.getAllConflicts(),
                     builder: (ctx, snap) {
                       final conflicts = snap.data ?? [];
                       if (conflicts.isEmpty) return const SizedBox.shrink();
@@ -199,7 +210,12 @@ class SyncStatusBadge extends StatelessWidget {
                         Navigator.pop(ctx);
                         await CloudSyncCoordinator().syncNow();
                         if (context.mounted) {
-                          FxNotice.showContent(context, Text('手动同步已触发'));
+                          FxNotice.showContent(
+                            context,
+                            Text(SyncService().status == SyncStatusEnum.error
+                                ? '同步未完成，请查看错误与冲突'
+                                : '同步请求已执行，请检查待同步数量'),
+                          );
                         }
                       },
                     ),
