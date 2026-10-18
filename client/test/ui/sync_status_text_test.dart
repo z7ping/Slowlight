@@ -31,6 +31,10 @@ void main() {
       label(status: SyncStatusEnum.error),
       '云同步 · 同步失败',
     );
+    expect(
+      label(status: SyncStatusEnum.error, unknown: true),
+      '云同步 · 同步失败',
+    );
   });
 
   test('待同步与正在同步状态有明确反馈', () {
