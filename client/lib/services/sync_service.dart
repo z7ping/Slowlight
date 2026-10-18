@@ -780,8 +780,10 @@ class SyncService extends ChangeNotifier {
             where: 'entity_type = ? AND entity_local_id = ?',
             whereArgs: [entityType, entityLocalId],
             orderBy: 'id DESC', limit: 1);
-        final operation = queued.isNotEmpty &&
-                queued.first['operation'] == 'delete' ? 'delete' : 'update';
+        final operation = local['deleted_at'] != null ||
+                (queued.isNotEmpty && queued.first['operation'] == 'delete')
+            ? 'delete'
+            : 'update';
         // 原始 delete 不能被错误替换为 update。
         // enqueue 会更新已有队列记录：不先删除，避免重建失败时丢失操作。
         if (entityType == 'habit_logs' && operation != 'create') {
