@@ -235,11 +235,11 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Widget _mobile() => Column(
     children: [
-      _dimensionCard(),
-      const SizedBox(height: 12),
       _taskCard(maxItems: 2, mobile: true),
       const SizedBox(height: 12),
       _habitCard(maxItems: 2, mobile: true),
+      const SizedBox(height: 12),
+      _dimensionCard(),
       const SizedBox(height: 12),
       _questionCard(),
       const SizedBox(height: 12),
