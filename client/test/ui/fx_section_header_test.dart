@@ -139,16 +139,22 @@ void main() {
             textScaler: TextScaler.linear(2),
           ),
           child: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(16),
-              child: FxSectionHeader(
-                title: '今日任务',
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                // 测试真实窄屏卡片约束，避免仅改变 MediaQuery.size。
+                width: 328,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: FxSectionHeader(
+                    title: '今日任务',
                 trailing: '3/5 已完成',
                 trailingWidget: FxButton(
                   label: '查看全部',
                   variant: FxButtonVariant.ghost,
                   size: FxButtonSize.sm,
                   onPressed: () {},
+                  ),
                 ),
               ),
             ),
