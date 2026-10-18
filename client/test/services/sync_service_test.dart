@@ -242,6 +242,43 @@ void main() {
         .single['sync_status'], 'pending');
   });
 
+  test('不支持 HabitLog 合并时保持原冲突内容不变', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final habitId = await db.insert('habits', {
+      'server_id': 41,
+      'name': '阅读',
+      'created_at': now,
+      'updated_at': now,
+    });
+    final logId = await db.insert('habit_logs', {
+      'server_id': 42,
+      'habit_id': habitId,
+      'date': '2026-10-18',
+      'note': '本地记录',
+      'created_at': now,
+      'sync_status': 'conflict',
+    });
+
+    final resolved = await SyncService().resolveConflict(
+      logId,
+      entityType: 'habit_logs',
+      strategy: ConflictStrategy.merge,
+      serverVersion: {
+        'id': 42,
+        'habit_id': 41,
+        'date': '2026-10-18',
+        'note': '云端记录',
+      },
+    );
+    expect(resolved, isFalse);
+    final row = (await db.query('habit_logs',
+        where: 'id = ?', whereArgs: [logId])).single;
+    expect(row['sync_status'], 'conflict');
+    expect(row['note'], '本地记录');
+  });
+
   test('保留既有 SyncService 公开能力', () {
     final sync = SyncService();
     expect(sync.detectConflict, isA<Function>());
