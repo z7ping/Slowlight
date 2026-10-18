@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -294,8 +292,9 @@ class _DashboardBodyState extends State<DashboardBody> {
     final theme = Theme.of(context);
     final color = _parseColor(item['color']?.toString());
     final active = _activeDays(item);
+    final activeCount = _lastSevenDays().where((day) => active.contains(_dateKey(day))).length;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .06),
         border: Border.all(color: color.withValues(alpha: .18)),
@@ -311,14 +310,24 @@ class _DashboardBodyState extends State<DashboardBody> {
               ).copyWith(fontWeight: FontWeight.w600),
             ),
           ),
-          if (compact)
+          if (compact) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: FxProgress(
+                value: activeCount / 7,
+                height: 6,
+                color: color,
+                backgroundColor: color.withValues(alpha: .12),
+              ),
+            ),
+            const SizedBox(width: 8),
             Text(
-              '${active.length}/7 天',
+              '$activeCount/7 天',
               style: SlowlightTypography.caption(
                 context,
               ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-            )
-          else
+            ),
+          ] else
             ..._lastSevenDays().map(
               (day) => Container(
                 width: 7,
@@ -511,7 +520,9 @@ class _DashboardBodyState extends State<DashboardBody> {
         children: [
           FxSectionHeader(
             title: '习惯',
-            trailing: '$checked/${widget.habits.length} 已打卡',
+            trailing: widget.habits.isEmpty
+                ? '暂无习惯'
+                : '$checked/${widget.habits.length} 已打卡',
             trailingWidget:
                 widget.onViewAllHabits == null
                     ? null
@@ -523,7 +534,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                     ),
           ),
           if (visible.isEmpty)
-            _empty('还没有习惯记录')
+            _empty('还没有习惯记录', compact: mobile)
           else
             ...visible.map((habit) => _habitRow(habit, mobile)),
         ],
@@ -625,6 +636,7 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Widget _focusCard() {
     final theme = Theme.of(context);
+    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     final count = (_facts['focus_count'] as num?)?.toInt() ?? 0;
     final minutes = (_facts['focus_minutes'] as num?)?.toInt() ?? 0;
     return _card(
@@ -659,70 +671,59 @@ class _DashboardBodyState extends State<DashboardBody> {
               icon: LucideIcons.timer,
               variant: FxButtonVariant.outline,
               size: FxButtonSize.sm,
-              expanded: true,
               onPressed: widget.onStartFocus,
             ),
           ],
         ],
       ),
+      padding: EdgeInsets.all(mobile ? 12 : 16),
     );
   }
 
   Widget _questionCard() {
     final theme = Theme.of(context);
+    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     final visible = _insights
         .where((item) => !_ignored.contains(item.id))
         .take(1)
         .toList(growable: false);
     final insight = visible.isEmpty ? null : visible.first;
-    return FxInkWell(
-      borderRadius: BorderRadius.circular(SlowlightRadius.lg),
-      onTap: insight == null ? null : () => _respond(insight),
-      child: CustomPaint(
-        painter: _DashedBorderPainter(
-          color: fxDivider(context),
-          radius: SlowlightRadius.lg,
-        ),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: fxSurface(context),
-            borderRadius: BorderRadius.circular(SlowlightRadius.lg),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FxChip(
-                label: '今日提问',
-                backgroundColor: activePalette.accent.withValues(alpha: .12),
-                foregroundColor: activePalette.accent,
-                borderRadius: 999,
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    return _card(
+      FxInkWell(
+        borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+        onTap: insight == null ? null : () => _respond(insight),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FxChip(
+              label: '今日提问',
+              backgroundColor: activePalette.accent.withValues(alpha: .12),
+              foregroundColor: activePalette.accent,
+              borderRadius: SlowlightRadius.pill,
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              insight?.content ?? '今天暂时没有特别需要关注的变化。',
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: SlowlightTypography.secondary(context).copyWith(
+                fontWeight: insight == null ? FontWeight.w400 : FontWeight.w600,
               ),
+            ),
+            if (insight != null) ...[
               const SizedBox(height: 8),
               Text(
-                insight?.content ?? '今天暂时没有特别需要关注的变化。',
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  fontWeight:
-                      insight == null ? FontWeight.w400 : FontWeight.w600,
-                ),
+                '点击去回应 →',
+                style: SlowlightTypography.caption(
+                  context,
+                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
-              if (insight != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '点击去回应 →',
-                  style: SlowlightTypography.caption(
-                    context,
-                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       ),
+      padding: EdgeInsets.all(mobile ? 12 : 16),
     );
   }
 
@@ -742,8 +743,8 @@ class _DashboardBodyState extends State<DashboardBody> {
     }
   }
 
-  Widget _empty(String text) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 14),
+  Widget _empty(String text, {bool compact = false}) => Padding(
+    padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
     child: Text(
       text,
       style: SlowlightTypography.secondary(
@@ -952,34 +953,3 @@ class _SwipeAction extends StatelessWidget {
   }
 }
 
-class _DashedBorderPainter extends CustomPainter {
-  final Color color;
-  final double radius;
-
-  const _DashedBorderPainter({required this.color, required this.radius});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1;
-    final path =
-        Path()..addRRect(
-          RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
-        );
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final end = math.min(distance + 5, metric.length).toDouble();
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance += 9;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.radius != radius;
-}
