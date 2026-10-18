@@ -241,6 +241,13 @@ class SyncService extends ChangeNotifier {
         return false;
       }
       await pullFromServer();
+      final unresolved = await getAllConflicts();
+      if (unresolved.isNotEmpty) {
+        _status = SyncStatusEnum.error;
+        _lastError = '仍有 ${unresolved.length} 项同步冲突待处理';
+        notifyListeners();
+        return false;
+      }
       _status = SyncStatusEnum.idle;
       notifyListeners();
       return true;
@@ -808,6 +815,8 @@ class SyncService extends ChangeNotifier {
         return true;
       }
 
+      // HabitLog 不支持远端 update；拒绝前不可修改本地冲突记录。
+      if (entityType == 'habit_logs') return false;
       final merged = _merge(entityType, local, remote);
       await db.update(
         entityType,
@@ -821,7 +830,6 @@ class SyncService extends ChangeNotifier {
         where: 'id = ?',
         whereArgs: [entityLocalId],
       );
-      if (entityType == 'habit_logs') return false;
       await enqueue(
         entityType: entityType,
         entityLocalId: entityLocalId,
