@@ -163,6 +163,8 @@ class _ConflictScreenState extends State<ConflictScreen> {
         '记录';
     final entityType = preview.entityType;
     final id = local['id'] as int?;
+    final hasServerId = (local['server_id'] as int? ?? 0) > 0;
+    final canKeepLocal = hasServerId && entityType != 'habit_logs';
     final mobile = MediaQuery.sizeOf(context).width < 700;
 
     final localCard = _versionCard(
@@ -225,6 +227,16 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   ],
                 ),
               const SizedBox(height: 12),
+              if (!hasServerId || entityType == 'habit_logs')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    !hasServerId
+                        ? '缺少服务端记录 ID：为避免重复创建，暂不支持直接覆盖，请先核对云端记录。'
+                        : '习惯记录不支持远端覆盖写入；可以使用服务端版本，或保留本地数据稍后处理。',
+                    style: SlowlightTypography.secondary(context),
+                  ),
+                ),
               Wrap(
                 alignment: WrapAlignment.end,
                 spacing: 8,
@@ -234,7 +246,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                     label: '保留本地版本',
                     variant: FxButtonVariant.outline,
                     onPressed:
-                        id == null
+                        id == null || !canKeepLocal
                             ? null
                             : () => _resolveConflict(
                                 id, entityType: entityType, keepLocal: true,
