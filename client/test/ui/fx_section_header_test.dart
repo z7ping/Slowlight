@@ -142,18 +142,19 @@ void main() {
             body: Align(
               alignment: Alignment.topLeft,
               child: SizedBox(
-                // 测试真实窄屏卡片约束，避免仅改变 MediaQuery.size。
+                // MediaQuery.size 不会约束测试视口；模拟实际 360dp 的卡片宽度。
                 width: 328,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: FxSectionHeader(
                     title: '今日任务',
-                trailing: '3/5 已完成',
-                trailingWidget: FxButton(
-                  label: '查看全部',
-                  variant: FxButtonVariant.ghost,
-                  size: FxButtonSize.sm,
-                  onPressed: () {},
+                    trailing: '3/5 已完成',
+                    trailingWidget: FxButton(
+                      label: '查看全部',
+                      variant: FxButtonVariant.ghost,
+                      size: FxButtonSize.sm,
+                      onPressed: () {},
+                    ),
                   ),
                 ),
               ),
