@@ -28,18 +28,26 @@ class _ConflictScreenState extends State<ConflictScreen> {
 
   Future<void> _loadConflicts() async {
     if (mounted) setState(() => _loading = true);
-    final rows = await _sync.getConflicts('tasks');
+    final rows = await _sync.getAllConflicts();
     final previews = <_ConflictPreview>[];
     for (final local in rows) {
+      final type = local['_entity_type'] as String;
       Map<String, dynamic>? remote;
       final serverId = local['server_id'] as int?;
       if (serverId != null && serverId > 0) {
         try {
-          final task = await TaskApi.getTask(serverId);
-          remote = _taskPreview(task);
-        } catch (_) {}
+          if (type == 'tasks') {
+            remote = _taskPreview(await TaskApi.getTask(serverId));
+          } else {
+            remote = await _sync.fetchConflictRemote(type, local);
+          }
+        } catch (_) {
+          // 离线时仍显示本地冲突，不伪装成无冲突。
+        }
       }
-      previews.add(_ConflictPreview(local: local, remote: remote));
+      previews.add(_ConflictPreview(
+        entityType: type, local: local, remote: remote,
+      ));
     }
     if (!mounted) return;
     setState(() {
@@ -113,7 +121,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '同一条任务在本机和服务端都发生了修改。请选择要保留的版本，处理后会继续同步。',
+                  '本地与服务端记录存在冲突。请比较版本并选择保留哪一侧；无法读取服务端时不会自动覆盖。',
                   style: SlowlightTypography.secondary(
                     context,
                   ).copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -149,15 +157,23 @@ class _ConflictScreenState extends State<ConflictScreen> {
   Widget _conflictCard(_ConflictPreview preview, ThemeData theme) {
     final local = preview.local;
     final remote = preview.remote;
-    final title = local['title']?.toString() ?? '未知任务';
+    final title = local['title']?.toString() ??
+        local['name']?.toString() ??
+        local['date']?.toString() ??
+        '记录';
+    final entityType = preview.entityType;
     final id = local['id'] as int?;
+    final hasServerId = (local['server_id'] as int? ?? 0) > 0;
+    final canKeepLocal = hasServerId && entityType != 'habit_logs';
     final mobile = MediaQuery.sizeOf(context).width < 700;
 
-    final localCard = _versionCard(title: '本地版本', data: local, accent: true);
+    final localCard = _versionCard(
+      title: '本地版本', data: local, accent: true,
+      entityType: entityType,
+    );
     final remoteCard = _versionCard(
-      title: '服务端版本',
-      data: remote,
-      accent: false,
+      title: '服务端版本', data: remote, accent: false,
+      entityType: entityType,
     );
 
     return Center(
@@ -180,7 +196,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      title,
+                      '${_entityTypeName(entityType)} · $title',
                       style: SlowlightTypography.cardTitle(context),
                     ),
                   ),
@@ -211,6 +227,16 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   ],
                 ),
               const SizedBox(height: 12),
+              if (!hasServerId || entityType == 'habit_logs')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    !hasServerId
+                        ? '缺少服务端记录 ID：为避免重复创建，暂不支持直接覆盖，请先核对云端记录。'
+                        : '习惯记录不支持远端覆盖写入；可以使用服务端版本，或保留本地数据稍后处理。',
+                    style: SlowlightTypography.secondary(context),
+                  ),
+                ),
               Wrap(
                 alignment: WrapAlignment.end,
                 spacing: 8,
@@ -220,16 +246,20 @@ class _ConflictScreenState extends State<ConflictScreen> {
                     label: '保留本地版本',
                     variant: FxButtonVariant.outline,
                     onPressed:
-                        id == null
+                        id == null || !canKeepLocal
                             ? null
-                            : () => _resolveConflict(id, keepLocal: true),
+                            : () => _resolveConflict(
+                                id, entityType: entityType, keepLocal: true,
+                              ),
                   ),
                   FxButton(
                     label: '使用服务端版本',
                     onPressed:
                         id == null || remote == null
                             ? null
-                            : () => _resolveConflict(id, keepLocal: false),
+                            : () => _resolveConflict(
+                                id, entityType: entityType, keepLocal: false,
+                              ),
                   ),
                 ],
               ),
@@ -244,6 +274,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     required String title,
     required Map<String, dynamic>? data,
     required bool accent,
+    required String entityType,
   }) {
     final theme = Theme.of(context);
     return Container(
@@ -281,17 +312,25 @@ class _ConflictScreenState extends State<ConflictScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _field('标题', data['title']),
-                  _field('描述', data['description']),
-                  _field('优先级', _priorityLabel(data['priority']?.toString())),
-                  _field('日期', _dateText(data['due_date'])),
-                  _field('时间', data['due_time']),
-                  _field(
-                    '状态',
-                    data['is_completed'] == 1 || data['is_completed'] == true
-                        ? '已完成'
-                        : '未完成',
-                  ),
+                  if (entityType == 'tasks') ...[
+                    _field('标题', data['title']),
+                    _field('描述', data['description']),
+                    _field('优先级', _priorityLabel(data['priority']?.toString())),
+                    _field('日期', _dateText(data['due_date'])),
+                    _field('时间', data['due_time']),
+                    _field(
+                      '状态',
+                      data['is_completed'] == 1 || data['is_completed'] == true
+                          ? '已完成'
+                          : '未完成',
+                    ),
+                  ] else
+                    for (final entry in data.entries)
+                      if (!{
+                        'id', 'server_id', 'sync_status', 'version',
+                        'device_id', 'last_modified', '_entity_type',
+                      }.contains(entry.key))
+                        _field(_attributeName(entry.key), entry.value),
                 ],
               ),
     );
@@ -338,17 +377,55 @@ class _ConflictScreenState extends State<ConflictScreen> {
     return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _resolveConflict(int localId, {required bool keepLocal}) async {
-    await _sync.resolveConflict(localId, keepLocal: keepLocal);
+  String _entityTypeName(String type) => switch (type) {
+    'tasks' => '任务',
+    'lists' => '清单',
+    'tags' => '标签',
+    'system_tags' => '观察标签',
+    'habits' => '习惯',
+    'habit_logs' => '习惯记录',
+    _ => type,
+  };
+
+  String _attributeName(String name) => switch (name) {
+    'name' => '名称',
+    'date' => '日期',
+    'period' => '时间段',
+    'duration_min' => '时长',
+    'note' => '备注',
+    'color' => '颜色',
+    'frequency' => '频率',
+    'dimension_key' => '维度',
+    'deleted_at' => '删除时间',
+    _ => name,
+  };
+
+  Future<void> _resolveConflict(int localId, {
+    required String entityType,
+    required bool keepLocal,
+  }) async {
+    final resolved = await _sync.resolveConflict(
+      localId, entityType: entityType, keepLocal: keepLocal,
+    );
     if (!mounted) return;
-    FxNotice.showContent(context, Text(keepLocal ? '已保留本地版本' : '已使用服务端版本'));
+    FxNotice.showContent(
+      context,
+      Text(resolved
+          ? (keepLocal ? '已保留本地版本，等待同步' : '已使用服务端版本')
+          : '处理失败，数据已保留，请稍后重试'),
+    );
     await _loadConflicts();
   }
 }
 
 class _ConflictPreview {
+  final String entityType;
   final Map<String, dynamic> local;
   final Map<String, dynamic>? remote;
 
-  const _ConflictPreview({required this.local, required this.remote});
+  const _ConflictPreview({
+    required this.entityType,
+    required this.local,
+    required this.remote,
+  });
 }

@@ -228,11 +228,26 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
     try {
       final db = await _db.database;
+      String? firstFailure;
       for (final item in await _orderedQueue(db, 50)) {
-        await _processQueueItem(db, item);
+        final failure = await _processQueueItem(db, item);
+        firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
+      if (firstFailure != null) {
+        _status = SyncStatusEnum.error;
+        _lastError = '部分记录未同步：$firstFailure';
+        notifyListeners();
+        return false;
+      }
       await pullFromServer();
+      final unresolved = await getAllConflicts();
+      if (unresolved.isNotEmpty) {
+        _status = SyncStatusEnum.error;
+        _lastError = '仍有 ${unresolved.length} 项同步冲突待处理';
+        notifyListeners();
+        return false;
+      }
       _status = SyncStatusEnum.idle;
       notifyListeners();
       return true;
@@ -255,14 +270,26 @@ class SyncService extends ChangeNotifier {
         [limit],
       );
 
-  Future<void> _processQueueItem(
+  /// 返回单项错误供外层汇总；真正冲突必须由用户确认，禁止自动推送。
+  Future<String?> _processQueueItem(
     Database db,
     Map<String, Object?> item,
   ) async {
+    final table = item['entity_type'] as String;
+    final localId = item['entity_local_id'] as int;
+    if (await _hasColumn(db, table, 'sync_status')) {
+      final rows = await db.query(table,
+          columns: ['sync_status'],
+          where: 'id = ?',
+          whereArgs: [localId],
+          limit: 1);
+      if (rows.isNotEmpty && rows.first['sync_status'] == 'conflict') {
+        return '$table #$localId 存在待处理的冲突';
+      }
+    }
     try {
       await _syncItem(db, Map<String, dynamic>.from(item));
       await db.delete('sync_queue', where: 'id = ?', whereArgs: [item['id']]);
-      final table = item['entity_type'] as String;
       if (await _hasColumn(db, table, 'sync_status')) {
         await db.update(
           table,
@@ -271,6 +298,7 @@ class SyncService extends ChangeNotifier {
           whereArgs: [item['entity_local_id']],
         );
       }
+      return null;
     } catch (e) {
       final retries = (item['retry_count'] as int? ?? 0) + 1;
       final text = e.toString();
@@ -284,13 +312,8 @@ class SyncService extends ChangeNotifier {
         where: 'id = ?',
         whereArgs: [item['id']],
       );
-      if (retries >= 3) {
-        await _markConflict(
-          db,
-          item['entity_type'] as String,
-          item['entity_local_id'] as int,
-        );
-      }
+      // 暂时无法同步不等于版本冲突，必须保留原始操作和 pending。
+      return '$table #$localId: $text';
     }
   }
 
@@ -631,16 +654,9 @@ class SyncService extends ChangeNotifier {
     return rows.isEmpty ? 0 : (rows.first['version'] as int? ?? 0);
   }
 
+  /// 兼容旧入口。失败记录不能被清除；仅刷新数量。
   Future<void> cleanupFailedItems() async {
-    final db = await _db.database;
-    for (final item in await db.query('sync_queue', where: 'retry_count >= 3')) {
-      await _markConflict(
-        db,
-        item['entity_type'] as String,
-        item['entity_local_id'] as int,
-      );
-      await db.delete('sync_queue', where: 'id = ?', whereArgs: [item['id']]);
-    }
+    _requireCloudMode();
     _pendingCount = await _getQueueCount();
     notifyListeners();
   }
@@ -653,11 +669,14 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
     try {
       final db = await _db.database;
+      String? firstFailure;
       for (final item in await _orderedQueue(db, batchSize)) {
-        await _processQueueItem(db, item);
+        final failure = await _processQueueItem(db, item);
+        firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
-      _status = SyncStatusEnum.idle;
+      _status = firstFailure == null ? SyncStatusEnum.idle : SyncStatusEnum.error;
+      if (firstFailure != null) _lastError = '部分记录未同步：$firstFailure';
     } catch (e) {
       _status = SyncStatusEnum.error;
       _lastError = e.toString();
@@ -674,12 +693,19 @@ class SyncService extends ChangeNotifier {
       whereArgs: [maxRetries],
     );
     for (final item in exceeded) {
-      await _markConflict(
-        db,
-        item['entity_type'] as String,
-        item['entity_local_id'] as int,
-      );
-      await db.delete('sync_queue', where: 'id = ?', whereArgs: [item['id']]);
+      final table = item['entity_type'] as String;
+      final localId = item['entity_local_id'] as int;
+      if (await _hasColumn(db, table, 'sync_status')) {
+        final rows = await db.query(table,
+            columns: ['sync_status'],
+            where: 'id = ?',
+            whereArgs: [localId],
+            limit: 1);
+        // 显式冲突不得在后台重试时被覆盖。
+        if (rows.isNotEmpty && rows.first['sync_status'] == 'conflict') continue;
+      }
+      await db.update('sync_queue', {'retry_count': 0, 'last_error': ''},
+          where: 'id = ?', whereArgs: [item['id']]);
     }
     await syncBatch(batchSize: 50);
   }
@@ -757,13 +783,23 @@ class SyncService extends ChangeNotifier {
 
     try {
       if (selected == ConflictStrategy.localWins) {
-        await _removeQueue(db, entityType, entityLocalId);
-        await enqueue(
-          entityType: entityType,
-          entityLocalId: entityLocalId,
-          entityServerId: sid,
-          operation: 'update',
-        );
+        final queued = await db.query('sync_queue',
+            where: 'entity_type = ? AND entity_local_id = ?',
+            whereArgs: [entityType, entityLocalId],
+            orderBy: 'id DESC', limit: 1);
+        final operation = local['deleted_at'] != null ||
+                (queued.isNotEmpty && queued.first['operation'] == 'delete')
+            ? 'delete'
+            : 'update';
+        // 原始 delete 不能被错误替换为 update。
+        // enqueue 会更新已有队列记录：不先删除，避免重建失败时丢失操作。
+        if (entityType == 'habit_logs' && operation != 'create') {
+          return false; // HabitLog 不支持普通 update，不能假报冲突已解决。
+        }
+        await enqueue(entityType: entityType,
+            entityLocalId: entityLocalId,
+            entityServerId: sid,
+            operation: operation);
         return true;
       }
 
@@ -779,6 +815,8 @@ class SyncService extends ChangeNotifier {
         return true;
       }
 
+      // HabitLog 不支持远端 update；拒绝前不可修改本地冲突记录。
+      if (entityType == 'habit_logs') return false;
       final merged = _merge(entityType, local, remote);
       await db.update(
         entityType,
@@ -792,7 +830,6 @@ class SyncService extends ChangeNotifier {
         where: 'id = ?',
         whereArgs: [entityLocalId],
       );
-      await _removeQueue(db, entityType, entityLocalId);
       await enqueue(
         entityType: entityType,
         entityLocalId: entityLocalId,
@@ -805,14 +842,43 @@ class SyncService extends ChangeNotifier {
     }
   }
 
+  static const conflictEntityTypes = <String>[
+    'tasks', 'lists', 'tags', 'system_tags', 'habits', 'habit_logs',
+  ];
+
   Future<List<Map<String, dynamic>>> getConflicts(String entityType) async {
+    _requireCloudMode();
+    if (!conflictEntityTypes.contains(entityType)) {
+      throw ArgumentError.value(entityType, 'entityType');
+    }
     final db = await _db.database;
-    final rows = await db.query(
-      entityType,
-      where: 'sync_status = ?',
-      whereArgs: ['conflict'],
-    );
+    final rows = await db.query(entityType,
+        where: 'sync_status = ?', whereArgs: ['conflict']);
     return rows.map(Map<String, dynamic>.from).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getAllConflicts() async {
+    _requireCloudMode();
+    final conflicts = <Map<String, dynamic>>[];
+    for (final type in conflictEntityTypes) {
+      for (final item in await getConflicts(type)) {
+        conflicts.add({...item, '_entity_type': type});
+      }
+    }
+    return conflicts;
+  }
+
+  /// 只读获取服务端版本，不在界面加载时自动解决冲突。
+  Future<Map<String, dynamic>?> fetchConflictRemote(
+      String type, Map<String, dynamic> local) async {
+    _requireCloudMode();
+    if (!conflictEntityTypes.contains(type)) {
+      throw ArgumentError.value(type, 'type');
+    }
+    final sid = local['server_id'] as int?;
+    if (sid == null || sid <= 0) return null;
+    final db = await _db.database;
+    return _fetchRemote(db, type, sid, local);
   }
 
   Future<int> getServerId(String entityType, int localId) async {
