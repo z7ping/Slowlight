@@ -204,6 +204,44 @@ void main() {
     );
   });
 
+
+  test('保留本地删除冲突时，重入队列仍然是 delete 而不是 update', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '测试清单', 'server_id': 22,
+      'created_at': now, 'updated_at': now,
+    });
+    final taskId = await db.insert('tasks', {
+      'list_id': listId,
+      'server_id': 99,
+      'title': '待删除',
+      'created_at': now,
+      'updated_at': now,
+      'deleted_at': now,
+      'sync_status': 'conflict',
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'tasks',
+      'entity_local_id': taskId,
+      'entity_server_id': 99,
+      'operation': 'delete',
+      'created_at': now,
+      'updated_at': now,
+    });
+
+    final resolved = await SyncService().resolveConflict(
+      taskId, entityType: 'tasks', keepLocal: true,
+    );
+    expect(resolved, isTrue);
+    final queue = await db.query('sync_queue');
+    expect(queue, hasLength(1));
+    expect(queue.single['operation'], 'delete');
+    expect((await db.query('tasks', where: 'id = ?', whereArgs: [taskId]))
+        .single['sync_status'], 'pending');
+  });
+
   test('保留既有 SyncService 公开能力', () {
     final sync = SyncService();
     expect(sync.detectConflict, isA<Function>());
