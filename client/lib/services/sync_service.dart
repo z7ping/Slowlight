@@ -783,7 +783,10 @@ class SyncService extends ChangeNotifier {
         final operation = queued.isNotEmpty &&
                 queued.first['operation'] == 'delete' ? 'delete' : 'update';
         // 原始 delete 不能被错误替换为 update。
-        await _removeQueue(db, entityType, entityLocalId);
+        // enqueue 会更新已有队列记录：不先删除，避免重建失败时丢失操作。
+        if (entityType == 'habit_logs' && operation != 'create') {
+          return false; // HabitLog 不支持普通 update，不能假报冲突已解决。
+        }
         await enqueue(entityType: entityType,
             entityLocalId: entityLocalId,
             entityServerId: sid,
@@ -816,7 +819,7 @@ class SyncService extends ChangeNotifier {
         where: 'id = ?',
         whereArgs: [entityLocalId],
       );
-      await _removeQueue(db, entityType, entityLocalId);
+      if (entityType == 'habit_logs') return false;
       await enqueue(
         entityType: entityType,
         entityLocalId: entityLocalId,
