@@ -162,7 +162,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   final _tagsRepository = ObservationTagRepository();
   List<ObservationTag> _availableTags = const [];
   late int? _selectedTagId;
-  bool _showTags = false;
+  bool _showLists = true;
+  bool _showTags = true;
   List<TodoList> _lists = const [];
   int? _selectedListId;
   late DateTime? _dueDate;
@@ -247,54 +248,76 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               context,
             ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           )
-        else
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              ..._quickLists().map(
-                (list) => _QuickChip(
-                  // 使用清单自身图标，与完整表单保持一致。
-                  text: '${list.icon} ${list.name}',
-                  selected: _selectedListId == list.id,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _selectedListId = list.id);
-                  },
-                ),
-              ),
-              _QuickChip(
-                icon: LucideIcons.calendarDays,
-                text: _dueDate != null && !_dueToday
-                    ? '${_dueDate!.month}/${_dueDate!.day}'
-                    : '今天',
-                selected: _dueDate != null,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _dueDate = _dueToday ? null : _today());
-                },
-              ),
-              _QuickChip(
-                icon: LucideIcons.flag,
-                text: _selectedPriority == 'none'
-                    ? '无优先级'
-                    : '优先级：${_priorityLabel(_selectedPriority)}',
-                selected: _selectedPriority != 'none',
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _selectedPriority = _nextPriority(_selectedPriority);
-                  });
-                },
-              ),
-              _QuickChip(
-                icon: LucideIcons.tag,
-                text: _selectedTagName(),
-                selected: _selectedTagId != null || _showTags,
-                onTap: () => setState(() => _showTags = !_showTags),
-              ),
-            ],
+        else ...[
+          FxSectionHeader(
+            title: _showLists ? '清单' : '清单 · ${_selectedListName()}',
+            trailingWidget: FxButton(
+              label: _showLists ? '收起' : '展开',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: _saving
+                  ? null
+                  : () => setState(() => _showLists = !_showLists),
+            ),
           ),
+          if (_showLists) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ..._lists.map(
+                  (list) => _QuickChip(
+                    // 全部清单默认可见，不再只展示前两项。
+                    text: '${list.icon} ${list.name}',
+                    selected: _selectedListId == list.id,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedListId = list.id);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _QuickChip(
+              icon: LucideIcons.calendarDays,
+              text: _dueDate != null && !_dueToday
+                  ? '${_dueDate!.month}/${_dueDate!.day}'
+                  : '今天',
+              selected: _dueDate != null,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _dueDate = _dueToday ? null : _today());
+              },
+            ),
+            _QuickChip(
+              icon: LucideIcons.flag,
+              text: _selectedPriority == 'none'
+                  ? '无优先级'
+                  : '优先级：${_priorityLabel(_selectedPriority)}',
+              selected: _selectedPriority != 'none',
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _selectedPriority = _nextPriority(_selectedPriority);
+                });
+              },
+            ),
+            _QuickChip(
+              icon: LucideIcons.tag,
+              text: _showTags ? '收起标签' : _selectedTagName(),
+              selected: _selectedTagId != null,
+              onTap: () => setState(() => _showTags = !_showTags),
+            ),
+          ],
+        ),
         if (_showTags) ...[
           const SizedBox(height: SlowlightSpacing.xxxl),
           TagChoiceField(
@@ -428,25 +451,6 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         ),
       ),
     );
-  }
-
-  List<TodoList> _quickLists() {
-    if (_lists.length <= 2) return _lists;
-    TodoList? selected;
-    for (final list in _lists) {
-      if (list.id == _selectedListId) {
-        selected = list;
-        break;
-      }
-    }
-    final result = <TodoList>[];
-    if (selected != null) result.add(selected);
-    for (final list in _lists) {
-      if (result.any((item) => item.id == list.id)) continue;
-      result.add(list);
-      if (result.length == 2) break;
-    }
-    return result;
   }
 
   Future<void> _createTask() async {
