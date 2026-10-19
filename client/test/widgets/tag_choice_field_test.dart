@@ -1,0 +1,70 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:slowlight/models/observation_tag.dart';
+import 'package:slowlight/widgets/tag_choice_field.dart';
+
+import '../support/fx_test_host.dart';
+
+void main() {
+  const tags = [
+    ObservationTag(id: 1, name: '学习', icon: '📚', color: '#1890ff'),
+    ObservationTag(id: 2, name: '阅读', icon: '📖', color: '#52c41a'),
+  ];
+
+  testWidgets('标签选择统一使用 Fx 组件且可以清空', (tester) async {
+    int? selected;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: StatefulBuilder(
+          builder: (context, setState) => TagChoiceField(
+            tags: tags,
+            selectedTagId: selected,
+            onChanged: (id) => setState(() => selected = id),
+          ),
+        ),
+      ),
+    ));
+    expect(find.text('标签（可选）'), findsOneWidget);
+    expect(find.text('#学习'), findsOneWidget);
+    expect(find.text('#阅读'), findsOneWidget);
+    await tester.tap(find.text('#学习'));
+    await tester.pump();
+    expect(selected, 1);
+    await tester.tap(find.text('无标签'));
+    await tester.pump();
+    expect(selected, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 360dp 大字号标签布局不会溢出', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(360, 740),
+          textScaler: TextScaler.linear(1.3),
+        ),
+        child: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(20),
+            child: TagChoiceField(
+              tags: tags,
+              selectedTagId: 1,
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      ),
+    ));
+    expect(find.text('#学习'), findsOneWidget);
+    expect(find.text('#阅读'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+}
