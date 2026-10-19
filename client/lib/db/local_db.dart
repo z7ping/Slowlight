@@ -484,10 +484,10 @@ class LocalDb {
           columns.any((column) => column['name'] == 'dimension_key');
       if (!hasDimensionKey) {
         await db.execute('ALTER TABLE system_tags ADD COLUMN dimension_key TEXT');
-        if (oldVersion < 15) {
-      await UnifiedTagSchema.ensureTables(db);
+      }
     }
-  }
+    if (oldVersion < 15) {
+      await UnifiedTagSchema.ensureTables(db);
     }
   }
 
