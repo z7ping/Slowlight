@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/todo_list.dart';
+import '../models/observation_tag.dart';
+import '../repositories/observation_tag_repository.dart';
 import '../services/task_dimension_assignment.dart';
-import '../widgets/task_dimension_field.dart';
+import '../widgets/tag_choice_field.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -42,6 +44,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _dimensionAssignment = TaskDimensionAssignment();
+  final _tagRepository = ObservationTagRepository();
+  List<ObservationTag> _availableTags = const [];
+  int? _selectedTagId;
+  bool _tagChanged = false;
   String? _selectedDimensionKey;
   bool _dimensionChanged = false;
   int? _selectedListId;
@@ -64,7 +70,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _dueDate = widget.defaultDueDate;
     _selectedDimensionKey = widget.initialDimensionKey;
     _dimensionChanged = widget.dimensionChanged;
+    _selectedTagId = widget.systemTagId;
     _loadInitialDimension();
+    _loadTags();
   }
 
   @override
@@ -86,6 +94,15 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
   }
 
+  Future<void> _loadTags() async {
+    try {
+      final tags = await _tagRepository.getAll();
+      if (mounted) setState(() => _availableTags = tags);
+    } catch (_) {
+      // 读取失败时保留传入的标签，不影响任务编辑和保存。
+    }
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -100,11 +117,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final systemTagId = await _dimensionAssignment.resolve(
-        dimensionKey: _selectedDimensionKey,
-        originalTagId: widget.systemTagId,
-        changed: _dimensionChanged,
-      );
+      // 选标签直接保存原有 system_tag_id；兼容旧入口的维度预设。
+      final systemTagId = _tagChanged
+          ? _selectedTagId
+          : await _dimensionAssignment.resolve(
+              dimensionKey: _selectedDimensionKey,
+              originalTagId: widget.systemTagId,
+              changed: _dimensionChanged,
+            );
       final dueTime =
           _dueTime == null
               ? null
@@ -227,8 +247,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           placeholder: '描述（可选）',
         ),
         const SizedBox(height: 16),
-        // 基础任务属性按组件可用宽度自然双列；可选的四维归属占整行，
-        // 避免在桌面弹窗里被挤成狭窄的多行选择器。
+        // 基础任务属性按组件可用宽度自然双列；标签作为可选字段独立显示。
         FxResponsiveFormGrid(
           minColumnWidth: 240,
           children: [
@@ -241,12 +260,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           ],
         ),
         const SizedBox(height: SlowlightSpacing.xxxl),
-        TaskDimensionField(
-          selectedKey: _selectedDimensionKey,
+        TagChoiceField(
+          tags: _availableTags,
+          selectedTagId: _selectedTagId,
           enabled: !_isSaving,
-          onChanged: (key) => setState(() {
-            _selectedDimensionKey = key;
-            _dimensionChanged = true;
+          onChanged: (id) => setState(() {
+            _selectedTagId = id;
+            _tagChanged = true;
           }),
         ),
         if (_repeatType == 'weekly') ...[
