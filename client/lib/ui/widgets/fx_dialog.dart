@@ -242,6 +242,7 @@ class FxDialogSurface extends StatelessWidget {
   const FxDialogSurface({
     super.key,
     this.backgroundColor,
+    this.padding,
     this.elevation,
     this.shadowColor,
     this.surfaceTintColor,
@@ -255,6 +256,7 @@ class FxDialogSurface extends StatelessWidget {
   });
 
   final Color? backgroundColor;
+  final EdgeInsetsGeometry? padding;
   final double? elevation;
   final Color? shadowColor;
   final Color? surfaceTintColor;
@@ -279,6 +281,7 @@ class FxDialogSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShadDialog(
       backgroundColor: backgroundColor,
+      padding: padding,
       radius: _radius,
       alignment: alignment is Alignment ? alignment as Alignment : null,
       child: child,
