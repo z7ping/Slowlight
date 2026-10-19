@@ -7,7 +7,7 @@ import '../repositories/observation_tag_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'task_dimension_field.dart';
+import 'tag_choice_field.dart';
 
 /// Observation / Reflection 的统一轻量输入入口。
 class ReflectionComposer {
@@ -82,68 +82,34 @@ class ReflectionComposer {
               placeholder: '写下此刻的观察，只描述真实发生的事…',
             ),
             const SizedBox(height: 12),
-            TaskDimensionField(
-              selectedKey: selectedDimension,
+            TagChoiceField(
+              tags: tags,
+              selectedTagId: selectedTagId,
               enabled: !saving,
-              onChanged: (key) => setEntryState(() {
-                selectedDimension = key;
-                if (selectedTagId != null) {
-                  final linked = tags.where((tag) => tag.id == selectedTagId);
-                  if (linked.isNotEmpty &&
-                      linked.first.dimensionKey != null &&
-                      linked.first.dimensionKey!.isNotEmpty) {
-                    selectedDimension = linked.first.dimensionKey;
-                  }
+              onChanged: (id) => setEntryState(() {
+                selectedTagId = id;
+                final match = tags.where((tag) => tag.id == id);
+                if (match.isNotEmpty && match.first.dimensionKey != null) {
+                  // 仅用于旧记录兼容，不再展示维度概念。
+                  selectedDimension = match.first.dimensionKey;
                 }
               }),
             ),
-            const SizedBox(height: SlowlightSpacing.xxxl),
-            FxFormField(
-              label: '标签（可选）',
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  ...tags.take(8).map((tag) {
-                    final selected = selectedTagId == tag.id;
-                    return FxChoiceChip(
-                      label: '#${tag.name}',
-                      selected: selected,
-                      onTap: saving
-                          ? null
-                          : () => setEntryState(() {
-                                selectedTagId = selected ? null : tag.id;
-                                if (!selected &&
-                                    tag.dimensionKey != null &&
-                                    tag.dimensionKey!.isNotEmpty) {
-                                  selectedDimension = tag.dimensionKey;
-                                }
-                              }),
-                    );
-                  }),
-                  FxChoiceChip(
-                    label: '＋ 新建标签',
-                    selected: false,
-                    onTap: saving
-                        ? null
-                        : () async {
-                            final created = await _createObservationTag(
-                              entryContext,
-                              dimensionKey: selectedDimension,
-                            );
-                            if (created == null || !entryContext.mounted) return;
-                            setEntryState(() {
-                              tags = [...tags, created];
-                              selectedTagId = created.id;
-                              if (created.dimensionKey != null &&
-                                  created.dimensionKey!.isNotEmpty) {
-                                selectedDimension = created.dimensionKey;
-                              }
-                            });
-                          },
-                  ),
-                ],
-              ),
+            const SizedBox(height: 8),
+            FxButton(
+              label: '新建标签',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.outline,
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final created = await _createObservationTag(entryContext);
+                      if (created == null || !entryContext.mounted) return;
+                      setEntryState(() {
+                        tags = [...tags, created];
+                        selectedTagId = created.id;
+                      });
+                    },
             ),
             if (error != null) ...[
               const SizedBox(height: 8),
@@ -285,7 +251,7 @@ class ReflectionComposer {
 
     final created = await FxDialog.show<ObservationTag>(
       context: context,
-      title: '新建观察标签',
+      title: '新建标签',
       width: 420,
       child: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
@@ -311,14 +277,6 @@ class ReflectionComposer {
                         ),
                 placeholder: '例如：分心、心流、精力低谷',
               ),
-              if (dimensionKey != null && dimensionKey.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '默认归属当前选择的维度',
-                  style: SlowlightTypography.caption(dialogContext)
-                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
               if (error != null) ...[
                 const SizedBox(height: 8),
                 Text(
