@@ -33,6 +33,17 @@ void main() {
     );
   });
 
+  test('ShadInput 两套主题仅保留单层焦点描边', () {
+    expect(
+      shadLightTheme().inputTheme.decoration?.disableSecondaryBorder,
+      isTrue,
+    );
+    expect(
+      shadDarkTheme().inputTheme.decoration?.disableSecondaryBorder,
+      isTrue,
+    );
+  });
+
   test('Android Material 与 Shad Theme 使用移动端可读字号', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
