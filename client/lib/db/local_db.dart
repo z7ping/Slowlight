@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
+import 'unified_tag_schema.dart';
+
 /// 本地 SQLite 数据库单例
 class LocalDb {
   static final LocalDb _instance = LocalDb._internal();
@@ -26,7 +28,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 14,
+        version: 15,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -36,7 +38,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -257,6 +259,7 @@ class LocalDb {
     await db.execute('CREATE INDEX idx_habits_sync_status ON habits(sync_status)');
 
     await _createWorkSessionsTable(db);
+    await UnifiedTagSchema.ensureTables(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -481,7 +484,10 @@ class LocalDb {
           columns.any((column) => column['name'] == 'dimension_key');
       if (!hasDimensionKey) {
         await db.execute('ALTER TABLE system_tags ADD COLUMN dimension_key TEXT');
-      }
+        if (oldVersion < 15) {
+      await UnifiedTagSchema.ensureTables(db);
+    }
+  }
     }
   }
 
