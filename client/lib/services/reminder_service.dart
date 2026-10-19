@@ -22,7 +22,7 @@ class ReminderService extends ChangeNotifier {
   int _microRestSeconds = 20;
   int _longRestMinutes = 5;
   int _microRestsBeforeLong = 2;
-  String _lockScreenMode = 'window'; // window / fullscreen
+  String _lockScreenMode = 'fullscreen'; // window / fullscreen
   int _notifyBeforeSec = 30;
   bool _autoLoop = true;
   bool _autoStartOnLaunch = true;
@@ -145,7 +145,7 @@ class ReminderService extends ChangeNotifier {
         _microRestSeconds = localConfig['micro_rest_seconds'] as int? ?? 20;
         _longRestMinutes = localConfig['long_rest_minutes'] as int? ?? 5;
         _microRestsBeforeLong = localConfig['micro_rests_before_long'] as int? ?? 2;
-        _lockScreenMode = localConfig['lock_screen_mode'] as String? ?? 'window';
+        _lockScreenMode = localConfig['lock_screen_mode'] as String? ?? 'fullscreen';
         _notifyBeforeSec = localConfig['notify_before_seconds'] as int? ?? 30;
         _autoLoop = (localConfig['auto_loop'] as int?) == 1;
         _autoStartOnLaunch = (localConfig['auto_start_on_launch'] as int?) == 1;
@@ -537,7 +537,7 @@ class ReminderService extends ChangeNotifier {
         microRestSeconds: config['micro_rest_seconds'] ?? 20,
         longRestMinutes: config['long_rest_minutes'] ?? 5,
         microRestsBeforeLong: config['micro_rests_before_long'] ?? 2,
-        lockScreenMode: config['lock_screen_mode'] ?? 'window',
+        lockScreenMode: config['lock_screen_mode'] ?? 'fullscreen',
         notifyBeforeSeconds: config['notify_before_seconds'] ?? 30,
         autoLoop: config['auto_loop'] ?? true,
         autoStartOnLaunch: config['auto_start_on_launch'] ?? true,
@@ -550,7 +550,7 @@ class ReminderService extends ChangeNotifier {
       _microRestSeconds = config['micro_rest_seconds'] ?? 20;
       _longRestMinutes = config['long_rest_minutes'] ?? 5;
       _microRestsBeforeLong = config['micro_rests_before_long'] ?? 2;
-      _lockScreenMode = config['lock_screen_mode'] ?? 'window';
+      _lockScreenMode = config['lock_screen_mode'] ?? 'fullscreen';
       _notifyBeforeSec = config['notify_before_seconds'] ?? 30;
       _autoLoop = config['auto_loop'] ?? true;
       _autoStartOnLaunch = config['auto_start_on_launch'] ?? true;
