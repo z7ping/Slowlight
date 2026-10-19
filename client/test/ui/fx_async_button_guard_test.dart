@@ -34,7 +34,8 @@ void main() {
     expect(count, 1);
 
     pending.complete();
-    await tester.pump();
+    // Let the async action's finally block rebuild the enabled Shad button.
+    await tester.pumpAndSettle();
     await tester.tap(find.text('保存'));
     await tester.pump();
     expect(count, 2);
@@ -68,7 +69,8 @@ void main() {
     expect(count, 1);
 
     pending.complete();
-    await tester.pump();
+    // Let the async action's finally block rebuild the enabled Shad button.
+    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.refresh));
     await tester.pump();
     expect(count, 2);
