@@ -45,7 +45,6 @@ class TaskScheduleFields extends StatelessWidget {
           minColumnWidth: compact ? 136 : 240,
           maxColumns: 2,
           horizontalGap: compact ? 8 : 12,
-          verticalGap: compact ? 12 : 12,
           children: [
             _dateField(context),
             _timeField(context),
