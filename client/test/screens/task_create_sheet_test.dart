@@ -167,7 +167,7 @@ void main() {
     await tester.tap(find.text('无标签'));
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
-    expect(find.text('买一本书'), findsOneWidget);
+    expect(tester.widget<EditableText>(editable).controller.text, '买一本书');
 
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -201,6 +201,41 @@ void main() {
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
 
     await tester.drag(scroller, const Offset(0, -100));
+    await tester.pump();
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('实际 Android 底部弹层支持拖动收起输入键盘', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '打开快捷添加',
+            onPressed: () => TaskCreateSheet.showQuickCreate(context),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('打开快捷添加'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    final editable = find.byType(EditableText).first;
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+
+    await tester.tap(editable);
+    await tester.pump();
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -120));
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
     expect(tester.takeException(), isNull);
@@ -244,8 +279,14 @@ void main() {
 
     expect(find.byType(TaskScheduleFields), findsOneWidget);
     expect(find.text('收起设置'), findsOneWidget);
-    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -260));
+    final scroll = find.byType(SingleChildScrollView).first;
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: scroll, matching: find.byType(Scrollable)).first,
+    );
+    expect(scrollable.position.maxScrollExtent, greaterThan(0));
+    await tester.drag(scroll, const Offset(0, -260));
     await tester.pump();
+    expect(scrollable.position.pixels, greaterThan(0));
     expect(find.text('收起设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
     expect(tester.takeException(), isNull);
