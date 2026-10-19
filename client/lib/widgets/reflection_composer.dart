@@ -68,6 +68,55 @@ class ReflectionComposer {
     Widget buildFields(BuildContext entryContext, StateSetter setEntryState) {
       final theme = Theme.of(entryContext);
 
+      Future<void> saveObservation() async {
+        final value = controller.text.trim();
+        if (value.isEmpty) {
+          setEntryState(() => error = '先写一点观察');
+          return;
+        }
+        setEntryState(() {
+          saving = true;
+          error = null;
+        });
+        try {
+          ObservationTag? selectedTag;
+          for (final tag in tags) {
+            if (tag.id == selectedTagId) {
+              selectedTag = tag;
+              break;
+            }
+          }
+          await ReflectionRepository().create(
+            content: value,
+            entryType: 'observation',
+            questionId: questionId,
+            dimensionKey: selectedDimension,
+            context: {
+              ...contextData,
+              if (selectedTag != null)
+                'observation_tag_id': selectedTag.id,
+              if (selectedTag != null)
+                'observation_tag_name': selectedTag.name,
+            },
+          );
+          if (entryContext.mounted) {
+            Navigator.of(entryContext).pop(true);
+          }
+        } catch (e) {
+          if (!entryContext.mounted) return;
+          setEntryState(() {
+            saving = false;
+            error = e.toString();
+          });
+        }
+      }
+
+      final saveButton = FxButton(
+        label: saving ? '保存中…' : '保存观察',
+        size: FxButtonSize.sm,
+        onPressed: saving ? null : saveObservation,
+      );
+
       return SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -94,13 +143,7 @@ class ReflectionComposer {
                   selectedDimension = match.first.dimensionKey;
                 }
               }),
-            ),
-            const SizedBox(height: 8),
-            FxButton(
-              label: '新建标签',
-              size: FxButtonSize.sm,
-              variant: FxButtonVariant.outline,
-              onPressed: saving
+              onCreateTag: saving
                   ? null
                   : () async {
                       final created = await _createObservationTag(entryContext);
@@ -121,65 +164,22 @@ class ReflectionComposer {
               ),
             ],
             const SizedBox(height: SlowlightSpacing.xxxl),
-            FxDialogActions(
-              actions: [
-                FxButton(
-                  label: '取消',
-                  size: FxButtonSize.sm,
-                  variant: FxButtonVariant.outline,
-                  onPressed: saving
-                      ? null
-                      : () => Navigator.of(entryContext).pop(false),
-                ),
-                FxButton(
-                  label: saving ? '保存中…' : '保存观察',
-                  size: FxButtonSize.sm,
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final value = controller.text.trim();
-                          if (value.isEmpty) {
-                            setEntryState(() => error = '先写一点观察');
-                            return;
-                          }
-                          setEntryState(() {
-                            saving = true;
-                            error = null;
-                          });
-                          try {
-                            ObservationTag? selectedTag;
-                            for (final tag in tags) {
-                              if (tag.id == selectedTagId) {
-                                selectedTag = tag;
-                                break;
-                              }
-                            }
-                            await ReflectionRepository().create(
-                              content: value,
-                              entryType: 'observation',
-                              questionId: questionId,
-                              dimensionKey: selectedDimension,
-                              context: {
-                                ...contextData,
-                                if (selectedTag != null)
-                                  'observation_tag_id': selectedTag.id,
-                                if (selectedTag != null)
-                                  'observation_tag_name': selectedTag.name,
-                              },
-                            );
-                            if (entryContext.mounted) {
-                              Navigator.of(entryContext).pop(true);
-                            }
-                          } catch (e) {
-                            setEntryState(() {
-                              saving = false;
-                              error = e.toString();
-                            });
-                          }
-                        },
-                ),
-              ],
-            ),
+            if (_useDesktopObservationDialog)
+              FxDialogActions(
+                actions: [
+                  FxButton(
+                    label: '取消',
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.outline,
+                    onPressed: saving
+                        ? null
+                        : () => Navigator.of(entryContext).pop(false),
+                  ),
+                  saveButton,
+                ],
+              )
+            else
+              SizedBox(width: double.infinity, child: saveButton),
           ],
         ),
       );
