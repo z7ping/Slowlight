@@ -155,7 +155,7 @@ func (h *TagLinksHandler) Put(c *gin.Context) {
 				return errors.New("invalid tag")
 			}
 		}
-		if err := tx.Table(spec.links).Where(spec.foreignKey+" = ?", id).Delete(nil).Error; err != nil {
+		if err := tx.Exec("DELETE FROM "+spec.links+" WHERE "+spec.foreignKey+" = ?", id).Error; err != nil {
 			return err
 		}
 		for _, tagID := range unique {
