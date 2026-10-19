@@ -22,6 +22,8 @@
 | POST | `/api/tags` |
 | PUT | `/api/tags/:id` |
 | DELETE | `/api/tags/:id` |
+| GET | `/api/tag-links/:entity/:id` |
+| PUT | `/api/tag-links/:entity/:id` |
 | GET | `/api/tasks` |
 | GET | `/api/tasks/search` |
 | GET | `/api/tasks/:id` |
@@ -108,4 +110,4 @@
 | POST | `/api/caldav/test` |
 | GET | `/api/feishu/config` |
 
-共 101 条路由。
+共 103 条路由。
