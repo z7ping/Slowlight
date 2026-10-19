@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/observation_tag.dart';
+import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/tag_choice_field.dart';
 
 import '../support/fx_test_host.dart';
@@ -38,6 +39,64 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('新建标签与已有标签同行，默认无标签使用中性色', (tester) async {
+    var creates = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(20),
+          child: TagChoiceField(
+            tags: tags,
+            selectedTagId: null,
+            onChanged: (_) {},
+            onCreateTag: () => creates++,
+          ),
+        ),
+      ),
+    ));
+
+    final empty = tester.widget<FxChoiceChip>(
+      find.widgetWithText(FxChoiceChip, '无标签'),
+    );
+    expect(empty.selected, isTrue);
+    expect(
+      empty.selectionColor,
+      AppTheme.lightTheme().colorScheme.onSurfaceVariant,
+    );
+    expect(find.text('新建'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('#学习')).dy,
+      closeTo(tester.getTopLeft(find.text('新建')).dy, 1),
+    );
+    await tester.tap(find.text('新建'));
+    await tester.pump();
+    expect(creates, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('禁用时保留新建标签入口但不响应点击', (tester) async {
+    var creates = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TagChoiceField(
+          tags: tags,
+          selectedTagId: null,
+          enabled: false,
+          onChanged: (_) {},
+          onCreateTag: () => creates++,
+        ),
+      ),
+    ));
+
+    expect(find.text('新建'), findsOneWidget);
+    await tester.tap(find.text('新建'));
+    await tester.pump();
+    expect(creates, 0);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 360dp 大字号标签布局不会溢出', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -57,6 +116,7 @@ void main() {
               tags: tags,
               selectedTagId: 1,
               onChanged: (_) {},
+              onCreateTag: () {},
             ),
           ),
         ),
