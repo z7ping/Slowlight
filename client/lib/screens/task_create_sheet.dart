@@ -399,31 +399,33 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     return SafeArea(
       top: false,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .85),
-        child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '添加任务',
-              style: SlowlightTypography.cardTitle(
-                context,
-              ).copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                child: _editorContent(context),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _editorActions(),
-          ],
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .85,
         ),
-      ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '添加任务',
+                style: SlowlightTypography.cardTitle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: _editorContent(context),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _editorActions(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -555,7 +557,11 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
   String _createdText(Task task) {
     final listName = task.list?.name ?? _selectedListName();
-    final dateText = _dueToday ? ' · 今天' : '';
+    final dateText = _dueDate == null
+        ? ''
+        : _dueToday
+            ? ' · 今天'
+            : ' · ${_dueDate!.month}/${_dueDate!.day}';
     final priorityText =
         _selectedPriority == 'none'
             ? ''
