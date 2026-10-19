@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -72,7 +73,8 @@ func backfillLegacyTagLinks(db *gorm.DB) error {
 
 			name := strings.TrimSpace(old.Name)
 			if name == "" {
-				return fmt.Errorf("legacy tag %d of user %d has no name", old.ID, old.UserID)
+				log.Printf("[tags] skip unnamed legacy tag %d (user %d)", old.ID, old.UserID)
+				continue
 			}
 			var tag model.Tag
 			err = tx.Unscoped().Where("user_id = ? AND name = ?", old.UserID, name).Take(&tag).Error
@@ -84,8 +86,10 @@ func backfillLegacyTagLinks(db *gorm.DB) error {
 			} else if err != nil {
 				return err
 			} else if tag.DeletedAt.Valid {
-				// Never resurrect a user-deleted tag or silently reuse its ID.
-				return fmt.Errorf("legacy tag %d conflicts with deleted canonical tag %d (user %d)", old.ID, tag.ID, old.UserID)
+				// Never resurrect user-deleted tags or prevent startup because of a
+				// single legacy collision. Keep old links for a later safe resolution.
+				log.Printf("[tags] skip legacy tag %d: canonical %d is deleted (user %d)", old.ID, tag.ID, old.UserID)
+				continue
 			}
 
 			alias = model.LegacySystemTagAlias{UserID: old.UserID, SystemTagID: old.ID, TagID: tag.ID}
