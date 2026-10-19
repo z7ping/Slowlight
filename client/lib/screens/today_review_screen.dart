@@ -352,7 +352,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         ReviewTimelineItem(
           color: AppTheme.chartPurple,
           time: _clockTime(entry.createdAt),
-          title: '写下观察',
+          title: '记录观察',
           note: entry.content,
         ),
       );

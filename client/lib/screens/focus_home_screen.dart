@@ -417,7 +417,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 FxIconButton(
                   icon: LucideIcons.pencil,
                   iconSize: 18,
-                  tooltip: '写下观察',
+                  tooltip: '记录观察',
                   onPressed: _writeObservation,
                 ),
               ],
@@ -531,7 +531,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       child: Transform.translate(
         offset: _fabDragOffset,
         child: FxTooltip(
-          message: '快速记录任务（按住可拖动）',
+          message: '快速添加任务（按住可拖动）',
           child: Material(
             color: activePalette.accent,
             elevation: 8,
