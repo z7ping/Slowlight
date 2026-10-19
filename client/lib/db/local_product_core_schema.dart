@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/dimension.dart';
 import 'local_db.dart';
+import 'unified_tag_schema.dart';
 
 /// Slowlight 产品核心领域的迁移。
 class LocalProductCoreSchema {
@@ -12,6 +13,7 @@ class LocalProductCoreSchema {
     await _ensureObservationTagFields(db);
     await _ensureReflections(db);
     await backfillLegacyDimensions(db);
+    await UnifiedTagSchema.backfillLocal(db);
     await _normalizeInstantStorage(db);
   }
 

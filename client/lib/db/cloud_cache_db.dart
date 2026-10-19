@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../services/auth_service.dart';
+import 'unified_tag_schema.dart';
 
 /// Cloud Data Mode 专用的离线缓存数据库。
 ///
@@ -42,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -211,6 +212,7 @@ class CloudCacheDb {
 
     await _createSyncIntents(db);
     await _createReflections(db);
+    await UnifiedTagSchema.ensureTables(db);
 
     await db.execute(
         'CREATE INDEX idx_cloud_tasks_list_id ON tasks(list_id)');
@@ -244,6 +246,9 @@ class CloudCacheDb {
     }
     if (oldVersion < 3) {
       await _createReflections(db);
+    }
+    if (oldVersion < 4) {
+      await UnifiedTagSchema.ensureTables(db);
     }
   }
 
