@@ -173,7 +173,6 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   String _repeatType = 'none';
   final Set<int> _selectedWeekdays = {};
   int _reminderAdvanceMinutes = -1;
-  bool _advancedExpanded = false;
   late String _selectedPriority;
   bool _loadingLists = true;
   bool _saving = false;
@@ -229,8 +228,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
   Widget _titleInput(BuildContext context) => FxInput(
     controller: _titleController,
-    // Android 先展示任务属性；桌面默认聚焦方便键盘快捷录入。
-    autofocus: widget.desktopDialog,
+    // 快捷记录默认聚焦标题，移动端同时弹出键盘。
+    autofocus: true,
     onPressedOutside: (_) => FocusScope.of(context).unfocus(),
     enabled: !_saving,
     textInputAction: TextInputAction.done,
@@ -296,10 +295,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             ),
           ],
         ),
-        if (_advancedExpanded) ...[
-          const SizedBox(height: 12),
-          _advancedContent(context),
-        ],
+        FxExpansionTile(
+          key: const ValueKey('task-create-settings'),
+          title: const Text('更多设置'),
+          enabled: !_saving,
+          tilePadding: const EdgeInsets.symmetric(vertical: 12),
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          children: [_advancedContent(context)],
+        ),
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -502,37 +505,33 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             ).copyWith(color: theme.colorScheme.onSurfaceVariant),
           )
         else ...[
-          FxSectionHeader(
-            title: _showLists ? '清单' : '清单 · ${_selectedListName()}',
-            trailingWidget: FxButton(
-              label: _showLists ? '收起' : '展开',
-              size: FxButtonSize.sm,
-              variant: FxButtonVariant.ghost,
-              onPressed: _saving
-                  ? null
-                  : () => setState(() => _showLists = !_showLists),
-            ),
-          ),
-          if (_showLists) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                ..._lists.map(
-                  (list) => _QuickChip(
-                    // 全部清单默认可见，不再只展示前两项。
-                    text: '${list.icon} ${list.name}',
-                    selected: _selectedListId == list.id,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _selectedListId = list.id);
-                    },
+          FxExpansionTile(
+            key: const ValueKey('task-create-lists'),
+            initiallyExpanded: true,
+            enabled: !_saving,
+            tilePadding: const EdgeInsets.symmetric(vertical: 12),
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            onExpansionChanged: (expanded) => setState(() => _showLists = expanded),
+            title: Text(_showLists ? '清单' : '清单 · ${_selectedListName()}'),
+            children: [
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ..._lists.map(
+                    (list) => _QuickChip(
+                      text: '${list.icon} ${list.name}',
+                      selected: _selectedListId == list.id,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedListId = list.id);
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ],
         const SizedBox(height: 12),
         Wrap(
@@ -564,8 +563,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               },
             ),
             _QuickChip(
-              icon: LucideIcons.tag,
-              text: _showTags ? '收起标签' : _selectedTagName(),
+              icon: _showTags ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+              text: _selectedTagName(),
               selected: _selectedTagId != null,
               onTap: () => setState(() => _showTags = !_showTags),
             ),
@@ -580,16 +579,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             onChanged: (id) => setState(() => _selectedTagId = id),
           ),
         ],
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeInOutCubic,
-          alignment: Alignment.topCenter,
-          child: _advancedExpanded
-              ? Padding(
-                  padding: const EdgeInsets.only(top: SlowlightSpacing.xxxl),
-                  child: _advancedContent(context),
-                )
-              : const SizedBox(width: double.infinity),
+        FxExpansionTile(
+          key: const ValueKey('task-create-settings'),
+          title: const Text('更多设置'),
+          enabled: !_saving,
+          tilePadding: const EdgeInsets.symmetric(vertical: 12),
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          children: [_advancedContent(context)],
         ),
         if (_error != null) ...[
           const SizedBox(height: 8),
@@ -638,44 +634,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     ],
   );
 
-  Widget _editorActions() {
-    if (!widget.desktopDialog) {
-      return FxDialogActions(
-        actions: [
-          FxButton(
-            label: _advancedExpanded ? '收起设置' : '详细设置',
-            variant: FxButtonVariant.ghost,
-            size: FxButtonSize.sm,
-            onPressed: _saving
-                ? null
-                : () => setState(() => _advancedExpanded = !_advancedExpanded),
-          ),
-          FxButton(
-            label: _saving ? '添加中…' : '添加任务',
-            size: FxButtonSize.md,
-            onPressed: _saving ? null : _createTask,
-          ),
-        ],
-      );
-    }
-    return FxDialogActions(
-      actions: [
-        FxButton(
-          label: _advancedExpanded ? '收起设置' : '更多设置',
-          variant: FxButtonVariant.outline,
-          size: FxButtonSize.sm,
-          onPressed: _saving
-              ? null
-              : () => setState(() => _advancedExpanded = !_advancedExpanded),
-        ),
-        FxButton(
-          label: _saving ? '添加中…' : '添加任务',
-          size: FxButtonSize.sm,
-          onPressed: _saving ? null : _createTask,
-        ),
-      ],
-    );
-  }
+  Widget _editorActions() => FxDialogActions(
+    actions: [
+      FxButton(
+        label: _saving ? '添加中…' : '添加任务',
+        size: widget.desktopDialog ? FxButtonSize.sm : FxButtonSize.md,
+        onPressed: _saving ? null : _createTask,
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -717,13 +684,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               const SizedBox(height: 12),
               Flexible(
                 child: SingleChildScrollView(
-                  // 即使选项暂时未超出可视区，也允许拖动收起键盘；
-                  // 内容超出时继续在弹层内滚动，底部操作区保持固定。
+                  // 输入时也能滚动表单，避免滚动触发键盘开合及布局跳动。
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: ClampingScrollPhysics(),
                   ),
                   keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
+                      ScrollViewKeyboardDismissBehavior.manual,
                   child: _editorContent(context),
                 ),
               ),

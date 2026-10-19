@@ -63,7 +63,7 @@ void main() {
     await tester.tap(find.text('更多设置'));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('收起设置'), findsOneWidget);
+    expect(find.text('更多设置'), findsOneWidget);
     expect(find.byType(AddTaskScreen), findsNothing);
     expect(find.byType(TaskScheduleFields), findsOneWidget);
     expect(find.text('到期日期'), findsOneWidget);
@@ -72,7 +72,7 @@ void main() {
     expect(find.text('季度复盘'), findsOneWidget);
     expect(find.text('添加任务'), findsOneWidget);
 
-    await tester.tap(find.text('收起设置'));
+    await tester.tap(find.text('更多设置'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(TaskScheduleFields), findsNothing);
     expect(find.text('季度复盘'), findsOneWidget);
@@ -102,10 +102,10 @@ void main() {
 
     expect(find.byType(TagChoiceField), findsOneWidget);
     expect(find.text('无标签'), findsOneWidget);
-    expect(find.text('收起标签'), findsOneWidget);
+    expect(find.text('标签'), findsOneWidget);
 
     await tester.enterText(find.byType(EditableText).first, '整理资料');
-    await tester.tap(find.text('收起标签'));
+    await tester.tap(find.text('标签'));
     await tester.pump();
     expect(find.byType(TagChoiceField), findsNothing);
     expect(find.text('标签'), findsOneWidget);
@@ -141,7 +141,7 @@ void main() {
     }
     expect(find.byType(TagChoiceField), findsNothing);
     expect(find.text('无标签'), findsOneWidget);
-    expect(find.text('详细设置'), findsOneWidget);
+    expect(find.text('更多设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
     final list = tester.getTopLeft(find.byKey(const ValueKey('task-property-list')));
     final date = tester.getTopLeft(find.byKey(const ValueKey('task-property-date')));
@@ -180,17 +180,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('未安排'), findsOneWidget);
 
-    await tester.tap(find.text('详细设置'));
+    await tester.tap(find.text('更多设置'));
     await tester.pump(const Duration(milliseconds: 250));
     final schedule = tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields));
     expect(schedule.compact, isTrue);
     expect(schedule.dueDate, isNull);
-    expect(find.text('收起设置'), findsOneWidget);
+    expect(find.text('更多设置'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 快捷添加任务不抢焦点，点击选项能收起键盘且保留标题', (tester) async {
+  testWidgets('Android 快捷添加任务自动聚焦，点击选项能收起键盘且保留标题', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 640);
@@ -205,11 +205,11 @@ void main() {
     await tester.pump();
 
     final input = tester.widget<FxInput>(find.byType(FxInput).first);
-    expect(input.autofocus, isFalse);
+    expect(input.autofocus, isTrue);
     expect(input.onPressedOutside, isNotNull);
 
     final editable = find.byType(EditableText).first;
-    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
 
     await tester.tap(editable);
     await tester.pump();
@@ -228,7 +228,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 即使内容无需滚动也可通过拖动收起键盘', (tester) async {
+  testWidgets('Android 拖动表单时保留输入焦点', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 800);
@@ -247,7 +247,7 @@ void main() {
     expect(scrollWidget.physics, isA<AlwaysScrollableScrollPhysics>());
     expect(
       scrollWidget.keyboardDismissBehavior,
-      ScrollViewKeyboardDismissBehavior.onDrag,
+      ScrollViewKeyboardDismissBehavior.manual,
     );
 
     final editable = find.byType(EditableText).first;
@@ -257,12 +257,12 @@ void main() {
 
     await tester.drag(scroller, const Offset(0, -100));
     await tester.pump();
-    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('实际 Android 底部弹层支持拖动收起输入键盘', (tester) async {
+  testWidgets('实际 Android 底部弹层在键盘开合和滚动时保留输入状态', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 740);
@@ -285,14 +285,26 @@ void main() {
 
     expect(find.byType(TaskCreateSheet), findsOneWidget);
     final editable = find.byType(EditableText).first;
-    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
 
     await tester.tap(editable);
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
+    await tester.enterText(editable, '键盘开合保留标题');
+    final editorState = tester.state(find.byType(TaskCreateSheet));
+    final focusNode = tester.widget<EditableText>(editable).focusNode;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(TaskCreateSheet)), same(editorState));
+    expect(focusNode.hasFocus, isTrue);
+    expect(tester.widget<EditableText>(editable).controller.text, '键盘开合保留标题');
     await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -120));
     await tester.pump();
-    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(focusNode.hasFocus, isTrue);
+    tester.view.viewInsets = const FakeViewPadding();
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(TaskCreateSheet)), same(editorState));
+    expect(focusNode.hasFocus, isTrue);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -333,12 +345,12 @@ void main() {
       ),
     ));
     await tester.pump();
-    await tester.tap(find.text('详细设置'));
+    await tester.tap(find.text('更多设置'));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(TaskScheduleFields), findsOneWidget);
     expect(tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields)).compact, isTrue);
-    expect(find.text('收起设置'), findsOneWidget);
+    expect(find.text('更多设置'), findsOneWidget);
     final scroll = find.byType(SingleChildScrollView).first;
     final scrollable = tester.state<ScrollableState>(
       find.descendant(of: scroll, matching: find.byType(Scrollable)).first,
@@ -347,7 +359,7 @@ void main() {
     await tester.drag(scroll, const Offset(0, -260));
     await tester.pump();
     expect(scrollable.position.pixels, greaterThan(0));
-    expect(find.text('收起设置'), findsOneWidget);
+    expect(find.text('更多设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -370,7 +382,7 @@ void main() {
       ),
     ));
     await tester.pump();
-    await tester.tap(find.text('详细设置'));
+    await tester.tap(find.text('更多设置'));
     await tester.pump(const Duration(milliseconds: 250));
 
     final fields = tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields));

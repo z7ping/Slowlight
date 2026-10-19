@@ -64,7 +64,6 @@ abstract final class FxSheet {
           ShadSheetSide.left => EdgeInsets.only(left: viewInsets.left),
           ShadSheetSide.right => EdgeInsets.only(right: viewInsets.right),
         };
-        final hasInset = insetPadding != EdgeInsets.zero;
 
         Widget content = builder(sheetContext);
         if (useSafeArea) content = SafeArea(child: content);
@@ -83,8 +82,7 @@ abstract final class FxSheet {
           child: content,
         );
 
-        if (!hasInset) return content;
-
+        // 键盘开合时保持相同的组件树，避免重新挂载输入框、丢失焦点。
         return AnimatedPadding(
           duration: const Duration(milliseconds: 200),
           curve: Curves.linearToEaseOut,
