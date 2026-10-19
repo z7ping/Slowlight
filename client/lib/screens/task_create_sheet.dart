@@ -266,7 +266,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               _QuickChip(
                 icon: LucideIcons.calendarDays,
                 text: _dueDate != null && !_dueToday
-                    ? '${' + '{_dueDate!.month}/${_dueDate!.day}' + '}'
+                    ? '${_dueDate!.month}/${_dueDate!.day}'
                     : '今天',
                 selected: _dueDate != null,
                 onTap: () {
