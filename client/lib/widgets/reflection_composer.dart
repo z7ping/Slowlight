@@ -143,16 +143,15 @@ class ReflectionComposer {
                   selectedDimension = match.first.dimensionKey;
                 }
               }),
-              onCreateTag: saving
-                  ? null
-                  : () async {
-                      final created = await _createObservationTag(entryContext);
-                      if (created == null || !entryContext.mounted) return;
-                      setEntryState(() {
-                        tags = [...tags, created];
-                        selectedTagId = created.id;
-                      });
-                    },
+              onCreateTag: () async {
+                if (saving) return;
+                final created = await _createObservationTag(entryContext);
+                if (created == null || !entryContext.mounted) return;
+                setEntryState(() {
+                  tags = [...tags, created];
+                  selectedTagId = created.id;
+                });
+              },
             ),
             if (error != null) ...[
               const SizedBox(height: 8),
