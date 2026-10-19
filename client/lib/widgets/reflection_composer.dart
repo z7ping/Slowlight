@@ -188,7 +188,7 @@ class ReflectionComposer {
     Future<bool?> showDesktopDialog() {
       return FxDialog.show<bool>(
         context: context,
-        title: '写下观察',
+        title: '记录观察',
         width: 520,
         child: StatefulBuilder(
           builder: (dialogContext, setDialogState) => ConstrainedBox(
@@ -217,7 +217,7 @@ class ReflectionComposer {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      '写下观察',
+                      '记录观察',
                       style: SlowlightTypography.cardTitle(
                         sheetContext,
                       ).copyWith(fontWeight: FontWeight.w700),

@@ -63,7 +63,7 @@ class TaskCreateSheet extends StatefulWidget {
     if (_useDesktopDialog(context)) {
       await FxDialog.show<void>(
         context: context,
-        title: '记录任务',
+        title: '添加任务',
         width: 520,
         child: editor,
       );
@@ -316,7 +316,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         onPressed: _saving ? null : _openFullCreate,
       ),
       FxButton(
-        label: _saving ? '记录中…' : '记录任务',
+        label: _saving ? '添加中…' : '添加任务',
         size: FxButtonSize.sm,
         onPressed: _saving ? null : _createTask,
       ),
@@ -351,7 +351,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '记录任务',
+              '添加任务',
               style: SlowlightTypography.cardTitle(
                 context,
               ).copyWith(fontWeight: FontWeight.w700),
@@ -506,7 +506,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             ? ''
             : ' · ${_priorityLabel(_selectedPriority)}';
     final tagText = _selectedTagId == null ? '' : ' · ${_selectedTagName()}';
-    return '任务已记录到「$listName」$dateText$priorityText$tagText';
+    return '任务已添加到「$listName」$dateText$priorityText$tagText';
   }
 
   String _selectedTagName() {

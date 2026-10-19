@@ -186,7 +186,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         Expanded(child: copy),
         if (widget.onWriteObservation != null)
           FxButton(
-            label: '写下观察',
+            label: '记录观察',
             icon: LucideIcons.penLine,
             variant: FxButtonVariant.outline,
             size: FxButtonSize.sm,
@@ -196,7 +196,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           const SizedBox(width: 8),
         if (widget.onQuickAdd != null)
           FxButton(
-            label: '记录任务',
+            label: '添加任务',
             icon: LucideIcons.plus,
             size: FxButtonSize.sm,
             onPressed: widget.onQuickAdd,
