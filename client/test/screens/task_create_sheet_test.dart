@@ -102,6 +102,9 @@ void main() {
 
     expect(find.byType(TaskScheduleFields), findsOneWidget);
     expect(find.text('收起设置'), findsOneWidget);
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -260));
+    await tester.pump();
+    expect(find.text('收起设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
