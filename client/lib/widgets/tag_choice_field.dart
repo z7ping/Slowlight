@@ -10,6 +10,7 @@ class TagChoiceField extends StatelessWidget {
   final int? selectedTagId;
   final ValueChanged<int?> onChanged;
   final bool enabled;
+  final VoidCallback? onCreateTag;
   final String label;
 
   const TagChoiceField({
@@ -18,6 +19,7 @@ class TagChoiceField extends StatelessWidget {
     required this.selectedTagId,
     required this.onChanged,
     this.enabled = true,
+    this.onCreateTag,
     this.label = '标签（可选）',
   });
 
@@ -32,6 +34,8 @@ class TagChoiceField extends StatelessWidget {
           FxChoiceChip(
             label: '无标签',
             selected: selectedTagId == null,
+            // “无标签”是默认状态，不使用强调色冒充用户主动选择的标签。
+            selectionColor: Theme.of(context).colorScheme.onSurfaceVariant,
             onTap: enabled ? () => onChanged(null) : null,
           ),
           ...tags.map((tag) => FxChoiceChip(
@@ -39,6 +43,13 @@ class TagChoiceField extends StatelessWidget {
                 selected: selectedTagId == tag.id,
                 onTap: enabled ? () => onChanged(tag.id) : null,
               )),
+          if (onCreateTag != null)
+            FxChoiceChip(
+              label: '新建',
+              icon: Icons.add,
+              selected: false,
+              onTap: enabled ? onCreateTag : null,
+            ),
         ],
       ),
     );
