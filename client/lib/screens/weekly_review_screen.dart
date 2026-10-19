@@ -8,7 +8,9 @@ import '../ui/fx.dart';
 
 /// 每周回顾：作为「更多工具」内容页嵌入主壳。
 class WeeklyReviewScreen extends StatefulWidget {
-  const WeeklyReviewScreen({super.key});
+  final bool embedded;
+
+  const WeeklyReviewScreen({super.key, this.embedded = false});
 
   @override
   State<WeeklyReviewScreen> createState() => _WeeklyReviewScreenState();
@@ -138,7 +140,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
+                  if (!widget.embedded) Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
@@ -170,33 +172,42 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  if (!widget.embedded) const SizedBox(height: 14),
                   _summary(),
                   const SizedBox(height: 14),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final wide = constraints.maxWidth >= 700;
-                      final comparison = _comparison();
-                      final distribution = _distribution();
-                      if (!wide) {
-                        return Column(
+                  if (!_hasBehaviorData)
+                    const FxEmptyState(
+                      icon: LucideIcons.chartNoAxesCombined,
+                      title: '这一周还没有行为记录',
+                      subtitle: '开始记录后，这里会呈现每一天的变化。',
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                    )
+                  else
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final wide = constraints.maxWidth >= 700;
+                        final comparison = _comparison();
+                        if (!_hasTimeDistribution) return comparison;
+                        final distribution = _distribution();
+                        if (!wide) {
+                          return Column(
+                            children: [
+                              comparison,
+                              const SizedBox(height: 14),
+                              distribution,
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            comparison,
-                            const SizedBox(height: 14),
-                            distribution,
+                            Expanded(child: comparison),
+                            const SizedBox(width: 14),
+                            Expanded(child: distribution),
                           ],
                         );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: comparison),
-                          const SizedBox(width: 14),
-                          Expanded(child: distribution),
-                        ],
-                      );
-                    },
-                  ),
+                      },
+                    ),
                   if ((_aiReport ?? '').isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _aiReportCard(),
@@ -212,6 +223,20 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         ],
       ),
     );
+  }
+
+  bool get _hasTimeDistribution =>
+      (_review['time_distribution'] as List? ?? const []).isNotEmpty;
+
+  bool get _hasBehaviorData {
+    const keys = [
+      'habit_checked', 'task_completed', 'focus_minutes',
+      'habit_last_week', 'task_last_week', 'focus_last_week',
+    ];
+    return keys.any((key) => ((_review[key] as num?)?.toInt() ?? 0) != 0) ||
+        _dailyTrend.any((row) =>
+            ((row['task_completed'] as num?)?.toInt() ?? 0) != 0 ||
+            ((row['habit_checked'] as num?)?.toInt() ?? 0) != 0);
   }
 
   Widget _summary() {
@@ -231,7 +256,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             FxStatCell(value: '$taskCompleted', label: '完成任务', suffix: ' 个'),
             FxStatCell(value: '$focusMinutes', label: '专注', suffix: ' 分钟'),
           ]),
-          if (_dailyTrend.isNotEmpty) ...[
+          if (_hasBehaviorData && _dailyTrend.isNotEmpty) ...[
             const SizedBox(height: 14),
             _weeklyBars(),
           ],

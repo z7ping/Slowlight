@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/habit.dart';
 import '../models/habit_log.dart';
@@ -17,7 +18,7 @@ import 'time_distribution_screen.dart';
 import 'weekly_review_screen.dart';
 
 /// 回顾：看事实 → 回应问题 → 留下解释。
-/// 视觉与交互以 docs/design/mockups/index.html 的「回顾」页为基线。
+/// 回顾页采用已确认的 Android / Windows 响应式信息结构；组件复用 Fx。
 class TodayReviewScreen extends StatefulWidget {
   final String initialReviewMode;
 
@@ -38,6 +39,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   final Set<String> _answered = {};
   final Set<String> _expanded = {};
   final Map<String, TextEditingController> _answerControllers = {};
+  final TextEditingController _noteController = TextEditingController();
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   @override
   void dispose() {
+    _noteController.dispose();
     for (final controller in _answerControllers.values) {
       controller.dispose();
     }
@@ -135,61 +138,67 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: LayoutBuilder(
             builder: (context, constraints) {
+              if (_viewIndex != 0) {
+                return Row(
+                  children: [
+                    FxButton(
+                      label: '返回回顾',
+                      variant: FxButtonVariant.ghost,
+                      size: FxButtonSize.sm,
+                      onPressed: () => setState(() => _viewIndex = 0),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _viewIndex == 1 ? '完整统计' : '时间分配',
+                        style: SlowlightTypography.cardTitle(context),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              final title = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _periodTitle(),
+                    style: SlowlightTypography.pageTitle(context),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _periodDescription(),
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              );
               final compact = constraints.maxWidth < 700;
-              final views = FxSegmented(
-                labels: const ['概览', '统计', '时间分配'],
-                selectedIndex: _viewIndex,
-                onChanged: (index) => setState(() => _viewIndex = index),
+              final periods = FxSegmented(
+                labels: const ['今天', '本周', '本月'],
+                selectedIndex: _periodIndex,
+                onChanged: (index) => setState(() => _periodIndex = index),
                 expanded: compact,
               );
-              final period =
-                  _viewIndex == 0
-                      ? FxSegmented(
-                        labels: const ['今天', '本周', '本月'],
-                        selectedIndex: _periodIndex,
-                        onChanged:
-                            (index) => setState(() => _periodIndex = index),
-                        expanded: compact,
-                      )
-                      : const SizedBox.shrink();
-
               if (compact) {
                 return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(width: double.infinity, child: views),
-                    if (_viewIndex == 0) ...[
-                      const SizedBox(height: 10),
-                      SizedBox(width: double.infinity, child: period),
-                    ],
-                  ],
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [title, const SizedBox(height: 12), periods],
                 );
               }
               return Row(
                 children: [
-                  views,
-                  if (_viewIndex == 0) ...[const Spacer(), period],
+                  Expanded(child: title),
+                  const SizedBox(width: 16),
+                  periods,
                 ],
               );
             },
           ),
         ),
-        if (_viewIndex == 0 && _periodIndex == 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                _todaySummary(),
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
         Expanded(
           child: switch (_viewIndex) {
             1 => const StatsScreen(embedded: true),
@@ -201,11 +210,26 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     );
   }
 
+  String _periodTitle() {
+    final now = DateTime.now();
+    return switch (_periodIndex) {
+      1 => '本周回顾',
+      2 => '近 30 天回顾',
+      _ => '${now.month} 月 ${now.day} 日 · 今天',
+    };
+  }
+
+  String _periodDescription() => switch (_periodIndex) {
+    1 => '看见一周的节奏与变化',
+    2 => '回看长期积累的行为轨迹',
+    _ => '行为留下轨迹，时间让自我显影',
+  };
+
   Widget _overviewBody() {
     if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _errorView();
     return switch (_periodIndex) {
-      1 => const WeeklyReviewScreen(),
+      1 => const WeeklyReviewScreen(embedded: true),
       2 => const TaskMonthTab(),
       _ => _todayBody(),
     };
@@ -217,6 +241,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     );
     final patterns = Map<String, dynamic>.from(
       _review['patterns'] as Map? ?? const {},
+    );
+    final today = DateTime.now();
+    final hasReflections = _reflections.any(
+      (entry) => entry.entryType == 'reflection' &&
+          _sameDay(entry.createdAt, today),
     );
     final questions = (_review['questions'] as List? ?? const [])
         .whereType<Map>()
@@ -236,41 +265,180 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final desktop = constraints.maxWidth >= 760;
-              final factsCard = _factsCard(facts);
-              final right = Column(
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _patternsCard(patterns),
-                  const SizedBox(height: 14),
-                  _questionsCard(questions),
-                  const SizedBox(height: 14),
-                  _reflectionsCard(),
-                  const SizedBox(height: 14),
-                  _restCard(),
+                  _snapshotCard(facts),
+                  const SizedBox(height: 16),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final timeline = _factsCard(facts);
+                      final reflection = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_hasChanges(patterns)) ...[
+                            _patternsCard(patterns),
+                            const SizedBox(height: 16),
+                          ],
+                          if (questions.isNotEmpty) _questionsCard(questions),
+                          if (hasReflections) ...[
+                            if (questions.isNotEmpty) const SizedBox(height: 16),
+                            _reflectionsCard(),
+                          ],
+                          if (questions.isEmpty) ...[
+                            if (hasReflections) const SizedBox(height: 16),
+                            _freeNoteCard(),
+                          ],
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FxButton(
+                              label: '查看休息回顾 →',
+                              variant: FxButtonVariant.link,
+                              size: FxButtonSize.sm,
+                              onPressed: _openRestReview,
+                            ),
+                          ),
+                        ],
+                      );
+                      if (constraints.maxWidth < 760) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            timeline,
+                            const SizedBox(height: 16),
+                            reflection,
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 12, child: timeline),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 10, child: reflection),
+                        ],
+                      );
+                    },
+                  ),
                 ],
-              );
-
-              if (!desktop) {
-                return Column(
-                  children: [factsCard, const SizedBox(height: 14), right],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 12, child: factsCard),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 10, child: right),
-                ],
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _snapshotCard(Map<String, dynamic> facts) {
+    final tasks = (facts['task_completed'] as num?)?.toInt() ?? 0;
+    final habits = (facts['habit_checked'] as num?)?.toInt() ?? 0;
+    final focus = (facts['focus_minutes'] as num?)?.toInt() ?? 0;
+    return FxCard(
+      padding: const EdgeInsets.all(16),
+      expanded: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FxSectionHeader(title: '今日概况'),
+          const SizedBox(height: 8),
+          FxResponsiveFormGrid(
+            minColumnWidth: 96,
+            maxColumns: 3,
+            horizontalGap: 8,
+            verticalGap: 8,
+            children: [
+              FxStatCell(value: '$tasks', label: '完成任务'),
+              FxStatCell(value: '$habits', label: '习惯打卡'),
+              FxStatCell(value: '$focus', label: '专注分钟'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              FxButton(
+                label: '查看完整统计 →',
+                variant: FxButtonVariant.link,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _viewIndex = 1),
+              ),
+              FxButton(
+                label: '查看时间分配 →',
+                variant: FxButtonVariant.link,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _viewIndex = 2),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _hasChanges(Map<String, dynamic> patterns) =>
+      ((patterns['focus_delta'] as num?)?.toInt() ?? 0) != 0 ||
+      ((patterns['habit_delta'] as num?)?.toInt() ?? 0) != 0 ||
+      ((patterns['task_delta'] as num?)?.toInt() ?? 0) != 0;
+
+  Widget _freeNoteCard() {
+    return FxCard(
+      padding: const EdgeInsets.all(16),
+      expanded: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FxSectionHeader(title: '留给今天的一句话'),
+          const SizedBox(height: 8),
+          Text(
+            '今天最值得记住的一件事是什么？',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FxInput(
+            controller: _noteController,
+            placeholder: '写下一点想法…',
+            maxLines: 3,
+            style: SlowlightTypography.body(context),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FxButton(
+              label: '保存记录',
+              size: FxButtonSize.sm,
+              onPressed: _saveNote,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveNote() async {
+    final content = _noteController.text.trim();
+    if (content.isEmpty) return;
+    try {
+      final saved = await ReflectionRepository().create(
+        content: content,
+        context: const {'source': 'review', 'question_type': 'free_note'},
+      );
+      if (!mounted) return;
+      setState(() {
+        _reflections = [saved, ..._reflections].take(30).toList();
+        _noteController.clear();
+      });
+      FxNotice.showContent(context, const Text('记录已保存'));
+    } catch (_) {
+      if (!mounted) return;
+      FxNotice.showContent(context, const Text('保存记录失败'));
+    }
   }
 
   Widget _factsCard(Map<String, dynamic> facts) {
@@ -367,14 +535,14 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '事实'),
+          const FxSectionHeader(title: '行为轨迹'),
           const SizedBox(height: 12),
           if (items.isEmpty)
-            Text(
-              '今天还没有足够的事实记录。先去记录几件事？',
-              style: SlowlightTypography.secondary(
-                context,
-              ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const FxEmptyState(
+              icon: LucideIcons.footprints,
+              title: '今天还没有留下行为记录',
+              subtitle: '先记录一件真实发生的事，轨迹就会出现在这里。',
+              padding: EdgeInsets.symmetric(vertical: 24),
             )
           else
             ...List.generate(
@@ -610,38 +778,6 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     );
   }
 
-  Widget _restCard() {
-    final facts = Map<String, dynamic>.from(
-      _review['facts'] as Map? ?? const {},
-    );
-    final focus = (facts['focus_minutes'] as num?)?.toInt() ?? 0;
-    return FxCard(
-      padding: const EdgeInsets.all(16),
-      expanded: true,
-      onTap: _openRestReview,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const FxSectionHeader(title: '休息', trailing: '今日 · 来自休息提醒'),
-          const SizedBox(height: 7),
-          Text(
-            '今天已记录专注 $focus 分钟；休息日志可在休息回顾中查看。',
-            style: SlowlightTypography.secondary(
-              context,
-            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '查看休息回顾（日志 / 7 天 / 30 天 / 分析）→',
-            style: SlowlightTypography.caption(
-              context,
-            ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _saveAnswer(Map<String, dynamic> question) async {
     final controller = _controllerFor(question);
     final content = controller.text.trim();
@@ -670,19 +806,6 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       if (!mounted) return;
       FxNotice.showContent(context, Text('保存回应失败'));
     }
-  }
-
-  String _todaySummary() {
-    final now = DateTime.now();
-    final facts = Map<String, dynamic>.from(
-      _review['facts'] as Map? ?? const {},
-    );
-    final count =
-        ((facts['task_completed'] as num?)?.toInt() ?? 0) +
-        ((facts['habit_checked'] as num?)?.toInt() ?? 0) +
-        ((facts['focus_count'] as num?)?.toInt() ?? 0) +
-        _reflections.where((entry) => _sameDay(entry.createdAt, now)).length;
-    return '${now.month} 月 ${now.day} 日 · 共 $count 条行为记录';
   }
 
   String _signed(int value) => value > 0 ? '+$value' : '$value';
