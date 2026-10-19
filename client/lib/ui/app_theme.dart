@@ -784,6 +784,8 @@ ShadInputTheme _inputTheme() {
       vertical: android ? 12 : 8,
     ),
     decoration: ShadDecoration(
+      // 保留单层主焦点描边，避免 ShadDecorator 再绘制外层强调环。
+      disableSecondaryBorder: true,
       border: ShadBorder.all(
         color: p.border,
         width: 1,
