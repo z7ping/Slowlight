@@ -181,12 +181,18 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     }
   }
 
-  Future<void> _tapWeekDay(Habit habit, DateTime day) async {
+  Future<void> _tapWeekDay(Habit habit, DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (_sameDay(day, today)) return _toggleToday(habit);
+    return _runHabitAction(habit, () => _tapWeekDayInternal(habit, day));
+  }
+
+  Future<void> _tapWeekDayInternal(Habit habit, DateTime day) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
     final active = habit.checkedDays.contains(key);
-    if (_sameDay(day, today)) return _toggleToday(habit);
     if (active) {
       _message('历史打卡是事实记录，不在这里修改');
       return;
