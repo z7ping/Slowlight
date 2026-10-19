@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../services/api/analytics_api.dart';
 import '../../services/api/review_api.dart';
@@ -67,6 +68,14 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         .take(20)
         .toList(growable: false);
 
+    final hasData =
+        ((summary['completed_count'] as num?)?.toInt() ?? 0) > 0 ||
+        ((summary['created_count'] as num?)?.toInt() ?? 0) > 0 ||
+        tasks.isNotEmpty ||
+        _trendDays.any(
+          (day) => ((day['task_completed'] as num?)?.toInt() ?? 0) > 0,
+        );
+
     return FxRefresh(
       onRefresh: _load,
       child: ListView(
@@ -80,8 +89,16 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                 children: [
                   _summaryCard(summary),
                   const SizedBox(height: 14),
-                  _trendCard(),
-                  if (dist.isNotEmpty) ...[
+                  if (hasData)
+                    _trendCard()
+                  else
+                    const FxEmptyState(
+                      icon: LucideIcons.calendarDays,
+                      title: '近 30 天还没有任务记录',
+                      subtitle: '有记录后，这里会展示完成趋势与任务分布。',
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                    ),
+                  if (hasData && dist.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _distributionCard(dist),
                   ],
@@ -137,33 +154,12 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   }
 
   Widget _stats(List<Widget> cells) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scaled = MediaQuery.textScalerOf(
-          context,
-        ).scale(SlowlightTypography.secondarySize);
-        final stacked =
-            constraints.maxWidth < 560 ||
-            scaled >= SlowlightTypography.secondarySize * 1.3;
-        if (stacked) {
-          return Column(
-            children: [
-              for (var i = 0; i < cells.length; i++) ...[
-                SizedBox(width: double.infinity, child: cells[i]),
-                if (i != cells.length - 1) const SizedBox(height: 8),
-              ],
-            ],
-          );
-        }
-        return Row(
-          children: [
-            for (var i = 0; i < cells.length; i++) ...[
-              Expanded(child: cells[i]),
-              if (i != cells.length - 1) const SizedBox(width: 10),
-            ],
-          ],
-        );
-      },
+    return FxResponsiveFormGrid(
+      minColumnWidth: 96,
+      maxColumns: 3,
+      horizontalGap: 8,
+      verticalGap: 8,
+      children: cells,
     );
   }
 
