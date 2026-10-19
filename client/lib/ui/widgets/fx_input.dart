@@ -16,6 +16,7 @@ class FxInput extends StatelessWidget {
   final String? label;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
+  final TapRegionCallback? onPressedOutside;
   final VoidCallback? onEditingComplete;
   final bool obscureText;
   final bool enableSuggestions;
@@ -44,6 +45,7 @@ class FxInput extends StatelessWidget {
     this.label,
     this.onChanged,
     this.onSubmitted,
+    this.onPressedOutside,
     this.onEditingComplete,
     this.obscureText = false,
     this.enableSuggestions = true,
@@ -73,6 +75,7 @@ class FxInput extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
+      onPressedOutside: onPressedOutside,
       onEditingComplete: onEditingComplete,
       obscureText: obscureText,
       enableSuggestions: enableSuggestions,
