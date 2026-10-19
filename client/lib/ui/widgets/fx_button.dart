@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -13,9 +15,9 @@ enum FxButtonVariant { primary, secondary, outline, ghost, destructive, link }
 
 enum FxButtonSize { sm, md, lg }
 
-class FxButton extends StatelessWidget {
+class FxButton extends StatefulWidget {
   final String label;
-  final VoidCallback? onPressed;
+  final FutureOr<void> Function()? onPressed;
   final FxButtonVariant variant;
   final FxButtonSize size;
   final IconData? icon;
@@ -33,7 +35,30 @@ class FxButton extends StatelessWidget {
     this.foregroundColor,
   });
 
-  bool get _isCompactAction => size == FxButtonSize.sm;
+  @override
+  State<FxButton> createState() => _FxButtonState();
+}
+
+/// Async actions are locked until their Future completes. Navigation and
+/// synchronous selection remain instant, without an artificial time window.
+class _FxButtonState extends State<FxButton> {
+  bool _running = false;
+
+  Future<void> _invoke() async {
+    final action = widget.onPressed;
+    if (_running || action == null) return;
+    setState(() => _running = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  VoidCallback? get _effectiveAction =>
+      widget.onPressed == null || _running ? null : _invoke;
+
+  bool get _isCompactAction => widget.size == FxButtonSize.sm;
 
   TextStyle _textMetrics(BuildContext context) {
     final source = SlowlightTypography.componentButton(
@@ -49,23 +74,23 @@ class FxButton extends StatelessWidget {
       fontWeight: source.fontWeight,
       height: source.height,
       letterSpacing: source.letterSpacing,
-      color: foregroundColor,
+      color: widget.foregroundColor,
     );
   }
 
   Widget _buildChild(BuildContext context) {
-    final text = Text(label, style: _textMetrics(context));
-    if (icon != null) {
+    final text = Text(widget.label, style: _textMetrics(context));
+    if (widget.icon != null) {
       return Row(
-        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            icon,
+            widget.icon,
             size: _isCompactAction
                 ? SlowlightIconSize.compactAction
                 : SlowlightIconSize.sm,
-            color: foregroundColor,
+            color: widget.foregroundColor,
           ),
           SizedBox(
             width: _isCompactAction
@@ -80,7 +105,7 @@ class FxButton extends StatelessWidget {
   }
 
   ShadButtonSize get _shadSize {
-    switch (size) {
+    switch (widget.size) {
       case FxButtonSize.sm:
         return ShadButtonSize.sm;
       case FxButtonSize.lg:
@@ -94,45 +119,45 @@ class FxButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = _buildChild(context);
     final Widget button;
-    switch (variant) {
+    switch (widget.variant) {
       case FxButtonVariant.primary:
         button = ShadButton(
-          onPressed: onPressed,
+          onPressed: _effectiveAction,
           size: _shadSize,
           child: child,
         );
         break;
       case FxButtonVariant.secondary:
         button = ShadButton.secondary(
-          onPressed: onPressed,
+          onPressed: _effectiveAction,
           size: _shadSize,
           child: child,
         );
         break;
       case FxButtonVariant.outline:
         button = ShadButton.outline(
-          onPressed: onPressed,
+          onPressed: _effectiveAction,
           size: _shadSize,
           child: child,
         );
         break;
       case FxButtonVariant.ghost:
         button = ShadButton.ghost(
-          onPressed: onPressed,
+          onPressed: _effectiveAction,
           size: _shadSize,
           child: child,
         );
         break;
       case FxButtonVariant.destructive:
         button = ShadButton.destructive(
-          onPressed: onPressed,
+          onPressed: _effectiveAction,
           size: _shadSize,
           child: child,
         );
         break;
       case FxButtonVariant.link:
         button = ShadButton.link(
-          onPressed: onPressed,
+          onPressed: _effectiveAction,
           size: _shadSize,
           child: child,
         );

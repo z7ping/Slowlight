@@ -23,6 +23,7 @@ class HabitToolScreen extends StatefulWidget {
 class _HabitToolScreenState extends State<HabitToolScreen> {
   late final HabitController _controller;
   int? _expandedHabitId;
+  final Set<int> _pendingHabitActions = <int>{};
 
   @override
   void initState() {
@@ -98,7 +99,24 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     }
   }
 
-  Future<void> _toggleToday(Habit habit) async {
+  // The same habit may be triggered from the card, week dots and long-press.
+  // Guard the whole dialog + write lifecycle, not only the final API request.
+  Future<void> _runHabitAction(
+    Habit habit,
+    Future<void> Function() action,
+  ) async {
+    if (!_pendingHabitActions.add(habit.id)) return;
+    try {
+      await action();
+    } finally {
+      _pendingHabitActions.remove(habit.id);
+    }
+  }
+
+  Future<void> _toggleToday(Habit habit) =>
+      _runHabitAction(habit, () => _toggleTodayInternal(habit));
+
+  Future<void> _toggleTodayInternal(Habit habit) async {
     if (habit.checkedToday) {
       final confirmed = await FxDialog.confirm(
         context: context,
@@ -138,7 +156,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     }
   }
 
-  Future<void> _openDetailedCheckin(Habit habit) async {
+  Future<void> _openDetailedCheckin(Habit habit) =>
+      _runHabitAction(habit, () => _openDetailedCheckinInternal(habit));
+
+  Future<void> _openDetailedCheckinInternal(Habit habit) async {
     HapticFeedback.mediumImpact();
     if (habit.checkedToday) {
       _message('今天已记录；当前暂不支持编辑打卡详情');
@@ -160,12 +181,18 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     }
   }
 
-  Future<void> _tapWeekDay(Habit habit, DateTime day) async {
+  Future<void> _tapWeekDay(Habit habit, DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (_sameDay(day, today)) return _toggleToday(habit);
+    return _runHabitAction(habit, () => _tapWeekDayInternal(habit, day));
+  }
+
+  Future<void> _tapWeekDayInternal(Habit habit, DateTime day) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
     final active = habit.checkedDays.contains(key);
-    if (_sameDay(day, today)) return _toggleToday(habit);
     if (active) {
       _message('历史打卡是事实记录，不在这里修改');
       return;
@@ -196,7 +223,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     }
   }
 
-  Future<void> _backfill(Habit habit) async {
+  Future<void> _backfill(Habit habit) =>
+      _runHabitAction(habit, () => _backfillInternal(habit));
+
+  Future<void> _backfillInternal(Habit habit) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final created = DateTime(
@@ -230,7 +260,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     }
   }
 
-  Future<void> _delete(Habit habit) async {
+  Future<void> _delete(Habit habit) =>
+      _runHabitAction(habit, () => _deleteInternal(habit));
+
+  Future<void> _deleteInternal(Habit habit) async {
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '删除习惯',
