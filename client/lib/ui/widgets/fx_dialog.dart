@@ -256,7 +256,7 @@ class FxDialogSurface extends StatelessWidget {
   });
 
   final Color? backgroundColor;
-  final EdgeInsetsGeometry? padding;
+  final EdgeInsets? padding;
   final double? elevation;
   final Color? shadowColor;
   final Color? surfaceTintColor;
