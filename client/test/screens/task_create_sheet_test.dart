@@ -238,6 +238,10 @@ void main() {
     await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -120));
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCreateSheet), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
