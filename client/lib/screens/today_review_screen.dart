@@ -229,7 +229,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _errorView();
     return switch (_periodIndex) {
-      1 => const WeeklyReviewScreen(),
+      1 => const WeeklyReviewScreen(embedded: true),
       2 => const TaskMonthTab(),
       _ => _todayBody(),
     };
