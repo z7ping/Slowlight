@@ -96,6 +96,11 @@ func InitDB() (*gorm.DB, error) {
 		&model.Subtask{},
 		&model.Tag{},
 		&model.TaskTag{},
+		&model.LegacySystemTagAlias{},
+		&model.HabitTag{},
+		&model.WorkSession{},
+		&model.WorkSessionTag{},
+		&model.ReflectionTag{},
 		&model.Habit{},
 		&model.HabitLog{},
 		&model.UserConfig{},
@@ -116,6 +121,10 @@ func InitDB() (*gorm.DB, error) {
 			Update("dimension_key", dimension.Key).Error; err != nil {
 			return nil, fmt.Errorf("回填 dimension_key 失败: %w", err)
 		}
+	}
+
+	if err := backfillLegacyTagLinks(db); err != nil {
+		return nil, fmt.Errorf("统一标签历史关联回填失败: %w", err)
 	}
 
 	return db, nil
