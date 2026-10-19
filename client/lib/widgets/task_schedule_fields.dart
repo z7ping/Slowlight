@@ -9,6 +9,7 @@ class TaskScheduleFields extends StatelessWidget {
   const TaskScheduleFields({
     super.key,
     required this.enabled,
+    this.compact = false,
     required this.dueDate,
     required this.onDateChanged,
     required this.dueTime,
@@ -22,6 +23,8 @@ class TaskScheduleFields extends StatelessWidget {
   });
 
   final bool enabled;
+  /// 仅改变手机端网格密度，不分叉日期、重复和提醒逻辑。
+  final bool compact;
   final DateTime? dueDate;
   final ValueChanged<DateTime?> onDateChanged;
   final TimeOfDay? dueTime;
@@ -39,7 +42,9 @@ class TaskScheduleFields extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FxResponsiveFormGrid(
-          minColumnWidth: 240,
+          minColumnWidth: compact ? 136 : 240,
+          maxColumns: 2,
+          horizontalGap: compact ? 8 : 12,
           children: [
             _dateField(context),
             _timeField(context),
@@ -188,6 +193,8 @@ class TaskScheduleFields extends StatelessWidget {
             Expanded(
               child: Text(
                 text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: SlowlightTypography.componentControl(context),
               ),
             ),

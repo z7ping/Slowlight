@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -225,24 +227,272 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     return null;
   }
 
+  Widget _titleInput(BuildContext context) => FxInput(
+    controller: _titleController,
+    // Android 先展示任务属性；桌面默认聚焦方便键盘快捷录入。
+    autofocus: widget.desktopDialog,
+    onPressedOutside: (_) => FocusScope.of(context).unfocus(),
+    enabled: !_saving,
+    textInputAction: TextInputAction.done,
+    onSubmitted: (_) => _createTask(),
+    style: SlowlightTypography.body(context),
+    placeholder: widget.desktopDialog
+        ? '例如：整理今天的会议记录'
+        : '要做什么？',
+  );
+
+  Widget _mobileEditorContent(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _titleInput(context),
+        const SizedBox(height: 12),
+        FxResponsiveFormGrid(
+          minColumnWidth: 136,
+          maxColumns: 2,
+          horizontalGap: 8,
+          verticalGap: 8,
+          children: [
+            _mobileProperty(
+              context,
+              key: const ValueKey('task-property-list'),
+              icon: LucideIcons.folder,
+              label: _loadingLists ? '读取清单…' : _selectedListName(),
+              selected: _selectedListId != null,
+              onTap: _loadingLists || _saving ? null : _chooseMobileList,
+            ),
+            _mobileProperty(
+              context,
+              key: const ValueKey('task-property-date'),
+              icon: LucideIcons.calendarDays,
+              label: _dueDate == null
+                  ? '未安排'
+                  : _dueToday
+                      ? '今天'
+                      : '${_dueDate!.month}/${_dueDate!.day}',
+              selected: _dueDate != null,
+              onTap: _saving ? null : _chooseMobileDate,
+            ),
+            _mobileProperty(
+              context,
+              key: const ValueKey('task-property-priority'),
+              icon: LucideIcons.flag,
+              label: _selectedPriority == 'none'
+                  ? '无优先级'
+                  : _priorityLabel(_selectedPriority),
+              selected: _selectedPriority != 'none',
+              onTap: _saving ? null : _chooseMobilePriority,
+            ),
+            _mobileProperty(
+              context,
+              key: const ValueKey('task-property-tag'),
+              icon: LucideIcons.tag,
+              label: _selectedTagName() == '标签'
+                  ? '无标签'
+                  : _selectedTagName(),
+              selected: _selectedTagId != null,
+              onTap: _saving ? null : _chooseMobileTag,
+            ),
+          ],
+        ),
+        if (_advancedExpanded) ...[
+          const SizedBox(height: 12),
+          _advancedContent(context),
+        ],
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _error!,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _mobileProperty(
+    BuildContext context, {
+    required Key key,
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback? onTap,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = activePalette.accent;
+    return FxInkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: .08)
+              : scheme.surfaceContainerLowest,
+          border: Border.all(
+            color: selected ? accent.withValues(alpha: .65) : scheme.outline,
+          ),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: SlowlightIconSize.sm, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: SlowlightTypography.componentControl(context),
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              LucideIcons.chevronDown,
+              size: SlowlightIconSize.xs,
+              color: scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<T?> _showMobileChoices<T>({
+    required String title,
+    required List<_QuickOption<T>> options,
+    required T? selected,
+  }) {
+    FocusScope.of(context).unfocus();
+    return FxSheet.show<T>(
+      context: context,
+      draggable: false,
+      showDragHandle: false,
+      builder: (sheetContext) {
+        final maxHeight = MediaQuery.sizeOf(sheetContext).height * .55;
+        final height = math.min(maxHeight, (options.length * 52 + 72).toDouble());
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: SizedBox(
+              height: height,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    style: SlowlightTypography.cardTitle(sheetContext),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        final active = option.value == selected;
+                        return FxListTile(
+                          density: FxListTileDensity.compact,
+                          title: option.label,
+                          leading: Icon(option.icon, size: SlowlightIconSize.md),
+                          trailing: active
+                              ? const Icon(LucideIcons.check, size: SlowlightIconSize.md)
+                              : null,
+                          selected: active,
+                          selectedTileColor: activePalette.accent
+                              .withValues(alpha: .10),
+                          onTap: () => Navigator.of(sheetContext).pop(option.value),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _chooseMobileList() async {
+    final id = await _showMobileChoices<int>(
+      title: '选择清单',
+      selected: _selectedListId,
+      options: [
+        for (final list in _lists)
+          _QuickOption(value: list.id, label: '${list.icon} ${list.name}', icon: LucideIcons.folder),
+      ],
+    );
+    if (mounted && id != null) setState(() => _selectedListId = id);
+  }
+
+  Future<void> _chooseMobileDate() async {
+    final choice = await _showMobileChoices<int>(
+      title: '安排日期',
+      selected: _dueDate == null ? 0 : _dueToday ? 1 : 2,
+      options: const [
+        _QuickOption(value: 1, label: '今天', icon: LucideIcons.calendarDays),
+        _QuickOption(value: 2, label: '选择日期…', icon: LucideIcons.calendarDays),
+        _QuickOption(value: 0, label: '不安排日期', icon: LucideIcons.x),
+      ],
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 2) {
+      final picked = await showFxDatePicker(
+        context: context,
+        initialDate: _dueDate ?? DateTime.now(),
+        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+        lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+      );
+      if (mounted && picked != null) setState(() => _dueDate = picked);
+    } else {
+      setState(() => _dueDate = choice == 1 ? _today() : null);
+    }
+  }
+
+  Future<void> _chooseMobilePriority() async {
+    final value = await _showMobileChoices<String>(
+      title: '设置优先级',
+      selected: _selectedPriority,
+      options: const [
+        _QuickOption(value: 'none', label: '无优先级', icon: LucideIcons.flag),
+        _QuickOption(value: 'urgent_important', label: '高', icon: LucideIcons.flag),
+        _QuickOption(value: 'important', label: '中', icon: LucideIcons.flag),
+        _QuickOption(value: 'urgent', label: '低', icon: LucideIcons.flag),
+      ],
+    );
+    if (mounted && value != null) setState(() => _selectedPriority = value);
+  }
+
+  Future<void> _chooseMobileTag() async {
+    final id = await _showMobileChoices<int>(
+      title: '选择标签',
+      selected: _selectedTagId ?? -1,
+      options: [
+        const _QuickOption(value: -1, label: '无标签', icon: LucideIcons.tag),
+        for (final tag in _availableTags)
+          _QuickOption(value: tag.id, label: '#${tag.name}', icon: LucideIcons.tag),
+      ],
+    );
+    if (mounted && id != null) {
+      setState(() => _selectedTagId = id == -1 ? null : id);
+    }
+  }
+
   Widget _editorContent(BuildContext context) {
+    if (!widget.desktopDialog) return _mobileEditorContent(context);
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FxInput(
-          controller: _titleController,
-          // Android 先展示清单、标签等选项，用户点输入框后再弹出键盘。
-          // 桌面端保留快捷录入时的默认聚焦。
-          autofocus: widget.desktopDialog,
-          onPressedOutside: (_) => FocusScope.of(context).unfocus(),
-          enabled: !_saving,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _createTask(),
-          style: SlowlightTypography.body(context),
-          placeholder: '例如：整理今天的会议记录',
-        ),
+        _titleInput(context),
         const SizedBox(height: 12),
         if (_loadingLists)
           Text(
@@ -365,8 +615,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         placeholder: '描述（可选）',
         style: SlowlightTypography.componentSecondary(context),
       ),
-      const SizedBox(height: 16),
+      SizedBox(height: widget.desktopDialog ? 16 : 12),
       TaskScheduleFields(
+        compact: !widget.desktopDialog,
         enabled: !_saving,
         dueDate: _dueDate,
         onDateChanged: (date) => setState(() => _dueDate = date),
@@ -387,21 +638,44 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     ],
   );
 
-  Widget _editorActions() => FxDialogActions(
-    actions: [
-      FxButton(
-        label: _advancedExpanded ? '收起设置' : '更多设置',
-        variant: FxButtonVariant.outline,
-        size: FxButtonSize.sm,
-        onPressed: _saving ? null : () => setState(() => _advancedExpanded = !_advancedExpanded),
-      ),
-      FxButton(
-        label: _saving ? '添加中…' : '添加任务',
-        size: FxButtonSize.sm,
-        onPressed: _saving ? null : _createTask,
-      ),
-    ],
-  );
+  Widget _editorActions() {
+    if (!widget.desktopDialog) {
+      return FxDialogActions(
+        actions: [
+          FxButton(
+            label: _advancedExpanded ? '收起设置' : '详细设置',
+            variant: FxButtonVariant.ghost,
+            size: FxButtonSize.sm,
+            onPressed: _saving
+                ? null
+                : () => setState(() => _advancedExpanded = !_advancedExpanded),
+          ),
+          FxButton(
+            label: _saving ? '添加中…' : '添加任务',
+            size: FxButtonSize.md,
+            onPressed: _saving ? null : _createTask,
+          ),
+        ],
+      );
+    }
+    return FxDialogActions(
+      actions: [
+        FxButton(
+          label: _advancedExpanded ? '收起设置' : '更多设置',
+          variant: FxButtonVariant.outline,
+          size: FxButtonSize.sm,
+          onPressed: _saving
+              ? null
+              : () => setState(() => _advancedExpanded = !_advancedExpanded),
+        ),
+        FxButton(
+          label: _saving ? '添加中…' : '添加任务',
+          size: FxButtonSize.sm,
+          onPressed: _saving ? null : _createTask,
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -658,4 +932,16 @@ class _DefaultHint extends StatelessWidget {
       borderRadius: 999,
     );
   }
+}
+
+class _QuickOption<T> {
+  final T value;
+  final String label;
+  final IconData icon;
+
+  const _QuickOption({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
 }

@@ -118,7 +118,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 窄屏默认显示标签和固定的添加任务操作区', (tester) async {
+  testWidgets('Android 窄屏默认显示两列任务属性和固定操作栏', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 640);
@@ -131,9 +131,61 @@ void main() {
       ),
     ));
     await tester.pump();
-    expect(find.byType(TagChoiceField), findsOneWidget);
+    for (final key in [
+      'task-property-list',
+      'task-property-date',
+      'task-property-priority',
+      'task-property-tag',
+    ]) {
+      expect(find.byKey(ValueKey(key)), findsOneWidget);
+    }
+    expect(find.byType(TagChoiceField), findsNothing);
     expect(find.text('无标签'), findsOneWidget);
+    expect(find.text('详细设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
+    final list = tester.getTopLeft(find.byKey(const ValueKey('task-property-list')));
+    final date = tester.getTopLeft(find.byKey(const ValueKey('task-property-date')));
+    final priority = tester.getTopLeft(find.byKey(const ValueKey('task-property-priority')));
+    final tag = tester.getTopLeft(find.byKey(const ValueKey('task-property-tag')));
+    expect(list.dy, closeTo(date.dy, 1));
+    expect(priority.dy, closeTo(tag.dy, 1));
+    expect(priority.dy, greaterThan(date.dy));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 四项属性使用原业务状态，选择后立即回填', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('task-property-priority')));
+    await tester.pumpAndSettle();
+    expect(find.text('设置优先级'), findsOneWidget);
+    await tester.tap(find.text('高'));
+    await tester.pumpAndSettle();
+    expect(find.text('高'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('task-property-date')));
+    await tester.pumpAndSettle();
+    expect(find.text('安排日期'), findsOneWidget);
+    await tester.tap(find.text('不安排日期'));
+    await tester.pumpAndSettle();
+    expect(find.text('未安排'), findsOneWidget);
+
+    await tester.tap(find.text('详细设置'));
+    await tester.pump(const Duration(milliseconds: 250));
+    final schedule = tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields));
+    expect(schedule.compact, isTrue);
+    expect(schedule.dueDate, isNull);
+    expect(find.text('收起设置'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -164,9 +216,12 @@ void main() {
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
     await tester.enterText(editable, '买一本书');
 
-    await tester.tap(find.text('无标签'));
+    await tester.tap(find.byKey(const ValueKey('task-property-tag')));
     await tester.pump();
+    expect(find.text('选择标签'), findsOneWidget);
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    await tester.tap(find.text('无标签').last);
+    await tester.pumpAndSettle();
     expect(tester.widget<EditableText>(editable).controller.text, '买一本书');
 
     expect(tester.takeException(), isNull);
@@ -265,10 +320,10 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 窄屏展开后可滚动，底部操作仍可见', (tester) async {
+  testWidgets('Android 超短屏展开后可滚动，底部操作仍可见', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    tester.view.physicalSize = const Size(360, 640);
+    tester.view.physicalSize = const Size(360, 440);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -278,10 +333,11 @@ void main() {
       ),
     ));
     await tester.pump();
-    await tester.tap(find.text('更多设置'));
+    await tester.tap(find.text('详细设置'));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(TaskScheduleFields), findsOneWidget);
+    expect(tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields)).compact, isTrue);
     expect(find.text('收起设置'), findsOneWidget);
     final scroll = find.byType(SingleChildScrollView).first;
     final scrollable = tester.state<ScrollableState>(
@@ -293,6 +349,39 @@ void main() {
     expect(scrollable.position.pixels, greaterThan(0));
     expect(find.text('收起设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 大字体下紧凑日程网格自动回退单列', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(360, 740),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('详细设置'));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final fields = tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields));
+    expect(fields.compact, isTrue);
+    expect(find.text('到期日期'), findsOneWidget);
+    expect(find.text('时间'), findsOneWidget);
+    // 双列宽度不足时自动退为单列，不截断字段标题。
+    expect(
+      tester.getTopLeft(find.text('时间')).dy,
+      greaterThan(tester.getTopLeft(find.text('到期日期')).dy),
+    );
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
