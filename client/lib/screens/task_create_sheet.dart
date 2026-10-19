@@ -236,7 +236,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     textInputAction: TextInputAction.done,
     onSubmitted: (_) => _createTask(),
     style: SlowlightTypography.body(context),
-    placeholder: '要做什么？',
+    placeholder: widget.desktopDialog
+        ? '例如：整理今天的会议记录'
+        : '要做什么？',
   );
 
   Widget _mobileEditorContent(BuildContext context) {
@@ -658,20 +660,22 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       );
     }
     return FxDialogActions(
-    actions: [
-      FxButton(
-        label: _advancedExpanded ? '收起设置' : '更多设置',
-        variant: FxButtonVariant.outline,
-        size: FxButtonSize.sm,
-        onPressed: _saving ? null : () => setState(() => _advancedExpanded = !_advancedExpanded),
-      ),
-      FxButton(
-        label: _saving ? '添加中…' : '添加任务',
-        size: FxButtonSize.sm,
-        onPressed: _saving ? null : _createTask,
-      ),
-    ],
-  );
+      actions: [
+        FxButton(
+          label: _advancedExpanded ? '收起设置' : '更多设置',
+          variant: FxButtonVariant.outline,
+          size: FxButtonSize.sm,
+          onPressed: _saving
+              ? null
+              : () => setState(() => _advancedExpanded = !_advancedExpanded),
+        ),
+        FxButton(
+          label: _saving ? '添加中…' : '添加任务',
+          size: FxButtonSize.sm,
+          onPressed: _saving ? null : _createTask,
+        ),
+      ],
+    );
   }
 
   @override
