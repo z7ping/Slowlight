@@ -4,18 +4,18 @@ import '../services/api_service.dart';
 import '../ui/fx.dart';
 
 /// 系统标签选择器弹窗。
-/// 用于番茄钟结束时选择系统标签。
+/// 用于番茄钟结束时选择标签。
 class SystemTagPicker extends StatefulWidget {
   final int? defaultTagId;
   final String title;
 
-  const SystemTagPicker({super.key, this.defaultTagId, this.title = '选择系统标签'});
+  const SystemTagPicker({super.key, this.defaultTagId, this.title = '选择标签'});
 
   /// 显示系统标签选择弹窗，返回选中的 tag ID 或 null。
   static Future<int?> show(
     BuildContext context, {
     int? defaultTagId,
-    String title = '选择系统标签',
+    String title = '选择标签',
   }) async {
     return FxSheet.show<int?>(
       context: context,
@@ -53,7 +53,7 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
         setState(() => _loading = false);
         FxNotice.showContent(
           context,
-          const Text('加载系统标签失败'),
+          const Text('加载标签失败'),
           variant: FxNoticeVariant.destructive,
         );
       }
@@ -92,7 +92,7 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
             ),
             const SizedBox(height: 4),
             Text(
-              '这次专注属于哪个维度？',
+              '为这次专注选择标签（可选）',
               style: SlowlightTypography.secondary(
                 context,
               ).copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -101,7 +101,7 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
             if (_loading)
               const Center(child: FxCircularProgress())
             else if (_tags.isEmpty)
-              Text('暂无系统标签', style: SlowlightTypography.body(context))
+              Text('暂无标签', style: SlowlightTypography.body(context))
             else
               Wrap(
                 spacing: 12,
@@ -168,7 +168,7 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
               ),
             const SizedBox(height: 16),
             FxButton(
-              label: '跳过，不标记',
+              label: '不添加标签',
               variant: FxButtonVariant.ghost,
               expanded: true,
               onPressed: () => Navigator.pop(context, null),
