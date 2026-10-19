@@ -18,7 +18,7 @@ import 'time_distribution_screen.dart';
 import 'weekly_review_screen.dart';
 
 /// 回顾：看事实 → 回应问题 → 留下解释。
-/// 视觉与交互以 docs/design/mockups/index.html 的「回顾」页为基线。
+/// 回顾页采用已确认的 Android / Windows 响应式信息结构；组件复用 Fx。
 class TodayReviewScreen extends StatefulWidget {
   final String initialReviewMode;
 
