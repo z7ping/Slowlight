@@ -380,21 +380,12 @@ class ReflectionComposer {
       width: 520,
       child: StatefulBuilder(
         builder: (dialogContext, setState) {
-          final dimension = DimensionCatalog.byKey(dimensionKey);
           return SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (dimension != null) ...[
-                  Text(
-                    '${dimension.icon} ${dimension.name}',
-                    style: SlowlightTypography.secondary(dialogContext)
-                        .copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ],
                 if (prompt != null && prompt.trim().isNotEmpty) ...[
-                  if (dimension != null) const SizedBox(height: 10),
                   Text(
                     prompt,
                     style: SlowlightTypography.secondary(dialogContext)
