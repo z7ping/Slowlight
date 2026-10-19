@@ -26,6 +26,10 @@
 | Subtask | `server/internal/model/subtask.go` | `ID:uint`<br>`TaskID:uint`<br>`Title:string`<br>`IsCompleted:bool`<br>`SortOrder:int`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time` |
 | Tag | `server/internal/model/tag.go` | `ID:uint`<br>`Name:string`<br>`Color:string`<br>`UserID:uint`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time`<br>`DeletedAt:gorm.DeletedAt` |
 | TaskTag | `server/internal/model/tag.go` | `TaskID:uint`<br>`TagID:uint` |
+| LegacySystemTagAlias | `server/internal/model/tag.go` | `UserID:uint`<br>`SystemTagID:uint`<br>`TagID:uint` |
+| HabitTag | `server/internal/model/tag.go` | `HabitID:uint`<br>`TagID:uint` |
+| WorkSessionTag | `server/internal/model/tag.go` | `WorkSessionID:uint`<br>`TagID:uint` |
+| ReflectionTag | `server/internal/model/tag.go` | `ReflectionID:uint`<br>`TagID:uint` |
 | Webhook | `server/internal/model/webhook.go` | `ID:uint`<br>`UserID:uint`<br>`URL:string`<br>`Event:string`<br>`Secret:string`<br>`Name:string`<br>`IsActive:bool`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time` |
 
 ## 扫描到的 AutoMigrate
@@ -38,6 +42,11 @@
 | Subtask | `server/internal/config/database.go` |
 | Tag | `server/internal/config/database.go` |
 | TaskTag | `server/internal/config/database.go` |
+| LegacySystemTagAlias | `server/internal/config/database.go` |
+| HabitTag | `server/internal/config/database.go` |
+| WorkSession | `server/internal/config/database.go` |
+| WorkSessionTag | `server/internal/config/database.go` |
+| ReflectionTag | `server/internal/config/database.go` |
 | Habit | `server/internal/config/database.go` |
 | HabitLog | `server/internal/config/database.go` |
 | UserConfig | `server/internal/config/database.go` |
@@ -47,6 +56,19 @@
 | Reflection | `server/internal/config/database.go` |
 | CalDAVSyncState | `server/internal/config/database.go` |
 | MigrationReport | `server/internal/config/database.go` |
+| User | `server/internal/config/tag_migration_test.go` |
+| List | `server/internal/config/tag_migration_test.go` |
+| Tag | `server/internal/config/tag_migration_test.go` |
+| SystemTag | `server/internal/config/tag_migration_test.go` |
+| Task | `server/internal/config/tag_migration_test.go` |
+| TaskTag | `server/internal/config/tag_migration_test.go` |
+| Habit | `server/internal/config/tag_migration_test.go` |
+| WorkSession | `server/internal/config/tag_migration_test.go` |
+| Reflection | `server/internal/config/tag_migration_test.go` |
+| LegacySystemTagAlias | `server/internal/config/tag_migration_test.go` |
+| HabitTag | `server/internal/config/tag_migration_test.go` |
+| WorkSessionTag | `server/internal/config/tag_migration_test.go` |
+| ReflectionTag | `server/internal/config/tag_migration_test.go` |
 | ReminderConfig | `server/internal/handler/reminder.go` |
 | ReminderSession | `server/internal/handler/reminder.go` |
 | WorkSession | `server/internal/handler/session.go` |
@@ -69,4 +91,4 @@
 | MigrationReport | `server/internal/handler/test_helper.go` |
 | Webhook | `server/internal/handler/test_helper.go` |
 
-共扫描到 36 个 Model/位置组合。
+共扫描到 54 个 Model/位置组合。
