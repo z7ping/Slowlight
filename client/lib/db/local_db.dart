@@ -520,6 +520,10 @@ class LocalDb {
 
   Future<void> clearAll() async {
     final db = await database;
+    await db.delete('legacy_system_tag_aliases');
+    await db.delete('habit_tags');
+    await db.delete('work_session_tags');
+    await db.delete('reflection_tags');
     await db.delete('work_sessions');
     await db.delete('habit_logs');
     await db.delete('task_tags');
