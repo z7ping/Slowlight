@@ -341,7 +341,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: scheme.onSurfaceVariant),
+            Icon(icon, size: SlowlightIconSize.sm, color: scheme.onSurfaceVariant),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -354,7 +354,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             const SizedBox(width: 2),
             Icon(
               LucideIcons.chevronDown,
-              size: 14,
+              size: SlowlightIconSize.xs,
               color: scheme.onSurfaceVariant,
             ),
           ],
@@ -399,9 +399,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                         return FxListTile(
                           density: FxListTileDensity.compact,
                           title: option.label,
-                          leading: Icon(option.icon, size: 18),
+                          leading: Icon(option.icon, size: SlowlightIconSize.md),
                           trailing: active
-                              ? const Icon(LucideIcons.check, size: 18)
+                              ? const Icon(LucideIcons.check, size: SlowlightIconSize.md)
                               : null,
                           selected: active,
                           selectedTileColor: activePalette.accent
@@ -438,7 +438,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       selected: _dueDate == null ? 0 : _dueToday ? 1 : 2,
       options: const [
         _QuickOption(value: 1, label: '今天', icon: LucideIcons.calendarDays),
-        _QuickOption(value: 2, label: '选择日期…', icon: LucideIcons.calendar),
+        _QuickOption(value: 2, label: '选择日期…', icon: LucideIcons.calendarDays),
         _QuickOption(value: 0, label: '不安排日期', icon: LucideIcons.x),
       ],
     );
@@ -640,9 +640,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
   Widget _editorActions() {
     if (!widget.desktopDialog) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+      return FxDialogActions(
+        actions: [
           FxButton(
             label: _advancedExpanded ? '收起设置' : '详细设置',
             variant: FxButtonVariant.ghost,
