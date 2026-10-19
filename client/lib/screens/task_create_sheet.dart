@@ -12,6 +12,7 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/tag_choice_field.dart';
+import '../widgets/task_schedule_fields.dart';
 import 'add_task_screen.dart';
 
 /// 任务快速记录入口。
@@ -74,7 +75,7 @@ class TaskCreateSheet extends StatefulWidget {
       context: context,
       // 快捷表单按内容高度展示；保留下滑关闭手势，
       // 键盘出现时仍由 FxSheet 统一避让，不自动扩展成全屏。
-      isScrollControlled: false,
+      isScrollControlled: true,
       draggable: true,
       showDragHandle: false,
       builder: (_) => editor,
@@ -157,13 +158,19 @@ class TaskCreateSheet extends StatefulWidget {
 
 class _TaskCreateSheetState extends State<TaskCreateSheet> {
   final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final _tagsRepository = ObservationTagRepository();
   List<ObservationTag> _availableTags = const [];
   late int? _selectedTagId;
   bool _showTags = false;
   List<TodoList> _lists = const [];
   int? _selectedListId;
-  late bool _dueToday;
+  late DateTime? _dueDate;
+  TimeOfDay? _dueTime;
+  String _repeatType = 'none';
+  final Set<int> _selectedWeekdays = {};
+  int _reminderAdvanceMinutes = -1;
+  bool _advancedExpanded = false;
   late String _selectedPriority;
   bool _loadingLists = true;
   bool _saving = false;
@@ -172,7 +179,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   @override
   void initState() {
     super.initState();
-    _dueToday = widget.defaultDueToday;
+    _dueDate = widget.defaultDueToday ? _today() : null;
     _selectedPriority = _normalizePriority(widget.initialPriority);
     _selectedTagId = widget.systemTagId;
     _loadLists();
@@ -182,6 +189,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   @override
   void dispose() {
     _titleController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -257,11 +265,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               ),
               _QuickChip(
                 icon: LucideIcons.calendarDays,
-                text: '今天',
-                selected: _dueToday,
+                text: _dueDate != null && !_dueToday
+                    ? '${' + '{_dueDate!.month}/${_dueDate!.day}' + '}'
+                    : '今天',
+                selected: _dueDate != null,
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  setState(() => _dueToday = !_dueToday);
+                  setState(() => _dueDate = _dueToday ? null : _today());
                 },
               ),
               _QuickChip(
@@ -294,6 +304,17 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             onChanged: (id) => setState(() => _selectedTagId = id),
           ),
         ],
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOutCubic,
+          alignment: Alignment.topCenter,
+          child: _advancedExpanded
+              ? Padding(
+                  padding: const EdgeInsets.only(top: SlowlightSpacing.xxxl),
+                  child: _advancedContent(context),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -307,13 +328,46 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     );
   }
 
+  Widget _advancedContent(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      FxInput(
+        controller: _descriptionController,
+        enabled: !_saving,
+        minLines: 1,
+        maxLines: 3,
+        placeholder: '描述（可选）',
+        style: SlowlightTypography.componentSecondary(context),
+      ),
+      const SizedBox(height: 16),
+      TaskScheduleFields(
+        enabled: !_saving,
+        dueDate: _dueDate,
+        onDateChanged: (date) => setState(() => _dueDate = date),
+        dueTime: _dueTime,
+        onTimeChanged: (time) => setState(() => _dueTime = time),
+        repeatType: _repeatType,
+        onRepeatChanged: (value) => setState(() {
+          _repeatType = value;
+          if (value != 'weekly') _selectedWeekdays.clear();
+        }),
+        selectedWeekdays: _selectedWeekdays,
+        onWeekdayToggled: (day) => setState(() {
+          if (!_selectedWeekdays.add(day)) _selectedWeekdays.remove(day);
+        }),
+        reminderAdvanceMinutes: _reminderAdvanceMinutes,
+        onReminderChanged: (value) => setState(() => _reminderAdvanceMinutes = value),
+      ),
+    ],
+  );
+
   Widget _editorActions() => FxDialogActions(
     actions: [
       FxButton(
-        label: '更多设置',
+        label: _advancedExpanded ? '收起设置' : '更多设置',
         variant: FxButtonVariant.outline,
         size: FxButtonSize.sm,
-        onPressed: _saving ? null : _openFullCreate,
+        onPressed: _saving ? null : () => setState(() => _advancedExpanded = !_advancedExpanded),
       ),
       FxButton(
         label: _saving ? '添加中…' : '添加任务',
@@ -328,7 +382,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     if (widget.desktopDialog) {
       return ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * .7,
+          maxHeight: MediaQuery.sizeOf(context).height * .85,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -344,7 +398,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     // FxSheet 已统一避让输入法，表单本身只负责内容高度与内部滚动。
     return SafeArea(
       top: false,
-      child: Padding(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .85),
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -368,6 +424,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -390,32 +447,6 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     return result;
   }
 
-  Future<void> _openFullCreate() async {
-    final navigator = Navigator.of(context);
-    final lists = _lists;
-    final selectedListId = _selectedListId;
-    final dueDate = _dueToday ? _today() : null;
-    final defaultToToday = _dueToday;
-    final initialTitle = _titleController.text;
-    final initialPriority = _selectedPriority;
-    final systemTagId = _selectedTagId;
-    final onCreated = widget.onCreated;
-    navigator.pop();
-    await Future<void>.delayed(Duration.zero);
-    if (!navigator.context.mounted) return;
-    final created = await TaskCreateSheet.showFullCreate(
-      navigator.context,
-      lists: lists.isEmpty ? null : lists,
-      selectedListId: selectedListId,
-      defaultDueDate: dueDate,
-      initialTitle: initialTitle,
-      initialPriority: initialPriority,
-      systemTagId: systemTagId,
-      defaultToToday: defaultToToday,
-    );
-    if (created == true) onCreated?.call();
-  }
-
   Future<void> _createTask() async {
     final title = _titleController.text.trim();
     if (title.isEmpty || _saving) {
@@ -429,6 +460,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     });
 
     final notice = FxNotice.capture(context);
+    final description = _descriptionController.text.trim();
+    final dueTime = formatTaskDueTime(_dueTime);
+    final repeatDays = formatTaskRepeatDays(_repeatType, _selectedWeekdays);
+    final reminderAt = buildTaskReminderAt(
+      dueDate: _dueDate,
+      dueTime: _dueTime,
+      advanceMinutes: _reminderAdvanceMinutes,
+    );
     try {
       final systemTagId = _selectedTagId;
       final listId = _selectedListId;
@@ -438,20 +477,22 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           title,
           systemTagId: systemTagId,
         );
-        if (_selectedPriority != 'none' || _dueToday) {
+        if (_selectedPriority != 'none' || _dueDate != null ||
+            description.isNotEmpty || dueTime != null ||
+            _repeatType != 'none' || _reminderAdvanceMinutes >= 0) {
           task = await DataService().updateTask(
             localId: task.id,
             listId: task.listId,
             title: task.title,
-            description: task.description,
+            description: description.isEmpty ? null : description,
             priority: _selectedPriority,
-            dueDate: _dueToday ? _today() : null,
-            dueTime: task.dueTime,
-            repeatType: task.repeatType,
-            repeatInterval: task.repeatInterval,
-            repeatDays: task.repeatDays,
-            reminderAt: task.reminderAt,
-            reminderAdvanceMinutes: task.reminderAdvanceMinutes,
+            dueDate: _dueDate,
+            dueTime: dueTime,
+            repeatType: _repeatType,
+            repeatInterval: 1,
+            repeatDays: repeatDays,
+            reminderAt: reminderAt,
+            reminderAdvanceMinutes: _reminderAdvanceMinutes < 0 ? 0 : _reminderAdvanceMinutes,
             tagIds: task.tags.map((tag) => tag.id).toList(growable: false),
             systemTagId: task.systemTagId,
             taskType: task.taskType,
@@ -467,8 +508,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         task = await DataService().createTask(
           listId: listId,
           title: title,
+          description: description.isEmpty ? null : description,
           priority: _selectedPriority,
-          dueDate: _dueToday ? _today() : null,
+          dueDate: _dueDate,
+          dueTime: dueTime,
+          repeatType: _repeatType,
+          repeatInterval: 1,
+          repeatDays: repeatDays,
+          reminderAt: reminderAt,
+          reminderAdvanceMinutes: _reminderAdvanceMinutes < 0 ? 0 : _reminderAdvanceMinutes,
           systemTagId: systemTagId,
         );
       }
@@ -484,6 +532,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         _error = '记录失败：$e';
       });
     }
+  }
+
+  bool get _dueToday {
+    if (_dueDate == null) return false;
+    final today = _today();
+    return _dueDate!.year == today.year &&
+        _dueDate!.month == today.month && _dueDate!.day == today.day;
   }
 
   DateTime _today() {
