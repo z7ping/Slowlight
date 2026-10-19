@@ -5,6 +5,25 @@ import 'package:slowlight/widgets/review/review_timeline_item.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  test('事实时间线先展示有确定时刻的记录，按时间正序', () {
+    const undated = ReviewTimelineItem(
+      color: Colors.grey, time: '今天', title: '汇总',
+    );
+    const afternoon = ReviewTimelineItem(
+      color: Colors.grey, time: '15:20', title: '下午',
+    );
+    const morning = ReviewTimelineItem(
+      color: Colors.grey, time: '09:05', title: '早晨',
+    );
+    final records = [undated, afternoon, morning]
+      ..sort(compareReviewTimelineItems);
+
+    expect(records.map((entry) => entry.title).toList(), [
+      '早晨', '下午', '汇总',
+    ]);
+  });
+
+
   testWidgets('ReviewTimelineItem 在 360dp + 200% 字体缩放下不溢出',
       (tester) async {
     tester.view.physicalSize = const Size(360, 800);

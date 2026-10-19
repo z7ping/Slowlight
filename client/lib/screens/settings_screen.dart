@@ -12,6 +12,7 @@ import '../services/sync_service.dart';
 import '../services/theme_settings.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
+import '../ui/sync_status_text.dart';
 import 'conflict_screen.dart';
 import 'integration_screen.dart';
 import 'login_screen.dart';
@@ -42,6 +43,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   AiConfig _ai = const AiConfig();
   bool _hasKey = false;
   int _conflictCount = 0;
+  // 首次查询完成前不能把未知冲突状态宣称为正常。
+  bool _conflictCheckFailed = true;
+  SyncStatusEnum? _observedSyncStatus;
 
   bool get _reminderSupported =>
       !kIsWeb &&
@@ -54,6 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _open = widget.initialSection;
     _reminder.addListener(_reminderChanged);
+    SyncService().addListener(_syncStatusChanged);
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
   }
@@ -61,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _reminder.removeListener(_reminderChanged);
+    SyncService().removeListener(_syncStatusChanged);
     _endpoint.dispose();
     _model.dispose();
     _key.dispose();
@@ -69,6 +75,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _reminderChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _syncStatusChanged() {
+    final status = SyncService().status;
+    if (status == _observedSyncStatus) return;
+    _observedSyncStatus = status;
+    if (status != SyncStatusEnum.syncing) _loadConflictCount();
   }
 
   Future<void> _load() async {
@@ -91,14 +104,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadConflictCount() async {
     if (DataModeManager().isLocal) {
-      if (mounted && _conflictCount != 0) setState(() => _conflictCount = 0);
+      if (mounted && (_conflictCount != 0 || _conflictCheckFailed)) {
+        setState(() {
+          _conflictCount = 0;
+          _conflictCheckFailed = false;
+        });
+      }
       return;
     }
     try {
-      final conflicts = await SyncService().getConflicts('tasks');
-      if (mounted) setState(() => _conflictCount = conflicts.length);
+      final conflicts = await SyncService().getAllConflicts();
+      if (mounted) {
+        setState(() {
+          _conflictCount = conflicts.length;
+          _conflictCheckFailed = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _conflictCount = 0);
+      if (mounted) setState(() => _conflictCheckFailed = true);
     }
   }
 
@@ -133,12 +156,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   _groupLabel('数据与服务'),
-                                  _accordion(
-                                    id: 'data',
-                                    icon: Icons.cloud_outlined,
-                                    title: '数据同步',
-                                    summary: _dataSummary(),
-                                    child: _dataPanel(),
+                                  ListenableBuilder(
+                                    listenable: SyncService(),
+                                    builder: (context, _) =>
+                                        ValueListenableBuilder<int>(
+                                      valueListenable: CloudSyncCoordinator()
+                                          .standalonePendingCount,
+                                      builder: (context, _, __) => _accordion(
+                                        id: 'data',
+                                        icon: Icons.cloud_outlined,
+                                        title: '数据同步',
+                                        summary: _dataSummary(),
+                                        child: _dataPanel(),
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(height: 10),
                                   _accordion(
@@ -207,9 +238,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _dataSummary() {
     if (DataModeManager().isLocal) return '本地优先 · 仅保存在设备';
-    if (_syncing) return '云同步 · 同步中…';
-    if (_conflictCount > 0) return '云同步 · $_conflictCount 个冲突待处理';
-    return '云同步 · 状态正常';
+    final sync = SyncService();
+    return cloudSyncSummary(
+      status: sync.status,
+      isSyncing: _syncing,
+      conflictCheckFailed: _conflictCheckFailed,
+      conflictCount: _conflictCount,
+      pendingCount: sync.pendingCount +
+          CloudSyncCoordinator().standalonePendingCount.value,
+    );
   }
 
   String _aiSummary() {
@@ -554,7 +591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 10),
           _settingLine(
             '同步状态',
-            _syncing ? '正在同步本地与云端数据' : '自动同步已启用',
+            _dataSummary(),
             trailing: FxButton(
               label: _syncing ? '同步中…' : '立即同步',
               variant: FxButtonVariant.outline,
@@ -564,12 +601,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _settingLine(
             '同步冲突',
-            _conflictCount == 0 ? '无待处理冲突' : '$_conflictCount 个任务需要选择保留版本',
+            _conflictCheckFailed
+                ? '暂时无法读取冲突，请检查同步状态'
+                : _conflictCount == 0
+                    ? '无待处理冲突'
+                    : '$_conflictCount 条记录需要选择保留版本',
             trailing: FxButton(
               label: '查看冲突 ($_conflictCount)',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
-              onPressed: _conflictCount == 0 ? null : _openConflicts,
+              onPressed: _conflictCount == 0 && !_conflictCheckFailed
+                  ? null
+                  : _openConflicts,
             ),
           ),
         ],
@@ -959,7 +1002,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() => _syncing = false);
     await _loadConflictCount();
-    _message(ok ? '✓ 同步完成' : '同步未执行');
+    _message(ok ? '同步完成' : '同步未完成，请查看同步状态');
   }
 
   Future<void> _openConflicts() async {

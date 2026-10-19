@@ -221,8 +221,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final questions = (_review['questions'] as List? ?? const [])
         .whereType<Map>()
         .map((q) => Map<String, dynamic>.from(q))
-        .where((q) => !_answered.contains(q['id']?.toString() ?? ''))
-        .take(2)
+        .where((q) {
+          final id = q['id']?.toString() ?? '';
+          return !_answered.contains(_questionKey(q)) &&
+              (id.isEmpty ||
+                  !_reflections.any((entry) => entry.questionId == id));
+        })
+        .take(1)
         .toList(growable: false);
 
     return FxRefresh(
@@ -237,9 +242,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               final factsCard = _factsCard(facts);
               final right = Column(
                 children: [
+                  _patternsCard(patterns),
+                  const SizedBox(height: 14),
                   _questionsCard(questions),
                   const SizedBox(height: 14),
-                  _patternsCard(patterns),
+                  _reflectionsCard(),
                   const SizedBox(height: 14),
                   _restCard(),
                 ],
@@ -274,13 +281,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
     for (final raw in tasks) {
       final task = Map<String, dynamic>.from(raw);
+      final completedAt = DateTime.tryParse(
+        task['completed_at']?.toString() ?? '',
+      )?.toLocal();
       items.add(
         ReviewTimelineItem(
           color: AppTheme.chartGreen,
-          time:
-              task['completed_at']?.toString().isNotEmpty == true
-                  ? task['completed_at'].toString()
-                  : '今天',
+          time: completedAt == null ? '今天' : _clockTime(completedAt),
           title: '完成「${task['title'] ?? ''}」',
           note:
               (task['list_name']?.toString() ?? '').isEmpty
@@ -337,17 +344,22 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
     final today = DateTime.now();
     for (final entry in _reflections
-        .where((entry) => _sameDay(entry.createdAt, today))
+        .where((entry) =>
+            entry.entryType == 'observation' &&
+            _sameDay(entry.createdAt, today))
         .take(5)) {
       items.add(
         ReviewTimelineItem(
           color: AppTheme.chartPurple,
-          time: '${_two(entry.createdAt.hour)}:${_two(entry.createdAt.minute)}',
-          title: entry.entryType == 'observation' ? '写下观察' : '留下解释',
+          time: _clockTime(entry.createdAt),
+          title: '写下观察',
           note: entry.content,
         ),
       );
     }
+
+    // 仅已知精确时间的记录参与时间排序；无时间的汇总置于末尾。
+    items.sort(compareReviewTimelineItems);
 
     return FxCard(
       padding: const EdgeInsets.all(16),
@@ -405,7 +417,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '回应问题'),
+          const FxSectionHeader(title: '值得想一想'),
           const SizedBox(height: 10),
           if (questions.isEmpty)
             Text(
@@ -519,7 +531,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '模式', trailing: '与昨天相比'),
+          const FxSectionHeader(title: '变化', trailing: '与昨天相比'),
           const SizedBox(height: 8),
           ...facts.map(
             (text) => Padding(
@@ -532,6 +544,67 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reflectionsCard() {
+    final today = DateTime.now();
+    final entries = _reflections
+        .where((entry) =>
+            entry.entryType == 'reflection' &&
+            _sameDay(entry.createdAt, today))
+        .take(5)
+        .toList(growable: false);
+    return FxCard(
+      padding: const EdgeInsets.all(16),
+      expanded: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FxSectionHeader(title: '我的理解'),
+          const SizedBox(height: 10),
+          if (entries.isEmpty)
+            Text(
+              '今天还没有留下回应。',
+              style: SlowlightTypography.secondary(context).copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            ...entries.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (entry.context['question_prompt']
+                          ?.toString()
+                          .trim()
+                          .isNotEmpty ==
+                      true) ...[
+                    Text(
+                      '回应：${entry.context['question_prompt']}',
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  Text(
+                    entry.content,
+                    style: SlowlightTypography.body(context),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _clockTime(entry.createdAt),
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            )),
         ],
       ),
     );
@@ -576,14 +649,19 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final id = question['id']?.toString() ?? '';
 
     try {
-      await ReflectionRepository().create(
+      final saved = await ReflectionRepository().create(
         content: content,
         questionId: id.isEmpty ? null : id,
-        context: {'source': 'review', 'question_type': question['type'] ?? ''},
+        context: {
+          'source': 'review',
+          'question_type': question['type'] ?? '',
+          'question_prompt': question['content']?.toString() ?? '',
+        },
       );
       if (!mounted) return;
       setState(() {
-        if (id.isNotEmpty) _answered.add(id);
+        _reflections = [saved, ..._reflections].take(30).toList();
+        _answered.add(_questionKey(question));
         _expanded.remove(_questionKey(question));
         controller.clear();
       });
@@ -609,6 +687,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   String _signed(int value) => value > 0 ? '+$value' : '$value';
   String _two(int value) => value.toString().padLeft(2, '0');
+  String _clockTime(DateTime value) =>
+      '${_two(value.hour)}:${_two(value.minute)}';
+
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
