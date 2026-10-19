@@ -22,7 +22,7 @@ class ReminderService extends ChangeNotifier {
   int _microRestSeconds = 20;
   int _longRestMinutes = 5;
   int _microRestsBeforeLong = 2;
-  String _lockScreenMode = 'window'; // window / fullscreen
+  String _lockScreenMode = 'fullscreen'; // window / fullscreen
   int _notifyBeforeSec = 30;
   bool _autoLoop = true;
   bool _autoStartOnLaunch = true;
@@ -31,6 +31,7 @@ class ReminderService extends ChangeNotifier {
   bool _allowPostponeMicro = true;
   bool _allowPostponeLong = true;
   bool _loaded = false;
+  bool _nativeOverlayFailed = false;
 
   // 状态机: idle / working / micro_rest / long_rest
   String _state = 'idle';
@@ -75,6 +76,8 @@ class ReminderService extends ChangeNotifier {
   int get longRestMinutes => _longRestMinutes;
   int get microRestsBeforeLong => _microRestsBeforeLong;
   String get lockScreenMode => Platform.isWindows ? _lockScreenMode : 'window';
+  bool get shouldUseNativeFullscreen =>
+      Platform.isWindows && _lockScreenMode == 'fullscreen' && !_nativeOverlayFailed;
   int get notifyBeforeSec => _notifyBeforeSec;
   bool get autoLoop => _autoLoop;
   bool get autoStartOnLaunch => _autoStartOnLaunch;
@@ -145,7 +148,7 @@ class ReminderService extends ChangeNotifier {
         _microRestSeconds = localConfig['micro_rest_seconds'] as int? ?? 20;
         _longRestMinutes = localConfig['long_rest_minutes'] as int? ?? 5;
         _microRestsBeforeLong = localConfig['micro_rests_before_long'] as int? ?? 2;
-        _lockScreenMode = localConfig['lock_screen_mode'] as String? ?? 'window';
+        _lockScreenMode = localConfig['lock_screen_mode'] as String? ?? 'fullscreen';
         _notifyBeforeSec = localConfig['notify_before_seconds'] as int? ?? 30;
         _autoLoop = (localConfig['auto_loop'] as int?) == 1;
         _autoStartOnLaunch = (localConfig['auto_start_on_launch'] as int?) == 1;
@@ -274,6 +277,7 @@ class ReminderService extends ChangeNotifier {
       }
       await _local.startRest();
     }());
+    _nativeOverlayFailed = false;
     _state = 'micro_rest';
     _totalSeconds = _microRestSeconds;
     _remainingSeconds = _totalSeconds;
@@ -296,6 +300,7 @@ class ReminderService extends ChangeNotifier {
       }
       await _local.startRest();
     }());
+    _nativeOverlayFailed = false;
     _state = 'long_rest';
     _totalSeconds = _longRestMinutes * 60;
     _remainingSeconds = _totalSeconds;
@@ -513,6 +518,11 @@ class ReminderService extends ChangeNotifier {
     try {
       if (_lockScreenMode == 'fullscreen') {
         await LockScreenManager().lock(message: '请休息一下 ☕');
+        if (Platform.isWindows && !LockScreenManager().isLocked) {
+          // 缺少 DLL/原生遮罩启动失败，通知 UI 改用内置休息弹层。
+          _nativeOverlayFailed = true;
+          notifyListeners();
+        }
       }
       // window 模式下由 UI 层的 _RestOverlay 处理
     } catch (e) {
@@ -537,7 +547,7 @@ class ReminderService extends ChangeNotifier {
         microRestSeconds: config['micro_rest_seconds'] ?? 20,
         longRestMinutes: config['long_rest_minutes'] ?? 5,
         microRestsBeforeLong: config['micro_rests_before_long'] ?? 2,
-        lockScreenMode: config['lock_screen_mode'] ?? 'window',
+        lockScreenMode: config['lock_screen_mode'] ?? 'fullscreen',
         notifyBeforeSeconds: config['notify_before_seconds'] ?? 30,
         autoLoop: config['auto_loop'] ?? true,
         autoStartOnLaunch: config['auto_start_on_launch'] ?? true,
@@ -550,7 +560,7 @@ class ReminderService extends ChangeNotifier {
       _microRestSeconds = config['micro_rest_seconds'] ?? 20;
       _longRestMinutes = config['long_rest_minutes'] ?? 5;
       _microRestsBeforeLong = config['micro_rests_before_long'] ?? 2;
-      _lockScreenMode = config['lock_screen_mode'] ?? 'window';
+      _lockScreenMode = config['lock_screen_mode'] ?? 'fullscreen';
       _notifyBeforeSec = config['notify_before_seconds'] ?? 30;
       _autoLoop = config['auto_loop'] ?? true;
       _autoStartOnLaunch = config['auto_start_on_launch'] ?? true;

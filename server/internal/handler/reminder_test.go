@@ -54,6 +54,7 @@ func TestGetConfig_Default(t *testing.T) {
 	assertEqual(t, config.WorkMinutes, 25, "WorkMinutes (default)")
 	assertEqual(t, config.LongRestMinutes, 5, "LongRestMinutes (default)")
 	assertEqual(t, config.AutoLoop, true, "AutoLoop (default)")
+	assertEqual(t, config.LockScreenMode, "fullscreen", "LockScreenMode (default)")
 }
 
 func TestGetConfig_Saved(t *testing.T) {

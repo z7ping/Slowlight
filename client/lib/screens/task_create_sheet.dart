@@ -63,7 +63,7 @@ class TaskCreateSheet extends StatefulWidget {
       await FxDialog.show<void>(
         context: context,
         title: '记录任务',
-        width: 560,
+        width: 520,
         child: editor,
       );
       return;
@@ -71,10 +71,10 @@ class TaskCreateSheet extends StatefulWidget {
 
     await FxSheet.show<void>(
       context: context,
-      // 快捷表单按内容高度展示；键盘出现时内部表单滚动，
-      // 不让 Sheet 自动扩展到全屏。
+      // 快捷表单按内容高度展示；保留下滑关闭手势，
+      // 键盘出现时仍由 FxSheet 统一避让，不自动扩展成全屏。
       isScrollControlled: false,
-      draggable: false,
+      draggable: true,
       showDragHandle: false,
       builder: (_) => editor,
     );
@@ -100,7 +100,8 @@ class TaskCreateSheet extends StatefulWidget {
       return false;
     }
 
-    final desktop = MediaQuery.sizeOf(context).width >= 600;
+    // Android 大屏/平板仍按移动端交互展示完整页，不能按宽度伪装桌面。
+    final desktop = _useDesktopDialog(context);
     final editor = AddTaskScreen(
       lists: resolvedLists,
       selectedListId: selectedListId ?? resolvedLists.first.id,
@@ -133,14 +134,15 @@ class TaskCreateSheet extends StatefulWidget {
           ),
           backgroundColor: fxSurface(dialogContext),
           surfaceTintColor: Colors.transparent,
+          padding: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(SlowlightRadius.xl),
             side: BorderSide(color: fxBorder(dialogContext)),
           ),
           child: SizedBox(
-            width: 600,
-            height: (size.height * .72).clamp(480.0, 560.0),
+            width: (size.width - 48).clamp(0.0, 680.0),
+            height: (size.height - 48).clamp(0.0, 520.0),
             child: editor,
           ),
         );
@@ -157,6 +159,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   final _dimensionAssignment = TaskDimensionAssignment();
   String? _selectedDimensionKey;
   bool _dimensionChanged = false;
+  bool _showDimensionPicker = false;
   List<TodoList> _lists = const [];
   int? _selectedListId;
   late bool _dueToday;
@@ -264,7 +267,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               ),
               _QuickChip(
                 icon: LucideIcons.flag,
-                text: _priorityLabel(_selectedPriority),
+                text: _selectedPriority == 'none'
+                    ? '无优先级'
+                    : '优先级：${_priorityLabel(_selectedPriority)}',
                 selected: _selectedPriority != 'none',
                 onTap: () {
                   HapticFeedback.selectionClick();
@@ -272,6 +277,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                     _selectedPriority = _nextPriority(_selectedPriority);
                   });
                 },
+              ),
+              _QuickChip(
+                icon: LucideIcons.tag,
+                text: DimensionCatalog.byKey(_selectedDimensionKey)?.name ?? '归属维度',
+                selected: _selectedDimensionKey != null || _showDimensionPicker,
+                onTap: () => setState(() => _showDimensionPicker = !_showDimensionPicker),
               ),
               if (!_dimensionChanged &&
                   widget.systemTagId != null &&
@@ -282,15 +293,17 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 ),
             ],
           ),
-        const SizedBox(height: 12),
-        TaskDimensionField(
-          selectedKey: _selectedDimensionKey,
-          enabled: !_saving,
-          onChanged: (key) => setState(() {
-            _selectedDimensionKey = key;
-            _dimensionChanged = true;
-          }),
-        ),
+        if (_showDimensionPicker) ...[
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          TaskDimensionField(
+            selectedKey: _selectedDimensionKey,
+            enabled: !_saving,
+            onChanged: (key) => setState(() {
+              _selectedDimensionKey = key;
+              _dimensionChanged = true;
+            }),
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(

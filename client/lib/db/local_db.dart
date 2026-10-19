@@ -208,7 +208,7 @@ class LocalDb {
         long_rest_minutes INTEGER DEFAULT 5,
         micro_rests_before_long INTEGER DEFAULT 2,
         lock_screen INTEGER DEFAULT 0,
-        lock_screen_mode TEXT DEFAULT 'window',
+        lock_screen_mode TEXT DEFAULT 'fullscreen',
         notify_before_seconds INTEGER DEFAULT 30,
         auto_loop INTEGER DEFAULT 1,
         auto_start_on_launch INTEGER DEFAULT 1,
@@ -383,7 +383,7 @@ class LocalDb {
     if (oldVersion < 8) {
       final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='reminder_config'");
       if (tables.isNotEmpty) {
-        await db.execute("ALTER TABLE reminder_config ADD COLUMN lock_screen_mode TEXT DEFAULT 'window'");
+        await db.execute("ALTER TABLE reminder_config ADD COLUMN lock_screen_mode TEXT DEFAULT 'fullscreen'");
         await db.execute("ALTER TABLE reminder_config ADD COLUMN micro_rest_strict INTEGER DEFAULT 0");
         await db.execute("ALTER TABLE reminder_config ADD COLUMN long_rest_strict INTEGER DEFAULT 0");
         await db.execute("ALTER TABLE reminder_config ADD COLUMN allow_postpone_micro INTEGER DEFAULT 1");
@@ -421,7 +421,7 @@ class LocalDb {
           notify_before_seconds INTEGER DEFAULT 10,
           auto_loop INTEGER DEFAULT 1,
           auto_start_on_launch INTEGER DEFAULT 1,
-          lock_screen_mode TEXT DEFAULT 'window',
+          lock_screen_mode TEXT DEFAULT 'fullscreen',
           micro_rest_strict INTEGER DEFAULT 0,
           long_rest_strict INTEGER DEFAULT 0,
           allow_postpone_micro INTEGER DEFAULT 1,

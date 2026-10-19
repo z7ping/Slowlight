@@ -50,6 +50,23 @@ void main() {
     });
   }
 
+  test('新安装的提醒模式默认全屏，已有窗口偏好仍可保留', () async {
+    final db = await LocalDb().database;
+    final columns = await db.rawQuery('PRAGMA table_info(reminder_config)');
+    final modeColumn = columns.firstWhere((row) => row['name'] == 'lock_screen_mode');
+    expect(modeColumn['dflt_value'], "'fullscreen'");
+
+    await reminderLocal.saveConfig(
+      workMinutes: 25,
+      microRestSeconds: 20,
+      longRestMinutes: 5,
+      microRestsBeforeLong: 2,
+      lockScreenMode: 'window',
+    );
+    final saved = await reminderLocal.getConfig();
+    expect(saved?['lock_screen_mode'], 'window');
+  });
+
   test('今日统计只把实际完成的休息计入休息时长和完成轮次', () async {
     await insertReminderSession(type: 'work', durationSeconds: 1800);
     await insertReminderSession(type: 'rest', durationSeconds: 60);

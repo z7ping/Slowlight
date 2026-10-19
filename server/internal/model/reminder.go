@@ -10,7 +10,7 @@ type ReminderConfig struct {
 	MicroRestSeconds     int       `json:"micro_rest_seconds" gorm:"default:20"`      // 小憩时长（秒）
 	LongRestMinutes      int       `json:"long_rest_minutes" gorm:"default:5"`        // 休息时长（分钟）
 	MicroRestsBeforeLong int       `json:"micro_rests_before_long" gorm:"default:2"`  // 几次小憩后触发长休息
-	LockScreenMode       string    `json:"lock_screen_mode" gorm:"default:window;size:20"` // 锁屏模式: window(窗口) / fullscreen(全屏)
+	LockScreenMode       string    `json:"lock_screen_mode" gorm:"default:fullscreen;size:20"` // 锁屏模式: window(窗口) / fullscreen(全屏)
 	NotifyBeforeSec      int       `json:"notify_before_seconds" gorm:"default:30"`  // 提前提醒秒数
 	AutoLoop             bool      `json:"auto_loop" gorm:"default:true"`             // 自动循环
 	AutoStartOnLaunch    bool      `json:"auto_start_on_launch" gorm:"default:true"`  // 开机自动启动

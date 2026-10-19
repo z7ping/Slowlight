@@ -179,7 +179,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         Expanded(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
             child: _form(),
           ),
         ),
@@ -194,7 +194,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Text(
             '新建任务',
             style: SlowlightTypography.componentDialogTitle(context),
@@ -227,24 +227,27 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           placeholder: '描述（可选）',
         ),
         const SizedBox(height: 16),
+        // 基础任务属性按组件可用宽度自然双列；可选的四维归属占整行，
+        // 避免在桌面弹窗里被挤成狭窄的多行选择器。
         FxResponsiveFormGrid(
           minColumnWidth: 240,
           children: [
             _listField(),
             _priorityField(),
-            TaskDimensionField(
-              selectedKey: _selectedDimensionKey,
-              enabled: !_isSaving,
-              onChanged: (key) => setState(() {
-                _selectedDimensionKey = key;
-                _dimensionChanged = true;
-              }),
-            ),
             _dateField(),
             _timeField(),
             _repeatField(),
             _reminderField(),
           ],
+        ),
+        const SizedBox(height: SlowlightSpacing.xxxl),
+        TaskDimensionField(
+          selectedKey: _selectedDimensionKey,
+          enabled: !_isSaving,
+          onChanged: (key) => setState(() {
+            _selectedDimensionKey = key;
+            _dimensionChanged = true;
+          }),
         ),
         if (_repeatType == 'weekly') ...[
           const SizedBox(height: 12),

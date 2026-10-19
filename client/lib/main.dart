@@ -123,14 +123,13 @@ void _registerRestOverlay() {
     final service = ReminderService();
     final state = service.state;
 
-    if ((state == 'micro_rest' || state == 'long_rest') && !_restOverlayShown) {
-      _restOverlayShown = true;
-      if (!(Platform.isWindows &&
-          ReminderService().lockScreenMode == 'fullscreen')) {
-        final ctx = navigatorKey.currentContext;
-        if (ctx != null && ctx.mounted) {
-          showRestOverlay(ctx);
-        }
+    if ((state == 'micro_rest' || state == 'long_rest') &&
+        !_restOverlayShown &&
+        !service.shouldUseNativeFullscreen) {
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        _restOverlayShown = true;
+        showRestOverlay(ctx);
       }
     }
     if (state == 'idle' || state == 'working') {

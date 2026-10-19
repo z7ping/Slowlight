@@ -144,29 +144,22 @@ class LockScreenManager {
     }
 
     try {
-      _isLocked = true;
-
       if (Platform.isWindows) {
-        // Windows: 隐藏 Flutter 主窗口，native overlay 覆盖全部显示器
-        await windowManager.hide();
-
-        // 通知 DLL 严格模式状态
+        // 必须先确认原生遮罩可以启动，才允许隐藏 Flutter 主窗口。
+        // DLL 丢失或入口加载失败时不能把用户留在无窗口、键盘仍被拦截的状态。
         final strict = ReminderService().isCurrentRestStrict ? 1 : 0;
         _OverlayFFI.setStrict(strict);
+        final overlayResult = _OverlayFFI.start();
+        if (overlayResult < 0) return;
 
-        // 启动 native overlay（覆盖所有显示器，主屏带按钮）
-        try {
-          _OverlayFFI.start();
-        } catch (e) {
-        }
+        _isLocked = true;
+        await windowManager.hide();
 
-        // 键盘拦截
-        try {
-          KeyboardHookFFI.start();
-        } catch (e) {
-        }
+        // 遮罩已成功启动后才允许启动键盘钩子。
+        KeyboardHookFFI.start();
       } else {
-        // Linux/macOS: 窗口全屏化，由 RestOverlay 处理 UI
+        _isLocked = true;
+        // Linux/macOS: 窗口全屏化，由 RestOverlay 处理 UI。
         await windowManager.setFullScreen(true);
       }
 

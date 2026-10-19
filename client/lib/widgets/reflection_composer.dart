@@ -7,6 +7,7 @@ import '../repositories/observation_tag_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
+import 'task_dimension_field.dart';
 
 /// Observation / Reflection 的统一轻量输入入口。
 class ReflectionComposer {
@@ -67,27 +68,6 @@ class ReflectionComposer {
     Widget buildFields(BuildContext entryContext, StateSetter setEntryState) {
       final theme = Theme.of(entryContext);
 
-      FxChip selectableChip({
-        required String label,
-        required bool selected,
-        required VoidCallback? onTap,
-      }) {
-        return FxChip(
-          label: label,
-          onTap: onTap,
-          backgroundColor: selected
-              ? activePalette.accent.withValues(alpha: .12)
-              : fxSubtleSurface(entryContext),
-          foregroundColor: selected
-              ? activePalette.accent
-              : theme.colorScheme.onSurfaceVariant,
-          borderColor: selected
-              ? activePalette.accent
-              : fxBorder(entryContext),
-          borderRadius: 999,
-        );
-      }
-
       return SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -97,100 +77,73 @@ class ReflectionComposer {
               controller: controller,
               autofocus: true,
               enabled: !saving,
-              minLines: 1,
+              minLines: 2,
               maxLines: 4,
-              placeholder: '此刻的观察，只描述事实…',
+              placeholder: '写下此刻的观察，只描述真实发生的事…',
             ),
             const SizedBox(height: 12),
-            Text(
-              '归属维度（可选）',
-              style: SlowlightTypography.caption(entryContext).copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            TaskDimensionField(
+              selectedKey: selectedDimension,
+              enabled: !saving,
+              onChanged: (key) => setEntryState(() {
+                selectedDimension = key;
+                if (selectedTagId != null) {
+                  final linked = tags.where((tag) => tag.id == selectedTagId);
+                  if (linked.isNotEmpty &&
+                      linked.first.dimensionKey != null &&
+                      linked.first.dimensionKey!.isNotEmpty) {
+                    selectedDimension = linked.first.dimensionKey;
+                  }
+                }
+              }),
             ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: DimensionCatalog.all.map((dimension) {
-                final selected = selectedDimension == dimension.keyValue;
-                return selectableChip(
-                  label: '${dimension.icon} ${dimension.name}',
-                  selected: selected,
-                  onTap: saving
-                      ? null
-                      : () => setEntryState(() {
-                            selectedDimension =
-                                selected ? null : dimension.keyValue;
-                            if (selectedTagId != null) {
-                              final tag = tags.where(
-                                (item) => item.id == selectedTagId,
-                              );
-                              if (tag.isNotEmpty &&
-                                  tag.first.dimensionKey != null &&
-                                  tag.first.dimensionKey!.isNotEmpty) {
-                                selectedDimension = tag.first.dimensionKey;
-                              }
-                            }
-                          }),
-                );
-              }).toList(growable: false),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '标签',
-              style: SlowlightTypography.caption(entryContext).copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                ...tags.take(8).map((tag) {
-                  final selected = selectedTagId == tag.id;
-                  return selectableChip(
-                    label: '#${tag.name}',
-                    selected: selected,
+            const SizedBox(height: SlowlightSpacing.xxxl),
+            FxFormField(
+              label: '标签（可选）',
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ...tags.take(8).map((tag) {
+                    final selected = selectedTagId == tag.id;
+                    return FxChoiceChip(
+                      label: '#${tag.name}',
+                      selected: selected,
+                      onTap: saving
+                          ? null
+                          : () => setEntryState(() {
+                                selectedTagId = selected ? null : tag.id;
+                                if (!selected &&
+                                    tag.dimensionKey != null &&
+                                    tag.dimensionKey!.isNotEmpty) {
+                                  selectedDimension = tag.dimensionKey;
+                                }
+                              }),
+                    );
+                  }),
+                  FxChoiceChip(
+                    label: '＋ 新建标签',
+                    selected: false,
                     onTap: saving
                         ? null
-                        : () => setEntryState(() {
-                              selectedTagId = selected ? null : tag.id;
-                              if (!selected &&
-                                  tag.dimensionKey != null &&
-                                  tag.dimensionKey!.isNotEmpty) {
-                                selectedDimension = tag.dimensionKey;
+                        : () async {
+                            final created = await _createObservationTag(
+                              entryContext,
+                              dimensionKey: selectedDimension,
+                            );
+                            if (created == null || !entryContext.mounted) return;
+                            setEntryState(() {
+                              tags = [...tags, created];
+                              selectedTagId = created.id;
+                              if (created.dimensionKey != null &&
+                                  created.dimensionKey!.isNotEmpty) {
+                                selectedDimension = created.dimensionKey;
                               }
-                            }),
-                  );
-                }),
-                FxButton(
-                  label: '新建',
-                  icon: Icons.add,
-                  variant: FxButtonVariant.outline,
-                  size: FxButtonSize.sm,
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final created = await _createObservationTag(
-                            entryContext,
-                            dimensionKey: selectedDimension,
-                          );
-                          if (created == null || !entryContext.mounted) return;
-                          setEntryState(() {
-                            tags = [...tags, created];
-                            selectedTagId = created.id;
-                            if (created.dimensionKey != null &&
-                                created.dimensionKey!.isNotEmpty) {
-                              selectedDimension = created.dimensionKey;
-                            }
-                          });
-                        },
-                ),
-              ],
+                            });
+                          },
+                  ),
+                ],
+              ),
             ),
             if (error != null) ...[
               const SizedBox(height: 8),
@@ -201,56 +154,65 @@ class ReflectionComposer {
                 ).copyWith(color: theme.colorScheme.error),
               ),
             ],
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FxButton(
-                label: saving ? '保存中…' : '保存观察',
-                size: FxButtonSize.sm,
-                onPressed: saving
-                    ? null
-                    : () async {
-                        final value = controller.text.trim();
-                        if (value.isEmpty) {
-                          setEntryState(() => error = '先写一点观察');
-                          return;
-                        }
-                        setEntryState(() {
-                          saving = true;
-                          error = null;
-                        });
-                        try {
-                          ObservationTag? selectedTag;
-                          for (final tag in tags) {
-                            if (tag.id == selectedTagId) {
-                              selectedTag = tag;
-                              break;
-                            }
+            const SizedBox(height: SlowlightSpacing.xxxl),
+            FxDialogActions(
+              actions: [
+                FxButton(
+                  label: '取消',
+                  size: FxButtonSize.sm,
+                  variant: FxButtonVariant.outline,
+                  onPressed: saving
+                      ? null
+                      : () => Navigator.of(entryContext).pop(false),
+                ),
+                FxButton(
+                  label: saving ? '保存中…' : '保存观察',
+                  size: FxButtonSize.sm,
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final value = controller.text.trim();
+                          if (value.isEmpty) {
+                            setEntryState(() => error = '先写一点观察');
+                            return;
                           }
-                          await ReflectionRepository().create(
-                            content: value,
-                            entryType: 'observation',
-                            questionId: questionId,
-                            dimensionKey: selectedDimension,
-                            context: {
-                              ...contextData,
-                              if (selectedTag != null)
-                                'observation_tag_id': selectedTag.id,
-                              if (selectedTag != null)
-                                'observation_tag_name': selectedTag.name,
-                            },
-                          );
-                          if (entryContext.mounted) {
-                            Navigator.of(entryContext).pop(true);
-                          }
-                        } catch (e) {
                           setEntryState(() {
-                            saving = false;
-                            error = e.toString();
+                            saving = true;
+                            error = null;
                           });
-                        }
-                      },
-              ),
+                          try {
+                            ObservationTag? selectedTag;
+                            for (final tag in tags) {
+                              if (tag.id == selectedTagId) {
+                                selectedTag = tag;
+                                break;
+                              }
+                            }
+                            await ReflectionRepository().create(
+                              content: value,
+                              entryType: 'observation',
+                              questionId: questionId,
+                              dimensionKey: selectedDimension,
+                              context: {
+                                ...contextData,
+                                if (selectedTag != null)
+                                  'observation_tag_id': selectedTag.id,
+                                if (selectedTag != null)
+                                  'observation_tag_name': selectedTag.name,
+                              },
+                            );
+                            if (entryContext.mounted) {
+                              Navigator.of(entryContext).pop(true);
+                            }
+                          } catch (e) {
+                            setEntryState(() {
+                              saving = false;
+                              error = e.toString();
+                            });
+                          }
+                        },
+                ),
+              ],
             ),
           ],
         ),
@@ -261,7 +223,7 @@ class ReflectionComposer {
       return FxDialog.show<bool>(
         context: context,
         title: '写下观察',
-        width: 560,
+        width: 520,
         child: StatefulBuilder(
           builder: (dialogContext, setDialogState) => ConstrainedBox(
             constraints: BoxConstraints(

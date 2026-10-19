@@ -157,6 +157,21 @@ void main() {
     expect(flutterWindow, contains('RegisterPlugins(registry);'));
   });
 
+  test('Windows 全屏遮罩启动失败时不会隐藏主窗，并允许 Flutter 休息遮罩接管', () {
+    final native =
+        File('lib/services/lock_screen_native.dart').readAsStringSync();
+    final main = File('lib/main.dart').readAsStringSync();
+    final reminder = File('lib/services/reminder_service.dart').readAsStringSync();
+
+    expect(native, contains('if (overlayResult < 0) return;'));
+    expect(
+      native.indexOf('_OverlayFFI.start()'),
+      lessThan(native.indexOf('await windowManager.hide();')),
+    );
+    expect(reminder, contains('_nativeOverlayFailed = true;'));
+    expect(main, contains('!service.shouldUseNativeFullscreen'));
+  });
+
   test('Windows runner defaults to software rendering with a Slowlight escape hatch',
       () {
     final main = File('windows/runner/main.cpp').readAsStringSync();

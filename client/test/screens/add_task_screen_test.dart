@@ -68,6 +68,31 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('桌面完整表单宽布局使用双列字段并展示整行维度', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await tester.pumpWidget(
+        buildFxTestHost(
+          home: Scaffold(
+            body: SizedBox(
+              width: 680,
+              height: 520,
+              child: buildScreen(embedded: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.getTopLeft(find.text('清单')).dy,
+        closeTo(tester.getTopLeft(find.text('优先级')).dy, 1),
+      );
+      expect(find.text('归属维度（可选）'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('Windows 新建任务保持桌面高密度排版', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
 
