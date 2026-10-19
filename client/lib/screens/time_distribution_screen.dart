@@ -209,7 +209,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '观察标签分布'),
+          const FxSectionHeader(title: '标签分布'),
           const SizedBox(height: 14),
           if (tags.isEmpty)
             Padding(

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/ui/fx.dart';
-import 'package:slowlight/widgets/task_dimension_field.dart';
+import 'package:slowlight/widgets/tag_choice_field.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -68,7 +68,7 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('桌面完整表单宽布局使用双列字段并展示整行维度', (tester) async {
+    testWidgets('桌面完整表单宽布局使用双列字段并展示整行标签', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
       await tester.pumpWidget(
@@ -88,7 +88,7 @@ void main() {
         tester.getTopLeft(find.text('清单')).dy,
         closeTo(tester.getTopLeft(find.text('优先级')).dy, 1),
       );
-      expect(find.text('归属维度（可选）'), findsOneWidget);
+      expect(find.text('标签（可选）'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
@@ -130,7 +130,7 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('完整新建任务可见四维归属并支持预设选择', (tester) async {
+    testWidgets('完整新建任务不显示四维归属并保留历史预设兼容', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
       await tester.pumpWidget(
@@ -146,12 +146,10 @@ void main() {
       );
       await tester.pump();
 
-      final dimension = tester.widget<TaskDimensionField>(
-        find.byType(TaskDimensionField),
-      );
-      expect(dimension.selectedKey, 'body');
-      expect(find.text('归属维度（可选）'), findsOneWidget);
-      expect(find.text('🧠 认知'), findsOneWidget);
+      expect(find.byType(TagChoiceField), findsOneWidget);
+      expect(find.text('标签（可选）'), findsOneWidget);
+      expect(find.text('归属维度（可选）'), findsNothing);
+      expect(find.text('🧠 认知'), findsNothing);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

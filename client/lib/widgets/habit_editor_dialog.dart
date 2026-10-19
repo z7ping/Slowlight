@@ -5,6 +5,7 @@ import '../models/observation_tag.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
+import 'tag_choice_field.dart';
 
 class HabitEditorValue {
   final String name;
@@ -373,32 +374,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                             ),
                           ),
                         ),
-                        FxFormField(
-                          label: '观察标签',
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: FxSelect<int>(
-                              value: _loadingTags ? 0 : (_systemTagId ?? 0),
-                              enabled: !_loadingTags,
-                              options: [
-                                const FxSelectOption(value: 0, label: '无'),
-                                ..._tags.map(
-                                  (tag) => FxSelectOption(
-                                    value: tag.id,
-                                    label: '${tag.icon} ${tag.name}',
-                                  ),
-                                ),
-                              ],
-                              onChanged:
-                                  (value) => setState(
-                                    () =>
-                                        _systemTagId =
-                                            value == null || value == 0
-                                                ? null
-                                                : value,
-                                  ),
-                            ),
-                          ),
+                        TagChoiceField(
+                          tags: _tags,
+                          selectedTagId: _systemTagId,
+                          enabled: !_loadingTags,
+                          onChanged: (id) => setState(() => _systemTagId = id),
                         ),
                       ],
                     ),

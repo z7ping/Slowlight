@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../models/dimension.dart';
 import '../models/observation_tag.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
 
-/// 用户管理的是“观察标签”，不是固定的四维度本身。
+/// 标签管理页。历史标签的 dimension_key 只保留在兼容数据层。
 class SystemTagScreen extends StatefulWidget {
   const SystemTagScreen({super.key});
 
@@ -75,29 +74,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     }
   }
 
-  List<_ObservationTagGroup> _groups() {
-    final groups = <_ObservationTagGroup>[];
-    for (final dimension in DimensionCatalog.all) {
-      final tags = _tags
-          .where((tag) => tag.dimensionKey == dimension.keyValue)
-          .toList(growable: false);
-      if (tags.isNotEmpty) {
-        groups.add(
-          _ObservationTagGroup(
-            label: '${dimension.icon} ${dimension.name}',
-            tags: tags,
-          ),
-        );
-      }
-    }
-    final unclassified = _tags
-        .where((tag) => tag.dimensionKey == null || tag.dimensionKey!.isEmpty)
-        .toList(growable: false);
-    if (unclassified.isNotEmpty) {
-      groups.add(_ObservationTagGroup(label: '未归类 · 仅分析', tags: unclassified));
-    }
-    return groups;
-  }
+  List<_ObservationTagGroup> _groups() => _tags.isEmpty
+      ? const []
+      : [_ObservationTagGroup(label: '', tags: _tags)];
 
   Widget _card({
     required Widget child,
@@ -162,13 +141,11 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _explanationCard(),
-                  const SizedBox(height: 12),
                   if (_tags.isEmpty)
                     FxEmptyState(
                       icon: LucideIcons.tag,
-                      title: '还没有观察标签',
-                      subtitle: '标签用于分类事实；不归属维度时只参与分类与分析',
+                      title: '还没有标签',
+                      subtitle: '使用标签整理记录，之后可以按标签查看相关内容',
                     )
                   else
                     ...List.generate(groups.length, (index) {
@@ -189,54 +166,12 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     );
   }
 
-  Widget _explanationCard() {
-    final theme = Theme.of(context);
-    return _card(
-      color: theme.colorScheme.surfaceContainerLowest,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '标签和维度是两回事',
-            style: SlowlightTypography.secondary(
-              context,
-            ).copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            '身体、认知、产出、关系是固定长期坐标；标签是你自己的分类方式。标签可以归属某个维度，也可以保持“未归类 · 仅分析”。',
-            style: SlowlightTypography.secondary(
-              context,
-            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 9),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: DimensionCatalog.all
-                .map((item) => _chip('${item.icon} ${item.name}'))
-                .toList(growable: false),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _tagGroup(_ObservationTagGroup group) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 0, 2, 6),
-          child: Text(
-            group.label,
-            style: SlowlightTypography.caption(context).copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
+
         _card(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Column(
@@ -316,7 +251,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
             color: theme.colorScheme.error,
           ),
           const SizedBox(height: 10),
-          const Text('观察标签加载失败'),
+          const Text('标签加载失败'),
           const SizedBox(height: 6),
           Text(
             _error!,
@@ -345,7 +280,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
 
     final saved = await FxDialog.show<bool>(
       context: context,
-      title: existing == null ? '新建观察标签' : '编辑观察标签',
+      title: existing == null ? '新建标签' : '编辑标签',
       width: 540,
       child: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
@@ -385,29 +320,6 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                     controller: nameController,
                     autofocus: true,
                     placeholder: '例如：分心、心流、精力低谷',
-                  ),
-                  const SizedBox(height: 14),
-                  _dialogLabel(dialogContext, '归属维度'),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      selectableChip(
-                        label: '未归类 · 仅分析',
-                        selected: dimensionKey == null || dimensionKey!.isEmpty,
-                        onTap: () => setDialogState(() => dimensionKey = null),
-                      ),
-                      ...DimensionCatalog.all.map(
-                        (item) => selectableChip(
-                          label: '${item.icon} ${item.name}',
-                          selected: dimensionKey == item.keyValue,
-                          onTap:
-                              () => setDialogState(
-                                () => dimensionKey = item.keyValue,
-                              ),
-                        ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 14),
                   _dialogLabel(dialogContext, '图标'),
@@ -555,8 +467,8 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   Future<void> _confirmDelete(ObservationTag tag) async {
     final confirmed = await FxDialog.confirm(
       context: context,
-      title: '删除观察标签',
-      content: '确定删除「${tag.name}」吗？已有行为事实仍会保留，但后续不会再用这个标签分类。',
+      title: '删除标签',
+      content: '确定删除「${tag.name}」吗？删除后，已有记录不会再关联这个标签。',
       confirmText: '删除',
       destructive: true,
     );

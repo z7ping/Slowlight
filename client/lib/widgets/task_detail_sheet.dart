@@ -9,7 +9,7 @@ import '../services/task_dimension_assignment.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'task_dimension_field.dart';
+import 'tag_choice_field.dart';
 
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
@@ -405,40 +405,16 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           onTap: _pickReminder,
         ),
         const SizedBox(height: 14),
-        TaskDimensionField(
-          selectedKey: _selectedDimensionKey,
+        TagChoiceField(
+          tags: _systemTags,
+          selectedTagId: _systemTagId,
           enabled: !_saving,
-          onChanged: (key) {
-            if (key == _selectedDimensionKey && !_dimensionChanged) return;
-            setState(() {
-              _selectedDimensionKey = key;
-              _dimensionChanged = true;
-            });
-          },
+          onChanged: (id) => setState(() {
+            _systemTagId = id;
+            // 保存旧有标签字段，不再把维度当作用户操作项。
+            _dimensionChanged = false;
+          }),
         ),
-        if (_systemTags.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          _fieldLabel('观察标签'),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: _systemTags.map((tag) {
-              final selected = !_dimensionChanged && tag.id == _systemTagId;
-              return FxChoiceChip(
-                label: '${tag.icon} ${tag.name}',
-                selected: selected,
-                onTap: _saving
-                    ? null
-                    : () => setState(() {
-                        _systemTagId = selected ? null : tag.id;
-                        _selectedDimensionKey =
-                            selected ? null : tag.dimensionKey;
-                        _dimensionChanged = false;
-                      }),
-              );
-            }).toList(growable: false),
-          ),
-        ],
       ],
     );
   }

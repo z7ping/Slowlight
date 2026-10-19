@@ -212,8 +212,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         width: 280,
         child: Column(
           children: [
-            _dimensionCard(),
-            const SizedBox(height: 14),
+
             _focusCard(),
             const SizedBox(height: 14),
             _questionCard(),
@@ -239,8 +238,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       const SizedBox(height: 12),
       _habitCard(maxItems: 2, mobile: true),
       const SizedBox(height: 12),
-      _dimensionCard(),
-      const SizedBox(height: 12),
+
       _questionCard(),
       const SizedBox(height: 12),
       _focusCard(),

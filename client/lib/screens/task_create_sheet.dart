@@ -3,14 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../models/dimension.dart';
+import '../models/observation_tag.dart';
+import '../repositories/observation_tag_repository.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../services/data_service.dart';
-import '../services/task_dimension_assignment.dart';
+
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/task_dimension_field.dart';
+import '../widgets/tag_choice_field.dart';
 import 'add_task_screen.dart';
 
 /// 任务快速记录入口。
@@ -156,10 +157,10 @@ class TaskCreateSheet extends StatefulWidget {
 
 class _TaskCreateSheetState extends State<TaskCreateSheet> {
   final _titleController = TextEditingController();
-  final _dimensionAssignment = TaskDimensionAssignment();
-  String? _selectedDimensionKey;
-  bool _dimensionChanged = false;
-  bool _showDimensionPicker = false;
+  final _tagsRepository = ObservationTagRepository();
+  List<ObservationTag> _availableTags = const [];
+  late int? _selectedTagId;
+  bool _showTags = false;
   List<TodoList> _lists = const [];
   int? _selectedListId;
   late bool _dueToday;
@@ -173,8 +174,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     super.initState();
     _dueToday = widget.defaultDueToday;
     _selectedPriority = _normalizePriority(widget.initialPriority);
+    _selectedTagId = widget.systemTagId;
     _loadLists();
-    _loadInitialDimension();
+    _loadTags();
   }
 
   @override
@@ -198,15 +200,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     }
   }
 
-  Future<void> _loadInitialDimension() async {
-    if (widget.systemTagId == null) return;
+  Future<void> _loadTags() async {
     try {
-      final key = await _dimensionAssignment.dimensionOf(widget.systemTagId);
-      if (mounted && !_dimensionChanged) {
-        setState(() => _selectedDimensionKey = key);
-      }
+      final tags = await _tagsRepository.getAll();
+      if (mounted) setState(() => _availableTags = tags);
     } catch (_) {
-      // 原标签仍原样保留，读取维度失败不能阻止快速记录。
+      // 标签读取失败不影响无标签记录，也不清空预设关联。
     }
   }
 
@@ -280,28 +279,19 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               ),
               _QuickChip(
                 icon: LucideIcons.tag,
-                text: DimensionCatalog.byKey(_selectedDimensionKey)?.name ?? '归属维度',
-                selected: _selectedDimensionKey != null || _showDimensionPicker,
-                onTap: () => setState(() => _showDimensionPicker = !_showDimensionPicker),
+                text: _selectedTagName(),
+                selected: _selectedTagId != null || _showTags,
+                onTap: () => setState(() => _showTags = !_showTags),
               ),
-              if (!_dimensionChanged &&
-                  widget.systemTagId != null &&
-                  (widget.systemTagName ?? '').isNotEmpty)
-                _DefaultHint(
-                  icon: LucideIcons.tag,
-                  text: widget.systemTagName!,
-                ),
             ],
           ),
-        if (_showDimensionPicker) ...[
+        if (_showTags) ...[
           const SizedBox(height: SlowlightSpacing.xxxl),
-          TaskDimensionField(
-            selectedKey: _selectedDimensionKey,
+          TagChoiceField(
+            tags: _availableTags,
+            selectedTagId: _selectedTagId,
             enabled: !_saving,
-            onChanged: (key) => setState(() {
-              _selectedDimensionKey = key;
-              _dimensionChanged = true;
-            }),
+            onChanged: (id) => setState(() => _selectedTagId = id),
           ),
         ],
         if (_error != null) ...[
@@ -408,9 +398,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     final defaultToToday = _dueToday;
     final initialTitle = _titleController.text;
     final initialPriority = _selectedPriority;
-    final systemTagId = widget.systemTagId;
-    final initialDimensionKey = _selectedDimensionKey;
-    final dimensionChanged = _dimensionChanged;
+    final systemTagId = _selectedTagId;
     final onCreated = widget.onCreated;
     navigator.pop();
     await Future<void>.delayed(Duration.zero);
@@ -424,8 +412,6 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       initialPriority: initialPriority,
       systemTagId: systemTagId,
       defaultToToday: defaultToToday,
-      initialDimensionKey: initialDimensionKey,
-      dimensionChanged: dimensionChanged,
     );
     if (created == true) onCreated?.call();
   }
@@ -444,11 +430,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
     final notice = FxNotice.capture(context);
     try {
-      final systemTagId = await _dimensionAssignment.resolve(
-        dimensionKey: _selectedDimensionKey,
-        originalTagId: widget.systemTagId,
-        changed: _dimensionChanged,
-      );
+      final systemTagId = _selectedTagId;
       final listId = _selectedListId;
       late Task task;
       if (listId == null) {
@@ -523,13 +505,20 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         _selectedPriority == 'none'
             ? ''
             : ' · ${_priorityLabel(_selectedPriority)}';
-    final tagText =
-        !_dimensionChanged && widget.systemTagId != null && (widget.systemTagName ?? '').isNotEmpty
-            ? ' · ${widget.systemTagName}'
-            : '';
-    final dimension = DimensionCatalog.byKey(_selectedDimensionKey);
-    final dimensionText = dimension == null ? '' : ' · ${dimension.name}';
-    return '任务已记录到「$listName」$dateText$priorityText$dimensionText$tagText';
+    final tagText = _selectedTagId == null ? '' : ' · ${_selectedTagName()}';
+    return '任务已记录到「$listName」$dateText$priorityText$tagText';
+  }
+
+  String _selectedTagName() {
+    if (_selectedTagId == null) return '标签';
+    for (final tag in _availableTags) {
+      if (tag.id == _selectedTagId) return '#${tag.name}';
+    }
+    if (_selectedTagId == widget.systemTagId &&
+        (widget.systemTagName ?? '').isNotEmpty) {
+      return '#${widget.systemTagName}';
+    }
+    return '标签';
   }
 
   String _normalizePriority(String value) => switch (value) {

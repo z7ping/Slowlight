@@ -723,7 +723,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                   ),
                   _navItem(
                     icon: LucideIcons.tag,
-                    label: '观察标签',
+                    label: '标签',
                     selected:
                         _navigation.tool == HomeToolSection.observationTags,
                     onTap: () => selectTool(HomeToolSection.observationTags),

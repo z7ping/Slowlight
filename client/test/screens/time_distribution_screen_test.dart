@@ -5,7 +5,7 @@ import 'package:slowlight/screens/time_distribution_screen.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
-  testWidgets('03 时间分配错误状态可重试，成功后使用观察标签术语', (tester) async {
+  testWidgets('03 时间分配错误状态可重试，成功后使用统一标签术语', (tester) async {
     var attempts = 0;
     Future<Map<String, dynamic>> load() async {
       attempts++;
@@ -32,7 +32,7 @@ void main() {
     await tester.tap(find.text('重新加载'));
     await tester.pumpAndSettle();
     expect(attempts, 2);
-    expect(find.text('观察标签分布'), findsOneWidget);
+    expect(find.text('标签分布'), findsOneWidget);
     expect(find.text('时间分配暂时不可用'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
