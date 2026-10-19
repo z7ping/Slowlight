@@ -105,7 +105,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 FxStatCell(value: _focusText(focusMinutes), label: '专注总时长'),
                 FxStatCell(
                   value: observations == null ? '—' : '$observations',
-                  label: '写下观察',
+                  label: '记录观察',
                 ),
               ];
               return Wrap(

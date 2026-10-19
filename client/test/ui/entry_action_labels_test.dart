@@ -12,6 +12,7 @@ void main() {
         .readAsStringSync();
     final review = File('lib/screens/today_review_screen.dart')
         .readAsStringSync();
+    final stats = File('lib/screens/stats_screen.dart').readAsStringSync();
     final mobile = File('lib/screens/focus_home_screen.dart')
         .readAsStringSync();
 
@@ -22,8 +23,9 @@ void main() {
     expect(observation, contains("title: '记录观察'"));
     expect(review, contains("title: '记录观察'"));
     expect(mobile, contains("tooltip: '记录观察'"));
+    expect(stats, contains("label: '记录观察'"));
 
-    for (final source in [dashboard, task, observation, review, mobile]) {
+    for (final source in [dashboard, task, observation, review, mobile, stats]) {
       expect(source, isNot(contains('记录任务')));
       expect(source, isNot(contains('写下观察')));
     }
