@@ -56,6 +56,7 @@ func main() {
 		subtaskHandler := handler.NewSubtaskHandler(db)
 		sessionHandler := handler.NewSessionHandler(db)
 		tagHandler := handler.NewTagHandler(db)
+		tagLinksHandler := handler.NewTagLinksHandler(db)
 
 		api.GET("/lists", listHandler.GetLists)
 		api.GET("/lists/stats", listHandler.GetStats)
@@ -70,6 +71,8 @@ func main() {
 		api.POST("/tags", tagHandler.CreateTag)
 		api.PUT("/tags/:id", tagHandler.UpdateTag)
 		api.DELETE("/tags/:id", tagHandler.DeleteTag)
+		api.GET("/tag-links/:entity/:id", tagLinksHandler.Get)
+		api.PUT("/tag-links/:entity/:id", tagLinksHandler.Put)
 
 		api.GET("/tasks", taskHandler.GetTasks)
 		api.GET("/tasks/search", taskHandler.SearchTasks)
