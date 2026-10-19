@@ -6,7 +6,7 @@ import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/repositories/observation_tag_repository.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/widgets/task_dimension_field.dart';
+import 'package:slowlight/widgets/tag_choice_field.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -24,7 +24,7 @@ class _FakeTags extends ObservationTagRepository {
 }
 
 void main() {
-  testWidgets('04 任务详情与新建页共用维度、四级优先级和年度重复', (tester) async {
+  testWidgets('04 任务详情使用统一标签选择器、四级优先级和年度重复', (tester) async {
     tester.view.physicalSize = const Size(360, 880);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -58,9 +58,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final dimension = find.byType(TaskDimensionField);
-    expect(dimension, findsOneWidget);
-    expect(tester.widget<TaskDimensionField>(dimension).selectedKey, 'cognition');
+    final labels = find.byType(TagChoiceField);
+    expect(labels, findsOneWidget);
+    expect(tester.widget<TagChoiceField>(labels).selectedTagId, 3);
+    expect(find.text('#专题研究'), findsOneWidget);
     expect(find.text('无'), findsOneWidget);
     final selects = tester.widgetList<FxSelect<String>>(find.byType(FxSelect<String>));
     expect(
@@ -68,10 +69,10 @@ void main() {
       isTrue,
     );
 
-    await tester.ensureVisible(find.text('❤️ 关系'));
-    await tester.tap(find.text('❤️ 关系'));
+    await tester.ensureVisible(find.text('无标签'));
+    await tester.tap(find.text('无标签'));
     await tester.pump();
-    expect(tester.widget<TaskDimensionField>(dimension).selectedKey, 'relationship');
+    expect(tester.widget<TagChoiceField>(labels).selectedTagId, isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
