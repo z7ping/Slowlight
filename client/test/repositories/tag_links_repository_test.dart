@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/local_db.dart';
+import 'package:slowlight/db/local_product_core_schema.dart';
 import 'package:slowlight/repositories/tag_links_repository.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 
@@ -29,6 +30,7 @@ void main() {
   });
 
   test('同一组标签跨四种记录复用，去重、清空互不影响', () async {
+    await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
     final listId = await db.insert('lists', {
@@ -70,6 +72,7 @@ void main() {
   });
 
   test('包含不存在的标签时必须全部回滚，不允许部分丢失', () async {
+    await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
     final listId = await db.insert('lists', {
