@@ -35,10 +35,10 @@ void main() {
     LocalBehaviorEventSchema.resetForTest();
   });
 
-  test('LocalDb v14 正式包含 work_sessions 与 ObservationTag 维度', () async {
+  test('LocalDb v15 保留 WorkSession 与历史字段，并增加统一标签关联', () async {
     final db = await LocalDb().database;
 
-    expect(await db.getVersion(), 14);
+    expect(await db.getVersion(), 15);
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='work_sessions'",
     );
@@ -63,6 +63,16 @@ void main() {
     final systemTagColumns = await db.rawQuery('PRAGMA table_info(system_tags)');
     final systemTagNames = systemTagColumns.map((row) => row['name']).toSet();
     expect(systemTagNames, contains('dimension_key'));
+    for (final name in [
+      'legacy_system_tag_aliases', 'habit_tags',
+      'work_session_tags', 'reflection_tags',
+    ]) {
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        [name],
+      );
+      expect(tables, hasLength(1), reason: name);
+    }
   });
 
   test('本地普通 CRUD 不进入 sync_queue', () async {
