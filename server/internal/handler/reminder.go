@@ -28,7 +28,7 @@ func defaultReminderConfig(userID uint) model.ReminderConfig {
 		MicroRestSeconds:     20,
 		LongRestMinutes:      5,
 		MicroRestsBeforeLong: 2,
-		LockScreenMode:       "window",
+		LockScreenMode:       "fullscreen",
 		NotifyBeforeSec:      30,
 		AutoLoop:             true,
 		AutoStartOnLaunch:    true,
