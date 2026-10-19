@@ -37,7 +37,7 @@ func TestBackfillLegacyTagLinksReusesCanonicalAndIsIdempotent(t *testing.T) {
 	}
 	if err := db.AutoMigrate(
 		&model.User{}, &model.List{}, &model.Tag{}, &model.SystemTag{},
-		&model.Task{}, &model.TaskTag{}, &model.Habit{}, &model.WorkSession{},
+		&model.Task{}, &model.TaskTag{}, &model.BehaviorEvent{}, &model.Habit{}, &model.WorkSession{},
 		&model.Reflection{}, &model.LegacySystemTagAlias{}, &model.HabitTag{},
 		&model.WorkSessionTag{}, &model.ReflectionTag{},
 	); err != nil {
