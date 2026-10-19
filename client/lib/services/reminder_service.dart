@@ -31,6 +31,7 @@ class ReminderService extends ChangeNotifier {
   bool _allowPostponeMicro = true;
   bool _allowPostponeLong = true;
   bool _loaded = false;
+  bool _nativeOverlayFailed = false;
 
   // 状态机: idle / working / micro_rest / long_rest
   String _state = 'idle';
@@ -75,6 +76,8 @@ class ReminderService extends ChangeNotifier {
   int get longRestMinutes => _longRestMinutes;
   int get microRestsBeforeLong => _microRestsBeforeLong;
   String get lockScreenMode => Platform.isWindows ? _lockScreenMode : 'window';
+  bool get shouldUseNativeFullscreen =>
+      Platform.isWindows && _lockScreenMode == 'fullscreen' && !_nativeOverlayFailed;
   int get notifyBeforeSec => _notifyBeforeSec;
   bool get autoLoop => _autoLoop;
   bool get autoStartOnLaunch => _autoStartOnLaunch;
@@ -274,6 +277,7 @@ class ReminderService extends ChangeNotifier {
       }
       await _local.startRest();
     }());
+    _nativeOverlayFailed = false;
     _state = 'micro_rest';
     _totalSeconds = _microRestSeconds;
     _remainingSeconds = _totalSeconds;
@@ -296,6 +300,7 @@ class ReminderService extends ChangeNotifier {
       }
       await _local.startRest();
     }());
+    _nativeOverlayFailed = false;
     _state = 'long_rest';
     _totalSeconds = _longRestMinutes * 60;
     _remainingSeconds = _totalSeconds;
@@ -513,6 +518,11 @@ class ReminderService extends ChangeNotifier {
     try {
       if (_lockScreenMode == 'fullscreen') {
         await LockScreenManager().lock(message: '请休息一下 ☕');
+        if (Platform.isWindows && !LockScreenManager().isLocked) {
+          // 缺少 DLL/原生遮罩启动失败，通知 UI 改用内置休息弹层。
+          _nativeOverlayFailed = true;
+          notifyListeners();
+        }
       }
       // window 模式下由 UI 层的 _RestOverlay 处理
     } catch (e) {
