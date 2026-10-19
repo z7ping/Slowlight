@@ -71,10 +71,10 @@ class TaskCreateSheet extends StatefulWidget {
 
     await FxSheet.show<void>(
       context: context,
-      // 快捷表单按内容高度展示；键盘出现时内部表单滚动，
-      // 不让 Sheet 自动扩展到全屏。
+      // 快捷表单按内容高度展示；保留下滑关闭手势，
+      // 键盘出现时仍由 FxSheet 统一避让，不自动扩展成全屏。
       isScrollControlled: false,
-      draggable: false,
+      draggable: true,
       showDragHandle: false,
       builder: (_) => editor,
     );
@@ -100,7 +100,8 @@ class TaskCreateSheet extends StatefulWidget {
       return false;
     }
 
-    final desktop = MediaQuery.sizeOf(context).width >= 600;
+    // Android 大屏/平板仍按移动端交互展示完整页，不能按宽度伪装桌面。
+    final desktop = _useDesktopDialog(context);
     final editor = AddTaskScreen(
       lists: resolvedLists,
       selectedListId: selectedListId ?? resolvedLists.first.id,
