@@ -104,6 +104,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return;
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       _message('请输入任务标题');
