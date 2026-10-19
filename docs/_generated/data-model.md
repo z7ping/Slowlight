@@ -79,6 +79,10 @@
 | Subtask | `server/internal/handler/test_helper.go` |
 | Tag | `server/internal/handler/test_helper.go` |
 | TaskTag | `server/internal/handler/test_helper.go` |
+| LegacySystemTagAlias | `server/internal/handler/test_helper.go` |
+| HabitTag | `server/internal/handler/test_helper.go` |
+| WorkSessionTag | `server/internal/handler/test_helper.go` |
+| ReflectionTag | `server/internal/handler/test_helper.go` |
 | Habit | `server/internal/handler/test_helper.go` |
 | HabitLog | `server/internal/handler/test_helper.go` |
 | UserConfig | `server/internal/handler/test_helper.go` |
@@ -92,4 +96,4 @@
 | MigrationReport | `server/internal/handler/test_helper.go` |
 | Webhook | `server/internal/handler/test_helper.go` |
 
-共扫描到 55 个 Model/位置组合。
+共扫描到 59 个 Model/位置组合。
