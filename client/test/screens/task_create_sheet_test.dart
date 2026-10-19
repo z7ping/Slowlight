@@ -138,6 +138,94 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 快捷添加任务不抢焦点，点击选项能收起键盘且保留标题', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(
+        body: TaskCreateSheet(quickMode: true),
+      ),
+    ));
+    await tester.pump();
+
+    final input = tester.widget<FxInput>(find.byType(FxInput).first);
+    expect(input.autofocus, isFalse);
+    expect(input.onPressedOutside, isNotNull);
+
+    final editable = find.byType(EditableText).first;
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+
+    await tester.tap(editable);
+    await tester.pump();
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
+    await tester.enterText(editable, '买一本书');
+
+    await tester.tap(find.text('无标签'));
+    await tester.pump();
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(find.text('买一本书'), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 即使内容无需滚动也可通过拖动收起键盘', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(
+        body: TaskCreateSheet(quickMode: true),
+      ),
+    ));
+    await tester.pump();
+
+    final scroller = find.byType(SingleChildScrollView).first;
+    final scrollWidget = tester.widget<SingleChildScrollView>(scroller);
+    expect(scrollWidget.physics, isA<AlwaysScrollableScrollPhysics>());
+    expect(
+      scrollWidget.keyboardDismissBehavior,
+      ScrollViewKeyboardDismissBehavior.onDrag,
+    );
+
+    final editable = find.byType(EditableText).first;
+    await tester.tap(editable);
+    await tester.pump();
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
+
+    await tester.drag(scroller, const Offset(0, -100));
+    await tester.pump();
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Windows 快捷任务仍默认聚焦标题以便快速输入', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(
+        body: SizedBox(
+          width: 520,
+          height: 640,
+          child: TaskCreateSheet(quickMode: true, desktopDialog: true),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    expect(tester.widget<FxInput>(find.byType(FxInput).first).autofocus, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 窄屏展开后可滚动，底部操作仍可见', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
