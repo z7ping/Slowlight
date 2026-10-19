@@ -83,10 +83,6 @@
 | HabitTag | `server/internal/handler/test_helper.go` |
 | WorkSessionTag | `server/internal/handler/test_helper.go` |
 | ReflectionTag | `server/internal/handler/test_helper.go` |
-| LegacySystemTagAlias | `server/internal/handler/test_helper.go` |
-| HabitTag | `server/internal/handler/test_helper.go` |
-| WorkSessionTag | `server/internal/handler/test_helper.go` |
-| ReflectionTag | `server/internal/handler/test_helper.go` |
 | Habit | `server/internal/handler/test_helper.go` |
 | HabitLog | `server/internal/handler/test_helper.go` |
 | UserConfig | `server/internal/handler/test_helper.go` |
