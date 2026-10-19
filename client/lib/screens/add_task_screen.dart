@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/todo_list.dart';
 import '../models/observation_tag.dart';
@@ -9,6 +8,7 @@ import '../widgets/tag_choice_field.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
+import '../widgets/task_schedule_fields.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final List<TodoList> lists;
@@ -126,15 +126,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               originalTagId: widget.systemTagId,
               changed: _dimensionChanged,
             );
-      final dueTime =
-          _dueTime == null
-              ? null
-              : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}';
-      final reminderAt = _buildReminderAt();
-      final repeatDays =
-          _repeatType == 'weekly' && _selectedWeekdays.isNotEmpty
-              ? (_selectedWeekdays.toList()..sort()).join(',')
-              : '';
+      final dueTime = formatTaskDueTime(_dueTime);
+      final reminderAt = buildTaskReminderAt(
+        dueDate: _dueDate,
+        dueTime: _dueTime,
+        advanceMinutes: _reminderAdvanceMinutes,
+      );
+      final repeatDays = formatTaskRepeatDays(_repeatType, _selectedWeekdays);
 
       await DataService().createTask(
         listId: listId,
@@ -161,19 +159,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       setState(() => _isSaving = false);
       _message('保存失败：$e');
     }
-  }
-
-  DateTime? _buildReminderAt() {
-    if (_reminderAdvanceMinutes < 0 || _dueDate == null) return null;
-    final time = _dueTime ?? const TimeOfDay(hour: 9, minute: 0);
-    final due = DateTime(
-      _dueDate!.year,
-      _dueDate!.month,
-      _dueDate!.day,
-      time.hour,
-      time.minute,
-    );
-    return due.subtract(Duration(minutes: _reminderAdvanceMinutes));
   }
 
   void _message(String text) {
@@ -248,17 +233,29 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           placeholder: '描述（可选）',
         ),
         const SizedBox(height: 16),
-        // 基础任务属性按组件可用宽度自然双列；标签作为可选字段独立显示。
+        // 清单和优先级保持快捷 Chip，日程字段由快速/完整创建共享。
         FxResponsiveFormGrid(
           minColumnWidth: 240,
-          children: [
-            _listField(),
-            _priorityField(),
-            _dateField(),
-            _timeField(),
-            _repeatField(),
-            _reminderField(),
-          ],
+          children: [_listField(), _priorityField()],
+        ),
+        const SizedBox(height: 16),
+        TaskScheduleFields(
+          enabled: !_isSaving,
+          dueDate: _dueDate,
+          onDateChanged: (value) => setState(() => _dueDate = value),
+          dueTime: _dueTime,
+          onTimeChanged: (value) => setState(() => _dueTime = value),
+          repeatType: _repeatType,
+          onRepeatChanged: (value) => setState(() {
+            _repeatType = value;
+            if (value != 'weekly') _selectedWeekdays.clear();
+          }),
+          selectedWeekdays: _selectedWeekdays,
+          onWeekdayToggled: (day) => setState(() {
+            if (!_selectedWeekdays.add(day)) _selectedWeekdays.remove(day);
+          }),
+          reminderAdvanceMinutes: _reminderAdvanceMinutes,
+          onReminderChanged: (value) => setState(() => _reminderAdvanceMinutes = value),
         ),
         const SizedBox(height: SlowlightSpacing.xxxl),
         TagChoiceField(
@@ -270,29 +267,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             _tagChanged = true;
           }),
         ),
-        if (_repeatType == 'weekly') ...[
-          const SizedBox(height: 12),
-          _fieldLabel('每周重复'),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: List.generate(7, (index) {
-              final day = index + 1;
-              const labels = ['一', '二', '三', '四', '五', '六', '日'];
-              final selected = _selectedWeekdays.contains(day);
-              return _choiceChip(
-                labels[index],
-                selected: selected,
-                onTap:
-                    () => setState(() {
-                      selected
-                          ? _selectedWeekdays.remove(day)
-                          : _selectedWeekdays.add(day);
-                    }),
-              );
-            }),
-          ),
-        ],
       ],
     );
   }
@@ -357,155 +331,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  Widget _dateField() {
-    return _field(
-      label: '到期日期',
-      child: _picker(
-        text: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
-        icon: LucideIcons.calendarDays,
-        onTap: () async {
-          final date = await showFxDatePicker(
-            context: context,
-            initialDate: _dueDate ?? DateTime.now(),
-            firstDate: DateTime.now().subtract(const Duration(days: 365)),
-            lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
-          );
-          if (date != null && mounted) setState(() => _dueDate = date);
-        },
-      ),
-    );
-  }
-
-  Widget _timeField() {
-    return _field(
-      label: '时间',
-      child: _picker(
-        text:
-            _dueTime == null
-                ? '未设置'
-                : '${_dueTime!.hour.toString().padLeft(2, '0')}:${_dueTime!.minute.toString().padLeft(2, '0')}',
-        icon: LucideIcons.clock3,
-        onTap: () async {
-          final time = await showFxTimePicker(
-            context: context,
-            initialTime: _dueTime ?? TimeOfDay.now(),
-          );
-          if (time != null && mounted) setState(() => _dueTime = time);
-        },
-      ),
-    );
-  }
-
-  Widget _repeatField() {
-    const labels = {
-      'none': '不重复',
-      'daily': '每天',
-      'weekly': '每周',
-      'monthly': '每月',
-      'yearly': '每年',
-    };
-    return _field(
-      label: '重复',
-      child: SizedBox(
-        width: double.infinity,
-        child: FxSelect<String>(
-          value: _repeatType,
-          enabled: !_isSaving,
-          options: labels.entries
-              .map(
-                (entry) => FxSelectOption<String>(
-                  value: entry.key,
-                  label: entry.value,
-                ),
-              )
-              .toList(growable: false),
-          onChanged:
-              (value) => setState(() {
-                _repeatType = value ?? 'none';
-                if (_repeatType != 'weekly') _selectedWeekdays.clear();
-              }),
-        ),
-      ),
-    );
-  }
-
-  Widget _reminderField() {
-    const values = <int, String>{
-      -1: '不提醒',
-      0: '准时',
-      5: '提前 5 分钟',
-      15: '提前 15 分钟',
-      30: '提前 30 分钟',
-      60: '提前 1 小时',
-    };
-    return _field(
-      label: '提醒',
-      child: SizedBox(
-        width: double.infinity,
-        child: FxSelect<int>(
-          value: _reminderAdvanceMinutes,
-          enabled: !_isSaving,
-          options: values.entries
-              .map(
-                (entry) =>
-                    FxSelectOption<int>(value: entry.key, label: entry.value),
-              )
-              .toList(growable: false),
-          onChanged:
-              (value) => setState(() => _reminderAdvanceMinutes = value ?? -1),
-        ),
-      ),
-    );
-  }
-
   Widget _field({required String label, required Widget child}) {
     return FxFormField(label: label, child: child);
-  }
-
-  Widget _fieldLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        label,
-        style: SlowlightTypography.componentFieldLabel(context).copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-
-  Widget _picker({
-    required String text,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    return FxInkWell(
-      onTap: _isSaving ? null : onTap,
-      borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      hoverColor: theme.colorScheme.onSurface.withValues(alpha: .04),
-      focusColor: activePalette.accent.withValues(alpha: .08),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: fxSurface(context),
-          borderRadius: BorderRadius.circular(SlowlightRadius.md),
-          border: Border.all(color: theme.colorScheme.outline),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                text,
-                style: SlowlightTypography.componentControl(context),
-              ),
-            ),
-            Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _footer() {
@@ -528,15 +355,5 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         ),
       ),
     );
-  }
-
-  String _dateLabel(DateTime value) {
-    final now = DateTime.now();
-    if (value.year == now.year &&
-        value.month == now.month &&
-        value.day == now.day) {
-      return '今天';
-    }
-    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
   }
 }
