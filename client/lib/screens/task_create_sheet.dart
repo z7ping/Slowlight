@@ -233,7 +233,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       children: [
         FxInput(
           controller: _titleController,
-          autofocus: true,
+          // Android 先展示清单、标签等选项，用户点输入框后再弹出键盘。
+          // 桌面端保留快捷录入时的默认聚焦。
+          autofocus: widget.desktopDialog,
+          onPressedOutside: (_) => FocusScope.of(context).unfocus(),
           enabled: !_saving,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _createTask(),
@@ -440,7 +443,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               const SizedBox(height: 12),
               Flexible(
                 child: SingleChildScrollView(
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  // 即使选项暂时未超出可视区，也允许拖动收起键盘；
+                  // 内容超出时继续在弹层内滚动，底部操作区保持固定。
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
+                  ),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   child: _editorContent(context),
                 ),
               ),
