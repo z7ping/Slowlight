@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
+import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -21,11 +22,11 @@ void main() {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(
         body: Builder(
-          builder: (context) => ElevatedButton(
+          builder: (context) => FxButton(
             onPressed: () {
               TaskCreateSheet.showFullCreate(context, lists: lists);
             },
-            child: const Text('打开完整表单'),
+            label: '打开完整表单',
           ),
         ),
       ),
