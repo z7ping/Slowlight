@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
+import 'package:slowlight/screens/task_create_sheet.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -41,6 +42,49 @@ void main() {
       expect(fxTooltipFinder('快速添加任务（按住可拖动）'), findsOneWidget);
       expect(fxTooltipFinder('添加任务'), findsNothing);
       expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('悬浮添加任务按钮移动后仍可再次拖动并点击', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
+
+      final initial = tester.getCenter(fab);
+      await tester.drag(fab, const Offset(-124, -145));
+      await tester.pump();
+      final moved = tester.getCenter(fab);
+      expect(moved.dx, lessThan(initial.dx - 90));
+      expect(moved.dy, lessThan(initial.dy - 110));
+
+      // 从新的位置继续拖动，而不是仍依赖 Scaffold FAB 的原始命中区域。
+      await tester.drag(fab, const Offset(38, -35));
+      await tester.pump();
+      final movedAgain = tester.getCenter(fab);
+      expect(movedAgain.dx, greaterThan(moved.dx + 15));
+      expect(movedAgain.dy, lessThan(moved.dy - 15));
+
+      // 新坐标上的真实点击必须仍打开原有任务创建 Sheet。
+      await tester.tap(fab);
+      await tester.pump();
+      expect(find.byType(TaskCreateSheet), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('悬浮按钮拖到边界后仍可点按', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
+      await tester.drag(fab, const Offset(-900, -900));
+      await tester.pump();
+
+      final rect = tester.getRect(fab);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      // FAB 必须保持在 Scaffold body 内，而不是移入 AppBar / 底部导航。
+      expect(rect.top, greaterThanOrEqualTo(48));
+      await tester.tap(fab);
+      await tester.pump();
+      expect(find.byType(TaskCreateSheet), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

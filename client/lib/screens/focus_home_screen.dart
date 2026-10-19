@@ -63,7 +63,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   );
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
-  Offset _fabDragOffset = Offset.zero;
+  // FAB 的实际布局坐标（相对于手机内容区域）；为空时停靠右下角。
+  Offset? _fabPosition;
   DateTime? _lastAndroidBackAt;
 
   @override
@@ -432,11 +433,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
               ),
             ),
           ),
-          body: content,
+          body: _navigation.isToday ? _mobileTodayBody(content) : content,
           bottomNavigationBar:
               _navigation.isTool ? null : _mobileBottomNavigation(),
-          floatingActionButton:
-              _navigation.isToday ? _mobileQuickAddButton() : null,
         ),
       ),
     );
@@ -525,46 +524,73 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     );
   }
 
-  Widget _mobileQuickAddButton() {
-    return GestureDetector(
-      onPanUpdate: _onFabPanUpdate,
-      child: Transform.translate(
-        offset: _fabDragOffset,
-        child: FxTooltip(
-          message: '快速添加任务（按住可拖动）',
-          child: Material(
-            color: activePalette.accent,
-            elevation: 8,
-            shadowColor: Colors.black.withValues(alpha: .18),
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: FxInkWell(
-              onTap: _quickAdd,
-              child: const SizedBox(
-                width: 48,
-                height: 48,
-                child: Icon(LucideIcons.plus, color: Colors.white, size: 22),
+  /// 将悬浮按钮真正布局在移动后的坐标，而不是只平移其绘制位置。
+  ///
+  /// Scaffold.floatingActionButton + Transform.translate 只能改变绘制位置；
+  /// 拖动到原布局区域外后，祖先的命中测试区域仍停留在原位置，导致无法点击。
+  /// 把按钮放在 body 的 Stack 中，Positioned 同时更新绘制与命中测试位置。
+  Widget _mobileTodayBody(Widget content) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const fabSize = 48.0;
+        const edge = 16.0;
+        final maxLeft = math.max(0.0, constraints.maxWidth - fabSize);
+        final maxTop = math.max(0.0, constraints.maxHeight - fabSize);
+        final initial = _fabPosition ??
+            Offset(
+              math.max(0.0, maxLeft - edge),
+              math.max(0.0, maxTop - edge),
+            );
+        final left = initial.dx.clamp(0.0, maxLeft).toDouble();
+        final top = initial.dy.clamp(0.0, maxTop).toDouble();
+
+        return Stack(
+          children: [
+            Positioned.fill(child: content),
+            Positioned(
+              left: left,
+              top: top,
+              child: _mobileQuickAddButton(
+                onPanUpdate: (details) {
+                  setState(() {
+                    _fabPosition = Offset(
+                      (left + details.delta.dx).clamp(0.0, maxLeft).toDouble(),
+                      (top + details.delta.dy).clamp(0.0, maxTop).toDouble(),
+                    );
+                  });
+                },
               ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _mobileQuickAddButton({
+    required GestureDragUpdateCallback onPanUpdate,
+  }) {
+    return GestureDetector(
+      onPanUpdate: onPanUpdate,
+      child: FxTooltip(
+        message: '快速添加任务（按住可拖动）',
+        child: Material(
+          color: activePalette.accent,
+          elevation: 8,
+          shadowColor: Colors.black.withValues(alpha: .18),
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: FxInkWell(
+            onTap: _quickAdd,
+            child: const SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(LucideIcons.plus, color: Colors.white, size: 22),
             ),
           ),
         ),
       ),
     );
-  }
-
-  /// 拖动 FAB 重定位；边界钳制在屏幕内（留出边距），拖动不影响点按。
-  void _onFabPanUpdate(DragUpdateDetails details) {
-    final size = MediaQuery.sizeOf(context);
-    const fabSize = 48.0;
-    const edge = 12.0;
-    final maxDx = -(size.width - fabSize - edge * 2);
-    final maxDy = -(size.height * 0.72);
-    setState(() {
-      _fabDragOffset = Offset(
-        (_fabDragOffset.dx + details.delta.dx).clamp(maxDx, edge),
-        (_fabDragOffset.dy + details.delta.dy).clamp(maxDy, edge),
-      );
-    });
   }
 
   Widget _buildContent() {
