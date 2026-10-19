@@ -320,10 +320,10 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 窄屏展开后可滚动，底部操作仍可见', (tester) async {
+  testWidgets('Android 超短屏展开后可滚动，底部操作仍可见', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    tester.view.physicalSize = const Size(360, 640);
+    tester.view.physicalSize = const Size(360, 440);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -349,6 +349,39 @@ void main() {
     expect(scrollable.position.pixels, greaterThan(0));
     expect(find.text('收起设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 大字体下紧凑日程网格自动回退单列', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(360, 740),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('详细设置'));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final fields = tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields));
+    expect(fields.compact, isTrue);
+    expect(find.text('到期日期'), findsOneWidget);
+    expect(find.text('时间'), findsOneWidget);
+    // 双列宽度不足时自动退为单列，不截断字段标题。
+    expect(
+      tester.getTopLeft(find.text('时间')).dy,
+      greaterThan(tester.getTopLeft(find.text('到期日期')).dy),
+    );
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
