@@ -161,7 +161,9 @@ class ReflectionComposer {
                   label: '取消',
                   size: FxButtonSize.sm,
                   variant: FxButtonVariant.outline,
-                  onPressed: saving ? null : () => Navigator.of(entryContext).pop(false),
+                  onPressed: saving
+                      ? null
+                      : () => Navigator.of(entryContext).pop(false),
                 ),
                 FxButton(
                   label: saving ? '保存中…' : '保存观察',
