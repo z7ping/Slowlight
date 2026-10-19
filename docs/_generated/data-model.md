@@ -62,6 +62,7 @@
 | SystemTag | `server/internal/config/tag_migration_test.go` |
 | Task | `server/internal/config/tag_migration_test.go` |
 | TaskTag | `server/internal/config/tag_migration_test.go` |
+| BehaviorEvent | `server/internal/config/tag_migration_test.go` |
 | Habit | `server/internal/config/tag_migration_test.go` |
 | WorkSession | `server/internal/config/tag_migration_test.go` |
 | Reflection | `server/internal/config/tag_migration_test.go` |
@@ -91,4 +92,4 @@
 | MigrationReport | `server/internal/handler/test_helper.go` |
 | Webhook | `server/internal/handler/test_helper.go` |
 
-共扫描到 54 个 Model/位置组合。
+共扫描到 55 个 Model/位置组合。
