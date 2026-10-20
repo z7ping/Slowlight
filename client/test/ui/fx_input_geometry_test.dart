@@ -8,6 +8,25 @@ import 'package:slowlight/ui/theme_manager.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('明确 maxLines: null 时允许多行编辑，不回退到单行', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: const Scaffold(
+          body: FxInput(
+            placeholder: '任务描述',
+            minLines: 1,
+            maxLines: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final input = tester.widget<ShadInput>(find.byType(ShadInput));
+    expect(input.maxLines, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
     for (final dark in [false, true]) {
       for (final scale in [1.0, 1.3, 2.0]) {
