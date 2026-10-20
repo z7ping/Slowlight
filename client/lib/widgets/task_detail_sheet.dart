@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/observation_tag.dart';
+import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../repositories/observation_tag_repository.dart';
@@ -9,7 +10,7 @@ import '../services/task_dimension_assignment.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'tag_choice_field.dart';
+import 'tag_picker.dart';
 
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
@@ -129,6 +130,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late DateTime? _reminderAt;
   late int _reminderAdvanceMinutes;
   late int? _systemTagId;
+  late List<Tag> _selectedTags;
   late final ObservationTagRepository _tagsRepository;
   late final TaskDimensionAssignment _dimensionAssignment;
   List<ObservationTag> _systemTags = const [];
@@ -159,6 +161,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _systemTagId = task.systemTagId;
+    _selectedTags = List<Tag>.from(task.tags);
     _tagsRepository = widget.tagsRepository ?? ObservationTagRepository();
     _dimensionAssignment = TaskDimensionAssignment(repository: _tagsRepository);
     _loadSystemTags();
@@ -405,15 +408,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           onTap: _pickReminder,
         ),
         const SizedBox(height: 14),
-        TagChoiceField(
-          tags: _systemTags,
-          selectedTagId: _systemTagId,
-          enabled: !_saving,
-          onChanged: (id) => setState(() {
-            _systemTagId = id;
-            // 保存旧有标签字段，不再把维度当作用户操作项。
-            _dimensionChanged = false;
-          }),
+        TagPicker(
+          selectedTags: _selectedTags,
+          onChanged: (value) => setState(() => _selectedTags = value),
         ),
       ],
     );
@@ -576,7 +573,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
         reminderAt: _reminderAt,
         reminderAdvanceMinutes: _reminderAdvanceMinutes,
-        tagIds: widget.task.tags.map((tag) => tag.id).toList(),
+        tagIds: _selectedTags.map((tag) => tag.id).toList(growable: false),
         systemTagId: systemTagId,
         taskType: widget.task.taskType,
         moodBefore: widget.task.moodBefore,
