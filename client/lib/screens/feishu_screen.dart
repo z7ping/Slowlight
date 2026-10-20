@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../repositories/feishu_integration_repository.dart';
 import '../services/data_mode_manager.dart';
