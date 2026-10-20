@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -290,6 +291,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('task-property-date')));
     await tester.pumpAndSettle();
     expect(find.byType(TaskCreateSheet), findsOneWidget);
+    expect(find.byType(ShadSheet), findsOneWidget);
     expect(find.text('安排日期'), findsOneWidget);
     expect(find.byKey(const ValueKey('task-picker-back')), findsOneWidget);
     await tester.tap(find.text('选择其他日期'));
@@ -297,6 +299,7 @@ void main() {
     expect(find.text('选择日期'), findsOneWidget);
     expect(find.byType(FxCalendar<Object>), findsOneWidget);
     expect(find.byType(TaskCreateSheet), findsOneWidget);
+    expect(find.byType(ShadSheet), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('task-picker-back')));
     await tester.pumpAndSettle();
     expect(find.text('安排日期'), findsOneWidget);
