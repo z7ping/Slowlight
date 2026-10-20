@@ -80,6 +80,9 @@ class TaskCreateSheet extends StatefulWidget {
       isScrollControlled: true,
       draggable: true,
       showDragHandle: false,
+      // ShadSheet 的默认内边距与表单自身边距叠加会使移动端内容过窄。
+      // 快捷表单由自身统一控制间距，其他 Sheet 不受影响。
+      padding: EdgeInsets.zero,
       builder: (_) => editor,
     );
   }
@@ -177,6 +180,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   bool _loadingLists = true;
   bool _saving = false;
   String? _error;
+  Key? _focusedMobileProperty;
 
   @override
   void initState() {
@@ -326,19 +330,29 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   }) {
     final scheme = Theme.of(context).colorScheme;
     final accent = activePalette.accent;
+    final focused = _focusedMobileProperty == key;
     return FxInkWell(
       key: key,
       onTap: onTap,
+      onFocusChange: (hasFocus) {
+        setState(() {
+          if (hasFocus) {
+            _focusedMobileProperty = key;
+          } else if (_focusedMobileProperty == key) {
+            _focusedMobileProperty = null;
+          }
+        });
+      },
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: selected
+          color: focused
               ? accent.withValues(alpha: .08)
               : scheme.surfaceContainerLowest,
           border: Border.all(
-            color: selected ? accent.withValues(alpha: .65) : scheme.outline,
+            color: focused ? accent.withValues(alpha: .65) : scheme.outline,
           ),
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
         ),
@@ -351,7 +365,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.componentControl(context),
+                style: SlowlightTypography.componentControl(context).copyWith(
+                  color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(width: 2),
@@ -670,7 +686,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           maxHeight: MediaQuery.sizeOf(context).height * .85,
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
