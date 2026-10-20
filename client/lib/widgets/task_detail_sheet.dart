@@ -18,6 +18,7 @@ class TaskDetailSheet extends StatefulWidget {
   final Task task;
   final List<TodoList> lists;
   final VoidCallback onChanged;
+  final VoidCallback? onClose;
   final bool sidePanel;
   final ObservationTagRepository? tagsRepository;
 
@@ -26,6 +27,7 @@ class TaskDetailSheet extends StatefulWidget {
     required this.task,
     required this.lists,
     required this.onChanged,
+    this.onClose,
     this.sidePanel = false,
     this.tagsRepository,
   });
@@ -215,6 +217,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
+  void _close() {
+    if (widget.onClose != null) {
+      widget.onClose!();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   Widget _header() {
     final theme = Theme.of(context);
     return Padding(
@@ -256,7 +266,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               const SizedBox(width: 4),
               FxIconButton(
                 tooltip: '关闭',
-                onPressed: _saving ? null : () => Navigator.pop(context),
+                onPressed: _saving ? null : _close,
                 icon: LucideIcons.x,
                 foregroundColor: theme.colorScheme.onSurfaceVariant,
               ),
@@ -597,7 +607,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         outputLevel: widget.task.outputLevel,
       );
       widget.onChanged();
-      if (mounted) Navigator.pop(context);
+      if (mounted) _close();
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -620,7 +630,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       await DataService().deleteTask(task.id, null);
       widget.onChanged();
       if (!mounted) return;
-      Navigator.pop(context);
+      _close();
       notice.clear();
       notice.showContent(
         Text('已删除「${task.title}」'),
