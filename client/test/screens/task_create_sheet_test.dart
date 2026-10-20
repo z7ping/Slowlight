@@ -228,6 +228,77 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 日期弹层新增明天并能选择、关闭不改变选择', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    const dateKey = ValueKey('task-property-date');
+    await tester.tap(find.byKey(dateKey));
+    await tester.pumpAndSettle();
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('明天'), findsOneWidget);
+    expect(find.text('选择其他日期'), findsOneWidget);
+
+    await tester.tap(find.text('明天'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxIconButton>(find.byKey(dateKey)).tooltip, '日期：明天');
+
+    await tester.tap(find.byKey(dateKey));
+    await tester.pumpAndSettle();
+    final tomorrow = tester.widget<FxListTile>(
+      find.ancestor(
+        of: find.text('明天'),
+        matching: find.byType(FxListTile),
+      ).first,
+    );
+    expect(tomorrow.selected, isTrue);
+    final close = find.byWidgetPredicate(
+      (widget) => widget is FxIconButton && widget.tooltip == '关闭',
+    );
+    expect(close, findsOneWidget);
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(find.text('安排日期'), findsNothing);
+    expect(tester.widget<FxIconButton>(find.byKey(dateKey)).tooltip, '日期：明天');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 优先级选择使用项目统一颜色而不是新建独立颜色', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('task-property-priority')));
+    await tester.pumpAndSettle();
+
+    FxListTile row(String label) => tester.widget<FxListTile>(
+      find.ancestor(
+        of: find.text(label),
+        matching: find.byType(FxListTile),
+      ).first,
+    );
+    expect(row('高').iconColor, AppTheme.priorityUrgentImportant);
+    expect(row('中').iconColor, AppTheme.priorityImportant);
+    expect(row('低').iconColor, AppTheme.priorityUrgent);
+    expect(row('无优先级').iconColor, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 快捷添加任务自动聚焦，点击选项能收起键盘且保留标题', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
