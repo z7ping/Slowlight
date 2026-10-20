@@ -257,12 +257,12 @@ class _WebhookScreenState extends State<WebhookScreen> {
           children: [
             FxIconButton(
               tooltip: '测试',
-              icon: Icons.send,
+              icon: LucideIcons.send,
               onPressed: () => _testWebhook(webhook['id'] as int),
             ),
             FxIconButton(
               tooltip: '删除',
-              icon: Icons.delete_outline,
+              icon: LucideIcons.trash2,
               foregroundColor: AppTheme.error,
               onPressed: () => _deleteWebhook(webhook['id'] as int),
             ),
@@ -277,7 +277,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
       borderRadius: SlowlightRadius.lg,
       padding: EdgeInsets.zero,
       child: FxExpansionTile(
-        leading: Icon(Icons.info_outline, color: AppTheme.primary),
+        leading: Icon(LucideIcons.info, color: AppTheme.primary),
         title: Text('事件说明', style: SlowlightTypography.cardTitle(context)),
         subtitle: Text(
           '点击展开查看每个事件的触发时机和用法',
@@ -322,7 +322,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
           const SizedBox(height: 6),
           FxButton(
             label: '查看示例数据',
-            icon: Icons.code,
+            icon: LucideIcons.code2,
             variant: FxButtonVariant.ghost,
             size: FxButtonSize.sm,
             onPressed: () => _showPayloadDialog(def),
