@@ -126,4 +126,44 @@ void main() {
     );
     await disposeFxTestHost(tester);
   });
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('${platform.name} ${scale}x 分段控件不裁剪文字与触控区', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+        const itemKey = ValueKey('responsive-segment');
+        await tester.pumpWidget(
+          buildFxTestHost(
+            theme: AppTheme.lightTheme(),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: child,
+            ),
+            home: Scaffold(
+              body: Center(
+                child: FxSegmented(
+                  labels: ['全部', '进行中'],
+                  selectedIndex: 0,
+                  onChanged: (_) {},
+                  itemKeys: const [itemKey, null],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final itemSize = tester.getSize(find.byKey(itemKey));
+        expect(itemSize.height, greaterThanOrEqualTo(
+          platform == TargetPlatform.android ? 44.0 : 32.0,
+        ));
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
 }
