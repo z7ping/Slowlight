@@ -46,7 +46,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.cloud_off_outlined,
+                LucideIcons.cloudOff,
                 size: 34,
                 color: theme.colorScheme.error,
               ),
@@ -66,7 +66,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
               const SizedBox(height: SlowlightSpacing.xl),
               FxButton(
                 label: '重新加载',
-                icon: Icons.refresh,
+                icon: LucideIcons.refreshCw,
                 variant: FxButtonVariant.outline,
                 onPressed: () {
                   setState(() {
@@ -144,7 +144,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   borderRadius: BorderRadius.circular(SlowlightRadius.md),
                 ),
                 child: Icon(
-                  Icons.table_chart_outlined,
+                  LucideIcons.table2,
                   color: theme.colorScheme.primary,
                 ),
               ),
@@ -216,7 +216,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 controller: _appIdController,
                 label: '应用标识',
                 placeholder: 'cli_xxxxxxxxxxxxxxxx',
-                leading: const Icon(Icons.key_outlined, size: 18),
+                leading: const Icon(LucideIcons.keyRound, size: 18),
               ),
               const SizedBox(height: SlowlightSpacing.md),
               FxInput(
@@ -224,14 +224,14 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 label: '应用密钥',
                 placeholder: _isConfigured ? '重新保存配置时需要填写' : '请输入应用密钥',
                 obscureText: !_showSecret,
-                leading: const Icon(Icons.lock_outline, size: 18),
+                leading: const Icon(LucideIcons.lock, size: 18),
                 trailing: FxIconButton(
                   tooltip: _showSecret ? '隐藏密钥' : '显示密钥',
                   onPressed: () => setState(() => _showSecret = !_showSecret),
                   icon:
                       _showSecret
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
+                          ? LucideIcons.eyeOff
+                          : LucideIcons.eye,
                 ),
               ),
               const SizedBox(height: SlowlightSpacing.md),
@@ -239,7 +239,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 controller: _tableUrlController,
                 label: '多维表格链接',
                 placeholder: 'https://my.feishu.cn/base/xxxxx',
-                leading: const Icon(Icons.link, size: 18),
+                leading: const Icon(LucideIcons.link2, size: 18),
               ),
               const SizedBox(height: SlowlightSpacing.xl),
               Wrap(
@@ -249,13 +249,13 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 children: [
                   FxButton(
                     label: _isConnecting ? '绑定中…' : '绑定现有表格',
-                    icon: Icons.link,
+                    icon: LucideIcons.link2,
                     variant: FxButtonVariant.outline,
                     onPressed: _isConnecting ? null : _connectExisting,
                   ),
                   FxButton(
                     label: _isSaving ? '保存中…' : '保存配置',
-                    icon: Icons.save_outlined,
+                    icon: LucideIcons.save,
                     onPressed: _isSaving ? null : _saveConfig,
                   ),
                 ],
@@ -273,7 +273,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
               Row(
                 children: [
                   Icon(
-                    Icons.auto_awesome,
+                    LucideIcons.sparkles,
                     size: 20,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -298,7 +298,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
               const SizedBox(height: SlowlightSpacing.md),
               FxButton(
                 label: _isCreatingTemplate ? '创建中…' : '创建数据模板',
-                icon: Icons.auto_awesome,
+                icon: LucideIcons.sparkles,
                 variant: FxButtonVariant.outline,
                 onPressed: _isCreatingTemplate ? null : _createTemplate,
               ),
@@ -321,7 +321,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           trailing: _cloud ? '通过 Slowlight Server' : '从本机 SQLite 单向导出',
           trailingWidget: FxButton(
             label: _isSyncingAll ? '同步中…' : '同步全部',
-            icon: Icons.sync,
+            icon: LucideIcons.refreshCw,
             size: FxButtonSize.sm,
             onPressed: disabled || _isSyncingAll ? null : _syncAll,
           ),
@@ -332,7 +332,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           child: Column(
             children: [
               _FeishuActionTile(
-                icon: Icons.task_alt_outlined,
+                icon: LucideIcons.circleCheck,
                 title: '任务与清单',
                 subtitle: '同步任务、子任务、清单与习惯数据',
                 busy: _isSyncing,
@@ -340,7 +340,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 onTap: _syncToFeishu,
               ),
               _FeishuActionTile(
-                icon: Icons.timer_outlined,
+                icon: LucideIcons.timer,
                 title: '专注记录',
                 subtitle: '同步已结束的专注会话与关联任务',
                 busy: _isSyncingSessions,
@@ -348,7 +348,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 onTap: _syncSessionsToFeishu,
               ),
               _FeishuActionTile(
-                icon: Icons.self_improvement_outlined,
+                icon: LucideIcons.sprout,
                 title: '休息记录',
                 subtitle: '同步工作与休息行为事实',
                 busy: _isSyncingReminders,
@@ -356,7 +356,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 onTap: _syncRemindersToFeishu,
               ),
               _FeishuActionTile(
-                icon: Icons.label_outline,
+                icon: LucideIcons.tag,
                 title: '标签',
                 subtitle: '同步观察标签及关联信息',
                 busy: _isSyncingTags,
@@ -366,7 +366,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
               ),
               if (_cloud)
                 _FeishuActionTile(
-                  icon: Icons.cloud_download_outlined,
+                  icon: LucideIcons.cloudDownload,
                   title: '从飞书导入',
                   subtitle: '仅云端模式可用；导入前请确认表格内容',
                   busy: _isImporting,
@@ -445,7 +445,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                         alignment: Alignment.centerRight,
                         child: FxButton(
                           label: _isSyncingCalendar ? '同步中…' : '同步到日历',
-                          icon: Icons.event_available_outlined,
+                          icon: LucideIcons.calendarCheck,
                           onPressed:
                               _isSyncingCalendar ? null : _syncToCalendar,
                         ),
@@ -464,7 +464,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
       child: Row(
         children: [
           Icon(
-            Icons.event_busy_outlined,
+            LucideIcons.calendarX,
             size: 20,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -626,7 +626,7 @@ class _FeishuActionTile extends StatelessWidget {
                 )
               else
                 Icon(
-                  Icons.chevron_right,
+                  LucideIcons.chevronRight,
                   size: 20,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
