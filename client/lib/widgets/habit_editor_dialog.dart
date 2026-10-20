@@ -247,7 +247,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(SlowlightRadius.xl),
         side: BorderSide(color: fxBorder(context)),
       ),
       child: ConstrainedBox(
