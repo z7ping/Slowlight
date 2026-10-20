@@ -6,7 +6,7 @@ import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/repositories/observation_tag_repository.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/widgets/tag_choice_field.dart';
+import 'package:slowlight/widgets/tag_picker.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -58,10 +58,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final labels = find.byType(TagChoiceField);
+    final labels = find.byType(TagPicker);
     expect(labels, findsOneWidget);
-    expect(tester.widget<TagChoiceField>(labels).selectedTagId, 3);
-    expect(find.text('#专题研究'), findsOneWidget);
+    // 原 system_tag_id 仍存于历史兼容字段，不混用 canonical tag IDs。
+    expect(tester.widget<TagPicker>(labels).selectedTags, isEmpty);
     expect(find.text('无'), findsOneWidget);
     final selects = tester.widgetList<FxSelect<String>>(find.byType(FxSelect<String>));
     expect(
@@ -69,10 +69,7 @@ void main() {
       isTrue,
     );
 
-    await tester.ensureVisible(find.text('无标签'));
-    await tester.tap(find.text('无标签'));
-    await tester.pump();
-    expect(tester.widget<TagChoiceField>(labels).selectedTagId, isNull);
+    expect(task.systemTagId, 3);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
