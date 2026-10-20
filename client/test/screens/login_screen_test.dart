@@ -29,6 +29,24 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('登录和注册模式的单行字段等高，密码尾部按钮不撑高', (tester) async {
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
+      await tester.pump();
+
+      double fieldHeight(int index) => tester.getSize(find.byType(FxInput).at(index)).height;
+      expect(fieldHeight(0), closeTo(fieldHeight(1), 0.1));
+      final loginHeight = fieldHeight(0);
+
+      await tester.tap(find.text('注册'));
+      await tester.pump();
+      expect(find.byType(FxInput), findsNWidgets(4));
+      for (var i = 0; i < 4; i++) {
+        expect(fieldHeight(i), closeTo(loginHeight, 0.1));
+      }
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('注册缺少邮箱时不会进入远端提交', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();

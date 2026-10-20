@@ -36,7 +36,6 @@ class FxInput extends StatelessWidget {
   final TextStyle? placeholderStyle;
   final List<TextInputFormatter>? inputFormatters;
   final EdgeInsets? contentPadding;
-  final bool isDense;
 
   const FxInput({
     super.key,
@@ -65,12 +64,12 @@ class FxInput extends StatelessWidget {
     this.placeholderStyle,
     this.inputFormatters,
     this.contentPadding,
-    this.isDense = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final multiline = maxLines != 1 || (minLines != null && minLines! > 1);
     final input = ShadInput(
       controller: controller,
       onChanged: onChanged,
@@ -99,9 +98,15 @@ class FxInput extends StatelessWidget {
           ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
       trailing: trailing,
-      // null 时完全交给 ShadInputTheme；这样 Windows / Android 的密度差异
-      // 只在 Theme 层定义一次。isDense 仅保留旧调用兼容，不再另造平台分支。
-      padding: contentPadding,
+      // 单行使用 ShadInputTheme 的统一 minHeight；多行保留编辑区垂直留白。
+      // 显式 contentPadding 仅供已确认的特殊场景使用。
+      padding: contentPadding ??
+          (multiline
+              ? EdgeInsets.symmetric(
+                  horizontal: SlowlightPlatformDensity.inputHorizontalPadding,
+                  vertical: SlowlightPlatformDensity.multilineInputVerticalPadding,
+                )
+              : null),
     );
 
     if (label == null) return input;

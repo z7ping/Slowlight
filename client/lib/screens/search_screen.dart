@@ -183,10 +183,6 @@ class _SearchScreenState extends State<SearchScreen> {
                                       },
                                       icon: LucideIcons.x,
                                     ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 11,
-                            ),
                           ),
                           const SizedBox(height: 12),
                           if (_recentSearches.isNotEmpty)
