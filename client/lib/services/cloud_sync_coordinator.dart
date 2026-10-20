@@ -227,7 +227,7 @@ class CloudSyncCoordinator {
         continue;
       }
 
-      Map<String, dynamic> context = const {};
+      Map<String, dynamic> context = <String, dynamic>{};
       try {
         final decoded = jsonDecode(row['context_json']?.toString() ?? '{}');
         if (decoded is Map) context = Map<String, dynamic>.from(decoded);
