@@ -107,7 +107,7 @@ class ReflectionRepository {
       if (tagIds.isNotEmpty) {
         final placeholders = List.filled(tagIds.length, '?').join(',');
         final matches = await txn.rawQuery(
-          'SELECT id FROM tags WHERE id IN ($placeholders) AND deleted_at IS NULL',
+          'SELECT id FROM tags WHERE id IN ($placeholders)',
           tagIds,
         );
         if (matches.length != tagIds.length) {
