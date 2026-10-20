@@ -49,11 +49,14 @@ abstract final class SlowlightPlatformDensity {
 
   /// 统一单行输入框的最低可视高度；字体放大允许向上增长。
   static double get inputMinHeight =>
-      usesMobileTouchTargets ? SlowlightControlSize.minTouchTarget : SlowlightControlSize.button;
+      usesMobileTouchTargets
+          ? SlowlightControlSize.minTouchTarget
+          : SlowlightControlSize.button;
 
   /// ShadInput 与 FxInput 共用的输入区内边距语义。
   static double get inputHorizontalPadding => usesMobileTouchTargets ? 14 : 12;
-  static double get multilineInputVerticalPadding => usesMobileTouchTargets ? 12 : 8;
+  static double get multilineInputVerticalPadding =>
+      usesMobileTouchTargets ? 12 : 8;
 
   static double get iconButtonVisualSize =>
       usesMobileTouchTargets ? SlowlightControlSize.minTouchTarget : 30;
