@@ -8,26 +8,35 @@ import 'package:flutter/foundation.dart';
 abstract final class SlowlightSpacing {
   // TODO(fx-visual-regression): 旧命名仍被大量现有代码引用；逐组件恢复视觉时
   // 迁移到 4 / 8 / 12 / 16 / 24 基础间距后，再删除这些兼容项。禁止新增引用。
+  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
   static const double xxs = 2;
   static const double xs = 4;
+  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
   static const double sm = 6;
   static const double md = 8;
+  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
   static const double lg = 10;
   static const double xl = 12;
+  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
   static const double xxl = 14;
   static const double xxxl = 16;
+  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
   static const double section = 20;
   static const double page = 24;
+  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
   static const double spacious = 32;
 }
 
 abstract final class SlowlightRadius {
+  @Deprecated('Legacy 2px radius; do not reuse as a general design token')
   static const double xs = 2;
   static const double sm = 4;
   static const double md = 8;
   static const double lg = 12;
   static const double xl = 16;
+  /// 特定 Sheet 的 18px 语义圆角；不可作为普通卡片通用圆角。
   static const double sheet = 18;
+  /// 胶囊形 Chip 的完整圆角；不按 999px 数值机械迁移。
   static const double pill = 999;
 }
 

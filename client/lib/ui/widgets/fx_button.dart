@@ -78,6 +78,9 @@ class _FxButtonState extends State<FxButton> {
     );
   }
 
+  // 紧凑图标与标题的既定 6px 关系仅属于 FxButton。
+  static const double _compactIconGap = 6;
+
   Widget _buildChild(BuildContext context) {
     final text = Text(widget.label, style: _textMetrics(context));
     if (widget.icon != null) {
@@ -94,7 +97,7 @@ class _FxButtonState extends State<FxButton> {
           ),
           SizedBox(
             width: _isCompactAction
-                ? SlowlightSpacing.sm
+                ? _compactIconGap
                 : SlowlightSpacing.md,
           ),
           text,

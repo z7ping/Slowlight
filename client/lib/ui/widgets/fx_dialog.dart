@@ -155,7 +155,7 @@ class FxAlertDialog extends StatelessWidget {
     this.titlePadding,
     this.contentPadding = const EdgeInsets.fromLTRB(
       SlowlightSpacing.page,
-      SlowlightSpacing.section,
+      20, // FxAlertDialog 特有顶边留白，不再作为共享间距 Token。
       SlowlightSpacing.page,
       SlowlightSpacing.page,
     ),

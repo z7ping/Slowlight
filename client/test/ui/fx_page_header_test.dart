@@ -6,6 +6,33 @@ import 'package:slowlight/ui/fx.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    testWidgets('${platform.name} 二级页头保持平台专属总高度', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      await tester.pumpWidget(
+        buildFxTestHost(
+          home: const Scaffold(
+            body: Column(
+              children: [
+                FxPageHeader(title: '设置'),
+                Expanded(child: SizedBox.shrink()),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final height = tester.getSize(find.byType(FxPageHeader)).height;
+      if (platform == TargetPlatform.windows) {
+        expect(height, inInclusiveRange(52, 60));
+      } else {
+        expect(height, greaterThanOrEqualTo(66));
+      }
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('FxPageHeader 在真实 360dp + 200% 字体下保持可用', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

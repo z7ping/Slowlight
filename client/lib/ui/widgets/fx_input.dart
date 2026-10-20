@@ -11,6 +11,9 @@ import '../typography_tokens.dart';
 /// Fx 不重复绘制 ShadInput 已由主题提供的边框 / Focus Ring；默认字号、占位符
 /// 与内边距均由当前平台 Theme / SlowlightTypography 解析，组件本身不判断平台。
 class FxInput extends StatelessWidget {
+  // 字段标签与输入区的历史高保真内部几何，不扩散为共享 spacing。
+  static const double _labelGap = 6;
+
   final TextEditingController? controller;
   final String? placeholder;
   final String? label;
@@ -82,7 +85,7 @@ class FxInput extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       minLines: minLines,
-      maxLines: maxLines ?? 1,
+      maxLines: maxLines,
       maxLength: maxLength,
       enabled: enabled,
       readOnly: readOnly,
@@ -129,7 +132,7 @@ class FxInput extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label!, style: labelStyle),
-        const SizedBox(height: SlowlightSpacing.sm),
+        const SizedBox(height: _labelGap),
         field,
       ],
     );
