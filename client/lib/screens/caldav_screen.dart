@@ -512,7 +512,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   Widget _buildConfigForm() {
     return FxCard(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
         child: Form(
           key: _formKey,
           child: Column(

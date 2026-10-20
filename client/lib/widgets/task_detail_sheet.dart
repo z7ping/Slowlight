@@ -257,7 +257,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   label: '已完成',
                   backgroundColor: activePalette.accent.withValues(alpha: .12),
                   foregroundColor: activePalette.accent,
-                  borderRadius: 999,
+                  borderRadius: SlowlightRadius.pill,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 9,
                     vertical: 3,
@@ -321,7 +321,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                           : theme.colorScheme.onSurfaceVariant,
                   borderColor:
                       selected ? activePalette.accent : fxBorder(context),
-                  borderRadius: 999,
+                  borderRadius: SlowlightRadius.pill,
                 );
               })
               .toList(growable: false),
@@ -403,7 +403,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                         : theme.colorScheme.onSurfaceVariant,
                 borderColor:
                     selected ? activePalette.accent : fxBorder(context),
-                borderRadius: 999,
+                borderRadius: SlowlightRadius.pill,
               );
             }),
           ),
