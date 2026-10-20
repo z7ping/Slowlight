@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
-import '../typography_tokens.dart';
 import '../layout_tokens.dart';
+import '../typography_tokens.dart';
 
 /// FxSelect — 统一下拉选择组件。
 ///
-/// Android 使用 Control 语义字号；桌面端继承 ShadSelect 的既有文字视觉，
-/// 避免 Fx 化把 Windows 下拉项统一放大。
+/// Windows / Android 共用 Control 语义字号和最小表单高度，
+/// 保留 ShadSelect 提供的 Focus、弹层与键盘交互。
 class FxSelect<T> extends StatelessWidget {
   final T? value;
   final List<FxSelectOption<T>> options;
@@ -35,29 +35,29 @@ class FxSelect<T> extends StatelessWidget {
         minHeight: SlowlightPlatformDensity.inputMinHeight,
       ),
       child: ShadSelect<T>(
-      key: ValueKey(value),
-      initialValue: value,
-      enabled: enabled,
-      // 与 FxInput 使用相同的可视高度契约，避免 Select 默认上下内边距
-      // 将下拉框撑得比输入框高；字体缩放时仍允许内容向上增长。
-      padding: EdgeInsets.symmetric(
-        horizontal: SlowlightPlatformDensity.inputHorizontalPadding,
-      ),
-      placeholder:
-          placeholder != null ? Text(placeholder!, style: textStyle) : null,
-      onChanged: enabled ? onChanged : null,
-      selectedOptionBuilder: (context, value) {
-        final opt = options.firstWhere((o) => o.value == value);
-        return Text(opt.label, style: textStyle);
-      },
-      options: options
-          .map(
-            (opt) => ShadOption(
-              value: opt.value,
-              child: Text(opt.label, style: textStyle),
-            ),
-          )
-          .toList(growable: false),
+        key: ValueKey(value),
+        initialValue: value,
+        enabled: enabled,
+        // 与 FxInput 使用相同的可视高度契约，避免 Select 默认上下内边距
+        // 将下拉框撑得比输入框高；字体缩放时仍允许内容向上增长。
+        padding: EdgeInsets.symmetric(
+          horizontal: SlowlightPlatformDensity.inputHorizontalPadding,
+        ),
+        placeholder:
+            placeholder != null ? Text(placeholder!, style: textStyle) : null,
+        onChanged: enabled ? onChanged : null,
+        selectedOptionBuilder: (context, value) {
+          final opt = options.firstWhere((o) => o.value == value);
+          return Text(opt.label, style: textStyle);
+        },
+        options: options
+            .map(
+              (opt) => ShadOption(
+                value: opt.value,
+                child: Text(opt.label, style: textStyle),
+              ),
+            )
+            .toList(growable: false),
       ),
     );
   }
