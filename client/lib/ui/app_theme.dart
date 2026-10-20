@@ -777,12 +777,13 @@ ShadButtonTheme _buttonTheme() {
 
 ShadInputTheme _inputTheme() {
   final p = _active;
-  final android = SlowlightTypography.useAndroidComponentTypography;
   return ShadInputTheme(
+    // 单行输入依靠 minHeight，不用上下 padding 叠加尾部图标高度。
+    // 多行输入在 FxInput 中使用同一密度层的多行 padding。
     padding: EdgeInsets.symmetric(
-      horizontal: android ? 14 : 12,
-      vertical: android ? 12 : 8,
+      horizontal: SlowlightPlatformDensity.inputHorizontalPadding,
     ),
+    constraints: BoxConstraints(minHeight: SlowlightPlatformDensity.inputMinHeight),
     decoration: ShadDecoration(
       // 保留单层主焦点描边，避免 ShadDecorator 再绘制外层强调环。
       disableSecondaryBorder: true,
