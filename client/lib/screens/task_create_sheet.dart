@@ -180,7 +180,6 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   bool _loadingLists = true;
   bool _saving = false;
   String? _error;
-  Key? _focusedMobileProperty;
 
   @override
   void initState() {
@@ -230,14 +229,23 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     return null;
   }
 
-  Widget _titleInput(BuildContext context) => FxInput(
+  Widget _titleInput(
+    BuildContext context, {
+    bool multiline = false,
+    EdgeInsets? contentPadding,
+  }) => FxInput(
     controller: _titleController,
     // 快捷记录默认聚焦标题，移动端同时弹出键盘。
     autofocus: true,
     onPressedOutside: (_) => FocusScope.of(context).unfocus(),
     enabled: !_saving,
-    textInputAction: TextInputAction.done,
-    onSubmitted: (_) => _createTask(),
+    keyboardType: multiline ? TextInputType.multiline : null,
+    textInputAction:
+        multiline ? TextInputAction.newline : TextInputAction.done,
+    onSubmitted: multiline ? null : (_) => _createTask(),
+    minLines: multiline ? 3 : null,
+    maxLines: multiline ? 6 : 1,
+    contentPadding: contentPadding,
     style: SlowlightTypography.body(context),
     placeholder: widget.desktopDialog
         ? '例如：整理今天的会议记录'
@@ -249,56 +257,54 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _titleInput(context),
-        const SizedBox(height: 12),
-        FxResponsiveFormGrid(
-          minColumnWidth: 136,
-          maxColumns: 2,
-          horizontalGap: 8,
-          verticalGap: 8,
-          children: [
-            _mobileProperty(
-              context,
-              key: const ValueKey('task-property-list'),
-              icon: LucideIcons.folder,
-              label: _loadingLists ? '读取清单…' : _selectedListName(),
-              selected: _selectedListId != null,
-              onTap: _loadingLists || _saving ? null : _chooseMobileList,
-            ),
-            _mobileProperty(
-              context,
-              key: const ValueKey('task-property-date'),
-              icon: LucideIcons.calendarDays,
-              label: _dueDate == null
-                  ? '未安排'
-                  : _dueToday
-                      ? '今天'
-                      : '${_dueDate!.month}/${_dueDate!.day}',
-              selected: _dueDate != null,
-              onTap: _saving ? null : _chooseMobileDate,
-            ),
-            _mobileProperty(
-              context,
-              key: const ValueKey('task-property-priority'),
-              icon: LucideIcons.flag,
-              label: _selectedPriority == 'none'
-                  ? '无优先级'
-                  : _priorityLabel(_selectedPriority),
-              selected: _selectedPriority != 'none',
-              onTap: _saving ? null : _chooseMobilePriority,
-            ),
-            _mobileProperty(
-              context,
-              key: const ValueKey('task-property-tag'),
-              icon: LucideIcons.tag,
-              label: _selectedTagName() == '标签'
-                  ? '无标签'
-                  : _selectedTagName(),
-              selected: _selectedTagId != null,
-              onTap: _saving ? null : _chooseMobileTag,
-            ),
-          ],
+        // 单一输入框承载标题、四项快捷属性及添加操作，保留原有 FxInput
+        // 的边框/焦点视觉；底部内边距为工具栏留出真实输入空间。
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stackedToolbar = constraints.maxWidth < 310 ||
+                MediaQuery.textScalerOf(context).scale(1) >= 1.4;
+            return Stack(
+              fit: StackFit.passthrough,
+              children: [
+                _titleInput(
+                  context,
+                  multiline: true,
+                  contentPadding: EdgeInsets.fromLTRB(
+                    14,
+                    12,
+                    14,
+                    stackedToolbar ? 114 : 64,
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 10,
+                  child: stackedToolbar
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(children: _mobilePropertyButtons()),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: _submitButton(),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            ..._mobilePropertyButtons(),
+                            const Spacer(),
+                            _submitButton(),
+                          ],
+                        ),
+                ),
+              ],
+            );
+          },
         ),
+        const SizedBox(height: SlowlightSpacing.md),
         FxExpansionTile(
           key: const ValueKey('task-create-settings'),
           title: const Text('更多设置'),
@@ -320,64 +326,69 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     );
   }
 
-  Widget _mobileProperty(
-    BuildContext context, {
+  List<Widget> _mobilePropertyButtons() => [
+    _mobileProperty(
+      key: const ValueKey('task-property-list'),
+      icon: LucideIcons.folder,
+      category: '清单',
+      label: _loadingLists ? '读取清单…' : _selectedListName(),
+      selected: _selectedListId != null,
+      onTap: _loadingLists || _saving ? null : _chooseMobileList,
+    ),
+    _mobileProperty(
+      key: const ValueKey('task-property-date'),
+      icon: LucideIcons.calendarDays,
+      category: '日期',
+      label: _dueDate == null
+          ? '未安排'
+          : _dueToday
+              ? '今天'
+              : '${_dueDate!.month}/${_dueDate!.day}',
+      selected: _dueDate != null,
+      onTap: _saving ? null : _chooseMobileDate,
+    ),
+    _mobileProperty(
+      key: const ValueKey('task-property-priority'),
+      icon: LucideIcons.flag,
+      category: '优先级',
+      label: _selectedPriority == 'none'
+          ? '无优先级'
+          : _priorityLabel(_selectedPriority),
+      selected: _selectedPriority != 'none',
+      onTap: _saving ? null : _chooseMobilePriority,
+    ),
+    _mobileProperty(
+      key: const ValueKey('task-property-tag'),
+      icon: LucideIcons.tag,
+      category: '标签',
+      label: _selectedTagName() == '标签' ? '无标签' : _selectedTagName(),
+      selected: _selectedTagId != null,
+      onTap: _saving ? null : _chooseMobileTag,
+    ),
+  ];
+
+  Widget _mobileProperty({
     required Key key,
     required IconData icon,
+    required String category,
     required String label,
     required bool selected,
     required VoidCallback? onTap,
   }) {
-    final scheme = Theme.of(context).colorScheme;
-    final accent = activePalette.accent;
-    final focused = _focusedMobileProperty == key;
-    return FxInkWell(
-      key: key,
-      onTap: onTap,
-      onFocusChange: (hasFocus) {
-        setState(() {
-          if (hasFocus) {
-            _focusedMobileProperty = key;
-          } else if (_focusedMobileProperty == key) {
-            _focusedMobileProperty = null;
-          }
-        });
-      },
-      borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 48),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: focused
-              ? accent.withValues(alpha: .08)
-              : scheme.surfaceContainerLowest,
-          border: Border.all(
-            color: focused ? accent.withValues(alpha: .65) : scheme.outline,
-          ),
-          borderRadius: BorderRadius.circular(SlowlightRadius.md),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: SlowlightIconSize.sm, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.componentControl(context).copyWith(
-                  color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              LucideIcons.chevronDown,
-              size: SlowlightIconSize.xs,
-              color: scheme.onSurfaceVariant,
-            ),
-          ],
-        ),
+    final color = selected
+        ? activePalette.accent
+        : Theme.of(context).colorScheme.onSurfaceVariant;
+    final description = '$category：$label';
+    return Semantics(
+      label: description,
+      button: true,
+      child: FxIconButton(
+        key: key,
+        icon: icon,
+        iconSize: SlowlightIconSize.md,
+        foregroundColor: color,
+        tooltip: description,
+        onPressed: onTap,
       ),
     );
   }
@@ -650,15 +661,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     ],
   );
 
-  Widget _editorActions() => FxDialogActions(
-    actions: [
-      FxButton(
-        label: _saving ? '添加中…' : '添加任务',
-        size: widget.desktopDialog ? FxButtonSize.sm : FxButtonSize.md,
-        onPressed: _saving ? null : _createTask,
-      ),
-    ],
+  Widget _submitButton() => FxButton(
+    label: _saving ? '添加中…' : '添加任务',
+    size: widget.desktopDialog ? FxButtonSize.sm : FxButtonSize.md,
+    onPressed: _saving ? null : _createTask,
   );
+
+  Widget _editorActions() => FxDialogActions(actions: [_submitButton()]);
 
   @override
   Widget build(BuildContext context) {
@@ -709,8 +718,6 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                   child: _editorContent(context),
                 ),
               ),
-              const SizedBox(height: 12),
-              _editorActions(),
             ],
           ),
         ),

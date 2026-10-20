@@ -118,7 +118,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 窄屏默认显示两列任务属性和固定操作栏', (tester) async {
+  testWidgets('Android 四项属性为同排图标且提交按钮位于多行输入框内', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 640);
@@ -131,6 +131,7 @@ void main() {
       ),
     ));
     await tester.pump();
+
     for (final key in [
       'task-property-list',
       'task-property-date',
@@ -140,16 +141,47 @@ void main() {
       expect(find.byKey(ValueKey(key)), findsOneWidget);
     }
     expect(find.byType(TagChoiceField), findsNothing);
-    expect(find.text('无标签'), findsOneWidget);
+    expect(find.text('无标签'), findsNothing);
     expect(find.text('更多设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
+    final input = tester.widget<FxInput>(find.byType(FxInput).first);
+    expect(input.minLines, 3);
+    expect(input.maxLines, 6);
+    expect(input.textInputAction, TextInputAction.newline);
+
     final list = tester.getTopLeft(find.byKey(const ValueKey('task-property-list')));
     final date = tester.getTopLeft(find.byKey(const ValueKey('task-property-date')));
     final priority = tester.getTopLeft(find.byKey(const ValueKey('task-property-priority')));
     final tag = tester.getTopLeft(find.byKey(const ValueKey('task-property-tag')));
     expect(list.dy, closeTo(date.dy, 1));
     expect(priority.dy, closeTo(tag.dy, 1));
-    expect(priority.dy, greaterThan(date.dy));
+    expect(priority.dy, closeTo(date.dy, 1));
+
+    final inputRect = tester.getRect(find.byType(FxInput).first);
+    final actionRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
+    expect(actionRect.right, lessThan(inputRect.right));
+    expect(actionRect.bottom, lessThan(inputRect.bottom));
+    expect(actionRect.top, greaterThan(inputRect.top));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 320dp 窄屏图标及按钮自动错行且仍在输入框内', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    final iconRect = tester.getRect(find.byKey(const ValueKey('task-property-tag')));
+    final actionRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
+    final inputRect = tester.getRect(find.byType(FxInput).first);
+    expect(actionRect.top, greaterThan(iconRect.top));
+    expect(actionRect.bottom, lessThan(inputRect.bottom));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -171,14 +203,20 @@ void main() {
     expect(find.text('设置优先级'), findsOneWidget);
     await tester.tap(find.text('高'));
     await tester.pumpAndSettle();
-    expect(find.text('高'), findsOneWidget);
+    expect(
+      tester.widget<FxIconButton>(find.byKey(const ValueKey('task-property-priority'))).tooltip,
+      '优先级：高',
+    );
 
     await tester.tap(find.byKey(const ValueKey('task-property-date')));
     await tester.pumpAndSettle();
     expect(find.text('安排日期'), findsOneWidget);
     await tester.tap(find.text('不安排日期'));
     await tester.pumpAndSettle();
-    expect(find.text('未安排'), findsOneWidget);
+    expect(
+      tester.widget<FxIconButton>(find.byKey(const ValueKey('task-property-date'))).tooltip,
+      '日期：未安排',
+    );
 
     await tester.tap(find.text('更多设置'));
     await tester.pump(const Duration(milliseconds: 250));
@@ -214,7 +252,7 @@ void main() {
     await tester.tap(editable);
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
-    await tester.enterText(editable, '买一本书');
+    await tester.enterText(editable, '买一本书\n记录原因');
 
     await tester.tap(find.byKey(const ValueKey('task-property-tag')));
     await tester.pump();
@@ -222,7 +260,7 @@ void main() {
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
     await tester.tap(find.text('无标签').last);
     await tester.pumpAndSettle();
-    expect(tester.widget<EditableText>(editable).controller.text, '买一本书');
+    expect(tester.widget<EditableText>(editable).controller.text, '买一本书\n记录原因');
 
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -285,34 +323,31 @@ void main() {
 
     expect(find.byType(TaskCreateSheet), findsOneWidget);
 
-    // 快捷弹层只保留一层水平边距；标题、属性和按钮共用 20dp 栅格。
+    // 弹层及输入区共用 20dp 栅格，四项工具和提交均在单一输入框内。
     final sheetRect = tester.getRect(find.byType(TaskCreateSheet));
     final titleRect = tester.getRect(find.text('添加任务').first);
+    final inputRect = tester.getRect(find.byType(FxInput).first);
     final listRect = tester.getRect(
       find.byKey(const ValueKey('task-property-list')),
     );
-    final actionsRect = tester.getRect(find.byType(FxDialogActions));
+    final actionsRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
     expect(titleRect.left - sheetRect.left, closeTo(20, 1));
     expect(titleRect.top - sheetRect.top, closeTo(20, 1));
-    expect(listRect.left - sheetRect.left, closeTo(20, 1));
-    expect(sheetRect.right - actionsRect.right, closeTo(20, 1));
+    expect(inputRect.left - sheetRect.left, closeTo(20, 1));
+    expect(listRect.left, greaterThan(inputRect.left));
+    expect(actionsRect.right, lessThan(inputRect.right));
+    expect(actionsRect.bottom, lessThan(inputRect.bottom));
 
-    // 默认已安排“今天”不等于聚焦；日期与未选优先级边框必须一致。
-    BoxDecoration propertyDecoration(String key) {
-      final property = find.byKey(ValueKey(key));
-      return tester.widget<Container>(
-        find.descendant(of: property, matching: find.byType(Container)).first,
-      ).decoration! as BoxDecoration;
-    }
-
-    expect(
-      propertyDecoration('task-property-date').color,
-      propertyDecoration('task-property-priority').color,
+    // 已安排日期通过图标强调，仍可从 Tooltip 读到真实值。
+    final dateButton = tester.widget<FxIconButton>(
+      find.byKey(const ValueKey('task-property-date')),
     );
-    expect(
-      propertyDecoration('task-property-date').border,
-      propertyDecoration('task-property-priority').border,
+    final priorityButton = tester.widget<FxIconButton>(
+      find.byKey(const ValueKey('task-property-priority')),
     );
+    expect(dateButton.tooltip, '日期：今天');
+    expect(priorityButton.tooltip, '优先级：无优先级');
+    expect(dateButton.foregroundColor, isNot(priorityButton.foregroundColor));
 
     final editable = find.byType(EditableText).first;
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
@@ -362,7 +397,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 超短屏展开后可滚动，底部操作仍可见', (tester) async {
+  testWidgets('Android 超短屏展开后可滚动且保留输入框内提交入口', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 440);
