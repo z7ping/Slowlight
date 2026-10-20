@@ -54,4 +54,49 @@ void main() {
       });
     });
   }
+
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('字体缩放 $scale / $platform 不裁切表单与尾部按钮', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        tester.view.physicalSize = const Size(420, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(buildFxTestHost(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(420, 800),
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: const Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 320,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FxInput(placeholder: '普通输入'),
+                      FxInput(
+                        placeholder: '带操作的输入',
+                        trailing: FxIconButton(icon: Icons.visibility, tooltip: '显示密码'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ));
+        await tester.pump();
+        final fields = find.byType(FxInput);
+        final first = tester.getSize(fields.at(0)).height;
+        final second = tester.getSize(fields.at(1)).height;
+        expect(first, greaterThanOrEqualTo(SlowlightPlatformDensity.inputMinHeight));
+        expect(second, greaterThanOrEqualTo(SlowlightPlatformDensity.inputMinHeight));
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
 }
