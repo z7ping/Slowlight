@@ -42,7 +42,8 @@ class SystemTagPicker extends StatefulWidget {
         List<Tag> selected = [];
         return StatefulBuilder(
           builder: (context, setSheetState) => SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
+              child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -65,6 +66,7 @@ class SystemTagPicker extends StatefulWidget {
                   ),
                 ],
               ),
+            ),
             ),
           ),
         );
