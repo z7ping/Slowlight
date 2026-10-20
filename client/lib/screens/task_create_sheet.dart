@@ -377,7 +377,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     final color = selected
         ? activePalette.accent
         : Theme.of(context).colorScheme.onSurfaceVariant;
-    final description = '$'+'category：$'+'label';
+    final description = '$category：$label';
     return Semantics(
       label: description,
       button: true,
