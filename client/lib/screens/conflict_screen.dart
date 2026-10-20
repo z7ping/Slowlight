@@ -381,7 +381,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     'tasks' => '任务',
     'lists' => '清单',
     'tags' => '标签',
-    'system_tags' => '观察标签',
+    'system_tags' => '标签（旧数据）',
     'habits' => '习惯',
     'habit_logs' => '习惯记录',
     _ => type,
@@ -395,7 +395,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     'note' => '备注',
     'color' => '颜色',
     'frequency' => '频率',
-    'dimension_key' => '维度',
+    'dimension_key' => '历史分类',
     'deleted_at' => '删除时间',
     _ => name,
   };

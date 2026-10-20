@@ -102,7 +102,7 @@ class _TimeDistributionEmbedState extends State<TimeDistributionEmbed> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '覆盖 ${tags.length} 个维度',
+                  '覆盖 ${tags.length} 个标签',
                   style: const TextStyle(
                     fontSize: SlowlightTypography.captionSize,
                     color: AppTheme.white60,

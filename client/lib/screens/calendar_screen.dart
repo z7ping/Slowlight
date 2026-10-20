@@ -513,7 +513,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 if (record.durationMin > 0)
                   _detailLine('时长', '${record.durationMin} 分钟'),
                 if (record.dimensionLabel.isNotEmpty)
-                  _detailLine('观察维度', record.dimensionLabel),
+                  _detailLine('历史分类', record.dimensionLabel),
                 const SizedBox(height: 12),
                 FxDialogActions(
                   actions: [
