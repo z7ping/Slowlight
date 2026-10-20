@@ -11,11 +11,13 @@ import '../utils/color_utils.dart';
 class TagPicker extends StatefulWidget {
   final List<Tag> selectedTags;
   final ValueChanged<List<Tag>> onChanged;
+  final bool enabled;
 
   const TagPicker({
     super.key,
     required this.selectedTags,
     required this.onChanged,
+    this.enabled = true,
   });
 
   @override
@@ -196,7 +198,8 @@ class _TagPickerState extends State<TagPicker> {
             if (byId.containsKey(id)) byId[id]!,
         ]);
       },
-      onCreateTag: _showCreateTagDialog,
+      enabled: widget.enabled,
+      onCreateTag: widget.enabled ? _showCreateTagDialog : null,
       label: '标签（可多选）',
     );
   }

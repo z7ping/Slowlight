@@ -160,6 +160,7 @@ class ReflectionComposer {
             ),
             const SizedBox(height: 12),
             TagPicker(
+              enabled: !saving,
               selectedTags: canonicalTags,
               onChanged: (tags) => setEntryState(() => canonicalTags = tags),
             ),
@@ -417,6 +418,7 @@ class ReflectionComposer {
                 ),
                 const SizedBox(height: 12),
                 TagPicker(
+                  enabled: !saving,
                   selectedTags: canonicalTags,
                   onChanged: (tags) => setState(() => canonicalTags = tags),
                 ),

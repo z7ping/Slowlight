@@ -155,4 +155,27 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('多选禁用状态不会改变既有关联', (tester) async {
+    var updates = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TagChoiceField(
+          tags: tags,
+          selectedTagIds: const {1},
+          enabled: false,
+          onMultipleChanged: (_) => updates++,
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('#阅读'));
+    await tester.pump();
+    await tester.tap(find.text('无标签'));
+    await tester.pump();
+    expect(updates, 0);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
