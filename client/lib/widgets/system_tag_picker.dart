@@ -113,13 +113,6 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
                 onChanged: (id) => Navigator.pop(context, id),
                 label: '标签（可选）',
               ),
-            const SizedBox(height: 16),
-            FxButton(
-              label: '不添加标签',
-              variant: FxButtonVariant.ghost,
-              expanded: true,
-              onPressed: () => Navigator.pop(context, null),
-            ),
           ],
         ),
       ),
