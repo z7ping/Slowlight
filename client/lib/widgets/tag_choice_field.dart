@@ -4,8 +4,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/observation_tag.dart';
 import '../ui/fx.dart';
 
-/// 统一的标签选择视觉层。暂时复用现有观察标签数据源；
-/// 关联模型的多标签迁移不属于本轮界面改动。
+/// 统一标签选择视觉层：兼容旧单选，并为多标签调用方提供多选交互。
+/// 多选仅返回选中 ID 集合，持久化由业务调用方负责。
 class TagChoiceField extends StatelessWidget {
   final List<ObservationTag> tags;
   final int? selectedTagId;
