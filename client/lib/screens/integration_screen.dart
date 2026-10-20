@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../ui/fx.dart';
 import 'feishu_screen.dart';
@@ -33,7 +34,7 @@ class IntegrationScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                   _PlatformCard(
-                    icon: Icons.cloud_sync_outlined,
+                    icon: LucideIcons.cloudSync,
                     name: '飞书多维表格',
                     description: '同步任务、习惯、番茄钟、休息提醒和标签',
                     available: true,
@@ -44,7 +45,7 @@ class IntegrationScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const _PlatformCard(
-                    icon: Icons.article_outlined,
+                    icon: LucideIcons.fileText,
                     name: 'Notion',
                     description: '任务同步、数据库集成',
                     available: false,
@@ -62,7 +63,7 @@ class IntegrationScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons.info_outline,
+                          LucideIcons.info,
                           size: 20,
                           color: theme.colorScheme.primary,
                         ),
@@ -154,7 +155,7 @@ class _PlatformCard extends StatelessWidget {
                 ),
               if (available)
                 Icon(
-                  Icons.chevron_right,
+                  LucideIcons.chevronRight,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
             ],
