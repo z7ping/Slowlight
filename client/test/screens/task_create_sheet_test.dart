@@ -361,15 +361,17 @@ void main() {
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
     await tester.enterText(editable, '买一本书\n记录原因');
+    final originalController = tester.widget<EditableText>(editable).controller;
 
     await tester.tap(find.byKey(const ValueKey('task-property-tag')));
     await tester.pump();
     expect(find.text('选择标签'), findsOneWidget);
-    expect(find.byType(EditableText), findsNothing);
+    expect(originalController.text, '买一本书\n记录原因');
     await tester.tap(find.text('无标签').last);
     await tester.pumpAndSettle();
     expect(tester.widget<EditableText>(find.byType(EditableText).first)
-        .controller.text, '买一本书\n记录原因');
+        .controller, same(originalController));
+    expect(originalController.text, '买一本书\n记录原因');
 
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
