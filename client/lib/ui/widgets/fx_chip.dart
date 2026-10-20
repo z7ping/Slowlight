@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../app_theme.dart';
 import '../layout_tokens.dart';
@@ -63,7 +64,7 @@ class FxChip extends StatelessWidget {
               height: deleteTargetSize,
               child: Center(
                 child: Icon(
-                  Icons.close,
+                  LucideIcons.x,
                   size: SlowlightIconSize.xs,
                   color: color,
                 ),
