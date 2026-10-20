@@ -127,4 +127,32 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('多选逐项增删并支持明确清空', (tester) async {
+    Set<int> selected = {1};
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: StatefulBuilder(
+          builder: (context, setState) => TagChoiceField(
+            tags: tags,
+            selectedTagIds: selected,
+            onMultipleChanged: (ids) => setState(() => selected = ids),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('#阅读'));
+    await tester.pump();
+    expect(selected, {1, 2});
+    await tester.tap(find.text('#学习'));
+    await tester.pump();
+    expect(selected, {2});
+    await tester.tap(find.text('无标签'));
+    await tester.pump();
+    expect(selected, isEmpty);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
