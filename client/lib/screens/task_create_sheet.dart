@@ -249,7 +249,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     textInputAction:
         multiline ? TextInputAction.newline : TextInputAction.done,
     onSubmitted: multiline ? null : (_) => _createTask(),
-    minLines: multiline ? 3 : null,
+    minLines: multiline ? 2 : null,
     maxLines: multiline ? 6 : 1,
     contentPadding: contentPadding,
     style: SlowlightTypography.body(context),
@@ -291,7 +291,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               context,
               multiline: true,
               contentPadding: EdgeInsets.fromLTRB(
-                14, 12, 14, compact ? 166 : 122,
+                14, 12, 14, compact ? 148 : 110,
               ),
             ),
             Positioned(
