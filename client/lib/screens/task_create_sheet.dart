@@ -427,245 +427,222 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           ),
   );
 
-  // 四个快捷属性共用一套选择面板；仅清单/标签条目较多时显示搜索。
-  Future<T?> _showMobileChoices<T>({
-    required String title,
-    required List<_QuickOption<T>> options,
-    required T? selected,
-    bool searchable = false,
-    bool separateLast = false,
-  }) {
-    FocusScope.of(context).unfocus();
-    final showSearch = searchable && options.length >= 8;
-    var query = '';
-    return FxSheet.show<T>(
-      context: context,
-      draggable: false,
-      showDragHandle: false,
-      padding: EdgeInsets.zero,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, updateSheet) {
-            final size = MediaQuery.sizeOf(sheetContext);
-            final availableHeight = size.height -
-                MediaQuery.viewInsetsOf(sheetContext).bottom -
-                MediaQuery.paddingOf(sheetContext).top - 24;
-            final maxHeight = math.max(
-              0.0,
-              math.min(size.height * .55, availableHeight),
-            );
-            // 头部和搜索栏固定；列表只占所需空间，条目多时内部滚动。
-            final preferredHeight =
-                options.length * 48.0 + 100 + (showSearch ? 60 : 0) +
-                (separateLast ? 12 : 0);
-            final height = math.min(maxHeight, preferredHeight);
-            final visible = query.isEmpty
-                ? options
-                : options.where(
-                    (option) => option.label.toLowerCase().contains(query),
-                  ).toList(growable: false);
+  String get _mobilePageTitle => switch (_mobilePage) {
+    _MobileTaskPage.list => '选择清单',
+    _MobileTaskPage.date => '安排日期',
+    _MobileTaskPage.priority => '设置优先级',
+    _MobileTaskPage.tag => '选择标签',
+    _MobileTaskPage.calendar => '选择日期',
+    null => '添加任务',
+  };
 
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: SizedBox(
-                  height: height,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: SlowlightTypography.cardTitle(sheetContext),
-                            ),
-                          ),
-                          FxIconButton(
-                            icon: LucideIcons.x,
-                            tooltip: '关闭',
-                            onPressed: () => Navigator.of(sheetContext).pop(),
-                          ),
-                        ],
-                      ),
-                      const FxSeparator.horizontal(height: 12),
-                      if (showSearch) ...[
-                        FxInput(
-                          placeholder: '搜索${title.replaceFirst('选择', '')}',
-                          leading: const Icon(
-                            LucideIcons.search,
-                            size: SlowlightIconSize.sm,
-                          ),
-                          textInputAction: TextInputAction.search,
-                          onChanged: (value) => updateSheet(() {
-                            query = value.trim().toLowerCase();
-                          }),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      Expanded(
-                        child: visible.isEmpty
-                            ? Center(
-                                child: Text(
-                                  '没有匹配项',
-                                  style: SlowlightTypography.componentSecondary(
-                                    sheetContext,
-                                  ).copyWith(
-                                    color: Theme.of(sheetContext)
-                                        .colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              )
-                            : ListView.builder(
-                                keyboardDismissBehavior:
-                                    ScrollViewKeyboardDismissBehavior.onDrag,
-                                itemCount: visible.length,
-                                itemBuilder: (context, index) {
-                                  final option = visible[index];
-                                  final active = option.value == selected;
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      if (separateLast &&
-                                          query.isEmpty &&
-                                          index == visible.length - 1)
-                                        const FxSeparator.horizontal(height: 12),
-                                      FxListTile(
-                                        density: FxListTileDensity.compact,
-                                        minTileHeight: 48,
-                                        title: option.label,
-                                        leading: Icon(
-                                          option.icon,
-                                          size: SlowlightIconSize.md,
-                                        ),
-                                        iconColor: option.iconColor,
-                                        trailing: active
-                                            ? const Icon(
-                                                LucideIcons.check,
-                                                size: SlowlightIconSize.md,
-                                              )
-                                            : option.opensPicker
-                                                ? const Icon(
-                                                    LucideIcons.chevronRight,
-                                                    size: SlowlightIconSize.sm,
-                                                  )
-                                                : null,
-                                        selected: active,
-                                        selectedTileColor: activePalette.accent
-                                            .withValues(alpha: .10),
-                                        onTap: () => Navigator.of(sheetContext)
-                                            .pop(option.value),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
+  List<_QuickOption<Object>> _mobileOptions() => switch (_mobilePage) {
+    _MobileTaskPage.list => [
+      for (final list in _lists)
+        _QuickOption<Object>(
+          value: list.id, label: list.name,
+          icon: LucideIcons.folder, emoji: list.icon,
+        ),
+    ],
+    _MobileTaskPage.date => const [
+      _QuickOption<Object>(value: 1, label: '今天', icon: LucideIcons.calendarCheck),
+      _QuickOption<Object>(value: 3, label: '明天', icon: LucideIcons.calendarPlus),
+      _QuickOption<Object>(
+        value: 2, label: '选择其他日期',
+        icon: LucideIcons.calendarRange, opensPicker: true,
+      ),
+      _QuickOption<Object>(value: 0, label: '不安排日期', icon: LucideIcons.calendarX),
+    ],
+    _MobileTaskPage.priority => const [
+      _QuickOption<Object>(value: 'none', label: '无优先级', icon: LucideIcons.flag),
+      _QuickOption<Object>(
+        value: 'urgent_important', label: '高', icon: LucideIcons.flag,
+        iconColor: AppTheme.priorityUrgentImportant,
+      ),
+      _QuickOption<Object>(
+        value: 'important', label: '中', icon: LucideIcons.flag,
+        iconColor: AppTheme.priorityImportant,
+      ),
+      _QuickOption<Object>(
+        value: 'urgent', label: '低', icon: LucideIcons.flag,
+        iconColor: AppTheme.priorityUrgent,
+      ),
+    ],
+    _MobileTaskPage.tag => [
+      const _QuickOption<Object>(value: -1, label: '无标签', icon: LucideIcons.tag),
+      for (final tag in _availableTags)
+        _QuickOption<Object>(
+          value: tag.id, label: '#\${tag.name}', icon: LucideIcons.tag,
+          iconColor: ColorUtils.safeParse(
+            tag.color, fallback: activePalette.accent,
+          ),
+        ),
+    ],
+    _ => const [],
+  };
+
+  Object? _selectedMobileValue() => switch (_mobilePage) {
+    _MobileTaskPage.list => _selectedListId,
+    _MobileTaskPage.date => _dueDate == null ? 0
+        : _dueToday ? 1 : _dueTomorrow ? 3 : 2,
+    _MobileTaskPage.priority => _selectedPriority,
+    _MobileTaskPage.tag => _selectedTagId ?? -1,
+    _ => null,
+  };
+
+  void _chooseMobileOption(Object value) {
+    switch (_mobilePage) {
+      case _MobileTaskPage.list:
+        setState(() {
+          _selectedListId = value as int;
+          _mobilePage = null;
+        });
+      case _MobileTaskPage.date:
+        if (value == 2) {
+          _openMobilePage(_MobileTaskPage.calendar);
+          return;
+        }
+        final today = _today();
+        setState(() {
+          _dueDate = switch (value) {
+            1 => today,
+            3 => DateTime(today.year, today.month, today.day + 1),
+            _ => null,
+          };
+          _mobilePage = null;
+        });
+      case _MobileTaskPage.priority:
+        setState(() {
+          _selectedPriority = value as String;
+          _mobilePage = null;
+        });
+      case _MobileTaskPage.tag:
+        setState(() {
+          final id = value as int;
+          _selectedTagId = id == -1 ? null : id;
+          _mobilePage = null;
+        });
+      case _MobileTaskPage.calendar:
+      case null:
+        break;
+    }
+  }
+
+  Widget _mobilePickerContent(BuildContext context) {
+    final isCalendar = _mobilePage == _MobileTaskPage.calendar;
+    final options = _mobileOptions();
+    final showSearch = (_mobilePage == _MobileTaskPage.list ||
+        _mobilePage == _MobileTaskPage.tag) && options.length >= 8;
+    final visible = _mobileQuery.isEmpty
+        ? options
+        : options.where(
+            (item) => item.label.toLowerCase().contains(_mobileQuery),
+          ).toList(growable: false);
+    final height = math.min(
+      MediaQuery.sizeOf(context).height * (isCalendar ? .68 : .55),
+      isCalendar ? 440.0 : 66.0 + (showSearch ? 58.0 : 0) +
+          visible.length * 48.0 +
+          (_mobilePage == _MobileTaskPage.date ? 12.0 : 0),
+    );
+    return SizedBox(
+      height: height,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            FxIconButton(
+              key: const ValueKey('task-picker-back'),
+              icon: LucideIcons.arrowLeft,
+              tooltip: '返回',
+              onPressed: _backMobilePage,
+            ),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(child: Text(
+              _mobilePageTitle,
+              style: SlowlightTypography.cardTitle(context),
+            )),
+            // 外层 FxSheet 已有关闭按钮，此处禁止重复绘制。
+            const SizedBox(width: 32),
+          ]),
+          const FxSeparator.horizontal(height: 12),
+          if (showSearch) ...[
+            FxInput(
+              key: ValueKey('task-picker-search-\${_mobilePage!.name}'),
+              placeholder: _mobilePage == _MobileTaskPage.list
+                  ? '搜索清单' : '搜索标签',
+              leading: const Icon(
+                LucideIcons.search, size: SlowlightIconSize.sm,
               ),
-            );
-          },
-        );
-      },
+              onChanged: (value) => setState(
+                () => _mobileQuery = value.trim().toLowerCase(),
+              ),
+            ),
+            const SizedBox(height: SlowlightSpacing.md),
+          ],
+          Expanded(
+            child: isCalendar
+                ? SingleChildScrollView(
+                    child: FxCalendar<Object>(
+                      firstDay: _today().subtract(const Duration(days: 365)),
+                      lastDay: _today().add(const Duration(days: 365 * 3)),
+                      focusedDay: _calendarFocusedDay,
+                      selectedDay: _dueDate,
+                      eventLoader: (_) => const <Object>[],
+                      onDaySelected: (day, focusedDay) => setState(() {
+                        _dueDate = DateTime(day.year, day.month, day.day);
+                        _calendarFocusedDay = focusedDay;
+                        _mobilePage = null;
+                      }),
+                      onPageChanged: (day) => setState(
+                        () => _calendarFocusedDay = day,
+                      ),
+                    ),
+                  )
+                : visible.isEmpty
+                    ? Center(child: Text('没有匹配项',
+                        style: SlowlightTypography.componentSecondary(context)))
+                    : ListView.builder(
+                        itemCount: visible.length,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        itemBuilder: (context, index) {
+                          final option = visible[index];
+                          final selected = _selectedMobileValue() == option.value;
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (_mobilePage == _MobileTaskPage.date &&
+                                  index == visible.length - 1)
+                                const FxSeparator.horizontal(height: 12),
+                              FxListTile(
+                                density: FxListTileDensity.compact,
+                                minTileHeight: 48,
+                                title: option.label,
+                                leading: option.emoji == null
+                                    ? Icon(option.icon, size: SlowlightIconSize.md)
+                                    : Text(option.emoji!),
+                                iconColor: option.iconColor,
+                                trailing: selected
+                                    ? const Icon(LucideIcons.check,
+                                        size: SlowlightIconSize.md)
+                                    : option.opensPicker
+                                        ? const Icon(LucideIcons.chevronRight,
+                                            size: SlowlightIconSize.sm)
+                                        : null,
+                                selected: selected,
+                                selectedTileColor:
+                                    activePalette.accent.withValues(alpha: .08),
+                                onTap: () => _chooseMobileOption(option.value),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
-  }
-
-  Future<void> _chooseMobileList() async {
-    final id = await _showMobileChoices<int>(
-      title: '选择清单',
-      selected: _selectedListId,
-      searchable: true,
-      options: [
-        for (final list in _lists)
-          _QuickOption(value: list.id, label: '${list.icon} ${list.name}', icon: LucideIcons.folder),
-      ],
-    );
-    if (mounted && id != null) setState(() => _selectedListId = id);
-  }
-
-  Future<void> _chooseMobileDate() async {
-    final choice = await _showMobileChoices<int>(
-      title: '安排日期',
-      selected: _dueDate == null ? 0 : _dueToday ? 1 : _dueTomorrow ? 3 : 2,
-      separateLast: true,
-      options: const [
-        _QuickOption(value: 1, label: '今天', icon: LucideIcons.calendarCheck),
-        _QuickOption(value: 3, label: '明天', icon: LucideIcons.calendarPlus),
-        _QuickOption(
-          value: 2,
-          label: '选择其他日期',
-          icon: LucideIcons.calendarRange,
-          opensPicker: true,
-        ),
-        _QuickOption(value: 0, label: '不安排日期', icon: LucideIcons.calendarX),
-      ],
-    );
-    if (!mounted || choice == null) return;
-    if (choice == 2) {
-      final picked = await showFxDatePicker(
-        context: context,
-        initialDate: _dueDate ?? DateTime.now(),
-        firstDate: DateTime.now().subtract(const Duration(days: 365)),
-        lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
-      );
-      if (mounted && picked != null) setState(() => _dueDate = picked);
-    } else {
-      final today = _today();
-      setState(() => _dueDate = switch (choice) {
-        1 => today,
-        3 => DateTime(today.year, today.month, today.day + 1),
-        _ => null,
-      });
-    }
-  }
-
-  Future<void> _chooseMobilePriority() async {
-    final value = await _showMobileChoices<String>(
-      title: '设置优先级',
-      selected: _selectedPriority,
-      options: const [
-        _QuickOption(value: 'none', label: '无优先级', icon: LucideIcons.flag),
-        _QuickOption(
-          value: 'urgent_important',
-          label: '高',
-          icon: LucideIcons.flag,
-          iconColor: AppTheme.priorityUrgentImportant,
-        ),
-        _QuickOption(
-          value: 'important',
-          label: '中',
-          icon: LucideIcons.flag,
-          iconColor: AppTheme.priorityImportant,
-        ),
-        _QuickOption(
-          value: 'urgent',
-          label: '低',
-          icon: LucideIcons.flag,
-          iconColor: AppTheme.priorityUrgent,
-        ),
-      ],
-    );
-    if (mounted && value != null) setState(() => _selectedPriority = value);
-  }
-
-  Future<void> _chooseMobileTag() async {
-    final id = await _showMobileChoices<int>(
-      title: '选择标签',
-      selected: _selectedTagId ?? -1,
-      searchable: true,
-      options: [
-        const _QuickOption(value: -1, label: '无标签', icon: LucideIcons.tag),
-        for (final tag in _availableTags)
-          _QuickOption(value: tag.id, label: '#${tag.name}', icon: LucideIcons.tag),
-      ],
-    );
-    if (mounted && id != null) {
-      setState(() => _selectedTagId = id == -1 ? null : id);
-    }
   }
 
   Widget _editorContent(BuildContext context) {
@@ -840,7 +817,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       );
     }
 
-    // FxSheet 已统一避让输入法，表单本身只负责内容高度与内部滚动。
+    // 单一 FxSheet 内容切换，避免第二层弹窗和双关闭按钮。
     return SafeArea(
       top: false,
       child: ConstrainedBox(
@@ -849,30 +826,30 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '添加任务',
-                style: SlowlightTypography.cardTitle(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  // 输入时也能滚动表单，避免滚动触发键盘开合及布局跳动。
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: ClampingScrollPhysics(),
-                  ),
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.manual,
-                  child: _editorContent(context),
+          child: _mobilePage != null
+              ? _mobilePickerContent(context)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '添加任务',
+                      style: SlowlightTypography.cardTitle(context)
+                          .copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: ClampingScrollPhysics(),
+                        ),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.manual,
+                        child: _editorContent(context),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1085,10 +1062,13 @@ class _DefaultHint extends StatelessWidget {
   }
 }
 
+enum _MobileTaskPage { list, date, priority, tag, calendar }
+
 class _QuickOption<T> {
   final T value;
   final String label;
   final IconData icon;
+  final String? emoji;
   final Color? iconColor;
   final bool opensPicker;
 
@@ -1096,6 +1076,7 @@ class _QuickOption<T> {
     required this.value,
     required this.label,
     required this.icon,
+    this.emoji,
     this.iconColor,
     this.opensPicker = false,
   });
