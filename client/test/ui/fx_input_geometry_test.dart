@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
 
@@ -21,7 +20,7 @@ void main() {
       ),
     );
     await tester.pump();
-    final input = tester.widget<ShadInput>(find.byType(ShadInput));
+    final input = tester.widget<EditableText>(find.byType(EditableText));
     expect(input.maxLines, isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -78,7 +77,7 @@ void main() {
             );
             await tester.pump();
 
-            final fields = find.byType(ShadInput);
+            final fields = find.byType(FxInput);
             expect(fields, findsNWidgets(4));
             final heights = [
               for (var i = 0; i < 4; i++)
@@ -169,9 +168,9 @@ void main() {
                         )
                       : null,
                 ),
-                TextButton(
+                FxButton(
+                  label: '输入文字',
                   onPressed: () => setState(() => showClear = true),
-                  child: const Text('输入文字'),
                 ),
               ],
             ),
@@ -180,7 +179,7 @@ void main() {
       ),
     );
     await tester.pump();
-    final input = find.byType(ShadInput);
+    final input = find.byType(FxInput);
     final initialHeight = tester.getSize(input).height;
     await tester.tap(find.text('输入文字'));
     await tester.pump();
