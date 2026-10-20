@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../ai/ai_config_store.dart';
 import '../ai/ai_models.dart';
@@ -149,7 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   _groupLabel('个性化'),
                                   _accordion(
                                     id: 'appearance',
-                                    icon: Icons.palette_outlined,
+                                    icon: LucideIcons.palette,
                                     title: '外观',
                                     summary: _appearanceSummary(),
                                     child: _appearancePanel(),
@@ -164,7 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           .standalonePendingCount,
                                       builder: (context, _, __) => _accordion(
                                         id: 'data',
-                                        icon: Icons.cloud_outlined,
+                                        icon: LucideIcons.cloud,
                                         title: '数据同步',
                                         summary: _dataSummary(),
                                         child: _dataPanel(),
@@ -174,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   const SizedBox(height: 10),
                                   _accordion(
                                     id: 'ai',
-                                    icon: Icons.auto_awesome_outlined,
+                                    icon: LucideIcons.sparkles,
                                     title: 'AI 服务',
                                     summary: _aiSummary(),
                                     child: _aiPanel(),
@@ -183,7 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   _groupLabel('桌面效率'),
                                   _accordion(
                                     id: 'rest',
-                                    icon: Icons.notifications_none,
+                                    icon: LucideIcons.bell,
                                     title: '休息提醒',
                                     summary: _restSummary(),
                                     child: _restPanel(),
@@ -302,8 +303,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                                 Icon(
                                   open
-                                      ? Icons.keyboard_arrow_down
-                                      : Icons.chevron_right,
+                                      ? LucideIcons.chevronDown
+                                      : LucideIcons.chevronRight,
                                   size: 18,
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -350,8 +351,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const SizedBox(width: 8),
                             Icon(
                               open
-                                  ? Icons.keyboard_arrow_down
-                                  : Icons.chevron_right,
+                                  ? LucideIcons.chevronDown
+                                  : LucideIcons.chevronRight,
                               size: 18,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -485,7 +486,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Opacity(
                             opacity: selected ? 1 : 0,
                             child: Icon(
-                              Icons.check,
+                              LucideIcons.check,
                               size: 14,
                               color: palette.accent,
                             ),
