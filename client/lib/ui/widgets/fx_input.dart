@@ -98,7 +98,7 @@ class FxInput extends StatelessWidget {
           ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
       trailing: trailing,
-      // 单行使用 ShadInputTheme 的统一 minHeight；多行保留编辑区垂直留白。
+      // 单行高度由下方完整 FxInput 约束；多行保留编辑区垂直留白。
       // 显式 contentPadding 仅供已确认的特殊场景使用。
       padding: contentPadding ??
           (multiline
