@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/task.dart';
+import '../models/tag.dart';
+import '../repositories/tag_links_repository.dart';
 import '../repositories/session_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/system_tag_picker.dart';
+import '../widgets/tag_picker.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -158,13 +160,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
 
     if (_sessionType == 'work') {
-      int? tagId;
+      List<Tag> selectedTags = const [];
       if (mounted) {
-        tagId = await SystemTagPicker.show(context, title: '选择本次专注的标签');
+        selectedTags = await TagPicker.showMultiple(
+          context,
+          title: '选择本次专注的标签',
+        ) ?? const [];
       }
       try {
-        if (_activeSession) await _sessions.endSession(systemTagId: tagId);
-      } catch (_) {}
+        if (_activeSession) {
+          final ended = await _sessions.endSession();
+          await _saveSessionTags(ended, selectedTags);
+        }
+      } catch (error) {
+        _message('专注标签保存失败：$error');
+      }
       _activeSession = false;
       _completedSessions++;
       final duration = _workMinutes;
@@ -199,16 +209,22 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Future<void> _stop() async {
     _timer?.cancel();
     if (_activeSession) {
-      int? tagId;
+      List<Tag> selectedTags = const [];
       if (_sessionType == 'work') {
         final elapsed = _workMinutes * 60 - _remainingSeconds;
         if (elapsed >= _workMinutes * 30 && mounted) {
-          tagId = await SystemTagPicker.show(context, title: '选择本次专注的标签');
+          selectedTags = await TagPicker.showMultiple(
+            context,
+            title: '选择本次专注的标签',
+          ) ?? const [];
         }
       }
       try {
-        await _sessions.endSession(systemTagId: tagId);
-      } catch (_) {}
+        final ended = await _sessions.endSession();
+        await _saveSessionTags(ended, selectedTags);
+      } catch (error) {
+        _message('专注标签保存失败：$error');
+      }
     }
     _activeSession = false;
     if (!mounted) return;
@@ -218,6 +234,23 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _running = false;
     });
     await _loadTodayStats();
+  }
+
+  Future<void> _saveSessionTags(
+    Map<String, dynamic> ended,
+    List<Tag> tags,
+  ) async {
+    if (tags.isEmpty) return;
+    final session = ended['session'];
+    final id = session is Map ? (session['id'] as num?)?.toInt() : null;
+    if (id == null || id <= 0) {
+      throw StateError('结束的专注记录缺少有效 ID');
+    }
+    await TagLinksRepository().replaceFor(
+      TagLinkedEntity.session,
+      id,
+      tags.map((tag) => tag.id).toList(growable: false),
+    );
   }
 
   void _showCompletion(String message) {
