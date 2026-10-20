@@ -12,6 +12,7 @@ class ReflectionApi {
     String? questionId,
     String? dimensionKey,
     Map<String, dynamic> context = const {},
+    List<int> tagIds = const [],
   }) async {
     final headers = await ApiService.authHeaders();
     final response = await HttpUtil.post(
@@ -22,6 +23,7 @@ class ReflectionApi {
         'question_id': questionId,
         'dimension_key': dimensionKey,
         'content': content,
+        'tag_ids': tagIds,
         'context': context,
       }),
     ).timeout(ApiService.postTimeout);
