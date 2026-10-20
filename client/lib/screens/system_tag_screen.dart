@@ -103,7 +103,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
               : fxSubtleSurface(context),
       foregroundColor:
           accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
-      borderRadius: 999,
+      borderRadius: SlowlightRadius.pill,
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
     );
   }
@@ -302,7 +302,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                   selected
                       ? activePalette.accent.withValues(alpha: .35)
                       : theme.colorScheme.outlineVariant,
-              borderRadius: 999,
+              borderRadius: SlowlightRadius.pill,
             );
           }
 
