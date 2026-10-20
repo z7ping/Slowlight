@@ -636,7 +636,6 @@ class _HomeTaskDetailPanelState extends State<HomeTaskDetailPanel> {
             child: FxInput(
               controller: _repeatIntervalController,
               keyboardType: TextInputType.number,
-              isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 8,
                 vertical: 8,
