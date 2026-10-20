@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/tag.dart';
+import '../models/observation_tag.dart';
+import 'tag_choice_field.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -188,28 +190,25 @@ class _TagPickerState extends State<TagPicker> {
       );
     }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        ..._allTags.map((tag) {
-          final selected = widget.selectedTags.any((item) => item.id == tag.id);
-          final color = ColorUtils.safeParse(tag.color);
-          return FxChoiceChip(
-            label: '#${tag.name}',
-            selected: selected,
-            selectionColor: color,
-            onTap: () => _toggleTag(tag),
-          );
-        }),
-        FxButton(
-          label: '新建',
-          icon: Icons.add,
-          variant: FxButtonVariant.outline,
-          size: FxButtonSize.sm,
-          onPressed: _showCreateTagDialog,
-        ),
-      ],
+    return TagChoiceField(
+      tags: _allTags
+          .map((tag) => ObservationTag(
+                id: tag.id,
+                name: tag.name,
+                icon: '🏷️',
+                color: tag.color,
+              ))
+          .toList(growable: false),
+      selectedTagIds: widget.selectedTags.map((tag) => tag.id).toSet(),
+      onMultipleChanged: (ids) {
+        final byId = {for (final tag in [...widget.selectedTags, ..._allTags]) tag.id: tag};
+        widget.onChanged([
+          for (final id in ids)
+            if (byId.containsKey(id)) byId[id]!,
+        ]);
+      },
+      onCreateTag: _showCreateTagDialog,
+      label: '标签（可多选）',
     );
   }
 }
