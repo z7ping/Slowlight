@@ -27,9 +27,14 @@ class ReflectionRepository {
     String? questionId,
     String? dimensionKey,
     Map<String, dynamic> context = const {},
+    List<int> tagIds = const [],
   }) async {
     final normalized = content.trim();
     if (normalized.isEmpty) throw ArgumentError('反思内容不能为空');
+    if (tagIds.length > 64 || tagIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(tagIds, 'tagIds', '最多 64 个有效标签 ID');
+    }
+    final uniqueTagIds = tagIds.toSet().toList(growable: false);
     final type = _normalizeEntryType(entryType);
     final key = _normalizeDimensionKey(dimensionKey);
     if (DataModeManager().isLocal) {
@@ -39,6 +44,7 @@ class ReflectionRepository {
         questionId: questionId,
         dimensionKey: key,
         context: context,
+        tagIds: uniqueTagIds,
       );
     }
 
@@ -49,6 +55,7 @@ class ReflectionRepository {
         questionId: questionId,
         dimensionKey: key,
         context: context,
+        tagIds: uniqueTagIds,
       );
       await _cloudCache.cacheRemote([remote]);
       return remote;
@@ -59,7 +66,10 @@ class ReflectionRepository {
         entryType: type,
         questionId: questionId,
         dimensionKey: key,
-        context: context,
+        context: {
+          ...context,
+          if (uniqueTagIds.isNotEmpty) '_pending_tag_ids': uniqueTagIds,
+        },
       );
       await CloudSyncCoordinator().refreshStandalonePendingCount();
       unawaited(CloudSyncCoordinator().syncNow());
@@ -88,28 +98,47 @@ class ReflectionRepository {
     String? questionId,
     String? dimensionKey,
     required Map<String, dynamic> context,
+    required List<int> tagIds,
   }) async {
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
-    final id = await db.insert('reflections', {
-      'entry_type': entryType,
-      'question_id': questionId,
-      'dimension_key': dimensionKey,
-      'content': content,
-      'context_json': jsonEncode(context),
-      'created_at': now,
-      'updated_at': now,
+    return db.transaction((txn) async {
+      if (tagIds.isNotEmpty) {
+        final placeholders = List.filled(tagIds.length, '?').join(',');
+        final matches = await txn.rawQuery(
+          'SELECT id FROM tags WHERE id IN ($placeholders)',
+          tagIds,
+        );
+        if (matches.length != tagIds.length) {
+          throw StateError('标签不存在，观察记录未保存');
+        }
+      }
+      final id = await txn.insert('reflections', {
+        'entry_type': entryType,
+        'question_id': questionId,
+        'dimension_key': dimensionKey,
+        'content': content,
+        'context_json': jsonEncode(context),
+        'created_at': now,
+        'updated_at': now,
+      });
+      for (final tagId in tagIds) {
+        await txn.insert('reflection_tags', {
+          'reflection_id': id,
+          'tag_id': tagId,
+        });
+      }
+      return ReflectionEntry(
+        id: id,
+        entryType: entryType,
+        questionId: questionId,
+        dimensionKey: dimensionKey,
+        content: content,
+        context: context,
+        createdAt: DateTime.parse(now).toLocal(),
+      );
     });
-    return ReflectionEntry(
-      id: id,
-      entryType: entryType,
-      questionId: questionId,
-      dimensionKey: dimensionKey,
-      content: content,
-      context: context,
-      createdAt: DateTime.parse(now).toLocal(),
-    );
   }
 
   Future<List<ReflectionEntry>> _recentLocal(int limit) async {
