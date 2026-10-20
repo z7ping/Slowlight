@@ -466,9 +466,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                             size: SlowlightIconSize.sm,
                           ),
                           textInputAction: TextInputAction.search,
-                          onChanged: (value) => updateSheet(
-                            () => query = value.trim().toLowerCase(),
-                          ),
+                          onChanged: (value) => updateSheet(() {
+                            query = value.trim().toLowerCase();
+                          }),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -494,6 +494,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                                   final active = option.value == selected;
                                   return Column(
                                     mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
                                       if (separateLast &&
                                           query.isEmpty &&
