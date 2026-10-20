@@ -353,17 +353,6 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                                 .toList(growable: false),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        if (_canonicalTagsReady)
-                          TagPicker(
-                            selectedTags: _selectedTags,
-                            onChanged: (tags) => setState(() => _selectedTags = tags),
-                          )
-                        else
-                          Text(
-                            '多标签暂不可编辑，原有关联会保留',
-                            style: SlowlightTypography.secondary(context),
-                          ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -418,6 +407,17 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           enabled: !_loadingTags,
                           onChanged: (id) => setState(() => _systemTagId = id),
                         ),
+                        const SizedBox(height: 14),
+                        if (_canonicalTagsReady)
+                          TagPicker(
+                            selectedTags: _selectedTags,
+                            onChanged: (tags) => setState(() => _selectedTags = tags),
+                          )
+                        else
+                          Text(
+                            '多标签暂不可编辑，原有关联会保留',
+                            style: SlowlightTypography.secondary(context),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 14),
