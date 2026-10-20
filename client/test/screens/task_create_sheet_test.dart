@@ -252,7 +252,7 @@ void main() {
     await tester.tap(editable);
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
-    await tester.enterText(editable, '买一本书');
+    await tester.enterText(editable, '买一本书\n记录原因');
 
     await tester.tap(find.byKey(const ValueKey('task-property-tag')));
     await tester.pump();
@@ -260,7 +260,7 @@ void main() {
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
     await tester.tap(find.text('无标签').last);
     await tester.pumpAndSettle();
-    expect(tester.widget<EditableText>(editable).controller.text, '买一本书');
+    expect(tester.widget<EditableText>(editable).controller.text, '买一本书\n记录原因');
 
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
