@@ -783,9 +783,6 @@ ShadInputTheme _inputTheme() {
     padding: EdgeInsets.symmetric(
       horizontal: SlowlightPlatformDensity.inputHorizontalPadding,
     ),
-    constraints: BoxConstraints(
-      minHeight: SlowlightPlatformDensity.inputMinHeight,
-    ),
     decoration: ShadDecoration(
       // 保留单层主焦点描边，避免 ShadDecorator 再绘制外层强调环。
       disableSecondaryBorder: true,
