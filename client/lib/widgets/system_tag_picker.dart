@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../models/observation_tag.dart';
+import '../models/tag.dart';
+import 'tag_picker.dart';
 import 'tag_choice_field.dart';
 import '../ui/fx.dart';
 
@@ -24,6 +26,51 @@ class SystemTagPicker extends StatefulWidget {
       isScrollControlled: false,
       showDragHandle: false,
       builder: (_) => SystemTagPicker(defaultTagId: defaultTagId, title: title),
+    );
+  }
+
+  /// 专注记录的 canonical 多标签选择；返回 null 表示用户未确认。
+  static Future<List<int>?> showMultiple(
+    BuildContext context, {
+    String title = '选择本次专注的标签',
+  }) {
+    return FxSheet.show<List<int>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      builder: (sheetContext) {
+        List<Tag> selected = [];
+        return StatefulBuilder(
+          builder: (context, setSheetState) => SafeArea(
+            child: SingleChildScrollView(
+              child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(title, style: SlowlightTypography.cardTitle(context)),
+                  const SizedBox(height: 16),
+                  TagPicker(
+                    selectedTags: selected,
+                    onChanged: (tags) => setSheetState(() => selected = tags),
+                  ),
+                  const SizedBox(height: 16),
+                  FxButton(
+                    label: '确定',
+                    expanded: true,
+                    onPressed: () => Navigator.pop(
+                      context,
+                      selected.map((tag) => tag.id).toList(growable: false),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ),
+          ),
+        );
+      },
     );
   }
 

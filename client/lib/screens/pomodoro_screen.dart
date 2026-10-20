@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/task.dart';
 import '../repositories/session_repository.dart';
+import '../repositories/tag_links_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -150,6 +151,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     setState(() => _running = false);
   }
 
+  Future<void> _endSessionWithTags(List<int>? tagIds) async {
+    final result = await _sessions.endSession();
+    if (tagIds == null || tagIds.isEmpty) return;
+    final session = result['session'];
+    final rawId = session is Map ? session['id'] : null;
+    if (rawId is! num || rawId.toInt() <= 0) {
+      throw StateError('会话结束响应缺少有效记录 ID，未写入标签');
+    }
+    await TagLinksRepository().replaceFor(
+      TagLinkedEntity.session,
+      rawId.toInt(),
+      tagIds,
+    );
+  }
+
   Future<void> _finishNaturally() async {
     if (_soundEnabled) {
       try {
@@ -158,13 +174,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
 
     if (_sessionType == 'work') {
-      int? tagId;
+      List<int>? tagIds;
       if (mounted) {
-        tagId = await SystemTagPicker.show(context, title: '选择本次专注的标签');
+        tagIds = await SystemTagPicker.showMultiple(context);
       }
       try {
-        if (_activeSession) await _sessions.endSession(systemTagId: tagId);
-      } catch (_) {}
+        if (_activeSession) await _endSessionWithTags(tagIds);
+      } catch (_) {
+        _message('结束专注或保存标签失败');
+      }
       _activeSession = false;
       _completedSessions++;
       final duration = _workMinutes;
@@ -199,16 +217,18 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Future<void> _stop() async {
     _timer?.cancel();
     if (_activeSession) {
-      int? tagId;
+      List<int>? tagIds;
       if (_sessionType == 'work') {
         final elapsed = _workMinutes * 60 - _remainingSeconds;
         if (elapsed >= _workMinutes * 30 && mounted) {
-          tagId = await SystemTagPicker.show(context, title: '选择本次专注的标签');
+          tagIds = await SystemTagPicker.showMultiple(context);
         }
       }
       try {
-        await _sessions.endSession(systemTagId: tagId);
-      } catch (_) {}
+        await _endSessionWithTags(tagIds);
+      } catch (_) {
+        _message('结束专注或保存标签失败');
+      }
     }
     _activeSession = false;
     if (!mounted) return;
