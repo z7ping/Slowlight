@@ -264,6 +264,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             final stackedToolbar = constraints.maxWidth < 310 ||
                 MediaQuery.textScalerOf(context).scale(1) >= 1.4;
             return Stack(
+              fit: StackFit.passthrough,
               children: [
                 _titleInput(
                   context,
@@ -284,7 +285,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Row(children: _mobilePropertyButtons(context)),
+                            Row(children: _mobilePropertyButtons()),
                             Align(
                               alignment: Alignment.centerRight,
                               child: _submitButton(),
@@ -293,7 +294,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                         )
                       : Row(
                           children: [
-                            ..._mobilePropertyButtons(context),
+                            ..._mobilePropertyButtons(),
                             const Spacer(),
                             _submitButton(),
                           ],
@@ -325,7 +326,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     );
   }
 
-  List<Widget> _mobilePropertyButtons(BuildContext context) => [
+  List<Widget> _mobilePropertyButtons() => [
     _mobileProperty(
       key: const ValueKey('task-property-list'),
       icon: LucideIcons.folder,
