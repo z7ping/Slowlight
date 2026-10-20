@@ -511,9 +511,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
 
   Widget _buildConfigForm() {
     return FxCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
+      child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
