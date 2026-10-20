@@ -367,7 +367,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       label: _dueDate == null ? '未安排'
           : _dueToday ? '今天'
           : _dueTomorrow ? '明天'
-          : '\${_dueDate!.month}/\${_dueDate!.day}',
+          : '${_dueDate!.month}/${_dueDate!.day}',
       showLabel: _dueDate != null,
       color: AppTheme.info,
       onTap: _saving ? null : () => _openMobilePage(_MobileTaskPage.date),
@@ -472,7 +472,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       const _QuickOption<Object>(value: -1, label: '无标签', icon: LucideIcons.tag),
       for (final tag in _availableTags)
         _QuickOption<Object>(
-          value: tag.id, label: '#\${tag.name}', icon: LucideIcons.tag,
+          value: tag.id, label: '#${tag.name}', icon: LucideIcons.tag,
           iconColor: ColorUtils.safeParse(
             tag.color, fallback: activePalette.accent,
           ),
@@ -567,7 +567,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           const FxSeparator.horizontal(height: 12),
           if (showSearch) ...[
             FxInput(
-              key: ValueKey('task-picker-search-\${_mobilePage!.name}'),
+              key: ValueKey('task-picker-search-${_mobilePage!.name}'),
               placeholder: _mobilePage == _MobileTaskPage.list
                   ? '搜索清单' : '搜索标签',
               leading: const Icon(
