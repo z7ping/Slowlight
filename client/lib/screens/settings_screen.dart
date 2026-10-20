@@ -684,21 +684,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           (index) => _changeProvider(providers[index]),
         ),
         const SizedBox(height: 10),
-        _label('接口地址'),
         FxInput(
+          label: '接口地址',
           controller: _endpoint,
           style: SlowlightTypography.secondary(context),
         ),
         const SizedBox(height: 10),
-        _label('模型'),
         FxInput(
+          label: '模型',
           controller: _model,
           style: SlowlightTypography.secondary(context),
         ),
         if (_ai.provider != AiProviderType.ollama) ...[
           const SizedBox(height: 10),
-          _label('访问密钥'),
           FxInput(
+            label: '访问密钥',
             controller: _key,
             obscureText: true,
             enableSuggestions: false,
