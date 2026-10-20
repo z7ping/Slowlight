@@ -104,65 +104,18 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
               Text('暂无标签', style: SlowlightTypography.body(context))
             else
               Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: 8,
+                runSpacing: 8,
                 children:
                     _tags.map((tag) {
                       final id = tag['id'] as int;
                       final name = tag['name'] as String? ?? '';
-                      final icon = tag['icon'] as String? ?? '🏷️';
                       final isSelected = id == widget.defaultTagId;
 
-                      return FxInkWell(
+                      return FxChoiceChip(
+                        label: name,
+                        selected: isSelected,
                         onTap: () => Navigator.pop(context, id),
-                        borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                        child: Container(
-                          constraints: const BoxConstraints(minHeight: 56),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected
-                                    ? theme.colorScheme.primaryContainer
-                                    : theme.colorScheme.surfaceContainerLowest,
-                            borderRadius: BorderRadius.circular(
-                              SlowlightRadius.md,
-                            ),
-                            border: Border.all(
-                              color:
-                                  isSelected
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.outlineVariant,
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                icon,
-                                style: const TextStyle(
-                                  fontSize: SlowlightTypography.sectionTitleSize,
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                name,
-                                style: SlowlightTypography.control(
-                                  context,
-                                ).copyWith(
-                                  fontWeight:
-                                      isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       );
                     }).toList(growable: false),
               ),
