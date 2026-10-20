@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 
 import '../models/dimension.dart';
 import '../models/observation_tag.dart';
+import '../models/tag.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_choice_field.dart';
+import 'tag_picker.dart';
 
 /// Observation / Reflection 的统一轻量输入入口。
 class ReflectionComposer {
@@ -62,6 +64,7 @@ class ReflectionComposer {
 
     var selectedDimension = dimensionKey;
     int? selectedTagId;
+    List<Tag> canonicalTags = [];
     var saving = false;
     String? error;
 
@@ -91,6 +94,7 @@ class ReflectionComposer {
             entryType: 'observation',
             questionId: questionId,
             dimensionKey: selectedDimension,
+            tagIds: canonicalTags.map((tag) => tag.id).toList(growable: false),
             context: {
               ...contextData,
               if (selectedTag != null)
@@ -132,6 +136,7 @@ class ReflectionComposer {
             ),
             const SizedBox(height: 12),
             TagChoiceField(
+              label: '历史观察分类（兼容）',
               tags: tags,
               selectedTagId: selectedTagId,
               enabled: !saving,
@@ -152,6 +157,11 @@ class ReflectionComposer {
                   selectedTagId = created.id;
                 });
               },
+            ),
+            const SizedBox(height: 12),
+            TagPicker(
+              selectedTags: canonicalTags,
+              onChanged: (tags) => setEntryState(() => canonicalTags = tags),
             ),
             if (error != null) ...[
               const SizedBox(height: 8),
@@ -370,6 +380,7 @@ class ReflectionComposer {
     Map<String, dynamic> contextData = const {},
   }) async {
     final controller = TextEditingController();
+    List<Tag> canonicalTags = [];
     var saving = false;
     String? error;
 
@@ -403,6 +414,11 @@ class ReflectionComposer {
                   minLines: 4,
                   maxLines: 8,
                   placeholder: '只记录你的真实想法，不需要写成结论。',
+                ),
+                const SizedBox(height: 12),
+                TagPicker(
+                  selectedTags: canonicalTags,
+                  onChanged: (tags) => setState(() => canonicalTags = tags),
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 8),
@@ -449,6 +465,7 @@ class ReflectionComposer {
                                   questionId: questionId,
                                   dimensionKey: dimensionKey,
                                   context: contextData,
+                                  tagIds: canonicalTags.map((tag) => tag.id).toList(growable: false),
                                 );
                                 if (dialogContext.mounted) {
                                   Navigator.of(
