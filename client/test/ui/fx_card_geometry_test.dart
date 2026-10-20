@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
 
@@ -42,15 +43,16 @@ void main() {
           await tester.pump();
 
           for (final entry in [
-            ('standard', 'standard-body', 16.0),
-            ('compact', 'compact-body', 14.0),
+            ('standard', 16.0),
+            ('compact', 14.0),
           ]) {
-            final card = tester.getRect(find.byKey(ValueKey(entry.$1)));
-            final body = tester.getRect(find.byKey(ValueKey(entry.$2)));
-            expect(body.left - card.left, closeTo(entry.$3, 0.5));
-            expect(body.top - card.top, closeTo(entry.$3, 0.5));
-            expect(card.right - body.right, closeTo(entry.$3, 0.5));
-            expect(card.bottom - body.bottom, closeTo(entry.$3, 0.5));
+            final card = find.descendant(
+              of: find.byKey(ValueKey(entry.$1)),
+              matching: find.byType(ShadCard),
+            );
+            expect(card, findsOneWidget);
+            final padding = tester.widget<ShadCard>(card).padding;
+            expect(padding, EdgeInsets.all(entry.$2));
           }
           expect(tester.takeException(), isNull);
           await disposeFxTestHost(tester);
