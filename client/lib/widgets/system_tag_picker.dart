@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../models/observation_tag.dart';
+import 'tag_choice_field.dart';
 import '../ui/fx.dart';
 
 /// 系统标签选择器弹窗。
@@ -103,29 +105,14 @@ class _SystemTagPickerState extends State<SystemTagPicker> {
             else if (_tags.isEmpty)
               Text('暂无标签', style: SlowlightTypography.body(context))
             else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children:
-                    _tags.map((tag) {
-                      final id = tag['id'] as int;
-                      final name = tag['name'] as String? ?? '';
-                      final isSelected = id == widget.defaultTagId;
-
-                      return FxChoiceChip(
-                        label: name,
-                        selected: isSelected,
-                        onTap: () => Navigator.pop(context, id),
-                      );
-                    }).toList(growable: false),
+              TagChoiceField(
+                tags: _tags
+                    .map((tag) => ObservationTag.fromJson(tag))
+                    .toList(growable: false),
+                selectedTagId: widget.defaultTagId,
+                onChanged: (id) => Navigator.pop(context, id),
+                label: '标签（可选）',
               ),
-            const SizedBox(height: 16),
-            FxButton(
-              label: '不添加标签',
-              variant: FxButtonVariant.ghost,
-              expanded: true,
-              onPressed: () => Navigator.pop(context, null),
-            ),
           ],
         ),
       ),
