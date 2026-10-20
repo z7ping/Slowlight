@@ -540,7 +540,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     final entity = switch (conflict?['entity']) {
       'list' => '清单',
       'tag' => '标签',
-      'system_tag' => '系统标签',
+      'system_tag' => '标签（旧数据）',
       'habit' => '习惯',
       _ => '记录',
     };
