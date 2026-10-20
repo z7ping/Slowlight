@@ -4,7 +4,7 @@ import '../models/dimension.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
 
-/// 快捷记录与完整表单共用四维选择；选项视觉由 FxChoiceChip 提供。
+/// 快捷记录与完整表单共用四维身份选择；与用户标签是不同概念。
 class TaskDimensionField extends StatelessWidget {
   final String? selectedKey;
   final ValueChanged<String?> onChanged;
@@ -20,7 +20,7 @@ class TaskDimensionField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FxFormField(
-      label: '归属维度（可选）',
+      label: '四维身份（可选）',
       child: Wrap(
         spacing: SlowlightSpacing.md,
         runSpacing: SlowlightSpacing.md,
