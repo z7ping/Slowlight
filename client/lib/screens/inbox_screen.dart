@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -135,12 +136,12 @@ class _InboxScreenState extends State<InboxScreen> {
                               key: ValueKey(task.id),
                               background: _buildSwipeBackground(
                                 color: AppTheme.success,
-                                icon: Icons.drive_file_move_outline,
+                                icon: LucideIcons.folderInput,
                                 alignment: Alignment.centerLeft,
                               ),
                               secondaryBackground: _buildSwipeBackground(
                                 color: AppTheme.priorityHigh,
-                                icon: Icons.delete_outline,
+                                icon: LucideIcons.trash2,
                                 alignment: Alignment.centerRight,
                               ),
                               confirmDismiss: (direction) async {
@@ -212,7 +213,7 @@ class _InboxScreenState extends State<InboxScreen> {
                                     context,
                                   ).copyWith(color: AppTheme.warmGray400),
                                   trailing: FxIconButton(
-                                    icon: Icons.drive_file_move_outline,
+                                    icon: LucideIcons.folderInput,
                                     iconSize: 20,
                                     tooltip: '移动到清单',
                                     onPressed: () => _moveTo(task),
@@ -324,7 +325,7 @@ class _MoveToListSheet extends StatelessWidget {
               (list) => FxListTile(
                 title: list.name,
                 leading: Icon(
-                  Icons.folder_outlined,
+                  LucideIcons.folder,
                   color: ColorUtils.safeParse(list.color),
                 ),
                 onTap: () => Navigator.pop(context, list.id),
