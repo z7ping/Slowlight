@@ -16,6 +16,57 @@ class TagPicker extends StatefulWidget {
     required this.onChanged,
   });
 
+  /// 复用同一多选控件处理移动端弹层与专注结束时的标签确认。
+  static Future<List<Tag>?> showMultiple(
+    BuildContext context, {
+    String title = '选择标签',
+    List<Tag> initialTags = const [],
+  }) async {
+    var selected = List<Tag>.of(initialTags);
+    return FxSheet.show<List<Tag>>(
+      context: context,
+      title: Text(title),
+      useSafeArea: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (innerContext, setInnerState) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(innerContext).height * .65,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: TagPicker(
+                      selectedTags: selected,
+                      onChanged: (next) =>
+                          setInnerState(() => selected = next),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FxDialogActions(actions: [
+                  FxButton(
+                    label: '取消',
+                    variant: FxButtonVariant.outline,
+                    onPressed: () => Navigator.pop(innerContext),
+                  ),
+                  FxButton(
+                    label: '确定',
+                    onPressed: () => Navigator.pop(innerContext, List<Tag>.of(selected)),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   State<TagPicker> createState() => _TagPickerState();
 }
