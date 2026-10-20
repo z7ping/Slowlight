@@ -82,7 +82,7 @@ class FxInput extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       minLines: minLines,
-      maxLines: maxLines ?? 1,
+      maxLines: maxLines,
       maxLength: maxLength,
       enabled: enabled,
       readOnly: readOnly,
