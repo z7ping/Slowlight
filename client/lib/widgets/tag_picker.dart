@@ -188,7 +188,6 @@ class _TagPickerState extends State<TagPicker> {
       );
     }
 
-    final theme = Theme.of(context);
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -196,17 +195,11 @@ class _TagPickerState extends State<TagPicker> {
         ..._allTags.map((tag) {
           final selected = widget.selectedTags.any((item) => item.id == tag.id);
           final color = ColorUtils.safeParse(tag.color);
-          return FxInkWell(
+          return FxChoiceChip(
+            label: '#${tag.name}',
+            selected: selected,
+            selectionColor: color,
             onTap: () => _toggleTag(tag),
-            borderRadius: BorderRadius.circular(SlowlightRadius.md),
-            child: FxChip(
-              label: tag.name,
-              backgroundColor: selected ? color : color.withValues(alpha: .10),
-              foregroundColor:
-                  selected ? Colors.white : theme.colorScheme.onSurfaceVariant,
-              borderColor: selected ? color : color.withValues(alpha: .32),
-              borderRadius: SlowlightRadius.md,
-            ),
           );
         }),
         FxButton(
