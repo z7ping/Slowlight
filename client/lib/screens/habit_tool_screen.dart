@@ -6,6 +6,7 @@ import '../controllers/habit_controller.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
 import '../repositories/habit_repository.dart';
+import '../repositories/tag_links_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/habit_checkin_dialog.dart';
@@ -53,7 +54,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     final value = await HabitEditorDialog.show(context);
     if (value == null) return;
     try {
-      await _controller.create(
+      final created = await _controller.create(
         name: value.name,
         icon: value.icon,
         color: value.color,
@@ -67,6 +68,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         specificTime: value.specificTime,
         reminderAt: value.reminderAt,
       );
+      if (value.tagIds != null) {
+        await TagLinksRepository().replaceFor(
+          TagLinkedEntity.habit, created.id, value.tagIds!);
+      }
       _message('习惯已创建');
     } catch (_) {
       _message('创建习惯失败');
@@ -93,6 +98,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         specificTime: value.specificTime,
         reminderAt: value.reminderAt,
       );
+      if (value.tagIds != null) {
+        await TagLinksRepository().replaceFor(
+          TagLinkedEntity.habit, habit.id, value.tagIds!);
+      }
       _message('习惯已更新');
     } catch (_) {
       _message('更新习惯失败');
