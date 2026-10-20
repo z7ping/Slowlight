@@ -15,7 +15,7 @@ void main() {
       'lib/widgets/task_filter_sort_sheet.dart',
     ];
     final mixed = <String>[];
-    final materialIcon = RegExp(r'(?<![A-Za-z0-9_])Icons\\.');
+    final materialIcon = RegExp(r'(?<![A-Za-z0-9_])Icons\.');
     for (final path in files) {
       final source = await File(path).readAsString();
       if (materialIcon.hasMatch(source)) mixed.add(path);
@@ -40,7 +40,7 @@ void main() {
 
   test('业务层不得重新引用待退役的特殊间距别名', () async {
     final oldSpacing = RegExp(
-      r'\\bSlowlightSpacing\\.(?:xxs|sm|lg|xxl|section|spacious)\\b',
+      r'\bSlowlightSpacing\.(?:xxs|sm|lg|xxl|section|spacious)\b',
     );
     final offenders = <String>[];
     for (final directory in ['lib/screens', 'lib/widgets']) {
