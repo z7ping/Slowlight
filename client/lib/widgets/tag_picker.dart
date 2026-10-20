@@ -60,17 +60,6 @@ class _TagPickerState extends State<TagPicker> {
     }
   }
 
-  void _toggleTag(Tag tag) {
-    final selected = List<Tag>.from(widget.selectedTags);
-    final index = selected.indexWhere((item) => item.id == tag.id);
-    if (index >= 0) {
-      selected.removeAt(index);
-    } else {
-      selected.add(tag);
-    }
-    widget.onChanged(selected);
-  }
-
   Future<void> _showCreateTagDialog() async {
     final nameController = TextEditingController();
     var selectedColor = presetColors.first;
@@ -191,7 +180,7 @@ class _TagPickerState extends State<TagPicker> {
     }
 
     return TagChoiceField(
-      tags: _allTags
+      tags: {for (final tag in [...widget.selectedTags, ..._allTags]) tag.id: tag}.values
           .map((tag) => ObservationTag(
                 id: tag.id,
                 name: tag.name,
