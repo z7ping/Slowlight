@@ -26,6 +26,7 @@ type reflectionRequest struct {
 	QuestionID   string                 `json:"question_id"`
 	DimensionKey model.DimensionKey     `json:"dimension_key"`
 	Content      string                 `json:"content" binding:"required"`
+	TagIDs       []uint                 `json:"tag_ids"`
 	Context      map[string]interface{} `json:"context"`
 }
 
@@ -63,6 +64,35 @@ func (h *ReflectionHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的 dimension_key"})
 		return
 	}
+	if len(req.TagIDs) > 64 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "最多关联 64 个标签"})
+		return
+	}
+	seen := make(map[uint]struct{}, len(req.TagIDs))
+	unique := make([]uint, 0, len(req.TagIDs))
+	for _, id := range req.TagIDs {
+		if id == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "标签 ID 无效"})
+			return
+		}
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			unique = append(unique, id)
+		}
+	}
+	if len(unique) > 0 {
+		var count int64
+		if err := h.DB.Model(&model.Tag{}).
+			Where("user_id = ? AND id IN ?", userID, unique).
+			Count(&count).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "校验标签失败"})
+			return
+		}
+		if count != int64(len(unique)) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "标签不存在或不属于当前用户"})
+			return
+		}
+	}
 	contextBytes, _ := json.Marshal(req.Context)
 	entry := model.Reflection{
 		UserID:       userID,
@@ -75,8 +105,21 @@ func (h *ReflectionHandler) Create(c *gin.Context) {
 	if entry.Context == "" || entry.Context == "null" {
 		entry.Context = "{}"
 	}
-	if err := h.DB.Create(&entry).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存反思失败"})
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&entry).Error; err != nil {
+			return err
+		}
+		for _, id := range unique {
+			if err := tx.Create(&model.ReflectionTag{
+				ReflectionID: entry.ID,
+				TagID: id,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存反思及标签失败"})
 		return
 	}
 	c.JSON(http.StatusCreated, reflectionToResponse(entry))
