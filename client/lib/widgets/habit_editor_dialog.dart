@@ -155,16 +155,12 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       if (!mounted) return;
       setState(() {
         _tags = tags;
-        if (_systemTagId != null &&
-            !tags.any((tag) => tag.id == _systemTagId)) {
-          _systemTagId = null;
-        }
         _loadingTags = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _systemTagId = null;
+        // 标签读取失败不应清空已有的关联，避免保存其他字段时丢失数据。
         _loadingTags = false;
       });
     }
