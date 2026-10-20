@@ -65,7 +65,7 @@ class HabitController extends ChangeNotifier {
     return result;
   }
 
-  Future<void> create({
+  Future<Habit> create({
     required String name,
     String icon = '✅',
     String color = '#52c41a',
@@ -79,7 +79,7 @@ class HabitController extends ChangeNotifier {
     String specificTime = '',
     Map<String, dynamic>? reminderAt,
   }) async {
-    await _repository.create(
+    final created = await _repository.create(
       name: name,
       icon: icon,
       color: color,
@@ -94,6 +94,7 @@ class HabitController extends ChangeNotifier {
       reminderAt: reminderAt,
     );
     await load();
+    return created;
   }
 
   Future<void> update(

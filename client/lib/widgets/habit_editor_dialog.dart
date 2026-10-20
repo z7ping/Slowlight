@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
 import '../models/observation_tag.dart';
+import '../models/tag.dart';
+import '../repositories/tag_links_repository.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_choice_field.dart';
+import 'tag_picker.dart';
 
 class HabitEditorValue {
   final String name;
@@ -14,6 +17,7 @@ class HabitEditorValue {
   final String frequency;
   final int targetDays;
   final int? systemTagId;
+  final List<int>? tagIds;
   final String preferredPeriod;
   final int durationMin;
   final bool generateTask;
@@ -28,6 +32,7 @@ class HabitEditorValue {
     required this.frequency,
     required this.targetDays,
     required this.systemTagId,
+    this.tagIds,
     required this.preferredPeriod,
     required this.durationMin,
     required this.generateTask,
@@ -60,6 +65,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late final TextEditingController _duration;
   List<ObservationTag> _tags = const [];
   bool _loadingTags = true;
+  bool _canonicalTagsReady = false;
+  List<Tag> _selectedTags = const [];
   late String _icon;
   late String _color;
   late String _frequency;
@@ -139,6 +146,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       _reminder = TimeOfDay(hour: hour, minute: minute);
     }
     _loadTags();
+    _loadCanonicalTags();
   }
 
   @override
@@ -166,6 +174,25 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     }
   }
 
+  Future<void> _loadCanonicalTags() async {
+    final habit = widget.habit;
+    if (habit == null) {
+      if (mounted) setState(() => _canonicalTagsReady = true);
+      return;
+    }
+    try {
+      final tags = await TagLinksRepository().getFor(TagLinkedEntity.habit, habit.id);
+      if (!mounted) return;
+      setState(() {
+        _selectedTags = tags;
+        _canonicalTagsReady = true;
+      });
+    } catch (_) {
+      // 编辑其他字段时不能把加载失败解释成“用户清空了标签”。
+      // 当前模式下不提供多选编辑，提交时保持现有关联不动。
+    }
+  }
+
   void _applyTemplate(Map<String, String> template) {
     setState(() {
       _name.text = template['name'] ?? '';
@@ -187,6 +214,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         frequency: _frequency,
         targetDays: int.tryParse(_targetDays.text.trim()) ?? 0,
         systemTagId: _systemTagId,
+        tagIds: _canonicalTagsReady
+            ? _selectedTags.map((tag) => tag.id).toList(growable: false)
+            : null,
         preferredPeriod: _preferredPeriod,
         durationMin: int.tryParse(_duration.text.trim()) ?? 0,
         generateTask: _generateTask,
@@ -371,11 +401,23 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           ),
                         ),
                         TagChoiceField(
+                          label: '历史分类（兼容）',
                           tags: _tags,
                           selectedTagId: _systemTagId,
                           enabled: !_loadingTags,
                           onChanged: (id) => setState(() => _systemTagId = id),
                         ),
+                        const SizedBox(height: 14),
+                        if (_canonicalTagsReady)
+                          TagPicker(
+                            selectedTags: _selectedTags,
+                            onChanged: (tags) => setState(() => _selectedTags = tags),
+                          )
+                        else
+                          Text(
+                            '多标签暂不可编辑，原有关联会保留',
+                            style: SlowlightTypography.secondary(context),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 14),
