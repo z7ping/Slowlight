@@ -432,6 +432,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         ),
         const SizedBox(height: 14),
         TagPicker(
+          enabled: !_saving,
           selectedTags: _selectedTags,
           onChanged: (tags) => setState(() => _selectedTags = tags),
         ),
