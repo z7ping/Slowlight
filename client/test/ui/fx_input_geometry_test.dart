@@ -149,45 +149,56 @@ void main() {
     }
   }
 
-  testWidgets('搜索清空按钮出现和消失不引起输入框高度跳动', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    var showClear = false;
-    await tester.pumpWidget(
-      buildFxTestHost(
-        home: Scaffold(
-          body: StatefulBuilder(
-            builder: (context, setState) => Column(
-              children: [
-                FxInput(
-                  placeholder: '搜索任务、习惯、回顾…',
-                  leading: const Icon(Icons.search),
-                  trailing: showClear
-                      ? FxIconButton(
-                          icon: Icons.close,
-                          onPressed: () => setState(() => showClear = false),
-                        )
-                      : null,
-                ),
-                FxButton(
-                  label: '输入文字',
-                  onPressed: () => setState(() => showClear = true),
-                ),
-              ],
+
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('搜索清空显隐不跳高：$platform / $scale', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        var showClear = false;
+        await tester.pumpWidget(buildFxTestHost(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: child,
+          ),
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => Column(
+                children: [
+                  FxInput(
+                    placeholder: '搜索任务、习惯、回顾…',
+                    leading: const Icon(Icons.search),
+                    trailing: showClear
+                        ? FxIconButton(
+                            icon: Icons.close,
+                            onPressed: () => setState(() => showClear = false),
+                          )
+                        : null,
+                  ),
+                  FxButton(
+                    label: '输入文字',
+                    onPressed: () => setState(() => showClear = true),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
-    await tester.pump();
-    final input = find.byType(FxInput);
-    final initialHeight = tester.getSize(input).height;
-    await tester.tap(find.text('输入文字'));
-    await tester.pump();
-    expect(tester.getSize(input).height, closeTo(initialHeight, 0.1));
-    await tester.tap(find.byIcon(Icons.close));
-    await tester.pump();
-    expect(tester.getSize(input).height, closeTo(initialHeight, 0.1));
-    expect(tester.takeException(), isNull);
-    await disposeFxTestHost(tester);
-  });
+        ));
+        await tester.pump();
+        final input = find.byType(FxInput);
+        final initialHeight = tester.getSize(input).height;
+        await tester.tap(find.text('输入文字'));
+        await tester.pump();
+        expect(tester.getSize(input).height, closeTo(initialHeight, 0.1));
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pump();
+        expect(tester.getSize(input).height, closeTo(initialHeight, 0.1));
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
 }
