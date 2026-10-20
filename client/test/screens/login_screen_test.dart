@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/login_screen.dart';
 import 'package:slowlight/ui/fx.dart';
@@ -68,4 +70,42 @@ void main() {
       await disposeFxTestHost(tester);
     });
   });
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('登录/注册表单 $platform 字体 $scale：字段与密码操作等高',
+          (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        tester.view.physicalSize = const Size(1280, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(buildFxTestHost(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: child,
+          ),
+          home: const LoginScreen(),
+        ));
+        await tester.pump();
+        final fields = find.byType(FxInput);
+        expect(fields, findsNWidgets(2));
+        final normal = tester.getSize(fields.at(0)).height;
+        final password = tester.getSize(fields.at(1)).height;
+        expect(password, closeTo(normal, 0.1));
+        expect(normal, greaterThanOrEqualTo(platform == TargetPlatform.android ? 44 : 36));
+        await tester.ensureVisible(find.text('注册'));
+        await tester.tap(find.text('注册'));
+        await tester.pump();
+        expect(fields, findsNWidgets(4));
+        for (var i = 0; i < 4; i++) {
+          expect(tester.getSize(fields.at(i)).height, closeTo(normal, 0.1));
+        }
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
 }
