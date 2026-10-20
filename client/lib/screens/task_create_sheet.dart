@@ -343,7 +343,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           ? '未安排'
           : _dueToday
               ? '今天'
-              : '${_dueDate!.month}/${_dueDate!.day}',
+              : _dueTomorrow
+                  ? '明天'
+                  : '${_dueDate!.month}/${_dueDate!.day}',
       selected: _dueDate != null,
       onTap: _saving ? null : _chooseMobileDate,
     ),
@@ -393,58 +395,147 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     );
   }
 
+  // 四个快捷属性共用一套选择面板；仅清单/标签条目较多时显示搜索。
   Future<T?> _showMobileChoices<T>({
     required String title,
     required List<_QuickOption<T>> options,
     required T? selected,
+    bool searchable = false,
+    bool separateLast = false,
   }) {
     FocusScope.of(context).unfocus();
+    final showSearch = searchable && options.length >= 8;
+    var query = '';
     return FxSheet.show<T>(
       context: context,
       draggable: false,
       showDragHandle: false,
+      padding: EdgeInsets.zero,
       builder: (sheetContext) {
-        final maxHeight = MediaQuery.sizeOf(sheetContext).height * .55;
-        final height = math.min(maxHeight, (options.length * 52 + 72).toDouble());
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: SizedBox(
-              height: height,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    title,
-                    style: SlowlightTypography.cardTitle(sheetContext),
+        return StatefulBuilder(
+          builder: (context, updateSheet) {
+            final size = MediaQuery.sizeOf(sheetContext);
+            final availableHeight = size.height -
+                MediaQuery.viewInsetsOf(sheetContext).bottom -
+                MediaQuery.paddingOf(sheetContext).top - 24;
+            final maxHeight = math.max(
+              0.0,
+              math.min(size.height * .55, availableHeight),
+            );
+            // 头部和搜索栏固定；列表只占所需空间，条目多时内部滚动。
+            final preferredHeight =
+                options.length * 48.0 + 100 + (showSearch ? 60 : 0) +
+                (separateLast ? 12 : 0);
+            final height = math.min(maxHeight, preferredHeight);
+            final visible = query.isEmpty
+                ? options
+                : options.where(
+                    (option) => option.label.toLowerCase().contains(query),
+                  ).toList(growable: false);
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: SizedBox(
+                  height: height,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: SlowlightTypography.cardTitle(sheetContext),
+                            ),
+                          ),
+                          FxIconButton(
+                            icon: LucideIcons.x,
+                            tooltip: '关闭',
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                          ),
+                        ],
+                      ),
+                      const FxSeparator.horizontal(height: 12),
+                      if (showSearch) ...[
+                        FxInput(
+                          placeholder: '搜索${title.replaceFirst('选择', '')}',
+                          leading: const Icon(
+                            LucideIcons.search,
+                            size: SlowlightIconSize.sm,
+                          ),
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) => updateSheet(
+                            () => query = value.trim().toLowerCase(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      Expanded(
+                        child: visible.isEmpty
+                            ? Center(
+                                child: Text(
+                                  '没有匹配项',
+                                  style: SlowlightTypography.componentSecondary(
+                                    sheetContext,
+                                  ).copyWith(
+                                    color: Theme.of(sheetContext)
+                                        .colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
+                                itemCount: visible.length,
+                                itemBuilder: (context, index) {
+                                  final option = visible[index];
+                                  final active = option.value == selected;
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (separateLast &&
+                                          query.isEmpty &&
+                                          index == visible.length - 1)
+                                        const FxSeparator.horizontal(height: 12),
+                                      FxListTile(
+                                        density: FxListTileDensity.compact,
+                                        minTileHeight: 48,
+                                        title: option.label,
+                                        leading: Icon(
+                                          option.icon,
+                                          size: SlowlightIconSize.md,
+                                        ),
+                                        iconColor: option.iconColor,
+                                        trailing: active
+                                            ? const Icon(
+                                                LucideIcons.check,
+                                                size: SlowlightIconSize.md,
+                                              )
+                                            : option.opensPicker
+                                                ? const Icon(
+                                                    LucideIcons.chevronRight,
+                                                    size: SlowlightIconSize.sm,
+                                                  )
+                                                : null,
+                                        selected: active,
+                                        selectedTileColor: activePalette.accent
+                                            .withValues(alpha: .10),
+                                        onTap: () => Navigator.of(sheetContext)
+                                            .pop(option.value),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: options.length,
-                      itemBuilder: (context, index) {
-                        final option = options[index];
-                        final active = option.value == selected;
-                        return FxListTile(
-                          density: FxListTileDensity.compact,
-                          title: option.label,
-                          leading: Icon(option.icon, size: SlowlightIconSize.md),
-                          trailing: active
-                              ? const Icon(LucideIcons.check, size: SlowlightIconSize.md)
-                              : null,
-                          selected: active,
-                          selectedTileColor: activePalette.accent
-                              .withValues(alpha: .10),
-                          onTap: () => Navigator.of(sheetContext).pop(option.value),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -454,6 +545,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     final id = await _showMobileChoices<int>(
       title: '选择清单',
       selected: _selectedListId,
+      searchable: true,
       options: [
         for (final list in _lists)
           _QuickOption(value: list.id, label: '${list.icon} ${list.name}', icon: LucideIcons.folder),
@@ -465,11 +557,18 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   Future<void> _chooseMobileDate() async {
     final choice = await _showMobileChoices<int>(
       title: '安排日期',
-      selected: _dueDate == null ? 0 : _dueToday ? 1 : 2,
+      selected: _dueDate == null ? 0 : _dueToday ? 1 : _dueTomorrow ? 3 : 2,
+      separateLast: true,
       options: const [
-        _QuickOption(value: 1, label: '今天', icon: LucideIcons.calendarDays),
-        _QuickOption(value: 2, label: '选择日期…', icon: LucideIcons.calendarDays),
-        _QuickOption(value: 0, label: '不安排日期', icon: LucideIcons.x),
+        _QuickOption(value: 1, label: '今天', icon: LucideIcons.calendarCheck),
+        _QuickOption(value: 3, label: '明天', icon: LucideIcons.calendarPlus),
+        _QuickOption(
+          value: 2,
+          label: '选择其他日期',
+          icon: LucideIcons.calendarRange,
+          opensPicker: true,
+        ),
+        _QuickOption(value: 0, label: '不安排日期', icon: LucideIcons.calendarX),
       ],
     );
     if (!mounted || choice == null) return;
@@ -482,7 +581,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       );
       if (mounted && picked != null) setState(() => _dueDate = picked);
     } else {
-      setState(() => _dueDate = choice == 1 ? _today() : null);
+      final today = _today();
+      setState(() => _dueDate = switch (choice) {
+        1 => today,
+        3 => DateTime(today.year, today.month, today.day + 1),
+        _ => null,
+      });
     }
   }
 
@@ -492,9 +596,24 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       selected: _selectedPriority,
       options: const [
         _QuickOption(value: 'none', label: '无优先级', icon: LucideIcons.flag),
-        _QuickOption(value: 'urgent_important', label: '高', icon: LucideIcons.flag),
-        _QuickOption(value: 'important', label: '中', icon: LucideIcons.flag),
-        _QuickOption(value: 'urgent', label: '低', icon: LucideIcons.flag),
+        _QuickOption(
+          value: 'urgent_important',
+          label: '高',
+          icon: LucideIcons.flag,
+          iconColor: AppTheme.priorityUrgentImportant,
+        ),
+        _QuickOption(
+          value: 'important',
+          label: '中',
+          icon: LucideIcons.flag,
+          iconColor: AppTheme.priorityImportant,
+        ),
+        _QuickOption(
+          value: 'urgent',
+          label: '低',
+          icon: LucideIcons.flag,
+          iconColor: AppTheme.priorityUrgent,
+        ),
       ],
     );
     if (mounted && value != null) setState(() => _selectedPriority = value);
@@ -504,6 +623,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     final id = await _showMobileChoices<int>(
       title: '选择标签',
       selected: _selectedTagId ?? -1,
+      searchable: true,
       options: [
         const _QuickOption(value: -1, label: '无标签', icon: LucideIcons.tag),
         for (final tag in _availableTags)
@@ -819,6 +939,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         _dueDate!.month == today.month && _dueDate!.day == today.day;
   }
 
+  bool get _dueTomorrow {
+    if (_dueDate == null) return false;
+    final today = _today();
+    final tomorrow = DateTime(today.year, today.month, today.day + 1);
+    return _dueDate!.year == tomorrow.year &&
+        _dueDate!.month == tomorrow.month &&
+        _dueDate!.day == tomorrow.day;
+  }
+
   DateTime _today() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
@@ -927,10 +1056,14 @@ class _QuickOption<T> {
   final T value;
   final String label;
   final IconData icon;
+  final Color? iconColor;
+  final bool opensPicker;
 
   const _QuickOption({
     required this.value,
     required this.label,
     required this.icon,
+    this.iconColor,
+    this.opensPicker = false,
   });
 }
