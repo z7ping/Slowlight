@@ -66,10 +66,8 @@ class ReflectionRepository {
         entryType: type,
         questionId: questionId,
         dimensionKey: key,
-        context: {
-          ...context,
-          if (uniqueTagIds.isNotEmpty) '_pending_tag_ids': uniqueTagIds,
-        },
+        context: context,
+        tagIds: uniqueTagIds,
       );
       await CloudSyncCoordinator().refreshStandalonePendingCount();
       unawaited(CloudSyncCoordinator().syncNow());
