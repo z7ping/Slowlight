@@ -66,7 +66,7 @@ class FxPageHeader extends StatelessWidget {
       ),
       // Windows 高保真页头使用 16px 水平留白；Android 的字号与触控目标
       // 由 Theme / FxIconButton 自己处理，不反向撑大桌面页头。
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final stackActions =

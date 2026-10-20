@@ -259,7 +259,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           children: [
             FxPageHeader(
               title: 'CalDAV 同步',
-              actionIcon: _configured ? Icons.sync : null,
+              actionIcon: _configured ? LucideIcons.refreshCw : null,
               actionTooltip: '立即同步',
               onAction: _configured ? _syncNow : null,
             ),
@@ -300,7 +300,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.info_outline,
+                  LucideIcons.info,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   size: 20,
                 ),
@@ -597,7 +597,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.check_circle, color: AppTheme.success, size: 20),
+                Icon(LucideIcons.circleCheck, color: AppTheme.success, size: 20),
                 const SizedBox(width: 8),
                 const Text(
                   '同步状态',
@@ -687,7 +687,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.error_outline, color: AppTheme.error, size: 20),
+                Icon(LucideIcons.circleAlert, color: AppTheme.error, size: 20),
                 const SizedBox(width: 8),
                 const Text(
                   '错误信息',

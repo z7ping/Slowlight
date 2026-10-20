@@ -80,17 +80,14 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
 
   Widget _card({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(14),
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
     Color? color,
   }) {
-    final theme = Theme.of(context);
     return FxCard(
       padding: padding,
       color: color ?? fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );

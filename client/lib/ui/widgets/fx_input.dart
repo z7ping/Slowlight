@@ -88,7 +88,7 @@ class FxInput extends StatelessWidget {
       readOnly: readOnly,
       autofocus: autofocus,
       focusNode: focusNode,
-      style: style ?? SlowlightTypography.body(context),
+      style: style ?? SlowlightTypography.control(context),
       inputFormatters: inputFormatters,
       placeholder: placeholder == null ? null : Text(placeholder!),
       placeholderStyle:
@@ -98,7 +98,7 @@ class FxInput extends StatelessWidget {
           ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
       trailing: trailing,
-      // 单行使用 ShadInputTheme 的统一 minHeight；多行保留编辑区垂直留白。
+      // 单行高度由下方完整 FxInput 约束；多行保留编辑区垂直留白。
       // 显式 contentPadding 仅供已确认的特殊场景使用。
       padding: contentPadding ??
           (multiline
@@ -109,7 +109,18 @@ class FxInput extends StatelessWidget {
               : null),
     );
 
-    if (label == null) return input;
+    // 最低可视高度约束在完整 ShadInput 外，不作用于内部文本区域。
+    // 字体缩放可自然撑高，尾部图标显隐不会导致外框高度跳变。
+    final field = multiline
+        ? input
+        : ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: SlowlightPlatformDensity.inputMinHeight,
+            ),
+            child: input,
+          );
+
+    if (label == null) return field;
     final labelStyle = SlowlightTypography.fieldLabel(
       context,
     ).copyWith(color: theme.colorScheme.onSurfaceVariant);
@@ -119,7 +130,7 @@ class FxInput extends StatelessWidget {
       children: [
         Text(label!, style: labelStyle),
         const SizedBox(height: SlowlightSpacing.sm),
-        input,
+        field,
       ],
     );
   }
