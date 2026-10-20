@@ -232,6 +232,13 @@ class CloudSyncCoordinator {
         final decoded = jsonDecode(row['context_json']?.toString() ?? '{}');
         if (decoded is Map) context = Map<String, dynamic>.from(decoded);
       } catch (_) {}
+      // 离线记录携带的是待提交的 canonical 标签 ID，不是旧系统标签。
+      // 创建接口在服务端与标签关联同一事务内提交，重试不会出现半条关联。
+      final pendingTagIds = (context.remove('_pending_tag_ids') as List?)
+              ?.whereType<num>()
+              .map((value) => value.toInt())
+              .toList(growable: false) ??
+          const <int>[];
 
       try {
         final remote = await ReflectionApi.create(
@@ -240,6 +247,7 @@ class CloudSyncCoordinator {
           questionId: row['question_id'] as String?,
           dimensionKey: row['dimension_key'] as String?,
           context: context,
+          tagIds: pendingTagIds,
         );
         if (!await _isRunValid(accountId: accountId, generation: generation)) return;
         await _reflectionCache.markCreateSynced(db, localId, remote);
