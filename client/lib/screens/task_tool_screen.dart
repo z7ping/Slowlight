@@ -70,14 +70,11 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   };
 
   Widget _card({required Widget child, EdgeInsetsGeometry? padding}) {
-    final theme = Theme.of(context);
     return FxCard(
-      padding: padding ?? const EdgeInsets.all(16),
+      padding: padding ?? const EdgeInsets.all(SlowlightSpacing.xxxl),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );
