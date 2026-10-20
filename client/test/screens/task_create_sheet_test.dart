@@ -284,6 +284,36 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byType(TaskCreateSheet), findsOneWidget);
+
+    // 快捷弹层只保留一层水平边距；标题、属性和按钮共用 20dp 栅格。
+    final sheetRect = tester.getRect(find.byType(TaskCreateSheet));
+    final titleRect = tester.getRect(find.text('添加任务').first);
+    final listRect = tester.getRect(
+      find.byKey(const ValueKey('task-property-list')),
+    );
+    final actionsRect = tester.getRect(find.byType(FxDialogActions));
+    expect(titleRect.left - sheetRect.left, closeTo(20, 1));
+    expect(titleRect.top - sheetRect.top, closeTo(20, 1));
+    expect(listRect.left - sheetRect.left, closeTo(20, 1));
+    expect(sheetRect.right - actionsRect.right, closeTo(20, 1));
+
+    // 默认已安排“今天”不等于聚焦；日期与未选优先级边框必须一致。
+    BoxDecoration propertyDecoration(String key) {
+      final property = find.byKey(ValueKey(key));
+      return tester.widget<Container>(
+        find.descendant(of: property, matching: find.byType(Container)).first,
+      ).decoration! as BoxDecoration;
+    }
+
+    expect(
+      propertyDecoration('task-property-date').color,
+      propertyDecoration('task-property-priority').color,
+    );
+    expect(
+      propertyDecoration('task-property-date').border,
+      propertyDecoration('task-property-priority').border,
+    );
+
     final editable = find.byType(EditableText).first;
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
 
