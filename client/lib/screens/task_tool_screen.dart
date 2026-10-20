@@ -8,7 +8,6 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
-import 'home_task_detail_panel.dart';
 import 'task_create_sheet.dart';
 
 class TaskToolScreen extends StatefulWidget {
@@ -243,14 +242,13 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             child:
                                 _selectedTask == null
                                     ? _desktopEmptyDetail()
-                                    : HomeTaskDetailPanel(
+                                    : TaskDetailSheet(
                                       key: ValueKey(_selectedTask!.id),
                                       task: _selectedTask!,
-                                      onClose:
-                                          () => setState(
-                                            () => _selectedTask = null,
-                                          ),
-                                      onRefresh: _load,
+                                      lists: _lists,
+                                      sidePanel: true,
+                                      onClose: () => setState(() => _selectedTask = null),
+                                      onChanged: _load,
                                     ),
                           ),
                         ),
