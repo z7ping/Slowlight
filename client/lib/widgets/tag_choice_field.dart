@@ -9,7 +9,7 @@ import '../ui/fx.dart';
 class TagChoiceField extends StatelessWidget {
   final List<ObservationTag> tags;
   final int? selectedTagId;
-  final ValueChanged<int?> onChanged;
+  final ValueChanged<int?>? onChanged;
   final Set<int>? selectedTagIds;
   final ValueChanged<Set<int>>? onMultipleChanged;
   final bool enabled;
@@ -19,8 +19,8 @@ class TagChoiceField extends StatelessWidget {
   const TagChoiceField({
     super.key,
     required this.tags,
-    required this.selectedTagId,
-    required this.onChanged,
+    this.selectedTagId,
+    this.onChanged,
     this.selectedTagIds,
     this.onMultipleChanged,
     this.enabled = true,
@@ -44,7 +44,7 @@ class TagChoiceField extends StatelessWidget {
             // “无标签”是默认状态，不使用强调色冒充用户主动选择的标签。
             selectionColor: Theme.of(context).colorScheme.onSurfaceVariant,
             onTap: enabled
-                ? () => multiple ? onMultipleChanged!(<int>{}) : onChanged(null)
+                ? () => multiple ? onMultipleChanged!(<int>{}) : onChanged?.call(null)
                 : null,
           ),
           ...tags.map((tag) => FxChoiceChip(
@@ -53,7 +53,7 @@ class TagChoiceField extends StatelessWidget {
                 onTap: enabled
                     ? () {
                         if (!multiple) {
-                          onChanged(tag.id);
+                          onChanged?.call(tag.id);
                           return;
                         }
                         final updated = {...selectedIds};
