@@ -178,7 +178,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               );
               final compact = constraints.maxWidth < 700;
               final periods = FxSegmented(
-                labels: const ['今天', '本周', '本月'],
+                labels: const ['今天', '本周', '近 30 天'],
                 selectedIndex: _periodIndex,
                 onChanged: (index) => setState(() => _periodIndex = index),
                 expanded: compact,
