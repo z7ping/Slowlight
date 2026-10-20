@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/habit.dart';
+import '../repositories/tag_links_repository.dart';
 import '../models/habit_log.dart';
 import '../repositories/habit_repository.dart';
 
@@ -72,6 +73,7 @@ class HabitController extends ChangeNotifier {
     String frequency = 'daily',
     int targetDays = 0,
     int? systemTagId,
+    List<int>? tagIds,
     String preferredPeriod = '',
     int durationMin = 0,
     bool generateTask = false,
@@ -79,7 +81,7 @@ class HabitController extends ChangeNotifier {
     String specificTime = '',
     Map<String, dynamic>? reminderAt,
   }) async {
-    await _repository.create(
+    final created = await _repository.create(
       name: name,
       icon: icon,
       color: color,
@@ -93,6 +95,9 @@ class HabitController extends ChangeNotifier {
       specificTime: specificTime,
       reminderAt: reminderAt,
     );
+    if (tagIds != null) {
+      await TagLinksRepository().replaceFor(TagLinkedEntity.habit, created.id, tagIds);
+    }
     await load();
   }
 
@@ -105,6 +110,7 @@ class HabitController extends ChangeNotifier {
     int? targetDays,
     int? systemTagId,
     bool updateSystemTag = false,
+    List<int>? tagIds,
     String? preferredPeriod,
     int? durationMin,
     bool? generateTask,
@@ -128,6 +134,9 @@ class HabitController extends ChangeNotifier {
       specificTime: specificTime,
       reminderAt: reminderAt,
     );
+    if (tagIds != null) {
+      await TagLinksRepository().replaceFor(TagLinkedEntity.habit, habit.id, tagIds);
+    }
     await load();
   }
 
