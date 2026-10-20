@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -145,7 +146,7 @@ void main() {
     expect(find.text('更多设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
     final input = tester.widget<FxInput>(find.byType(FxInput).first);
-    expect(input.minLines, 3);
+    expect(input.minLines, 2);
     expect(input.maxLines, 6);
     expect(input.textInputAction, TextInputAction.newline);
 
@@ -203,10 +204,11 @@ void main() {
     expect(find.text('设置优先级'), findsOneWidget);
     await tester.tap(find.text('高'));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<FxIconButton>(find.byKey(const ValueKey('task-property-priority'))).tooltip,
-      '优先级：高',
+    final priority = tester.widget<FxChip>(
+      find.byKey(const ValueKey('task-property-priority')),
     );
+    expect(priority.label, '高');
+    expect(priority.foregroundColor, AppTheme.priorityUrgentImportant);
 
     await tester.tap(find.byKey(const ValueKey('task-property-date')));
     await tester.pumpAndSettle();
@@ -248,7 +250,7 @@ void main() {
 
     await tester.tap(find.text('明天'));
     await tester.pumpAndSettle();
-    expect(tester.widget<FxIconButton>(find.byKey(dateKey)).tooltip, '日期：明天');
+    expect(tester.widget<FxChip>(find.byKey(dateKey)).label, '明天');
 
     await tester.tap(find.byKey(dateKey));
     await tester.pumpAndSettle();
@@ -259,14 +261,52 @@ void main() {
       ).first,
     );
     expect(tomorrow.selected, isTrue);
-    final close = find.byWidgetPredicate(
-      (widget) => widget is FxIconButton && widget.tooltip == '关闭',
-    );
-    expect(close, findsOneWidget);
-    await tester.tap(close);
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
     await tester.pumpAndSettle();
     expect(find.text('安排日期'), findsNothing);
-    expect(tester.widget<FxIconButton>(find.byKey(dateKey)).tooltip, '日期：明天');
+    expect(tester.widget<FxChip>(find.byKey(dateKey)).label, '明天');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 选择器与日历均在同一个弹层内切换', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '打开快捷添加',
+            onPressed: () => TaskCreateSheet.showQuickCreate(context),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('打开快捷添加'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task-property-date')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    expect(find.byType(ShadSheet), findsOneWidget);
+    expect(find.text('安排日期'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-picker-back')), findsOneWidget);
+    await tester.tap(find.text('选择其他日期'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择日期'), findsOneWidget);
+    expect(find.byType(FxCalendar<Object>), findsOneWidget);
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    expect(find.byType(ShadSheet), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
+    await tester.pumpAndSettle();
+    expect(find.text('安排日期'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
+    await tester.pumpAndSettle();
+    expect(find.text('添加任务'), findsWidgets);
+    expect(find.byKey(const ValueKey('task-property-date')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -324,14 +364,17 @@ void main() {
     await tester.pump();
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
     await tester.enterText(editable, '买一本书\n记录原因');
+    final originalController = tester.widget<EditableText>(editable).controller;
 
     await tester.tap(find.byKey(const ValueKey('task-property-tag')));
     await tester.pump();
     expect(find.text('选择标签'), findsOneWidget);
-    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(originalController.text, '买一本书\n记录原因');
     await tester.tap(find.text('无标签').last);
     await tester.pumpAndSettle();
-    expect(tester.widget<EditableText>(editable).controller.text, '买一本书\n记录原因');
+    expect(tester.widget<EditableText>(find.byType(EditableText).first)
+        .controller, same(originalController));
+    expect(originalController.text, '买一本书\n记录原因');
 
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -409,16 +452,16 @@ void main() {
     expect(actionsRect.right, lessThan(inputRect.right));
     expect(actionsRect.bottom, lessThan(inputRect.bottom));
 
-    // 已安排日期通过图标强调，仍可从 Tooltip 读到真实值。
-    final dateButton = tester.widget<FxIconButton>(
+    // 日期展示文字与语义蓝色，未设置优先级仍是灰色图标。
+    final dateChip = tester.widget<FxChip>(
       find.byKey(const ValueKey('task-property-date')),
     );
     final priorityButton = tester.widget<FxIconButton>(
       find.byKey(const ValueKey('task-property-priority')),
     );
-    expect(dateButton.tooltip, '日期：今天');
+    expect(dateChip.label, '今天');
+    expect(dateChip.foregroundColor, AppTheme.info);
     expect(priorityButton.tooltip, '优先级：无优先级');
-    expect(dateButton.foregroundColor, isNot(priorityButton.foregroundColor));
 
     final editable = find.byType(EditableText).first;
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
