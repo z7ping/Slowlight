@@ -232,9 +232,16 @@ class CloudSyncCoordinator {
         final decoded = jsonDecode(row['context_json']?.toString() ?? '{}');
         if (decoded is Map) context = Map<String, dynamic>.from(decoded);
       } catch (_) {}
-      // 离线记录携带的是待提交的 canonical 标签 ID，不是旧系统标签。
-      // 创建接口在服务端与标签关联同一事务内提交，重试不会出现半条关联。
-      final pendingTagIds = (context.remove('_pending_tag_ids') as List?)
+      // 待提交标签属于同步意图而非用户观察内容；兼容旧版本曾暂存在
+      // context_json 中的 _pending_tag_ids，补交时不向服务器发送内部字段。
+      dynamic rawTagIds;
+      try {
+        final value = jsonDecode(intent['value']?.toString() ?? '{}');
+        if (value is Map) rawTagIds = value['tag_ids'];
+      } catch (_) {}
+      rawTagIds ??= context.remove('_pending_tag_ids');
+      context.remove('_pending_tag_ids');
+      final pendingTagIds = (rawTagIds as List?)
               ?.whereType<num>()
               .map((value) => value.toInt())
               .toList(growable: false) ??
