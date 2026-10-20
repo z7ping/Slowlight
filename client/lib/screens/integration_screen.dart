@@ -57,7 +57,7 @@ class IntegrationScreen extends StatelessWidget {
                     border: Border.all(
                       color: theme.colorScheme.primary.withValues(alpha: .12),
                     ),
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(16),
                     expanded: true,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
