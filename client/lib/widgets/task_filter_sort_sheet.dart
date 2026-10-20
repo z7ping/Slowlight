@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/tag.dart';
 import '../models/task_filter_sort.dart';
@@ -197,10 +198,10 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
 
   Widget _buildSortOptions() {
     final options = [
-      (TaskSortBy.priority, '优先级', Icons.flag_outlined),
-      (TaskSortBy.createdAt, '创建时间', Icons.access_time),
-      (TaskSortBy.dueDate, '到期时间', Icons.event_outlined),
-      (TaskSortBy.title, '标题', Icons.sort_by_alpha),
+      (TaskSortBy.priority, '优先级', LucideIcons.flag),
+      (TaskSortBy.createdAt, '创建时间', LucideIcons.clock),
+      (TaskSortBy.dueDate, '到期时间', LucideIcons.calendar),
+      (TaskSortBy.title, '标题', LucideIcons.arrowDownAZ),
     ];
     return Wrap(
       spacing: 8,
@@ -224,7 +225,7 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
         Expanded(
           child: _buildChip(
             label: '升序',
-            icon: Icons.arrow_upward,
+            icon: LucideIcons.arrowUp,
             isSelected: _sortDirection == SortDirection.asc,
             onTap: () => setState(() => _sortDirection = SortDirection.asc),
           ),
@@ -233,7 +234,7 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
         Expanded(
           child: _buildChip(
             label: '降序',
-            icon: Icons.arrow_downward,
+            icon: LucideIcons.arrowDown,
             isSelected: _sortDirection == SortDirection.desc,
             onTap: () => setState(() => _sortDirection = SortDirection.desc),
           ),
@@ -339,9 +340,9 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
 
   Widget _buildCompletedFilter() {
     final options = [
-      (null, '全部', Icons.list),
-      (false, '未完成', Icons.radio_button_unchecked),
-      (true, '已完成', Icons.check_circle_outline),
+      (null, '全部', LucideIcons.list),
+      (false, '未完成', LucideIcons.circle),
+      (true, '已完成', LucideIcons.circleCheck),
     ];
     return Row(
       children:
