@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
-import '../models/observation_tag.dart';
-import '../repositories/observation_tag_repository.dart';
+import '../models/tag.dart';
+import '../repositories/tag_links_repository.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'tag_choice_field.dart';
+import 'tag_picker.dart';
 
 class HabitEditorValue {
   final String name;
@@ -14,6 +14,7 @@ class HabitEditorValue {
   final String frequency;
   final int targetDays;
   final int? systemTagId;
+  final List<int>? tagIds;
   final String preferredPeriod;
   final int durationMin;
   final bool generateTask;
@@ -28,6 +29,7 @@ class HabitEditorValue {
     required this.frequency,
     required this.targetDays,
     required this.systemTagId,
+    required this.tagIds,
     required this.preferredPeriod,
     required this.durationMin,
     required this.generateTask,
@@ -58,8 +60,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late final TextEditingController _name;
   late final TextEditingController _targetDays;
   late final TextEditingController _duration;
-  List<ObservationTag> _tags = const [];
-  bool _loadingTags = true;
+  List<Tag> _selectedTags = const [];
+  bool _tagsLoaded = false;
   late String _icon;
   late String _color;
   late String _frequency;
@@ -138,7 +140,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         minute <= 59) {
       _reminder = TimeOfDay(hour: hour, minute: minute);
     }
-    _loadTags();
+    _loadLinkedTags();
   }
 
   @override
@@ -149,24 +151,22 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     super.dispose();
   }
 
-  Future<void> _loadTags() async {
+  Future<void> _loadLinkedTags() async {
+    final habit = widget.habit;
+    if (habit == null) {
+      setState(() => _tagsLoaded = true);
+      return;
+    }
     try {
-      final tags = await ObservationTagRepository().getAll();
+      final tags = await TagLinksRepository().getFor(TagLinkedEntity.habit, habit.id);
       if (!mounted) return;
       setState(() {
-        _tags = tags;
-        if (_systemTagId != null &&
-            !tags.any((tag) => tag.id == _systemTagId)) {
-          _systemTagId = null;
-        }
-        _loadingTags = false;
+        _selectedTags = tags;
+        _tagsLoaded = true;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _systemTagId = null;
-        _loadingTags = false;
-      });
+      // 读取失败时不以空选择覆盖现有标签关系。
+      if (mounted) setState(() => _tagsLoaded = false);
     }
   }
 
@@ -191,6 +191,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         frequency: _frequency,
         targetDays: int.tryParse(_targetDays.text.trim()) ?? 0,
         systemTagId: _systemTagId,
+        tagIds: _tagsLoaded
+            ? _selectedTags.map((tag) => tag.id).toList(growable: false)
+            : null,
         preferredPeriod: _preferredPeriod,
         durationMin: int.tryParse(_duration.text.trim()) ?? 0,
         generateTask: _generateTask,
@@ -374,12 +377,15 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                             ),
                           ),
                         ),
-                        TagChoiceField(
-                          tags: _tags,
-                          selectedTagId: _systemTagId,
-                          enabled: !_loadingTags,
-                          onChanged: (id) => setState(() => _systemTagId = id),
-                        ),
+                        _tagsLoaded
+                            ? TagPicker(
+                                selectedTags: _selectedTags,
+                                onChanged: (value) => setState(() => _selectedTags = value),
+                              )
+                            : Text(
+                                '标签尚未加载，保存时将保留原有标签',
+                                style: SlowlightTypography.caption(context),
+                              ),
                       ],
                     ),
                     const SizedBox(height: 14),
