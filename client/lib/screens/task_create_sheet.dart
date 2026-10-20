@@ -13,6 +13,7 @@ import '../services/data_service.dart';
 
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
+import '../utils/color_utils.dart';
 import '../widgets/tag_choice_field.dart';
 import '../widgets/task_schedule_fields.dart';
 import 'add_task_screen.dart';
@@ -180,6 +181,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   bool _loadingLists = true;
   bool _saving = false;
   String? _error;
+  _MobileTaskPage? _mobilePage;
+  String _mobileQuery = '';
+  bool _mobileAutofocus = true;
+  late DateTime _calendarFocusedDay;
 
   @override
   void initState() {
@@ -187,6 +192,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     _dueDate = widget.defaultDueToday ? _today() : null;
     _selectedPriority = _normalizePriority(widget.initialPriority);
     _selectedTagId = widget.systemTagId;
+    _calendarFocusedDay = _dueDate ?? DateTime.now();
     _loadLists();
     _loadTags();
   }
@@ -236,7 +242,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   }) => FxInput(
     controller: _titleController,
     // 快捷记录默认聚焦标题，移动端同时弹出键盘。
-    autofocus: true,
+    autofocus: widget.desktopDialog || _mobileAutofocus,
     onPressedOutside: (_) => FocusScope.of(context).unfocus(),
     enabled: !_saving,
     keyboardType: multiline ? TextInputType.multiline : null,
@@ -252,78 +258,95 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         : '要做什么？',
   );
 
-  Widget _mobileEditorContent(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 单一输入框承载标题、四项快捷属性及添加操作，保留原有 FxInput
-        // 的边框/焦点视觉；底部内边距为工具栏留出真实输入空间。
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stackedToolbar = constraints.maxWidth < 310 ||
-                MediaQuery.textScalerOf(context).scale(1) >= 1.4;
-            return Stack(
-              fit: StackFit.passthrough,
-              children: [
-                _titleInput(
-                  context,
-                  multiline: true,
-                  contentPadding: EdgeInsets.fromLTRB(
-                    14,
-                    12,
-                    14,
-                    stackedToolbar ? 114 : 64,
-                  ),
-                ),
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 10,
-                  child: stackedToolbar
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(children: _mobilePropertyButtons()),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: _submitButton(),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            ..._mobilePropertyButtons(),
-                            const Spacer(),
-                            _submitButton(),
-                          ],
-                        ),
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: SlowlightSpacing.md),
-        FxExpansionTile(
-          key: const ValueKey('task-create-settings'),
-          title: const Text('更多设置'),
-          enabled: !_saving,
-          tilePadding: const EdgeInsets.symmetric(vertical: 12),
-          childrenPadding: const EdgeInsets.only(bottom: 8),
-          children: [_advancedContent(context)],
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _error!,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: Theme.of(context).colorScheme.error,
+  void _openMobilePage(_MobileTaskPage page) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _mobileAutofocus = false;
+      _mobileQuery = '';
+      _mobilePage = page;
+      if (page == _MobileTaskPage.calendar) {
+        _calendarFocusedDay = _dueDate ?? DateTime.now();
+      }
+    });
+  }
+
+  void _backMobilePage() => setState(() {
+    _mobileQuery = '';
+    _mobilePage = _mobilePage == _MobileTaskPage.calendar
+        ? _MobileTaskPage.date
+        : null;
+  });
+
+  Widget _mobileEditorContent(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 340 ||
+            MediaQuery.textScalerOf(context).scale(1) >= 1.4;
+        return Stack(
+          fit: StackFit.passthrough,
+          children: [
+            _titleInput(
+              context,
+              multiline: true,
+              contentPadding: EdgeInsets.fromLTRB(
+                14, 12, 14, compact ? 166 : 122,
+              ),
             ),
+            Positioned(
+              left: 12, right: 12, bottom: 10,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: SlowlightSpacing.xs,
+                      runSpacing: 0,
+                      children: _mobilePropertyButtons(),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _submitButton(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      }),
+      const SizedBox(height: SlowlightSpacing.md),
+      FxExpansionTile(
+        key: const ValueKey('task-create-settings'),
+        title: const Text('更多设置'),
+        enabled: !_saving,
+        tilePadding: const EdgeInsets.symmetric(vertical: 12),
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        children: [_advancedContent(context)],
+      ),
+      if (_error != null) ...[
+        const SizedBox(height: SlowlightSpacing.md),
+        Text(
+          _error!,
+          style: SlowlightTypography.caption(context).copyWith(
+            color: Theme.of(context).colorScheme.error,
           ),
-        ],
+        ),
       ],
-    );
+    ],
+  );
+
+  Color? _selectedTagColor() {
+    if (_selectedTagId == null) return null;
+    for (final tag in _availableTags) {
+      if (tag.id == _selectedTagId) {
+        return ColorUtils.safeParse(tag.color, fallback: activePalette.accent);
+      }
+    }
+    return activePalette.accent;
   }
 
   List<Widget> _mobilePropertyButtons() => [
@@ -331,41 +354,43 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       key: const ValueKey('task-property-list'),
       icon: LucideIcons.folder,
       category: '清单',
-      label: _loadingLists ? '读取清单…' : _selectedListName(),
-      selected: _selectedListId != null,
-      onTap: _loadingLists || _saving ? null : _chooseMobileList,
+      label: _loadingLists ? '读取中' : _selectedListName(),
+      showLabel: _selectedListId != null && !_loadingLists,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      onTap: _loadingLists || _saving
+          ? null : () => _openMobilePage(_MobileTaskPage.list),
     ),
     _mobileProperty(
       key: const ValueKey('task-property-date'),
       icon: LucideIcons.calendarDays,
       category: '日期',
-      label: _dueDate == null
-          ? '未安排'
-          : _dueToday
-              ? '今天'
-              : _dueTomorrow
-                  ? '明天'
-                  : '${_dueDate!.month}/${_dueDate!.day}',
-      selected: _dueDate != null,
-      onTap: _saving ? null : _chooseMobileDate,
+      label: _dueDate == null ? '未安排'
+          : _dueToday ? '今天'
+          : _dueTomorrow ? '明天'
+          : '\${_dueDate!.month}/\${_dueDate!.day}',
+      showLabel: _dueDate != null,
+      color: AppTheme.info,
+      onTap: _saving ? null : () => _openMobilePage(_MobileTaskPage.date),
     ),
     _mobileProperty(
       key: const ValueKey('task-property-priority'),
       icon: LucideIcons.flag,
       category: '优先级',
       label: _selectedPriority == 'none'
-          ? '无优先级'
-          : _priorityLabel(_selectedPriority),
-      selected: _selectedPriority != 'none',
-      onTap: _saving ? null : _chooseMobilePriority,
+          ? '无优先级' : _priorityLabel(_selectedPriority),
+      showLabel: _selectedPriority != 'none',
+      color: AppTheme.priorityColor(_selectedPriority),
+      onTap: _saving ? null : () => _openMobilePage(_MobileTaskPage.priority),
     ),
     _mobileProperty(
       key: const ValueKey('task-property-tag'),
       icon: LucideIcons.tag,
       category: '标签',
-      label: _selectedTagName() == '标签' ? '无标签' : _selectedTagName(),
-      selected: _selectedTagId != null,
-      onTap: _saving ? null : _chooseMobileTag,
+      label: _selectedTagId == null ? '无标签' : _selectedTagName(),
+      showLabel: _selectedTagId != null,
+      color: _selectedTagColor() ??
+          Theme.of(context).colorScheme.onSurfaceVariant,
+      onTap: _saving ? null : () => _openMobilePage(_MobileTaskPage.tag),
     ),
   ];
 
@@ -374,26 +399,33 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     required IconData icon,
     required String category,
     required String label,
-    required bool selected,
+    required bool showLabel,
+    required Color color,
     required VoidCallback? onTap,
-  }) {
-    final color = selected
-        ? activePalette.accent
-        : Theme.of(context).colorScheme.onSurfaceVariant;
-    final description = '$category：$label';
-    return Semantics(
-      label: description,
-      button: true,
-      child: FxIconButton(
-        key: key,
-        icon: icon,
-        iconSize: SlowlightIconSize.md,
-        foregroundColor: color,
-        tooltip: description,
-        onPressed: onTap,
-      ),
-    );
-  }
+  }) => Semantics(
+    label: '$category：$label',
+    button: true,
+    child: showLabel
+        ? FxChip(
+            key: key,
+            icon: icon,
+            label: label,
+            variant: FxChipVariant.secondary,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+            foregroundColor: color,
+            borderRadius: SlowlightRadius.md,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            onTap: onTap,
+          )
+        : FxIconButton(
+            key: key,
+            icon: icon,
+            iconSize: SlowlightIconSize.md,
+            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            tooltip: '$category：$label',
+            onPressed: onTap,
+          ),
+  );
 
   // 四个快捷属性共用一套选择面板；仅清单/标签条目较多时显示搜索。
   Future<T?> _showMobileChoices<T>({
