@@ -6,25 +6,13 @@ import 'package:flutter/foundation.dart';
 /// （例如日历格高、侧栏宽度、某个弹窗宽度）应留在对应组件内部，避免
 /// 为了消除数字而制造没有产品语义的“伪通用” Token。
 abstract final class SlowlightSpacing {
-  // TODO(fx-visual-regression): 旧命名仍被大量现有代码引用；逐组件恢复视觉时
-  // 迁移到 4 / 8 / 12 / 16 / 24 基础间距后，再删除这些兼容项。禁止新增引用。
-  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
-  static const double xxs = 2;
+  /// 跨页面共享的基础间距为 4 / 8 / 12 / 16 / 24。
+  /// 2 / 6 / 10 / 14 / 20 / 32 等业务几何值只在所属组件内定义。
   static const double xs = 4;
-  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
-  static const double sm = 6;
   static const double md = 8;
-  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
-  static const double lg = 10;
   static const double xl = 12;
-  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
-  static const double xxl = 14;
   static const double xxxl = 16;
-  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
-  static const double section = 20;
   static const double page = 24;
-  @Deprecated('Use base spacing 4/8/12/16/24; keep special values local to the owning widget')
-  static const double spacious = 32;
 }
 
 abstract final class SlowlightRadius {
