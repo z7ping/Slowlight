@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/observation_tag.dart';
+import '../utils/color_utils.dart';
 import '../ui/fx.dart';
 
 /// 统一标签选择视觉层：兼容旧单选，并为多标签调用方提供多选交互。
@@ -50,6 +51,7 @@ class TagChoiceField extends StatelessWidget {
           ...tags.map((tag) => FxChoiceChip(
                 label: '#${tag.name}',
                 selected: multiple ? selectedIds.contains(tag.id) : selectedTagId == tag.id,
+                selectionColor: ColorUtils.safeParse(tag.color),
                 onTap: enabled
                     ? () {
                         if (!multiple) {
