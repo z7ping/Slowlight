@@ -160,7 +160,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (_sessionType == 'work') {
       int? tagId;
       if (mounted) {
-        tagId = await SystemTagPicker.show(context, title: '这次专注属于哪个维度？');
+        tagId = await SystemTagPicker.show(context, title: '选择本次专注的标签');
       }
       try {
         if (_activeSession) await _sessions.endSession(systemTagId: tagId);
@@ -203,7 +203,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (_sessionType == 'work') {
         final elapsed = _workMinutes * 60 - _remainingSeconds;
         if (elapsed >= _workMinutes * 30 && mounted) {
-          tagId = await SystemTagPicker.show(context, title: '这次专注属于哪个维度？');
+          tagId = await SystemTagPicker.show(context, title: '选择本次专注的标签');
         }
       }
       try {
