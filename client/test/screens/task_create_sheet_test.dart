@@ -145,7 +145,7 @@ void main() {
     expect(find.text('更多设置'), findsOneWidget);
     expect(find.text('添加任务'), findsWidgets);
     final input = tester.widget<FxInput>(find.byType(FxInput).first);
-    expect(input.minLines, 3);
+    expect(input.minLines, 2);
     expect(input.maxLines, 6);
     expect(input.textInputAction, TextInputAction.newline);
 
