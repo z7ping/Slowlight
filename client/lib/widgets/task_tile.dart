@@ -1,5 +1,6 @@
 import '../ui/fx.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/semantics.dart';
 import '../models/task.dart';
 import '../theme/app_theme.dart';
@@ -126,7 +127,7 @@ class TaskTile extends StatelessWidget {
                   // 系统标签图标
                   if (task.systemTagId != null) ...[
                     const SizedBox(width: 4),
-                    Icon(Icons.label_outline,
+                    Icon(LucideIcons.tag,
                         size: 14, color: AppTheme.warmGray400),
                   ],
                 ],
@@ -164,7 +165,7 @@ class TaskTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            Icons.check_circle_outline,
+            LucideIcons.circleCheck,
             color: AppTheme.success,
           ),
         ),
@@ -177,7 +178,7 @@ class TaskTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            Icons.delete_outline,
+            LucideIcons.trash2,
             color: AppTheme.priorityHigh,
           ),
         ),
@@ -230,7 +231,7 @@ class TaskTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.check_circle_outline,
+                  LucideIcons.circleCheck,
                   color: AppTheme.success,
                 ),
               ),
@@ -243,7 +244,7 @@ class TaskTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.delete_outline,
+                  LucideIcons.trash2,
                   color: AppTheme.priorityHigh,
                 ),
               ),
@@ -380,7 +381,7 @@ class TaskTile extends StatelessWidget {
     // 清单名称
     if (task.list != null) {
       chips.add(_buildChip(
-        icon: Icons.folder_outlined,
+        icon: LucideIcons.folder,
         text: task.list!.name,
         color: AppTheme.warmGray500,
       ));
@@ -390,7 +391,7 @@ class TaskTile extends StatelessWidget {
     final dueText = _formatDueDate();
     if (dueText.isNotEmpty) {
       chips.add(_buildChip(
-        icon: Icons.schedule,
+        icon: LucideIcons.clock,
         text: dueText,
         color: isOverdue ? AppTheme.priorityHigh : AppTheme.warmGray500,
       ));
@@ -399,7 +400,7 @@ class TaskTile extends StatelessWidget {
     // 重复标记
     if (task.isRepeat) {
       chips.add(_buildChip(
-        icon: Icons.repeat,
+        icon: LucideIcons.repeat2,
         text: task.repeatText,
         color: AppTheme.primary,
       ));
@@ -408,7 +409,7 @@ class TaskTile extends StatelessWidget {
     // 提醒标记
     if (task.reminderAt != null) {
       chips.add(_buildChip(
-        icon: Icons.notifications_outlined,
+        icon: LucideIcons.bell,
         text: '已提醒',
         color: AppTheme.warning,
       ));
@@ -536,7 +537,7 @@ class TaskTile extends StatelessWidget {
               ),
               FxListTile(
                 leading:
-                    Icon(Icons.check_circle_outline, color: AppTheme.success),
+                    Icon(LucideIcons.circleCheck, color: AppTheme.success),
                 title: const Text('完成'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -545,7 +546,7 @@ class TaskTile extends StatelessWidget {
               ),
               FxListTile(
                 leading:
-                    Icon(Icons.delete_outline, color: AppTheme.priorityHigh),
+                    Icon(LucideIcons.trash2, color: AppTheme.priorityHigh),
                 title: const Text('删除'),
                 onTap: () async {
                   Navigator.pop(ctx);
