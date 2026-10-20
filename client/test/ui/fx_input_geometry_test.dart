@@ -82,6 +82,55 @@ void main() {
     }
   }
 
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('${platform.name} ${scale}x FxSelect 与 FxInput 共享表单尺寸', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        await tester.pumpWidget(
+          buildFxTestHost(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: child,
+            ),
+            home: const Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 280,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FxInput(placeholder: '任务名称'),
+                      FxSelect<String>(
+                        placeholder: '重复规则',
+                        options: [
+                          FxSelectOption(value: 'none', label: '不重复'),
+                          FxSelectOption(value: 'daily', label: '每天'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final inputHeight = tester.getSize(find.byType(FxInput)).height;
+        final selectHeight = tester.getSize(find.byType(FxSelect<String>)).height;
+        final minHeight = platform == TargetPlatform.android ? 44.0 : 36.0;
+        expect(inputHeight, greaterThanOrEqualTo(minHeight));
+        expect(selectHeight, greaterThanOrEqualTo(minHeight));
+        if (scale == 1.0) {
+          expect(selectHeight, closeTo(inputHeight, 2));
+        }
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
   testWidgets('搜索清空按钮出现和消失不引起输入框高度跳动', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     var showClear = false;
