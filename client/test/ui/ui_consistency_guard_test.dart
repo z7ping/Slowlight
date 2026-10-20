@@ -27,14 +27,17 @@ void main() {
     );
   });
 
-  test('多种标签来源共用 FxChoiceChip 选择视觉', () async {
+  test('所有标签入口由 TagChoiceField 唯一承载 FxChoiceChip 选择视觉', () async {
+    final shared = await File('lib/widgets/tag_choice_field.dart').readAsString();
+    expect(shared.contains('FxChoiceChip('), isTrue);
     for (final path in [
-      'lib/widgets/tag_choice_field.dart',
       'lib/widgets/tag_picker.dart',
       'lib/widgets/system_tag_picker.dart',
     ]) {
       final source = await File(path).readAsString();
-      expect(source.contains('FxChoiceChip('), isTrue, reason: path);
+      expect(source.contains('TagChoiceField('), isTrue, reason: path);
+      expect(source.contains('FxChoiceChip('), isFalse,
+          reason: '$path 不应重新自绘第二套标签 Chip');
     }
   });
 
