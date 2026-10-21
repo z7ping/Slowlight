@@ -15,6 +15,32 @@ class LocalListRepository {
     return maps.map(_fromMap).toList();
   }
 
+  /// 首次进入或升级时补齐唯一的默认收集箱，不修改已有清单。
+  Future<TodoList> ensureInbox() async {
+    final db = await _db.database;
+    return db.transaction((txn) async {
+      final existing = await txn.query(
+        'lists',
+        where: 'is_inbox = 1 AND deleted_at IS NULL',
+        limit: 1,
+      );
+      if (existing.isNotEmpty) return _fromMap(existing.first);
+
+      final now = DateTime.now().toUtc().toIso8601String();
+      final values = <String, dynamic>{
+        'name': '收集箱',
+        'icon': '📥',
+        'color': '#909399',
+        'sort_order': -1,
+        'is_inbox': 1,
+        'created_at': now,
+        'updated_at': now,
+      };
+      final id = await txn.insert('lists', values);
+      return _fromMap({...values, 'id': id});
+    });
+  }
+
   Future<TodoList?> getById(int id) async {
     final db = await _db.database;
     final maps = await db.query(
