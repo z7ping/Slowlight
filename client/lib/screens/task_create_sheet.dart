@@ -595,120 +595,183 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     }
   }
 
-  Widget _mobilePickerContent(BuildContext context) {
-    final isCalendar = _mobilePage == _MobileTaskPage.calendar;
-    final options = _mobileOptions();
-    final showSearch = (_mobilePage == _MobileTaskPage.list ||
-        _mobilePage == _MobileTaskPage.tag) && options.length >= 8;
-    final visible = _mobileQuery.isEmpty
-        ? options
-        : options.where(
-            (item) => item.label.toLowerCase().contains(_mobileQuery),
-          ).toList(growable: false);
-    final height = math.min(
-      MediaQuery.sizeOf(context).height * (isCalendar ? .68 : .55),
-      isCalendar ? 440.0 : 66.0 + (showSearch ? 58.0 : 0) +
-          visible.length * 48.0 +
-          (_mobilePage == _MobileTaskPage.date ? 12.0 : 0),
-    );
-    return SizedBox(
-      height: height,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(children: [
-            FxIconButton(
-              key: const ValueKey('task-picker-back'),
-              icon: LucideIcons.arrowLeft,
-              tooltip: '返回',
-              onPressed: _backMobilePage,
-            ),
-            const SizedBox(width: SlowlightSpacing.md),
-            Expanded(child: Text(
-              _mobilePageTitle,
-              style: SlowlightTypography.cardTitle(context),
-            )),
-            // 外层 FxSheet 已有关闭按钮，此处禁止重复绘制。
-            const SizedBox(width: 32),
-          ]),
-          const FxSeparator.horizontal(height: 12),
-          if (showSearch) ...[
-            FxInput(
-              key: ValueKey('task-picker-search-${_mobilePage!.name}'),
-              placeholder: _mobilePage == _MobileTaskPage.list
-                  ? '搜索清单' : '搜索标签',
-              leading: const Icon(
-                LucideIcons.search, size: SlowlightIconSize.sm,
-              ),
-              onChanged: (value) => setState(
-                () => _mobileQuery = value.trim().toLowerCase(),
-              ),
-            ),
-            const SizedBox(height: SlowlightSpacing.md),
-          ],
-          Expanded(
-            child: isCalendar
-                ? SingleChildScrollView(
-                    child: FxCalendar<Object>(
-                      firstDay: _today().subtract(const Duration(days: 365)),
-                      lastDay: _today().add(const Duration(days: 365 * 3)),
-                      focusedDay: _calendarFocusedDay,
-                      selectedDay: _dueDate,
-                      eventLoader: (_) => const <Object>[],
-                      onDaySelected: (day, focusedDay) => setState(() {
-                        _dueDate = DateTime(day.year, day.month, day.day);
-                        _calendarFocusedDay = focusedDay;
-                        _mobilePage = null;
-                      }),
-                      onPageChanged: (day) => setState(
-                        () => _calendarFocusedDay = day,
-                      ),
-                    ),
-                  )
-                : visible.isEmpty
-                    ? Center(child: Text('没有匹配项',
-                        style: SlowlightTypography.componentSecondary(context)))
-                    : ListView.builder(
-                        itemCount: visible.length,
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        itemBuilder: (context, index) {
-                          final option = visible[index];
-                          final selected = _selectedMobileValue() == option.value;
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (_mobilePage == _MobileTaskPage.date &&
-                                  index == visible.length - 1)
-                                const FxSeparator.horizontal(height: 12),
-                              FxListTile(
-                                density: FxListTileDensity.compact,
-                                minTileHeight: 48,
-                                title: option.label,
-                                leading: option.emoji == null
-                                    ? Icon(option.icon, size: SlowlightIconSize.md)
-                                    : Text(option.emoji!),
-                                iconColor: option.iconColor,
-                                trailing: selected
-                                    ? const Icon(LucideIcons.check,
-                                        size: SlowlightIconSize.md)
-                                    : option.opensPicker
-                                        ? const Icon(LucideIcons.chevronRight,
-                                            size: SlowlightIconSize.sm)
-                                        : null,
-                                selected: selected,
-                                selectedTileColor:
-                                    activePalette.accent.withValues(alpha: .08),
-                                onTap: () => _chooseMobileOption(option.value),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-          ),
-        ],
+  Widget _mobileOptionTile(
+    BuildContext context,
+    _QuickOption<Object> option, {
+    required bool compact,
+  }) {
+    final selected = _selectedMobileValue() == option.value;
+    return FxListTile(
+      key: ValueKey('task-picker-option-${_mobilePage!.name}-${option.value}'),
+      density: FxListTileDensity.compact,
+      minTileHeight: 48,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? SlowlightSpacing.md : SlowlightSpacing.xl,
+        vertical: compact ? SlowlightSpacing.xs : SlowlightSpacing.md,
       ),
+      title: Text(
+        option.label,
+        maxLines: compact ? 1 : 2,
+        overflow: TextOverflow.ellipsis,
+        style: SlowlightTypography.componentSecondary(context).copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      leading: option.emoji == null
+          ? Icon(option.icon, size: SlowlightIconSize.md)
+          : Text(option.emoji!),
+      iconColor: option.iconColor,
+      trailing: selected
+          ? const Icon(LucideIcons.check, size: SlowlightIconSize.md)
+          : option.opensPicker
+              ? const Icon(LucideIcons.chevronRight, size: SlowlightIconSize.sm)
+              : null,
+      selected: selected,
+      selectedTileColor: activePalette.accent.withValues(alpha: .08),
+      onTap: () => _chooseMobileOption(option.value),
+    );
+  }
+
+  Widget _mobilePickerContent(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCalendar = _mobilePage == _MobileTaskPage.calendar;
+        final options = _mobileOptions();
+        final showSearch = (_mobilePage == _MobileTaskPage.list ||
+            _mobilePage == _MobileTaskPage.tag) && options.length >= 8;
+        final visible = _mobileQuery.isEmpty
+            ? options
+            : options.where(
+                (item) => item.label.toLowerCase().contains(_mobileQuery),
+              ).toList(growable: false);
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        // 少量选项两列展示。字体增大或真实可用宽度不足时退回单列。
+        final twoColumns = !isCalendar && constraints.maxWidth >= 300 &&
+            textScale < 1.4 && visible.length <= 8;
+        final rows = twoColumns ? (visible.length + 1) ~/ 2 : visible.length;
+        final noTags = _mobilePage == _MobileTaskPage.tag &&
+            _availableTags.isEmpty && !_loadingTags && !_tagLoadFailed;
+        final height = math.min(
+          MediaQuery.sizeOf(context).height * (isCalendar ? .68 : .55),
+          isCalendar
+              ? 440.0
+              : (_mobilePage == _MobileTaskPage.tag &&
+                      (_loadingTags || _tagLoadFailed))
+                  ? 200.0
+                  : 66.0 +
+                      (showSearch ? 58.0 : 0) +
+                      (noTags ? 28.0 : 0) +
+                      rows * (twoColumns ? 56.0 : 56.0),
+        );
+
+        return SizedBox(
+          height: height,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                FxIconButton(
+                  key: const ValueKey('task-picker-back'),
+                  icon: LucideIcons.arrowLeft,
+                  tooltip: '返回',
+                  onPressed: _backMobilePage,
+                ),
+                const SizedBox(width: SlowlightSpacing.md),
+                Expanded(child: Text(
+                  _mobilePageTitle,
+                  style: SlowlightTypography.cardTitle(context),
+                )),
+                // FxSheet 负责唯一的关闭入口。
+                const SizedBox(width: 32),
+              ]),
+              const FxSeparator.horizontal(height: 12),
+              if (showSearch) ...[
+                FxInput(
+                  key: ValueKey('task-picker-search-${_mobilePage!.name}'),
+                  placeholder: _mobilePage == _MobileTaskPage.list
+                      ? '搜索清单' : '搜索标签',
+                  leading: const Icon(
+                    LucideIcons.search, size: SlowlightIconSize.sm,
+                  ),
+                  onChanged: (value) => setState(
+                    () => _mobileQuery = value.trim().toLowerCase(),
+                  ),
+                ),
+                const SizedBox(height: SlowlightSpacing.md),
+              ],
+              if (noTags)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
+                  child: Text(
+                    '暂无标签，可直接不选标签',
+                    style: SlowlightTypography.caption(context),
+                  ),
+                ),
+              Expanded(
+                child: isCalendar
+                    ? SingleChildScrollView(
+                        child: FxCalendar<Object>(
+                          firstDay: _today().subtract(const Duration(days: 365)),
+                          lastDay: _today().add(const Duration(days: 365 * 3)),
+                          focusedDay: _calendarFocusedDay,
+                          selectedDay: _dueDate,
+                          eventLoader: (_) => const <Object>[],
+                          onDaySelected: (day, focusedDay) => setState(() {
+                            _dueDate = DateTime(day.year, day.month, day.day);
+                            _calendarFocusedDay = focusedDay;
+                            _mobilePage = null;
+                          }),
+                          onPageChanged: (day) => setState(
+                            () => _calendarFocusedDay = day,
+                          ),
+                        ),
+                      )
+                    : _mobilePage == _MobileTaskPage.tag && _loadingTags
+                        ? const Center(child: FxCircularProgress())
+                        : _mobilePage == _MobileTaskPage.tag && _tagLoadFailed
+                            ? Center(child: _tagLoadNotice())
+                            : visible.isEmpty
+                                ? Center(child: Text(
+                                    '没有匹配项',
+                                    style: SlowlightTypography.componentSecondary(context),
+                                  ))
+                                : twoColumns
+                                    ? GridView.builder(
+                                        key: const ValueKey('task-picker-grid'),
+                                        padding: EdgeInsets.zero,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          crossAxisSpacing: SlowlightSpacing.md,
+                                          mainAxisSpacing: SlowlightSpacing.md,
+                                          mainAxisExtent: 48,
+                                        ),
+                                        itemCount: visible.length,
+                                        itemBuilder: (context, index) =>
+                                            _mobileOptionTile(
+                                              context,
+                                              visible[index],
+                                              compact: true,
+                                            ),
+                                      )
+                                    : ListView.builder(
+                                        key: const ValueKey('task-picker-list'),
+                                        padding: EdgeInsets.zero,
+                                        itemCount: visible.length,
+                                        keyboardDismissBehavior:
+                                            ScrollViewKeyboardDismissBehavior.onDrag,
+                                        itemBuilder: (context, index) =>
+                                            _mobileOptionTile(
+                                              context,
+                                              visible[index],
+                                              compact: false,
+                                            ),
+                                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
