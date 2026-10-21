@@ -136,9 +136,8 @@ class AuthService {
   static Future<void> _createDefaultLists() async {
     final listRepo = LocalListRepository();
     final existing = await listRepo.getAll();
-    if (existing.isNotEmpty) return;
-
-    final defaults = [
+    if (existing.isEmpty) {
+      final defaults = [
       {'name': '工作', 'icon': '💼', 'color': '#1890ff'},
       {'name': '生活', 'icon': '🏠', 'color': '#52c41a'},
       {'name': '学习', 'icon': '📚', 'color': '#722ed1'},
@@ -149,7 +148,9 @@ class AuthService {
         icon: item['icon']!,
         color: item['color']!,
       );
+      }
     }
+    await listRepo.ensureInbox();
   }
 
   /// 创建默认观察标签。它们保留用于兼容旧 task.system_tag_id，
