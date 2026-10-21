@@ -299,9 +299,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       child: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
-          return SizedBox(
-            width: 360,
-            child: Column(
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * .72,
+            ),
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: 360,
+                child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -411,6 +416,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   ],
                 ),
               ],
+                ),
+              ),
             ),
           );
         },
