@@ -31,6 +31,7 @@ class TodayReviewScreen extends StatefulWidget {
 class _TodayReviewScreenState extends State<TodayReviewScreen> {
   bool _loading = true;
   String? _error;
+  List<String> _partialUnavailable = const [];
   Map<String, dynamic> _review = {};
   List<ReflectionEntry> _reflections = const [];
   List<_TodayHabitFact> _todayHabitFacts = const [];
@@ -75,21 +76,28 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       setState(() {
         _loading = true;
         _error = null;
+        _partialUnavailable = const [];
       });
     }
     try {
+      final partialUnavailable = <String>[];
       final values = await Future.wait<dynamic>([
         ReviewApi.getTodayReview(),
-        ReflectionRepository()
-            .recent(limit: 30)
-            .catchError((_) => <ReflectionEntry>[]),
-        _loadTodayHabitFacts().catchError((_) => <_TodayHabitFact>[]),
+        ReflectionRepository().recent(limit: 30).catchError((_) {
+          partialUnavailable.add('回应记录');
+          return <ReflectionEntry>[];
+        }),
+        _loadTodayHabitFacts().catchError((_) {
+          partialUnavailable.add('习惯明细');
+          return <_TodayHabitFact>[];
+        }),
       ]);
       if (!mounted) return;
       setState(() {
         _review = values[0] as Map<String, dynamic>;
         _reflections = values[1] as List<ReflectionEntry>;
         _todayHabitFacts = values[2] as List<_TodayHabitFact>;
+        _partialUnavailable = partialUnavailable;
         _loading = false;
       });
     } catch (e) {
@@ -271,6 +279,28 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_partialUnavailable.isNotEmpty) ...[
+                    FxCard(
+                      expanded: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '部分记录暂时无法加载：${_partialUnavailable.join('、')}',
+                            style: SlowlightTypography.secondary(context),
+                          ),
+                          const SizedBox(height: 8),
+                          FxButton(
+                            label: '重新加载',
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _load,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   _snapshotCard(facts),
                   const SizedBox(height: 16),
                   LayoutBuilder(
