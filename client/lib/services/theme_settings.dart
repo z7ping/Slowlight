@@ -16,6 +16,8 @@ class ThemeSettings extends ChangeNotifier {
   static const _keyPalette = 'theme_palette';
 
   double _fontScale = 1.0;
+  Future<void> _fontScaleWriteTail = Future<void>.value();
+  int _fontScaleRevision = 0;
   ThemeMode _themeMode = ThemeMode.system;
   String _fontFamily = ''; // 加载后由 _resolveFontFamily 处理
   String _palette = 'zinc'; // 当前配色方案
@@ -107,15 +109,26 @@ class ThemeSettings extends ChangeNotifier {
   /// 即时生效；本机写入失败时恢复先前的可见状态。
   Future<void> setFontScale(double scale) async {
     final previous = _fontScale;
-    _fontScale = PlatformFont.isAndroid
+    final target = PlatformFont.isAndroid
         ? scale.clamp(1.0, 1.25).toDouble()
         : scale.clamp(0.85, 1.25).toDouble();
+    final revision = ++_fontScaleRevision;
+    _fontScale = target;
     notifyListeners();
+    // 拖动滑块时连续写入按触发顺序串行化，旧请求不能覆盖新值。
+    final pending = _fontScaleWriteTail.then((_) =>
+        _persist((prefs) => prefs.setDouble(_keyFontSize, target)));
+    _fontScaleWriteTail = pending.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
     try {
-      await _persist((prefs) => prefs.setDouble(_keyFontSize, _fontScale));
+      await pending;
     } catch (_) {
-      _fontScale = previous;
-      notifyListeners();
+      if (revision == _fontScaleRevision) {
+        _fontScale = previous;
+        notifyListeners();
+      }
       rethrow;
     }
   }
@@ -169,6 +182,7 @@ class ThemeSettings extends ChangeNotifier {
   }
 
   Future<void> resetToDefaults() async {
+    await _fontScaleWriteTail;
     final previousScale = _fontScale;
     final previousMode = _themeMode;
     final previousFamily = _fontFamily;
