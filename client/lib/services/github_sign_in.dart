@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api_service.dart';
@@ -70,6 +71,58 @@ class GitHubSignIn {
     return tryLaunch(authUrl, LaunchMode.externalApplication);
   }
 
+  /// Android 从浏览器恢复时，系统网络和 DNS 可能尚未就绪。
+  /// 只重试传输层故障，不能重试授权拒绝、会话过期等服务端错误。
+  @visibleForTesting
+  static bool isTransientNetworkFailure(Object error) {
+    if (error is TimeoutException || error is http.ClientException) {
+      return true;
+    }
+    final message = error.toString().toLowerCase();
+    return message.contains('socketexception') ||
+        message.contains('failed host lookup') ||
+        message.contains('network is unreachable') ||
+        message.contains('connection reset') ||
+        message.contains('connection refused');
+  }
+
+  /// poll 是一次性领取 JWT 的 POST，超时/断链可能已被服务端消费。
+  /// 仅 DNS 失败等确认请求未送达的错误允许重试。
+  @visibleForTesting
+  static bool isSafeToRetryPoll(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('failed host lookup') ||
+        message.contains('network is unreachable') ||
+        message.contains('connection refused') ||
+        message.contains('no route to host');
+  }
+
+  static String describeError(Object error) {
+    if (!isTransientNetworkFailure(error)) return error.toString();
+    final host = Uri.parse(ApiService.baseUrl).host;
+    return '无法连接云端服务（$host），请检查网络和 DNS 解析，'
+        '或确认服务器域名配置后重试。';
+  }
+
+  @visibleForTesting
+  static Future<Map<String, dynamic>?> pollWithNetworkRetry({
+    required Future<Map<String, dynamic>> Function() request,
+    required bool Function() shouldContinue,
+    Future<void> Function(Duration)? delay,
+  }) async {
+    for (var attempt = 1; attempt <= 4; attempt++) {
+      if (!shouldContinue()) return null;
+      try {
+        return await request();
+      } catch (error) {
+        if (!isSafeToRetryPoll(error) || attempt == 4) rethrow;
+        const pause = Duration(seconds: 2);
+        await (delay?.call(pause) ?? Future<void>.delayed(pause));
+      }
+    }
+    return null;
+  }
+
   static Future<bool> signIn({
     required bool Function() shouldContinue,
     bool linkExisting = false,
@@ -112,11 +165,14 @@ class GitHubSignIn {
         await resumeObserver.waitUntilPoll();
         if (!shouldContinue()) return false;
 
-        final result = await ApiService.post('/auth/github/poll', body: {
-          'session_id': sessionId,
-          'poll_token': pollToken,
-        });
-        if (!shouldContinue()) return false;
+        final result = await pollWithNetworkRetry(
+          request: () => ApiService.post('/auth/github/poll', body: {
+            'session_id': sessionId,
+            'poll_token': pollToken,
+          }),
+          shouldContinue: shouldContinue,
+        );
+        if (!shouldContinue() || result == null) return false;
         if (result['status'] == 'pending') continue;
         if (result['status'] == 'complete') {
           await AuthService.completeOAuthLogin(result);
