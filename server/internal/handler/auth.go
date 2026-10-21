@@ -124,6 +124,7 @@ func (h *AuthHandler) GetLinkedProviders(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取绑定状态失败"})
 		return
 	}
+	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, gin.H{"github": count > 0})
 }
 
