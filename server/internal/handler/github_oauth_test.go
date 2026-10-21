@@ -182,3 +182,65 @@ func TestGitHubOAuthExplicitAccountLink(t *testing.T) {
 	db.Model(&model.User{}).Where("username = ?", "github_"+strconv.FormatInt(66554433, 10)).Count(&count)
 	if count != 0 { t.Fatal("绑定不能创建额外 Slowlight 用户") }
 }
+
+
+func TestGitHubOAuthAndroidReturnDoesNotLeakCredentials(t *testing.T) {
+	db := beginTx(t, setupTestDB(t))
+	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
+	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
+	t.Setenv("GITHUB_OAUTH_CALLBACK_URL", "https://example.org/api/auth/github/callback")
+	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/token") {
+			io.WriteString(w, `{"access_token":"sensitive-token"}`)
+		} else {
+			io.WriteString(w, `{"id":77665544,"login":"mobileuser"}`)
+		}
+	}))
+	defer mock.Close()
+
+	h := NewGitHubOAuthHandler(db)
+	h.TokenURL, h.UserURL = mock.URL+"/token", mock.URL+"/user"
+	r := newTestGin()
+	r.POST("/start", h.Start)
+	r.GET("/callback", h.Callback)
+
+	bad := testOAuthRequest(t, r, "/start", map[string]string{"platform": "unknown"})
+	if bad.Code != http.StatusBadRequest {
+		t.Fatalf("未知平台应拒绝: %d", bad.Code)
+	}
+
+	start := testOAuthRequest(t, r, "/start", map[string]string{"platform": "android"})
+	if start.Code != http.StatusOK { t.Fatalf("Android start %d: %s", start.Code, start.Body.String()) }
+	grant := parseOAuthBody(t, start)
+	u, err := url.Parse(grant["authorization_url"].(string))
+	if err != nil { t.Fatal(err) }
+	state := u.Query().Get("state")
+	if !strings.HasPrefix(state, "android_") { t.Fatal("Android 状态标识缺失") }
+
+	callback := httptest.NewRecorder()
+	r.ServeHTTP(callback, httptest.NewRequest(http.MethodGet,
+		"/callback?state="+url.QueryEscape(state)+"&code=mobile-code", nil))
+	if callback.Code != http.StatusOK { t.Fatalf("Android callback %d: %s", callback.Code, callback.Body.String()) }
+	page := callback.Body.String()
+	if !strings.Contains(page, "slowlight://oauth-complete") {
+		t.Fatal("授权成功页面未提供返回 Slowlight 入口")
+	}
+	for _, secret := range []string{"sensitive-token", "mobile-code", state, grant["poll_token"].(string), grant["session_id"].(string)} {
+		if strings.Contains(page, secret) {
+			t.Fatal("Android 返回页不能暴露任何授权凭据")
+		}
+	}
+	if callback.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("回跳页不能缓存")
+	}
+	if callback.Header().Get("Referrer-Policy") != "no-referrer" {
+		t.Fatal("回跳页应禁止 referrer 泄露")
+	}
+}
+
+func TestGitHubOAuthDesktopReturnPageDoesNotUseDeepLink(t *testing.T) {
+	if strings.Contains(desktopOAuthReturnHTML, "slowlight://") {
+		t.Fatal("Windows 不应出现未经安装器注册的 Android deep link")
+	}
+}
