@@ -164,8 +164,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       final remaining = _remainingFromSession();
       if (remaining <= 0) {
         setState(() => _remainingSeconds = 0);
-        _timer?.cancel();
-        unawaited(_finishNaturally());
+        // 正在等待暂停/恢复确认时不能并发结束同一会话。
+        if (!_sessionTransitioning) {
+          _timer?.cancel();
+          unawaited(_finishNaturally());
+        }
         return;
       }
       setState(() => _remainingSeconds = remaining);
