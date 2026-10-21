@@ -74,18 +74,19 @@ void main() {
       'paused_duration_sec': 300,
     }, where: 'id = ?', whereArgs: [id]);
 
-    final paused = await repository.pauseSession(id);
+    final paused = await repository.pauseSession(id, 0);
     final pauseDate = (paused['session'] as Map)['paused_at'];
     expect(pauseDate, isNotNull);
     final repeated = await repository.pauseSession(id);
     expect((repeated['session'] as Map)['paused_at'], pauseDate);
 
-    final resumed = await repository.resumeSession(id);
+    final resumed = await repository.resumeSession(id, 1);
     expect((resumed['session'] as Map)['paused_at'], isNull);
     final repeatedResume = await repository.resumeSession(id);
     expect((repeatedResume['session'] as Map)['paused_duration_seconds'],
         (resumed['session'] as Map)['paused_duration_seconds']);
 
+    await expectLater(repository.pauseSession(id, 0), throwsStateError);
     final ended = await repository.endSession();
     final seconds = ended['duration'] as int;
     expect(seconds, inInclusiveRange(470, 490));
@@ -121,6 +122,7 @@ void main() {
     expect(rows, hasLength(1));
     expect(rows.single['duration_sec'], 60);
     expect(rows.single['paused_duration_sec'], 0);
+    expect(rows.single['revision'], 0);
     expect(rows.single['paused_at'], isNull);
   });
 
