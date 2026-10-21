@@ -38,9 +38,17 @@ class CloudSyncCoordinator {
 
   Future<void> start() async {
     if (!DataModeManager().isCloud) return;
-    _generation++;
+    final generation = ++_generation;
+    final user = await AuthService.getUser();
+    final accountId = user?.id;
+    if (accountId == null || accountId <= 0 ||
+        !await _isRunValid(accountId: accountId, generation: generation)) {
+      return;
+    }
     await SyncService().init(startPeriodic: false);
+    if (!await _isRunValid(accountId: accountId, generation: generation)) return;
     await refreshStandalonePendingCount();
+    if (!await _isRunValid(accountId: accountId, generation: generation)) return;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(minutes: 5), (_) {
       unawaited(syncNow());
