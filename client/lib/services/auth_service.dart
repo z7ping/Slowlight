@@ -138,16 +138,16 @@ class AuthService {
     final existing = await listRepo.getAll();
     if (existing.isEmpty) {
       final defaults = [
-      {'name': '工作', 'icon': '💼', 'color': '#1890ff'},
-      {'name': '生活', 'icon': '🏠', 'color': '#52c41a'},
-      {'name': '学习', 'icon': '📚', 'color': '#722ed1'},
-    ];
-    for (final item in defaults) {
-      await listRepo.create(
-        name: item['name']!,
-        icon: item['icon']!,
-        color: item['color']!,
-      );
+        {'name': '工作', 'icon': '💼', 'color': '#1890ff'},
+        {'name': '生活', 'icon': '🏠', 'color': '#52c41a'},
+        {'name': '学习', 'icon': '📚', 'color': '#722ed1'},
+      ];
+      for (final item in defaults) {
+        await listRepo.create(
+          name: item['name']!,
+          icon: item['icon']!,
+          color: item['color']!,
+        );
       }
     }
     await listRepo.ensureInbox();
