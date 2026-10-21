@@ -188,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
         FxButton(
           key: const ValueKey('login.github_action'),
           label: '使用 GitHub 继续',
-          icon: LucideIcons.github,
+          icon: LucideIcons.gitFork,
           expanded: true,
           size: FxButtonSize.lg,
           variant: FxButtonVariant.outline,
@@ -204,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: SlowlightSpacing.sm),
+          const SizedBox(height: SlowlightSpacing.md),
           FxButton(
             key: const ValueKey('login.github_cancel'),
             label: '取消授权等待',

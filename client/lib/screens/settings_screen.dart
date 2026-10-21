@@ -176,12 +176,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           FxButton(
                                             key: const ValueKey('settings.github_link'),
                                             label: _linkingGitHub ? '等待 GitHub 授权…' : '绑定 GitHub',
-                                            icon: LucideIcons.github,
+                                            icon: LucideIcons.gitFork,
                                             variant: FxButtonVariant.outline,
                                             onPressed: _linkingGitHub ? null : _bindGitHub,
                                           ),
                                           if (_linkingGitHub) ...[
-                                            const SizedBox(height: SlowlightSpacing.sm),
+                                            const SizedBox(height: SlowlightSpacing.md),
                                             FxButton(
                                               label: '取消授权等待',
                                               variant: FxButtonVariant.link,
