@@ -1250,6 +1250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       if (toLocal) {
         await manager.setLocal();
+        authStateNotifier.value = !authStateNotifier.value;
       } else {
         final loggedIn = await AuthService.isLoggedIn();
         if (!mounted) return;
@@ -1262,6 +1263,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (!mounted || manager.isLocal) return;
         } else {
           await manager.setCloud();
+          authStateNotifier.value = !authStateNotifier.value;
         }
       }
       if (!mounted) return;
@@ -1281,12 +1283,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _syncNow() async {
-    if (_syncing || DataModeManager().isLocal || _accountCredentialExpired ||
-        _loadingAccount || _accountUser == null) return;
+    if (_syncing || _switchingMode || DataModeManager().isLocal ||
+        _accountCredentialExpired || _loadingAccount || _accountUser == null) return;
+    final accountId = _accountUser!.id;
     setState(() => _syncing = true);
     try {
       final ok = await CloudSyncCoordinator().syncNow();
-      if (!mounted) return;
+      final currentUser = await AuthService.getUser();
+      if (!mounted || DataModeManager().isLocal || currentUser?.id != accountId) return;
       await _loadConflictCount();
       if (mounted) {
         final sync = SyncService();
