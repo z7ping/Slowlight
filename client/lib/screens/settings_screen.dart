@@ -316,7 +316,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     try {
       // 只接收当前账号这一轮的查询结果；换账号不显示旧冲突数量。
+      final credentialValid = await AuthService.isLoggedIn();
       final userBefore = await AuthService.getUser();
+      if (!credentialValid || userBefore == null) {
+        if (mounted && version == _conflictLoadVersion && DataModeManager().isCloud) {
+          setState(() {
+            _conflictCount = 0;
+            _conflictCheckFailed = true;
+            _checkingConflicts = false;
+          });
+        }
+        return;
+      }
       final conflicts = await SyncService().getAllConflicts();
       final userAfter = await AuthService.getUser();
       if (!mounted || version != _conflictLoadVersion ||
@@ -476,6 +487,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _dataSummary() {
     if (DataModeManager().isLocal) return '本地独立使用 · 无需云端';
+    if (_accountCredentialExpired) return '云同步 · 登录凭据已过期';
+    if (!_loadingAccount && _accountUser == null) return '云同步 · 账号状态待确认';
     final sync = SyncService();
     return cloudSyncSummary(
       status: sync.status,
@@ -848,7 +861,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: _syncing ? '同步中…' : '立即同步',
               variant: FxButtonVariant.outline,
               size: FxButtonSize.sm,
-              onPressed: _syncing ? null : _syncNow,
+              onPressed: _syncing || _accountCredentialExpired ||
+                      _loadingAccount || _accountUser == null
+                  ? null : _syncNow,
             ),
           ),
           _settingLine(
@@ -872,7 +887,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
-        if (SyncService().lastError?.isNotEmpty == true)
+        if (!local && SyncService().lastError?.isNotEmpty == true)
           _settingLine(
             '同步失败原因',
             SyncService().lastError!,
@@ -880,7 +895,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: '重试同步',
               variant: FxButtonVariant.outline,
               size: FxButtonSize.sm,
-              onPressed: _syncing ? null : _syncNow,
+              onPressed: _syncing || _accountCredentialExpired ||
+                      _loadingAccount || _accountUser == null
+                  ? null : _syncNow,
             ),
           ),
         _settingLine(
@@ -1206,6 +1223,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted && version == _githubLinkVersion) {
         setState(() => _linkingGitHub = false);
+      } else if (mounted && DataModeManager().isCloud) {
+        // 客户端取消等待不等于服务端授权撤销；以服务端绑定状态重新检查。
+        await _loadAccount();
       }
     }
   }
@@ -1261,7 +1281,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _syncNow() async {
-    if (_syncing || DataModeManager().isLocal) return;
+    if (_syncing || DataModeManager().isLocal || _accountCredentialExpired ||
+        _loadingAccount || _accountUser == null) return;
     setState(() => _syncing = true);
     try {
       final ok = await CloudSyncCoordinator().syncNow();
