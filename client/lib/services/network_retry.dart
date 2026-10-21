@@ -81,6 +81,8 @@ abstract final class NetworkRetry {
       try {
         return await request().timeout(remaining);
       } catch (error) {
+        // 用户已主动取消时不再弹出过期的网络错误。
+        if (!shouldContinue()) return null;
         if (!canRetry(error) || attempt == policy.maxAttempts) rethrow;
         if (!shouldContinue()) return null;
         final backoff = policy.delayAfter(
