@@ -173,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       label: '邮箱',
-                    placeholder: '请输入邮箱',
+                      placeholder: '请输入邮箱',
                     ),
                   ],
                   const SizedBox(height: SlowlightSpacing.xxxl),
@@ -190,10 +190,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     autocorrect: false,
                     trailing: FxIconButton(
                       tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                      onPressed:
-                          () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
+                      onPressed: _isLoading
+                          ? null
+                          : () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                       icon:
                           _obscurePassword
                               ? LucideIcons.eye
@@ -213,15 +214,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                   const SizedBox(height: SlowlightSpacing.page),
-                  SizedBox(
+                  ConstrainedBox(
                     key: const ValueKey('login.primary_action'),
-                    width: double.infinity,
-                    height: SlowlightPlatformDensity.usesMobileTouchTargets ? 52 : 44,
-                    child: FxButton(
+                    constraints: BoxConstraints(
+                      minHeight: SlowlightPlatformDensity.usesMobileTouchTargets
+                          ? 52
+                          : SlowlightControlSize.minTouchTarget,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FxButton(
                       label: _isLoading ? '处理中…' : _isLogin ? '登录' : '创建账号',
                       size: FxButtonSize.lg,
                       expanded: true,
                       onPressed: _isLoading ? null : _submit,
+                      ),
                     ),
                   ),
                   const SizedBox(height: SlowlightSpacing.md),
