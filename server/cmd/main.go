@@ -43,6 +43,12 @@ func main() {
 	})
 
 	authHandler := handler.NewAuthHandler(db)
+	githubAuth := handler.NewGitHubOAuthHandler(db)
+	// OAuth 回调由 GitHub 浏览器访问；客户端通过一次性凭据领取登录结果。
+	r.POST("/api/auth/github/start", githubAuth.Start)
+	r.GET("/api/auth/github/callback", githubAuth.Callback)
+	r.POST("/api/auth/github/poll", githubAuth.Poll)
+	r.POST("/api/auth/github/link/start", handler.AuthMiddleware(), githubAuth.LinkStart)
 	r.POST("/api/auth/register", authHandler.Register)
 	r.POST("/api/auth/login", authHandler.Login)
 
