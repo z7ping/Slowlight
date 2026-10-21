@@ -160,7 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = _accountUser;
     return user == null
         ? '云端账号 · 信息待确认'
-        : '${user.nickname ?? user.username} · 云端';
+        : '${user.nickname ?? user.username ?? '云端账号'} · 云端';
   }
 
   Widget _accountPanel() {
