@@ -335,31 +335,16 @@ class LocalApiService implements ApiDataSource {
 
   @override
   Future<Map<String, dynamic>> getInbox() async {
-    final lists = await _listRepo.getAll();
-    final inboxList = lists.where((l) => l.isInbox).toList();
-    if (inboxList.isEmpty) return {'tasks': [], 'count': 0};
-    final tasks = await _taskRepo.getByListId(inboxList.first.id);
+    final inbox = await _listRepo.ensureInbox();
+    final tasks = await _taskRepo.getByListId(inbox.id);
     return {'tasks': tasks, 'count': tasks.length};
   }
 
   @override
   Future<Task> quickAddToInbox(String title, {int? systemTagId}) async {
-    final lists = await _listRepo.getAll();
-    var inboxList = lists.where((l) => l.isInbox).toList();
-    if (inboxList.isEmpty && systemTagId != null && lists.isNotEmpty) {
-      inboxList = [lists.first];
-    }
-    if (inboxList.isEmpty) {
-      final created = await _listRepo.create(
-        name: '收集箱',
-        icon: '📥',
-        color: '#722ed1',
-        isInbox: true,
-      );
-      inboxList = [created];
-    }
+    final inbox = await _listRepo.ensureInbox();
     return _taskRepo.create(
-      listId: inboxList.first.id,
+      listId: inbox.id,
       title: title,
       systemTagId: systemTagId,
     );
