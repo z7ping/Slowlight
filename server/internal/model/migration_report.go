@@ -10,5 +10,6 @@ type MigrationReport struct {
 	Status         string    `json:"status" gorm:"size:20;not null;default:succeeded"`
 	Fingerprint    string    `json:"-" gorm:"size:64;index:idx_migration_report_fingerprint"`
 	Created        string    `json:"created" gorm:"type:text;not null"`
+	IDMap          string    `json:"-" gorm:"type:text"` // Replay mapping; do not expose via audit API
 	CreatedAt      time.Time `json:"created_at"`
 }

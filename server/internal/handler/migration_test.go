@@ -93,3 +93,48 @@ func TestExecuteMigrationCreatesCoreEntities(t *testing.T) {
 		t.Fatalf("专注记录关联未迁移: session=%#v err=%v", session, err)
 	}
 }
+
+func TestMigrationReportStoresReplayMap(t *testing.T) {
+	db := setupTestDB(t)
+	if !db.Migrator().HasColumn(&model.MigrationReport{}, "id_map") {
+		t.Fatal("missing migration id_map column")
+	}
+}
+
+func TestMigrationRetryReusesIDMap(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	user := createTestUser(t, tx)
+	router := migrationRouter(NewMigrationHandler(tx), user.ID)
+	name := uniqueName("迁移重试")
+	body, _ := json.Marshal(map[string]interface{}{
+		"lists": []map[string]interface{}{{"id": 91, "name": name}},
+	})
+	execute := func() (int, map[string]interface{}) {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost, "/migration/execute", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(w, req)
+		var response map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil { t.Fatal(err) }
+		return w.Code, response
+	}
+	code1, first := execute()
+	code2, second := execute()
+	if code1 != http.StatusOK || code2 != http.StatusOK {
+		t.Fatalf("migration status %d / %d: %v", code1, code2, second)
+	}
+	ids1 := first["id_map"].(map[string]interface{})["lists"].(map[string]interface{})
+	ids2 := second["id_map"].(map[string]interface{})["lists"].(map[string]interface{})
+	if ids1["91"] != ids2["91"] || ids1["91"] == nil {
+		t.Fatalf("id map lost on retry: %v / %v", ids1, ids2)
+	}
+	var count int64
+	tx.Model(&model.List{}).Where("user_id = ? AND name = ?", user.ID, name).Count(&count)
+	if count != 1 { t.Fatalf("repeated insert: %d", count) }
+	// Reports created before ID mapping was persisted must not pretend to replay.
+	if err := tx.Model(&model.MigrationReport{}).Where("user_id = ?", user.ID).
+		Update("id_map", "").Error; err != nil { t.Fatal(err) }
+	code3, _ := execute()
+	if code3 != http.StatusConflict { t.Fatalf("legacy report should return 409, got %d", code3) }
+}

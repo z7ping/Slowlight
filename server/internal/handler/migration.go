@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -149,28 +150,52 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "迁移数据格式无效"})
 		return
 	}
-	snapshotJSON, _ := json.Marshal(snapshot)
+	snapshotJSON, err := json.Marshal(snapshot)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "迁移数据格式无效"})
+		return
+	}
 	fingerprint := fmt.Sprintf("%x", sha256.Sum256(snapshotJSON))
-	var previous model.MigrationReport
-	if h.DB.Where("user_id = ? AND fingerprint = ?", userID, fingerprint).First(&previous).Error == nil {
-		var created map[string]int
-		_ = json.Unmarshal([]byte(previous.Created), &created)
-		c.JSON(http.StatusOK, gin.H{"message": "相同迁移已完成", "created": created, "report": previous, "id_map": gin.H{}})
-		return
-	}
-	conflicts := make([]MigrationConflict, 0)
-	h.collectListConflicts(userID, snapshot.Lists, &conflicts)
-	h.collectNamedConflicts(userID, "tag", snapshot.Tags, &conflicts)
-	h.collectNamedConflicts(userID, "system_tag", snapshot.SystemTags, &conflicts)
-	h.collectHabitConflicts(userID, snapshot.Habits, &conflicts)
-	if len(conflicts) > 0 && snapshot.ConflictPolicy != "both" && snapshot.ConflictPolicy != "cloud" && snapshot.ConflictPolicy != "local" {
-		c.JSON(http.StatusConflict, gin.H{"error": "存在未处理冲突", "conflicts": conflicts})
-		return
-	}
+	var report model.MigrationReport
+	var created map[string]int
+	var idMap interface{}
+	var replayed bool
+	var conflicts []MigrationConflict
+	errUnresolvedConflict := errors.New("存在未处理冲突")
+	errMissingIDMap := errors.New("历史迁移报告缺少 ID 映射，已阻止重复导入，请先备份并核对云端数据")
 
 	listIDs, tagIDs, systemTagIDs, habitIDs, taskIDs, subtaskIDs, logIDs, sessionIDs := map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}
 	logCount, sessionCount := 0, 0
-	err := h.DB.Transaction(func(tx *gorm.DB) error {
+	err = h.DB.Transaction(func(tx *gorm.DB) error {
+		// Lock the account across the lookup and commit so concurrent retries cannot duplicate data.
+		if tx.Dialector.Name() == "postgres" {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(userID)).Error; err != nil {
+				return err
+			}
+		}
+		var previous model.MigrationReport
+		if err := tx.Where("user_id = ? AND fingerprint = ?", userID, fingerprint).First(&previous).Error; err == nil {
+			var priorCreated map[string]int
+			var priorIDMap map[string]map[string]uint
+			if previous.IDMap == "" || json.Unmarshal([]byte(previous.IDMap), &priorIDMap) != nil ||
+				json.Unmarshal([]byte(previous.Created), &priorCreated) != nil || priorIDMap == nil {
+				return errMissingIDMap
+			}
+			report, created, idMap, replayed = previous, priorCreated, priorIDMap, true
+			return nil
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		conflicts = make([]MigrationConflict, 0)
+		locked := MigrationHandler{DB: tx}
+		locked.collectListConflicts(userID, snapshot.Lists, &conflicts)
+		locked.collectNamedConflicts(userID, "tag", snapshot.Tags, &conflicts)
+		locked.collectNamedConflicts(userID, "system_tag", snapshot.SystemTags, &conflicts)
+		locked.collectHabitConflicts(userID, snapshot.Habits, &conflicts)
+		if len(conflicts) > 0 && snapshot.ConflictPolicy != "both" &&
+			snapshot.ConflictPolicy != "cloud" && snapshot.ConflictPolicy != "local" {
+			return errUnresolvedConflict
+		}
 		if snapshot.ConflictPolicy == "local" {
 			for _, item := range snapshot.Lists {
 				if err := h.backupMigrationName(tx, userID, "lists", item.Name); err != nil {
@@ -400,20 +425,37 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 			sessionIDs[item.LocalID] = row.ID
 			sessionCount++
 		}
-		return nil
+		created = map[string]int{"lists": len(listIDs), "tags": len(tagIDs), "system_tags": len(systemTagIDs), "habits": len(habitIDs), "tasks": len(taskIDs), "subtasks": len(subtaskIDs), "habit_logs": logCount, "sessions": sessionCount}
+		createdJSON, err := json.Marshal(created)
+		if err != nil {
+			return err
+		}
+		idMap = gin.H{"lists": listIDs, "tags": tagIDs, "system_tags": systemTagIDs, "habits": habitIDs, "tasks": taskIDs, "subtasks": subtaskIDs, "habit_logs": logIDs, "sessions": sessionIDs}
+		idMapJSON, err := json.Marshal(idMap)
+		if err != nil {
+			return err
+		}
+		// Commit business entities and replay receipt in the same transaction.
+		report = model.MigrationReport{UserID: userID, ConflictPolicy: snapshot.ConflictPolicy, Status: "succeeded", Fingerprint: fingerprint, Created: string(createdJSON), IDMap: string(idMapJSON)}
+		return tx.Create(&report).Error
 	})
 	if err != nil {
+		if errors.Is(err, errUnresolvedConflict) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error(), "conflicts": conflicts})
+			return
+		}
+		if errors.Is(err, errMissingIDMap) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "迁移执行失败: " + err.Error()})
 		return
 	}
-	created := map[string]int{"lists": len(listIDs), "tags": len(tagIDs), "system_tags": len(systemTagIDs), "habits": len(habitIDs), "tasks": len(taskIDs), "subtasks": len(subtaskIDs), "habit_logs": logCount, "sessions": sessionCount}
-	createdJSON, _ := json.Marshal(created)
-	report := model.MigrationReport{UserID: userID, ConflictPolicy: snapshot.ConflictPolicy, Status: "succeeded", Fingerprint: fingerprint, Created: string(createdJSON)}
-	if err := h.DB.Create(&report).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "迁移报告保存失败"})
-		return
+	message := "数据迁移完成"
+	if replayed {
+		message = "相同迁移已完成"
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "数据迁移完成", "created": created, "report": report, "id_map": gin.H{"lists": listIDs, "tags": tagIDs, "system_tags": systemTagIDs, "habits": habitIDs, "tasks": taskIDs, "subtasks": subtaskIDs, "habit_logs": logIDs, "sessions": sessionIDs}})
+	c.JSON(http.StatusOK, gin.H{"message": message, "created": created, "report": report, "id_map": idMap})
 }
 
 func (h *MigrationHandler) GetLatestReport(c *gin.Context) {
