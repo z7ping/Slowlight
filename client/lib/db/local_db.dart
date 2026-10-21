@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 15,
+        version: 16,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -496,6 +496,19 @@ class LocalDb {
     if (oldVersion < 15) {
       await UnifiedTagSchema.ensureTables(db);
     }
+    if (oldVersion < 16) {
+      final columns = await db.rawQuery('PRAGMA table_info(work_sessions)');
+      final names = columns.map((column) => column['name']).toSet();
+      if (!names.contains('paused_at')) {
+        await db.execute('ALTER TABLE work_sessions ADD COLUMN paused_at TEXT');
+      }
+      if (!names.contains('paused_duration_sec')) {
+        await db.execute('ALTER TABLE work_sessions ADD COLUMN paused_duration_sec INTEGER NOT NULL DEFAULT 0');
+      }
+      if (!names.contains('revision')) {
+        await db.execute('ALTER TABLE work_sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+      }
+    }
   }
 
   Future<void> _createWorkSessionsTable(Database db) async {
@@ -507,6 +520,9 @@ class LocalDb {
         started_at TEXT NOT NULL,
         ended_at TEXT,
         duration_sec INTEGER DEFAULT 0,
+        paused_at TEXT,
+        paused_duration_sec INTEGER NOT NULL DEFAULT 0,
+        revision INTEGER NOT NULL DEFAULT 0,
         device TEXT DEFAULT '',
         system_tag_id INTEGER,
         created_at TEXT NOT NULL

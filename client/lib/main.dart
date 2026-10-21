@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -290,6 +291,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _isLoading = true;
   bool _hasAccess = false;
+  bool _authCheckFailed = false;
   int _authCheckGeneration = 0;
 
   @override
@@ -311,34 +313,40 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkAuth() async {
     final generation = ++_authCheckGeneration;
     var hasAccess = false;
-    if (DataModeManager().isLocal) {
-      CloudSyncCoordinator().stop();
-      await AuthService.initLocalUser();
-      hasAccess = true;
-    } else {
-      hasAccess = await AuthService.isLoggedIn();
-      if (hasAccess) {
-        try {
-          ApiService.validateCloudEndpoint();
-        } catch (_) {
-          hasAccess = false;
-        }
-      }
-      if (hasAccess) {
-        try {
-          await CloudSyncCoordinator().start();
-          // 首次进入 Cloud 不阻塞页面；先处理离线意图，再 push/pull。
-          unawaited(CloudSyncCoordinator().syncNow());
-        } catch (_) {
-          // Cloud Cache 初始化失败不应让一个有效的在线登录失效。
-        }
-      } else {
+    var checkFailed = false;
+    try {
+      if (DataModeManager().isLocal) {
         CloudSyncCoordinator().stop();
+        await AuthService.initLocalUser();
+        hasAccess = true;
+      } else {
+        hasAccess = await AuthService.isLoggedIn();
+        if (hasAccess) {
+          try {
+            ApiService.validateCloudEndpoint();
+          } catch (_) {
+            hasAccess = false;
+          }
+        }
+        if (hasAccess) {
+          try {
+            await CloudSyncCoordinator().start();
+            // 首次进入 Cloud 不阻塞页面；先处理离线意图，再 push/pull。
+            unawaited(CloudSyncCoordinator().syncNow());
+          } catch (_) {
+            // Cloud Cache 初始化失败不应让一个有效的在线登录失效。
+          }
+        } else {
+          CloudSyncCoordinator().stop();
+        }
       }
+    } catch (_) {
+      checkFailed = true;
     }
     if (!mounted || generation != _authCheckGeneration) return;
     setState(() {
       _hasAccess = hasAccess;
+      _authCheckFailed = checkFailed;
       _isLoading = false;
     });
   }
@@ -347,6 +355,24 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: FxCircularProgress()));
+    }
+    if (_authCheckFailed) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: FxEmptyState(
+              icon: LucideIcons.triangleAlert,
+              title: '身份状态检查失败',
+              subtitle: '暂时无法读取登录状态，请重新尝试。',
+              action: FxButton(
+                label: '重试',
+                variant: FxButtonVariant.secondary,
+                onPressed: _checkAuth,
+              ),
+            ),
+          ),
+        ),
+      );
     }
     return _hasAccess ? const HomeScreen() : const LoginScreen();
   }
