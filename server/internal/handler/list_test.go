@@ -98,8 +98,21 @@ func TestGetLists(t *testing.T) {
 	var lists []model.List
 	json.Unmarshal(w.Body.Bytes(), &lists)
 
-	if len(lists) != 2 {
-		t.Errorf("返回 %d 个清单, 期望 2", len(lists))
+	if len(lists) != 3 {
+		t.Errorf("返回 %d 个清单, 期望包含补齐的收集箱在内 3 个", len(lists))
+	}
+	if len(lists) > 0 && (!lists[0].IsInbox || lists[0].Name != "收集箱") {
+		t.Errorf("首位应为默认收集箱，实际 %+v", lists[0])
+	}
+	// 重复读取必须幂等，不能产生第二个收集箱。
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	var second []model.List
+	if err := json.Unmarshal(w.Body.Bytes(), &second); err != nil {
+		t.Fatal(err)
+	}
+	if len(second) != 3 {
+		t.Errorf("重复读取新增了清单：%d", len(second))
 	}
 }
 
