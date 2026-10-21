@@ -78,12 +78,26 @@ func (h *GitHubOAuthHandler) Start(c *gin.Context) { h.start(c, 0) }
 func (h *GitHubOAuthHandler) LinkStart(c *gin.Context) { h.start(c, c.GetUint("userID")) }
 
 func (h *GitHubOAuthHandler) start(c *gin.Context, targetUser uint) {
+	// 平台仅影响授权成功后的返回方式；不会影响身份与凭据校验。
+	var request struct {
+		Platform string `json:"platform"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil ||
+		(request.Platform != "" && request.Platform != "android" && request.Platform != "desktop") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "授权平台参数无效"})
+		return
+	}
 	clientID, _, callback, err := githubConfig()
 	if err != nil { c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()}); return }
 	sessionID, err := oauthRandom()
 	if err != nil { c.JSON(500, gin.H{"error": "初始化授权失败"}); return }
 	state, err := oauthRandom()
 	if err != nil { c.JSON(500, gin.H{"error": "初始化授权失败"}); return }
+	// state 已由服务端生成且经数据库哈希校验。前缀仅选择回跳页面，
+	// 不携带一次性令牌、JWT 或 GitHub 授权 code。
+	if request.Platform == "android" {
+		state = "android_" + state
+	}
 	poll, err := oauthRandom()
 	if err != nil { c.JSON(500, gin.H{"error": "初始化授权失败"}); return }
 	verifier, err := oauthRandom()
@@ -209,9 +223,22 @@ func (h *GitHubOAuthHandler) Callback(c *gin.Context) {
 		fail(); return
 	}
 	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("X-Content-Type-Options", "nosniff")
+	if strings.HasPrefix(state, "android_") {
+		// Android 使用无敏感信息的私有 URI 唤醒已有 Slowlight 实例。
+		// 浏览器可能禁止无手势跳转，保留显式返回按钮。
+		c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'")
+		c.Data(200, "text/html; charset=utf-8", []byte(androidOAuthReturnHTML))
+		return
+	}
 	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
-	c.Data(200, "text/html; charset=utf-8", []byte("<!doctype html><html lang='zh'><meta charset='utf-8'><title>Slowlight</title><body style='font:16px sans-serif;text-align:center;padding:5rem'>GitHub 授权成功，可以返回 Slowlight，关闭此页面。</body></html>"))
+	c.Data(200, "text/html; charset=utf-8", []byte(desktopOAuthReturnHTML))
 }
+
+const desktopOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>授权成功</h1><p>返回所行映我，登录将自动完成。</p><p style="opacity:.7">可以关闭此页面。</p></body></html>`
+
+const androidOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>授权成功</h1><p>正在返回所行映我…</p><p><a href="slowlight://oauth-complete" style="display:inline-block;background:#437bff;color:white;padding:14px 24px;border-radius:10px;text-decoration:none">返回所行映我</a></p><p style="opacity:.7">如果没有自动返回，请点击按钮。</p><script>window.location.replace("slowlight://oauth-complete");</script></body></html>`
 
 func (h *GitHubOAuthHandler) exchangeToken(ctx context.Context, id, secret, redirect, code, verifier string) (string, error) {
 	body := url.Values{"client_id": {id}, "client_secret": {secret}, "code": {code}, "redirect_uri": {redirect}, "code_verifier": {verifier}}
