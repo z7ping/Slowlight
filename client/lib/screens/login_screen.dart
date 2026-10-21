@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nicknameController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
+  bool _githubAuthorizing = false;
   bool _obscurePassword = true;
 
   @override
@@ -81,10 +82,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loginWithGitHub() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _githubAuthorizing = true;
+    });
     try {
-      await GitHubSignIn.signIn(shouldContinue: () => mounted);
-      if (!mounted) return;
+      final completed = await GitHubSignIn.signIn(
+        shouldContinue: () => mounted && _githubAuthorizing,
+      );
+      if (!mounted || !completed) return;
       await DataModeManager().setCloud();
       authStateNotifier.value = !authStateNotifier.value;
       if (mounted) _finish(true);
@@ -93,7 +99,12 @@ class _LoginScreenState extends State<LoginScreen> {
         FxNotice.errorWithDetails(context, 'GitHub 登录失败', e.toString());
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _githubAuthorizing = false;
+        });
+      }
     }
   }
 
@@ -183,6 +194,15 @@ class _LoginScreenState extends State<LoginScreen> {
           variant: FxButtonVariant.outline,
           onPressed: _isLoading ? null : _loginWithGitHub,
         ),
+        if (_githubAuthorizing) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            key: const ValueKey('login.github_cancel'),
+            label: '取消授权等待',
+            variant: FxButtonVariant.link,
+            onPressed: () => setState(() => _githubAuthorizing = false),
+          ),
+        ],
         const SizedBox(height: SlowlightSpacing.xl),
         Center(
           child: Text(
