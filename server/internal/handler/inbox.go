@@ -35,6 +35,9 @@ func (h *InboxHandler) getOrCreateInbox(userID uint) (*model.List, error) {
 	nameErr := h.DB.Unscoped().Where("user_id = ? AND name = ?", userID, name).
 		First(&sameName).Error
 	if nameErr == nil {
+		if sameName.IsInbox && !sameName.DeletedAt.Valid {
+			return &sameName, nil
+		}
 		name = "默认收集箱"
 	} else if !errors.Is(nameErr, gorm.ErrRecordNotFound) {
 		return nil, nameErr
