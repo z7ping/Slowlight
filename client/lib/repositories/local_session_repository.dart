@@ -34,8 +34,8 @@ class LocalSessionRepository {
       );
       if (active.isNotEmpty) {
         final row = active.first;
-        final startedAt = DateTime.parse(row['started_at'] as String);
-        final durationSec = _durationSeconds(startedAt, now);
+        final durationSec = _activeSeconds(row, now);
+        final pausedDurationSec = _finalPausedSeconds(row, now);
         final resolvedSystemTagId = await _resolveSystemTagId(
           txn,
           currentSystemTagId: row['system_tag_id'] as int?,
@@ -46,6 +46,8 @@ class LocalSessionRepository {
           {
             'ended_at': now.toIso8601String(),
             'duration_sec': durationSec,
+            'paused_at': null,
+            'paused_duration_sec': pausedDurationSec,
             'system_tag_id': resolvedSystemTagId,
           },
           where: 'id = ?',
@@ -59,6 +61,8 @@ class LocalSessionRepository {
         'started_at': now.toIso8601String(),
         'ended_at': null,
         'duration_sec': 0,
+        'paused_at': null,
+        'paused_duration_sec': 0,
         'device': device,
         'system_tag_id': null,
         'created_at': now.toIso8601String(),
@@ -88,8 +92,8 @@ class LocalSessionRepository {
 
       final row = active.first;
       sessionId = row['id'] as int;
-      final startedAt = DateTime.parse(row['started_at'] as String);
-      durationSec = _durationSeconds(startedAt, now);
+      durationSec = _activeSeconds(row, now);
+      final pausedDurationSec = _finalPausedSeconds(row, now);
       final resolvedSystemTagId = await _resolveSystemTagId(
         txn,
         currentSystemTagId: row['system_tag_id'] as int?,
@@ -102,6 +106,8 @@ class LocalSessionRepository {
         {
           'ended_at': now.toIso8601String(),
           'duration_sec': durationSec,
+          'paused_at': null,
+          'paused_duration_sec': pausedDurationSec,
           'system_tag_id': resolvedSystemTagId,
         },
         where: 'id = ?',
@@ -115,6 +121,42 @@ class LocalSessionRepository {
       'session': session,
       'duration': durationSec,
     };
+  }
+
+  // SQLite 事务确保重复点击/重试不会重置暂停时间或重复累计。
+  Future<Map<String, dynamic>> pauseSession(int sessionId) =>
+      _transitionSession(sessionId, pause: true);
+
+  Future<Map<String, dynamic>> resumeSession(int sessionId) =>
+      _transitionSession(sessionId, pause: false);
+
+  Future<Map<String, dynamic>> _transitionSession(int sessionId, {required bool pause}) async {
+    final db = await _db();
+    final now = DateTime.now().toUtc();
+    await db.transaction((txn) async {
+      final rows = await txn.query('work_sessions',
+          where: 'id = ? AND ended_at IS NULL', whereArgs: [sessionId], limit: 1);
+      if (rows.isEmpty) throw StateError('会话不存在或已结束');
+      final session = rows.first;
+      final rawPausedAt = session['paused_at'] as String?;
+      if (pause && rawPausedAt == null) {
+        await txn.update('work_sessions',
+            {'paused_at': now.toIso8601String()},
+            where: 'id = ? AND ended_at IS NULL AND paused_at IS NULL',
+            whereArgs: [sessionId]);
+      } else if (!pause && rawPausedAt != null) {
+        final pausedAt = DateTime.parse(rawPausedAt);
+        final extraSeconds = _durationSeconds(pausedAt, now);
+        await txn.update('work_sessions',
+            {
+              'paused_at': null,
+              'paused_duration_sec': (session['paused_duration_sec'] as int? ?? 0) + extraSeconds,
+            },
+            where: 'id = ? AND ended_at IS NULL AND paused_at = ?',
+            whereArgs: [sessionId, rawPausedAt]);
+      }
+    });
+    return {'session': await _getById(db, sessionId)};
   }
 
   Future<Map<String, dynamic>> getActiveSession() async {
@@ -210,6 +252,20 @@ class LocalSessionRepository {
   int _durationSeconds(DateTime startedAt, DateTime endedAt) =>
       endedAt.difference(startedAt).inSeconds.clamp(0, 1 << 31).toInt();
 
+  int _activeSeconds(Map<String, Object?> row, DateTime now) {
+    final startedAt = DateTime.parse(row['started_at'] as String);
+    final pausedAtRaw = row['paused_at'] as String?;
+    final until = pausedAtRaw == null ? now : DateTime.parse(pausedAtRaw);
+    final elapsed = _durationSeconds(startedAt, until);
+    return (elapsed - (row['paused_duration_sec'] as int? ?? 0)).clamp(0, 1 << 31).toInt();
+  }
+
+  int _finalPausedSeconds(Map<String, Object?> row, DateTime now) {
+    final pausedAtRaw = row['paused_at'] as String?;
+    return (row['paused_duration_sec'] as int? ?? 0) +
+        (pausedAtRaw == null ? 0 : _durationSeconds(DateTime.parse(pausedAtRaw), now));
+  }
+
   Map<String, dynamic> _buildStats(List<Map<String, Object?>> rows) {
     var totalWorkSeconds = 0;
     var totalBreakSeconds = 0;
@@ -275,6 +331,8 @@ class LocalSessionRepository {
         'started_at': row['started_at'],
         'ended_at': row['ended_at'],
         'duration_seconds': row['duration_sec'] ?? 0,
+        'paused_at': row['paused_at'],
+        'paused_duration_seconds': row['paused_duration_sec'] ?? 0,
         'device': row['device'] ?? '',
         'system_tag_id': row['system_tag_id'],
         'created_at': row['created_at'],
