@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/screens/habit_detail_screen.dart';
+import 'package:slowlight/widgets/habit_checkin_dialog.dart';
 import 'package:slowlight/ui/app_theme.dart';
 
 import '../support/fx_test_host.dart';
@@ -67,6 +68,24 @@ void main() {
     expect(attempts, 2);
     expect(find.text('打卡记录暂时不可用'), findsNothing);
     expect(find.textContaining('2026-10-05'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 习惯打卡主按钮填满表单宽度', (tester) async {
+    tester.view.physicalSize = const Size(360, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitCheckinDialog(
+        habit: habit(id: 11, name: '读书', streakCount: 0),
+      )),
+    ));
+    await tester.pump();
+    final action = find.byKey(const ValueKey('habit-checkin-primary-action'));
+    expect(action, findsOneWidget);
+    expect(tester.getSize(action).width, greaterThan(290));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
