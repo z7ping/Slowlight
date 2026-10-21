@@ -22,6 +22,7 @@ class AddTaskScreen extends StatefulWidget {
   final bool dimensionChanged;
   final bool isEdit;
   final bool embedded;
+  final TagRepository? tagRepository;
 
   const AddTaskScreen({
     super.key,
@@ -35,6 +36,7 @@ class AddTaskScreen extends StatefulWidget {
     this.dimensionChanged = false,
     this.isEdit = false,
     this.embedded = false,
+    this.tagRepository,
   });
 
   @override
@@ -45,7 +47,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _dimensionAssignment = TaskDimensionAssignment();
-  final _tagRepository = TagRepository();
+  late final TagRepository _tagRepository;
   List<Tag> _availableTags = const [];
   final Set<int> _selectedTagIds = {};
   bool _loadingTags = true;
@@ -64,6 +66,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   @override
   void initState() {
     super.initState();
+    _tagRepository = widget.tagRepository ?? TagRepository();
     _titleController.text = widget.initialTitle;
     _selectedListId =
         widget.selectedListId ??
