@@ -38,6 +38,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _running = false;
   bool _activeSession = false;
   bool _finalizingSession = false;
+  bool _sessionTransitioning = false;
+  int? _sessionId;
+  int _sessionRevision = 0;
+  DateTime? _sessionStartedAt;
+  DateTime? _sessionPausedAt;
+  int _pausedDurationSeconds = 0;
   String? _finishError;
   int _completedSessions = 0;
   int _todayWorkSeconds = 0;
@@ -92,24 +98,52 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Future<void> _restoreActiveSession() async {
     try {
       final data = await _sessions.getActiveSession();
-      if (data['active'] != true) return;
-      final session = Map<String, dynamic>.from(data['session'] as Map);
-      final startedAt =
-          DateTime.parse(session['started_at'] as String).toLocal();
-      final type = session['session_type']?.toString() ?? 'work';
-      final total = _durationFor(type) * 60;
-      final remaining = total - DateTime.now().difference(startedAt).inSeconds;
-      if (!mounted) return;
-      setState(() {
-        _sessionType = type;
-        _activeSession = true;
-        _remainingSeconds = remaining.clamp(0, total);
-        _running = remaining > 0;
-        final taskId = session['task_id'];
-        if (taskId is int && taskId > 0) _linkedTaskId = taskId;
-      });
-      if (_running) _startTicker();
-    } catch (_) {}
+      if (data['active'] != true || !mounted) return;
+      _applySession(Map<String, dynamic>.from(data['session'] as Map));
+    } catch (_) {
+      if (mounted) _message('恢复专注状态失败，请检查连接');
+    }
+  }
+
+  int _remainingFromSession() {
+    final startedAt = _sessionStartedAt;
+    if (startedAt == null) return _remainingSeconds;
+    final now = DateTime.now();
+    final until = _sessionPausedAt != null && _sessionPausedAt!.isBefore(now)
+        ? _sessionPausedAt!
+        : now;
+    final activeSeconds =
+        (until.difference(startedAt).inSeconds - _pausedDurationSeconds)
+            .clamp(0, 1 << 31);
+    return (_durationFor(_sessionType) * 60 - activeSeconds)
+        .clamp(0, _durationFor(_sessionType) * 60).toInt();
+  }
+
+  void _applySession(Map<String, dynamic> session) {
+    if (!mounted) return;
+    final id = session['id'];
+    if (id is! num || id.toInt() <= 0) throw StateError('会话 ID 无效');
+    final startedAt = DateTime.parse(session['started_at'] as String).toLocal();
+    final rawPausedAt = session['paused_at'];
+    final pausedAt = rawPausedAt is String
+        ? DateTime.parse(rawPausedAt).toLocal()
+        : null;
+    _timer?.cancel();
+    setState(() {
+      _sessionId = id.toInt();
+      _sessionRevision = (session['revision'] as num?)?.toInt() ?? 0;
+      _sessionStartedAt = startedAt;
+      _sessionPausedAt = pausedAt;
+      _pausedDurationSeconds =
+          (session['paused_duration_seconds'] as num?)?.toInt() ?? 0;
+      _sessionType = session['session_type']?.toString() ?? 'work';
+      _activeSession = true;
+      _remainingSeconds = _remainingFromSession();
+      _running = pausedAt == null && _remainingSeconds > 0;
+      final taskId = session['task_id'];
+      if (taskId is num && taskId.toInt() > 0) _linkedTaskId = taskId.toInt();
+    });
+    if (_running) _startTicker();
   }
 
   int _durationFor(String type) => switch (type) {
@@ -125,43 +159,75 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         _timer?.cancel();
         return;
       }
-      if (_remainingSeconds <= 1) {
+      // 不以 Timer.periodic 调用次数为事实来源：系统挂起、后台恢复后按
+      // 已持久化开始时间与暂停累计重新计算，避免跨端倒计时漂移。
+      final remaining = _remainingFromSession();
+      if (remaining <= 0) {
         setState(() => _remainingSeconds = 0);
-        _timer?.cancel();
-        unawaited(_finishNaturally());
+        // 正在等待暂停/恢复确认时不能并发结束同一会话。
+        if (!_sessionTransitioning) {
+          _timer?.cancel();
+          unawaited(_finishNaturally());
+        }
         return;
       }
-      setState(() => _remainingSeconds--);
+      setState(() => _remainingSeconds = remaining);
     });
   }
 
   Future<void> _start() async {
-    if (_finalizingSession) return;
+    if (_finalizingSession || _sessionTransitioning) return;
     if (_activeSession && _remainingSeconds <= 0) {
       await _finishNaturally();
       return;
     }
-    if (!_activeSession) {
-      try {
-        await _sessions.startSession(
-          _sessionType,
-          taskId: _sessionType == 'work' ? _linkedTaskId : null,
-        );
-        _activeSession = true;
-      } catch (_) {
-        _message('开始专注失败');
-        return;
-      }
+    setState(() => _sessionTransitioning = true);
+    try {
+      final response = !_activeSession
+          ? await _sessions.startSession(
+              _sessionType,
+              taskId: _sessionType == 'work' ? _linkedTaskId : null,
+            )
+          : await _sessions.resumeSession(_sessionId!, _sessionRevision);
+      if (!mounted) return;
+      _applySession(Map<String, dynamic>.from(response['session'] as Map));
+    } catch (_) {
+      if (mounted) _message(_activeSession ? '继续专注失败，请重试' : '开始专注失败，请重试');
+    } finally {
+      if (mounted) setState(() => _sessionTransitioning = false);
     }
-    if (!mounted) return;
-    setState(() => _running = true);
-    _startTicker();
   }
 
-  void _pause() {
-    if (_finalizingSession) return;
-    _timer?.cancel();
-    setState(() => _running = false);
+  Future<void> _pause() async {
+    if (_finalizingSession || _sessionTransitioning || _sessionId == null) return;
+    setState(() => _sessionTransitioning = true);
+    try {
+      final response = await _sessions.pauseSession(_sessionId!, _sessionRevision);
+      if (!mounted) return;
+      _applySession(Map<String, dynamic>.from(response['session'] as Map));
+    } catch (_) {
+      if (mounted) _message('无法确认暂停状态，请刷新或重试');
+    } finally {
+      if (mounted) setState(() => _sessionTransitioning = false);
+    }
+  }
+
+  Future<bool> _freezeBeforeEnding() async {
+    if (!_activeSession || _sessionId == null) return true;
+    try {
+      final response = await _sessions.pauseSession(_sessionId!, _sessionRevision);
+      if (!mounted) return false;
+      _applySession(Map<String, dynamic>.from(response['session'] as Map));
+      return true;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _finalizingSession = false;
+          _finishError = '无法确认停止计时，结束记录未保存，请重试。';
+        });
+      }
+      return false;
+    }
   }
 
   /// 结束会话是核心写入；标签是附加写入。两者状态必须分别反馈，
@@ -194,6 +260,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _finishError = null;
     });
     _timer?.cancel();
+    if (!await _freezeBeforeEnding()) return;
 
     List<int>? tagIds;
     if (_sessionType == 'work' && mounted) {
@@ -214,6 +281,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     if (!mounted) return;
     _activeSession = false;
+    _sessionId = null;
+    _sessionStartedAt = null;
+    _sessionPausedAt = null;
     if (_soundEnabled) {
       try {
         await SystemSound.play(SystemSoundType.alert);
@@ -251,6 +321,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _running = false;
       _finishError = null;
     });
+    if (!await _freezeBeforeEnding()) return;
     List<int>? tagIds;
     if (_activeSession && _sessionType == 'work') {
       final elapsed = _workMinutes * 60 - _remainingSeconds;
@@ -274,6 +345,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!tagsSaved) _message('专注已结束，但关联标签保存失败');
     setState(() {
       _activeSession = false;
+      _sessionId = null;
+      _sessionStartedAt = null;
+      _sessionPausedAt = null;
       _finalizingSession = false;
       _sessionType = 'work';
       _remainingSeconds = _workMinutes * 60;
@@ -641,14 +715,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               ? '继续'
                               : isWork ? '开始专注' : '开始休息',
                       icon: LucideIcons.play,
-                      onPressed: _finalizingSession ? null : _start,
+                      onPressed: _finalizingSession || _sessionTransitioning ? null : _start,
                     )
                   else
                     FxButton(
                       label: '暂停',
                       icon: LucideIcons.pause,
                       variant: FxButtonVariant.outline,
-                      onPressed: _finalizingSession ? null : _pause,
+                      onPressed: _finalizingSession || _sessionTransitioning ? null : _pause,
                     ),
                   if (_activeSession)
                     FxButton(
@@ -657,7 +731,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           : isWork ? '结束专注' : '结束休息',
                       size: FxButtonSize.lg,
                       variant: FxButtonVariant.destructive,
-                      onPressed: _finalizingSession ? null : _stop,
+                      onPressed: _finalizingSession || _sessionTransitioning ? null : _stop,
                     ),
                 ],
               ),

@@ -27,6 +27,8 @@ func newSessionRouter(h *SessionHandler, userID uint) *gin.Engine {
 	r.Use(func(c *gin.Context) { withUser(c, userID); c.Next() })
 	r.POST("/sessions/start", h.StartSession)
 	r.POST("/sessions/end", h.EndSession)
+	r.POST("/sessions/pause", h.PauseSession)
+	r.POST("/sessions/resume", h.ResumeSession)
 	r.GET("/sessions/active", h.GetActiveSession)
 	r.GET("/sessions/stats", h.GetStats)
 	r.GET("/sessions/today", h.GetTodayStats)
@@ -502,4 +504,86 @@ func TestEndSession_NoTagProvided(t *testing.T) {
 	if event.SystemTagID != nil {
 		t.Errorf("SystemTagID 应为 nil，实际为 %d", *event.SystemTagID)
 	}
+}
+
+func TestSessionPauseResumeExcludesPausedTime(t *testing.T) {
+    db, handler, userID := setupSessionTest(t)
+    router := newSessionRouter(handler,userID)
+    now := time.Now()
+    pausedAt := now.Add(-2 * time.Minute)
+    session := model.WorkSession{
+        UserID: userID, SessionType: "work", StartedAt: now.Add(-15*time.Minute),
+        PausedAt: &pausedAt, PausedDurationSec: 300, Revision: 1,
+    }
+    if err := db.Create(&session).Error; err != nil { t.Fatal(err) }
+
+    request := func(method, path string, body []byte) *httptest.ResponseRecorder {
+        w := httptest.NewRecorder()
+        req := httptest.NewRequest(method,path,bytes.NewReader(body))
+        req.Header.Set("Content-Type","application/json")
+        router.ServeHTTP(w,req)
+        return w
+    }
+    payload,_ := json.Marshal(map[string]interface{}{"session_id":session.ID,"expected_revision":0})
+    // 重复暂停应保留最初暂停时间，不得开始一段新暂停。
+    first := request("POST","/sessions/pause",payload)
+    if first.Code != 200 { t.Fatalf("pause: %d %s",first.Code,first.Body.String()) }
+    second := request("POST","/sessions/pause",payload)
+    if second.Code != 200 { t.Fatalf("repeated pause: %d",second.Code) }
+    var before model.WorkSession
+    if err := db.First(&before,session.ID).Error; err != nil { t.Fatal(err) }
+    if before.PausedAt == nil || before.PausedAt.Sub(pausedAt) > time.Second {
+        t.Fatalf("重复暂停改变暂停起点: %+v",before.PausedAt)
+    }
+    active := request("GET","/sessions/active",nil)
+    if active.Code != 200 || !bytes.Contains(active.Body.Bytes(),[]byte("paused_at")) {
+        t.Fatalf("active 必须携带暂停状态: %s",active.Body.String())
+    }
+    resumePayload,_ := json.Marshal(map[string]interface{}{"session_id":session.ID,"expected_revision":1})
+    resumed := request("POST","/sessions/resume",resumePayload)
+    if resumed.Code != 200 { t.Fatalf("resume: %d %s",resumed.Code,resumed.Body.String()) }
+    again := request("POST","/sessions/resume",resumePayload)
+    if again.Code != 200 { t.Fatalf("repeated resume: %d",again.Code) }
+    // 旧暂停请求不能在恢复之后迟到并覆盖新状态。
+    stale := request("POST","/sessions/pause",payload)
+    if stale.Code != http.StatusConflict { t.Fatalf("过期暂停应返回冲突: %d",stale.Code) }
+    var after model.WorkSession
+    if err := db.First(&after,session.ID).Error; err != nil { t.Fatal(err) }
+    if after.Revision != 2 || after.PausedAt != nil || after.PausedDurationSec < 418 || after.PausedDurationSec > 423 {
+        t.Fatalf("暂停时长被重复累计或状态未恢复: %+v",after)
+    }
+    ended := request("POST","/sessions/end",nil)
+    if ended.Code != 200 { t.Fatalf("end: %d %s",ended.Code,ended.Body.String()) }
+    if err := db.First(&after,session.ID).Error; err != nil { t.Fatal(err) }
+    if after.DurationSec < 470 || after.DurationSec > 490 {
+        t.Fatalf("有效专注应约为 8 分钟，而非 15 分钟: %d",after.DurationSec)
+    }
+    invalid := request("POST","/sessions/pause",payload)
+    if invalid.Code != http.StatusConflict { t.Fatalf("已结束会话不能再次暂停: %d",invalid.Code) }
+    duplicateEnd := request("POST","/sessions/end",nil)
+    if duplicateEnd.Code == 200 { t.Fatal("重复结束应失败") }
+    var eventCount int64
+    db.Model(&model.BehaviorEvent{}).Where("user_id = ? AND event_type = ?",userID,"session_ended").Count(&eventCount)
+    if eventCount != 1 { t.Fatalf("结束事件不能重复: %d",eventCount) }
+}
+
+func TestStartSessionAutoEndPausedUsesActiveDuration(t *testing.T) {
+    db, handler, userID := setupSessionTest(t)
+    router := newSessionRouter(handler,userID)
+    now := time.Now()
+    pausedAt := now.Add(-10*time.Minute)
+    old := model.WorkSession{
+        UserID:userID,SessionType:"work",StartedAt:now.Add(-20*time.Minute),
+        PausedAt:&pausedAt,PausedDurationSec:60,
+    }
+    if err := db.Create(&old).Error; err != nil {t.Fatal(err)}
+    w := httptest.NewRecorder()
+    req := httptest.NewRequest("POST","/sessions/start",bytes.NewBufferString(`{"session_type":"break"}`))
+    req.Header.Set("Content-Type","application/json")
+    router.ServeHTTP(w,req)
+    if w.Code != 200 { t.Fatalf("start: %d %s",w.Code,w.Body.String()) }
+    if err := db.First(&old,old.ID).Error; err != nil {t.Fatal(err)}
+    if old.DurationSec < 530 || old.DurationSec > 550 {
+        t.Fatalf("自动结束应约 9 分钟有效时间: %d",old.DurationSec)
+    }
 }

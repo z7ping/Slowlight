@@ -10,6 +10,9 @@ type WorkSession struct {
 	StartedAt      time.Time  `json:"started_at" gorm:"not null"`
 	EndedAt        *time.Time `json:"ended_at"`
 	DurationSec    int        `json:"duration_seconds"`
+	PausedAt       *time.Time `json:"paused_at"`
+	PausedDurationSec int    `json:"paused_duration_seconds" gorm:"default:0"`
+	Revision       int        `json:"revision" gorm:"default:0"`
 	Device         string     `json:"device" gorm:"size:50"` // web, android, ios
 	TaskID         *uint      `json:"task_id"`
 	SystemTagID    *uint      `json:"system_tag_id" gorm:"index"` // 番茄钟关联的系统标签
