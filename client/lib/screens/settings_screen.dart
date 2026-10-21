@@ -245,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '如果仍显示等待，可以主动检查授权结果。',
               style: style,
             ),
-            const SizedBox(height: SlowlightSpacing.sm),
+            const SizedBox(height: SlowlightSpacing.md),
             FxButton(
               label: '检查授权结果',
               variant: FxButtonVariant.outline,
