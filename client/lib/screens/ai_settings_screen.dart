@@ -28,12 +28,18 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   bool _saving = false;
   bool _testing = false;
   bool _hasStoredKey = false;
+  bool _providerSwitching = false;
+  int _loadVersion = 0;
   String? _testResult;
+  String? _saveError;
 
   @override
   void initState() {
     super.initState();
     _store = widget.store ?? AiConfigStore();
+    for (final controller in [_endpointController, _modelController, _keyController]) {
+      controller.addListener(_onDraftEdited);
+    }
     _load();
   }
 
@@ -45,6 +51,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     super.dispose();
   }
 
+  void _onDraftEdited() {
+    if (mounted && _testResult != null) setState(() => _testResult = null);
+  }
+
   bool get _isDirty =>
       _config.enabled != _savedConfig.enabled ||
       _config.provider != _savedConfig.provider ||
@@ -53,7 +63,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       _keyController.text.trim().isNotEmpty;
 
   Future<bool> _confirmLeave() async {
-    if (_saving || _testing) return false;
+    if (_saving || _testing || _providerSwitching) return false;
     if (!_isDirty) return true;
     final confirmed = await FxDialog.confirm(
       context: context,
@@ -66,15 +76,17 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _load() async {
+    final version = ++_loadVersion;
     setState(() {
       _loading = true;
       _loadError = null;
       _testResult = null;
+      _saveError = null;
     });
     try {
       final config = await _store.load();
       final key = await _store.loadApiKey(config.provider);
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _savedConfig = config;
         _config = config;
@@ -85,7 +97,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _loading = false;
         _loadError = '读取 AI 配置失败：$e';
@@ -94,32 +106,34 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _changeProvider(AiProviderType provider) async {
-    if (provider == _config.provider || _saving || _testing) return;
-    if (_isDirty) {
-      final confirmed = await FxDialog.confirm(
-        context: context,
-        title: '切换服务商？',
-        content: '当前 AI 配置尚未保存。切换后会放弃本次编辑的内容。',
-        confirmText: '放弃并切换',
-        destructive: true,
-      );
-      if (confirmed != true || !mounted) return;
-    }
+    if (provider == _config.provider || _saving || _testing || _providerSwitching) return;
+    setState(() => _providerSwitching = true);
     try {
+      if (_isDirty) {
+        final confirmed = await FxDialog.confirm(
+          context: context,
+          title: '切换服务商？',
+          content: '当前 AI 配置尚未保存。切换后会放弃本次编辑的内容。',
+          confirmText: '放弃并切换',
+          destructive: true,
+        );
+        if (confirmed != true || !mounted) return;
+      }
       final key = await _store.loadApiKey(provider);
       if (!mounted) return;
       setState(() {
+        _testResult = null;
+        _saveError = null;
         _config = _savedConfig.copyWith(provider: provider);
         _endpointController.text = provider.defaultEndpoint;
         _modelController.text = provider.defaultModel;
         _keyController.clear();
         _hasStoredKey = key?.isNotEmpty == true;
-        _testResult = null;
       });
-    } catch (e) {
-      if (mounted) {
-        FxNotice.errorWithDetails(context, '读取服务商密钥失败', e.toString());
-      }
+    } catch (_) {
+      if (mounted) _message('读取服务商密钥失败，请检查安全存储后重试');
+    } finally {
+      if (mounted) setState(() => _providerSwitching = false);
     }
   }
 
@@ -129,8 +143,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   );
 
   Future<String> _effectiveKey() async {
-    if (_keyController.text.trim().isNotEmpty)
+    if (_keyController.text.trim().isNotEmpty) {
       return _keyController.text.trim();
+    }
     return await _store.loadApiKey(_config.provider) ?? '';
   }
 
@@ -142,57 +157,75 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _save() async {
-    setState(() => _saving = true);
-    try {
-      final draft = _draft();
-      final key = await _effectiveKey();
-      final error = _validate(draft, key);
-      if (error != null) {
-        _message(error);
-        return;
-      }
-
-      await _store.save(draft);
-      if (_keyController.text.trim().isNotEmpty) {
-        await _store.saveApiKey(draft.provider, _keyController.text.trim());
-      }
-      if (!mounted) return;
-      setState(() {
-        _config = draft;
-        _savedConfig = draft;
-        _hasStoredKey = key.isNotEmpty;
-        _keyController.clear();
-      });
-      _message('AI 配置已保存');
-    } catch (e) {
-      _message('保存 AI 配置失败：$e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _test() async {
+    if (_saving || _testing || _providerSwitching) return;
     setState(() {
-      _testing = true;
-      _testResult = null;
+      _saving = true;
+      _saveError = null;
     });
     try {
       final draft = _draft();
       final key = await _effectiveKey();
       final error = _validate(draft, key);
       if (error != null) {
-        _message(error);
+        setState(() => _saveError = error);
+        return;
+      }
+
+      // 先提交安全存储的密钥，再提交生效配置；失败不清空草稿。
+      await _store.saveConfiguration(
+        draft,
+        newApiKey: _keyController.text.trim().isEmpty
+            ? null
+            : _keyController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _config = draft;
+        _savedConfig = draft;
+        _hasStoredKey = key.isNotEmpty;
+        _testResult = null;
+        _keyController.clear();
+      });
+      _message('AI 配置已保存');
+    } catch (_) {
+      if (mounted) {
+        setState(() => _saveError =
+            '保存 AI 配置失败，请检查安全存储或本机设置权限后重试；草稿已保留。');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _test() async {
+    if (_testing || _saving || _providerSwitching) return;
+    String secret = '';
+    setState(() {
+      _testing = true;
+      _testResult = null;
+    });
+    try {
+      final draft = _draft();
+      secret = await _effectiveKey();
+      final error = _validate(draft, secret);
+      if (error != null) {
+        if (mounted) setState(() => _testResult = '连接失败：$error');
         return;
       }
 
       final text = await AiService(
         configStore: _store,
-      ).testConfiguration(draft, apiKey: key);
+      ).testConfiguration(draft, apiKey: secret);
       if (!mounted) return;
       setState(() => _testResult = '连接成功：$text');
     } catch (e) {
       if (!mounted) return;
-      setState(() => _testResult = '连接失败：$e');
+      final details = e.toString();
+      // 第三方 HTTP 异常可能回显请求内容；不得展示已输入/已存储密钥。
+      final safeDetails = secret.isEmpty
+          ? details
+          : details.replaceAll(secret, '[密钥已隐藏]');
+      setState(() => _testResult = '连接失败：$safeDetails');
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -206,7 +239,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       confirmText: '清除密钥',
       destructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted || _saving || _testing || _providerSwitching) return;
     try {
       await _store.clearApiKey(_config.provider);
       if (!mounted) return;
@@ -215,8 +248,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         _hasStoredKey = false;
       });
       _message('已清除当前 AI 服务的访问密钥');
-    } catch (e) {
-      _message('清除访问密钥失败：$e');
+    } catch (_) {
+      _message('清除访问密钥失败，请检查安全存储后重试');
     }
   }
 
@@ -303,9 +336,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                         ),
                                       )
                                       .toList(growable: false),
-                                  onChanged: (value) {
-                                    if (value != null) _changeProvider(value);
-                                  },
+                                  onChanged: _providerSwitching || _saving || _testing
+                                      ? null
+                                      : (value) {
+                                          if (value != null) _changeProvider(value);
+                                        },
                                 ),
                                 const SizedBox(height: 12),
                                 FxInput(
@@ -344,7 +379,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                         label: '清除已保存密钥',
                                         variant: FxButtonVariant.ghost,
                                         size: FxButtonSize.sm,
-                                        onPressed: _clearKey,
+                                        onPressed: _saving || _testing || _providerSwitching
+                                            ? null
+                                            : _clearKey,
                                       ),
                                     ),
                                 ],
@@ -391,6 +428,12 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                               ),
                             ],
                           ),
+                          if (_saveError != null) ...[
+                            const SizedBox(height: 12),
+                            Text(_saveError!,
+                                style: SlowlightTypography.secondary(context).copyWith(
+                                    color: theme.colorScheme.error)),
+                          ],
                           if (_testResult != null) ...[
                             const SizedBox(height: 12),
                             SelectableText(
