@@ -1,3 +1,6 @@
+import 'package:slowlight/models/tag.dart';
+import 'package:slowlight/repositories/tag_repository.dart';
+import 'package:slowlight/services/data_source.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +10,18 @@ import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/tag_choice_field.dart';
 
 import '../support/fx_test_host.dart';
+
+
+class _CanonicalTagSource implements ApiDataSource {
+  @override
+  Future<List<Tag>> getTags() async => [
+    Tag(id: 101, name: '学习', color: '#1890ff', createdAt: DateTime(2026)),
+    Tag(id: 102, name: '复盘', color: '#52c41a', createdAt: DateTime(2026)),
+  ];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   final testLists = [
@@ -88,7 +103,7 @@ void main() {
         tester.getTopLeft(find.text('清单')).dy,
         closeTo(tester.getTopLeft(find.text('优先级')).dy, 1),
       );
-      expect(find.text('标签（可选）'), findsOneWidget);
+      expect(find.text('标签（可多选）'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
@@ -147,7 +162,10 @@ void main() {
       await tester.pump();
 
       expect(find.byType(TagChoiceField), findsOneWidget);
-      expect(find.text('标签（可选）'), findsOneWidget);
+      final field = tester.widget<TagChoiceField>(find.byType(TagChoiceField));
+      expect(field.onMultipleChanged, isNotNull);
+      expect(field.selectedTagIds, isEmpty);
+      expect(find.text('标签（可多选）'), findsOneWidget);
       expect(find.text('归属维度（可选）'), findsNothing);
       expect(find.text('🧠 认知'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -187,5 +205,35 @@ void main() {
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
+
+    testWidgets('完整创建表单从 canonical 标签仓储读取并允许多选', (tester) async {
+      await tester.pumpWidget(buildFxTestHost(
+        home: AddTaskScreen(
+          lists: testLists,
+          selectedListId: 1,
+          systemTagId: 101,
+          tagRepository: TagRepository(dataSource: _CanonicalTagSource()),
+        ),
+      ));
+      await tester.pump();
+      final initial = tester.widget<TagChoiceField>(find.byType(TagChoiceField));
+      expect(initial.selectedTagIds, isEmpty);
+      await tester.ensureVisible(find.text('#学习'));
+      await tester.pump();
+      await tester.tap(find.text('#学习'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('#复盘'));
+      await tester.pump();
+      await tester.tap(find.text('#复盘'));
+      await tester.pump();
+
+      final field = tester.widget<TagChoiceField>(find.byType(TagChoiceField));
+      expect(field.selectedTagIds, {101, 102});
+      // 数值相同也不允许直接把旧 system_tag_id 当成新选中标签。
+      expect(field.onMultipleChanged, isNotNull);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
   });
 }

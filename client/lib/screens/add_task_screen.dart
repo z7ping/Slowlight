@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/todo_list.dart';
 import '../models/observation_tag.dart';
-import '../repositories/observation_tag_repository.dart';
+import '../models/tag.dart';
+import '../repositories/tag_repository.dart';
 import '../services/task_dimension_assignment.dart';
 import '../widgets/tag_choice_field.dart';
 import '../services/data_service.dart';
@@ -21,6 +22,7 @@ class AddTaskScreen extends StatefulWidget {
   final bool dimensionChanged;
   final bool isEdit;
   final bool embedded;
+  final TagRepository? tagRepository;
 
   const AddTaskScreen({
     super.key,
@@ -34,6 +36,7 @@ class AddTaskScreen extends StatefulWidget {
     this.dimensionChanged = false,
     this.isEdit = false,
     this.embedded = false,
+    this.tagRepository,
   });
 
   @override
@@ -44,10 +47,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _dimensionAssignment = TaskDimensionAssignment();
-  final _tagRepository = ObservationTagRepository();
-  List<ObservationTag> _availableTags = const [];
-  int? _selectedTagId;
-  bool _tagChanged = false;
+  late final TagRepository _tagRepository;
+  List<Tag> _availableTags = const [];
+  final Set<int> _selectedTagIds = {};
+  bool _loadingTags = true;
+  bool _tagLoadFailed = false;
   String? _selectedDimensionKey;
   bool _dimensionChanged = false;
   int? _selectedListId;
@@ -62,6 +66,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   @override
   void initState() {
     super.initState();
+    _tagRepository = widget.tagRepository ?? TagRepository();
     _titleController.text = widget.initialTitle;
     _selectedListId =
         widget.selectedListId ??
@@ -70,7 +75,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _dueDate = widget.defaultDueDate;
     _selectedDimensionKey = widget.initialDimensionKey;
     _dimensionChanged = widget.dimensionChanged;
-    _selectedTagId = widget.systemTagId;
+    // systemTagId 属于历史标签域，不可当成 canonical tags 的 id。
     _loadInitialDimension();
     _loadTags();
   }
@@ -95,13 +100,28 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Future<void> _loadTags() async {
+    if (mounted) setState(() => _loadingTags = true);
     try {
-      final tags = await _tagRepository.getAll();
-      if (mounted) setState(() => _availableTags = tags);
+      final tags = await _tagRepository.getTags();
+      if (!mounted) return;
+      setState(() {
+        _availableTags = tags;
+        _loadingTags = false;
+        _tagLoadFailed = false;
+      });
     } catch (_) {
-      // 读取失败时保留传入的标签，不影响任务编辑和保存。
+      if (!mounted) return;
+      setState(() {
+        _loadingTags = false;
+        _tagLoadFailed = true;
+      });
     }
   }
+
+  List<ObservationTag> get _tagOptions => [
+    for (final tag in _availableTags)
+      ObservationTag(id: tag.id, name: tag.name, color: tag.color, icon: ''),
+  ];
 
   Future<void> _save() async {
     if (_isSaving) return;
@@ -118,14 +138,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
     setState(() => _isSaving = true);
     try {
-      // 选标签直接保存原有 system_tag_id；兼容旧入口的维度预设。
-      final systemTagId = _tagChanged
-          ? _selectedTagId
-          : await _dimensionAssignment.resolve(
-              dimensionKey: _selectedDimensionKey,
-              originalTagId: widget.systemTagId,
-              changed: _dimensionChanged,
-            );
+      // 历史预设维度独立保存；新标签仅走 canonical task_tags。
+      final systemTagId = await _dimensionAssignment.resolve(
+        dimensionKey: _selectedDimensionKey,
+        originalTagId: widget.systemTagId,
+        changed: _dimensionChanged,
+      );
       final dueTime = formatTaskDueTime(_dueTime);
       final reminderAt = buildTaskReminderAt(
         dueDate: _dueDate,
@@ -150,6 +168,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         reminderAt: reminderAt,
         reminderAdvanceMinutes:
             _reminderAdvanceMinutes < 0 ? 0 : _reminderAdvanceMinutes,
+        tagIds: _selectedTagIds.toList(growable: false),
         systemTagId: systemTagId,
         taskType: 'daily',
       );
@@ -259,14 +278,28 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         ),
         const SizedBox(height: SlowlightSpacing.xxxl),
         TagChoiceField(
-          tags: _availableTags,
-          selectedTagId: _selectedTagId,
-          enabled: !_isSaving,
-          onChanged: (id) => setState(() {
-            _selectedTagId = id;
-            _tagChanged = true;
+          tags: _tagOptions,
+          selectedTagIds: _selectedTagIds,
+          label: '标签（可多选）',
+          enabled: !_isSaving && !_loadingTags && !_tagLoadFailed,
+          onMultipleChanged: (ids) => setState(() {
+            _selectedTagIds..clear()..addAll(ids);
           }),
         ),
+        if (_loadingTags)
+          Text('正在读取标签…', style: SlowlightTypography.caption(context)),
+        if (_tagLoadFailed) ...[
+          Text('标签加载失败，仍可不选标签创建任务。',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.error,
+              )),
+          FxButton(
+            label: '重新加载标签',
+            variant: FxButtonVariant.outline,
+            size: FxButtonSize.sm,
+            onPressed: _isSaving ? null : _loadTags,
+          ),
+        ],
       ],
     );
   }
