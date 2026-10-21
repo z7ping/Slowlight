@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ReflectionHandler struct {
@@ -22,6 +24,7 @@ func NewReflectionHandler(db *gorm.DB) *ReflectionHandler {
 }
 
 type reflectionRequest struct {
+	ClientRequestID string `json:"client_request_id"`
 	EntryType    string                 `json:"entry_type"`
 	QuestionID   string                 `json:"question_id"`
 	DimensionKey model.DimensionKey     `json:"dimension_key"`
@@ -47,6 +50,10 @@ func (h *ReflectionHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
 		return
 	}
+    if len(req.ClientRequestID) > 100 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "client_request_id 过长"})
+        return
+    }
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "内容不能为空"})
@@ -96,6 +103,11 @@ func (h *ReflectionHandler) Create(c *gin.Context) {
 	contextBytes, _ := json.Marshal(req.Context)
 	entry := model.Reflection{
 		UserID:       userID,
+        ClientRequestID: func() *string {
+            if req.ClientRequestID == "" { return nil }
+            id := req.ClientRequestID
+            return &id
+        }(),
 		EntryType:    entryType,
 		QuestionID:   strings.TrimSpace(req.QuestionID),
 		DimensionKey: req.DimensionKey,
@@ -105,24 +117,51 @@ func (h *ReflectionHandler) Create(c *gin.Context) {
 	if entry.Context == "" || entry.Context == "null" {
 		entry.Context = "{}"
 	}
-	if err := h.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&entry).Error; err != nil {
-			return err
-		}
-		for _, id := range unique {
-			if err := tx.Create(&model.ReflectionTag{
-				ReflectionID: entry.ID,
-				TagID: id,
-			}).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存反思及标签失败"})
-		return
-	}
-	c.JSON(http.StatusCreated, reflectionToResponse(entry))
+    errRequestCollision := errors.New("相同提交标识对应不同的反思内容")
+    replayed := false
+    if err := h.DB.Transaction(func(tx *gorm.DB) error {
+        var saved model.Reflection
+        if req.ClientRequestID != "" {
+            // The unique index is the atomic guard for a response lost after commit.
+            result := tx.Clauses(clause.OnConflict{
+                Columns: []clause.Column{{Name: "user_id"}, {Name: "client_request_id"}},
+                DoNothing: true,
+            }).Create(&entry)
+            if result.Error != nil { return result.Error }
+            if result.RowsAffected == 0 {
+                if err := tx.Where("user_id = ? AND client_request_id = ?",
+                    userID, req.ClientRequestID).First(&saved).Error; err != nil { return err }
+                if saved.Content != content || saved.EntryType != entryType ||
+                    saved.QuestionID != entry.QuestionID || saved.DimensionKey != entry.DimensionKey {
+                    return errRequestCollision
+                }
+                entry = saved
+                replayed = true
+                return nil
+            }
+        } else if err := tx.Create(&entry).Error; err != nil {
+            return err
+        }
+        for _, id := range unique {
+            if err := tx.Create(&model.ReflectionTag{
+                ReflectionID: entry.ID,
+                TagID: id,
+            }).Error; err != nil {
+                return err
+            }
+        }
+        return nil
+    }).Error; err != nil {
+        if errors.Is(err, errRequestCollision) {
+            c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "保存反思及标签失败"})
+        return
+    }
+    code := http.StatusCreated
+    if replayed { code = http.StatusOK }
+    c.JSON(code, reflectionToResponse(entry))
 }
 
 func (h *ReflectionHandler) List(c *gin.Context) {
