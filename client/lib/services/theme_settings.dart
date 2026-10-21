@@ -95,59 +95,119 @@ class ThemeSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 设置字号倍率
+  Future<void> _persist(
+    Future<bool> Function(SharedPreferences prefs) write,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await write(prefs)) {
+      throw StateError('设置未能保存到本机');
+    }
+  }
+
+  /// 即时生效；本机写入失败时恢复先前的可见状态。
   Future<void> setFontScale(double scale) async {
+    final previous = _fontScale;
     _fontScale = PlatformFont.isAndroid
         ? scale.clamp(1.0, 1.25).toDouble()
         : scale.clamp(0.85, 1.25).toDouble();
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_keyFontSize, _fontScale);
+    try {
+      await _persist((prefs) => prefs.setDouble(_keyFontSize, _fontScale));
+    } catch (_) {
+      _fontScale = previous;
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  /// 设置主题模式
   Future<void> setThemeMode(ThemeMode mode) async {
+    final previous = _themeMode;
     _themeMode = mode;
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-        _keyThemeMode,
-        switch (mode) {
-          ThemeMode.light => 'light',
-          ThemeMode.dark => 'dark',
-          _ => 'system',
-        });
+    try {
+      await _persist((prefs) => prefs.setString(
+            _keyThemeMode,
+            switch (mode) {
+              ThemeMode.light => 'light',
+              ThemeMode.dark => 'dark',
+              _ => 'system',
+            },
+          ));
+    } catch (_) {
+      _themeMode = previous;
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  /// 设置字体
   Future<void> setFontFamily(String family) async {
+    final previous = _fontFamily;
     _fontFamily = family;
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyFontFamily, family);
+    try {
+      await _persist((prefs) => prefs.setString(_keyFontFamily, family));
+    } catch (_) {
+      _fontFamily = previous;
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  /// 设置配色方案
   Future<void> setPalette(String palette) async {
+    final previous = _palette;
     _palette = palette;
     setActivePalette(palette);
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPalette, palette);
+    try {
+      await _persist((prefs) => prefs.setString(_keyPalette, palette));
+    } catch (_) {
+      _palette = previous;
+      setActivePalette(previous);
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  /// 恢复显示设置为默认值
   Future<void> resetToDefaults() async {
+    final previousScale = _fontScale;
+    final previousMode = _themeMode;
+    final previousFamily = _fontFamily;
+    final previousPalette = _palette;
     _fontScale = 1.0;
     _themeMode = ThemeMode.system;
     _fontFamily = '';
     _palette = 'zinc';
     setActivePalette('zinc');
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_keyFontSize, 1.0);
-    await prefs.setString(_keyThemeMode, 'system');
-    await prefs.setString(_keyFontFamily, '');
-    await prefs.setString(_keyPalette, 'zinc');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setDouble(_keyFontSize, 1.0) ||
+          !await prefs.setString(_keyThemeMode, 'system') ||
+          !await prefs.setString(_keyFontFamily, '') ||
+          !await prefs.setString(_keyPalette, 'zinc')) {
+        throw StateError('恢复默认设置未能保存到本机');
+      }
+    } catch (_) {
+      _fontScale = previousScale;
+      _themeMode = previousMode;
+      _fontFamily = previousFamily;
+      _palette = previousPalette;
+      setActivePalette(previousPalette);
+      notifyListeners();
+      // 多个本机偏好写入跨 key 非原子操作，尽力恢复先前配置。
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble(_keyFontSize, previousScale);
+        await prefs.setString(_keyThemeMode, switch (previousMode) {
+          ThemeMode.light => 'light',
+          ThemeMode.dark => 'dark',
+          _ => 'system',
+        });
+        await prefs.setString(_keyFontFamily, previousFamily);
+        await prefs.setString(_keyPalette, previousPalette);
+      } catch (_) {}
+      rethrow;
+    }
   }
+
 }
