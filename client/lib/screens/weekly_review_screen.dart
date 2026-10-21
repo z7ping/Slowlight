@@ -20,6 +20,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   bool _loading = true;
   bool _generatingAi = false;
   String? _loadError;
+  bool _outputStatsFailed = false;
+  bool _dailyTrendFailed = false;
   String? _aiReport;
   Map<String, dynamic> _review = {};
   Map<String, dynamic> _outputStats = {};
@@ -38,21 +40,31 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _loadError = null;
       });
     }
+    var outputStatsFailed = false;
+    var dailyTrendFailed = false;
     try {
       final results = await Future.wait<dynamic>([
         AnalyticsApi.getWeeklyReview(),
         AnalyticsApi.getOutputStats(
           period: 'week',
-        ).catchError((_) => <String, dynamic>{}),
+        ).catchError((_) {
+          outputStatsFailed = true;
+          return <String, dynamic>{};
+        }),
         AnalyticsApi.getDailyTrend(
           days: 7,
-        ).catchError((_) => <Map<String, dynamic>>[]),
+        ).catchError((_) {
+          dailyTrendFailed = true;
+          return <Map<String, dynamic>>[];
+        }),
       ]);
       if (!mounted) return;
       setState(() {
         _review = results[0] as Map<String, dynamic>;
         _outputStats = results[1] as Map<String, dynamic>;
         _dailyTrend = results[2] as List<Map<String, dynamic>>;
+        _outputStatsFailed = outputStatsFailed;
+        _dailyTrendFailed = dailyTrendFailed;
         _loading = false;
       });
     } catch (e) {
@@ -78,8 +90,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         'facts': _review,
         'patterns': {
           'period': 'week',
-          'output_stats': _outputStats,
-          'daily_trend': _dailyTrend,
+          if (!_outputStatsFailed) 'output_stats': _outputStats,
+          if (!_dailyTrendFailed) 'daily_trend': _dailyTrend,
         },
       });
       if (!mounted) return;
@@ -174,6 +186,32 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                   ),
                   if (!widget.embedded) const SizedBox(height: 14),
                   _summary(),
+                  if (_outputStatsFailed || _dailyTrendFailed) ...[
+                    const SizedBox(height: 12),
+                    FxCard(
+                      padding: const EdgeInsets.all(12),
+                      expanded: true,
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.triangleAlert, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '部分统计暂时无法读取，未加载的数据不计作零记录。',
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FxButton(
+                            label: '重试',
+                            size: FxButtonSize.sm,
+                            variant: FxButtonVariant.secondary,
+                            onPressed: _loadReview,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   if (!_hasBehaviorData)
                     const FxEmptyState(
