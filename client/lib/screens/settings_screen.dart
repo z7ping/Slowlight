@@ -43,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _switchingMode = false;
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
+  int _accountLoadVersion = 0;
   User? _accountUser;
   bool? _githubLinked;
   late String _open;
@@ -120,43 +121,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadAccount() async {
+    final version = ++_accountLoadVersion;
+    if (mounted) {
+      setState(() {
+        _loadingAccount = true;
+        _accountUser = null;
+        _githubLinked = null;
+      });
+    }
     if (DataModeManager().isLocal) {
-      if (mounted) {
-        setState(() {
-          _accountUser = null;
-          _githubLinked = null;
-          _loadingAccount = false;
-        });
+      if (mounted && version == _accountLoadVersion) {
+        setState(() => _loadingAccount = false);
       }
       return;
     }
     try {
       final user = await AuthService.getUser();
-      if (!mounted || DataModeManager().isLocal) return;
+      if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
       setState(() {
         _accountUser = user;
-        _githubLinked = null;
         _loadingAccount = false;
       });
-      // 请求只负责确认关联状态，网络失败时不可宣称未绑定。
-      bool? linked;
-      try {
-        linked = await AuthService.isGitHubLinked();
-      } catch (_) {
-        return;
-      }
-      if (mounted && DataModeManager().isCloud) {
+      // 无法确认绑定状态时保持「未知」，不能伪装成「未绑定」。
+      final linked = await AuthService.isGitHubLinked();
+      if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
         setState(() => _githubLinked = linked);
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingAccount = false);
+      if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
+        setState(() => _loadingAccount = false);
+      }
     }
   }
 
   String _accountSummary() {
     if (DataModeManager().isLocal) return '本地使用';
     if (_loadingAccount) return '正在读取账号…';
-    return '${_accountUser?.nickname ?? _accountUser?.username ?? '云端账号'} · 云端';
+    final user = _accountUser;
+    return user == null
+        ? '云端账号 · 信息待确认'
+        : '${user.nickname ?? user.username} · 云端';
   }
 
   Widget _accountPanel() {
@@ -179,11 +183,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(user?.nickname ?? user?.username ?? '云端账号',
+        Text(user?.nickname ?? user?.username ?? '账号信息待确认',
             style: SlowlightTypography.cardTitle(context)),
         const SizedBox(height: SlowlightSpacing.xs),
-        Text(user?.email.isNotEmpty == true ? user!.email : '云端账号已登录',
+        Text(user?.email.isNotEmpty == true ? user!.email : '请检查账号状态',
             style: style),
+        if (user == null) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            label: '重新读取账号信息',
+            variant: FxButtonVariant.outline,
+            onPressed: _loadAccount,
+          ),
+        ],
         const SizedBox(height: SlowlightSpacing.md),
         Text(_githubLinked == true
             ? 'GitHub：已绑定'
