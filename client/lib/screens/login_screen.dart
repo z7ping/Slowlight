@@ -67,7 +67,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       await DataModeManager().setCloud();
       authStateNotifier.value = !authStateNotifier.value;
-      if (mounted) _finish(true);
+      if (mounted) {
+        _finish(
+          true,
+          successMessage: _isLogin ? '登录成功' : '账号创建成功',
+        );
+      }
     } catch (e) {
       if (mounted) {
         FxNotice.errorWithDetails(
@@ -93,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted || !completed) return;
       await DataModeManager().setCloud();
       authStateNotifier.value = !authStateNotifier.value;
-      if (mounted) _finish(true);
+      if (mounted) _finish(true, successMessage: 'GitHub 登录成功');
     } catch (e) {
       if (mounted) {
         final message = GitHubSignIn.describeError(e);
@@ -138,7 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _finish(bool value) {
+  void _finish(bool value, {String? successMessage}) {
+    // 通知宿主在 Navigator 外层，先捕获再跳转，避免登录页销毁后提示丢失。
+    final notice = successMessage == null ? null : FxNotice.capture(context);
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop(value);
@@ -146,6 +153,16 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    }
+    if (successMessage != null) {
+      notice!.show(
+        successMessage,
+        description: value
+            ? '已进入云端模式，可在侧边栏查看同步状态'
+            : '当前数据保存在本机',
+        variant: FxNoticeVariant.success,
+        duration: const Duration(seconds: 4),
       );
     }
   }
