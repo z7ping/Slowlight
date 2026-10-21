@@ -31,6 +31,7 @@ class ReminderService extends ChangeNotifier {
   bool _allowPostponeMicro = true;
   bool _allowPostponeLong = true;
   bool _loaded = false;
+  bool _loadFailed = false;
   bool _nativeOverlayFailed = false;
 
   // 状态机: idle / working / micro_rest / long_rest
@@ -122,6 +123,7 @@ class ReminderService extends ChangeNotifier {
   }
   bool get isRunning => _state != 'idle';
   bool get isLoaded => _loaded;
+  bool get loadFailed => _loadFailed;
   bool get _enabled => true;
 
   /// 当前休息类型是否严格模式（不能跳过）
@@ -141,6 +143,8 @@ class ReminderService extends ChangeNotifier {
   // ── 加载 ──
 
   Future<void> loadAll() async {
+    _loadFailed = false;
+    notifyListeners();
     try {
       final localConfig = await _local.getConfig();
       if (localConfig != null) {
@@ -179,6 +183,7 @@ class ReminderService extends ChangeNotifier {
 
       _pendingSyncCount = await _local.getPendingCount();
       _loaded = true;
+      _loadFailed = false;
       notifyListeners();
 
       _syncConfigFromServer();
@@ -187,6 +192,8 @@ class ReminderService extends ChangeNotifier {
       _startStatsTimer();
       autoStartIfNeeded();
     } catch (e) {
+      _loadFailed = true;
+      notifyListeners();
     }
   }
 

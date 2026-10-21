@@ -62,7 +62,24 @@ class _ReminderScreenState extends State<ReminderScreen> {
                       actionTooltip: '提醒设置',
                       onAction: _openSettings,
                     ),
-                    Expanded(child: _runtime()),
+                    Expanded(
+                      child: !_service.isLoaded
+                          ? _service.loadFailed
+                              ? Center(
+                                  child: FxEmptyState(
+                                    icon: LucideIcons.triangleAlert,
+                                    title: '休息提醒读取失败',
+                                    subtitle: '无法读取提醒设置与今日统计，请重新加载。',
+                                    action: FxButton(
+                                      label: '重新加载',
+                                      variant: FxButtonVariant.secondary,
+                                      onPressed: _service.loadAll,
+                                    ),
+                                  ),
+                                )
+                              : const Center(child: FxCircularProgress())
+                          : _runtime(),
+                    ),
                   ],
                 ),
       ),

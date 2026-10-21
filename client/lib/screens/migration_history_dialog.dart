@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../repositories/migration_history_repository.dart';
 import '../services/data_mode_manager.dart';
@@ -124,7 +125,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, color: theme.colorScheme.error),
+          Icon(LucideIcons.triangleAlert, color: theme.colorScheme.error),
           const SizedBox(height: SlowlightSpacing.xs),
           Text(
             '读取${_source == 'local' ? '本机' : '云端'}迁移历史失败',
@@ -157,7 +158,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.history_outlined,
+            LucideIcons.history,
             size: 30,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -195,7 +196,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                local ? Icons.computer_outlined : Icons.cloud_outlined,
+                local ? LucideIcons.monitor : LucideIcons.cloud,
                 size: 18,
                 color: theme.colorScheme.primary,
               ),
@@ -238,7 +239,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
               alignment: Alignment.centerRight,
               child: FxButton(
                 label: _retryingId == id ? '重试中…' : '重试迁移',
-                icon: Icons.refresh,
+                icon: LucideIcons.refreshCw,
                 variant: FxButtonVariant.outline,
                 size: FxButtonSize.sm,
                 onPressed: _retryingId == null ? () => _retry(report) : null,
@@ -319,8 +320,10 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
       _message('迁移重试成功');
       _reload();
     } catch (error) {
-      if (mounted) _message('重试失败：$error');
-      _reload();
+      if (mounted) {
+        _message('重试失败：$error');
+        _reload();
+      }
     } finally {
       if (mounted) setState(() => _retryingId = null);
     }
