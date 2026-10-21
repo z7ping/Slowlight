@@ -24,10 +24,12 @@ void main() {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
 
+      expect(find.byKey(const ValueKey('login.github_action')), findsOneWidget);
       expect(find.byType(FxInput), findsNWidgets(2));
       await tester.tap(find.text('注册'));
       await tester.pump();
 
+      expect(find.byKey(const ValueKey('login.github_action')), findsOneWidget);
       expect(find.byType(FxInput), findsNWidgets(4));
       await disposeFxTestHost(tester);
     });
