@@ -216,7 +216,13 @@ void main() {
         ),
       ));
       await tester.pump();
+      final initial = tester.widget<TagChoiceField>(find.byType(TagChoiceField));
+      expect(initial.selectedTagIds, isEmpty);
+      await tester.ensureVisible(find.text('#学习'));
+      await tester.pump();
       await tester.tap(find.text('#学习'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('#复盘'));
       await tester.pump();
       await tester.tap(find.text('#复盘'));
       await tester.pump();
