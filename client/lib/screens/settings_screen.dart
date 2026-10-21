@@ -43,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _loading = true;
   bool _syncing = false;
+  bool _switchingMode = false;
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
   User? _accountUser;
@@ -125,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     try {
       final user = await AuthService.getUser();
-      if (!mounted) return;
+      if (!mounted || DataModeManager().isLocal) return;
       setState(() {
         _accountUser = user;
         _githubLinked = null;
@@ -138,7 +139,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       } catch (_) {
         return;
       }
-      if (mounted) setState(() => _githubLinked = linked);
+      if (mounted && DataModeManager().isCloud) {
+        setState(() => _githubLinked = linked);
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingAccount = false);
     }
@@ -245,14 +248,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     try {
       final conflicts = await SyncService().getAllConflicts();
-      if (mounted) {
+      if (mounted && DataModeManager().isCloud) {
         setState(() {
           _conflictCount = conflicts.length;
           _conflictCheckFailed = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _conflictCheckFailed = true);
+      if (mounted && DataModeManager().isCloud) {
+        setState(() => _conflictCheckFailed = true);
+      }
     }
   }
 
@@ -737,7 +742,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('数据模式'),
-        _segmented(const ['本地数据', '云端数据'], local ? 0 : 1, _setDataMode),
+        IgnorePointer(
+          ignoring: _switchingMode,
+          child: _segmented(
+            const ['本地数据', '云端数据'],
+            local ? 0 : 1,
+            _setDataMode,
+          ),
+        ),
+        if (_switchingMode)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('正在切换数据模式…'),
+          ),
         const SizedBox(height: 6),
         Text(
           local
@@ -1158,33 +1175,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _setDataMode(int index) async {
-    if (index == 0) {
-      await DataModeManager().setLocal();
-    } else {
-      final token = await AuthService.getToken();
-      if (token == null || token.startsWith('local:')) {
-        if (!mounted) return;
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-        if (!mounted || DataModeManager().isLocal) return;
+    final manager = DataModeManager();
+    final toLocal = index == 0;
+    if (_switchingMode || manager.isLocal == toLocal) return;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: toLocal ? '切换为本地数据？' : '切换为云端数据？',
+      confirmText: '确认切换',
+      content: toLocal
+          ? '切换后将读取本设备的本地数据库，不再显示云端记录。'
+              '这不会把云端记录下载或合并到本地，也不会删除任何现有数据。'
+          : '切换后将读取云端账号中的数据，本地记录不会自动上传或合并。'
+              '如需导入已有本地记录，请使用「数据迁移」先预览和处理冲突。'
+              '原本的本地数据不会删除。',
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _switchingMode = true);
+    try {
+      if (toLocal) {
+        await manager.setLocal();
       } else {
-        await DataModeManager().setCloud();
+        final token = await AuthService.getToken();
+        if (!mounted) return;
+        if (token == null || token.startsWith('local:')) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+          // 登录页负责认证成功后切换模式；取消登录时保留原模式。
+          if (!mounted || manager.isLocal) return;
+        } else {
+          await manager.setCloud();
+        }
       }
+      if (!mounted) return;
+      setState(() {});
+      await _loadConflictCount();
+      await _loadAccount();
+      if (mounted) {
+        _message(toLocal ? '已切换为本地数据' : '已切换为云端数据');
+      }
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '切换数据模式失败', e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _switchingMode = false);
     }
-    if (mounted) setState(() {});
-    await _loadConflictCount();
-    await _loadAccount();
   }
 
   Future<void> _syncNow() async {
+    if (_syncing || DataModeManager().isLocal) return;
     setState(() => _syncing = true);
-    final ok = await CloudSyncCoordinator().syncNow();
-    if (!mounted) return;
-    setState(() => _syncing = false);
-    await _loadConflictCount();
-    _message(ok ? '同步完成' : '同步未完成，请查看同步状态');
+    try {
+      final ok = await CloudSyncCoordinator().syncNow();
+      if (!mounted) return;
+      await _loadConflictCount();
+      if (mounted) {
+        _message(ok ? '同步完成' : '同步未完成，请检查待同步记录和冲突');
+      }
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '同步失败', e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   Future<void> _openConflicts() async {
