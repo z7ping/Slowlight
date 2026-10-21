@@ -20,6 +20,23 @@ class ApiService {
   static const String baseUrl = String.fromEnvironment("SERVER_URL",
       defaultValue: "http://localhost:8080/api");
 
+  // Production builds must explicitly opt into HTTPS and inject SERVER_URL.
+  // Self-hosted localhost development keeps the existing HTTP workflow.
+  static const bool requireCloudHttps =
+      bool.fromEnvironment('SLOWLIGHT_REQUIRE_HTTPS', defaultValue: false);
+
+  static void validateCloudEndpoint({String? url, bool? requireHttps}) {
+    final target = Uri.tryParse(url ?? baseUrl);
+    if (target == null || !target.hasAuthority ||
+        (target.scheme != 'http' && target.scheme != 'https')) {
+      throw StateError('云端服务地址无效，请检查 SERVER_URL');
+    }
+    if ((requireHttps ?? requireCloudHttps) && target.scheme != 'https') {
+      throw StateError('正式云端连接必须使用 HTTPS，请检查 SERVER_URL');
+    }
+  }
+
+
   // Public accessors for sub-API modules (e.g. TaskApi)
   static Duration get getTimeout => _getTimeout;
   static Duration get postTimeout => _postTimeout;

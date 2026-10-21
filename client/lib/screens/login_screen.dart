@@ -124,45 +124,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '了解自己的系统 · 数据位置由你选择',
+                    '登录云端，跨设备保存你的记录；也可选择本地独立使用',
                     textAlign: TextAlign.center,
                     style: SlowlightTypography.secondary(
                       context,
                     ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 22),
-                  FxButton(
-                    label: '使用本地数据（无需服务端）',
-                    icon: LucideIcons.smartphone,
-                    size: FxButtonSize.lg,
-                    expanded: true,
-                    onPressed: _isLoading ? null : _useLocal,
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FxSeparator.horizontal(
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(
-                          '或登录使用云端数据',
-                          style: SlowlightTypography.caption(
-                            context,
-                          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ),
-                      Expanded(
-                        child: FxSeparator.horizontal(
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
                   FxInput(
                     controller: _usernameController,
                     enabled: !_isLoading,
@@ -221,6 +189,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             : '注册',
                     expanded: true,
                     onPressed: _isLoading ? null : _submit,
+                  ),
+                  const SizedBox(height: 18),
+                  FxSeparator.horizontal(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                  const SizedBox(height: 12),
+                  FxButton(
+                    label: '仅使用本地数据（不与云端自动同步）',
+                    icon: LucideIcons.smartphone,
+                    variant: FxButtonVariant.link,
+                    expanded: true,
+                    onPressed: _isLoading ? null : _useLocal,
                   ),
                   const SizedBox(height: 10),
                   Wrap(

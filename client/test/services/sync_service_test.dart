@@ -296,4 +296,26 @@ void main() {
     expect(op.recordId, 1);
     expect(op.action, 'update');
   });
+
+  test('新安装默认云端且写入选择，已有本地数据库保持本地', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await LocalDb().close();
+    await databaseFactory.deleteDatabase(dbPath);
+    await prefs.remove('data_mode');
+    DataModeManager().resetForTesting();
+
+    await DataModeManager().load();
+    expect(DataModeManager().isCloud, isTrue);
+    expect(prefs.getString('data_mode'), 'cloud');
+
+    // Simulate upgrading an old build which did not store the mode.
+    await LocalDb().database;
+    await DataModeManager().setLocal();
+    await prefs.remove('data_mode');
+    DataModeManager().resetForTesting();
+    await DataModeManager().load();
+    expect(DataModeManager().isLocal, isTrue);
+    expect(prefs.getString('data_mode'), 'local');
+  });
+
 }

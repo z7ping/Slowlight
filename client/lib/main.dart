@@ -11,6 +11,7 @@ import 'brand.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/api_service.dart';
 import 'services/notification_service.dart';
 import 'services/auto_start_service.dart';
 import 'services/tray_service.dart';
@@ -289,6 +290,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _isLoading = true;
   bool _hasAccess = false;
+  int _authCheckGeneration = 0;
 
   @override
   void initState() {
@@ -300,12 +302,14 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void dispose() {
     authStateNotifier.removeListener(_onAuthChanged);
+    _authCheckGeneration++;
     super.dispose();
   }
 
   void _onAuthChanged() => _checkAuth();
 
   Future<void> _checkAuth() async {
+    final generation = ++_authCheckGeneration;
     var hasAccess = false;
     if (DataModeManager().isLocal) {
       CloudSyncCoordinator().stop();
@@ -313,6 +317,13 @@ class _AuthGateState extends State<AuthGate> {
       hasAccess = true;
     } else {
       hasAccess = await AuthService.isLoggedIn();
+      if (hasAccess) {
+        try {
+          ApiService.validateCloudEndpoint();
+        } catch (_) {
+          hasAccess = false;
+        }
+      }
       if (hasAccess) {
         try {
           await CloudSyncCoordinator().start();
@@ -325,7 +336,7 @@ class _AuthGateState extends State<AuthGate> {
         CloudSyncCoordinator().stop();
       }
     }
-    if (!mounted) return;
+    if (!mounted || generation != _authCheckGeneration) return;
     setState(() {
       _hasAccess = hasAccess;
       _isLoading = false;

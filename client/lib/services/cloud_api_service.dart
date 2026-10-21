@@ -42,7 +42,7 @@ class CloudApiService implements ApiDataSource {
       _refreshCacheSoon();
       return result;
     } catch (error) {
-      if (!_isTransientNetworkError(error)) rethrow;
+      if (!_isSafeOfflineWriteFailure(error)) rethrow;
       return cached();
     }
   }
@@ -55,13 +55,25 @@ class CloudApiService implements ApiDataSource {
       await remote();
       _refreshCacheSoon();
     } catch (error) {
-      if (!_isTransientNetworkError(error)) rethrow;
+      if (!_isSafeOfflineWriteFailure(error)) rethrow;
       await cached();
     }
   }
 
   void _refreshCacheSoon() {
     unawaited(CloudSyncCoordinator().syncNow());
+  }
+
+  // A timed-out POST or a reset connection may have committed remotely.
+  // Without a server-side idempotency key, replaying it as a new offline
+  // create can duplicate tasks, lists or habits. Only failures known to
+  // happen before reaching the server may enqueue an offline write.
+  bool _isSafeOfflineWriteFailure(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('failed host lookup') ||
+        message.contains('connection refused') ||
+        message.contains('network is unreachable') ||
+        message.contains('no route to host');
   }
 
   bool _containsTemporaryId(Iterable<int?> ids) =>

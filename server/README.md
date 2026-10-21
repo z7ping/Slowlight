@@ -52,7 +52,7 @@ cd server
 docker compose up -d --build
 ```
 
-默认公开服务端口为 `8080`，PostgreSQL 只映射到宿主机 `127.0.0.1:5432`。
+默认仅将后端映射到宿主机 `127.0.0.1:8080`，PostgreSQL 只映射到 `127.0.0.1:5432`。远程访问必须由部署者显式配置 HTTPS 反向代理。
 
 > `docker-compose.yml` 只解决最小运行依赖。正式互联网部署仍应自行配置 TLS、反向代理、数据库备份、防火墙和访问控制。
 
@@ -66,6 +66,25 @@ GitHub Release 中的 Linux Server 包计划包含：
 - 项目许可证（许可证确定并加入仓库后）
 
 解压后将 `.env.example` 复制为 `.env`，填写真实配置，然后在该目录启动二进制。
+
+## 云端部署与恢复基线
+
+- 客户端使用 `--dart-define=SERVER_URL=https://<你的域名>/api` 注入云端接口，正式构建还应启用 `--dart-define=SLOWLIGHT_REQUIRE_HTTPS=true`；开发/内网自托管保留 localhost HTTP 能力。
+- 服务端容器只绑定本机环回端口；公网入口由 Nginx/Caddy 等成熟 TLS 反向代理承担，不在仓库提交域名、证书或密钥。
+- 开放给公网前配置数据库异地加密备份、保留周期和备份恢复监控；不要只保留唯一云端数据库。
+- 账号 JWT 当前有效期为七天，到期要求重新登录；离线待同步队列按账号隔离，不得因为过期清空云端缓存。
+- 恢复演练：先备份当前数据库，再在独立的临时 PostgreSQL 库执行恢复并检查表、账号、任务、习惯、专注、反思、同步墓碑及迁移报告；不要先在生产数据库运行带 `--clean` 的恢复命令。
+
+使用现有 Compose PostgreSQL 容器创建归档（备份文件由操作者妥善加密并存放在服务器之外）：
+
+```bash
+cd server
+docker compose exec -T db pg_dump -U slowlight -Fc slowlight > slowlight-backup.dump
+pg_restore --list slowlight-backup.dump
+```
+
+`pg_restore --list` 只检查归档内容，**不等于完整恢复验证**。建议定期在隔离环境实际执行恢复并使用 `go test ./...` 与手工多设备场景核查。
+升级前保持 PostgreSQL 备份；Cloud-first 不改变 Local Data 用户手工导出/迁移的权利。
 
 ## 数据与升级
 

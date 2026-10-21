@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../db/local_behavior_event_schema.dart';
+import '../db/local_db.dart';
 import '../db/local_product_core_schema.dart';
 
 /// 数据模式枚举
@@ -22,7 +23,7 @@ class DataModeManager extends ChangeNotifier {
   DataModeManager._internal();
 
   static const String _key = 'data_mode';
-  DataMode _mode = DataMode.local;
+  DataMode _mode = DataMode.cloud;
   bool _loaded = false;
 
   DataMode get mode => _mode;
@@ -33,17 +34,34 @@ class DataModeManager extends ChangeNotifier {
   @Deprecated('Use isLocal. Local Data is not the same as offline.')
   bool get isOffline => isLocal;
 
-  /// 加载设置 — 默认本地，云端需手动切换。
+  /// 新装默认云端；已有数据模式/旧本地 DB 的升级用户不自动切换。
   Future<void> load() async {
     if (_loaded) return;
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString(_key);
-    _mode = value == 'cloud' ? DataMode.cloud : DataMode.local;
+    if (value == 'cloud') {
+      _mode = DataMode.cloud;
+    } else if (value == 'local') {
+      _mode = DataMode.local;
+    } else {
+      // Earlier versions may not have saved data_mode; never reinterpret an
+      // existing Local SQLite database as a new installation.
+      _mode = await LocalDb.hasExistingDatabase()
+          ? DataMode.local
+          : DataMode.cloud;
+      await prefs.setString(_key, _mode.name);
+    }
     if (_mode == DataMode.local) {
       await _ensureLocalCore();
     }
     _loaded = true;
     notifyListeners();
+  }
+
+  @visibleForTesting
+  void resetForTesting() {
+    _loaded = false;
+    _mode = DataMode.cloud;
   }
 
   /// 切换模式。

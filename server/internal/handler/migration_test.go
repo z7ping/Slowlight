@@ -138,3 +138,28 @@ func TestMigrationRetryReusesIDMap(t *testing.T) {
 	code3, _ := execute()
 	if code3 != http.StatusConflict { t.Fatalf("legacy report should return 409, got %d", code3) }
 }
+
+func TestMigrationRejectsModifiedSnapshotForSameSource(t *testing.T) {
+    db := setupTestDB(t)
+    tx := beginTx(t, db)
+    user := createTestUser(t, tx)
+    router := migrationRouter(NewMigrationHandler(tx), user.ID)
+    source := uniqueName("source")
+    send := func(name string) int {
+        data, _ := json.Marshal(map[string]interface{}{
+            "source_id": source,
+            "lists": []map[string]interface{}{{"id": 97, "name": name}},
+        })
+        w := httptest.NewRecorder()
+        req, _ := http.NewRequest(http.MethodPost, "/migration/execute", bytes.NewReader(data))
+        req.Header.Set("Content-Type", "application/json")
+        router.ServeHTTP(w, req)
+        return w.Code
+    }
+    if got := send(uniqueName("原始记录")); got != http.StatusOK {
+        t.Fatalf("initial migration failed: %d", got)
+    }
+    if got := send(uniqueName("修改后记录")); got != http.StatusConflict {
+        t.Fatalf("changed source snapshot should be blocked, got %d", got)
+    }
+}

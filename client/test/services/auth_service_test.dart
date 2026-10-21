@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/services/auth_service.dart';
+import 'package:slowlight/services/api_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +12,27 @@ void main() {
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
+  });
+
+  test('正式云端地址只接受 HTTPS，开发/自托管可用本地 HTTP', () {
+    expect(
+      () => ApiService.validateCloudEndpoint(
+        url: 'http://example.org/api', requireHttps: true,
+      ),
+      throwsStateError,
+    );
+    expect(
+      () => ApiService.validateCloudEndpoint(
+        url: 'https://example.org/api', requireHttps: true,
+      ),
+      returnsNormally,
+    );
+    expect(
+      () => ApiService.validateCloudEndpoint(
+        url: 'http://localhost:8080/api', requireHttps: false,
+      ),
+      returnsNormally,
+    );
   });
 
   test('Cloud auth rejects local token', () async {
