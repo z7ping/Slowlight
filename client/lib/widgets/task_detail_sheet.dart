@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../models/observation_tag.dart';
 import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../repositories/observation_tag_repository.dart';
-import '../services/task_dimension_assignment.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import 'tag_choice_field.dart';
 import 'tag_picker.dart';
 
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
@@ -132,13 +129,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late Set<int> _weekdays;
   late DateTime? _reminderAt;
   late int _reminderAdvanceMinutes;
-  late int? _systemTagId;
   late List<Tag> _selectedTags;
-  late final ObservationTagRepository _tagsRepository;
-  late final TaskDimensionAssignment _dimensionAssignment;
-  List<ObservationTag> _systemTags = const [];
-  String? _selectedDimensionKey;
-  bool _dimensionChanged = false;
   bool _saving = false;
 
   @override
@@ -163,11 +154,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 .toSet();
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
-    _systemTagId = task.systemTagId;
     _selectedTags = List<Tag>.from(task.tags);
-    _tagsRepository = widget.tagsRepository ?? ObservationTagRepository();
-    _dimensionAssignment = TaskDimensionAssignment(repository: _tagsRepository);
-    _loadSystemTags();
   }
 
   @override
@@ -175,27 +162,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _title.dispose();
     _description.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadSystemTags() async {
-    try {
-      final tags = await _tagsRepository.getAll();
-      if (!mounted) return;
-      setState(() {
-        _systemTags = tags;
-        // 用户已经主动选择维度时，异步标签加载不能覆盖其输入。
-        if (!_dimensionChanged) {
-          for (final tag in tags) {
-            if (tag.id == _systemTagId) {
-              _selectedDimensionKey = tag.dimensionKey;
-              break;
-            }
-          }
-        }
-      });
-    } catch (_) {
-      // 读取失败时保留任务原始 system_tag_id，仍可修改其他信息。
-    }
   }
 
   @override
@@ -247,9 +213,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               Expanded(
                 child: Text(
                   '任务详情',
-                  style: SlowlightTypography.cardTitle(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w700),
+                  style: SlowlightTypography.cardTitle(context).copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (widget.task.isCompleted)
@@ -258,12 +224,44 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   backgroundColor: activePalette.accent.withValues(alpha: .12),
                   foregroundColor: activePalette.accent,
                   borderRadius: SlowlightRadius.pill,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 3,
-                  ),
                 ),
-              const SizedBox(width: 4),
+              if (!widget.sidePanel) ...[
+                const SizedBox(width: 4),
+                FxMenu<String>(
+                  tooltip: '更多操作',
+                  enabled: !_saving,
+                  child: const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(LucideIcons.ellipsis, size: 20),
+                  ),
+                  itemBuilder: (context) => [
+                    FxMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.trash2,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '删除任务',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onSelected: (value) {
+                    if (value == 'delete') _delete();
+                  },
+                ),
+              ],
               FxIconButton(
                 tooltip: '关闭',
                 onPressed: _saving ? null : _close,
@@ -278,16 +276,13 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _form() {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FxInput(
           controller: _title,
           enabled: !_saving,
-          style: SlowlightTypography.body(
-            context,
-          ).copyWith(fontWeight: FontWeight.w600),
+          style: SlowlightTypography.emphasizedInput(context),
           placeholder: '任务标题',
         ),
         const SizedBox(height: 8),
@@ -296,37 +291,23 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           enabled: !_saving,
           minLines: 2,
           maxLines: 4,
-          style: SlowlightTypography.secondary(context),
+          style: SlowlightTypography.componentSecondary(context),
           placeholder: '描述（可选）',
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 24),
         _fieldLabel('清单'),
         Wrap(
           spacing: 6,
           runSpacing: 6,
           children: widget.lists
-              .map((list) {
-                final selected = _listId == list.id;
-                return FxChip(
-                  label: '${list.icon} ${list.name}',
-                  onTap:
-                      _saving ? null : () => setState(() => _listId = list.id),
-                  backgroundColor:
-                      selected
-                          ? activePalette.accent.withValues(alpha: .12)
-                          : fxSubtleSurface(context),
-                  foregroundColor:
-                      selected
-                          ? activePalette.accent
-                          : theme.colorScheme.onSurfaceVariant,
-                  borderColor:
-                      selected ? activePalette.accent : fxBorder(context),
-                  borderRadius: SlowlightRadius.pill,
-                );
-              })
+              .map((list) => FxChoiceChip(
+                    label: '${list.icon} ${list.name}',
+                    selected: _listId == list.id,
+                    onTap: _saving ? null : () => setState(() => _listId = list.id),
+                  ))
               .toList(growable: false),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         _fieldLabel('优先级'),
         Wrap(
           spacing: 6,
@@ -338,9 +319,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             _priorityChip('urgent', '低'),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 24),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+        const SizedBox(height: 16),
+        Text('时间安排', style: SlowlightTypography.sectionTitle(context)),
+        const SizedBox(height: 12),
         FxResponsiveFormGrid(
-          minColumnWidth: 160,
+          minColumnWidth: 136,
+          maxColumns: 2,
           horizontalGap: 8,
           verticalGap: 10,
           children: [
@@ -358,80 +344,41 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
-        _fieldLabel('重复'),
-        FxSelect<String>(
-          value: _repeatType,
-          enabled: !_saving,
-          options: const [
-            FxSelectOption(value: 'none', label: '不重复'),
-            FxSelectOption(value: 'daily', label: '每天'),
-            FxSelectOption(value: 'weekly', label: '每周'),
-            FxSelectOption(value: 'monthly', label: '每月'),
-            FxSelectOption(value: 'yearly', label: '每年'),
-          ],
-          onChanged:
-              (value) => setState(() {
-                _repeatType = value ?? 'none';
-                if (_repeatType != 'weekly') _weekdays.clear();
-              }),
-        ),
+        const SizedBox(height: 12),
+        _repeatField(),
         if (_repeatType == 'weekly') ...[
           const SizedBox(height: 8),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 8,
+            runSpacing: 8,
             children: List.generate(7, (index) {
               final day = index + 1;
               const labels = ['一', '二', '三', '四', '五', '六', '日'];
-              final selected = _weekdays.contains(day);
-              return FxChip(
+              return FxChoiceChip(
                 label: labels[index],
-                onTap:
-                    _saving
-                        ? null
-                        : () => setState(() {
-                          selected ? _weekdays.remove(day) : _weekdays.add(day);
-                        }),
-                backgroundColor:
-                    selected
-                        ? activePalette.accent.withValues(alpha: .12)
-                        : fxSubtleSurface(context),
-                foregroundColor:
-                    selected
-                        ? activePalette.accent
-                        : theme.colorScheme.onSurfaceVariant,
-                borderColor:
-                    selected ? activePalette.accent : fxBorder(context),
-                borderRadius: SlowlightRadius.pill,
+                selected: _weekdays.contains(day),
+                onTap: _saving ? null : () => setState(() {
+                  if (!_weekdays.add(day)) _weekdays.remove(day);
+                }),
               );
             }),
           ),
         ],
-        const SizedBox(height: 14),
-        _pickerField(
+        const SizedBox(height: 8),
+        _settingRow(
           label: '提醒',
-          value:
-              _reminderAt == null
-                  ? '不提醒'
-                  : '${_dateLabel(_reminderAt!)} ${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}',
+          value: _reminderAt == null
+              ? '不提醒'
+              : '${_dateLabel(_reminderAt!)} ${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}',
           icon: LucideIcons.bell,
           onTap: _pickReminder,
         ),
-        const SizedBox(height: 14),
-        TagChoiceField(
-          label: '历史分类（兼容）',
-          tags: _systemTags,
-          selectedTagId: _systemTagId,
-          enabled: !_saving,
-          onChanged: (id) => setState(() {
-            _systemTagId = id;
-            // 保存旧有标签字段，不再把维度当作用户操作项。
-            _dimensionChanged = false;
-          }),
-        ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
+        FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+        const SizedBox(height: 16),
+        // 历史 system_tag_id 仅透传兼容，不再作为可编辑的分类概念展示。
         TagPicker(
+          label: '标签',
           enabled: !_saving,
           selectedTags: _selectedTags,
           onChanged: (tags) => setState(() => _selectedTags = tags),
@@ -440,12 +387,81 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
+  Widget _repeatField() {
+    const options = [
+      FxSelectOption(value: 'none', label: '不重复'),
+      FxSelectOption(value: 'daily', label: '每天'),
+      FxSelectOption(value: 'weekly', label: '每周'),
+      FxSelectOption(value: 'monthly', label: '每月'),
+      FxSelectOption(value: 'yearly', label: '每年'),
+    ];
+    return Row(
+      children: [
+        Icon(LucideIcons.repeat, size: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Text('重复', style: SlowlightTypography.componentControl(context)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FxSelect<String>(
+            value: _repeatType,
+            enabled: !_saving,
+            options: options,
+            onChanged: (value) => setState(() {
+              _repeatType = value ?? 'none';
+              if (_repeatType != 'weekly') _weekdays.clear();
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _settingRow({
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    return FxInkWell(
+      onTap: _saving ? null : onTap,
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: colors.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(label, style: SlowlightTypography.componentControl(context)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+                style: SlowlightTypography.componentSecondary(context)
+                    .copyWith(color: colors.onSurfaceVariant),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(LucideIcons.chevronRight, size: 16, color: colors.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _priorityChip(String value, String label) => FxChoiceChip(
     label: label,
     selected: _priority == value,
-    selectionColor: value == 'none'
-        ? Theme.of(context).colorScheme.onSurface
-        : AppTheme.priorityColor(value),
+    selectionColor: switch (value) {
+      'urgent_important' => AppTheme.priorityHigh,
+      'important' => AppTheme.priorityMedium,
+      'urgent' => AppTheme.priorityLow,
+      _ => Theme.of(context).colorScheme.onSurface,
+    },
     onTap: _saving ? null : () => setState(() => _priority = value),
   );
 
@@ -489,11 +505,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _fieldLabel(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 5),
+    padding: const EdgeInsets.only(bottom: 8),
     child: Text(
       text,
-      style: SlowlightTypography.caption(context).copyWith(
-        fontWeight: FontWeight.w600,
+      style: SlowlightTypography.componentFieldLabel(context).copyWith(
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     ),
@@ -504,21 +519,28 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-        child: FxDialogActions(
-          stackBelow: 340,
-          leading: FxButton(
-            label: '删除',
-            icon: LucideIcons.trash2,
-            variant: FxButtonVariant.ghost,
-            onPressed: _saving ? null : _delete,
-          ),
-          actions: [
-            FxButton(
-              label: _saving ? '保存中…' : '保存修改',
-              onPressed: _saving ? null : _save,
-            ),
-          ],
-        ),
+        child: widget.sidePanel
+            ? FxDialogActions(
+                leading: FxButton(
+                  label: '删除',
+                  icon: LucideIcons.trash2,
+                  variant: FxButtonVariant.ghost,
+                  onPressed: _saving ? null : _delete,
+                ),
+                actions: [
+                  FxButton(
+                    label: _saving ? '保存中…' : '保存修改',
+                    onPressed: _saving ? null : _save,
+                  ),
+                ],
+              )
+            : SizedBox(
+                width: double.infinity,
+                child: FxButton(
+                  label: _saving ? '保存中…' : '保存修改',
+                  onPressed: _saving ? null : _save,
+                ),
+              ),
       ),
     );
   }
@@ -576,11 +598,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (title.isEmpty || listId == null) return;
     setState(() => _saving = true);
     try {
-      final systemTagId = await _dimensionAssignment.resolve(
-        dimensionKey: _selectedDimensionKey,
-        originalTagId: _systemTagId,
-        changed: _dimensionChanged,
-      );
       await DataService().updateTask(
         localId: widget.task.id,
         serverId: null,
@@ -598,7 +615,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         reminderAt: _reminderAt,
         reminderAdvanceMinutes: _reminderAdvanceMinutes,
         tagIds: _selectedTags.map((tag) => tag.id).toList(),
-        systemTagId: systemTagId,
+        systemTagId: widget.task.systemTagId,
         taskType: widget.task.taskType,
         moodBefore: widget.task.moodBefore,
         moodAfter: widget.task.moodAfter,
