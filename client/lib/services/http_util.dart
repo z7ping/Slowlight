@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'app_error_logger.dart';
 
 /// HTTP 请求工具类。
 ///
@@ -20,6 +21,7 @@ class HttpUtil {
       );
       sw.stop();
       _logResponse('GET', url, response.statusCode, sw.elapsedMilliseconds);
+      _recordHttpStatus('GET', url, response.statusCode);
       return response;
     } catch (e) {
       sw.stop();
@@ -43,6 +45,7 @@ class HttpUtil {
       );
       sw.stop();
       _logResponse('POST', url, response.statusCode, sw.elapsedMilliseconds);
+      _recordHttpStatus('POST', url, response.statusCode);
       return response;
     } catch (e) {
       sw.stop();
@@ -66,6 +69,7 @@ class HttpUtil {
       );
       sw.stop();
       _logResponse('PUT', url, response.statusCode, sw.elapsedMilliseconds);
+      _recordHttpStatus('PUT', url, response.statusCode);
       return response;
     } catch (e) {
       sw.stop();
@@ -89,6 +93,7 @@ class HttpUtil {
       );
       sw.stop();
       _logResponse('DELETE', url, response.statusCode, sw.elapsedMilliseconds);
+      _recordHttpStatus('DELETE', url, response.statusCode);
       return response;
     } catch (e) {
       sw.stop();
@@ -112,6 +117,7 @@ class HttpUtil {
       );
       sw.stop();
       _logResponse('PATCH', url, response.statusCode, sw.elapsedMilliseconds);
+      _recordHttpStatus('PATCH', url, response.statusCode);
       return response;
     } catch (e) {
       sw.stop();
@@ -122,7 +128,7 @@ class HttpUtil {
 
   static void _logRequest(String method, Uri url) {
     if (!kDebugMode) return;
-    debugPrint('[HTTP] → $method $url');
+    debugPrint('[HTTP] → $method ${url.path}');
   }
 
   static void _logResponse(
@@ -132,11 +138,33 @@ class HttpUtil {
     int ms,
   ) {
     if (!kDebugMode) return;
-    debugPrint('[HTTP] ← $method $url | $statusCode | ${ms}ms');
+    debugPrint('[HTTP] ← $method ${url.path} | $statusCode | ${ms}ms');
   }
 
   static void _logError(String method, Uri url, int ms, Object error) {
-    if (!kDebugMode) return;
-    debugPrint('[HTTP] ✖ $method $url | ${ms}ms | ${error.runtimeType}');
+    if (kDebugMode) {
+      debugPrint('[HTTP] ✖ $method ${url.path} | ${ms}ms | ${error.runtimeType}');
+    }
+    // 只存方法、路径、异常类型与错误类别；禁止写入 URL 查询、响应体或凭据。
+    final kind = error.toString().toLowerCase();
+    final category = kind.contains('failed host lookup')
+        ? 'DNS 解析失败'
+        : kind.contains('timeout') ? '连接超时'
+        : kind.contains('connection refused') ? '连接被拒绝'
+        : kind.contains('socketexception') ? '网络连接异常' : '请求失败';
+    _recordError('$method ${url.path}', '${error.runtimeType}: $category');
+  }
+
+  static void _recordHttpStatus(String method, Uri url, int statusCode) {
+    if (statusCode < 400) return;
+    _recordError('$method ${url.path}', 'HTTP $statusCode');
+  }
+
+  static void _recordError(String operation, String summary) {
+    if (kIsWeb) return;
+    AppErrorLogger.instance.write(
+      source: 'HTTP $operation',
+      error: summary,
+    );
   }
 }
