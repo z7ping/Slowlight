@@ -17,6 +17,13 @@ class LocalDb {
   @visibleForTesting
   static String? debugDatabasePathOverride;
 
+  /// 检测历史本地数据库，不打开/创建文件；用于老用户升级时保护数据模式。
+  static Future<bool> hasExistingDatabase() async {
+    final path = debugDatabasePathOverride ??
+        join(await getDatabasesPath(), 'slowlight_offline.db');
+    return databaseExists(path);
+  }
+
   /// 获取数据库实例（懒初始化）
   Future<Database> get database async {
     if (_db != null) return _db!;
