@@ -861,15 +861,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           const SizedBox(height: SlowlightSpacing.xxxl),
           if (_loadingTags)
             const Center(child: FxCircularProgress())
-          else if (_tagLoadFailed)
-            _tagLoadNotice()
-          else
+          else ...[
             TagChoiceField(
               tags: _availableTags,
               selectedTagId: _selectedTagId,
               enabled: !_saving,
               onChanged: (id) => setState(() => _selectedTagId = id),
             ),
+            if (_tagLoadFailed) _tagLoadNotice(),
+          ],
         ],
         FxExpansionTile(
           key: const ValueKey('task-create-settings'),
