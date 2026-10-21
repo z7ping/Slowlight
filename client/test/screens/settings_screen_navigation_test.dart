@@ -52,4 +52,71 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('单列设置项的摘要与箭头整体靠右，且所有箭头位置一致', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(720, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(home: const SettingsScreen()));
+    await tester.pump();
+
+    final appearance = tester.getRect(
+      find.byKey(const ValueKey('settings.category.appearance')),
+    );
+    final summary = tester.getRect(
+      find.byKey(const ValueKey('settings.summary.appearance')),
+    );
+    final arrow = tester.getRect(
+      find.byKey(const ValueKey('settings.chevron.appearance')),
+    );
+    final accountArrow = tester.getRect(
+      find.byKey(const ValueKey('settings.chevron.account')),
+    );
+
+    expect(summary.right, lessThan(arrow.left));
+    expect(summary.left, greaterThan(appearance.center.dx));
+    expect(appearance.right - arrow.right, closeTo(14, 2));
+    expect(arrow.right, closeTo(accountArrow.right, 1));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 窄屏保留副标题在下方，不挤压标签和箭头', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(home: const SettingsScreen()));
+    await tester.pump();
+
+    expect(find.text('主题、配色、字体与显示'), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.summary.appearance')), findsNothing);
+    expect(find.byKey(const ValueKey('settings.chevron.appearance')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('大字体的单列设置项回退至上下排版', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(720, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(2),
+        ),
+        child: child!,
+      ),
+    ));
+    await tester.pump();
+
+    expect(find.text('主题、配色、字体与显示'), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.summary.appearance')), findsNothing);
+    expect(find.byKey(const ValueKey('settings.chevron.appearance')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
