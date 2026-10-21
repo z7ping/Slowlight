@@ -1030,14 +1030,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _reminder.isLoaded
               ? '每 ${_reminder.workMinutes} 分钟小憩 ${_reminder.microRestSeconds} 秒'
               : _reminder.loadFailed ? '读取提醒配置失败，可重试' : '读取提醒配置中…',
-          trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '运行中' : '读取中…', accent: _reminder.isLoaded),
+          trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '已配置' : '读取中…', accent: _reminder.isLoaded),
         ),
         _settingLine(
           '长休息提醒',
           _reminder.isLoaded
               ? '小憩满 ${_reminder.microRestsBeforeLong} 次后进入 ${_reminder.longRestMinutes} 分钟长休息'
               : _reminder.loadFailed ? '读取提醒配置失败，可重试' : '读取提醒配置中…',
-          trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '运行中' : '读取中…', accent: _reminder.isLoaded),
+          trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '已配置' : '读取中…', accent: _reminder.isLoaded),
         ),
         if (isWindows) _settingLine(
           '霸屏休息',
@@ -1168,7 +1168,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _restSummary() {
     if (!_reminderSupported) return '仅桌面端';
-    if (!_reminder.isLoaded) return '读取中…';
+    if (!_reminder.isLoaded) return _reminder.loadFailed ? '读取失败' : '读取中…';
     final fullscreen =
         defaultTargetPlatform == TargetPlatform.windows &&
         _reminder.lockScreenMode == 'fullscreen';
