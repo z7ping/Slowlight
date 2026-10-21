@@ -180,6 +180,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   late String _selectedPriority;
   bool _loadingLists = true;
   bool _listLoadFailed = false;
+  bool _loadingTags = true;
+  bool _tagLoadFailed = false;
   bool _saving = false;
   String? _error;
   _MobileTaskPage? _mobilePage;
@@ -228,11 +230,45 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   Future<void> _loadTags() async {
     try {
       final tags = await _tagsRepository.getAll();
-      if (mounted) setState(() => _availableTags = tags);
+      if (!mounted) return;
+      setState(() {
+        _availableTags = tags;
+        _loadingTags = false;
+        _tagLoadFailed = false;
+      });
     } catch (_) {
-      // 标签读取失败不影响无标签记录，也不清空预设关联。
+      if (!mounted) return;
+      // 不将网络失败伪装成“没有标签”，已读取的数据仍保留。
+      setState(() {
+        _loadingTags = false;
+        _tagLoadFailed = true;
+      });
     }
   }
+
+  Widget _tagLoadNotice() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        '标签加载失败，可重试；不选标签仍可创建任务。',
+        style: SlowlightTypography.secondary(context).copyWith(
+          color: Theme.of(context).colorScheme.error,
+        ),
+        textAlign: TextAlign.center,
+      ),
+      const SizedBox(height: SlowlightSpacing.md),
+      FxButton(
+        key: const ValueKey('task-picker-retry-tags'),
+        label: '重试加载标签',
+        variant: FxButtonVariant.outline,
+        size: FxButtonSize.sm,
+        onPressed: _saving || _loadingTags ? null : () {
+          setState(() => _loadingTags = true);
+          _loadTags();
+        },
+      ),
+    ],
+  );
 
   Widget _listLoadNotice() => Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -760,12 +796,17 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         ),
         if (_showTags) ...[
           const SizedBox(height: SlowlightSpacing.xxxl),
-          TagChoiceField(
-            tags: _availableTags,
-            selectedTagId: _selectedTagId,
-            enabled: !_saving,
-            onChanged: (id) => setState(() => _selectedTagId = id),
-          ),
+          if (_loadingTags)
+            const Center(child: FxCircularProgress())
+          else if (_tagLoadFailed)
+            _tagLoadNotice()
+          else
+            TagChoiceField(
+              tags: _availableTags,
+              selectedTagId: _selectedTagId,
+              enabled: !_saving,
+              onChanged: (id) => setState(() => _selectedTagId = id),
+            ),
         ],
         FxExpansionTile(
           key: const ValueKey('task-create-settings'),
