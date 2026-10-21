@@ -243,4 +243,8 @@ func TestGitHubOAuthDesktopReturnPageDoesNotUseDeepLink(t *testing.T) {
 	if strings.Contains(desktopOAuthReturnHTML, "slowlight://") {
 		t.Fatal("Windows 不应出现未经安装器注册的 Android deep link")
 	}
+	if !strings.Contains(desktopOAuthReturnHTML, "等待 Windows 客户端确认登录") ||
+		!strings.Contains(desktopOAuthReturnHTML, "检查授权结果") {
+		t.Fatal("桌面回调页面必须区分 GitHub 授权与客户端登录确认")
+	}
 }

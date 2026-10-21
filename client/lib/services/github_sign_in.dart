@@ -11,16 +11,27 @@ import 'network_retry.dart';
 /// OAuth 回调唤醒 Android 后，立即检查授权结果，而不是等下一轮定时轮询。
 class _OAuthResumeObserver extends WidgetsBindingObserver {
   Completer<void>? _resume;
+  bool _wakeRequested = false;
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      final signal = _resume;
-      if (signal != null && !signal.isCompleted) signal.complete();
+  void wakeUp() {
+    final signal = _resume;
+    if (signal != null && !signal.isCompleted) {
+      signal.complete();
+    } else {
+      _wakeRequested = true;
     }
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) wakeUp();
+  }
+
   Future<void> waitUntilPoll() async {
+    if (_wakeRequested) {
+      _wakeRequested = false;
+      return;
+    }
     final signal = Completer<void>();
     _resume = signal;
     try {
@@ -38,6 +49,17 @@ class _OAuthResumeObserver extends WidgetsBindingObserver {
 /// GitHub 未承诺第三方 OAuth 可交由 GitHub App 接管，不能拼造 App scheme。
 /// Windows 仍通过默认浏览器授权；两端都通过服务端一次性凭据领取 JWT。
 class GitHubSignIn {
+  static _OAuthResumeObserver? _activeObserver;
+
+  /// 桌面端在浏览器授权后可以主动唤醒正在等待的 OAuth 轮询。
+  /// 只检查已有授权会话；不会重新申请授权或重复领取凭据。
+  static bool checkAuthorizationNow() {
+    final observer = _activeObserver;
+    if (observer == null) return false;
+    observer.wakeUp();
+    return true;
+  }
+
   @visibleForTesting
   static Future<bool> openAuthorization(
     Uri authUrl, {
@@ -129,6 +151,7 @@ class GitHubSignIn {
     }
 
     final resumeObserver = _OAuthResumeObserver();
+    _activeObserver = resumeObserver;
     WidgetsBinding.instance.addObserver(resumeObserver);
     try {
       if (!await openAuthorization(authUrl)) {
@@ -165,6 +188,9 @@ class GitHubSignIn {
       throw StateError('GitHub 授权已超时，请重新发起登录');
     } finally {
       WidgetsBinding.instance.removeObserver(resumeObserver);
+      if (identical(_activeObserver, resumeObserver)) {
+        _activeObserver = null;
+      }
     }
   }
 }

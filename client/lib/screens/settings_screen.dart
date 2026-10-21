@@ -71,6 +71,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _open = widget.initialSection;
     _reminder.addListener(_reminderChanged);
+    authStateNotifier.addListener(_authenticationChanged);
+    DataModeManager().addListener(_authenticationChanged);
     SyncService().addListener(_syncStatusChanged);
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
@@ -81,8 +83,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _reminder.removeListener(_reminderChanged);
+    authStateNotifier.removeListener(_authenticationChanged);
+    DataModeManager().removeListener(_authenticationChanged);
     SyncService().removeListener(_syncStatusChanged);
     super.dispose();
+  }
+
+  void _authenticationChanged() {
+    if (!mounted) return;
+    _loadAccount();
+    _loadConflictCount();
+    setState(() {});
   }
 
   void _reminderChanged() {
@@ -177,9 +188,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_loadingAccount) return '正在读取账号…';
     if (_accountCredentialExpired) return '登录凭据已过期';
     final user = _accountUser;
-    return user == null
-        ? '云端账号 · 信息待确认'
-        : '${user.nickname ?? user.username ?? '云端账号'} · 云端';
+    if (user == null) return '云端账号 · 信息待确认';
+    if (_githubLinked == true) {
+      return '${user.nickname ?? user.username ?? '云端账号'} · GitHub 已绑定';
+    }
+    return '${user.nickname ?? user.username ?? '云端账号'} · 云端';
   }
 
   Widget _accountPanel() {
@@ -259,6 +272,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         if (_linkingGitHub) ...[
           const SizedBox(height: SlowlightSpacing.md),
+          if (defaultTargetPlatform == TargetPlatform.windows) ...[
+            Text(
+              '浏览器完成 GitHub 授权后，本应用会自动核验。'
+              '如果仍显示等待，可以主动检查授权结果。',
+              style: style,
+            ),
+            const SizedBox(height: SlowlightSpacing.sm),
+            FxButton(
+              label: '检查授权结果',
+              variant: FxButtonVariant.outline,
+              onPressed: () {
+                if (!GitHubSignIn.checkAuthorizationNow()) {
+                  _message('授权会话正在初始化，请稍后重试');
+                }
+              },
+            ),
+            const SizedBox(height: SlowlightSpacing.md),
+          ],
           FxButton(
             label: '取消授权等待',
             variant: FxButtonVariant.link,
@@ -1211,9 +1242,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             version == _githubLinkVersion && DataModeManager().isCloud,
       );
       if (mounted && completed && _linkingGitHub && version == _githubLinkVersion) {
+        authStateNotifier.value = !authStateNotifier.value;
         await _loadAccount();
-        if (mounted && version == _githubLinkVersion && _githubLinked == true) {
-          _message('GitHub 已绑定到当前云端账号');
+        if (mounted && version == _githubLinkVersion) {
+          _message(_githubLinked == true
+              ? 'GitHub 已绑定到当前云端账号'
+              : 'GitHub 授权已完成，请重新检查账号绑定状态');
         }
       }
     } catch (e) {

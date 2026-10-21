@@ -59,6 +59,10 @@ void main() {
     ]);
   });
 
+  test('Windows 不存在待核验会话时不误报授权已检查', () {
+    expect(GitHubSignIn.checkAuthorizationNow(), isFalse);
+  });
+
   test('Windows 不使用 Android 回跳方式，始终使用默认浏览器', () async {
     final launched = <LaunchMode>[];
     final success = await GitHubSignIn.openAuthorization(
