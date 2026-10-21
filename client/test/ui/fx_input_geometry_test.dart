@@ -42,7 +42,7 @@ void main() {
                   data: MediaQuery.of(context).copyWith(
                     textScaler: TextScaler.linear(scale),
                   ),
-                  child: child,
+                  child: child!,
                 ),
                 home: const Scaffold(
                   body: Center(
@@ -110,7 +110,7 @@ void main() {
               data: MediaQuery.of(context).copyWith(
                 textScaler: TextScaler.linear(scale),
               ),
-              child: child,
+              child: child!,
             ),
             home: const Scaffold(
               body: Center(
@@ -161,7 +161,7 @@ void main() {
             data: MediaQuery.of(context).copyWith(
               textScaler: TextScaler.linear(scale),
             ),
-            child: child,
+            child: child!,
           ),
           home: Scaffold(
             body: StatefulBuilder(

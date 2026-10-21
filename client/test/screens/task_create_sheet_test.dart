@@ -279,7 +279,7 @@ void main() {
         data: MediaQuery.of(context).copyWith(
           textScaler: TextScaler.linear(2),
         ),
-        child: child,
+        child: child!,
       ),
       home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
     ));

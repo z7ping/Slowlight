@@ -16,6 +16,10 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher">
+        <!-- Flutter 3.29 在 Android 恢复前台后出现字形缓存缺失，改用 Skia 保证文字显示。 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

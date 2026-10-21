@@ -12,8 +12,8 @@ class NetworkRetryPolicy {
     this.maxDuration = const Duration(seconds: 15),
     this.jitterRatio = 0.2,
   })  : assert(maxAttempts > 0),
-        assert(!initialDelay.isNegative),
-        assert(maxDuration > Duration.zero),
+        // Duration 的 getter/运算符不是 const 表达式，不能出现在 const
+        // 构造函数的 assert 中；负值延时由 delayAfter 的运行时断言兜底。
         assert(jitterRatio >= 0 && jitterRatio <= 1);
 
   /// 含首次请求的总尝试次数。
@@ -26,6 +26,7 @@ class NetworkRetryPolicy {
 
   Duration delayAfter(int completedAttempt, {double? sample}) {
     assert(completedAttempt > 0);
+    assert(!initialDelay.isNegative && !maxDuration.isNegative);
     final multiplier = 1 << min(completedAttempt - 1, 20);
     final unit = (sample ?? Random().nextDouble()).clamp(0.0, 1.0);
     final milliseconds = (initialDelay.inMilliseconds *

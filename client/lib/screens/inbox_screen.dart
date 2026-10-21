@@ -260,7 +260,6 @@ class _InboxScreenState extends State<InboxScreen> {
               style: SlowlightTypography.body(context),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _quickAdd(),
-              isDense: true,
             ),
           ),
           const SizedBox(width: 10),

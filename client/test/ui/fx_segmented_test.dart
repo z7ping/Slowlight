@@ -140,7 +140,7 @@ void main() {
               data: MediaQuery.of(context).copyWith(
                 textScaler: TextScaler.linear(scale),
               ),
-              child: child,
+              child: child!,
             ),
             home: Scaffold(
               body: Center(
