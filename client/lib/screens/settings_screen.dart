@@ -1292,9 +1292,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final sync = SyncService();
         final pending = sync.pendingCount +
             CloudSyncCoordinator().standalonePendingCount.value;
-        final complete = ok && sync.status != SyncStatusEnum.error &&
-            sync.status != SyncStatusEnum.syncing &&
-            !_conflictCheckFailed && _conflictCount == 0 && pending == 0;
+        final complete = cloudSyncFullySettled(
+          requestSucceeded: ok,
+          status: sync.status,
+          conflictCheckFailed: _conflictCheckFailed,
+          conflictCount: _conflictCount,
+          pendingCount: pending,
+        );
         _message(complete
             ? '同步完成，当前无待处理项'
             : '同步尚未全部完成，请检查同步状态、待同步项和冲突');
