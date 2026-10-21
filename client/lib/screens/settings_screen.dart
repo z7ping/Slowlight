@@ -17,7 +17,8 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
 import 'ai_settings_screen.dart';
-import 'diagnostics_screen.dart';import 'conflict_screen.dart';
+import 'diagnostics_screen.dart';
+import 'conflict_screen.dart';
 import 'integration_screen.dart';
 import 'login_screen.dart';
 import 'migration_history_dialog.dart';
@@ -65,6 +66,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _open = widget.initialSection;
     _reminder.addListener(_reminderChanged);
+    authStateNotifier.addListener(_authenticationChanged);
+    DataModeManager().addListener(_authenticationChanged);
     SyncService().addListener(_syncStatusChanged);
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
@@ -74,8 +77,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _reminder.removeListener(_reminderChanged);
+    authStateNotifier.removeListener(_authenticationChanged);
+    DataModeManager().removeListener(_authenticationChanged);
     SyncService().removeListener(_syncStatusChanged);
     super.dispose();
+  }
+
+  void _authenticationChanged() {
+    if (!mounted) return;
+    _loadAccount();
+    _loadConflictCount();
+    setState(() {});
   }
 
   void _reminderChanged() {
@@ -158,9 +170,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (DataModeManager().isLocal) return '本地使用';
     if (_loadingAccount) return '正在读取账号…';
     final user = _accountUser;
-    return user == null
-        ? '云端账号 · 信息待确认'
-        : '${user.nickname ?? user.username ?? '云端账号'} · 云端';
+    if (user == null) return '云端账号 · 信息待确认';
+    if (_githubLinked == true) {
+      return '${user.nickname ?? user.username ?? '云端账号'} · GitHub 已绑定';
+    }
+    return '${user.nickname ?? user.username ?? '云端账号'} · 云端';
   }
 
   Widget _accountPanel() {
@@ -220,6 +234,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         if (_linkingGitHub) ...[
           const SizedBox(height: SlowlightSpacing.md),
+          if (defaultTargetPlatform == TargetPlatform.windows) ...[
+            Text(
+              '浏览器完成 GitHub 授权后，本应用会自动核验。'
+              '如果仍显示等待，可以主动检查授权结果。',
+              style: style,
+            ),
+            const SizedBox(height: SlowlightSpacing.sm),
+            FxButton(
+              label: '检查授权结果',
+              variant: FxButtonVariant.outline,
+              onPressed: () {
+                if (!GitHubSignIn.checkAuthorizationNow()) {
+                  _message('授权会话正在初始化，请稍后重试');
+                }
+              },
+            ),
+            const SizedBox(height: SlowlightSpacing.md),
+          ],
           FxButton(
             label: '取消授权等待',
             variant: FxButtonVariant.link,
@@ -1119,8 +1151,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shouldContinue: () => mounted && _linkingGitHub,
       );
       if (mounted && completed) {
-        _message('GitHub 已绑定到当前云端账号');
+        // OAuth 回调已完成后仍需刷新本机身份和真实绑定状态。
+        // 侧栏可能已经存在，显式广播避免停留在旧的账户摘要。
+        authStateNotifier.value = !authStateNotifier.value;
         await _loadAccount();
+        if (!mounted) return;
+        if (_githubLinked == true) {
+          _message('GitHub 已绑定到当前云端账号');
+        } else {
+          _message('GitHub 授权已完成，请重新检查账号绑定状态');
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -236,7 +236,7 @@ func (h *GitHubOAuthHandler) Callback(c *gin.Context) {
 	c.Data(200, "text/html; charset=utf-8", []byte(desktopOAuthReturnHTML))
 }
 
-const desktopOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>授权成功</h1><p>返回所行映我，登录将自动完成。</p><p style="opacity:.7">可以关闭此页面。</p></body></html>`
+const desktopOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>GitHub 授权已完成</h1><p>请返回所行映我，等待 Windows 客户端确认登录。</p><p style="opacity:.7">如果客户端仍在等待，请点击「检查授权结果」。完成客户端验证前，这里不代表已经登录。</p></body></html>`
 
 const androidOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>授权成功</h1><p>正在返回所行映我…</p><p><a href="slowlight://oauth-complete" style="display:inline-block;background:#437bff;color:white;padding:14px 24px;border-radius:10px;text-decoration:none">返回所行映我</a></p><p style="opacity:.7">如果没有自动返回，请点击按钮。</p><script>window.location.replace("slowlight://oauth-complete");</script></body></html>`
 

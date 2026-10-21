@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../main.dart' show authStateNotifier;
 import '../models/habit.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -77,6 +78,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   void initState() {
     super.initState();
     _accountFuture = _loadAccountDisplay();
+    authStateNotifier.addListener(_refreshAccount);
+    DataModeManager().addListener(_refreshAccount);
     _reload();
     NotificationService().checkAndScheduleReminders();
     TrayService().loadAfterLogin();
@@ -85,6 +88,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
   @override
   void dispose() {
+    authStateNotifier.removeListener(_refreshAccount);
+    DataModeManager().removeListener(_refreshAccount);
     _shortcutFocusNode.dispose();
     super.dispose();
   }
