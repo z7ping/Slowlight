@@ -391,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       density: desktop
           ? FxListTileDensity.sidebar
           : FxListTileDensity.detailed,
-      minTileHeight: desktop ? 44 : 58,
+      minTileHeight: desktop ? 44.0 : 58.0,
       title: _sectionTitle(id),
       subtitle: desktop ? null : _sectionDescription(id),
       leading: Icon(icon, size: 20),
