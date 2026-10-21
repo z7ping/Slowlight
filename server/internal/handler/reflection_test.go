@@ -103,3 +103,35 @@ func TestReflection_CreateWithAtomicCanonicalTags(t *testing.T) {
 	if err := db.Model(&model.Reflection{}).Where("user_id = ?", user.ID).Count(&after).Error; err != nil { t.Fatal(err) }
 	assertEqual(t, after, before, "NoPartialReflection")
 }
+
+
+func TestReflection_ReplayRequestCreatesSingleEntry(t *testing.T) {
+    db := beginTx(t, setupTestDB(t))
+    user := createTestUser(t, db)
+    router := newTestGin()
+    router.Use(func(c *gin.Context) { withUser(c, user.ID); c.Next() })
+    router.POST("/reflections", NewReflectionHandler(db).Create)
+    send := func(content string) (int, reflectionResponse) {
+        body, _ := json.Marshal(map[string]interface{}{
+            "content": content, "entry_type": "reflection",
+            "client_request_id": "device-42:reflection:10",
+        })
+        w := httptest.NewRecorder()
+        req := httptest.NewRequest(http.MethodPost, "/reflections", bytes.NewReader(body))
+        req.Header.Set("Content-Type", "application/json")
+        router.ServeHTTP(w, req)
+        var response reflectionResponse
+        _ = json.Unmarshal(w.Body.Bytes(), &response)
+        return w.Code, response
+    }
+    firstCode, first := send("同一条离线反思")
+    replayCode, replay := send("同一条离线反思")
+    if firstCode != http.StatusCreated || replayCode != http.StatusOK || first.ID != replay.ID {
+        t.Fatalf("request replay failed: %d/%d ids %d/%d", firstCode, replayCode, first.ID, replay.ID)
+    }
+    changedCode, _ := send("不同内容")
+    if changedCode != http.StatusConflict { t.Fatalf("same key with different content: %d", changedCode) }
+    var count int64
+    db.Model(&model.Reflection{}).Where("user_id = ?", user.ID).Count(&count)
+    if count != 1 { t.Fatalf("duplicate reflection: %d", count) }
+}
