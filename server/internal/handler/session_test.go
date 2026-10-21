@@ -524,7 +524,7 @@ func TestSessionPauseResumeExcludesPausedTime(t *testing.T) {
         router.ServeHTTP(w,req)
         return w
     }
-    payload,_ := json.Marshal(map[string]interface{}{"session_id":session.ID})
+    payload,_ := json.Marshal(map[string]interface{}{"session_id":session.ID,"expected_revision":0})
     // 重复暂停应保留最初暂停时间，不得开始一段新暂停。
     first := request("POST","/sessions/pause",payload)
     if first.Code != 200 { t.Fatalf("pause: %d %s",first.Code,first.Body.String()) }
@@ -539,13 +539,17 @@ func TestSessionPauseResumeExcludesPausedTime(t *testing.T) {
     if active.Code != 200 || !bytes.Contains(active.Body.Bytes(),[]byte("paused_at")) {
         t.Fatalf("active 必须携带暂停状态: %s",active.Body.String())
     }
-    resumed := request("POST","/sessions/resume",payload)
+    resumePayload,_ := json.Marshal(map[string]interface{}{"session_id":session.ID,"expected_revision":1})
+    resumed := request("POST","/sessions/resume",resumePayload)
     if resumed.Code != 200 { t.Fatalf("resume: %d %s",resumed.Code,resumed.Body.String()) }
-    again := request("POST","/sessions/resume",payload)
+    again := request("POST","/sessions/resume",resumePayload)
     if again.Code != 200 { t.Fatalf("repeated resume: %d",again.Code) }
+    // 旧暂停请求不能在恢复之后迟到并覆盖新状态。
+    stale := request("POST","/sessions/pause",payload)
+    if stale.Code != http.StatusConflict { t.Fatalf("过期暂停应返回冲突: %d",stale.Code) }
     var after model.WorkSession
     if err := db.First(&after,session.ID).Error; err != nil { t.Fatal(err) }
-    if after.PausedAt != nil || after.PausedDurationSec < 418 || after.PausedDurationSec > 423 {
+    if after.Revision != 2 || after.PausedAt != nil || after.PausedDurationSec < 418 || after.PausedDurationSec > 423 {
         t.Fatalf("暂停时长被重复累计或状态未恢复: %+v",after)
     }
     ended := request("POST","/sessions/end",nil)
