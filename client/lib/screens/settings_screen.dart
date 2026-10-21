@@ -42,6 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loadingAi = true;
   String? _aiLoadError;
   bool _syncing = false;
+  bool _savingReminder = false;
   bool _switchingMode = false;
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
@@ -637,16 +638,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ThemeMode.dark => 2,
       _ => 0,
     };
-    final visibleScale = settings.fontScale.clamp(1.0, 1.25).toDouble();
+    final minScale = ThemeSettings.fontScaleOptions.keys.first;
+    final maxScale = ThemeSettings.fontScaleOptions.keys.last;
+    final visibleScale = settings.fontScale.clamp(minScale, maxScale).toDouble();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('主题模式'),
         _segmented(const ['跟随系统', '浅色', '深色'], modeIndex, (index) async {
-          await settings.setThemeMode(
+          await _saveAppearance(() => settings.setThemeMode(
             [ThemeMode.system, ThemeMode.light, ThemeMode.dark][index],
-          );
-          if (mounted) setState(() {});
+          ));
         }),
         const SizedBox(height: 14),
         _label('配色'),
@@ -659,8 +661,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return FxInkWell(
                   borderRadius: BorderRadius.circular(10),
                   onTap: () async {
-                    await settings.setPalette(palette.name);
-                    if (mounted) setState(() {});
+                    await _saveAppearance(() => settings.setPalette(palette.name));
                   },
                   child: SizedBox(
                     width: 116,
@@ -734,12 +735,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         FxSlider(
           value: visibleScale,
-          min: 1.0,
-          max: 1.25,
-          divisions: 5,
+          min: minScale,
+          max: maxScale,
+          divisions: ((maxScale - minScale) / .05).round(),
           label: '${(visibleScale * 100).round()}%',
           onChanged: (value) {
-            settings.setFontScale(value);
+            _saveAppearance(() => settings.setFontScale(value));
             setState(() {});
           },
         ),
@@ -753,7 +754,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Text(
             '预览：所行映我帮你了解自己',
-            style: TextStyle(fontSize: SlowlightTypography.secondarySize * visibleScale),
+            // 根级 MediaQuery 已应用字号倍率，预览不再重复放大。
+            style: SlowlightTypography.secondary(context),
           ),
         ),
         const SizedBox(height: 12),
@@ -770,8 +772,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               .toList(growable: false),
           onChanged: (value) async {
             if (value == null) return;
-            await settings.setFontFamily(value);
-            if (mounted) setState(() {});
+            await _saveAppearance(() => settings.setFontFamily(value));
           },
         ),
         const SizedBox(height: 8),
@@ -782,8 +783,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             variant: FxButtonVariant.ghost,
             size: FxButtonSize.sm,
             onPressed: () async {
-              await settings.resetToDefaults();
-              if (mounted) setState(() {});
+              await _saveAppearance(settings.resetToDefaults);
             },
           ),
         ),
@@ -1030,21 +1030,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _reminder.isLoaded
               ? '每 ${_reminder.workMinutes} 分钟小憩 ${_reminder.microRestSeconds} 秒'
               : '读取提醒配置中…',
-          trailing: _statusChip('已启用', accent: true),
+          trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '运行中' : '读取中…', accent: _reminder.isLoaded),
         ),
         _settingLine(
           '长休息提醒',
           _reminder.isLoaded
               ? '小憩满 ${_reminder.microRestsBeforeLong} 次后进入 ${_reminder.longRestMinutes} 分钟长休息'
               : '读取提醒配置中…',
-          trailing: _statusChip('已启用', accent: true),
+          trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '运行中' : '读取中…', accent: _reminder.isLoaded),
         ),
         _settingLine(
           '霸屏休息',
           isWindows ? '休息触发时全屏接管桌面' : '仅 Windows 桌面端生效',
           trailing: FxSwitch(
             value: fullscreen,
-            onChanged: isWindows ? _setReminderFullscreen : null,
+            onChanged: isWindows && _reminder.isLoaded && !_savingReminder ? _setReminderFullscreen : null,
           ),
         ),
         _settingLine(
@@ -1052,7 +1052,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           '小憩开始后不可跳过本轮',
           trailing: FxSwitch(
             value: _reminder.microRestStrict,
-            onChanged: (value) => _setReminderStrict(micro: true, value: value),
+            onChanged: _reminder.isLoaded && !_savingReminder ? (value) => _setReminderStrict(micro: true, value: value) : null,
           ),
         ),
         _settingLine(
@@ -1060,16 +1060,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           '长休息开始后不可跳过本轮',
           trailing: FxSwitch(
             value: _reminder.longRestStrict,
-            onChanged:
-                (value) => _setReminderStrict(micro: false, value: value),
+            onChanged: _reminder.isLoaded && !_savingReminder ? (value) => _setReminderStrict(micro: false, value: value) : null,
           ),
-        ),
-        _settingLine('睡眠暂停计时', '系统睡眠/休眠期间不累计工作时长', trailing: _statusChip('提案')),
-        _settingLine('锁屏重置本轮', '解锁后本轮从零开始', trailing: _statusChip('提案')),
-        _settingLine(
-          '免打扰时段',
-          '建议 22:00 – 08:00 不提醒',
-          trailing: _statusChip('提案'),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -1077,12 +1069,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              '未落地项继续明确标记为提案，不伪装成可用开关。',
-              style: SlowlightTypography.caption(
-                context,
-              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
+            if (_reminder.loadFailed)
+              FxButton(
+                label: '重试读取提醒配置',
+                variant: FxButtonVariant.outline,
+                size: FxButtonSize.sm,
+                onPressed: _savingReminder ? null : _reminder.loadAll,
+              ),
             FxButton(
               label: '打开休息提醒',
               variant: FxButtonVariant.outline,
@@ -1169,7 +1162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _appearanceSummary() {
     final settings = ThemeSettings();
-    final scale = settings.fontScale.clamp(1.0, 1.25);
+    final scale = settings.fontScale;
     return '${ThemeSettings.themeModeOptions[settings.themeMode]} · ${getPalette(settings.palette).label} · ${(scale * 100).round()}%';
   }
 
@@ -1182,33 +1175,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return '${_reminder.workMinutes} 分钟 · ${fullscreen ? '霸屏' : '窗口'}';
   }
 
-  Future<void> _setReminderFullscreen(bool enabled) async {
-    if (!_reminderSupported) return;
-    _reminder.updateConfig(lockScreenMode: enabled ? 'fullscreen' : 'window');
+  Future<void> _saveAppearance(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (e) {
+      if (mounted) FxNotice.errorWithDetails(context, '外观设置保存失败，已恢复原设置', e.toString());
+    } finally {
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _saveReminderChange({
+    required String successMessage,
+    required void Function() apply,
+    required void Function() rollback,
+  }) async {
+    if (!_reminderSupported || !_reminder.isLoaded || _savingReminder) return;
+    setState(() => _savingReminder = true);
+    apply();
     try {
       await _reminder.saveConfig();
-      _message(enabled ? '已启用霸屏休息' : '已改为窗口休息');
+      if (mounted) _message(successMessage);
     } catch (e) {
-      _message('保存休息提醒设置失败：$e');
+      rollback();
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '休息提醒设置保存失败，已恢复原设置', e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _savingReminder = false);
     }
+  }
+
+  Future<void> _setReminderFullscreen(bool enabled) async {
+    final before = _reminder.lockScreenMode;
+    await _saveReminderChange(
+      successMessage: enabled ? '已启用霸屏休息' : '已改为窗口休息',
+      apply: () => _reminder.updateConfig(lockScreenMode: enabled ? 'fullscreen' : 'window'),
+      rollback: () => _reminder.updateConfig(lockScreenMode: before),
+    );
   }
 
   Future<void> _setReminderStrict({
     required bool micro,
     required bool value,
   }) async {
-    if (!_reminderSupported) return;
-    _reminder.updateConfig(
-      microRestStrict: micro ? value : null,
-      longRestStrict: micro ? null : value,
+    final before = micro ? _reminder.microRestStrict : _reminder.longRestStrict;
+    final label = micro ? '小憩严格模式' : '长休息严格模式';
+    await _saveReminderChange(
+      successMessage: value ? '已启用$label' : '已关闭$label',
+      apply: () => _reminder.updateConfig(
+        microRestStrict: micro ? value : null,
+        longRestStrict: micro ? null : value,
+      ),
+      rollback: () => _reminder.updateConfig(
+        microRestStrict: micro ? before : null,
+        longRestStrict: micro ? null : before,
+      ),
     );
-    try {
-      await _reminder.saveConfig();
-      final label = micro ? '小憩严格模式' : '长休息严格模式';
-      _message(value ? '已启用$label' : '已关闭$label');
-    } catch (e) {
-      _message('保存休息提醒设置失败：$e');
-    }
   }
 
   Future<void> _bindGitHub() async {
