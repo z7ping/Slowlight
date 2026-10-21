@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:slowlight/services/github_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -74,4 +75,77 @@ void main() {
     expect(success, isTrue);
     expect(launched, [LaunchMode.externalApplication]);
   });
+
+  test('GitHub 轮询仅对临时网络异常重试，恢复后继续授权', () async {
+    var attempts = 0;
+    final pauses = <Duration>[];
+    final result = await GitHubSignIn.pollWithNetworkRetry(
+      request: () async {
+        attempts++;
+        if (attempts == 1) {
+          throw http.ClientException(
+            'ClientException with SocketException: Failed host lookup',
+          );
+        }
+        return {'status': 'complete'};
+      },
+      shouldContinue: () => true,
+      delay: (duration) async => pauses.add(duration),
+    );
+    expect(result?['status'], 'complete');
+    expect(attempts, 2);
+    expect(pauses, [const Duration(seconds: 2)]);
+  });
+
+  test('GitHub 轮询临时故障最多尝试四次，并提供友好错误信息', () async {
+    var attempts = 0;
+    await expectLater(
+      GitHubSignIn.pollWithNetworkRetry(
+        request: () async {
+          attempts++;
+          throw http.ClientException('Failed host lookup: example.invalid');
+        },
+        shouldContinue: () => true,
+        delay: (_) async {},
+      ),
+      throwsA(isA<http.ClientException>()),
+    );
+    expect(attempts, 4);
+    expect(
+      GitHubSignIn.describeError(http.ClientException('Failed host lookup')),
+      contains('DNS'),
+    );
+  });
+
+  test('GitHub 轮询不重试服务端认证错误，也不会吞掉异常', () async {
+    var attempts = 0;
+    await expectLater(
+      GitHubSignIn.pollWithNetworkRetry(
+        request: () async {
+          attempts++;
+          throw StateError('授权会话已过期');
+        },
+        shouldContinue: () => true,
+        delay: (_) async {},
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(attempts, 1);
+  });
+
+  test('GitHub 轮询网络重试时取消，不继续请求', () async {
+    var attempts = 0;
+    var active = true;
+    final result = await GitHubSignIn.pollWithNetworkRetry(
+      request: () async {
+        attempts++;
+        throw http.ClientException('Failed host lookup');
+      },
+      shouldContinue: () => active,
+      delay: (_) async => active = false,
+    );
+    expect(result, isNull);
+    expect(attempts, 1);
+  });
+
 }
