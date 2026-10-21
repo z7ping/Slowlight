@@ -154,7 +154,10 @@ class GitHubSignIn {
         if (!shouldContinue() || result == null) return false;
         if (result['status'] == 'pending') continue;
         if (result['status'] == 'complete') {
-          await AuthService.completeOAuthLogin(result);
+          await AuthService.completeOAuthLogin(
+            result,
+            linkingExisting: linkExisting,
+          );
           return true;
         }
         throw StateError('GitHub 登录状态异常，请重试');
