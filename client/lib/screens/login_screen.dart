@@ -96,11 +96,23 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) _finish(true);
     } catch (e) {
       if (mounted) {
-        FxNotice.errorWithDetails(
-          context,
-          'GitHub 登录失败',
-          GitHubSignIn.describeError(e),
-        );
+        final message = GitHubSignIn.describeError(e);
+        if (GitHubSignIn.isTransientNetworkFailure(e)) {
+          FxNotice.error(
+            context,
+            '云端连接失败',
+            description: message,
+            duration: const Duration(seconds: 12),
+            action: FxNoticeAction(
+              label: '重新尝试',
+              onPressed: () {
+                if (mounted && !_isLoading) _loginWithGitHub();
+              },
+            ),
+          );
+        } else {
+          FxNotice.errorWithDetails(context, 'GitHub 登录失败', message);
+        }
       }
     } finally {
       if (mounted) {
