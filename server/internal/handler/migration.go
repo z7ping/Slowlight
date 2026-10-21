@@ -23,6 +23,7 @@ type MigrationHandler struct{ DB *gorm.DB }
 func NewMigrationHandler(db *gorm.DB) *MigrationHandler { return &MigrationHandler{DB: db} }
 
 type MigrationSnapshot struct {
+	SourceID       string             `json:"source_id"`
 	ConflictPolicy string             `json:"conflict_policy"`
 	Lists          []MigrationList    `json:"lists"`
 	Tags           []MigrationTag     `json:"tags"`
@@ -156,6 +157,10 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 		return
 	}
 	fingerprint := fmt.Sprintf("%x", sha256.Sum256(snapshotJSON))
+	if len(snapshot.SourceID) > 64 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "迁移来源标识过长"})
+		return
+	}
 	var report model.MigrationReport
 	var created map[string]int
 	var idMap interface{}
@@ -163,6 +168,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 	var conflicts []MigrationConflict
 	errUnresolvedConflict := errors.New("存在未处理冲突")
 	errMissingIDMap := errors.New("历史迁移报告缺少 ID 映射，已阻止重复导入，请先备份并核对云端数据")
+	errChangedSnapshot := errors.New("同一本地数据源已有不同快照的迁移报告；请先核对云端差异，避免重复导入")
 
 	listIDs, tagIDs, systemTagIDs, habitIDs, taskIDs, subtaskIDs, logIDs, sessionIDs := map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}, map[uint]uint{}
 	logCount, sessionCount := 0, 0
@@ -186,6 +192,17 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
+        // A changed snapshot from the same local database must not import old rows twice.
+        // Legacy reports have no source identifier; block automatic follow-up until reconciled.
+        var previousSource model.MigrationReport
+        check := tx.Where("user_id = ? AND (source_id = ? OR source_id = '')",
+            userID, snapshot.SourceID).First(&previousSource)
+        if check.Error == nil {
+            return errChangedSnapshot
+        }
+        if !errors.Is(check.Error, gorm.ErrRecordNotFound) {
+            return check.Error
+        }
 		conflicts = make([]MigrationConflict, 0)
 		locked := MigrationHandler{DB: tx}
 		locked.collectListConflicts(userID, snapshot.Lists, &conflicts)
@@ -436,7 +453,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 			return err
 		}
 		// Commit business entities and replay receipt in the same transaction.
-		report = model.MigrationReport{UserID: userID, ConflictPolicy: snapshot.ConflictPolicy, Status: "succeeded", Fingerprint: fingerprint, Created: string(createdJSON), IDMap: string(idMapJSON)}
+		report = model.MigrationReport{UserID: userID, ConflictPolicy: snapshot.ConflictPolicy, Status: "succeeded", Fingerprint: fingerprint, Created: string(createdJSON), IDMap: string(idMapJSON), SourceID: snapshot.SourceID}
 		return tx.Create(&report).Error
 	})
 	if err != nil {
@@ -444,7 +461,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error(), "conflicts": conflicts})
 			return
 		}
-		if errors.Is(err, errMissingIDMap) {
+		if errors.Is(err, errMissingIDMap) || errors.Is(err, errChangedSnapshot) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
