@@ -1029,19 +1029,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           '微休息提醒',
           _reminder.isLoaded
               ? '每 ${_reminder.workMinutes} 分钟小憩 ${_reminder.microRestSeconds} 秒'
-              : '读取提醒配置中…',
+              : _reminder.loadFailed ? '读取提醒配置失败，可重试' : '读取提醒配置中…',
           trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '运行中' : '读取中…', accent: _reminder.isLoaded),
         ),
         _settingLine(
           '长休息提醒',
           _reminder.isLoaded
               ? '小憩满 ${_reminder.microRestsBeforeLong} 次后进入 ${_reminder.longRestMinutes} 分钟长休息'
-              : '读取提醒配置中…',
+              : _reminder.loadFailed ? '读取提醒配置失败，可重试' : '读取提醒配置中…',
           trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '运行中' : '读取中…', accent: _reminder.isLoaded),
         ),
-        _settingLine(
+        if (isWindows) _settingLine(
           '霸屏休息',
-          isWindows ? '休息触发时全屏接管桌面' : '仅 Windows 桌面端生效',
+          '休息触发时全屏接管桌面',
           trailing: FxSwitch(
             value: fullscreen,
             onChanged: isWindows && _reminder.isLoaded && !_savingReminder ? _setReminderFullscreen : null,
