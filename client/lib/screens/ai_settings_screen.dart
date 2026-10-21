@@ -7,19 +7,23 @@ import '../ai/ai_service.dart';
 import '../ui/fx.dart';
 
 class AiSettingsScreen extends StatefulWidget {
-  const AiSettingsScreen({super.key});
+  final AiConfigStore? store;
+
+  const AiSettingsScreen({super.key, this.store});
 
   @override
   State<AiSettingsScreen> createState() => _AiSettingsScreenState();
 }
 
 class _AiSettingsScreenState extends State<AiSettingsScreen> {
-  final _store = AiConfigStore();
+  late final AiConfigStore _store;
   final _endpointController = TextEditingController();
   final _modelController = TextEditingController();
   final _keyController = TextEditingController();
 
   AiConfig _config = const AiConfig();
+  AiConfig _savedConfig = const AiConfig();
+  String? _loadError;
   bool _loading = true;
   bool _saving = false;
   bool _testing = false;
@@ -29,6 +33,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _store = widget.store ?? AiConfigStore();
     _load();
   }
 
@@ -40,15 +45,42 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     super.dispose();
   }
 
+  bool get _isDirty =>
+      _config.enabled != _savedConfig.enabled ||
+      _config.provider != _savedConfig.provider ||
+      _endpointController.text.trim() != _savedConfig.effectiveEndpoint ||
+      _modelController.text.trim() != _savedConfig.effectiveModel ||
+      _keyController.text.trim().isNotEmpty;
+
+  Future<bool> _confirmLeave() async {
+    if (_saving || _testing) return false;
+    if (!_isDirty) return true;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '放弃未保存的修改？',
+      content: 'AI 配置尚未保存，离开后这些修改不会生效。',
+      confirmText: '放弃修改',
+      destructive: true,
+    );
+    return confirmed == true;
+  }
+
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+      _testResult = null;
+    });
     try {
       final config = await _store.load();
       final key = await _store.loadApiKey(config.provider);
       if (!mounted) return;
       setState(() {
+        _savedConfig = config;
         _config = config;
         _endpointController.text = config.effectiveEndpoint;
         _modelController.text = config.effectiveModel;
+        _keyController.clear();
         _hasStoredKey = key?.isNotEmpty == true;
         _loading = false;
       });
@@ -56,25 +88,39 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _testResult = '读取安全存储失败：$e';
+        _loadError = '读取 AI 配置失败：$e';
       });
     }
   }
 
   Future<void> _changeProvider(AiProviderType provider) async {
-    String? key;
+    if (provider == _config.provider || _saving || _testing) return;
+    if (_isDirty) {
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '切换服务商？',
+        content: '当前 AI 配置尚未保存。切换后会放弃本次编辑的内容。',
+        confirmText: '放弃并切换',
+        destructive: true,
+      );
+      if (confirmed != true || !mounted) return;
+    }
     try {
-      key = await _store.loadApiKey(provider);
-    } catch (_) {}
-    if (!mounted) return;
-    setState(() {
-      _config = _config.copyWith(provider: provider);
-      _endpointController.text = provider.defaultEndpoint;
-      _modelController.text = provider.defaultModel;
-      _keyController.clear();
-      _hasStoredKey = key?.isNotEmpty == true;
-      _testResult = null;
-    });
+      final key = await _store.loadApiKey(provider);
+      if (!mounted) return;
+      setState(() {
+        _config = _savedConfig.copyWith(provider: provider);
+        _endpointController.text = provider.defaultEndpoint;
+        _modelController.text = provider.defaultModel;
+        _keyController.clear();
+        _hasStoredKey = key?.isNotEmpty == true;
+        _testResult = null;
+      });
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '读取服务商密钥失败', e.toString());
+      }
+    }
   }
 
   AiConfig _draft() => _config.copyWith(
@@ -113,6 +159,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       if (!mounted) return;
       setState(() {
         _config = draft;
+        _savedConfig = draft;
         _hasStoredKey = key.isNotEmpty;
         _keyController.clear();
       });
@@ -152,6 +199,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _clearKey() async {
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '清除访问密钥？',
+      content: '清除后当前服务商可能无法继续使用，之后可以重新填写密钥。',
+      confirmText: '清除密钥',
+      destructive: true,
+    );
+    if (confirmed != true || !mounted) return;
     try {
       await _store.clearApiKey(_config.provider);
       if (!mounted) return;
@@ -165,6 +220,18 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     }
   }
 
+  String get _privacyText {
+    final endpoint = _endpointController.text.trim();
+    final uri = Uri.tryParse(endpoint);
+    final host = uri?.host.toLowerCase() ?? '';
+    final local = host == 'localhost' ||
+        host == '127.0.0.1' ||
+        host == '::1';
+    return local
+        ? '当前接口地址指向本机。AI 请求将发送到配置的本机服务。'
+        : 'AI 请求将发送到配置的接口地址；请确认第三方服务和数据使用范围。';
+  }
+
   void _message(String text) {
     if (!mounted) return;
     FxNotice.showContent(context, Text(text));
@@ -173,7 +240,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: _confirmLeave,
+      child: Scaffold(
       body: SafeArea(
         child: Column(
           children: [
@@ -182,7 +251,21 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               child:
                   _loading
                       ? const Center(child: FxCircularProgress())
-                      : ListView(
+                      : _loadError != null
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(_loadError!, style: SlowlightTypography.secondary(context)),
+                                    const SizedBox(height: 12),
+                                    FxButton(label: '重新加载', onPressed: _load),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : ListView(
                         padding: const EdgeInsets.all(20),
                         children: [
                           FxCard(
@@ -265,6 +348,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                       ),
                                     ),
                                 ],
+                                const SizedBox(height: 12),
+                                Text(
+                                  _privacyText,
+                                  style: SlowlightTypography.caption(context).copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                                 if (kIsWeb) ...[
                                   const SizedBox(height: 8),
                                   Text(
@@ -300,7 +390,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                           ),
                           if (_testResult != null) ...[
                             const SizedBox(height: 12),
-                            Text(
+                            SelectableText(
                               _testResult!,
                               style: SlowlightTypography.secondary(
                                 context,
@@ -308,12 +398,27 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
+                            if (_testResult!.startsWith('连接失败'))
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: FxButton(
+                                  label: '查看错误详情',
+                                  size: FxButtonSize.sm,
+                                  variant: FxButtonVariant.ghost,
+                                  onPressed: () => FxNotice.errorWithDetails(
+                                    context,
+                                    'AI 连接测试失败',
+                                    _testResult!,
+                                  ),
+                                ),
+                              ),
                           ],
                         ],
                       ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
