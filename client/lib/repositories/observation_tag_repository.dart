@@ -33,7 +33,10 @@ class ObservationTagRepository {
           .toList();
     } catch (error) {
       if (!_isTransientNetworkError(error)) rethrow;
-      return _cloudCache.getObservationTags();
+      final cached = await _cloudCache.getObservationTags();
+      // 无缓存不能伪装成“用户没有标签”，调用方需要提供重试入口。
+      if (cached.isEmpty) rethrow;
+      return cached;
     }
   }
 

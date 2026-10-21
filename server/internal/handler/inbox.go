@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,17 +25,38 @@ func (h *InboxHandler) getOrCreateInbox(userID uint) (*model.List, error) {
 	if err == nil {
 		return &list, nil
 	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 
-	// 不存在则创建
+	// 不存在才补齐。若旧账号已有同名普通清单，保留用户清单及任务。
+	name := "收集箱"
+	var sameName model.List
+	nameErr := h.DB.Unscoped().Where("user_id = ? AND name = ?", userID, name).
+		First(&sameName).Error
+	if nameErr == nil {
+		if sameName.IsInbox && !sameName.DeletedAt.Valid {
+			return &sameName, nil
+		}
+		name = "默认收集箱"
+	} else if !errors.Is(nameErr, gorm.ErrRecordNotFound) {
+		return nil, nameErr
+	}
 	list = model.List{
 		UserID:    userID,
-		Name:      "收集箱",
+		Name:      name,
 		Icon:      "📥",
 		Color:     "#909399",
 		SortOrder: -1, // 排在最前面
 		IsInbox:   true,
 	}
 	if err := h.DB.Create(&list).Error; err != nil {
+		// 同账号多端同时首次读取可能并发补齐；重查后复用已创建的记录。
+		var existing model.List
+		if h.DB.Where("user_id = ? AND is_inbox = ?", userID, true).
+			First(&existing).Error == nil {
+			return &existing, nil
+		}
 		return nil, err
 	}
 	return &list, nil

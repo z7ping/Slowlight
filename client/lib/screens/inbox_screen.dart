@@ -47,7 +47,11 @@ class _InboxScreenState extends State<InboxScreen> {
       final lists = await ApiService.getLists();
       if (!mounted) return;
       setState(() {
-        _tasks = (data['tasks'] as List).map((t) => Task.fromJson(t)).toList();
+        _tasks = (data['tasks'] as List)
+            .map((t) => t is Task
+                ? t
+                : Task.fromJson(Map<String, dynamic>.from(t as Map)))
+            .toList();
         _allLists = lists;
         _isLoading = false;
       });

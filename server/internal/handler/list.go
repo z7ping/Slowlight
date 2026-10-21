@@ -36,8 +36,17 @@ func NewListHandler(db *gorm.DB) *ListHandler {
 // GetLists 获取当前用户的清单列表
 func (h *ListHandler) GetLists(c *gin.Context) {
 	userID := c.GetUint("userID")
+	// 兼容未曾访问收集箱的旧账号；只补缺失项，不重置现有清单。
+	if _, err := (&InboxHandler{DB: h.DB}).getOrCreateInbox(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取清单失败"})
+		return
+	}
 	var lists []model.List
-	h.DB.Where("user_id = ?", userID).Order("sort_order ASC").Find(&lists)
+	if err := h.DB.Where("user_id = ?", userID).
+		Order("sort_order ASC").Find(&lists).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取清单失败"})
+		return
+	}
 	c.JSON(http.StatusOK, lists)
 }
 

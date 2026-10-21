@@ -230,6 +230,100 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 日期短选项采用双列网格，点击后即时回填', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('task-property-date')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('task-picker-grid')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-picker-list')), findsNothing);
+    final today = tester.getTopLeft(
+      find.byKey(const ValueKey('task-picker-option-date-1')),
+    );
+    final tomorrow = tester.getTopLeft(
+      find.byKey(const ValueKey('task-picker-option-date-3')),
+    );
+    expect(today.dy, closeTo(tomorrow.dy, 1));
+    expect(today.dx, lessThan(tomorrow.dx));
+
+    await tester.tap(find.byKey(const ValueKey('task-picker-option-date-3')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<FxChip>(
+        find.byKey(const ValueKey('task-property-date')),
+      ).label,
+      '明天',
+    );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 大字体选择器退回单列并保持可选', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(2),
+        ),
+        child: child,
+      ),
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('task-property-priority')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task-picker-grid')), findsNothing);
+    expect(find.byKey(const ValueKey('task-picker-list')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('完整新建任务默认选择真正的收集箱', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final lists = [
+      TodoList(id: 1, name: '工作', color: '#3B82F6', createdAt: DateTime(2026)),
+      TodoList(id: 2, name: '收集箱', color: '#909399',
+          isInbox: true, createdAt: DateTime(2026)),
+    ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '完整添加',
+            onPressed: () => TaskCreateSheet.showFullCreate(
+              context, lists: lists,
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('完整添加'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate((widget) =>
+        widget is FxChoiceChip &&
+        widget.label.contains('收集箱') && widget.selected,
+      ),
+      findsOneWidget,
+    );
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 日期弹层新增明天并能选择、关闭不改变选择', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

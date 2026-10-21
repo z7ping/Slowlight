@@ -98,8 +98,58 @@ func TestGetLists(t *testing.T) {
 	var lists []model.List
 	json.Unmarshal(w.Body.Bytes(), &lists)
 
+	if len(lists) != 3 {
+		t.Errorf("返回 %d 个清单, 期望包含补齐的收集箱在内 3 个", len(lists))
+	}
+	if len(lists) > 0 && (!lists[0].IsInbox || lists[0].Name != "收集箱") {
+		t.Errorf("首位应为默认收集箱，实际 %+v", lists[0])
+	}
+	// 重复读取必须幂等，不能产生第二个收集箱。
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	var second []model.List
+	if err := json.Unmarshal(w.Body.Bytes(), &second); err != nil {
+		t.Fatal(err)
+	}
+	if len(second) != 3 {
+		t.Errorf("重复读取新增了清单：%d", len(second))
+	}
+}
+
+func TestGetLists_LegacySameNameIsPreserved(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	handler := NewListHandler(tx)
+	user := createTestUser(t, tx)
+	custom := createTestList(t, tx, user.ID, "收集箱")
+	r := newListRouter(handler, user.ID)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/lists", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("GetLists 返回 %d: %s", w.Code, w.Body.String())
+	}
+	var lists []model.List
+	if err := json.Unmarshal(w.Body.Bytes(), &lists); err != nil {
+		t.Fatal(err)
+	}
 	if len(lists) != 2 {
-		t.Errorf("返回 %d 个清单, 期望 2", len(lists))
+		t.Fatalf("已有同名清单应保留并补齐默认收集箱，实际 %d 个", len(lists))
+	}
+	var original, inbox *model.List
+	for i := range lists {
+		if lists[i].ID == custom.ID {
+			original = &lists[i]
+		}
+		if lists[i].IsInbox {
+			inbox = &lists[i]
+		}
+	}
+	if original == nil || original.IsInbox {
+		t.Fatal("原有同名普通清单不应被改写")
+	}
+	if inbox == nil || inbox.ID == original.ID {
+		t.Fatal("应另建独立的默认收集箱")
 	}
 }
 
