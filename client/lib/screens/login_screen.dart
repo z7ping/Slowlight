@@ -103,17 +103,9 @@ class _LoginScreenState extends State<LoginScreen> {
     FxNotice.showContent(context, Text(text));
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildLoginContents(BuildContext context, {required bool compactHeight}) {
     final theme = Theme.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
+    return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Align(
@@ -121,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SlowlightLogo(size: 72),
+                        SlowlightLogo(size: compactHeight ? 60 : 72),
                         const SizedBox(height: SlowlightSpacing.xxxl),
                         Text(
                           kBrandDisplayName,
@@ -141,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  SizedBox(height: compactHeight ? SlowlightSpacing.page : 40),
                   Text(
                     _isLogin ? '欢迎回来' : '创建云端账号',
                     style: SlowlightTypography.hero(context).copyWith(
@@ -224,10 +216,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: SizedBox(
                       width: double.infinity,
                       child: FxButton(
-                      label: _isLoading ? '处理中…' : _isLogin ? '登录' : '创建账号',
-                      size: FxButtonSize.lg,
-                      expanded: true,
-                      onPressed: _isLoading ? null : _submit,
+                        label: _isLoading ? '处理中…' : _isLogin ? '登录' : '创建账号',
+                        size: FxButtonSize.lg,
+                        expanded: true,
+                        onPressed: _isLoading ? null : _submit,
                       ),
                     ),
                   ),
@@ -278,9 +270,50 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ],
+              );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, viewport) {
+            final desktop = viewport.maxWidth >= SlowlightBreakpoints.tabletMin;
+            final compactHeight = desktop || viewport.maxHeight < 640;
+            final contents = _buildLoginContents(
+              context,
+              compactHeight: compactHeight,
+            );
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: viewport.maxHeight),
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: SlowlightSpacing.page,
+                      vertical: compactHeight
+                          ? SlowlightSpacing.xxxl
+                          : SlowlightSpacing.page,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 448),
+                      child: desktop
+                          ? FxCard(
+                              padding: const EdgeInsets.all(
+                                SlowlightSpacing.page,
+                              ),
+                              borderRadius: SlowlightRadius.xl,
+                              child: contents,
+                            )
+                          : contents,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
