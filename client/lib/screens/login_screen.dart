@@ -196,6 +196,15 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         if (_githubAuthorizing) ...[
           const SizedBox(height: SlowlightSpacing.md),
+          Text(
+            '请在 GitHub 完成授权，成功后将自动登录。'
+            'Android 会尝试返回应用，未自动返回可点击授权页按钮。',
+            textAlign: TextAlign.center,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: SlowlightSpacing.sm),
           FxButton(
             key: const ValueKey('login.github_cancel'),
             label: '取消授权等待',
