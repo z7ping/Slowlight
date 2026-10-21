@@ -19,6 +19,12 @@ class SessionRepository {
   Future<Map<String, dynamic>> endSession({int? systemTagId}) =>
       SessionApi.endSession(systemTagId: systemTagId);
 
+  Future<Map<String, dynamic>> pauseSession(int sessionId) =>
+      SessionApi.pauseSession(sessionId);
+
+  Future<Map<String, dynamic>> resumeSession(int sessionId) =>
+      SessionApi.resumeSession(sessionId);
+
   Future<Map<String, dynamic>> getActiveSession() =>
       SessionApi.getActiveSession();
 
