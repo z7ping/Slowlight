@@ -587,3 +587,26 @@ func TestStartSessionAutoEndPausedUsesActiveDuration(t *testing.T) {
         t.Fatalf("自动结束应约 9 分钟有效时间: %d",old.DurationSec)
     }
 }
+
+func TestEndSessionPausedAtStartDoesNotInventWorkMinute(t *testing.T) {
+    db, handler, userID := setupSessionTest(t)
+    router := newSessionRouter(handler,userID)
+    start := time.Now().Add(-10*time.Minute)
+    session := model.WorkSession{
+        UserID:userID, SessionType:"work", StartedAt:start, PausedAt:&start,
+        Revision:1,
+    }
+    if err := db.Create(&session).Error; err != nil {t.Fatal(err)}
+    w := httptest.NewRecorder()
+    req := httptest.NewRequest("POST","/sessions/end",nil)
+    router.ServeHTTP(w,req)
+    if w.Code != http.StatusOK {t.Fatalf("end: %d %s",w.Code,w.Body.String())}
+    var event model.BehaviorEvent
+    if err := db.Where("user_id = ? AND entity_type = ? AND entity_id = ?",
+        userID,"session",session.ID).First(&event).Error; err != nil { t.Fatal(err) }
+    if event.DurationMin != 0 {
+        t.Fatalf("暂停覆盖全部时长，不应虚构 1 分钟: %d",event.DurationMin)
+    }
+    if err := db.First(&session,session.ID).Error; err != nil {t.Fatal(err)}
+    if session.DurationSec != 0 {t.Fatalf("有效时长应为 0: %d",session.DurationSec)}
+}

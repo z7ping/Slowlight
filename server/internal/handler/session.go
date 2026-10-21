@@ -45,10 +45,8 @@ func (h *SessionHandler) createSessionEndedBehaviorEvent(db *gorm.DB, session *m
 		return nil
 	}
 
+	// 行为事件以整分钟表达；不足一分钟可为 0，不能虚构有效专注。
 	durationMin := session.DurationSec / 60
-	if durationMin < 1 {
-		durationMin = 1
-	}
 	event := model.BehaviorEvent{
 		UserID:      session.UserID,
 		EventType:   "session_ended",
@@ -174,11 +172,22 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 			now := time.Now()
 			finishSessionTiming(&existing, now)
 			existing.SystemTagID = h.resolveSessionSystemTag(tx, &existing)
-			if err := tx.Save(&existing).Error; err != nil {
-				return err
+			updated := tx.Model(&model.WorkSession{}).
+				Where("id = ? AND user_id = ? AND ended_at IS NULL", existing.ID, userID).
+				Updates(map[string]interface{}{
+					"ended_at": existing.EndedAt,
+					"duration_sec": existing.DurationSec,
+					"paused_at": nil,
+					"paused_duration_sec": existing.PausedDurationSec,
+					"system_tag_id": existing.SystemTagID,
+				})
+			if updated.Error != nil {
+				return updated.Error
 			}
-			if err := h.createSessionEndedBehaviorEvent(tx, &existing, now); err != nil {
-				return err
+			if updated.RowsAffected > 0 {
+				if err := h.createSessionEndedBehaviorEvent(tx, &existing, now); err != nil {
+					return err
+				}
 			}
 		}
 
