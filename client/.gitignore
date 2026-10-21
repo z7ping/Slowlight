@@ -39,6 +39,9 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# 本地编译注入（SERVER_URL 等），不入库
+.dart_defines.json
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile

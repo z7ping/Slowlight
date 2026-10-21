@@ -1,0 +1,4 @@
+{
+  "SERVER_URL": "https://your-server.example.com/api",
+  "SLOWLIGHT_REQUIRE_HTTPS": "true"
+}
