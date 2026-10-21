@@ -223,10 +223,11 @@ abstract final class FxNotice {
     if (!kIsWeb) {
       AppErrorLogger.instance.write(source: 'UI $title', error: details);
     }
-    return error(
-        context,
-        title,
-        action: FxNoticeAction(
+    return show(
+      context,
+      title,
+      variant: FxNoticeVariant.destructive,
+      action: FxNoticeAction(
           label: '查看详情',
           onPressed: () {
             if (!context.mounted) return;
