@@ -78,6 +78,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	defaultLists := []model.List{
+		{UserID: user.ID, Name: "收集箱", Icon: "📥", Color: "#909399", SortOrder: -1, IsInbox: true},
 		{UserID: user.ID, Name: "工作", Icon: "💼", Color: "#1890ff", SortOrder: 1},
 		{UserID: user.ID, Name: "生活", Icon: "🏠", Color: "#52c41a", SortOrder: 2},
 		{UserID: user.ID, Name: "学习", Icon: "📚", Color: "#722ed1", SortOrder: 3},
