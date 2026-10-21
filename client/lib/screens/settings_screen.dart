@@ -192,7 +192,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   const SizedBox(height: 24),
                                   Center(
                                     child: Text(
-                                      '本地数据 · 你的记录属于你',
+                                      DataModeManager().isCloud
+                                          ? '云端模式 · 本机保留离线缓存'
+                                          : '本地模式 · 数据由本设备管理',
                                       style: SlowlightTypography.caption(
                                         context,
                                       ).copyWith(
@@ -238,7 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   );
 
   String _dataSummary() {
-    if (DataModeManager().isLocal) return '本地优先 · 仅保存在设备';
+    if (DataModeManager().isLocal) return '本地独立使用 · 无需云端';
     final sync = SyncService();
     return cloudSyncSummary(
       status: sync.status,
