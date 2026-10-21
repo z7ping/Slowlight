@@ -116,6 +116,43 @@ func TestGetLists(t *testing.T) {
 	}
 }
 
+func TestGetLists_LegacySameNameIsPreserved(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	handler := NewListHandler(tx)
+	user := createTestUser(t, tx)
+	custom := createTestList(t, tx, user.ID, "收集箱")
+	r := newListRouter(handler, user.ID)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/lists", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("GetLists 返回 %d: %s", w.Code, w.Body.String())
+	}
+	var lists []model.List
+	if err := json.Unmarshal(w.Body.Bytes(), &lists); err != nil {
+		t.Fatal(err)
+	}
+	if len(lists) != 2 {
+		t.Fatalf("已有同名清单应保留并补齐默认收集箱，实际 %d 个", len(lists))
+	}
+	var original, inbox *model.List
+	for i := range lists {
+		if lists[i].ID == custom.ID {
+			original = &lists[i]
+		}
+		if lists[i].IsInbox {
+			inbox = &lists[i]
+		}
+	}
+	if original == nil || original.IsInbox {
+		t.Fatal("原有同名普通清单不应被改写")
+	}
+	if inbox == nil || inbox.ID == original.ID {
+		t.Fatal("应另建独立的默认收集箱")
+	}
+}
+
 func TestUpdateList(t *testing.T) {
 	db := setupTestDB(t)
 	tx := beginTx(t, db)
