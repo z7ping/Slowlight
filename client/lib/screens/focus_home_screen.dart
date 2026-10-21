@@ -668,13 +668,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       return {'name': '未登录', 'status': '点击查看账号'};
     }
     final User? user = await AuthService.getUser();
-    String status = '云端账号';
-    try {
-      final linked = await AuthService.isGitHubLinked();
-      status = linked ? 'GitHub 已绑定 · 云端' : '云端账号';
-    } catch (_) {
-      // 旧服务端尚未提供绑定查询时，不能把未知标记为未绑定。
-    }
+    // 侧边栏始终优先显示本机已确认的账号信息，不等待网络查询。
+    // 最近登录方式并不等于绑定状态，绑定详情只在账号页向服务端确认。
+    final method = await AuthService.getLastLoginMethod();
+    final status = method == 'github' ? '通过 GitHub 登录 · 云端' : '云端已登录';
     return {
       'name': user?.nickname.isNotEmpty == true
           ? user!.nickname
@@ -692,7 +689,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     return FutureBuilder<Map<String, String>>(
       future: _accountFuture,
       builder: (context, snapshot) {
-        final data = snapshot.data;
+        final data = snapshot.data ??
+            (snapshot.hasError ? {'name': '账号状态暂不可用', 'status': '点击查看'} : null);
         return FxInkWell(
           key: const ValueKey('home.account_entry'),
           onTap: () => openPage(const SettingsScreen(initialSection: 'account')),
