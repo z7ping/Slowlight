@@ -180,6 +180,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                             variant: FxButtonVariant.outline,
                                             onPressed: _linkingGitHub ? null : _bindGitHub,
                                           ),
+                                          if (_linkingGitHub) ...[
+                                            const SizedBox(height: SlowlightSpacing.sm),
+                                            FxButton(
+                                              label: '取消授权等待',
+                                              variant: FxButtonVariant.link,
+                                              onPressed: () => setState(() => _linkingGitHub = false),
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),
@@ -1011,11 +1019,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (DataModeManager().isLocal) return;
     setState(() => _linkingGitHub = true);
     try {
-      await GitHubSignIn.signIn(
+      final completed = await GitHubSignIn.signIn(
         linkExisting: true,
-        shouldContinue: () => mounted,
+        shouldContinue: () => mounted && _linkingGitHub,
       );
-      if (mounted) _message('GitHub 已绑定到当前云端账号');
+      if (mounted && completed) _message('GitHub 已绑定到当前云端账号');
     } catch (e) {
       if (mounted) {
         FxNotice.errorWithDetails(context, '绑定 GitHub 失败', e.toString());
