@@ -60,7 +60,7 @@ void main() {
       await tester.enterText(fields.at(0), 'testuser');
       await tester.enterText(fields.at(2), 'password123');
 
-      final submit = find.text('注册');
+      final submit = find.text('创建账号');
       await tester.ensureVisible(submit);
       await tester.pumpAndSettle();
       await tester.tap(submit);
