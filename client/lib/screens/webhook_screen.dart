@@ -90,6 +90,8 @@ class WebhookScreen extends StatefulWidget {
 class _WebhookScreenState extends State<WebhookScreen> {
   List<dynamic> _webhooks = const [];
   bool _isLoading = true;
+  bool _hasLoaded = false;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -98,15 +100,28 @@ class _WebhookScreenState extends State<WebhookScreen> {
   }
 
   Future<void> _loadWebhooks() async {
+    if (mounted && !_hasLoaded) {
+      setState(() {
+        _isLoading = true;
+        _loadFailed = false;
+      });
+    }
     try {
       final webhooks = await ApiService.getWebhooks();
       if (!mounted) return;
       setState(() {
         _webhooks = webhooks;
         _isLoading = false;
+        _hasLoaded = true;
+        _loadFailed = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadFailed = true;
+      });
+      if (_hasLoaded) _showMsg('事件回调刷新失败，仍显示上次加载的记录');
     }
   }
 
@@ -119,20 +134,24 @@ class _WebhookScreenState extends State<WebhookScreen> {
     );
     if (result == null) return;
 
+    final events = result['events'] as List<String>;
+    var created = 0;
     try {
-      final events = result['events'] as List<String>;
       for (final event in events) {
         await ApiService.createWebhook(
           url: result['url'] as String,
           event: event,
           name: result['name'] as String? ?? '',
         );
+        created++;
       }
-      await _loadWebhooks();
-      _showMsg('创建成功 ${events.length} 条');
     } catch (e) {
-      _showMsg('创建失败: $e');
+      _showMsg('已创建 $created/${events.length} 条，剩余创建失败：$e');
+      await _loadWebhooks();
+      return;
     }
+    await _loadWebhooks();
+    _showMsg('创建成功 $created 条');
   }
 
   Future<void> _testWebhook(int id) async {
@@ -153,8 +172,12 @@ class _WebhookScreenState extends State<WebhookScreen> {
       destructive: true,
     );
     if (ok != true) return;
-    await ApiService.deleteWebhook(id);
-    await _loadWebhooks();
+    try {
+      await ApiService.deleteWebhook(id);
+      await _loadWebhooks();
+    } catch (e) {
+      _showMsg('删除失败：$e');
+    }
   }
 
   void _showMsg(String msg) {
@@ -177,6 +200,17 @@ class _WebhookScreenState extends State<WebhookScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(child: FxCircularProgress())
+                  : _loadFailed && !_hasLoaded
+                  ? FxEmptyState(
+                      icon: LucideIcons.triangleAlert,
+                      title: '事件回调加载失败',
+                      subtitle: '暂时无法获取现有配置，请检查连接后重试。',
+                      action: FxButton(
+                        label: '重新加载',
+                        variant: FxButtonVariant.secondary,
+                        onPressed: _loadWebhooks,
+                      ),
+                    )
                   : _webhooks.isEmpty
                   ? FxEmptyState(
                       icon: LucideIcons.link2,
