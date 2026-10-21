@@ -6,9 +6,16 @@ import 'auth_service.dart';
 /// Windows / Android 共用的 GitHub 浏览器授权与一次性凭据领取。
 /// 不需要 deep link；即使授权在外部浏览器完成，客户端也能恢复登录状态。
 class GitHubSignIn {
-  static Future<void> signIn({required bool Function() shouldContinue}) async {
+  static Future<void> signIn({
+    required bool Function() shouldContinue,
+    bool linkExisting = false,
+  }) async {
     ApiService.validateCloudEndpoint();
-    final start = await ApiService.post('/auth/github/start', body: {});
+    final start = await ApiService.post(
+      linkExisting ? '/auth/github/link/start' : '/auth/github/start',
+      body: {},
+      authenticated: linkExisting,
+    );
     final authUrl = Uri.parse(start['authorization_url'] as String);
     final sessionId = start['session_id'] as String;
     final pollToken = start['poll_token'] as String;
