@@ -93,3 +93,10 @@ func TestExecuteMigrationCreatesCoreEntities(t *testing.T) {
 		t.Fatalf("专注记录关联未迁移: session=%#v err=%v", session, err)
 	}
 }
+
+func TestMigrationReportStoresReplayMap(t *testing.T) {
+	db := setupTestDB(t)
+	if !db.Migrator().HasColumn(&model.MigrationReport{}, "id_map") {
+		t.Fatal("missing migration id_map column")
+	}
+}
