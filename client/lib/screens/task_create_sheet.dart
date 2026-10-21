@@ -659,13 +659,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           MediaQuery.sizeOf(context).height * (isCalendar ? .68 : .55),
           isCalendar
               ? 440.0
-              : (_mobilePage == _MobileTaskPage.tag &&
-                      (_loadingTags || _tagLoadFailed))
-                  ? 200.0
-                  : 66.0 +
-                      (showSearch ? 58.0 : 0) +
-                      (noTags ? 28.0 : 0) +
-                      rows * (twoColumns ? 56.0 : 56.0),
+              : 66.0 +
+                  (showSearch ? 58.0 : 0) +
+                  (noTags ? 28.0 : 0) +
+                  (_mobilePage == _MobileTaskPage.tag &&
+                          (_loadingTags || _tagLoadFailed) ? 84.0 : 0) +
+                  rows * 56.0,
         );
 
         return SizedBox(
@@ -703,6 +702,19 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 ),
                 const SizedBox(height: SlowlightSpacing.md),
               ],
+              if (_mobilePage == _MobileTaskPage.tag && _loadingTags)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
+                  child: Text(
+                    '正在加载标签…',
+                    style: SlowlightTypography.caption(context),
+                  ),
+                ),
+              if (_mobilePage == _MobileTaskPage.tag && _tagLoadFailed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
+                  child: _tagLoadNotice(),
+                ),
               if (noTags)
                 Padding(
                   padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
@@ -730,17 +742,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                           ),
                         ),
                       )
-                    : _mobilePage == _MobileTaskPage.tag && _loadingTags
-                        ? const Center(child: FxCircularProgress())
-                        : _mobilePage == _MobileTaskPage.tag && _tagLoadFailed
-                            ? Center(child: _tagLoadNotice())
-                            : visible.isEmpty
-                                ? Center(child: Text(
+                    : visible.isEmpty
+                        ? Center(child: Text(
                                     '没有匹配项',
                                     style: SlowlightTypography.componentSecondary(context),
                                   ))
-                                : twoColumns
-                                    ? GridView.builder(
+                        : twoColumns
+                            ? GridView.builder(
                                         key: const ValueKey('task-picker-grid'),
                                         padding: EdgeInsets.zero,
                                         physics: const NeverScrollableScrollPhysics(),
@@ -863,17 +871,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         ),
         if (_showTags) ...[
           const SizedBox(height: SlowlightSpacing.xxxl),
+          TagChoiceField(
+            tags: _availableTags,
+            selectedTagId: _selectedTagId,
+            enabled: !_saving,
+            onChanged: (id) => setState(() => _selectedTagId = id),
+          ),
           if (_loadingTags)
-            const Center(child: FxCircularProgress())
-          else ...[
-            TagChoiceField(
-              tags: _availableTags,
-              selectedTagId: _selectedTagId,
-              enabled: !_saving,
-              onChanged: (id) => setState(() => _selectedTagId = id),
-            ),
-            if (_tagLoadFailed) _tagLoadNotice(),
-          ],
+            Text('正在读取标签…', style: SlowlightTypography.caption(context)),
+          if (_tagLoadFailed) _tagLoadNotice(),
         ],
         FxExpansionTile(
           key: const ValueKey('task-create-settings'),
