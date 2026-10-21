@@ -437,40 +437,54 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     required Widget trailing,
   }) {
     final theme = Theme.of(dialogContext);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 58),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: SlowlightTypography.secondary(
-                    dialogContext,
-                  ).copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: SlowlightTypography.caption(
-                    dialogContext,
-                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack = constraints.maxWidth < 290 ||
+            MediaQuery.textScalerOf(context).scale(1) >= 1.4;
+        final copy = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: SlowlightTypography.secondary(dialogContext).copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: SlowlightTypography.caption(dialogContext).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
+        return Container(
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
-          const SizedBox(width: 12),
-          trailing,
-        ],
-      ),
+          child: stack
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    copy,
+                    const SizedBox(height: 8),
+                    Align(alignment: Alignment.centerRight, child: trailing),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: copy),
+                    const SizedBox(width: 12),
+                    trailing,
+                  ],
+                ),
+        );
+      },
     );
   }
 
