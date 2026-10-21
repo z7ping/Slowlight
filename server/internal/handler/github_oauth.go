@@ -93,6 +93,11 @@ func (h *GitHubOAuthHandler) start(c *gin.Context, targetUser uint) {
 		CodeVerifier: verifier, Status: "pending", TargetUserID: targetUser,
 		ExpiresAt: time.Now().Add(githubOAuthTTL),
 	}
+	// 清理过期会话，避免公开登录入口长期累积临时记录。
+	if err := h.DB.Where("expires_at < ?", time.Now()).
+		Delete(&model.OAuthLoginSession{}).Error; err != nil {
+		c.JSON(500, gin.H{"error": "初始化授权失败"}); return
+	}
 	if err := h.DB.Create(&session).Error; err != nil {
 		c.JSON(500, gin.H{"error": "初始化授权失败"}); return
 	}
