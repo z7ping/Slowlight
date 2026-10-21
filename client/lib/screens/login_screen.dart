@@ -67,7 +67,13 @@ class _LoginScreenState extends State<LoginScreen> {
       authStateNotifier.value = !authStateNotifier.value;
       if (mounted) _finish(true);
     } catch (e) {
-      if (mounted) _message(_isLogin ? '登录失败：$e' : '注册失败：$e');
+      if (mounted) {
+        FxNotice.errorWithDetails(
+          context,
+          _isLogin ? '登录失败' : '注册失败',
+          e.toString(),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -81,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
       authStateNotifier.value = !authStateNotifier.value;
       if (mounted) _finish(false);
     } catch (e) {
-      if (mounted) _message('进入本地数据失败：$e');
+      if (mounted) FxNotice.errorWithDetails(context, '进入本地数据失败', e.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
