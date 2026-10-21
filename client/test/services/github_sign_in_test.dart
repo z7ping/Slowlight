@@ -152,4 +152,20 @@ void main() {
     expect(attempts, 1);
   });
 
+
+  test('GitHub 轮询连接重置不重试，避免重复领取一次性凭据', () async {
+    var attempts = 0;
+    await expectLater(
+      GitHubSignIn.pollWithNetworkRetry(
+        request: () async {
+          attempts++;
+          throw http.ClientException('Connection reset by peer');
+        },
+        shouldContinue: () => true,
+        delay: (_) async {},
+      ),
+      throwsA(isA<http.ClientException>()),
+    );
+    expect(attempts, 1);
+  });
 }
