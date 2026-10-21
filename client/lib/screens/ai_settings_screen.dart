@@ -349,10 +349,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                     ),
                                 ],
                                 const SizedBox(height: 12),
-                                Text(
-                                  _privacyText,
-                                  style: SlowlightTypography.caption(context).copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
+                                ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _endpointController,
+                                  builder: (context, _, __) => Text(
+                                    _privacyText,
+                                    style: SlowlightTypography.caption(context).copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
                                 if (kIsWeb) ...[
