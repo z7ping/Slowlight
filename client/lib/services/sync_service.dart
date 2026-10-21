@@ -312,6 +312,19 @@ class SyncService extends ChangeNotifier {
         where: 'id = ?',
         whereArgs: [item['id']],
       );
+      // Create may have committed remotely before a timeout/reset. Retrying it
+      // automatically would duplicate server entities. Keep queue for explicit
+      // reconciliation instead of silently replaying an uncertain create.
+      final ambiguous = e is TimeoutException ||
+          text.toLowerCase().contains('connection reset') ||
+          text.toLowerCase().contains('connection closed') ||
+          text.toLowerCase().contains('connection terminated');
+      if (item['operation'] == 'create' && ambiguous &&
+          await _hasColumn(db, table, 'sync_status')) {
+        await db.update(table, {'sync_status': 'conflict'},
+            where: 'id = ?', whereArgs: [localId]);
+        return '$table #$localId 的创建结果未知，请先核对云端记录再处理';
+      }
       // 暂时无法同步不等于版本冲突，必须保留原始操作和 pending。
       return '$table #$localId: $text';
     }
