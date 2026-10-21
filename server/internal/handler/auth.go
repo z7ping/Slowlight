@@ -114,6 +114,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, AuthResponse{Token: token, User: user})
 }
 
+// GetLinkedProviders 返回当前 Slowlight 账号的已验证绑定状态，
+// 不暴露第三方用户 ID 或 OAuth 凭据。
+func (h *AuthHandler) GetLinkedProviders(c *gin.Context) {
+	userID := c.GetUint("userID")
+	var count int64
+	if err := h.DB.Model(&model.OAuthIdentity{}).
+		Where("user_id = ? AND provider = ?", userID, "github").Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取绑定状态失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"github": count > 0})
+}
+
 func (h *AuthHandler) GetProfile(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var user model.User
