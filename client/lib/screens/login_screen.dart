@@ -114,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SlowlightLogo(size: 52),
                   const SizedBox(height: 14),
@@ -180,15 +181,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  FxButton(
-                    label:
-                        _isLoading
-                            ? '处理中…'
-                            : _isLogin
-                            ? '登录'
-                            : '注册',
-                    expanded: true,
-                    onPressed: _isLoading ? null : _submit,
+                  SizedBox(
+                    key: const ValueKey('login.primary_action'),
+                    width: double.infinity,
+                    height: SlowlightPlatformDensity.usesMobileTouchTargets ? 52 : 44,
+                    child: FxButton(
+                      label: _isLoading ? '处理中…' : _isLogin ? '登录' : '创建账号',
+                      size: FxButtonSize.lg,
+                      expanded: true,
+                      onPressed: _isLoading ? null : _submit,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   FxSeparator.horizontal(
