@@ -71,7 +71,6 @@ class GitHubSignIn {
     return tryLaunch(authUrl, LaunchMode.externalApplication);
   }
 
-
   /// Android 从浏览器恢复时，系统网络和 DNS 可能尚未就绪。
   /// 只重试传输层故障，不能重试授权拒绝、会话过期等服务端错误。
   @visibleForTesting
@@ -85,6 +84,17 @@ class GitHubSignIn {
         message.contains('network is unreachable') ||
         message.contains('connection reset') ||
         message.contains('connection refused');
+  }
+
+  /// poll 是一次性领取 JWT 的 POST，超时/断链可能已被服务端消费。
+  /// 仅 DNS 失败等确认请求未送达的错误允许重试。
+  @visibleForTesting
+  static bool isSafeToRetryPoll(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('failed host lookup') ||
+        message.contains('network is unreachable') ||
+        message.contains('connection refused') ||
+        message.contains('no route to host');
   }
 
   static String describeError(Object error) {
@@ -105,7 +115,7 @@ class GitHubSignIn {
       try {
         return await request();
       } catch (error) {
-        if (!isTransientNetworkFailure(error) || attempt == 4) rethrow;
+        if (!isSafeToRetryPoll(error) || attempt == 4) rethrow;
         const pause = Duration(seconds: 2);
         await (delay?.call(pause) ?? Future<void>.delayed(pause));
       }
