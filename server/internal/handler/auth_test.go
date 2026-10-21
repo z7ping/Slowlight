@@ -78,8 +78,20 @@ func TestRegister_AutoCreateDefaultLists(t *testing.T) {
 
 	var lists []model.List
 	tx.Where("user_id = ?", resp.User.ID).Find(&lists)
-	if len(lists) != 3 {
-		t.Errorf("注册应自动创建 3 个默认清单, 实际 %d", len(lists))
+	if len(lists) != 4 {
+		t.Errorf("注册应自动创建收集箱及 3 个默认清单, 实际 %d", len(lists))
+	}
+	inboxCount := 0
+	for _, list := range lists {
+		if list.IsInbox {
+			inboxCount++
+			if list.Name != "收集箱" {
+				t.Errorf("默认收集箱名称 = %q", list.Name)
+			}
+		}
+	}
+	if inboxCount != 1 {
+		t.Errorf("默认收集箱数量应为 1, 实际 %d", inboxCount)
 	}
 }
 
