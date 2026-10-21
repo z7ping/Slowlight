@@ -312,115 +312,115 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               child: SizedBox(
                 width: 360,
                 child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _settingsLine(
-                  dialogContext,
-                  title: '专注时长',
-                  subtitle: '每轮工作分钟数',
-                  trailing: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [25, 45, 60]
-                        .map((minutes) {
-                          final selected = work == minutes;
-                          return FxChip(
-                            label: '$minutes',
-                            onTap: () => setDialogState(() => work = minutes),
-                            backgroundColor:
-                                selected
-                                    ? activePalette.accent.withValues(
-                                      alpha: .12,
-                                    )
-                                    : fxSubtleSurface(dialogContext),
-                            foregroundColor:
-                                selected
-                                    ? activePalette.accent
-                                    : theme.colorScheme.onSurface,
-                            borderColor:
-                                selected
-                                    ? activePalette.accent.withValues(
-                                      alpha: .35,
-                                    )
-                                    : theme.colorScheme.outlineVariant,
-                            borderRadius: 999,
-                          );
-                        })
-                        .toList(growable: false),
-                  ),
-                ),
-                _settingsLine(
-                  dialogContext,
-                  title: '自动开始下一轮',
-                  subtitle: '短休息后直接进入专注',
-                  trailing: FxSwitch(
-                    value: autoStart,
-                    onChanged:
-                        (value) => setDialogState(() => autoStart = value),
-                  ),
-                ),
-                _settingsLine(
-                  dialogContext,
-                  title: '结束音效',
-                  subtitle: '铃声提醒本轮结束',
-                  trailing: FxSwitch(
-                    value: soundEnabled,
-                    onChanged:
-                        (value) => setDialogState(() => soundEnabled = value),
-                  ),
-                ),
-                _settingsLine(
-                  dialogContext,
-                  title: '关联任务',
-                  subtitle: '产出计入该任务',
-                  trailing: SizedBox(
-                    width: 150,
-                    child: FxSelect<int>(
-                      value: linkedTaskId ?? 0,
-                      options: [
-                        const FxSelectOption(value: 0, label: '不关联'),
-                        ..._todayTasks.map(
-                          (task) =>
-                              FxSelectOption(value: task.id, label: task.title),
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _settingsLine(
+                      dialogContext,
+                      title: '专注时长',
+                      subtitle: '每轮工作分钟数',
+                      trailing: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [25, 45, 60]
+                            .map((minutes) {
+                              final selected = work == minutes;
+                              return FxChip(
+                                label: '$minutes',
+                                onTap: () => setDialogState(() => work = minutes),
+                                backgroundColor:
+                                    selected
+                                        ? activePalette.accent.withValues(
+                                          alpha: .12,
+                                        )
+                                        : fxSubtleSurface(dialogContext),
+                                foregroundColor:
+                                    selected
+                                        ? activePalette.accent
+                                        : theme.colorScheme.onSurface,
+                                borderColor:
+                                    selected
+                                        ? activePalette.accent.withValues(
+                                          alpha: .35,
+                                        )
+                                        : theme.colorScheme.outlineVariant,
+                                borderRadius: 999,
+                              );
+                            })
+                            .toList(growable: false),
+                      ),
+                    ),
+                    _settingsLine(
+                      dialogContext,
+                      title: '自动开始下一轮',
+                      subtitle: '短休息后直接进入专注',
+                      trailing: FxSwitch(
+                        value: autoStart,
+                        onChanged:
+                            (value) => setDialogState(() => autoStart = value),
+                      ),
+                    ),
+                    _settingsLine(
+                      dialogContext,
+                      title: '结束音效',
+                      subtitle: '铃声提醒本轮结束',
+                      trailing: FxSwitch(
+                        value: soundEnabled,
+                        onChanged:
+                            (value) => setDialogState(() => soundEnabled = value),
+                      ),
+                    ),
+                    _settingsLine(
+                      dialogContext,
+                      title: '关联任务',
+                      subtitle: '产出计入该任务',
+                      trailing: SizedBox(
+                        width: 150,
+                        child: FxSelect<int>(
+                          value: linkedTaskId ?? 0,
+                          options: [
+                            const FxSelectOption(value: 0, label: '不关联'),
+                            ..._todayTasks.map(
+                              (task) =>
+                                  FxSelectOption(value: task.id, label: task.title),
+                            ),
+                          ],
+                          onChanged:
+                              (value) => setDialogState(
+                                () =>
+                                    linkedTaskId =
+                                        value == null || value == 0 ? null : value,
+                              ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        FxButton(
+                          label: '取消',
+                          variant: FxButtonVariant.outline,
+                          size: FxButtonSize.sm,
+                          onPressed:
+                              () => Navigator.of(
+                                dialogContext,
+                                rootNavigator: true,
+                              ).pop(false),
+                        ),
+                        const SizedBox(width: 8),
+                        FxButton(
+                          label: '保存设置',
+                          size: FxButtonSize.sm,
+                          onPressed:
+                              () => Navigator.of(
+                                dialogContext,
+                                rootNavigator: true,
+                              ).pop(true),
                         ),
                       ],
-                      onChanged:
-                          (value) => setDialogState(
-                            () =>
-                                linkedTaskId =
-                                    value == null || value == 0 ? null : value,
-                          ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    FxButton(
-                      label: '取消',
-                      variant: FxButtonVariant.outline,
-                      size: FxButtonSize.sm,
-                      onPressed:
-                          () => Navigator.of(
-                            dialogContext,
-                            rootNavigator: true,
-                          ).pop(false),
-                    ),
-                    const SizedBox(width: 8),
-                    FxButton(
-                      label: '保存设置',
-                      size: FxButtonSize.sm,
-                      onPressed:
-                          () => Navigator.of(
-                            dialogContext,
-                            rootNavigator: true,
-                          ).pop(true),
                     ),
                   ],
-                ),
-              ],
                 ),
               ),
             ),
