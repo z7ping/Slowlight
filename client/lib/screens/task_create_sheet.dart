@@ -110,9 +110,13 @@ class TaskCreateSheet extends StatefulWidget {
 
     // Android 大屏/平板仍按移动端交互展示完整页，不能按宽度伪装桌面。
     final desktop = _useDesktopDialog(context);
+    final inboxes = resolvedLists.where((list) => list.isInbox);
+    final defaultListId = inboxes.isEmpty
+        ? resolvedLists.first.id
+        : inboxes.first.id;
     final editor = AddTaskScreen(
       lists: resolvedLists,
-      selectedListId: selectedListId ?? resolvedLists.first.id,
+      selectedListId: selectedListId ?? defaultListId,
       defaultDueDate:
           defaultDueDate ?? (defaultToToday ? DateTime.now() : null),
       initialTitle: initialTitle,
