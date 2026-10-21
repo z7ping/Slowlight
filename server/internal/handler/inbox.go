@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,8 +25,11 @@ func (h *InboxHandler) getOrCreateInbox(userID uint) (*model.List, error) {
 	if err == nil {
 		return &list, nil
 	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 
-	// 不存在则创建
+	// 不存在才补齐，数据库异常不能误判为无收集箱。
 	list = model.List{
 		UserID:    userID,
 		Name:      "收集箱",
