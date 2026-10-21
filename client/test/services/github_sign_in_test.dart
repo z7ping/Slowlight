@@ -76,7 +76,7 @@ void main() {
     expect(launched, [LaunchMode.externalApplication]);
   });
 
-  test('GitHub 轮询仅对临时网络异常重试，恢复后继续授权', () async {
+  test('GitHub 轮询对确认未送达的请求重试，恢复后继续授权', () async {
     var attempts = 0;
     final pauses = <Duration>[];
     final result = await GitHubSignIn.pollWithNetworkRetry(
@@ -93,10 +93,11 @@ void main() {
       delay: (duration) async {
         pauses.add(duration);
       },
+      randomUnit: () => 0.5,
     );
     expect(result?['status'], 'complete');
     expect(attempts, 2);
-    expect(pauses, [const Duration(seconds: 2)]);
+    expect(pauses, [const Duration(seconds: 1)]);
   });
 
   test('GitHub 轮询临时故障最多尝试四次，并提供友好错误信息', () async {
@@ -152,7 +153,6 @@ void main() {
     expect(attempts, 1);
   });
 
-
   test('GitHub 轮询连接重置不重试，避免重复领取一次性凭据', () async {
     var attempts = 0;
     await expectLater(
@@ -168,4 +168,31 @@ void main() {
     );
     expect(attempts, 1);
   });
+
+  test('GitHub 轮询按 1、2、4 秒指数退避且最多四次', () async {
+    var attempts = 0;
+    final pauses = <Duration>[];
+    final result = await GitHubSignIn.pollWithNetworkRetry(
+      request: () async {
+        attempts++;
+        if (attempts <= 3) {
+          throw http.ClientException('Failed host lookup: example.invalid');
+        }
+        return {'status': 'complete'};
+      },
+      shouldContinue: () => true,
+      delay: (duration) async {
+        pauses.add(duration);
+      },
+      randomUnit: () => 0.5,
+    );
+    expect(attempts, 4);
+    expect(result?['status'], 'complete');
+    expect(pauses, [
+      const Duration(seconds: 1),
+      const Duration(seconds: 2),
+      const Duration(seconds: 4),
+    ]);
+  });
+
 }

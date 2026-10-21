@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api_service.dart';
 import 'auth_service.dart';
+import 'network_retry.dart';
 
 /// OAuth 回调唤醒 Android 后，立即检查授权结果，而不是等下一轮定时轮询。
 class _OAuthResumeObserver extends WidgetsBindingObserver {
@@ -71,37 +71,20 @@ class GitHubSignIn {
     return tryLaunch(authUrl, LaunchMode.externalApplication);
   }
 
-  /// Android 从浏览器恢复时，系统网络和 DNS 可能尚未就绪。
-  /// 只重试传输层故障，不能重试授权拒绝、会话过期等服务端错误。
+  /// Android 从浏览器返回时可能短暂无法解析域名。
+  /// 只允许重试确认未送达的请求；轮询成功会消费一次性凭据。
   @visibleForTesting
-  static bool isTransientNetworkFailure(Object error) {
-    if (error is TimeoutException || error is http.ClientException) {
-      return true;
-    }
-    final message = error.toString().toLowerCase();
-    return message.contains('socketexception') ||
-        message.contains('failed host lookup') ||
-        message.contains('network is unreachable') ||
-        message.contains('connection reset') ||
-        message.contains('connection refused');
-  }
+  static bool isTransientNetworkFailure(Object error) =>
+      NetworkRetry.isNetworkFailure(error);
 
-  /// poll 是一次性领取 JWT 的 POST，超时/断链可能已被服务端消费。
-  /// 仅 DNS 失败等确认请求未送达的错误允许重试。
   @visibleForTesting
-  static bool isSafeToRetryPoll(Object error) {
-    final message = error.toString().toLowerCase();
-    return message.contains('failed host lookup') ||
-        message.contains('network is unreachable') ||
-        message.contains('connection refused') ||
-        message.contains('no route to host');
-  }
+  static bool isSafeToRetryPoll(Object error) =>
+      NetworkRetry.requestNotSent(error);
 
   static String describeError(Object error) {
     if (!isTransientNetworkFailure(error)) return error.toString();
     final host = Uri.parse(ApiService.baseUrl).host;
-    return '无法连接云端服务（$host），请检查网络和 DNS 解析，'
-        '或确认服务器域名配置后重试。';
+    return '无法连接云端服务（$host）。请检查网络、DNS 或服务地址后重试。';
   }
 
   @visibleForTesting
@@ -109,19 +92,15 @@ class GitHubSignIn {
     required Future<Map<String, dynamic>> Function() request,
     required bool Function() shouldContinue,
     Future<void> Function(Duration)? delay,
-  }) async {
-    for (var attempt = 1; attempt <= 4; attempt++) {
-      if (!shouldContinue()) return null;
-      try {
-        return await request();
-      } catch (error) {
-        if (!isSafeToRetryPoll(error) || attempt == 4) rethrow;
-        const pause = Duration(seconds: 2);
-        await (delay?.call(pause) ?? Future<void>.delayed(pause));
-      }
-    }
-    return null;
-  }
+    double Function()? randomUnit,
+  }) =>
+      NetworkRetry.run<Map<String, dynamic>>(
+        request: request,
+        canRetry: isSafeToRetryPoll,
+        shouldContinue: shouldContinue,
+        delay: delay,
+        randomUnit: randomUnit,
+      );
 
   static Future<bool> signIn({
     required bool Function() shouldContinue,
