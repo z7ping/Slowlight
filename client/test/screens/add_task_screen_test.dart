@@ -88,7 +88,7 @@ void main() {
         tester.getTopLeft(find.text('清单')).dy,
         closeTo(tester.getTopLeft(find.text('优先级')).dy, 1),
       );
-      expect(find.text('标签（可选）'), findsOneWidget);
+      expect(find.text('标签（可多选）'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
@@ -147,7 +147,10 @@ void main() {
       await tester.pump();
 
       expect(find.byType(TagChoiceField), findsOneWidget);
-      expect(find.text('标签（可选）'), findsOneWidget);
+      final field = tester.widget<TagChoiceField>(find.byType(TagChoiceField));
+      expect(field.onMultipleChanged, isNotNull);
+      expect(field.selectedTagIds, isEmpty);
+      expect(find.text('标签（可多选）'), findsOneWidget);
       expect(find.text('归属维度（可选）'), findsNothing);
       expect(find.text('🧠 认知'), findsNothing);
       expect(tester.takeException(), isNull);
