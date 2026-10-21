@@ -52,4 +52,28 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('四象限读取失败时显示可重试错误，而不是四个空象限', (tester) async {
+    var attempts = 0;
+    Future<QuadrantData> load() async {
+      attempts++;
+      if (attempts == 1) throw StateError('offline');
+      return (tasks: <Task>[], lists: <TodoList>[]);
+    }
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(dataLoader: load)),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('quadrant-load-error')), findsOneWidget);
+    expect(find.text('暂时无法加载四象限'), findsOneWidget);
+    await tester.tap(find.text('重新加载'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.byKey(const ValueKey('quadrant-load-error')), findsNothing);
+    expect(find.text('未设优先级'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
