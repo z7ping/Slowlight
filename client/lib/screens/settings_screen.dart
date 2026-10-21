@@ -17,6 +17,7 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
 import 'ai_settings_screen.dart';
+import 'about_screen.dart';
 import 'diagnostics_screen.dart';
 import 'conflict_screen.dart';
 import 'integration_screen.dart';
@@ -45,14 +46,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
   int _accountLoadVersion = 0;
-  int _aiLoadVersion = 0;
-  int _conflictLoadVersion = 0;
-  int _githubLinkVersion = 0;
-  bool _accountCredentialExpired = false;
-  bool _checkingConflicts = false;
   User? _accountUser;
   bool? _githubLinked;
   late String _open;
+  late bool _mobileDetail;
+  bool _openedAsDeepLink = false;
   AiConfig _ai = const AiConfig();
   bool _hasKey = false;
   int _conflictCount = 0;
@@ -70,6 +68,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _open = widget.initialSection;
+    _openedAsDeepLink = widget.initialSection != 'appearance';
+    _mobileDetail = _openedAsDeepLink;
     _reminder.addListener(_reminderChanged);
     authStateNotifier.addListener(_authenticationChanged);
     DataModeManager().addListener(_authenticationChanged);
@@ -77,7 +77,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
     _loadAccount();
-    _loadConflictCount();
   }
 
   @override
@@ -108,7 +107,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
-    final version = ++_aiLoadVersion;
     setState(() {
       _loadingAi = true;
       _aiLoadError = null;
@@ -116,14 +114,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final ai = await _aiStore.load();
       final key = await _aiStore.loadApiKey(ai.provider);
-      if (!mounted || version != _aiLoadVersion) return;
+      if (!mounted) return;
       setState(() {
         _ai = ai;
         _hasKey = key?.isNotEmpty == true;
         _loadingAi = false;
       });
     } catch (_) {
-      if (!mounted || version != _aiLoadVersion) return;
+      if (!mounted) return;
       setState(() {
         _loadingAi = false;
         _aiLoadError = '读取 AI 配置失败';
@@ -146,7 +144,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _loadingAccount = true;
         _accountUser = null;
         _githubLinked = null;
-        _accountCredentialExpired = false;
       });
     }
     if (DataModeManager().isLocal) {
@@ -156,15 +153,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     try {
-      final validCredential = await AuthService.isLoggedIn();
-      if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
-      if (!validCredential) {
-        setState(() {
-          _accountCredentialExpired = true;
-          _loadingAccount = false;
-        });
-        return;
-      }
       final user = await AuthService.getUser();
       if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
       setState(() {
@@ -186,7 +174,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _accountSummary() {
     if (DataModeManager().isLocal) return '本地使用';
     if (_loadingAccount) return '正在读取账号…';
-    if (_accountCredentialExpired) return '登录凭据已过期';
     final user = _accountUser;
     if (user == null) return '云端账号 · 信息待确认';
     if (_githubLinked == true) {
@@ -207,26 +194,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: '前往云端登录',
             variant: FxButtonVariant.outline,
             onPressed: () => _setDataMode(1),
-          ),
-        ],
-      );
-    }
-    if (_accountCredentialExpired) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('本机登录凭据已过期，请重新登录后检查云端账号与同步状态。', style: style),
-          const SizedBox(height: SlowlightSpacing.md),
-          FxButton(
-            label: '重新登录',
-            onPressed: () async {
-              await Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()));
-              if (mounted) {
-                await _loadAccount();
-                await _loadConflictCount();
-              }
-            },
           ),
         ],
       );
@@ -278,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '如果仍显示等待，可以主动检查授权结果。',
               style: style,
             ),
-            const SizedBox(height: SlowlightSpacing.sm),
+            const SizedBox(height: SlowlightSpacing.md),
             FxButton(
               label: '检查授权结果',
               variant: FxButtonVariant.outline,
@@ -293,10 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FxButton(
             label: '取消授权等待',
             variant: FxButtonVariant.link,
-            onPressed: () => setState(() {
-              ++_githubLinkVersion;
-              _linkingGitHub = false;
-            }),
+            onPressed: () => setState(() => _linkingGitHub = false),
           ),
         ],
         const SizedBox(height: SlowlightSpacing.md),
@@ -328,198 +292,186 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadConflictCount() async {
-    final version = ++_conflictLoadVersion;
     if (DataModeManager().isLocal) {
-      if (mounted) {
+      if (mounted && (_conflictCount != 0 || _conflictCheckFailed)) {
         setState(() {
-          _checkingConflicts = false;
           _conflictCount = 0;
           _conflictCheckFailed = false;
         });
       }
       return;
     }
-    if (mounted) {
-      setState(() {
-        _checkingConflicts = true;
-        _conflictCheckFailed = true;
-      });
-    }
     try {
-      // 只接收当前账号这一轮的查询结果；换账号不显示旧冲突数量。
-      final credentialValid = await AuthService.isLoggedIn();
-      final userBefore = await AuthService.getUser();
-      if (!credentialValid || userBefore == null) {
-        if (mounted && version == _conflictLoadVersion && DataModeManager().isCloud) {
-          setState(() {
-            _conflictCount = 0;
-            _conflictCheckFailed = true;
-            _checkingConflicts = false;
-          });
-        }
-        return;
-      }
       final conflicts = await SyncService().getAllConflicts();
-      final userAfter = await AuthService.getUser();
-      if (!mounted || version != _conflictLoadVersion ||
-          DataModeManager().isLocal || userBefore?.id != userAfter?.id) return;
-      setState(() {
-        _conflictCount = conflicts.length;
-        _conflictCheckFailed = false;
-        _checkingConflicts = false;
-      });
-    } catch (_) {
-      if (mounted && version == _conflictLoadVersion && DataModeManager().isCloud) {
+      if (mounted && DataModeManager().isCloud) {
         setState(() {
-          _conflictCount = 0;
-          _conflictCheckFailed = true;
-          _checkingConflicts = false;
+          _conflictCount = conflicts.length;
+          _conflictCheckFailed = false;
         });
+      }
+    } catch (_) {
+      if (mounted && DataModeManager().isCloud) {
+        setState(() => _conflictCheckFailed = true);
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const FxPageHeader(title: '设置'),
-            Expanded(
-              child: ListView(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
-                        children: [
-                          Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 640),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _settingsIntro(),
-                                  _groupLabel('个性化'),
-                                  _accordion(
-                                    id: 'appearance',
-                                    icon: LucideIcons.palette,
-                                    title: '外观',
-                                    summary: _appearanceSummary(),
-                                    child: _appearancePanel(),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _groupLabel('数据与服务'),
-                                  _accordion(
-                                    id: 'account',
-                                    icon: LucideIcons.userRound,
-                                    title: '账号',
-                                    summary: _accountSummary(),
-                                    child: _accountPanel(),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  ListenableBuilder(
-                                    listenable: SyncService(),
-                                    builder: (context, _) =>
-                                        ValueListenableBuilder<int>(
-                                      valueListenable: CloudSyncCoordinator()
-                                          .standalonePendingCount,
-                                      builder: (context, _, __) => _accordion(
-                                        id: 'data',
-                                        icon: LucideIcons.cloud,
-                                        title: '数据同步',
-                                        summary: _dataSummary(),
-                                        child: _dataPanel(),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _accordion(
-                                    id: 'ai',
-                                    icon: LucideIcons.sparkles,
-                                    title: 'AI 服务',
-                                    summary: _aiSummary(),
-                                    child: _aiPanel(),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _groupLabel('应用维护'),
-                                  _accordion(
-                                    id: 'diagnostics',
-                                    icon: LucideIcons.bug,
-                                    title: '应用诊断',
-                                    summary: '查看、导出或清理本机错误日志',
-                                    child: FxButton(
-                                      label: '查看错误日志',
-                                      icon: LucideIcons.fileText,
-                                      variant: FxButtonVariant.outline,
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const DiagnosticsScreen(),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _groupLabel('桌面效率'),
-                                  _accordion(
-                                    id: 'rest',
-                                    icon: LucideIcons.bell,
-                                    title: '休息提醒',
-                                    summary: _restSummary(),
-                                    child: _restPanel(),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Center(
-                                    child: Text(
-                                      DataModeManager().isCloud
-                                          ? '云端模式 · 本机保留离线缓存'
-                                          : '本地模式 · 数据由本设备管理',
-                                      style: SlowlightTypography.caption(
-                                        context,
-                                      ).copyWith(
-                                        color:
-                                            Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-            ),
-          ],
-        ),
+
+  String _sectionTitle(String id) => switch (id) {
+    'appearance' => '外观',
+    'ai' => 'AI 服务',
+    'account' => '账号',
+    'data' => '数据管理',
+    'sync' => '连接与同步',
+    'privacy' => '隐私与安全',
+    'diagnostics' => '应用诊断',
+    'rest' => '休息提醒',
+    'about' => '关于',
+    _ => '设置',
+  };
+
+  String _sectionDescription(String id) => switch (id) {
+    'appearance' => '主题、配色、字体与显示',
+    'ai' => _aiSummary(),
+    'account' => _accountSummary(),
+    'data' => DataModeManager().isLocal ? '本地数据模式' : '云端数据模式',
+    'sync' => _dataSummary(),
+    'privacy' => '数据位置与第三方连接',
+    'diagnostics' => '查看与导出本机错误记录',
+    'rest' => _restSummary(),
+    'about' => '版本与应用信息',
+    _ => '',
+  };
+
+  void _openSection(String id) {
+    if (id == 'diagnostics') {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const DiagnosticsScreen()));
+      return;
+    }
+    if (id == 'about') {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const AboutScreen()));
+      return;
+    }
+    setState(() {
+      _open = id;
+      _mobileDetail = true;
+      _openedAsDeepLink = false;
+    });
+  }
+
+  void _backFromDetail() {
+    if (_openedAsDeepLink) {
+      Navigator.of(context).maybePop();
+    } else {
+      setState(() => _mobileDetail = false);
+    }
+  }
+
+  Widget _groupLabel(String label) => Padding(
+    padding: const EdgeInsets.fromLTRB(10, 16, 10, 7),
+    child: Text(label,
+      style: SlowlightTypography.caption(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
+    ),
+  );
+
+  Widget _category({
+    required String id,
+    required IconData icon,
+    required bool desktop,
+  }) {
+    final selected = desktop && _open == id;
+    final theme = Theme.of(context);
+    return FxListTile(
+      key: ValueKey('settings.category.$id'),
+      density: desktop
+          ? FxListTileDensity.sidebar
+          : FxListTileDensity.detailed,
+      minTileHeight: desktop ? 44.0 : 58.0,
+      title: _sectionTitle(id),
+      subtitle: desktop ? null : _sectionDescription(id),
+      leading: Icon(icon, size: 20),
+      trailing: desktop ? null : Icon(LucideIcons.chevronRight,
+        size: 18, color: theme.colorScheme.onSurfaceVariant),
+      selected: selected,
+      selectedColor: theme.colorScheme.primary,
+      selectedTileColor: theme.colorScheme.primary.withValues(alpha: .07),
+      onTap: () => _openSection(id),
     );
   }
 
-  Widget _settingsIntro() => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Text(
-      '调整所行映我的工作方式与数据边界',
-      style: SlowlightTypography.secondary(
-        context,
-      ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-    ),
+  Widget _navigationList({required bool desktop}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (!desktop)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          child: Text(
+            DataModeManager().isCloud
+                ? '当前使用云端数据 · 本机保留离线缓存'
+                : '当前使用本地数据 · 不自动上传',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      _groupLabel('个性化'),
+      _category(id: 'appearance', icon: LucideIcons.palette, desktop: desktop),
+      _category(id: 'ai', icon: LucideIcons.sparkles, desktop: desktop),
+      if (_reminderSupported)
+        _category(id: 'rest', icon: LucideIcons.bell, desktop: desktop),
+      _groupLabel('数据与服务'),
+      _category(id: 'account', icon: LucideIcons.userRound, desktop: desktop),
+      _category(id: 'data', icon: LucideIcons.database, desktop: desktop),
+      _category(id: 'sync', icon: LucideIcons.cloud, desktop: desktop),
+      _category(id: 'privacy', icon: LucideIcons.shieldCheck, desktop: desktop),
+      _groupLabel('应用维护'),
+      _category(id: 'diagnostics', icon: LucideIcons.bug, desktop: desktop),
+      _category(id: 'about', icon: LucideIcons.info, desktop: desktop),
+    ],
   );
 
-  Widget _groupLabel(String label) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 10, 4, 7),
-    child: Text(
-      label,
-      style: SlowlightTypography.caption(context).copyWith(
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.primary,
+  Widget _sectionContent(String id) => switch (id) {
+    'appearance' => _appearancePanel(),
+    'ai' => _aiPanel(),
+    'account' => _accountPanel(),
+    'data' => _dataManagementPanel(),
+    'sync' => _syncPanel(),
+    'privacy' => _privacyPanel(),
+    'rest' => _reminderSupported
+        ? _restPanel()
+        : Text('休息提醒仅在桌面端配置',
+            style: SlowlightTypography.secondary(context)),
+    _ => const SizedBox.shrink(),
+  };
+
+  Widget _detailContent() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(_sectionTitle(_open),
+        style: SlowlightTypography.componentPageTitle(context)),
+      const SizedBox(height: 6),
+      Text(
+        _sectionDescription(_open),
+        style: SlowlightTypography.caption(context).copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
-    ),
+      const SizedBox(height: 20),
+      FxSeparator.horizontal(
+        color: Theme.of(context).colorScheme.outlineVariant,
+      ),
+      const SizedBox(height: 20),
+      _sectionContent(_open),
+    ],
   );
 
   String _dataSummary() {
-    if (DataModeManager().isLocal) return '本地独立使用 · 无需云端';
-    if (_accountCredentialExpired) return '云同步 · 登录凭据已过期';
-    if (!_loadingAccount && _accountUser == null) return '云同步 · 账号状态待确认';
+    if (DataModeManager().isLocal) return '仅本地使用';
     final sync = SyncService();
     return cloudSyncSummary(
       status: sync.status,
@@ -538,128 +490,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return '${_ai.provider.label} · ${_hasKey || !_ai.provider.apiKeyRequired ? '已配置' : '缺少密钥'}';
   }
 
-  Widget _accordion({
-    required String id,
-    required IconData icon,
-    required String title,
-    required String summary,
-    required Widget child,
-  }) {
-    final theme = Theme.of(context);
-    final open = _open == id;
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    final stackHeader = scale >= 1.6 && MediaQuery.sizeOf(context).width < 520;
-    return FxCard(
-      padding: EdgeInsets.zero,
-      color: fxSurface(context),
-      borderRadius: SlowlightRadius.lg,
-      border: Border.all(color: fxBorder(context)),
-      expanded: true,
-      child: Column(
-        children: [
-          FxInkWell(
-            onTap: () => setState(() => _open = open ? '' : id),
-            borderRadius: BorderRadius.circular(SlowlightRadius.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 56),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                child:
-                    stackHeader
-                        ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(icon, size: 18),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    title,
-                                    style: SlowlightTypography.secondary(
-                                      context,
-                                    ).copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Icon(
-                                  open
-                                      ? LucideIcons.chevronDown
-                                      : LucideIcons.chevronRight,
-                                  size: 18,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 28),
-                              child: Text(
-                                summary,
-                                style: SlowlightTypography.caption(
-                                  context,
-                                ).copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                        : Row(
-                          children: [
-                            Icon(icon, size: 18),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                title,
-                                style: SlowlightTypography.secondary(
-                                  context,
-                                ).copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            Flexible(
-                              child: Text(
-                                summary,
-                                textAlign: TextAlign.right,
-                                overflow: TextOverflow.ellipsis,
-                                style: SlowlightTypography.caption(
-                                  context,
-                                ).copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              open
-                                  ? LucideIcons.chevronDown
-                                  : LucideIcons.chevronRight,
-                              size: 18,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ],
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, viewport) {
+        final android = !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android;
+        final twoPane = !android && viewport.maxWidth >= 760 &&
+            MediaQuery.textScalerOf(context).scale(1) < 1.8;
+        final detail = !twoPane && _mobileDetail;
+        return PopScope(
+          canPop: !detail || _openedAsDeepLink,
+          onPopInvoked: (didPop) {
+            if (!didPop && detail && !_openedAsDeepLink && mounted) {
+              setState(() => _mobileDetail = false);
+            }
+          },
+          child: Scaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  FxPageHeader(
+                    title: detail ? _sectionTitle(_open) : '设置',
+                    onBack: detail ? _backFromDetail : null,
+                  ),
+                  Expanded(
+                    child: ListView(
+                      key: PageStorageKey(
+                        detail ? 'settings.detail.$_open' : 'settings.overview',
+                      ),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                      children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1050),
+                            child: twoPane
+                                ? Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(
+                                        width: 226,
+                                        child: _navigationList(desktop: true),
+                                      ),
+                                      const SizedBox(width: 28),
+                                      Expanded(child: _detailContent()),
+                                    ],
+                                  )
+                                : detail
+                                    ? _sectionContent(_open)
+                                    : _navigationList(desktop: false),
+                          ),
                         ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox(width: double.infinity),
-            secondChild: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: fxDivider(context))),
-              ),
-              child: child,
-            ),
-            crossFadeState:
-                open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 160),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -854,7 +744,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _dataPanel() {
+
+  Widget _dataManagementPanel() {
     final local = DataModeManager().isLocal;
     final theme = Theme.of(context);
     return Column(
@@ -870,70 +761,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         if (_switchingMode)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text('正在切换数据模式…'),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('正在切换数据模式…',
+              style: SlowlightTypography.caption(context)),
           ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 12),
         Text(
           local
-              ? '数据仅从本机数据库读写。切换模式不会自动把现有本地数据上传到云端。'
-              : '数据以所行映我服务端为准，并在本机保留同步缓存；不会自动导入本地模式中的记录。',
-          style: SlowlightTypography.caption(
-            context,
-          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ? '当前记录从本机数据库读写。切换不会自动上传或合并本地记录。'
+              : '当前记录以云端数据为准，本机保留离线缓存。切换不会自动导入本地记录。',
+          style: SlowlightTypography.secondary(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
-        if (!local) ...[
-          const SizedBox(height: 10),
-          _settingLine(
-            '同步状态',
-            _dataSummary(),
-            trailing: FxButton(
-              label: _syncing ? '同步中…' : '立即同步',
-              variant: FxButtonVariant.outline,
-              size: FxButtonSize.sm,
-              onPressed: _syncing || _accountCredentialExpired ||
-                      _loadingAccount || _accountUser == null
-                  ? null : _syncNow,
-            ),
-          ),
-          _settingLine(
-            '同步冲突',
-            _checkingConflicts
-                ? '正在检查冲突…'
-                : _conflictCheckFailed
-                ? '冲突状态未知，请重新检查'
-                : _conflictCount == 0
-                    ? '无待处理冲突'
-                    : '$_conflictCount 条记录需要选择保留版本',
-            trailing: FxButton(
-              label: _conflictCheckFailed ? '重新检查' : '查看冲突 ($_conflictCount)',
-              variant: FxButtonVariant.ghost,
-              size: FxButtonSize.sm,
-              onPressed: _checkingConflicts
-                  ? null
-                  : _conflictCheckFailed
-                      ? _loadConflictCount
-                      : _conflictCount == 0 ? null : _openConflicts,
-            ),
-          ),
-        ],
-        if (!local && SyncService().lastError?.isNotEmpty == true)
-          _settingLine(
-            '同步失败原因',
-            SyncService().lastError!,
-            trailing: FxButton(
-              label: '重试同步',
-              variant: FxButtonVariant.outline,
-              size: FxButtonSize.sm,
-              onPressed: _syncing || _accountCredentialExpired ||
-                      _loadingAccount || _accountUser == null
-                  ? null : _syncNow,
-            ),
-          ),
+        const SizedBox(height: 20),
         _settingLine(
           '数据迁移',
-          '先预览本机记录与潜在冲突，再确认迁移到云端',
+          '先预览本机记录及冲突，再确认迁移',
           trailing: FxButton(
             label: '预览迁移',
             variant: FxButtonVariant.outline,
@@ -943,7 +788,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         _settingLine(
           '迁移历史',
-          '查看最近 20 次迁移的时间、策略与结果摘要',
+          '查看历史迁移时间、策略和结果',
           trailing: FxButton(
             label: '查看历史',
             variant: FxButtonVariant.outline,
@@ -951,18 +796,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => MigrationHistoryDialog.show(context),
           ),
         ),
-        _settingLine(
-          '平台集成',
-          '连接飞书多维表格，同步任务、习惯与行为记录',
-          trailing: FxButton(
-            label: '打开飞书表格',
-            variant: FxButtonVariant.outline,
-            size: FxButtonSize.sm,
-            onPressed:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const IntegrationScreen()),
+      ],
+    );
+  }
+
+  Widget _syncPanel() => ListenableBuilder(
+    listenable: SyncService(),
+    builder: (context, _) => ValueListenableBuilder<int>(
+      valueListenable: CloudSyncCoordinator().standalonePendingCount,
+      builder: (context, _, __) {
+        final local = DataModeManager().isLocal;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (local)
+              Text(
+                '目前为本地数据模式。云端同步不会运行，登录后可选择使用云端数据。',
+                style: SlowlightTypography.secondary(context),
+              )
+            else ...[
+              _settingLine(
+                '同步状态',
+                _dataSummary(),
+                trailing: FxButton(
+                  label: _syncing ? '同步中…' : '立即同步',
+                  size: FxButtonSize.sm,
+                  variant: FxButtonVariant.outline,
+                  onPressed: _syncing ? null : _syncNow,
                 ),
+              ),
+              _settingLine(
+                '同步冲突',
+                _conflictCheckFailed
+                    ? '暂时无法读取冲突，请检查云端连接'
+                    : _conflictCount == 0
+                        ? '无待处理冲突'
+                        : '$_conflictCount 条记录需要选择保留版本',
+                trailing: FxButton(
+                  label: '查看冲突',
+                  size: FxButtonSize.sm,
+                  variant: FxButtonVariant.outline,
+                  onPressed: _conflictCount == 0 && !_conflictCheckFailed
+                      ? null
+                      : _openConflicts,
+                ),
+              ),
+            ],
+            _settingLine(
+              '平台集成',
+              '连接飞书多维表格，管理已支持的同步范围',
+              trailing: FxButton(
+                label: '打开集成',
+                size: FxButtonSize.sm,
+                variant: FxButtonVariant.outline,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const IntegrationScreen(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  Widget _privacyPanel() {
+    final local = DataModeManager().isLocal;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _settingLine(
+          '当前记录来源',
+          local
+              ? '本地数据模式：读写本设备数据库，不自动上传记录。'
+              : '云端数据模式：数据以服务端为准，本机保留离线缓存。',
+        ),
+        _settingLine(
+          'AI 请求',
+          '请求发往已配置的模型接口。是否离开本设备取决于实际接口地址。',
+          trailing: FxButton(
+            label: '查看配置',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.outline,
+            onPressed: _openAiSettings,
+          ),
+        ),
+        _settingLine(
+          '第三方授权',
+          'GitHub 绑定信息以云端返回为准；飞书连接由集成页面管理。',
+        ),
+        _settingLine(
+          '错误日志',
+          '仅保存在本机，用户主动导出前应检查个人信息。',
+          trailing: FxButton(
+            label: '应用诊断',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.outline,
+            onPressed: () => _openSection('diagnostics'),
           ),
         ),
       ],
@@ -1232,35 +1165,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _bindGitHub() async {
-    if (DataModeManager().isLocal || _linkingGitHub) return;
-    final version = ++_githubLinkVersion;
+    if (DataModeManager().isLocal) return;
     setState(() => _linkingGitHub = true);
     try {
       final completed = await GitHubSignIn.signIn(
         linkExisting: true,
-        shouldContinue: () => mounted && _linkingGitHub &&
-            version == _githubLinkVersion && DataModeManager().isCloud,
+        shouldContinue: () => mounted && _linkingGitHub,
       );
-      if (mounted && completed && _linkingGitHub && version == _githubLinkVersion) {
+      if (mounted && completed) {
+        // OAuth 回调已完成后仍需刷新本机身份和真实绑定状态。
+        // 侧栏可能已经存在，显式广播避免停留在旧的账户摘要。
         authStateNotifier.value = !authStateNotifier.value;
         await _loadAccount();
-        if (mounted && version == _githubLinkVersion) {
-          _message(_githubLinked == true
-              ? 'GitHub 已绑定到当前云端账号'
-              : 'GitHub 授权已完成，请重新检查账号绑定状态');
+        if (!mounted) return;
+        if (_githubLinked == true) {
+          _message('GitHub 已绑定到当前云端账号');
+        } else {
+          _message('GitHub 授权已完成，请重新检查账号绑定状态');
         }
       }
     } catch (e) {
-      if (mounted && _linkingGitHub && version == _githubLinkVersion) {
+      if (mounted) {
         FxNotice.errorWithDetails(context, '绑定 GitHub 失败', e.toString());
       }
     } finally {
-      if (mounted && version == _githubLinkVersion) {
-        setState(() => _linkingGitHub = false);
-      } else if (mounted && DataModeManager().isCloud) {
-        // 客户端取消等待不等于服务端授权撤销；以服务端绑定状态重新检查。
-        await _loadAccount();
-      }
+      if (mounted) setState(() => _linkingGitHub = false);
     }
   }
 
@@ -1284,11 +1213,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       if (toLocal) {
         await manager.setLocal();
-        authStateNotifier.value = !authStateNotifier.value;
       } else {
-        final loggedIn = await AuthService.isLoggedIn();
+        final token = await AuthService.getToken();
         if (!mounted) return;
-        if (!loggedIn) {
+        if (token == null || token.startsWith('local:')) {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -1297,7 +1225,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (!mounted || manager.isLocal) return;
         } else {
           await manager.setCloud();
-          authStateNotifier.value = !authStateNotifier.value;
         }
       }
       if (!mounted) return;
@@ -1317,29 +1244,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _syncNow() async {
-    if (_syncing || _switchingMode || DataModeManager().isLocal ||
-        _accountCredentialExpired || _loadingAccount || _accountUser == null) return;
-    final accountId = _accountUser!.id;
+    if (_syncing || DataModeManager().isLocal) return;
     setState(() => _syncing = true);
     try {
       final ok = await CloudSyncCoordinator().syncNow();
-      final currentUser = await AuthService.getUser();
-      if (!mounted || DataModeManager().isLocal || currentUser?.id != accountId) return;
+      if (!mounted) return;
       await _loadConflictCount();
       if (mounted) {
-        final sync = SyncService();
-        final pending = sync.pendingCount +
-            CloudSyncCoordinator().standalonePendingCount.value;
-        final complete = cloudSyncFullySettled(
-          requestSucceeded: ok,
-          status: sync.status,
-          conflictCheckFailed: _conflictCheckFailed,
-          conflictCount: _conflictCount,
-          pendingCount: pending,
-        );
-        _message(complete
-            ? '同步完成，当前无待处理项'
-            : '同步尚未全部完成，请检查同步状态、待同步项和冲突');
+        _message(ok ? '同步完成' : '同步未完成，请检查待同步记录和冲突');
       }
     } catch (e) {
       if (mounted) {
