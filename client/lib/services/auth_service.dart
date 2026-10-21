@@ -16,6 +16,7 @@ class AuthService {
 
   /// 登录
   static Future<Map<String, dynamic>> login(String username, String password) async {
+    ApiService.validateCloudEndpoint();
     final response = await ApiService.post('/auth/login', body: {
       'username': username,
       'password': password,
@@ -34,6 +35,7 @@ class AuthService {
     required String password,
     String? nickname,
   }) async {
+    ApiService.validateCloudEndpoint();
     final response = await ApiService.post('/auth/register', body: {
       'username': username,
       'email': email,
