@@ -63,6 +63,7 @@ class LocalSessionRepository {
         'duration_sec': 0,
         'paused_at': null,
         'paused_duration_sec': 0,
+        'revision': 0,
         'device': device,
         'system_tag_id': null,
         'created_at': now.toIso8601String(),
@@ -124,13 +125,13 @@ class LocalSessionRepository {
   }
 
   // SQLite 事务确保重复点击/重试不会重置暂停时间或重复累计。
-  Future<Map<String, dynamic>> pauseSession(int sessionId) =>
-      _transitionSession(sessionId, pause: true);
+  Future<Map<String, dynamic>> pauseSession(int sessionId, int revision) =>
+      _transitionSession(sessionId, revision, pause: true);
 
-  Future<Map<String, dynamic>> resumeSession(int sessionId) =>
-      _transitionSession(sessionId, pause: false);
+  Future<Map<String, dynamic>> resumeSession(int sessionId, int revision) =>
+      _transitionSession(sessionId, revision, pause: false);
 
-  Future<Map<String, dynamic>> _transitionSession(int sessionId, {required bool pause}) async {
+  Future<Map<String, dynamic>> _transitionSession(int sessionId, int revision, {required bool pause}) async {
     final db = await _db();
     final now = DateTime.now().toUtc();
     await db.transaction((txn) async {
@@ -139,11 +140,19 @@ class LocalSessionRepository {
       if (rows.isEmpty) throw StateError('会话不存在或已结束');
       final session = rows.first;
       final rawPausedAt = session['paused_at'] as String?;
+      final currentRevision = session['revision'] as int? ?? 0;
+      if (currentRevision != revision) {
+        if (currentRevision == revision + 1 &&
+            ((pause && rawPausedAt != null) || (!pause && rawPausedAt == null))) {
+          return; // 一次成功写入的重复请求
+        }
+        throw StateError('会话状态已由其他操作改变，请刷新');
+      }
       if (pause && rawPausedAt == null) {
         await txn.update('work_sessions',
-            {'paused_at': now.toIso8601String()},
-            where: 'id = ? AND ended_at IS NULL AND paused_at IS NULL',
-            whereArgs: [sessionId]);
+            {'paused_at': now.toIso8601String(), 'revision': revision + 1},
+            where: 'id = ? AND ended_at IS NULL AND paused_at IS NULL AND revision = ?',
+            whereArgs: [sessionId, revision]);
       } else if (!pause && rawPausedAt != null) {
         final pausedAt = DateTime.parse(rawPausedAt);
         final extraSeconds = _durationSeconds(pausedAt, now);
@@ -151,9 +160,10 @@ class LocalSessionRepository {
             {
               'paused_at': null,
               'paused_duration_sec': (session['paused_duration_sec'] as int? ?? 0) + extraSeconds,
+              'revision': revision + 1,
             },
-            where: 'id = ? AND ended_at IS NULL AND paused_at = ?',
-            whereArgs: [sessionId, rawPausedAt]);
+            where: 'id = ? AND ended_at IS NULL AND paused_at = ? AND revision = ?',
+            whereArgs: [sessionId, rawPausedAt, revision]);
       }
     });
     return {'session': await _getById(db, sessionId)};
@@ -333,6 +343,7 @@ class LocalSessionRepository {
         'duration_seconds': row['duration_sec'] ?? 0,
         'paused_at': row['paused_at'],
         'paused_duration_seconds': row['paused_duration_sec'] ?? 0,
+        'revision': row['revision'] ?? 0,
         'device': row['device'] ?? '',
         'system_tag_id': row['system_tag_id'],
         'created_at': row['created_at'],
