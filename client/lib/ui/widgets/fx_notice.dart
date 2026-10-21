@@ -3,7 +3,9 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../app_theme.dart';
 import '../color_tokens.dart';
+import '../layout_tokens.dart';
 import 'fx_button.dart';
+import 'fx_dialog.dart';
 
 /// Slowlight 全局通知承载层。
 ///
@@ -17,7 +19,25 @@ class FxNoticeHost extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => ShadSonner(child: child);
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final safePadding = mediaQuery.viewPadding;
+    final keyboardInset = mediaQuery.viewInsets.bottom;
+    return ShadSonner(
+      // Sonner 自身不处理 Android 系统导航栏和键盘避让。
+      // 只调整通知层内边距，不改变业务页面的可用布局尺寸。
+      padding: EdgeInsets.fromLTRB(
+        SlowlightSpacing.xxxl + safePadding.left,
+        SlowlightSpacing.xxxl + safePadding.top,
+        SlowlightSpacing.xxxl + safePadding.right,
+        SlowlightSpacing.xxxl +
+            (keyboardInset > safePadding.bottom
+                ? keyboardInset
+                : safePadding.bottom),
+      ),
+      child: child,
+    );
+  }
 }
 
 enum FxNoticeVariant {
@@ -182,6 +202,45 @@ abstract final class FxNotice {
         action: action,
         duration: duration,
         variant: FxNoticeVariant.destructive,
+      );
+
+  /// 长错误只在通知中显示简短标题，完整异常留在可滚动、可选择的详情弹窗。
+  /// 避免 Sonner 对多行内容的高度测量导致底部通知被屏幕裁切。
+  static Object? errorWithDetails(
+    BuildContext context,
+    String title,
+    String details,
+  ) =>
+      error(
+        context,
+        title,
+        action: FxNoticeAction(
+          label: '查看详情',
+          onPressed: () {
+            if (!context.mounted) return;
+            FxDialog.raw<void>(
+              context: context,
+              builder: (dialogContext) => FxAlertDialog(
+                title: Text(title),
+                content: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.5,
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(details),
+                  ),
+                ),
+                actions: [
+                  FxButton(
+                    label: '关闭',
+                    onPressed: () =>
+                        Navigator.of(dialogContext, rootNavigator: true).pop(),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       );
 
   static Future<void> dismiss(BuildContext context, Object? id) =>
