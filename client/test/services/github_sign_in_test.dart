@@ -90,7 +90,9 @@ void main() {
         return {'status': 'complete'};
       },
       shouldContinue: () => true,
-      delay: (duration) async => pauses.add(duration),
+      delay: (duration) async {
+        pauses.add(duration);
+      },
     );
     expect(result?['status'], 'complete');
     expect(attempts, 2);
@@ -142,7 +144,9 @@ void main() {
         throw http.ClientException('Failed host lookup');
       },
       shouldContinue: () => active,
-      delay: (_) async => active = false,
+      delay: (_) async {
+        active = false;
+      },
     );
     expect(result, isNull);
     expect(attempts, 1);
