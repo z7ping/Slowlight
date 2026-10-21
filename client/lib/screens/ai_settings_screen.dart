@@ -52,7 +52,12 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   void _onDraftEdited() {
-    if (mounted && _testResult != null) setState(() => _testResult = null);
+    if (mounted && (_testResult != null || _saveError != null)) {
+      setState(() {
+        _testResult = null;
+        _saveError = null;
+      });
+    }
   }
 
   bool get _isDirty =>
@@ -149,7 +154,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     return await _store.loadApiKey(_config.provider) ?? '';
   }
 
-  String? _validate(AiConfig config, String key) {
+  String? _validate(AiConfig config, String key, {bool testing = false}) {
+    // 关闭 AI 可以无密钥保存；仅启用或主动测试时校验服务连接参数。
+    if (!config.enabled && !testing) return null;
     if (config.effectiveEndpoint.isEmpty) return '请填写接口地址';
     if (config.effectiveModel.isEmpty) return '请填写模型名';
     if (config.provider.apiKeyRequired && key.isEmpty) return '当前 AI 服务需要访问密钥';
@@ -207,7 +214,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     try {
       final draft = _draft();
       secret = await _effectiveKey();
-      final error = _validate(draft, secret);
+      final error = _validate(draft, secret, testing: true);
       if (error != null) {
         if (mounted) setState(() => _testResult = '连接失败：$error');
         return;
@@ -301,7 +308,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                           : ListView(
                         padding: const EdgeInsets.all(20),
                         children: [
-                          FxCard(
+                          IgnorePointer(
+                            ignoring: _saving || _testing || _providerSwitching,
+                            child: FxCard(
                             padding: const EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,6 +417,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                 ],
                               ],
                             ),
+                          ),
                           ),
                           const SizedBox(height: 16),
                           Row(
