@@ -49,6 +49,17 @@ class AuthService {
     return {'token': token, 'user': user};
   }
 
+  /// OAuth 登录沿用原有用户模型、JWT 和系统安全存储。
+  static Future<void> completeOAuthLogin(Map<String, dynamic> result) async {
+    final token = result['token'];
+    final userJson = result['user'];
+    if (token is! String || token.isEmpty || userJson is! Map) {
+      throw StateError('GitHub 登录结果缺少有效凭据');
+    }
+    final user = User.fromJson(Map<String, dynamic>.from(userJson));
+    await _saveAuth(token, user);
+  }
+
   /// Token 属于认证凭据，统一存系统安全存储。
   /// 首次读取时会迁移旧版本 SharedPreferences 中的 token。
   static Future<String?> getToken() async {
