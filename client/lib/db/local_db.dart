@@ -505,6 +505,9 @@ class LocalDb {
       if (!names.contains('paused_duration_sec')) {
         await db.execute('ALTER TABLE work_sessions ADD COLUMN paused_duration_sec INTEGER NOT NULL DEFAULT 0');
       }
+      if (!names.contains('revision')) {
+        await db.execute('ALTER TABLE work_sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+      }
     }
   }
 
@@ -519,6 +522,7 @@ class LocalDb {
         duration_sec INTEGER DEFAULT 0,
         paused_at TEXT,
         paused_duration_sec INTEGER NOT NULL DEFAULT 0,
+        revision INTEGER NOT NULL DEFAULT 0,
         device TEXT DEFAULT '',
         system_tag_id INTEGER,
         created_at TEXT NOT NULL
