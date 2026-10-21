@@ -116,39 +116,67 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SlowlightLogo(size: 52),
-                  const SizedBox(height: 14),
-                  Text(
-                    kBrandDisplayName,
-                    textAlign: TextAlign.center,
-                    style: SlowlightTypography.pageTitle(context),
+                  Align(
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SlowlightLogo(size: 72),
+                        const SizedBox(height: SlowlightSpacing.xxxl),
+                        Text(
+                          kBrandDisplayName,
+                          style: SlowlightTypography.hero(context).copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: SlowlightSpacing.xs),
+                        Text(
+                          kBrandTagline,
+                          textAlign: TextAlign.center,
+                          style: SlowlightTypography.secondary(context).copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 40),
                   Text(
-                    '登录云端，跨设备保存你的记录；也可选择本地独立使用',
-                    textAlign: TextAlign.center,
-                    style: SlowlightTypography.secondary(
-                      context,
-                    ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    _isLogin ? '欢迎回来' : '创建云端账号',
+                    style: SlowlightTypography.hero(context).copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: SlowlightSpacing.md),
+                  Text(
+                    _isLogin
+                        ? '登录后，让每一段记录在设备间延续。'
+                        : '用一个账号，保存值得回看的日常。',
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: SlowlightSpacing.page),
                   FxInput(
                     controller: _usernameController,
                     enabled: !_isLoading,
                     textInputAction: TextInputAction.next,
-                    placeholder: _isLogin ? '邮箱或用户名' : '用户名',
+                    label: '账号',
+                    placeholder: _isLogin ? '邮箱或用户名' : '设置用户名',
                   ),
                   if (!_isLogin) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: SlowlightSpacing.xxxl),
                     FxInput(
                       controller: _emailController,
                       enabled: !_isLoading,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      placeholder: '邮箱',
+                      label: '邮箱',
+                    placeholder: '请输入邮箱',
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: SlowlightSpacing.xxxl),
                   FxInput(
                     controller: _passwordController,
                     enabled: !_isLoading,
@@ -156,7 +184,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     textInputAction:
                         _isLogin ? TextInputAction.done : TextInputAction.next,
                     onSubmitted: _isLogin ? (_) => _submit() : null,
-                    placeholder: '密码',
+                    label: '密码',
+                    placeholder: '请输入密码',
+                    enableSuggestions: false,
+                    autocorrect: false,
                     trailing: FxIconButton(
                       tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
                       onPressed:
@@ -167,7 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           _obscurePassword
                               ? LucideIcons.eye
                               : LucideIcons.eyeOff,
-                      iconSize: 17,
+                      iconSize: SlowlightIconSize.sm,
                     ),
                   ),
                   if (!_isLogin) ...[
@@ -177,10 +208,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       enabled: !_isLoading,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _submit(),
-                      placeholder: '昵称（可选）',
+                      label: '昵称（可选）',
+                    placeholder: '如何称呼你？',
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  const SizedBox(height: SlowlightSpacing.page),
                   SizedBox(
                     key: const ValueKey('login.primary_action'),
                     width: double.infinity,
