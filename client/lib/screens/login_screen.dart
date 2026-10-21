@@ -238,6 +238,28 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const SizedBox(height: SlowlightSpacing.md),
+          if (Theme.of(context).platform == TargetPlatform.windows) ...[
+            const SizedBox(height: SlowlightSpacing.sm),
+            FxButton(
+              key: const ValueKey('login.github_check'),
+              label: '检查授权结果',
+              variant: FxButtonVariant.outline,
+              onPressed: () {
+                if (!GitHubSignIn.checkAuthorizationNow()) {
+                  _message('授权会话正在初始化，请稍后重试');
+                }
+              },
+            ),
+            const SizedBox(height: SlowlightSpacing.xs),
+            Text(
+              '浏览器显示授权成功后，Windows 会自动检查；'
+              '如果界面仍在等待，也可以手动检查。',
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           FxButton(
             key: const ValueKey('login.github_cancel'),
             label: '取消授权等待',
