@@ -58,22 +58,22 @@ class SessionApi {
     throw Exception('结束会话失败');
   }
 
-  static Future<Map<String, dynamic>> pauseSession(int sessionId) =>
-      _transitionSession(sessionId, pause: true);
+  static Future<Map<String, dynamic>> pauseSession(int sessionId, int revision) =>
+      _transitionSession(sessionId, revision, pause: true);
 
-  static Future<Map<String, dynamic>> resumeSession(int sessionId) =>
-      _transitionSession(sessionId, pause: false);
+  static Future<Map<String, dynamic>> resumeSession(int sessionId, int revision) =>
+      _transitionSession(sessionId, revision, pause: false);
 
-  static Future<Map<String, dynamic>> _transitionSession(int sessionId, {required bool pause}) async {
+  static Future<Map<String, dynamic>> _transitionSession(int sessionId, int revision, {required bool pause}) async {
     if (DataModeManager().isLocal) {
-      return pause ? _local.pauseSession(sessionId) : _local.resumeSession(sessionId);
+      return pause ? _local.pauseSession(sessionId, revision) : _local.resumeSession(sessionId, revision);
     }
     final headers = await ApiService.authHeaders();
     final action = pause ? 'pause' : 'resume';
     final response = await HttpUtil.post(
       Uri.parse('${ApiService.baseUrl}/sessions/$action'),
       headers: headers,
-      body: json.encode({'session_id': sessionId}),
+      body: json.encode({'session_id': sessionId, 'expected_revision': revision}),
     ).timeout(ApiService.postTimeout);
     if (response.statusCode == 200) return json.decode(response.body);
     throw StateError('切换专注状态失败（${response.statusCode}），请刷新会话状态');
