@@ -17,7 +17,8 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
 import 'ai_settings_screen.dart';
-import 'diagnostics_screen.dart';import 'conflict_screen.dart';
+import 'diagnostics_screen.dart';
+import 'conflict_screen.dart';
 import 'integration_screen.dart';
 import 'login_screen.dart';
 import 'migration_history_dialog.dart';
@@ -44,6 +45,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
   int _accountLoadVersion = 0;
+  int _aiLoadVersion = 0;
+  int _conflictLoadVersion = 0;
+  int _githubLinkVersion = 0;
+  bool _accountCredentialExpired = false;
+  bool _checkingConflicts = false;
   User? _accountUser;
   bool? _githubLinked;
   late String _open;
@@ -69,6 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
     _loadAccount();
+    _loadConflictCount();
   }
 
   @override
@@ -90,6 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
+    final version = ++_aiLoadVersion;
     setState(() {
       _loadingAi = true;
       _aiLoadError = null;
@@ -97,14 +105,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final ai = await _aiStore.load();
       final key = await _aiStore.loadApiKey(ai.provider);
-      if (!mounted) return;
+      if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _ai = ai;
         _hasKey = key?.isNotEmpty == true;
         _loadingAi = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _loadingAi = false;
         _aiLoadError = '读取 AI 配置失败';
@@ -127,6 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _loadingAccount = true;
         _accountUser = null;
         _githubLinked = null;
+        _accountCredentialExpired = false;
       });
     }
     if (DataModeManager().isLocal) {
@@ -136,6 +145,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     try {
+      final validCredential = await AuthService.isLoggedIn();
+      if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
+      if (!validCredential) {
+        setState(() {
+          _accountCredentialExpired = true;
+          _loadingAccount = false;
+        });
+        return;
+      }
       final user = await AuthService.getUser();
       if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
       setState(() {
@@ -157,6 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _accountSummary() {
     if (DataModeManager().isLocal) return '本地使用';
     if (_loadingAccount) return '正在读取账号…';
+    if (_accountCredentialExpired) return '登录凭据已过期';
     final user = _accountUser;
     return user == null
         ? '云端账号 · 信息待确认'
@@ -175,6 +194,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: '前往云端登录',
             variant: FxButtonVariant.outline,
             onPressed: () => _setDataMode(1),
+          ),
+        ],
+      );
+    }
+    if (_accountCredentialExpired) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('本机登录凭据已过期，请重新登录后检查云端账号与同步状态。', style: style),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            label: '重新登录',
+            onPressed: () async {
+              await Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()));
+              if (mounted) {
+                await _loadAccount();
+                await _loadConflictCount();
+              }
+            },
           ),
         ],
       );
@@ -223,7 +262,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FxButton(
             label: '取消授权等待',
             variant: FxButtonVariant.link,
-            onPressed: () => setState(() => _linkingGitHub = false),
+            onPressed: () => setState(() {
+              ++_githubLinkVersion;
+              _linkingGitHub = false;
+            }),
           ),
         ],
         const SizedBox(height: SlowlightSpacing.md),
@@ -255,26 +297,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadConflictCount() async {
+    final version = ++_conflictLoadVersion;
     if (DataModeManager().isLocal) {
-      if (mounted && (_conflictCount != 0 || _conflictCheckFailed)) {
+      if (mounted) {
         setState(() {
+          _checkingConflicts = false;
           _conflictCount = 0;
           _conflictCheckFailed = false;
         });
       }
       return;
     }
+    if (mounted) {
+      setState(() {
+        _checkingConflicts = true;
+        _conflictCheckFailed = true;
+      });
+    }
     try {
+      // 只接收当前账号这一轮的查询结果；换账号不显示旧冲突数量。
+      final userBefore = await AuthService.getUser();
       final conflicts = await SyncService().getAllConflicts();
-      if (mounted && DataModeManager().isCloud) {
-        setState(() {
-          _conflictCount = conflicts.length;
-          _conflictCheckFailed = false;
-        });
-      }
+      final userAfter = await AuthService.getUser();
+      if (!mounted || version != _conflictLoadVersion ||
+          DataModeManager().isLocal || userBefore?.id != userAfter?.id) return;
+      setState(() {
+        _conflictCount = conflicts.length;
+        _conflictCheckFailed = false;
+        _checkingConflicts = false;
+      });
     } catch (_) {
-      if (mounted && DataModeManager().isCloud) {
-        setState(() => _conflictCheckFailed = true);
+      if (mounted && version == _conflictLoadVersion && DataModeManager().isCloud) {
+        setState(() {
+          _conflictCount = 0;
+          _conflictCheckFailed = true;
+          _checkingConflicts = false;
+        });
       }
     }
   }
@@ -795,21 +853,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _settingLine(
             '同步冲突',
-            _conflictCheckFailed
-                ? '暂时无法读取冲突，请检查同步状态'
+            _checkingConflicts
+                ? '正在检查冲突…'
+                : _conflictCheckFailed
+                ? '冲突状态未知，请重新检查'
                 : _conflictCount == 0
                     ? '无待处理冲突'
                     : '$_conflictCount 条记录需要选择保留版本',
             trailing: FxButton(
-              label: '查看冲突 ($_conflictCount)',
+              label: _conflictCheckFailed ? '重新检查' : '查看冲突 ($_conflictCount)',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
-              onPressed: _conflictCount == 0 && !_conflictCheckFailed
+              onPressed: _checkingConflicts
                   ? null
-                  : _openConflicts,
+                  : _conflictCheckFailed
+                      ? _loadConflictCount
+                      : _conflictCount == 0 ? null : _openConflicts,
             ),
           ),
         ],
+        if (SyncService().lastError?.isNotEmpty == true)
+          _settingLine(
+            '同步失败原因',
+            SyncService().lastError!,
+            trailing: FxButton(
+              label: '重试同步',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: _syncing ? null : _syncNow,
+            ),
+          ),
         _settingLine(
           '数据迁移',
           '先预览本机记录与潜在冲突，再确认迁移到云端',
@@ -1111,23 +1184,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _bindGitHub() async {
-    if (DataModeManager().isLocal) return;
+    if (DataModeManager().isLocal || _linkingGitHub) return;
+    final version = ++_githubLinkVersion;
     setState(() => _linkingGitHub = true);
     try {
       final completed = await GitHubSignIn.signIn(
         linkExisting: true,
-        shouldContinue: () => mounted && _linkingGitHub,
+        shouldContinue: () => mounted && _linkingGitHub &&
+            version == _githubLinkVersion && DataModeManager().isCloud,
       );
-      if (mounted && completed) {
-        _message('GitHub 已绑定到当前云端账号');
+      if (mounted && completed && _linkingGitHub && version == _githubLinkVersion) {
         await _loadAccount();
+        if (mounted && version == _githubLinkVersion && _githubLinked == true) {
+          _message('GitHub 已绑定到当前云端账号');
+        }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _linkingGitHub && version == _githubLinkVersion) {
         FxNotice.errorWithDetails(context, '绑定 GitHub 失败', e.toString());
       }
     } finally {
-      if (mounted) setState(() => _linkingGitHub = false);
+      if (mounted && version == _githubLinkVersion) {
+        setState(() => _linkingGitHub = false);
+      }
     }
   }
 
@@ -1152,9 +1231,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (toLocal) {
         await manager.setLocal();
       } else {
-        final token = await AuthService.getToken();
+        final loggedIn = await AuthService.isLoggedIn();
         if (!mounted) return;
-        if (token == null || token.startsWith('local:')) {
+        if (!loggedIn) {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -1189,7 +1268,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       await _loadConflictCount();
       if (mounted) {
-        _message(ok ? '同步完成' : '同步未完成，请检查待同步记录和冲突');
+        final sync = SyncService();
+        final pending = sync.pendingCount +
+            CloudSyncCoordinator().standalonePendingCount.value;
+        final complete = ok && sync.status != SyncStatusEnum.error &&
+            sync.status != SyncStatusEnum.syncing &&
+            !_conflictCheckFailed && _conflictCount == 0 && pending == 0;
+        _message(complete
+            ? '同步完成，当前无待处理项'
+            : '同步尚未全部完成，请检查同步状态、待同步项和冲突');
       }
     } catch (e) {
       if (mounted) {
