@@ -45,6 +45,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
   int _accountLoadVersion = 0;
+  int _aiLoadVersion = 0;
+  int _conflictLoadVersion = 0;
+  int _githubLinkVersion = 0;
+  bool _accountCredentialExpired = false;
+  bool _checkingConflicts = false;
   User? _accountUser;
   bool? _githubLinked;
   late String _open;
@@ -72,6 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
     _loadAccount();
+    _loadConflictCount();
   }
 
   @override
@@ -102,6 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
+    final version = ++_aiLoadVersion;
     setState(() {
       _loadingAi = true;
       _aiLoadError = null;
@@ -109,14 +116,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final ai = await _aiStore.load();
       final key = await _aiStore.loadApiKey(ai.provider);
-      if (!mounted) return;
+      if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _ai = ai;
         _hasKey = key?.isNotEmpty == true;
         _loadingAi = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _loadingAi = false;
         _aiLoadError = '读取 AI 配置失败';
@@ -139,6 +146,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _loadingAccount = true;
         _accountUser = null;
         _githubLinked = null;
+        _accountCredentialExpired = false;
       });
     }
     if (DataModeManager().isLocal) {
@@ -148,6 +156,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     try {
+      final validCredential = await AuthService.isLoggedIn();
+      if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
+      if (!validCredential) {
+        setState(() {
+          _accountCredentialExpired = true;
+          _loadingAccount = false;
+        });
+        return;
+      }
       final user = await AuthService.getUser();
       if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
       setState(() {
@@ -169,6 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _accountSummary() {
     if (DataModeManager().isLocal) return '本地使用';
     if (_loadingAccount) return '正在读取账号…';
+    if (_accountCredentialExpired) return '登录凭据已过期';
     final user = _accountUser;
     if (user == null) return '云端账号 · 信息待确认';
     if (_githubLinked == true) {
@@ -189,6 +207,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: '前往云端登录',
             variant: FxButtonVariant.outline,
             onPressed: () => _setDataMode(1),
+          ),
+        ],
+      );
+    }
+    if (_accountCredentialExpired) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('本机登录凭据已过期，请重新登录后检查云端账号与同步状态。', style: style),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            label: '重新登录',
+            onPressed: () async {
+              await Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()));
+              if (mounted) {
+                await _loadAccount();
+                await _loadConflictCount();
+              }
+            },
           ),
         ],
       );
@@ -255,7 +293,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FxButton(
             label: '取消授权等待',
             variant: FxButtonVariant.link,
-            onPressed: () => setState(() => _linkingGitHub = false),
+            onPressed: () => setState(() {
+              ++_githubLinkVersion;
+              _linkingGitHub = false;
+            }),
           ),
         ],
         const SizedBox(height: SlowlightSpacing.md),
@@ -287,26 +328,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadConflictCount() async {
+    final version = ++_conflictLoadVersion;
     if (DataModeManager().isLocal) {
-      if (mounted && (_conflictCount != 0 || _conflictCheckFailed)) {
+      if (mounted) {
         setState(() {
+          _checkingConflicts = false;
           _conflictCount = 0;
           _conflictCheckFailed = false;
         });
       }
       return;
     }
+    if (mounted) {
+      setState(() {
+        _checkingConflicts = true;
+        _conflictCheckFailed = true;
+      });
+    }
     try {
-      final conflicts = await SyncService().getAllConflicts();
-      if (mounted && DataModeManager().isCloud) {
-        setState(() {
-          _conflictCount = conflicts.length;
-          _conflictCheckFailed = false;
-        });
+      // 只接收当前账号这一轮的查询结果；换账号不显示旧冲突数量。
+      final credentialValid = await AuthService.isLoggedIn();
+      final userBefore = await AuthService.getUser();
+      if (!credentialValid || userBefore == null) {
+        if (mounted && version == _conflictLoadVersion && DataModeManager().isCloud) {
+          setState(() {
+            _conflictCount = 0;
+            _conflictCheckFailed = true;
+            _checkingConflicts = false;
+          });
+        }
+        return;
       }
+      final conflicts = await SyncService().getAllConflicts();
+      final userAfter = await AuthService.getUser();
+      if (!mounted || version != _conflictLoadVersion ||
+          DataModeManager().isLocal || userBefore?.id != userAfter?.id) return;
+      setState(() {
+        _conflictCount = conflicts.length;
+        _conflictCheckFailed = false;
+        _checkingConflicts = false;
+      });
     } catch (_) {
-      if (mounted && DataModeManager().isCloud) {
-        setState(() => _conflictCheckFailed = true);
+      if (mounted && version == _conflictLoadVersion && DataModeManager().isCloud) {
+        setState(() {
+          _conflictCount = 0;
+          _conflictCheckFailed = true;
+          _checkingConflicts = false;
+        });
       }
     }
   }
@@ -450,6 +518,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _dataSummary() {
     if (DataModeManager().isLocal) return '本地独立使用 · 无需云端';
+    if (_accountCredentialExpired) return '云同步 · 登录凭据已过期';
+    if (!_loadingAccount && _accountUser == null) return '云同步 · 账号状态待确认';
     final sync = SyncService();
     return cloudSyncSummary(
       status: sync.status,
@@ -822,26 +892,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: _syncing ? '同步中…' : '立即同步',
               variant: FxButtonVariant.outline,
               size: FxButtonSize.sm,
-              onPressed: _syncing ? null : _syncNow,
+              onPressed: _syncing || _accountCredentialExpired ||
+                      _loadingAccount || _accountUser == null
+                  ? null : _syncNow,
             ),
           ),
           _settingLine(
             '同步冲突',
-            _conflictCheckFailed
-                ? '暂时无法读取冲突，请检查同步状态'
+            _checkingConflicts
+                ? '正在检查冲突…'
+                : _conflictCheckFailed
+                ? '冲突状态未知，请重新检查'
                 : _conflictCount == 0
                     ? '无待处理冲突'
                     : '$_conflictCount 条记录需要选择保留版本',
             trailing: FxButton(
-              label: '查看冲突 ($_conflictCount)',
+              label: _conflictCheckFailed ? '重新检查' : '查看冲突 ($_conflictCount)',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
-              onPressed: _conflictCount == 0 && !_conflictCheckFailed
+              onPressed: _checkingConflicts
                   ? null
-                  : _openConflicts,
+                  : _conflictCheckFailed
+                      ? _loadConflictCount
+                      : _conflictCount == 0 ? null : _openConflicts,
             ),
           ),
         ],
+        if (!local && SyncService().lastError?.isNotEmpty == true)
+          _settingLine(
+            '同步失败原因',
+            SyncService().lastError!,
+            trailing: FxButton(
+              label: '重试同步',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: _syncing || _accountCredentialExpired ||
+                      _loadingAccount || _accountUser == null
+                  ? null : _syncNow,
+            ),
+          ),
         _settingLine(
           '数据迁移',
           '先预览本机记录与潜在冲突，再确认迁移到云端',
@@ -1143,31 +1232,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _bindGitHub() async {
-    if (DataModeManager().isLocal) return;
+    if (DataModeManager().isLocal || _linkingGitHub) return;
+    final version = ++_githubLinkVersion;
     setState(() => _linkingGitHub = true);
     try {
       final completed = await GitHubSignIn.signIn(
         linkExisting: true,
-        shouldContinue: () => mounted && _linkingGitHub,
+        shouldContinue: () => mounted && _linkingGitHub &&
+            version == _githubLinkVersion && DataModeManager().isCloud,
       );
-      if (mounted && completed) {
-        // OAuth 回调已完成后仍需刷新本机身份和真实绑定状态。
-        // 侧栏可能已经存在，显式广播避免停留在旧的账户摘要。
+      if (mounted && completed && _linkingGitHub && version == _githubLinkVersion) {
         authStateNotifier.value = !authStateNotifier.value;
         await _loadAccount();
-        if (!mounted) return;
-        if (_githubLinked == true) {
-          _message('GitHub 已绑定到当前云端账号');
-        } else {
-          _message('GitHub 授权已完成，请重新检查账号绑定状态');
+        if (mounted && version == _githubLinkVersion) {
+          _message(_githubLinked == true
+              ? 'GitHub 已绑定到当前云端账号'
+              : 'GitHub 授权已完成，请重新检查账号绑定状态');
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _linkingGitHub && version == _githubLinkVersion) {
         FxNotice.errorWithDetails(context, '绑定 GitHub 失败', e.toString());
       }
     } finally {
-      if (mounted) setState(() => _linkingGitHub = false);
+      if (mounted && version == _githubLinkVersion) {
+        setState(() => _linkingGitHub = false);
+      } else if (mounted && DataModeManager().isCloud) {
+        // 客户端取消等待不等于服务端授权撤销；以服务端绑定状态重新检查。
+        await _loadAccount();
+      }
     }
   }
 
@@ -1191,10 +1284,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       if (toLocal) {
         await manager.setLocal();
+        authStateNotifier.value = !authStateNotifier.value;
       } else {
-        final token = await AuthService.getToken();
+        final loggedIn = await AuthService.isLoggedIn();
         if (!mounted) return;
-        if (token == null || token.startsWith('local:')) {
+        if (!loggedIn) {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -1203,6 +1297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (!mounted || manager.isLocal) return;
         } else {
           await manager.setCloud();
+          authStateNotifier.value = !authStateNotifier.value;
         }
       }
       if (!mounted) return;
@@ -1222,14 +1317,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _syncNow() async {
-    if (_syncing || DataModeManager().isLocal) return;
+    if (_syncing || _switchingMode || DataModeManager().isLocal ||
+        _accountCredentialExpired || _loadingAccount || _accountUser == null) return;
+    final accountId = _accountUser!.id;
     setState(() => _syncing = true);
     try {
       final ok = await CloudSyncCoordinator().syncNow();
-      if (!mounted) return;
+      final currentUser = await AuthService.getUser();
+      if (!mounted || DataModeManager().isLocal || currentUser?.id != accountId) return;
       await _loadConflictCount();
       if (mounted) {
-        _message(ok ? '同步完成' : '同步未完成，请检查待同步记录和冲突');
+        final sync = SyncService();
+        final pending = sync.pendingCount +
+            CloudSyncCoordinator().standalonePendingCount.value;
+        final complete = cloudSyncFullySettled(
+          requestSucceeded: ok,
+          status: sync.status,
+          conflictCheckFailed: _conflictCheckFailed,
+          conflictCount: _conflictCount,
+          pendingCount: pending,
+        );
+        _message(complete
+            ? '同步完成，当前无待处理项'
+            : '同步尚未全部完成，请检查同步状态、待同步项和冲突');
       }
     } catch (e) {
       if (mounted) {

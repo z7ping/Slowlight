@@ -19,3 +19,18 @@ String cloudSyncSummary({
   if (pendingCount > 0) return '云同步 · $pendingCount 项待同步';
   return '云同步 · 当前无待处理项';
 }
+
+/// 手动同步只在请求成功、状态静止且待处理项均已确认清零时显示成功。
+/// 同步协调器可能仅完成了一轮请求，不能把“请求已执行”当作全部完成。
+bool cloudSyncFullySettled({
+  required bool requestSucceeded,
+  required SyncStatusEnum status,
+  required bool conflictCheckFailed,
+  required int conflictCount,
+  required int pendingCount,
+}) =>
+    requestSucceeded &&
+    status == SyncStatusEnum.idle &&
+    !conflictCheckFailed &&
+    conflictCount == 0 &&
+    pendingCount == 0;

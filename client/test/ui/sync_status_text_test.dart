@@ -49,4 +49,27 @@ void main() {
       '云同步 · 2 个冲突待处理',
     );
   });
+  test('只有成功、静止、待处理项与冲突均归零才是同步完成', () {
+    bool settled({
+      bool success = true,
+      SyncStatusEnum status = SyncStatusEnum.idle,
+      bool unknown = false,
+      int conflicts = 0,
+      int pending = 0,
+    }) => cloudSyncFullySettled(
+      requestSucceeded: success,
+      status: status,
+      conflictCheckFailed: unknown,
+      conflictCount: conflicts,
+      pendingCount: pending,
+    );
+    expect(settled(), isTrue);
+    expect(settled(success: false), isFalse);
+    expect(settled(status: SyncStatusEnum.syncing), isFalse);
+    expect(settled(status: SyncStatusEnum.error), isFalse);
+    expect(settled(unknown: true), isFalse);
+    expect(settled(conflicts: 1), isFalse);
+    expect(settled(pending: 3), isFalse);
+  });
+
 }
