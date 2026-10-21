@@ -202,14 +202,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   if (!_isLogin) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: SlowlightSpacing.xxxl),
                     FxInput(
                       controller: _nicknameController,
                       enabled: !_isLoading,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _submit(),
                       label: '昵称（可选）',
-                    placeholder: '如何称呼你？',
+                      placeholder: '如何称呼你？',
                     ),
                   ],
                   const SizedBox(height: SlowlightSpacing.page),
@@ -224,40 +224,51 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _isLoading ? null : _submit,
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: SlowlightSpacing.md),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _isLogin ? '还没有账号？' : '已有账号？',
+                          style: SlowlightTypography.secondary(context).copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      FxButton(
+                        key: const ValueKey('login.switch_mode'),
+                        label: _isLogin ? '注册' : '返回登录',
+                        variant: FxButtonVariant.link,
+                        size: FxButtonSize.sm,
+                        onPressed: _isLoading
+                            ? null
+                            : () => setState(() => _isLogin = !_isLogin),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: SlowlightSpacing.page),
                   FxSeparator.horizontal(
                     color: theme.colorScheme.outlineVariant,
                   ),
-                  const SizedBox(height: 12),
-                  FxButton(
-                    label: '仅使用本地数据（不与云端自动同步）',
-                    icon: LucideIcons.smartphone,
-                    variant: FxButtonVariant.link,
-                    expanded: true,
-                    onPressed: _isLoading ? null : _useLocal,
+                  const SizedBox(height: SlowlightSpacing.xl),
+                  Center(
+                    child: FxButton(
+                      key: const ValueKey('login.local_action'),
+                      label: '不登录，使用本地数据',
+                      icon: LucideIcons.smartphone,
+                      variant: FxButtonVariant.ghost,
+                      size: FxButtonSize.lg,
+                      onPressed: _isLoading ? null : _useLocal,
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 4,
-                    children: [
-                      Text(
-                        _isLogin ? '还没有账号？' : '已有账号？',
-                        style: SlowlightTypography.caption(
-                          context,
-                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      FxButton(
-                        label: _isLogin ? '注册' : '登录',
-                        variant: FxButtonVariant.link,
-                        size: FxButtonSize.sm,
-                        onPressed:
-                            _isLoading
-                                ? null
-                                : () => setState(() => _isLogin = !_isLogin),
-                      ),
-                    ],
+                  const SizedBox(height: SlowlightSpacing.xs),
+                  Text(
+                    '本地记录不会自动上传，随时可以在设置中切换。',
+                    textAlign: TextAlign.center,
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
