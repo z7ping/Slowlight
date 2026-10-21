@@ -47,7 +47,7 @@ class GitHubSignIn {
     final target = platform ?? defaultTargetPlatform;
     final tryLaunch = launch ??
         (Uri url, LaunchMode mode) => launchUrl(url, mode: mode);
-    if (target == TargetPlatform.android) {
+    if (!kIsWeb && target == TargetPlatform.android) {
       // Android 11+ 的 Custom Tabs 查询能力由 AndroidManifest <queries> 授权。
       bool supportsTabs = false;
       try {
