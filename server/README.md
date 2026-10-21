@@ -32,6 +32,33 @@ go run ./cmd
 GET /health
 ```
 
+## GitHub 一键登录（可选）
+
+Slowlight 复用现有 Go/Gin + PostgreSQL 用户体系，通过 GitHub OAuth App 登录，Windows 和 Android 共用浏览器授权。不需要另一个登录服务。
+
+1. 在 [GitHub Developer Settings](https://github.com/settings/developers) → OAuth Apps 新建应用，名称可填写 `Slowlight`。
+2. Homepage URL 填自己的官网或项目主页。
+3. Authorization callback URL 填 **精确** 的 `https://你的域名/api/auth/github/callback`，不要开启通配符匹配。
+4. 服务端环境配置以下变量，注意 Client Secret **只在服务端保存**，不要写进 Flutter、公开仓库、PR 或聊天。
+
+```text
+GITHUB_OAUTH_CLIENT_ID=<GitHub OAuth App 的 Client ID>
+GITHUB_OAUTH_CLIENT_SECRET=<GitHub OAuth App 的 Client Secret>
+GITHUB_OAUTH_CALLBACK_URL=https://你的域名/api/auth/github/callback
+```
+
+Docker Compose 已透传这三个变量；重建 Go 服务端后生效。新安装客户端仍需 `SERVER_URL=https://你的域名/api` 指向同一服务端。反向代理需允许回调路径，并为公网启用 HTTPS。
+
+- `POST /api/auth/github/start` 发起登录；`GET /api/auth/github/callback` 接收 GitHub 回调；`POST /api/auth/github/poll` 一次性领取 Slowlight JWT。
+- 已登录云端用户可以在「设置 → 账号」显式绑定 GitHub，对应服务端受 JWT 保护的 `POST /api/auth/github/link/start`。**不会通过同邮箱自动绑定或合并账号**。
+- 新 GitHub 用户创建独立的 Slowlight 账号。内部账号以 GitHub 不变的数字 ID 为锚点，首次注册使用占位邮箱，不向 GitHub 索取私人邮箱/仓库权限；常规密码无法登录该账号。
+- 授权状态和轮询凭据仅保留 SHA-256 摘要；使用 `state`、PKCE (S256)、十分钟有效期和一次性领取。GitHub Access Token 不写入数据库。
+- 未配置上述参数时传统账号密码登录与本地模式仍可使用，GitHub 登录入口会提示不可用。
+- 该改动不迁移、不上传 Local SQLite，也不改变按用户隔离的 Cloud Cache。
+- 请限制 Nginx/Caddy 访问日志中回调 `code`、`state` 等参数的保存，设置 OAuth 登录入口的反向代理限流。
+
+上线前至少手工验证：Windows/Android 各完成一次真实授权；GitHub 拒绝/取消、断网、重复回调、过期、旧账号绑定、跨设备同账号查看数据。客户端现有 JWT 有效期仍是 7 天，到期需要重新登录；此功能未引入刷新令牌。
+
 ## Docker Compose
 
 仓库提供 `Dockerfile` 与 `docker-compose.yml` 作为最小自托管起点。Compose 不包含项目维护者的部署地址或数据库账号，启动时必须由部署者提供自己的 Secret。

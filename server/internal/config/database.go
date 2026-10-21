@@ -91,6 +91,8 @@ func InitDB() (*gorm.DB, error) {
 
 	if err := db.AutoMigrate(
 		&model.User{},
+		&model.OAuthIdentity{},
+		&model.OAuthLoginSession{},
 		&model.List{},
 		&model.Task{},
 		&model.Subtask{},

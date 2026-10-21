@@ -77,23 +77,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}
-		defaultLists := []model.List{
-			{UserID: user.ID, Name: "收集箱", Icon: "📥", Color: "#909399", SortOrder: -1, IsInbox: true},
-			{UserID: user.ID, Name: "工作", Icon: "💼", Color: "#1890ff", SortOrder: 1},
-			{UserID: user.ID, Name: "生活", Icon: "🏠", Color: "#52c41a", SortOrder: 2},
-			{UserID: user.ID, Name: "学习", Icon: "📚", Color: "#722ed1", SortOrder: 3},
-		}
-		if err := tx.Create(&defaultLists).Error; err != nil {
-			return err
-		}
-		// 默认观察标签继续保持现有系统标签兼容语义。
-		defaultTags := []model.SystemTag{
-			{UserID: user.ID, Name: "身体", Icon: "💪", Color: "#52c41a", DimensionKey: model.DimensionBody, SortOrder: 1, IsDefault: true},
-			{UserID: user.ID, Name: "认知", Icon: "🧠", Color: "#1890ff", DimensionKey: model.DimensionCognition, SortOrder: 2, IsDefault: true},
-			{UserID: user.ID, Name: "产出", Icon: "🎯", Color: "#722ed1", DimensionKey: model.DimensionOutput, SortOrder: 3, IsDefault: true},
-			{UserID: user.ID, Name: "关系", Icon: "❤️", Color: "#eb2f96", DimensionKey: model.DimensionRelationship, SortOrder: 4, IsDefault: true},
-		}
-		return tx.Create(&defaultTags).Error
+		return createDefaultAccountData(tx, user.ID)
 	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建用户及默认数据失败"})
 		return

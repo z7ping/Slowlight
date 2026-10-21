@@ -54,6 +54,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db := getSharedTestDB(t)
 	db.AutoMigrate(
 		&model.User{},
+		&model.OAuthIdentity{},
+		&model.OAuthLoginSession{},
 		&model.List{},
 		&model.Task{},
 		&model.Subtask{},

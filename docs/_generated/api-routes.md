@@ -7,6 +7,10 @@
 | 方法 | 路径 |
 |---|---|
 | GET | `/health` |
+| POST | `/api/auth/github/start` |
+| GET | `/api/auth/github/callback` |
+| POST | `/api/auth/github/poll` |
+| POST | `/api/auth/github/link/start` |
 | POST | `/api/auth/register` |
 | POST | `/api/auth/login` |
 | GET | `/api/auth/profile` |
@@ -43,6 +47,8 @@
 | DELETE | `/api/tasks/:id/subtasks/:subtaskId` |
 | POST | `/api/sessions/start` |
 | POST | `/api/sessions/end` |
+| POST | `/api/sessions/pause` |
+| POST | `/api/sessions/resume` |
 | GET | `/api/sessions/active` |
 | GET | `/api/sessions/stats` |
 | GET | `/api/sessions/today` |
@@ -110,4 +116,4 @@
 | POST | `/api/caldav/test` |
 | GET | `/api/feishu/config` |
 
-共 103 条路由。
+共 109 条路由。

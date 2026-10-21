@@ -56,10 +56,13 @@ class ApiService {
   static Future<Map<String, dynamic>> post(
     String path, {
     required Map<String, dynamic> body,
+    bool authenticated = false,
   }) async {
     final response = await HttpUtil.post(
       Uri.parse('$baseUrl$path'),
-      headers: {'Content-Type': 'application/json'},
+      headers: authenticated
+          ? await _authHeaders()
+          : {'Content-Type': 'application/json'},
       body: json.encode(body),
     ).timeout(_postTimeout);
     final data = json.decode(response.body);

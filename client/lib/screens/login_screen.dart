@@ -5,6 +5,7 @@ import '../brand.dart';
 import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/data_mode_manager.dart';
+import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
 import 'home_screen.dart';
@@ -23,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nicknameController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
+  bool _githubAuthorizing = false;
   bool _obscurePassword = true;
 
   @override
@@ -76,6 +78,33 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loginWithGitHub() async {
+    setState(() {
+      _isLoading = true;
+      _githubAuthorizing = true;
+    });
+    try {
+      final completed = await GitHubSignIn.signIn(
+        shouldContinue: () => mounted && _githubAuthorizing,
+      );
+      if (!mounted || !completed) return;
+      await DataModeManager().setCloud();
+      authStateNotifier.value = !authStateNotifier.value;
+      if (mounted) _finish(true);
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, 'GitHub 登录失败', e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _githubAuthorizing = false;
+        });
+      }
     }
   }
 
@@ -156,6 +185,34 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const SizedBox(height: SlowlightSpacing.page),
+        FxButton(
+          key: const ValueKey('login.github_action'),
+          label: '使用 GitHub 继续',
+          icon: LucideIcons.github,
+          expanded: true,
+          size: FxButtonSize.lg,
+          variant: FxButtonVariant.outline,
+          onPressed: _isLoading ? null : _loginWithGitHub,
+        ),
+        if (_githubAuthorizing) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            key: const ValueKey('login.github_cancel'),
+            label: '取消授权等待',
+            variant: FxButtonVariant.link,
+            onPressed: () => setState(() => _githubAuthorizing = false),
+          ),
+        ],
+        const SizedBox(height: SlowlightSpacing.xl),
+        Center(
+          child: Text(
+            _isLogin ? '或使用账号密码' : '或创建普通账号',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
         FxInput(
           controller: _usernameController,
           enabled: !_isLoading,

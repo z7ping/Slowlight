@@ -19,10 +19,12 @@
 | UserConfig | `server/internal/model/models.go` | `ID:uint`<br>`UserID:uint`<br>`Key:string`<br>`Value:string`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time`<br>`DeletedAt:gorm.DeletedAt` |
 | SyncLog | `server/internal/model/models.go` | `ID:uint`<br>`UserID:uint`<br>`LastSyncedAt:time.Time`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time` |
 | CalDAVSyncState | `server/internal/model/models.go` | `ID:uint`<br>`UserID:uint`<br>`ProjectPath:string`<br>`SyncToken:string`<br>`LastSyncedAt:time.Time`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time` |
+| OAuthIdentity | `server/internal/model/oauth.go` | `ID:uint`<br>`UserID:uint`<br>`Provider:string`<br>`ProviderUserID:string` |
+| OAuthLoginSession | `server/internal/model/oauth.go` | `ID:string`<br>`StateHash:string`<br>`PollHash:string`<br>`CodeVerifier:string`<br>`Status:string`<br>`TargetUserID:uint`<br>`ResultUserID:uint`<br>`ExpiresAt:time.Time` |
 | Reflection | `server/internal/model/reflection.go` | `ID:uint`<br>`UserID:uint`<br>`ClientRequestID:*string`<br>`EntryType:string`<br>`QuestionID:string`<br>`DimensionKey:DimensionKey`<br>`Content:string`<br>`Context:string`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time`<br>`DeletedAt:gorm.DeletedAt` |
 | ReminderConfig | `server/internal/model/reminder.go` | `ID:uint`<br>`UserID:uint`<br>`WorkMinutes:int`<br>`MicroRestSeconds:int`<br>`LongRestMinutes:int`<br>`MicroRestsBeforeLong:int`<br>`LockScreenMode:string`<br>`NotifyBeforeSec:int`<br>`AutoLoop:bool`<br>`AutoStartOnLaunch:bool`<br>`MicroRestStrict:bool`<br>`LongRestStrict:bool`<br>`AllowPostponeMicro:bool`<br>`AllowPostponeLong:bool`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time` |
 | ReminderSession | `server/internal/model/reminder.go` | `ID:uint`<br>`UserID:uint`<br>`StartedAt:time.Time`<br>`WorkEndedAt:*time.Time`<br>`RestEndedAt:*time.Time`<br>`WorkSeconds:int`<br>`RestSeconds:int`<br>`SkippedRest:bool`<br>`Device:string`<br>`CreatedAt:time.Time` |
-| WorkSession | `server/internal/model/session.go` | `ID:uint`<br>`UserID:uint`<br>`SessionType:string`<br>`StartedAt:time.Time`<br>`EndedAt:*time.Time`<br>`DurationSec:int`<br>`Device:string`<br>`TaskID:*uint`<br>`SystemTagID:*uint`<br>`CreatedAt:time.Time` |
+| WorkSession | `server/internal/model/session.go` | `ID:uint`<br>`UserID:uint`<br>`SessionType:string`<br>`StartedAt:time.Time`<br>`EndedAt:*time.Time`<br>`DurationSec:int`<br>`PausedAt:*time.Time`<br>`PausedDurationSec:int`<br>`Revision:int`<br>`Device:string`<br>`TaskID:*uint`<br>`SystemTagID:*uint`<br>`CreatedAt:time.Time` |
 | Subtask | `server/internal/model/subtask.go` | `ID:uint`<br>`TaskID:uint`<br>`Title:string`<br>`IsCompleted:bool`<br>`SortOrder:int`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time` |
 | Tag | `server/internal/model/tag.go` | `ID:uint`<br>`Name:string`<br>`Color:string`<br>`UserID:uint`<br>`CreatedAt:time.Time`<br>`UpdatedAt:time.Time`<br>`DeletedAt:gorm.DeletedAt` |
 | TaskTag | `server/internal/model/tag.go` | `TaskID:uint`<br>`TagID:uint` |
@@ -37,6 +39,8 @@
 | Model | 触发位置 |
 |---|---|
 | User | `server/internal/config/database.go` |
+| OAuthIdentity | `server/internal/config/database.go` |
+| OAuthLoginSession | `server/internal/config/database.go` |
 | List | `server/internal/config/database.go` |
 | Task | `server/internal/config/database.go` |
 | Subtask | `server/internal/config/database.go` |
@@ -74,6 +78,8 @@
 | ReminderSession | `server/internal/handler/reminder.go` |
 | WorkSession | `server/internal/handler/session.go` |
 | User | `server/internal/handler/test_helper.go` |
+| OAuthIdentity | `server/internal/handler/test_helper.go` |
+| OAuthLoginSession | `server/internal/handler/test_helper.go` |
 | List | `server/internal/handler/test_helper.go` |
 | Task | `server/internal/handler/test_helper.go` |
 | Subtask | `server/internal/handler/test_helper.go` |
@@ -96,4 +102,4 @@
 | MigrationReport | `server/internal/handler/test_helper.go` |
 | Webhook | `server/internal/handler/test_helper.go` |
 
-共扫描到 59 个 Model/位置组合。
+共扫描到 63 个 Model/位置组合。
