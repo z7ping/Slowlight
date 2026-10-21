@@ -40,6 +40,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _finalizingSession = false;
   bool _sessionTransitioning = false;
   int? _sessionId;
+  int _sessionRevision = 0;
   DateTime? _sessionStartedAt;
   DateTime? _sessionPausedAt;
   int _pausedDurationSeconds = 0;
@@ -115,7 +116,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         (until.difference(startedAt).inSeconds - _pausedDurationSeconds)
             .clamp(0, 1 << 31);
     return (_durationFor(_sessionType) * 60 - activeSeconds)
-        .clamp(0, _durationFor(_sessionType) * 60);
+        .clamp(0, _durationFor(_sessionType) * 60).toInt();
   }
 
   void _applySession(Map<String, dynamic> session) {
@@ -130,6 +131,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _timer?.cancel();
     setState(() {
       _sessionId = id.toInt();
+      _sessionRevision = (session['revision'] as num?)?.toInt() ?? 0;
       _sessionStartedAt = startedAt;
       _sessionPausedAt = pausedAt;
       _pausedDurationSeconds =
@@ -183,7 +185,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               _sessionType,
               taskId: _sessionType == 'work' ? _linkedTaskId : null,
             )
-          : await _sessions.resumeSession(_sessionId!);
+          : await _sessions.resumeSession(_sessionId!, _sessionRevision);
       if (!mounted) return;
       _applySession(Map<String, dynamic>.from(response['session'] as Map));
     } catch (_) {
@@ -197,11 +199,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (_finalizingSession || _sessionTransitioning || _sessionId == null) return;
     setState(() => _sessionTransitioning = true);
     try {
-      final response = await _sessions.pauseSession(_sessionId!);
+      final response = await _sessions.pauseSession(_sessionId!, _sessionRevision);
       if (!mounted) return;
       _applySession(Map<String, dynamic>.from(response['session'] as Map));
     } catch (_) {
-      if (mounted) _message('暂停未保存，计时仍在继续，请重试');
+      if (mounted) _message('无法确认暂停状态，请刷新或重试');
     } finally {
       if (mounted) setState(() => _sessionTransitioning = false);
     }
@@ -210,7 +212,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Future<bool> _freezeBeforeEnding() async {
     if (!_activeSession || _sessionId == null) return true;
     try {
-      final response = await _sessions.pauseSession(_sessionId!);
+      final response = await _sessions.pauseSession(_sessionId!, _sessionRevision);
       if (!mounted) return false;
       _applySession(Map<String, dynamic>.from(response['session'] as Map));
       return true;
