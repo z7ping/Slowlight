@@ -139,6 +139,16 @@ func (h *MigrationHandler) PreviewMigration(c *gin.Context) {
 	h.collectNamedConflicts(userID, "tag", snapshot.Tags, &conflicts)
 	h.collectNamedConflicts(userID, "system_tag", snapshot.SystemTags, &conflicts)
 	h.collectHabitConflicts(userID, snapshot.Habits, &conflicts)
+    // A new preview must not offer execution if this source has already uploaded
+    // a different snapshot. The exact fingerprint is checked during execute.
+    payload, _ := json.Marshal(snapshot)
+    fingerprint := fmt.Sprintf("%x", sha256.Sum256(payload))
+    var existing model.MigrationReport
+    if err := h.DB.Where("user_id = ? AND (source_id = ? OR source_id = '') AND fingerprint <> ?",
+        userID, snapshot.SourceID, fingerprint).First(&existing).Error; err == nil {
+        c.JSON(http.StatusConflict, gin.H{"error": "该本地数据源已有迁移记录，请先核对云端数据再重新迁移", "can_execute": false})
+        return
+    }
 	c.JSON(http.StatusOK, gin.H{"summary": snapshot.Summary(), "conflicts": conflicts, "can_execute": true})
 }
 
