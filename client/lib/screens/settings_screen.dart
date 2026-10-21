@@ -4,7 +4,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../ai/ai_config_store.dart';
 import '../ai/ai_models.dart';
-import '../ai/ai_service.dart';
 import '../models/user.dart';
 import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
@@ -17,8 +16,8 @@ import '../services/theme_settings.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
-import 'diagnostics_screen.dart';
-import 'conflict_screen.dart';
+import 'ai_settings_screen.dart';
+import 'diagnostics_screen.dart';import 'conflict_screen.dart';
 import 'integration_screen.dart';
 import 'login_screen.dart';
 import 'migration_history_dialog.dart';
@@ -37,17 +36,16 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _aiStore = AiConfigStore();
   final _reminder = ReminderService();
-  final _endpoint = TextEditingController();
-  final _model = TextEditingController();
-  final _key = TextEditingController();
 
-  bool _loading = true;
+  bool _loadingAi = true;
+  String? _aiLoadError;
   bool _syncing = false;
+  bool _switchingMode = false;
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
+  int _accountLoadVersion = 0;
   User? _accountUser;
   bool? _githubLinked;
-  bool _savingAi = false;
   late String _open;
   AiConfig _ai = const AiConfig();
   bool _hasKey = false;
@@ -77,9 +75,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _reminder.removeListener(_reminderChanged);
     SyncService().removeListener(_syncStatusChanged);
-    _endpoint.dispose();
-    _model.dispose();
-    _key.dispose();
     super.dispose();
   }
 
@@ -95,59 +90,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loadingAi = true;
+      _aiLoadError = null;
+    });
     try {
       final ai = await _aiStore.load();
       final key = await _aiStore.loadApiKey(ai.provider);
       if (!mounted) return;
       setState(() {
         _ai = ai;
-        _endpoint.text = ai.effectiveEndpoint;
-        _model.text = ai.effectiveModel;
         _hasKey = key?.isNotEmpty == true;
-        _loading = false;
+        _loadingAi = false;
       });
-      await _loadConflictCount();
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _loadingAi = false;
+        _aiLoadError = '读取 AI 配置失败';
+      });
     }
   }
 
+  Future<void> _openAiSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AiSettingsScreen()),
+    );
+    if (mounted) await _load();
+  }
+
   Future<void> _loadAccount() async {
+    final version = ++_accountLoadVersion;
+    if (mounted) {
+      setState(() {
+        _loadingAccount = true;
+        _accountUser = null;
+        _githubLinked = null;
+      });
+    }
     if (DataModeManager().isLocal) {
-      if (mounted) {
-        setState(() {
-          _accountUser = null;
-          _githubLinked = null;
-          _loadingAccount = false;
-        });
+      if (mounted && version == _accountLoadVersion) {
+        setState(() => _loadingAccount = false);
       }
       return;
     }
     try {
       final user = await AuthService.getUser();
-      if (!mounted) return;
+      if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
       setState(() {
         _accountUser = user;
-        _githubLinked = null;
         _loadingAccount = false;
       });
-      // 请求只负责确认关联状态，网络失败时不可宣称未绑定。
-      bool? linked;
-      try {
-        linked = await AuthService.isGitHubLinked();
-      } catch (_) {
-        return;
+      // 无法确认绑定状态时保持「未知」，不能伪装成「未绑定」。
+      final linked = await AuthService.isGitHubLinked();
+      if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
+        setState(() => _githubLinked = linked);
       }
-      if (mounted) setState(() => _githubLinked = linked);
     } catch (_) {
-      if (mounted) setState(() => _loadingAccount = false);
+      if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
+        setState(() => _loadingAccount = false);
+      }
     }
   }
 
   String _accountSummary() {
     if (DataModeManager().isLocal) return '本地使用';
     if (_loadingAccount) return '正在读取账号…';
-    return '${_accountUser?.nickname ?? _accountUser?.username ?? '云端账号'} · 云端';
+    final user = _accountUser;
+    return user == null
+        ? '云端账号 · 信息待确认'
+        : '${user.nickname ?? user.username ?? '云端账号'} · 云端';
   }
 
   Widget _accountPanel() {
@@ -170,11 +183,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(user?.nickname ?? user?.username ?? '云端账号',
+        Text(user?.nickname ?? user?.username ?? '账号信息待确认',
             style: SlowlightTypography.cardTitle(context)),
         const SizedBox(height: SlowlightSpacing.xs),
-        Text(user?.email.isNotEmpty == true ? user!.email : '云端账号已登录',
+        Text(user?.email.isNotEmpty == true ? user!.email : '请检查账号状态',
             style: style),
+        if (user == null) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            label: '重新读取账号信息',
+            variant: FxButtonVariant.outline,
+            onPressed: _loadAccount,
+          ),
+        ],
         const SizedBox(height: SlowlightSpacing.md),
         Text(_githubLinked == true
             ? 'GitHub：已绑定'
@@ -245,14 +266,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     try {
       final conflicts = await SyncService().getAllConflicts();
-      if (mounted) {
+      if (mounted && DataModeManager().isCloud) {
         setState(() {
           _conflictCount = conflicts.length;
           _conflictCheckFailed = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _conflictCheckFailed = true);
+      if (mounted && DataModeManager().isCloud) {
+        setState(() => _conflictCheckFailed = true);
+      }
     }
   }
 
@@ -264,10 +287,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const FxPageHeader(title: '设置'),
             Expanded(
-              child:
-                  _loading
-                      ? const Center(child: FxCircularProgress())
-                      : ListView(
+              child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
                         children: [
                           Center(
@@ -410,8 +430,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _aiSummary() {
+    if (_loadingAi) return '正在读取…';
+    if (_aiLoadError != null) return '配置读取失败';
     if (!_ai.enabled) return '${_ai.provider.label} · 未启用';
-    return '${_ai.provider.label} · ${_hasKey || _ai.provider == AiProviderType.ollama ? '已配置' : '缺少密钥'}';
+    return '${_ai.provider.label} · ${_hasKey || !_ai.provider.apiKeyRequired ? '已配置' : '缺少密钥'}';
   }
 
   Widget _accordion({
@@ -737,7 +759,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('数据模式'),
-        _segmented(const ['本地数据', '云端数据'], local ? 0 : 1, _setDataMode),
+        IgnorePointer(
+          ignoring: _switchingMode,
+          child: _segmented(
+            const ['本地数据', '云端数据'],
+            local ? 0 : 1,
+            _setDataMode,
+          ),
+        ),
+        if (_switchingMode)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('正在切换数据模式…'),
+          ),
         const SizedBox(height: 6),
         Text(
           local
@@ -815,94 +849,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _aiPanel() {
-    final theme = Theme.of(context);
-    final providers = [
-      AiProviderType.ollama,
-      AiProviderType.openai,
-      AiProviderType.deepseek,
-    ];
-    var providerIndex = providers.indexOf(_ai.provider);
-    if (providerIndex < 0) providerIndex = 0;
+    if (_aiLoadError != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(_aiLoadError!, style: SlowlightTypography.secondary(context)),
+          const SizedBox(height: 8),
+          FxButton(
+            label: '重试读取',
+            variant: FxButtonVariant.outline,
+            onPressed: _load,
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FxSwitch(
-            value: _ai.enabled,
-            label: '启用 AI',
-            description: '提问引擎与回顾洞察',
-            onChanged:
-                (value) => setState(() => _ai = _ai.copyWith(enabled: value)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _label('服务商'),
-        _segmented(
-          providers.map((provider) => provider.label).toList(growable: false),
-          providerIndex,
-          (index) => _changeProvider(providers[index]),
-        ),
-        const SizedBox(height: 10),
-        FxInput(
-          label: '接口地址',
-          controller: _endpoint,
+        Text(
+          _loadingAi
+              ? '正在读取 AI 服务配置…'
+              : '当前服务商：${_ai.provider.label}。模型、密钥、连接测试和保存统一在配置页管理。',
           style: SlowlightTypography.secondary(context),
         ),
         const SizedBox(height: 10),
-        FxInput(
-          label: '模型',
-          controller: _model,
-          style: SlowlightTypography.secondary(context),
-        ),
-        if (_ai.provider != AiProviderType.ollama) ...[
-          const SizedBox(height: 10),
-          FxInput(
-            label: '访问密钥',
-            controller: _key,
-            obscureText: true,
-            enableSuggestions: false,
-            autocorrect: false,
-            style: SlowlightTypography.secondary(context),
-            placeholder: _hasKey ? '已安全保存；留空保持原值' : '仅保存在本机安全存储',
-          ),
-        ],
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer.withValues(alpha: .38),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            '🔒 本地 Ollama：数据不出设备。数据模式与 AI 模式相互独立。',
-            style: SlowlightTypography.caption(
-              context,
-            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FxButton(
-                label: '测试连接',
-                variant: FxButtonVariant.outline,
-                size: FxButtonSize.sm,
-                onPressed: _savingAi ? null : _testAi,
-              ),
-              FxButton(
-                label: _savingAi ? '保存中…' : '保存',
-                size: FxButtonSize.sm,
-                onPressed: _savingAi ? null : _saveAi,
-              ),
-            ],
-          ),
+        FxButton(
+          label: '配置 AI 服务',
+          variant: FxButtonVariant.outline,
+          onPressed: _loadingAi ? null : _openAiSettings,
         ),
       ],
     );
@@ -1158,33 +1132,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _setDataMode(int index) async {
-    if (index == 0) {
-      await DataModeManager().setLocal();
-    } else {
-      final token = await AuthService.getToken();
-      if (token == null || token.startsWith('local:')) {
-        if (!mounted) return;
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-        if (!mounted || DataModeManager().isLocal) return;
+    final manager = DataModeManager();
+    final toLocal = index == 0;
+    if (_switchingMode || manager.isLocal == toLocal) return;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: toLocal ? '切换为本地数据？' : '切换为云端数据？',
+      confirmText: '确认切换',
+      content: toLocal
+          ? '切换后将读取本设备的本地数据库，不再显示云端记录。'
+              '这不会把云端记录下载或合并到本地，也不会删除任何现有数据。'
+          : '切换后将读取云端账号中的数据，本地记录不会自动上传或合并。'
+              '如需导入已有本地记录，请使用「数据迁移」先预览和处理冲突。'
+              '原本的本地数据不会删除。',
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _switchingMode = true);
+    try {
+      if (toLocal) {
+        await manager.setLocal();
       } else {
-        await DataModeManager().setCloud();
+        final token = await AuthService.getToken();
+        if (!mounted) return;
+        if (token == null || token.startsWith('local:')) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+          // 登录页负责认证成功后切换模式；取消登录时保留原模式。
+          if (!mounted || manager.isLocal) return;
+        } else {
+          await manager.setCloud();
+        }
       }
+      if (!mounted) return;
+      setState(() {});
+      await _loadConflictCount();
+      await _loadAccount();
+      if (mounted) {
+        _message(toLocal ? '已切换为本地数据' : '已切换为云端数据');
+      }
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '切换数据模式失败', e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _switchingMode = false);
     }
-    if (mounted) setState(() {});
-    await _loadConflictCount();
-    await _loadAccount();
   }
 
   Future<void> _syncNow() async {
+    if (_syncing || DataModeManager().isLocal) return;
     setState(() => _syncing = true);
-    final ok = await CloudSyncCoordinator().syncNow();
-    if (!mounted) return;
-    setState(() => _syncing = false);
-    await _loadConflictCount();
-    _message(ok ? '同步完成' : '同步未完成，请查看同步状态');
+    try {
+      final ok = await CloudSyncCoordinator().syncNow();
+      if (!mounted) return;
+      await _loadConflictCount();
+      if (mounted) {
+        _message(ok ? '同步完成' : '同步未完成，请检查待同步记录和冲突');
+      }
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '同步失败', e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   Future<void> _openConflicts() async {
@@ -1193,64 +1206,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(builder: (_) => const ConflictScreen()),
     );
     if (mounted) await _loadConflictCount();
-  }
-
-  Future<void> _changeProvider(AiProviderType provider) async {
-    final storedKey = await _aiStore.loadApiKey(provider);
-    if (!mounted) return;
-    setState(() {
-      _ai = _ai.copyWith(provider: provider);
-      _endpoint.text = provider.defaultEndpoint;
-      _model.text = provider.defaultModel;
-      _key.clear();
-      _hasKey = storedKey?.isNotEmpty == true;
-    });
-  }
-
-  AiConfig _aiDraft() =>
-      _ai.copyWith(endpoint: _endpoint.text.trim(), model: _model.text.trim());
-
-  Future<String> _effectiveKey() async =>
-      _key.text.trim().isNotEmpty
-          ? _key.text.trim()
-          : await _aiStore.loadApiKey(_ai.provider) ?? '';
-
-  Future<void> _saveAi() async {
-    setState(() => _savingAi = true);
-    try {
-      final draft = _aiDraft();
-      final key = await _effectiveKey();
-      if (draft.effectiveEndpoint.isEmpty ||
-          draft.effectiveModel.isEmpty ||
-          (draft.provider.apiKeyRequired && key.isEmpty)) {
-        _message('请补全 AI 配置');
-        return;
-      }
-      await _aiStore.save(draft);
-      if (_key.text.trim().isNotEmpty) {
-        await _aiStore.saveApiKey(draft.provider, _key.text.trim());
-      }
-      if (!mounted) return;
-      setState(() {
-        _ai = draft;
-        _hasKey = key.isNotEmpty;
-        _key.clear();
-      });
-      _message('✓ AI 配置已保存');
-    } finally {
-      if (mounted) setState(() => _savingAi = false);
-    }
-  }
-
-  Future<void> _testAi() async {
-    try {
-      final text = await AiService(
-        configStore: _aiStore,
-      ).testConfiguration(_aiDraft(), apiKey: await _effectiveKey());
-      _message('连接成功：$text');
-    } catch (e) {
-      _message('连接失败：$e');
-    }
   }
 
   void _message(String text) {
