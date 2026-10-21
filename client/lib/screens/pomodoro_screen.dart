@@ -611,7 +611,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     FxButton(
                       label: _remainingSeconds == 0 && _activeSession
                           ? '重试保存本轮'
-                          : _remainingSeconds == totalSeconds ? '开始专注' : '继续',
+                          : _activeSession
+                              ? '继续'
+                              : isWork ? '开始专注' : '开始休息',
                       icon: LucideIcons.play,
                       onPressed: _finalizingSession ? null : _start,
                     )
@@ -624,7 +626,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   if (_activeSession)
                     FxButton(
-                      label: '结束专注',
+                      label: _finalizingSession
+                          ? '保存中…'
+                          : isWork ? '结束专注' : '结束休息',
                       size: FxButtonSize.lg,
                       variant: FxButtonVariant.destructive,
                       onPressed: _finalizingSession ? null : _stop,
