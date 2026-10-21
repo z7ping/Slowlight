@@ -51,14 +51,21 @@ class AuthService {
   }
 
   /// OAuth 登录沿用原有用户模型、JWT 和系统安全存储。
-  static Future<void> completeOAuthLogin(Map<String, dynamic> result) async {
+  static Future<void> completeOAuthLogin(
+    Map<String, dynamic> result, {
+    bool linkingExisting = false,
+  }) async {
     final token = result['token'];
     final userJson = result['user'];
     if (token is! String || token.isEmpty || userJson is! Map) {
       throw StateError('GitHub 登录结果缺少有效凭据');
     }
     final user = User.fromJson(Map<String, dynamic>.from(userJson));
-    await _saveAuth(token, user, loginMethod: 'github');
+    await _saveAuth(
+      token,
+      user,
+      loginMethod: linkingExisting ? await getLastLoginMethod() : 'github',
+    );
   }
 
   /// Token 属于认证凭据，统一存系统安全存储。
