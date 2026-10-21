@@ -95,6 +95,8 @@ func main() {
 
 		api.POST("/sessions/start", sessionHandler.StartSession)
 		api.POST("/sessions/end", sessionHandler.EndSession)
+		api.POST("/sessions/pause", sessionHandler.PauseSession)
+		api.POST("/sessions/resume", sessionHandler.ResumeSession)
 		api.GET("/sessions/active", sessionHandler.GetActiveSession)
 		api.GET("/sessions/stats", sessionHandler.GetStats)
 		api.GET("/sessions/today", sessionHandler.GetTodayStats)
