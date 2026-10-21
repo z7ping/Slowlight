@@ -58,4 +58,85 @@ void main() {
 
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('登录成功通知在替换登录页后仍能显示', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FxButton(
+              label: '模拟 GitHub 登录完成',
+              onPressed: () {
+                final notice = FxNotice.capture(context);
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const Scaffold(
+                      body: Center(child: Text('首页')),
+                    ),
+                  ),
+                );
+                notice.show(
+                  'GitHub 登录成功',
+                  description: '已进入云端模式，可在侧边栏查看同步状态',
+                  variant: FxNoticeVariant.success,
+                  duration: const Duration(seconds: 4),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('模拟 GitHub 登录完成'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('首页'), findsOneWidget);
+    expect(find.text('GitHub 登录成功'), findsOneWidget);
+    expect(find.text('已进入云端模式，可在侧边栏查看同步状态'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('设置页弹出登录后，返回页面仍能看到成功通知', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FxButton(
+              label: '从设置打开登录',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<bool>(
+                  builder: (_) => Scaffold(
+                    body: Builder(
+                      builder: (loginContext) => FxButton(
+                        label: '模拟登录完成',
+                        onPressed: () {
+                          final notice = FxNotice.capture(loginContext);
+                          Navigator.of(loginContext).pop(true);
+                          notice.show(
+                            '登录成功',
+                            variant: FxNoticeVariant.success,
+                            duration: const Duration(seconds: 4),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('从设置打开登录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('模拟登录完成'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('从设置打开登录'), findsOneWidget);
+    expect(find.text('登录成功'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
