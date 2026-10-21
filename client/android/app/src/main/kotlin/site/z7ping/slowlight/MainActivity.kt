@@ -1,5 +1,6 @@
 package site.z7ping.slowlight
 
+import android.content.ClipData
 import android.content.Intent
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -30,6 +31,7 @@ class MainActivity : FlutterActivity() {
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_STREAM, uri)
+                        clipData = ClipData.newUri(contentResolver, "Slowlight 诊断日志", uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     startActivity(Intent.createChooser(intent, "导出诊断日志"))
