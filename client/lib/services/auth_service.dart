@@ -12,6 +12,7 @@ import 'api_service.dart';
 class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'user_data';
+  static const String _loginMethodKey = 'auth_login_method';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   /// 登录
@@ -24,7 +25,7 @@ class AuthService {
 
     final token = response['token'];
     final user = User.fromJson(response['user']);
-    await _saveAuth(token, user);
+    await _saveAuth(token, user, loginMethod: 'password');
     return {'token': token, 'user': user};
   }
 
@@ -45,19 +46,26 @@ class AuthService {
 
     final token = response['token'];
     final user = User.fromJson(response['user']);
-    await _saveAuth(token, user);
+    await _saveAuth(token, user, loginMethod: 'password');
     return {'token': token, 'user': user};
   }
 
   /// OAuth 登录沿用原有用户模型、JWT 和系统安全存储。
-  static Future<void> completeOAuthLogin(Map<String, dynamic> result) async {
+  static Future<void> completeOAuthLogin(
+    Map<String, dynamic> result, {
+    bool linkingExisting = false,
+  }) async {
     final token = result['token'];
     final userJson = result['user'];
     if (token is! String || token.isEmpty || userJson is! Map) {
       throw StateError('GitHub 登录结果缺少有效凭据');
     }
     final user = User.fromJson(Map<String, dynamic>.from(userJson));
-    await _saveAuth(token, user);
+    await _saveAuth(
+      token,
+      user,
+      loginMethod: linkingExisting ? await getLastLoginMethod() : 'github',
+    );
   }
 
   /// Token 属于认证凭据，统一存系统安全存储。
@@ -73,6 +81,21 @@ class AuthService {
     await _secureStorage.write(key: _tokenKey, value: legacyToken);
     await prefs.remove(_tokenKey);
     return legacyToken;
+  }
+
+  /// 后端持久绑定表是唯一可信的第三方关联依据。请求失败必须视为未知。
+  static Future<bool> isGitHubLinked() async {
+    final data = await ApiService.get('/auth/providers');
+    if (data['github'] is! bool) {
+      throw const FormatException('GitHub 账号绑定状态无效');
+    }
+    return data['github'] as bool;
+  }
+
+  /// 只描述这台设备上最近的登录方式，不等于第三方绑定是否仍有效。
+  static Future<String?> getLastLoginMethod() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_loginMethodKey);
   }
 
   static Future<User?> getUser() async {
@@ -113,6 +136,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey); // 清理旧版本残留。
     await prefs.remove(_userKey);
+    await prefs.remove(_loginMethodKey);
   }
 
   /// 本地数据模式初始化 — 创建本地 guest 用户和基础数据。
@@ -191,10 +215,19 @@ class AuthService {
     return token != null && token.startsWith('local:');
   }
 
-  static Future<void> _saveAuth(String token, User user) async {
+  static Future<void> _saveAuth(
+    String token,
+    User user, {
+    String? loginMethod,
+  }) async {
     await _secureStorage.write(key: _tokenKey, value: token);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey); // 不再让认证凭据落入普通偏好存储。
     await prefs.setString(_userKey, json.encode(user.toJson()));
+    if (loginMethod == null) {
+      await prefs.remove(_loginMethodKey);
+    } else {
+      await prefs.setString(_loginMethodKey, loginMethod);
+    }
   }
 }

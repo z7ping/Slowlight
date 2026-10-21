@@ -52,6 +52,22 @@ class ApiService {
     return headers;
   }
 
+  /// 只读认证端点，沿用统一 HTTP、JWT 和超时入口。
+  static Future<Map<String, dynamic>> get(String path) async {
+    final response = await HttpUtil.get(
+      Uri.parse('$baseUrl$path'),
+      headers: await _authHeaders(),
+    ).timeout(_getTimeout);
+    if (response.statusCode != 200) {
+      throw StateError('读取账号信息失败（HTTP ${response.statusCode}）');
+    }
+    final data = json.decode(response.body);
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('账号响应格式无效');
+    }
+    return data;
+  }
+
   /// 通用 POST 请求（用于登录/注册）
   static Future<Map<String, dynamic>> post(
     String path, {

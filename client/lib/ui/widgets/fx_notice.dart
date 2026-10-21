@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import '../../services/app_error_logger.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../app_theme.dart';
@@ -194,15 +196,22 @@ abstract final class FxNotice {
     String? description,
     Widget? action,
     Duration? duration,
-  }) =>
-      show(
-        context,
-        message,
-        description: description,
-        action: action,
-        duration: duration,
-        variant: FxNoticeVariant.destructive,
+  }) {
+    if (!kIsWeb) {
+      AppErrorLogger.instance.write(
+        source: 'UI',
+        error: description == null ? message : '$message：$description',
       );
+    }
+    return show(
+      context,
+      message,
+      description: description,
+      action: action,
+      duration: duration,
+      variant: FxNoticeVariant.destructive,
+    );
+  }
 
   /// 长错误只在通知中显示简短标题，完整异常留在可滚动、可选择的详情弹窗。
   /// 避免 Sonner 对多行内容的高度测量导致底部通知被屏幕裁切。
@@ -210,11 +219,15 @@ abstract final class FxNotice {
     BuildContext context,
     String title,
     String details,
-  ) =>
-      error(
-        context,
-        title,
-        action: FxNoticeAction(
+  ) {
+    if (!kIsWeb) {
+      AppErrorLogger.instance.write(source: 'UI $title', error: details);
+    }
+    return show(
+      context,
+      title,
+      variant: FxNoticeVariant.destructive,
+      action: FxNoticeAction(
           label: '查看详情',
           onPressed: () {
             if (!context.mounted) return;
@@ -242,6 +255,7 @@ abstract final class FxNotice {
           },
         ),
       );
+  }
 
   static Future<void> dismiss(BuildContext context, Object? id) =>
       _dismissWithSonner(_sonnerOf(context), id);

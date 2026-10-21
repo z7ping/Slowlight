@@ -56,6 +56,7 @@ func main() {
 	api.Use(handler.AuthMiddleware())
 	{
 		api.GET("/auth/profile", authHandler.GetProfile)
+		api.GET("/auth/providers", authHandler.GetLinkedProviders)
 
 		taskHandler := handler.NewTaskHandler(db)
 		listHandler := handler.NewListHandler(db)

@@ -63,4 +63,55 @@ void main() {
 
     expect(result, isNull);
   });
+
+  test('readText combines rotated backup and current entries', () async {
+    final logger = AppErrorLogger(
+      directoryProvider: () async => tempDir,
+      maxBytes: 8,
+    );
+    await logger.write(source: 'network', error: 'first');
+    await logger.write(source: 'network', error: 'second');
+    final text = await logger.readText();
+    expect(text, contains('first'));
+    expect(text, contains('second'));
+    await logger.clear();
+    expect(await logger.readText(), isEmpty);
+  });
+
+  test('concurrent error writes are serialized', () async {
+    final logger = AppErrorLogger(directoryProvider: () async => tempDir);
+    await Future.wait(
+      List.generate(15, (i) => logger.write(
+        source: 'concurrent',
+        error: 'error-$i',
+      )),
+    );
+    final text = await logger.readText();
+    for (var i = 0; i < 15; i++) {
+      expect(text, contains('error-$i'));
+    }
+  });
+
+  test('redacts credential values and JWTs from exported records', () async {
+    final logger = AppErrorLogger(directoryProvider: () async => tempDir);
+    const secret = 'example123456';
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature';
+    await logger.write(
+      source: 'auth',
+      error: 'Bearer $secret password=$secret poll_token=$secret $jwt',
+    );
+    final text = await logger.readText();
+    expect(text, isNot(contains(secret)));
+    expect(text, isNot(contains(jwt)));
+    expect(text, contains('[REDACTED]'));
+  });
+
+  test('recent log preview is bounded but source file remains intact', () async {
+    final logger = AppErrorLogger(directoryProvider: () async => tempDir);
+    await logger.write(source: 'network', error: '1234567890');
+    final recent = await logger.readRecent(maxCharacters: 8);
+    expect(recent, contains('仅展示末尾内容'));
+    expect(await logger.readText(), contains('1234567890'));
+  });
+
 }

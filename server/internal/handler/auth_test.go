@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"slowlight/internal/model"
+	"github.com/gin-gonic/gin"
 )
 
 func setupAuthTest(t *testing.T) *AuthHandler {
@@ -297,4 +298,46 @@ func TestLogin_NonexistentUser(t *testing.T) {
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("不存在的用户应返回 401, 实际 %d", w.Code)
 	}
+}
+
+
+func TestGetLinkedProvidersUsesAuthenticatedUser(t *testing.T) {
+    db := beginTx(t, setupTestDB(t))
+    own := createTestUser(t, db)
+    other := createTestUser(t, db)
+    if err := db.Create(&model.OAuthIdentity{
+        UserID: other.ID, Provider: "github", ProviderUserID: "github-other",
+    }).Error; err != nil {
+        t.Fatal(err)
+    }
+
+    h := NewAuthHandler(db)
+    router := newTestGin()
+    router.GET("/providers", func(c *gin.Context) {
+        withUser(c, own.ID)
+        h.GetLinkedProviders(c)
+    })
+
+    check := func(expected bool) {
+        t.Helper()
+        w := httptest.NewRecorder()
+        router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/providers", nil))
+        if w.Code != http.StatusOK {
+            t.Fatalf("绑定查询响应 %d: %s", w.Code, w.Body.String())
+        }
+        var data map[string]bool
+        if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil { t.Fatal(err) }
+        if data["github"] != expected {
+            t.Fatalf("github=%v, expected=%v", data["github"], expected)
+        }
+        if len(data) != 1 {
+            t.Fatalf("只能暴露绑定布尔值，不能暴露第三方 ID: %v", data)
+        }
+    }
+
+    check(false)
+    if err := db.Create(&model.OAuthIdentity{
+        UserID: own.ID, Provider: "github", ProviderUserID: "github-own",
+    }).Error; err != nil { t.Fatal(err) }
+    check(true)
 }

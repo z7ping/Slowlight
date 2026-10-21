@@ -52,6 +52,33 @@ void main() {
     expect(await AuthService.isLoggedIn(), isTrue);
   });
 
+  test('GitHub 登录方式独立于 GitHub 绑定，并在退出后清除', () async {
+    final result = <String, dynamic>{
+      'token': _jwt(
+        exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+      ),
+      'user': <String, dynamic>{
+        'id': 12,
+        'username': 'github_12',
+        'nickname': '测试用户',
+        'email': '',
+        'created_at': '2026-10-21T00:00:00Z',
+      },
+    };
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_login_method', 'password');
+
+    await AuthService.completeOAuthLogin(result, linkingExisting: true);
+    expect(await AuthService.getLastLoginMethod(), 'password');
+
+    await AuthService.completeOAuthLogin(result);
+    expect(await AuthService.getLastLoginMethod(), 'github');
+    expect((await AuthService.getUser())?.nickname, '测试用户');
+
+    await AuthService.logout();
+    expect(await AuthService.getLastLoginMethod(), isNull);
+  });
+
   test('Legacy token is migrated out of SharedPreferences', () async {
     final token = _jwt(exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600);
     SharedPreferences.setMockInitialValues({'auth_token': token});

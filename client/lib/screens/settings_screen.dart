@@ -5,6 +5,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../ai/ai_config_store.dart';
 import '../ai/ai_models.dart';
 import '../ai/ai_service.dart';
+import '../models/user.dart';
+import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
@@ -15,6 +17,7 @@ import '../services/theme_settings.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
+import 'diagnostics_screen.dart';
 import 'conflict_screen.dart';
 import 'integration_screen.dart';
 import 'login_screen.dart';
@@ -41,6 +44,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loading = true;
   bool _syncing = false;
   bool _linkingGitHub = false;
+  bool _loadingAccount = true;
+  User? _accountUser;
+  bool? _githubLinked;
   bool _savingAi = false;
   late String _open;
   AiConfig _ai = const AiConfig();
@@ -64,6 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SyncService().addListener(_syncStatusChanged);
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
+    _loadAccount();
   }
 
   @override
@@ -103,6 +110,127 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadAccount() async {
+    if (DataModeManager().isLocal) {
+      if (mounted) {
+        setState(() {
+          _accountUser = null;
+          _githubLinked = null;
+          _loadingAccount = false;
+        });
+      }
+      return;
+    }
+    try {
+      final user = await AuthService.getUser();
+      if (!mounted) return;
+      setState(() {
+        _accountUser = user;
+        _githubLinked = null;
+        _loadingAccount = false;
+      });
+      // 请求只负责确认关联状态，网络失败时不可宣称未绑定。
+      bool? linked;
+      try {
+        linked = await AuthService.isGitHubLinked();
+      } catch (_) {
+        return;
+      }
+      if (mounted) setState(() => _githubLinked = linked);
+    } catch (_) {
+      if (mounted) setState(() => _loadingAccount = false);
+    }
+  }
+
+  String _accountSummary() {
+    if (DataModeManager().isLocal) return '本地使用';
+    if (_loadingAccount) return '正在读取账号…';
+    return '${_accountUser?.nickname ?? _accountUser?.username ?? '云端账号'} · 云端';
+  }
+
+  Widget _accountPanel() {
+    final style = SlowlightTypography.secondary(context);
+    if (DataModeManager().isLocal) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('当前以本地模式使用，不需要云端账号。', style: style),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            label: '前往云端登录',
+            variant: FxButtonVariant.outline,
+            onPressed: () => _setDataMode(1),
+          ),
+        ],
+      );
+    }
+    final user = _accountUser;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(user?.nickname ?? user?.username ?? '云端账号',
+            style: SlowlightTypography.cardTitle(context)),
+        const SizedBox(height: SlowlightSpacing.xs),
+        Text(user?.email.isNotEmpty == true ? user!.email : '云端账号已登录',
+            style: style),
+        const SizedBox(height: SlowlightSpacing.md),
+        Text(_githubLinked == true
+            ? 'GitHub：已绑定'
+            : _githubLinked == false
+                ? 'GitHub：未绑定'
+                : 'GitHub：绑定状态暂不可用',
+            style: style),
+        const SizedBox(height: SlowlightSpacing.md),
+        if (_githubLinked == false || _linkingGitHub)
+          FxButton(
+            key: const ValueKey('settings.github_link'),
+            label: _linkingGitHub ? '等待 GitHub 授权…' : '绑定 GitHub',
+            icon: LucideIcons.gitFork,
+            variant: FxButtonVariant.outline,
+            onPressed: _linkingGitHub ? null : _bindGitHub,
+          ),
+        if (_githubLinked == null)
+          FxButton(
+            label: '重新检查绑定状态',
+            variant: FxButtonVariant.outline,
+            onPressed: _loadAccount,
+          ),
+        if (_linkingGitHub) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            label: '取消授权等待',
+            variant: FxButtonVariant.link,
+            onPressed: () => setState(() => _linkingGitHub = false),
+          ),
+        ],
+        const SizedBox(height: SlowlightSpacing.md),
+        FxButton(
+          label: '退出登录',
+          icon: LucideIcons.logOut,
+          variant: FxButtonVariant.ghost,
+          onPressed: _logoutAccount,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _logoutAccount() async {
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '退出登录',
+      content: '确认退出当前云端账号？本机未同步的记录请先检查同步状态。',
+    );
+    if (confirmed != true) return;
+    await AuthService.logout();
+    CloudSyncCoordinator().stop();
+    authStateNotifier.value = !authStateNotifier.value;
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _loadConflictCount() async {
@@ -159,40 +287,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   _groupLabel('数据与服务'),
-                                  if (DataModeManager().isCloud) ...[
-                                    _accordion(
-                                      id: 'account',
-                                      icon: LucideIcons.userRound,
-                                      title: '账号',
-                                      summary: '第三方登录与账号绑定',
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '将 GitHub 绑定到当前云端账号，保留已有任务与记录。不会按邮箱自动合并账号。',
-                                            style: SlowlightTypography.secondary(context),
-                                          ),
-                                          const SizedBox(height: SlowlightSpacing.md),
-                                          FxButton(
-                                            key: const ValueKey('settings.github_link'),
-                                            label: _linkingGitHub ? '等待 GitHub 授权…' : '绑定 GitHub',
-                                            icon: LucideIcons.gitFork,
-                                            variant: FxButtonVariant.outline,
-                                            onPressed: _linkingGitHub ? null : _bindGitHub,
-                                          ),
-                                          if (_linkingGitHub) ...[
-                                            const SizedBox(height: SlowlightSpacing.md),
-                                            FxButton(
-                                              label: '取消授权等待',
-                                              variant: FxButtonVariant.link,
-                                              onPressed: () => setState(() => _linkingGitHub = false),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
+                                  _accordion(
+                                    id: 'account',
+                                    icon: LucideIcons.userRound,
+                                    title: '账号',
+                                    summary: _accountSummary(),
+                                    child: _accountPanel(),
+                                  ),
+                                  const SizedBox(height: 10),
                                   ListenableBuilder(
                                     listenable: SyncService(),
                                     builder: (context, _) =>
@@ -215,6 +317,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     title: 'AI 服务',
                                     summary: _aiSummary(),
                                     child: _aiPanel(),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _groupLabel('应用维护'),
+                                  _accordion(
+                                    id: 'diagnostics',
+                                    icon: LucideIcons.bug,
+                                    title: '应用诊断',
+                                    summary: '查看、导出或清理本机错误日志',
+                                    child: FxButton(
+                                      label: '查看错误日志',
+                                      icon: LucideIcons.fileText,
+                                      variant: FxButtonVariant.outline,
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const DiagnosticsScreen(),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(height: 10),
                                   _groupLabel('桌面效率'),
@@ -1023,7 +1144,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         linkExisting: true,
         shouldContinue: () => mounted && _linkingGitHub,
       );
-      if (mounted && completed) _message('GitHub 已绑定到当前云端账号');
+      if (mounted && completed) {
+        _message('GitHub 已绑定到当前云端账号');
+        await _loadAccount();
+      }
     } catch (e) {
       if (mounted) {
         FxNotice.errorWithDetails(context, '绑定 GitHub 失败', e.toString());
@@ -1051,6 +1175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     if (mounted) setState(() {});
     await _loadConflictCount();
+    await _loadAccount();
   }
 
   Future<void> _syncNow() async {
