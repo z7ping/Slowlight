@@ -7,13 +7,13 @@
 <p align="center"><strong>行为留下轨迹，时间让自我显影。</strong></p>
 
 <p align="center">
-  Local-first 的个人行为记录与自我观察工具。<br />
+  云端优先、可离线记录的个人行为记录与自我观察工具。<br />
   记录任务、习惯、专注与观察，让长期事实帮助你看见自己的模式与变化。
 </p>
 
 <p align="center">
   <img alt="Flutter" src="https://img.shields.io/badge/client-Flutter-02569B?logo=flutter&logoColor=white" />
-  <img alt="Local first" src="https://img.shields.io/badge/data-local--first-59636E" />
+  <img alt="Cloud first" src="https://img.shields.io/badge/data-cloud--first-59636E" />
   <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white" />
   <img alt="Android" src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white" />
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-green" />
@@ -143,9 +143,13 @@ go run ./cmd
 
 更完整的自托管说明见 [`server/README.md`](server/README.md)。
 
-## Local-first 是什么意思
+## 云端优先与本地独立使用
 
-Slowlight 的数据模式与 AI 模式是两个独立选择。
+新安装默认使用云端账号，核心数据以 Slowlight Server / PostgreSQL 为权威；客户端保留按账号隔离的离线缓存和重试队列。服务端目前提供自托管运行方式，普通源码构建默认连接 localhost，远程正式构建必须提供实际 HTTPS 服务地址。
+
+已有用户保存过的本地数据模式保持不变；即使旧版没有保存 data_mode，只要检测到旧本地数据库，也继续按本地模式使用。**不会静默上传、切换或删除已有本地数据**。需要迁移时使用手动预览及冲突确认流程。
+
+Slowlight 的数据模式与 AI 模式仍是两个独立选择。
 
 ```text
 Local Data + Local AI
@@ -164,7 +168,7 @@ Slowlight Client
 
 不需要部署 Slowlight Server，也不要求把核心业务数据上传到远程服务器。
 
-需要多设备或云端数据时：
+默认云端使用方式：
 
 ```text
 Slowlight Client
@@ -174,7 +178,9 @@ Slowlight Server
 PostgreSQL
 ```
 
-可以自行部署 Slowlight Server。源码和普通自构建默认保持 localhost / 自托管语义；官方预览服务地址由 CI/CD 显式注入，不硬编码到公开源码。
+可以自行部署 Slowlight Server。源码和普通自构建默认保持 localhost / 自托管语义；正式云端构建需要注入 `SERVER_URL`，并开启 `SLOWLIGHT_REQUIRE_HTTPS=true`，不硬编码任何云端生产地址。反思类离线写入使用稳定提交标识；其他创建操作发生结果不明的网络超时时会保留冲突以待核对，而不是自动重复创建。
+
+**当前仍是预览阶段**：多设备一致性、旧迁移数据恢复、数据库真实恢复演练以及 Windows/Android 运行验收不应被描述为已经通过。
 
 AI 与数据存储独立。Local Data 不等于 Offline-only，也不等于 No-AI，可以继续使用 Ollama、本地模型、OpenAI、DeepSeek 或其它 OpenAI-compatible Provider。
 
