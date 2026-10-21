@@ -125,6 +125,7 @@ func (h *SessionHandler) transitionSession(c *gin.Context, pause bool) {
             if result.Error != nil { return result.Error }
             if result.RowsAffected == 0 { return errSessionRevisionConflict }
         }
+        session = model.WorkSession{}
         return tx.Where("id = ? AND user_id = ? AND ended_at IS NULL",req.SessionID,userID).First(&session).Error
     })
     if err != nil {
