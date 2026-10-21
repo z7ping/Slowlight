@@ -55,6 +55,22 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('有记录时清空需要危险确认，取消不删除', (tester) async {
+    final logger = _TestLogger('保留的本机日志');
+    await tester.pumpWidget(buildFxTestHost(
+      home: DiagnosticsScreen(logger: logger),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('diagnostics.clear')));
+    await tester.pump();
+    expect(find.text('清空错误日志'), findsOneWidget);
+    expect(logger.text, '保留的本机日志');
+    await tester.tap(find.text('取消'));
+    await tester.pump();
+    expect(logger.text, '保留的本机日志');
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('日志读取失败和重新读取不能冒充无错误', (tester) async {
     final logger = _TestLogger('', readFails: true);
     await tester.pumpWidget(buildFxTestHost(
