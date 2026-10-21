@@ -75,6 +75,15 @@ class AuthService {
     return legacyToken;
   }
 
+  /// 后端持久绑定表是唯一可信的第三方关联依据。请求失败必须视为未知。
+  static Future<bool> isGitHubLinked() async {
+    final data = await ApiService.get('/auth/providers');
+    if (data['github'] is! bool) {
+      throw const FormatException('GitHub 账号绑定状态无效');
+    }
+    return data['github'] as bool;
+  }
+
   static Future<User?> getUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString(_userKey);
