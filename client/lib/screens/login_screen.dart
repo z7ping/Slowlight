@@ -96,7 +96,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) _finish(true);
     } catch (e) {
       if (mounted) {
-        FxNotice.errorWithDetails(context, 'GitHub 登录失败', GitHubSignIn.describeError(e));
+        FxNotice.errorWithDetails(
+          context,
+          'GitHub 登录失败',
+          GitHubSignIn.describeError(e),
+        );
       }
     } finally {
       if (mounted) {
