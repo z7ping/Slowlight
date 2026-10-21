@@ -132,4 +132,9 @@ func TestMigrationRetryReusesIDMap(t *testing.T) {
 	var count int64
 	tx.Model(&model.List{}).Where("user_id = ? AND name = ?", user.ID, name).Count(&count)
 	if count != 1 { t.Fatalf("repeated insert: %d", count) }
+	// Reports created before ID mapping was persisted must not pretend to replay.
+	if err := tx.Model(&model.MigrationReport{}).Where("user_id = ?", user.ID).
+		Update("id_map", "").Error; err != nil { t.Fatal(err) }
+	code3, _ := execute()
+	if code3 != http.StatusConflict { t.Fatalf("legacy report should return 409, got %d", code3) }
 }
