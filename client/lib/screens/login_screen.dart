@@ -5,6 +5,7 @@ import '../brand.dart';
 import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/data_mode_manager.dart';
+import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
 import 'home_screen.dart';
@@ -73,6 +74,23 @@ class _LoginScreenState extends State<LoginScreen> {
           _isLogin ? '登录失败' : '注册失败',
           e.toString(),
         );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loginWithGitHub() async {
+    setState(() => _isLoading = true);
+    try {
+      await GitHubSignIn.signIn(shouldContinue: () => mounted);
+      if (!mounted) return;
+      await DataModeManager().setCloud();
+      authStateNotifier.value = !authStateNotifier.value;
+      if (mounted) _finish(true);
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, 'GitHub 登录失败', e.toString());
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -156,6 +174,25 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const SizedBox(height: SlowlightSpacing.page),
+        FxButton(
+          key: const ValueKey('login.github_action'),
+          label: '使用 GitHub 继续',
+          icon: LucideIcons.github,
+          expanded: true,
+          size: FxButtonSize.lg,
+          variant: FxButtonVariant.outline,
+          onPressed: _isLoading ? null : _loginWithGitHub,
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
+        Center(
+          child: Text(
+            _isLogin ? '或使用账号密码' : '或创建普通账号',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
         FxInput(
           controller: _usernameController,
           enabled: !_isLoading,
