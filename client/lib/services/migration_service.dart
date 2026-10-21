@@ -1,3 +1,7 @@
+import 'dart:math';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../db/local_db.dart';
 import 'api_service.dart';
 import 'local_migration_report_store.dart';
@@ -37,12 +41,40 @@ class MigrationService {
     final localID = await store.start(snapshot, conflictPolicy);
     try {
       final result = await ApiService.executeMigration(snapshot);
+      _verifyIdMap(snapshot, result['id_map']);
       await _applyIdMap(result['id_map']);
       await store.succeed(localID, result);
       return result;
     } catch (error) {
       await store.fail(localID, error);
       rethrow;
+    }
+  }
+
+  /// A 200 response with a partial mapping must not be reported as a successful import.
+  void _verifyIdMap(Map<String, dynamic> snapshot, Object? rawMap) {
+    if (rawMap is! Map) {
+      throw StateError('云端未返回可恢复的迁移 ID 映射');
+    }
+    for (final table in const [
+      'lists', 'tags', 'system_tags', 'habits', 'tasks',
+      'subtasks', 'habit_logs', 'sessions',
+    ]) {
+      final entries = snapshot[table] as List? ?? const [];
+      final mapping = rawMap[table];
+      if (entries.isNotEmpty && mapping is! Map) {
+        throw StateError('云端缺少 $table 的迁移映射');
+      }
+      for (final item in entries) {
+        if (item is! Map) continue;
+        final id = item['id']?.toString();
+        if (id == null || id.isEmpty) continue;
+        final value = mapping is Map ? mapping[id] : null;
+        final remote = value is num ? value.toInt() : int.tryParse('$value');
+        if (remote == null || remote <= 0) {
+          throw StateError('云端未确认 $table 记录 $id 的迁移结果');
+        }
+      }
     }
   }
 
@@ -76,6 +108,15 @@ class MigrationService {
   }
 
   Future<Map<String, dynamic>> _snapshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    var sourceID = prefs.getString('slowlight_migration_source_id');
+    if (sourceID == null || sourceID.isEmpty) {
+      final secureRandom = Random.secure();
+      sourceID = List.generate(
+        16, (_) => secureRandom.nextInt(256).toRadixString(16).padLeft(2, '0'),
+      ).join();
+      await prefs.setString('slowlight_migration_source_id', sourceID);
+    }
     final db = await LocalDb().database;
     final lists = await db.query('lists', where: 'deleted_at IS NULL');
     final tags = await db.query('tags');
@@ -88,6 +129,7 @@ class MigrationService {
     final sessions = await db.query('work_sessions');
 
     return {
+      'source_id': sourceID,
       'lists': lists.map(_list).toList(),
       'tags': tags.map(_tag).toList(),
       'system_tags': systemTags.map(_tag).toList(),
