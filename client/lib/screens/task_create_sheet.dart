@@ -28,6 +28,7 @@ class TaskCreateSheet extends StatefulWidget {
   final String initialPriority;
   final bool defaultDueToday;
   final VoidCallback? onCreated;
+  final TagRepository? tagRepository;
 
   const TaskCreateSheet({
     super.key,
@@ -38,6 +39,7 @@ class TaskCreateSheet extends StatefulWidget {
     this.initialPriority = 'none',
     this.defaultDueToday = true,
     this.onCreated,
+    this.tagRepository,
   });
 
   static bool _useDesktopDialog(BuildContext context) =>
@@ -170,7 +172,7 @@ class TaskCreateSheet extends StatefulWidget {
 class _TaskCreateSheetState extends State<TaskCreateSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _tagsRepository = TagRepository();
+  late final TagRepository _tagsRepository;
   List<Tag> _availableTags = const [];
   final Set<int> _selectedTagIds = {};
   bool _showLists = true;
@@ -197,6 +199,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   @override
   void initState() {
     super.initState();
+    _tagsRepository = widget.tagRepository ?? TagRepository();
     _dueDate = widget.defaultDueToday ? _today() : null;
     _selectedPriority = _normalizePriority(widget.initialPriority);
     // 旧 system_tag_id 独立透传，不混入 canonical 标签集合。
