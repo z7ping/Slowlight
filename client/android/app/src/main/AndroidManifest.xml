@@ -37,6 +37,17 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- GitHub OAuth 完成后，仅唤醒现有 Android 应用。
+                 URI 不含 code/state/token；真正登录依赖服务端一次性 poll_token。 -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="slowlight" android:host="oauth-complete"/>
+            </intent-filter>
         </activity>
 
         <!-- flutter_local_notifications：定时通知、重启恢复与通知动作。 -->
@@ -72,6 +83,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- url_launcher 检测 Android 安全浏览器标签的支持情况。 -->
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService"/>
         </intent>
     </queries>
 </manifest>

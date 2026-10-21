@@ -50,6 +50,10 @@ GITHUB_OAUTH_CALLBACK_URL=https://你的域名/api/auth/github/callback
 Docker Compose 已透传这三个变量；重建 Go 服务端后生效。新安装客户端仍需 `SERVER_URL=https://你的域名/api` 指向同一服务端。反向代理需允许回调路径，并为公网启用 HTTPS。
 
 - `POST /api/auth/github/start` 发起登录；`GET /api/auth/github/callback` 接收 GitHub 回调；`POST /api/auth/github/poll` 一次性领取 Slowlight JWT。
+- 客户端在 `start` / `link/start` 的 JSON 请求体中可传 `{"platform":"android"}`。Android 首选系统安全浏览器标签（Custom Tabs，允许复用浏览器登录态），不支持时回退系统默认浏览器；Windows 使用默认浏览器。
+- GitHub 并未保证 OAuth 授权页由 GitHub 手机 App 接管，**不得**拼造 GitHub App URI 或把已安装 GitHub App 作为登录前提。
+- Android 成功回调会尝试打开 `slowlight://oauth-complete` 唤醒 Slowlight；浏览器禁止自动打开时，授权成功页提供「返回所行映我」按钮。回跳 URI **不包含** `code`、`state`、JWT、轮询凭据；实际登录结果仍由客户端原有的一次性领取机制获取。Windows 授权后返回客户端即可自动完成登录。
+- 注意 Android Manifest 已禁用 Flutter 自行解析此唤醒 URI，以防 OAuth 回调被解释成应用内页面路由；如将来引入其他 App Links，需单独评估路由管理。
 - 已登录云端用户可以在「设置 → 账号」显式绑定 GitHub，对应服务端受 JWT 保护的 `POST /api/auth/github/link/start`。**不会通过同邮箱自动绑定或合并账号**。
 - 新 GitHub 用户创建独立的 Slowlight 账号。内部账号以 GitHub 不变的数字 ID 为锚点，首次注册使用占位邮箱，不向 GitHub 索取私人邮箱/仓库权限；常规密码无法登录该账号。
 - 授权状态和轮询凭据仅保留 SHA-256 摘要；使用 `state`、PKCE (S256)、十分钟有效期和一次性领取。GitHub Access Token 不写入数据库。
