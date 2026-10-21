@@ -94,6 +94,8 @@ void main() {
         await tester.pump();
         final fields = find.byType(FxInput);
         expect(fields, findsNWidgets(2));
+        expect(tester.getSize(find.byKey(const ValueKey('login.primary_action'))).width,
+            closeTo(tester.getSize(fields.at(0)).width, 1));
         final normal = tester.getSize(fields.at(0)).height;
         final password = tester.getSize(fields.at(1)).height;
         expect(password, closeTo(normal, 0.1));
