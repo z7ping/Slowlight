@@ -35,6 +35,7 @@
 | `sqflite` | `^2.3.0` |
 | `sqflite_common_ffi` | `^2.3.0` |
 | `path` | `^1.8.3` |
+| `path_provider` | `^2.1.5` |
 | `table_calendar` | `^3.1.2` |
 | `window_manager` | `^0.3.9` |
 | `desktop_multi_window` | `SDK/嵌套配置` |
