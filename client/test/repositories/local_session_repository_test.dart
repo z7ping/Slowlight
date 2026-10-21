@@ -72,17 +72,18 @@ void main() {
       'started_at': now.subtract(const Duration(minutes: 15)).toIso8601String(),
       'paused_at': now.subtract(const Duration(minutes: 2)).toIso8601String(),
       'paused_duration_sec': 300,
+      'revision': 1,
     }, where: 'id = ?', whereArgs: [id]);
 
     final paused = await repository.pauseSession(id, 0);
     final pauseDate = (paused['session'] as Map)['paused_at'];
     expect(pauseDate, isNotNull);
-    final repeated = await repository.pauseSession(id);
+    final repeated = await repository.pauseSession(id, 0);
     expect((repeated['session'] as Map)['paused_at'], pauseDate);
 
     final resumed = await repository.resumeSession(id, 1);
     expect((resumed['session'] as Map)['paused_at'], isNull);
-    final repeatedResume = await repository.resumeSession(id);
+    final repeatedResume = await repository.resumeSession(id, 1);
     expect((repeatedResume['session'] as Map)['paused_duration_seconds'],
         (resumed['session'] as Map)['paused_duration_seconds']);
 
@@ -92,7 +93,7 @@ void main() {
     expect(seconds, inInclusiveRange(470, 490));
     final stats = await repository.getTodaySessionStats();
     expect(stats['total_work_seconds'], seconds);
-    await expectLater(repository.pauseSession(id), throwsStateError);
+    await expectLater(repository.pauseSession(id, 0), throwsStateError);
   });
 
   test('database v15 upgrades existing work sessions without deleting history',
