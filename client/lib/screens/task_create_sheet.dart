@@ -6,7 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/observation_tag.dart';
-import '../repositories/observation_tag_repository.dart';
+import '../models/tag.dart';
+import '../repositories/tag_repository.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../services/data_service.dart';
@@ -169,9 +170,9 @@ class TaskCreateSheet extends StatefulWidget {
 class _TaskCreateSheetState extends State<TaskCreateSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _tagsRepository = ObservationTagRepository();
-  List<ObservationTag> _availableTags = const [];
-  late int? _selectedTagId;
+  final _tagsRepository = TagRepository();
+  List<Tag> _availableTags = const [];
+  final Set<int> _selectedTagIds = {};
   bool _showLists = true;
   bool _showTags = true;
   List<TodoList> _lists = const [];
@@ -198,7 +199,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     super.initState();
     _dueDate = widget.defaultDueToday ? _today() : null;
     _selectedPriority = _normalizePriority(widget.initialPriority);
-    _selectedTagId = widget.systemTagId;
+    // 旧 system_tag_id 独立透传，不混入 canonical 标签集合。
     _calendarFocusedDay = _dueDate ?? DateTime.now();
     _loadLists();
     _loadTags();
@@ -233,7 +234,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
   Future<void> _loadTags() async {
     try {
-      final tags = await _tagsRepository.getAll();
+      final tags = await _tagsRepository.getTags();
       if (!mounted) return;
       setState(() {
         _availableTags = tags;
@@ -410,10 +411,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     ],
   );
 
+  List<ObservationTag> get _tagOptions => [
+    for (final tag in _availableTags)
+      ObservationTag(id: tag.id, name: tag.name, color: tag.color, icon: ''),
+  ];
+
   Color? _selectedTagColor() {
-    if (_selectedTagId == null) return null;
+    if (_selectedTagIds.isEmpty) return null;
     for (final tag in _availableTags) {
-      if (tag.id == _selectedTagId) {
+      if (_selectedTagIds.contains(tag.id)) {
         return ColorUtils.safeParse(tag.color, fallback: activePalette.accent);
       }
     }
@@ -457,8 +463,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       key: const ValueKey('task-property-tag'),
       icon: LucideIcons.tag,
       category: '标签',
-      label: _selectedTagId == null ? '无标签' : _selectedTagName(),
-      showLabel: _selectedTagId != null,
+      label: _selectedTagIds.isEmpty ? '无标签' : _selectedTagName(),
+      showLabel: _selectedTagIds.isNotEmpty,
       color: _selectedTagColor() ??
           Theme.of(context).colorScheme.onSurfaceVariant,
       onTap: _saving ? null : () => _openMobilePage(_MobileTaskPage.tag),
@@ -557,7 +563,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     _MobileTaskPage.date => _dueDate == null ? 0
         : _dueToday ? 1 : _dueTomorrow ? 3 : 2,
     _MobileTaskPage.priority => _selectedPriority,
-    _MobileTaskPage.tag => _selectedTagId ?? -1,
+    _MobileTaskPage.tag => null,
     _ => null,
   };
 
@@ -590,8 +596,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       case _MobileTaskPage.tag:
         setState(() {
           final id = value as int;
-          _selectedTagId = id == -1 ? null : id;
-          _mobilePage = null;
+          if (id == -1) {
+            _selectedTagIds.clear();
+          } else if (!_selectedTagIds.add(id)) {
+            _selectedTagIds.remove(id);
+          }
+          // 多选继续停留在选择页，由用户点「完成」返回。
         });
       case _MobileTaskPage.calendar:
       case null:
@@ -604,7 +614,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     _QuickOption<Object> option, {
     required bool compact,
   }) {
-    final selected = _selectedMobileValue() == option.value;
+    final selected = _mobilePage == _MobileTaskPage.tag
+        ? (option.value == -1 ? _selectedTagIds.isEmpty : _selectedTagIds.contains(option.value))
+        : _selectedMobileValue() == option.value;
     return FxListTile(
       key: ValueKey('task-picker-option-${_mobilePage!.name}-${option.value}'),
       density: FxListTileDensity.compact,
@@ -689,8 +701,16 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                   _mobilePageTitle,
                   style: SlowlightTypography.cardTitle(context),
                 )),
-                // FxSheet 负责唯一的关闭入口。
-                const SizedBox(width: 32),
+                if (_mobilePage == _MobileTaskPage.tag)
+                  FxButton(
+                    label: '完成',
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.outline,
+                    onPressed: _backMobilePage,
+                  )
+                else
+                  // FxSheet 负责唯一的关闭入口。
+                  const SizedBox(width: 32),
               ]),
               const FxSeparator.horizontal(height: 12),
               if (showSearch) ...[
@@ -869,7 +889,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             _QuickChip(
               icon: _showTags ? LucideIcons.chevronUp : LucideIcons.chevronDown,
               text: _selectedTagName(),
-              selected: _selectedTagId != null,
+              selected: _selectedTagIds.isNotEmpty,
               onTap: () => setState(() => _showTags = !_showTags),
             ),
           ],
@@ -877,10 +897,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         if (_showTags) ...[
           const SizedBox(height: SlowlightSpacing.xxxl),
           TagChoiceField(
-            tags: _availableTags,
-            selectedTagId: _selectedTagId,
-            enabled: !_saving,
-            onChanged: (id) => setState(() => _selectedTagId = id),
+            tags: _tagOptions,
+            selectedTagIds: _selectedTagIds,
+            label: '标签（可多选）',
+            enabled: !_saving && !_loadingTags && !_tagLoadFailed,
+            onMultipleChanged: (ids) => setState(() {
+              _selectedTagIds..clear()..addAll(ids);
+            }),
           ),
           if (_loadingTags)
             Text('正在读取标签…', style: SlowlightTypography.caption(context)),
@@ -1032,7 +1055,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       advanceMinutes: _reminderAdvanceMinutes,
     );
     try {
-      final systemTagId = _selectedTagId;
+      final systemTagId = widget.systemTagId;
+      final tagIds = _selectedTagIds.toList(growable: false);
       final listId = _selectedListId;
       late Task task;
       if (listId == null) {
@@ -1041,7 +1065,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           systemTagId: systemTagId,
         );
         if (_selectedPriority != 'none' || _dueDate != null ||
-            description.isNotEmpty || dueTime != null ||
+            description.isNotEmpty || tagIds.isNotEmpty || dueTime != null ||
             _repeatType != 'none' || _reminderAdvanceMinutes >= 0) {
           task = await DataService().updateTask(
             localId: task.id,
@@ -1056,7 +1080,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             repeatDays: repeatDays,
             reminderAt: reminderAt,
             reminderAdvanceMinutes: _reminderAdvanceMinutes < 0 ? 0 : _reminderAdvanceMinutes,
-            tagIds: task.tags.map((tag) => tag.id).toList(growable: false),
+            tagIds: {...task.tags.map((tag) => tag.id), ...tagIds}.toList(growable: false),
             systemTagId: task.systemTagId,
             taskType: task.taskType,
             moodBefore: task.moodBefore,
@@ -1080,6 +1104,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           repeatDays: repeatDays,
           reminderAt: reminderAt,
           reminderAdvanceMinutes: _reminderAdvanceMinutes < 0 ? 0 : _reminderAdvanceMinutes,
+          tagIds: tagIds,
           systemTagId: systemTagId,
         );
       }
@@ -1136,20 +1161,18 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         _selectedPriority == 'none'
             ? ''
             : ' · ${_priorityLabel(_selectedPriority)}';
-    final tagText = _selectedTagId == null ? '' : ' · ${_selectedTagName()}';
+    final tagText = _selectedTagIds.isEmpty ? '' : ' · ${_selectedTagName()}';
     return '任务已添加到「$listName」$dateText$priorityText$tagText';
   }
 
   String _selectedTagName() {
-    if (_selectedTagId == null) return '标签';
+    if (_selectedTagIds.isEmpty) return '标签';
+    if (_selectedTagIds.length > 1) return '${_selectedTagIds.length} 个标签';
+    final id = _selectedTagIds.first;
     for (final tag in _availableTags) {
-      if (tag.id == _selectedTagId) return '#${tag.name}';
+      if (tag.id == id) return '#${tag.name}';
     }
-    if (_selectedTagId == widget.systemTagId &&
-        (widget.systemTagName ?? '').isNotEmpty) {
-      return '#${widget.systemTagName}';
-    }
-    return '标签';
+    return '1 个标签';
   }
 
   String _normalizePriority(String value) => switch (value) {
