@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"time"
+	"errors"
 
 	"slowlight/internal/model"
 
@@ -81,11 +82,16 @@ func finishSessionTiming(session *model.WorkSession, now time.Time) {
     session.EndedAt = &now
 }
 
+var errSessionRevisionConflict = errors.New("stale session revision")
+
 // transitionSession 以会话 ID 限定操作目标，避免多端重试误修改后来开启的新会话。
 // 条件写保证连续暂停/继续的重试幂等，同一暂停区间不会被重复累计。
 func (h *SessionHandler) transitionSession(c *gin.Context, pause bool) {
     userID := c.GetUint("userID")
-    var req struct { SessionID uint `json:"session_id" binding:"required"` }
+    var req struct {
+        SessionID uint `json:"session_id" binding:"required"`
+        ExpectedRevision *int `json:"expected_revision" binding:"required"`
+    }
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error":"缺少有效的会话 ID"})
         return
@@ -96,20 +102,33 @@ func (h *SessionHandler) transitionSession(c *gin.Context, pause bool) {
             return err
         }
         now := time.Now()
+        if session.Revision != *req.ExpectedRevision {
+            // 同一个版本的网络重试可读取结果；更旧的异步重试必须拒绝，
+            // 避免 A 暂停、B 恢复后 A 的迟到重试再次暂停。
+            if session.Revision == *req.ExpectedRevision + 1 &&
+                ((pause && session.PausedAt != nil) || (!pause && session.PausedAt == nil)) {
+                return nil
+            }
+            return errSessionRevisionConflict
+        }
         if pause && session.PausedAt == nil {
             // 仅能从 running 进入 paused。
-            if err := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL AND paused_at IS NULL",req.SessionID,userID).
-                Update("paused_at",now).Error; err != nil { return err }
+            result := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL AND paused_at IS NULL AND revision = ?",req.SessionID,userID,*req.ExpectedRevision).
+                Updates(map[string]interface{}{"paused_at":now,"revision":gorm.Expr("revision + 1")})
+            if result.Error != nil { return result.Error }
+            if result.RowsAffected == 0 { return errSessionRevisionConflict }
         } else if !pause && session.PausedAt != nil {
             paused := int(now.Sub(*session.PausedAt).Seconds())
             if paused < 0 { paused = 0 }
-            if err := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL AND paused_at = ?",req.SessionID,userID,*session.PausedAt).
-                Updates(map[string]interface{}{"paused_at":nil,"paused_duration_sec":gorm.Expr("paused_duration_sec + ?",paused)}).Error; err != nil { return err }
+            result := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL AND paused_at = ? AND revision = ?",req.SessionID,userID,*session.PausedAt,*req.ExpectedRevision).
+                Updates(map[string]interface{}{"paused_at":nil,"paused_duration_sec":gorm.Expr("paused_duration_sec + ?",paused),"revision":gorm.Expr("revision + 1")})
+            if result.Error != nil { return result.Error }
+            if result.RowsAffected == 0 { return errSessionRevisionConflict }
         }
         return tx.Where("id = ? AND user_id = ? AND ended_at IS NULL",req.SessionID,userID).First(&session).Error
     })
     if err != nil {
-        if err == gorm.ErrRecordNotFound {
+        if errors.Is(err,gorm.ErrRecordNotFound) || errors.Is(err,errSessionRevisionConflict) {
             c.JSON(http.StatusConflict,gin.H{"error":"会话已结束或不属于当前账号，请刷新"})
         } else {
             c.JSON(http.StatusInternalServerError,gin.H{"error":"更新会话状态失败"})
