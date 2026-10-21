@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -122,7 +120,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   Widget _detailRow(String label, String value) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
