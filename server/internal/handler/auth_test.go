@@ -93,6 +93,11 @@ func TestRegister_AutoCreateDefaultLists(t *testing.T) {
 	if inboxCount != 1 {
 		t.Errorf("默认收集箱数量应为 1, 实际 %d", inboxCount)
 	}
+	var tags []model.SystemTag
+	tx.Where("user_id = ?", resp.User.ID).Find(&tags)
+	if len(tags) != 4 {
+		t.Errorf("注册应同时创建 4 个默认观察标签，实际 %d", len(tags))
+	}
 }
 
 func TestRegister_DuplicateUsername(t *testing.T) {
