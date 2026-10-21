@@ -649,22 +649,27 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                 (item) => item.label.toLowerCase().contains(_mobileQuery),
               ).toList(growable: false);
         final textScale = MediaQuery.textScalerOf(context).scale(1);
-        // 少量选项两列展示。字体增大或真实可用宽度不足时退回单列。
-        final twoColumns = !isCalendar && constraints.maxWidth >= 300 &&
-            textScale < 1.4 && visible.length <= 8;
-        final rows = twoColumns ? (visible.length + 1) ~/ 2 : visible.length;
         final noTags = _mobilePage == _MobileTaskPage.tag &&
             _availableTags.isEmpty && !_loadingTags && !_tagLoadFailed;
-        final height = math.min(
+        final tagStatus = _mobilePage == _MobileTaskPage.tag &&
+            (_loadingTags || _tagLoadFailed);
+        final availableHeight = math.min(
+          constraints.maxHeight,
           MediaQuery.sizeOf(context).height * (isCalendar ? .68 : .55),
-          isCalendar
-              ? 440.0
-              : 66.0 +
-                  (showSearch ? 58.0 : 0) +
-                  (noTags ? 28.0 : 0) +
-                  (_mobilePage == _MobileTaskPage.tag &&
-                          (_loadingTags || _tagLoadFailed) ? 84.0 : 0) +
-                  rows * 56.0,
+        );
+        final commonHeight = 66.0 +
+            (showSearch ? 58.0 : 0) +
+            (noTags ? 28.0 : 0) +
+            (tagStatus ? 84.0 : 0);
+        final gridRows = (visible.length + 1) ~/ 2;
+        // 双列必须实际放得下；短屏、键盘及大字体回退到可滚动单列。
+        final twoColumns = !isCalendar && constraints.maxWidth >= 300 &&
+            textScale < 1.4 && visible.length <= 8 &&
+            commonHeight + gridRows * 56.0 <= availableHeight;
+        final rows = twoColumns ? gridRows : visible.length;
+        final height = math.min(
+          availableHeight,
+          isCalendar ? 440.0 : commonHeight + rows * 56.0,
         );
 
         return SizedBox(
