@@ -513,7 +513,7 @@ func TestSessionPauseResumeExcludesPausedTime(t *testing.T) {
     pausedAt := now.Add(-2 * time.Minute)
     session := model.WorkSession{
         UserID: userID, SessionType: "work", StartedAt: now.Add(-15*time.Minute),
-        PausedAt: &pausedAt, PausedDurationSec: 300,
+        PausedAt: &pausedAt, PausedDurationSec: 300, Revision: 1,
     }
     if err := db.Create(&session).Error; err != nil { t.Fatal(err) }
 
