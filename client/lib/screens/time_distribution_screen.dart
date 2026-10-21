@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/api/analytics_api.dart';
 import '../theme/app_theme.dart';
