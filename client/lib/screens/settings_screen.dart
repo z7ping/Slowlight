@@ -8,6 +8,7 @@ import '../ai/ai_service.dart';
 import '../services/auth_service.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
+import '../services/github_sign_in.dart';
 import '../services/reminder_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_settings.dart';
@@ -39,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _loading = true;
   bool _syncing = false;
+  bool _linkingGitHub = false;
   bool _savingAi = false;
   late String _open;
   AiConfig _ai = const AiConfig();
@@ -157,6 +159,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   _groupLabel('数据与服务'),
+                                  if (DataModeManager().isCloud) ...[
+                                    _accordion(
+                                      id: 'account',
+                                      icon: LucideIcons.userRound,
+                                      title: '账号',
+                                      summary: '第三方登录与账号绑定',
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '将 GitHub 绑定到当前云端账号，保留已有任务与记录。不会按邮箱自动合并账号。',
+                                            style: SlowlightTypography.secondary(context),
+                                          ),
+                                          const SizedBox(height: SlowlightSpacing.md),
+                                          FxButton(
+                                            key: const ValueKey('settings.github_link'),
+                                            label: _linkingGitHub ? '等待 GitHub 授权…' : '绑定 GitHub',
+                                            icon: LucideIcons.github,
+                                            variant: FxButtonVariant.outline,
+                                            onPressed: _linkingGitHub ? null : _bindGitHub,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
                                   ListenableBuilder(
                                     listenable: SyncService(),
                                     builder: (context, _) =>
@@ -976,6 +1004,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _message(value ? '已启用$label' : '已关闭$label');
     } catch (e) {
       _message('保存休息提醒设置失败：$e');
+    }
+  }
+
+  Future<void> _bindGitHub() async {
+    if (DataModeManager().isLocal) return;
+    setState(() => _linkingGitHub = true);
+    try {
+      await GitHubSignIn.signIn(
+        linkExisting: true,
+        shouldContinue: () => mounted,
+      );
+      if (mounted) _message('GitHub 已绑定到当前云端账号');
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '绑定 GitHub 失败', e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _linkingGitHub = false);
     }
   }
 
