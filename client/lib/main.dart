@@ -289,6 +289,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _isLoading = true;
   bool _hasAccess = false;
+  int _authCheckGeneration = 0;
 
   @override
   void initState() {
@@ -300,12 +301,14 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void dispose() {
     authStateNotifier.removeListener(_onAuthChanged);
+    _authCheckGeneration++;
     super.dispose();
   }
 
   void _onAuthChanged() => _checkAuth();
 
   Future<void> _checkAuth() async {
+    final generation = ++_authCheckGeneration;
     var hasAccess = false;
     if (DataModeManager().isLocal) {
       CloudSyncCoordinator().stop();
@@ -325,7 +328,7 @@ class _AuthGateState extends State<AuthGate> {
         CloudSyncCoordinator().stop();
       }
     }
-    if (!mounted) return;
+    if (!mounted || generation != _authCheckGeneration) return;
     setState(() {
       _hasAccess = hasAccess;
       _isLoading = false;
