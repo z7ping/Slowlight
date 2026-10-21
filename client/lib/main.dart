@@ -11,6 +11,7 @@ import 'brand.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/api_service.dart';
 import 'services/notification_service.dart';
 import 'services/auto_start_service.dart';
 import 'services/tray_service.dart';
@@ -316,6 +317,13 @@ class _AuthGateState extends State<AuthGate> {
       hasAccess = true;
     } else {
       hasAccess = await AuthService.isLoggedIn();
+      if (hasAccess) {
+        try {
+          ApiService.validateCloudEndpoint();
+        } catch (_) {
+          hasAccess = false;
+        }
+      }
       if (hasAccess) {
         try {
           await CloudSyncCoordinator().start();
