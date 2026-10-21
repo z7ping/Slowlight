@@ -249,7 +249,7 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
 		}
 		session.SystemTagID = systemTagID
 
-		result := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL",session.ID,userID).
+		result = tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL",session.ID,userID).
             Updates(map[string]interface{}{"ended_at":session.EndedAt,"paused_at":nil,"paused_duration_sec":session.PausedDurationSec,"duration_sec":session.DurationSec,"system_tag_id":session.SystemTagID})
         if result.Error != nil { return result.Error }
         if result.RowsAffected == 0 { return gorm.ErrRecordNotFound }

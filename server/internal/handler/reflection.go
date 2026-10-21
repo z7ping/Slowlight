@@ -151,7 +151,7 @@ func (h *ReflectionHandler) Create(c *gin.Context) {
             }
         }
         return nil
-    }).Error; err != nil {
+    }); err != nil {
         if errors.Is(err, errRequestCollision) {
             c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
             return
