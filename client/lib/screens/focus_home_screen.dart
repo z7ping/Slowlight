@@ -12,6 +12,9 @@ import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../navigation/home_navigation_state.dart';
 import '../repositories/habit_repository.dart';
+import '../models/user.dart';
+import '../services/auth_service.dart';
+import '../services/data_mode_manager.dart';
 import '../services/data_service.dart';
 import '../services/notification_service.dart';
 import '../services/tray_service.dart';
@@ -58,6 +61,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   bool _hasLoadedCoreData = false;
   bool _initialLoadFailed = false;
   bool _organizeToolsExpanded = false;
+  late Future<Map<String, String>> _accountFuture;
   bool _shortcutModifierPressed = false;
   int _dashboardRefreshTick = 0;
   final FocusNode _shortcutFocusNode = FocusNode(
@@ -72,6 +76,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _accountFuture = _loadAccountDisplay();
     _reload();
     NotificationService().checkAndScheduleReminders();
     TrayService().loadAfterLogin();
@@ -406,7 +411,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
           // 让用户可以从系统手势区内侧稳定右滑打开抽屉。
           drawerEdgeDragWidth: 72,
           onDrawerChanged: (isOpened) {
-            if (isOpened) _lastAndroidBackAt = null;
+            if (isOpened) {
+              _lastAndroidBackAt = null;
+              _refreshAccount();
+            }
           },
           drawer: Drawer(
             width: math.min(304, MediaQuery.sizeOf(context).width * 0.84),
@@ -652,6 +660,85 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     };
   }
 
+  Future<Map<String, String>> _loadAccountDisplay() async {
+    if (DataModeManager().isLocal) {
+      return {'name': '本地使用', 'status': '记录保存在本机'};
+    }
+    if (!await AuthService.isLoggedIn()) {
+      return {'name': '未登录', 'status': '点击查看账号'};
+    }
+    final User? user = await AuthService.getUser();
+    String status = '云端账号';
+    try {
+      final linked = await AuthService.isGitHubLinked();
+      status = linked ? 'GitHub 已绑定 · 云端' : '云端账号';
+    } catch (_) {
+      // 旧服务端尚未提供绑定查询时，不能把未知标记为未绑定。
+    }
+    return {
+      'name': user?.nickname.isNotEmpty == true
+          ? user!.nickname
+          : (user?.username ?? '已登录'),
+      'status': status,
+    };
+  }
+
+  void _refreshAccount() {
+    if (mounted) setState(() => _accountFuture = _loadAccountDisplay());
+  }
+
+  Widget _accountEntry(void Function(Widget) openPage) {
+    final theme = Theme.of(context);
+    return FutureBuilder<Map<String, String>>(
+      future: _accountFuture,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        return FxInkWell(
+          key: const ValueKey('home.account_entry'),
+          onTap: () => openPage(const SettingsScreen(initialSection: 'account')),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              child: Row(
+                children: [
+                  Icon(LucideIcons.userRound, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          data?['name'] ?? '读取账号中…',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.secondary(context)
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          data?['status'] ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(LucideIcons.chevronRight,
+                      size: 16, color: theme.colorScheme.onSurfaceVariant),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _navigationPanel({bool closeDrawer = true}) {
     void selectPrimary(HomePrimarySection section) {
       if (closeDrawer) Navigator.pop(context);
@@ -665,7 +752,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
     void openPage(Widget page) {
       if (closeDrawer) Navigator.pop(context);
-      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page))
+          .then((_) => _refreshAccount());
     }
 
     final theme = Theme.of(context);
@@ -791,6 +879,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _accountEntry(openPage),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   child: SyncStatusBadge(showHealthy: true, showLocal: true),
