@@ -114,23 +114,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadAccount() async {
     if (DataModeManager().isLocal) {
-      if (mounted) setState(() => _loadingAccount = false);
+      if (mounted) {
+        setState(() {
+          _accountUser = null;
+          _githubLinked = null;
+          _loadingAccount = false;
+        });
+      }
       return;
     }
     try {
       final user = await AuthService.getUser();
+      if (!mounted) return;
+      setState(() {
+        _accountUser = user;
+        _githubLinked = null;
+        _loadingAccount = false;
+      });
+      // 请求只负责确认关联状态，网络失败时不可宣称未绑定。
       bool? linked;
       try {
         linked = await AuthService.isGitHubLinked();
       } catch (_) {
-        // 旧版本服务端/暂时离线：未知不等于未绑定。
+        return;
       }
-      if (!mounted) return;
-      setState(() {
-        _accountUser = user;
-        _githubLinked = linked;
-        _loadingAccount = false;
-      });
+      if (mounted) setState(() => _githubLinked = linked);
     } catch (_) {
       if (mounted) setState(() => _loadingAccount = false);
     }
