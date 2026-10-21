@@ -1,3 +1,6 @@
+import 'package:slowlight/models/tag.dart';
+import 'package:slowlight/repositories/tag_repository.dart';
+import 'package:slowlight/services/data_source.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +13,18 @@ import 'package:slowlight/widgets/tag_choice_field.dart';
 import 'package:slowlight/widgets/task_schedule_fields.dart';
 
 import '../support/fx_test_host.dart';
+
+
+class _CanonicalTagSource implements ApiDataSource {
+  @override
+  Future<List<Tag>> getTags() async => [
+    Tag(id: 101, name: '学习', color: '#1890ff', createdAt: DateTime(2026)),
+    Tag(id: 102, name: '复盘', color: '#52c41a', createdAt: DateTime(2026)),
+  ];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   testWidgets('Android 平板宽度超过 600dp 仍进入完整任务页面而非桌面弹窗', (tester) async {
@@ -709,4 +724,42 @@ void main() {
       expect(sheet.defaultDueToday, isFalse);
     });
   });
+
+  testWidgets('Android 快捷标签连续多选后点击完成返回编辑器', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskCreateSheet(
+          quickMode: true,
+          systemTagId: 101,
+          tagRepository: TagRepository(dataSource: _CanonicalTagSource()),
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('task-property-tag')));
+    await tester.pump();
+    await tester.tap(find.text('#学习'));
+    await tester.pump();
+    expect(find.text('选择标签'), findsOneWidget);
+    await tester.tap(find.text('#复盘'));
+    await tester.pump();
+    final first = tester.widget<FxListTile>(
+      find.byKey(const ValueKey('task-picker-option-tag-101')),
+    );
+    final second = tester.widget<FxListTile>(
+      find.byKey(const ValueKey('task-picker-option-tag-102')),
+    );
+    expect(first.selected, isTrue);
+    expect(second.selected, isTrue);
+    await tester.tap(find.text('完成'));
+    await tester.pump();
+    expect(find.text('2 个标签'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
