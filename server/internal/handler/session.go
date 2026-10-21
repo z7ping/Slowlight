@@ -60,6 +60,67 @@ func (h *SessionHandler) createSessionEndedBehaviorEvent(db *gorm.DB, session *m
 	return db.Create(&event).Error
 }
 
+// activeSeconds 只计算真正运行的秒数；尚未恢复的暂停段不会继续计时。
+func activeSeconds(session model.WorkSession, now time.Time) int {
+    until := now
+    if session.PausedAt != nil && session.PausedAt.Before(until) {
+        until = *session.PausedAt
+    }
+    seconds := int(until.Sub(session.StartedAt).Seconds()) - session.PausedDurationSec
+    if seconds < 0 { return 0 }
+    return seconds
+}
+
+func finishSessionTiming(session *model.WorkSession, now time.Time) {
+    session.DurationSec = activeSeconds(*session, now)
+    if session.PausedAt != nil {
+        paused := int(now.Sub(*session.PausedAt).Seconds())
+        if paused > 0 { session.PausedDurationSec += paused }
+    }
+    session.PausedAt = nil
+    session.EndedAt = &now
+}
+
+// transitionSession 以会话 ID 限定操作目标，避免多端重试误修改后来开启的新会话。
+// 条件写保证连续暂停/继续的重试幂等，同一暂停区间不会被重复累计。
+func (h *SessionHandler) transitionSession(c *gin.Context, pause bool) {
+    userID := c.GetUint("userID")
+    var req struct { SessionID uint `json:"session_id" binding:"required"` }
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error":"缺少有效的会话 ID"})
+        return
+    }
+    var session model.WorkSession
+    err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Where("id = ? AND user_id = ? AND ended_at IS NULL",req.SessionID,userID).First(&session).Error; err != nil {
+            return err
+        }
+        now := time.Now()
+        if pause && session.PausedAt == nil {
+            // 仅能从 running 进入 paused。
+            if err := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL AND paused_at IS NULL",req.SessionID,userID).
+                Update("paused_at",now).Error; err != nil { return err }
+        } else if !pause && session.PausedAt != nil {
+            paused := int(now.Sub(*session.PausedAt).Seconds())
+            if paused < 0 { paused = 0 }
+            if err := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL AND paused_at = ?",req.SessionID,userID,*session.PausedAt).
+                Updates(map[string]interface{}{"paused_at":nil,"paused_duration_sec":gorm.Expr("paused_duration_sec + ?",paused)}).Error; err != nil { return err }
+        }
+        return tx.Where("id = ? AND user_id = ? AND ended_at IS NULL",req.SessionID,userID).First(&session).Error
+    })
+    if err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusConflict,gin.H{"error":"会话已结束或不属于当前账号，请刷新"})
+        } else {
+            c.JSON(http.StatusInternalServerError,gin.H{"error":"更新会话状态失败"})
+        }
+        return
+    }
+    c.JSON(http.StatusOK,gin.H{"session":session})
+}
+func (h *SessionHandler) PauseSession(c *gin.Context) { h.transitionSession(c,true) }
+func (h *SessionHandler) ResumeSession(c *gin.Context) { h.transitionSession(c,false) }
+
 // StartSession 开始一个工作/休息会话
 func (h *SessionHandler) StartSession(c *gin.Context) {
 	userID := c.GetUint("userID")
@@ -91,8 +152,7 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 		result := tx.Where("user_id = ? AND ended_at IS NULL", userID).First(&existing)
 		if result.Error == nil {
 			now := time.Now()
-			existing.EndedAt = &now
-			existing.DurationSec = int(now.Sub(existing.StartedAt).Seconds())
+			finishSessionTiming(&existing, now)
 			existing.SystemTagID = h.resolveSessionSystemTag(tx, &existing)
 			if err := tx.Save(&existing).Error; err != nil {
 				return err
@@ -151,8 +211,7 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
 			return result.Error
 		}
 
-		session.EndedAt = &now
-		session.DurationSec = int(now.Sub(session.StartedAt).Seconds())
+		finishSessionTiming(&session, now)
 
 		// 有关联任务时优先继承任务标签；否则使用客户端显式选择。
 		systemTagID := h.resolveSessionSystemTag(tx, &session)
@@ -161,10 +220,11 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
 		}
 		session.SystemTagID = systemTagID
 
-		if err := tx.Save(&session).Error; err != nil {
-			return err
-		}
-		return h.createSessionEndedBehaviorEvent(tx, &session, now)
+		result := tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL",session.ID,userID).
+            Updates(map[string]interface{}{"ended_at":session.EndedAt,"paused_at":nil,"paused_duration_sec":session.PausedDurationSec,"duration_sec":session.DurationSec,"system_tag_id":session.SystemTagID})
+        if result.Error != nil { return result.Error }
+        if result.RowsAffected == 0 { return gorm.ErrRecordNotFound }
+        return h.createSessionEndedBehaviorEvent(tx, &session, now)
 	})
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
