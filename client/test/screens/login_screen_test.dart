@@ -77,7 +77,9 @@ void main() {
           (tester) async {
         debugDefaultTargetPlatformOverride = platform;
         addTearDown(() => debugDefaultTargetPlatformOverride = null);
-        tester.view.physicalSize = const Size(1280, 1000);
+        tester.view.physicalSize = platform == TargetPlatform.android
+            ? const Size(360, 800)
+            : const Size(1280, 720);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         await tester.pumpWidget(buildFxTestHost(
