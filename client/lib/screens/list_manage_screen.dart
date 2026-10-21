@@ -18,6 +18,8 @@ class ListManageScreen extends StatefulWidget {
 
 class _ListManageScreenState extends State<ListManageScreen> {
   bool _loading = true;
+  bool _hasLoaded = false;
+  bool _loadFailed = false;
   List<TodoList> _lists = const [];
   List<Task> _tasks = const [];
 
@@ -53,6 +55,12 @@ class _ListManageScreenState extends State<ListManageScreen> {
   }
 
   Future<void> _loadLists() async {
+    if (mounted && !_hasLoaded) {
+      setState(() {
+        _loading = true;
+        _loadFailed = false;
+      });
+    }
     try {
       final values = await Future.wait<dynamic>([
         DataService().getLists(),
@@ -63,9 +71,18 @@ class _ListManageScreenState extends State<ListManageScreen> {
         _lists = values[0] as List<TodoList>;
         _tasks = values[1] as List<Task>;
         _loading = false;
+        _hasLoaded = true;
+        _loadFailed = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+      if (_hasLoaded) {
+        FxNotice.showContent(context, const Text('清单刷新失败，仍显示上次加载的内容'));
+      }
     }
   }
 
@@ -330,6 +347,20 @@ class _ListManageScreenState extends State<ListManageScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: FxCircularProgress());
+    if (_loadFailed && !_hasLoaded) {
+      return Center(
+        child: FxEmptyState(
+          icon: LucideIcons.triangleAlert,
+          title: '清单加载失败',
+          subtitle: '数据未能读取，请检查连接后重试。',
+          action: FxButton(
+            label: '重新加载',
+            variant: FxButtonVariant.secondary,
+            onPressed: _loadLists,
+          ),
+        ),
+      );
+    }
     final theme = Theme.of(context);
     return FxRefresh(
       onRefresh: _loadLists,
