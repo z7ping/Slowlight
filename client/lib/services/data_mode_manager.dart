@@ -66,7 +66,7 @@ class DataModeManager extends ChangeNotifier {
 
   /// 切换模式。
   Future<void> setMode(DataMode mode) async {
-    if (_mode == mode) return;
+    if (_loaded && _mode == mode) return;
     // 先准备目标数据源并持久化，全部成功后再切换可见状态。
     // 初始化/写入失败不能让界面误以为切换已经生效。
     if (mode == DataMode.local) {
