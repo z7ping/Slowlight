@@ -149,10 +149,15 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                 ),
                 const SizedBox(height: 12),
                 if (mobile)
-                  FxButton(
-                    label: '记录打卡',
-                    expanded: true,
-                    onPressed: _submit,
+                  SizedBox(
+                    key: const ValueKey('habit-checkin-primary-action'),
+                    width: double.infinity,
+                    child: FxButton(
+                      label: '记录打卡',
+                      expanded: true,
+                      size: FxButtonSize.lg,
+                      onPressed: _submit,
+                    ),
                   )
                 else
                   Row(

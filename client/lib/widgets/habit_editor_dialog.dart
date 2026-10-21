@@ -65,6 +65,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late final TextEditingController _duration;
   List<ObservationTag> _tags = const [];
   bool _loadingTags = true;
+  String? _validationError;
   bool _canonicalTagsReady = false;
   List<Tag> _selectedTags = const [];
   late String _icon;
@@ -204,7 +205,23 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
 
   void _submit() {
     final name = _name.text.trim();
-    if (name.isEmpty) return;
+    final targetText = _targetDays.text.trim();
+    final durationText = _duration.text.trim();
+    final target = targetText.isEmpty ? 0 : int.tryParse(targetText);
+    final duration = durationText.isEmpty ? 0 : int.tryParse(durationText);
+    String? error;
+    if (name.isEmpty) {
+      error = '请填写习惯名称';
+    } else if (target == null || target < 0) {
+      error = '目标天数必须是 0 或正整数';
+    } else if (duration == null || duration < 0) {
+      error = '预期时长必须是 0 或正整数';
+    }
+    if (error != null) {
+      setState(() => _validationError = error);
+      return;
+    }
+    setState(() => _validationError = null);
     Navigator.pop(
       context,
       HabitEditorValue(
@@ -212,13 +229,13 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         icon: _icon,
         color: _color,
         frequency: _frequency,
-        targetDays: int.tryParse(_targetDays.text.trim()) ?? 0,
+        targetDays: target!,
         systemTagId: _systemTagId,
         tagIds: _canonicalTagsReady
             ? _selectedTags.map((tag) => tag.id).toList(growable: false)
             : null,
         preferredPeriod: _preferredPeriod,
-        durationMin: int.tryParse(_duration.text.trim()) ?? 0,
+        durationMin: duration!,
         generateTask: _generateTask,
         showCheckinDialog: _showCheckinDialog,
         specificTime: _specificTime == null ? '' : _formatTime(_specificTime!),
@@ -463,6 +480,20 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
               ),
             ),
             FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+            if (_validationError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _validationError!,
+                    key: const ValueKey('habit-editor-validation-error'),
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               child: Wrap(

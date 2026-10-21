@@ -179,6 +179,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   int _reminderAdvanceMinutes = -1;
   late String _selectedPriority;
   bool _loadingLists = true;
+  bool _listLoadFailed = false;
   bool _saving = false;
   String? _error;
   _MobileTaskPage? _mobilePage;
@@ -213,9 +214,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         _lists = lists;
         _selectedListId = inbox?.id ?? (lists.isEmpty ? null : lists.first.id);
         _loadingLists = false;
+        _listLoadFailed = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loadingLists = false);
+      if (!mounted) return;
+      setState(() {
+        _loadingLists = false;
+        _listLoadFailed = true;
+      });
     }
   }
 
@@ -227,6 +233,30 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       // 标签读取失败不影响无标签记录，也不清空预设关联。
     }
   }
+
+  Widget _listLoadNotice() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '清单暂时无法加载，请重试后再添加任务。',
+          style: SlowlightTypography.secondary(context).copyWith(
+            color: Theme.of(context).colorScheme.error,
+          ),
+        ),
+        FxButton(
+          label: '重新加载清单',
+          variant: FxButtonVariant.outline,
+          size: FxButtonSize.sm,
+          onPressed: _loadingLists ? null : () {
+            setState(() => _loadingLists = true);
+            _loadLists();
+          },
+        ),
+      ],
+    ),
+  );
 
   TodoList? _inboxOf(List<TodoList> lists) {
     for (final list in lists) {
@@ -327,6 +357,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         childrenPadding: const EdgeInsets.only(bottom: 8),
         children: [_advancedContent(context)],
       ),
+      if (_listLoadFailed) _listLoadNotice(),
       if (_error != null) ...[
         const SizedBox(height: SlowlightSpacing.md),
         Text(
@@ -744,6 +775,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           childrenPadding: const EdgeInsets.only(bottom: 8),
           children: [_advancedContent(context)],
         ),
+        if (_listLoadFailed) _listLoadNotice(),
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -857,6 +889,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
   Future<void> _createTask() async {
     final title = _titleController.text.trim();
+    if (_listLoadFailed || _loadingLists) {
+      setState(() => _error = '清单尚未就绪，请先重新加载清单');
+      return;
+    }
     if (title.isEmpty || _saving) {
       if (title.isEmpty) setState(() => _error = '先写下要做的事情');
       return;

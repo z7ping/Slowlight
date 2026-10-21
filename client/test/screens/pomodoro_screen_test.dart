@@ -31,6 +31,29 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('专注设置在 Android 360dp 与双倍字体下可以滚动', (tester) async {
+    tester.view.physicalSize = const Size(360, 680);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(2),
+        ),
+        child: child!,
+      ),
+      home: const PomodoroScreen(),
+    ));
+    await tester.pump();
+    await tester.tap(fxTooltipFinder('专注设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('专注时长'), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('专注设置关闭后不会残留遮罩', (tester) async {
     await tester.pumpWidget(buildFxTestHost(home: const PomodoroScreen()));
     await tester.pump();

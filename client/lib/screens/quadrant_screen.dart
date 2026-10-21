@@ -27,6 +27,8 @@ class QuadrantScreen extends StatefulWidget {
 
 class _QuadrantScreenState extends State<QuadrantScreen> {
   bool _loading = true;
+  bool _hasLoadedData = false;
+  bool _initialLoadFailed = false;
   List<Task> _tasks = const [];
   List<TodoList> _lists = const [];
   String? _dragTarget;
@@ -48,9 +50,18 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             .toList(growable: false);
         _lists = values.lists;
         _loading = false;
+        _hasLoadedData = true;
+        _initialLoadFailed = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _initialLoadFailed = !_hasLoadedData;
+      });
+      if (_hasLoadedData) {
+        FxNotice.showContent(context, const Text('刷新失败，仍显示上次加载的任务'));
+      }
     }
   }
 
@@ -69,6 +80,22 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: FxCircularProgress());
+    if (_initialLoadFailed) {
+      return Center(
+        child: SingleChildScrollView(
+          child: FxEmptyState(
+            key: const ValueKey('quadrant-load-error'),
+            icon: LucideIcons.triangleAlert,
+            title: '暂时无法加载四象限',
+            subtitle: '任务或清单读取失败，请检查数据服务后重试。',
+            action: FxButton(
+              label: '重新加载',
+              onPressed: _load,
+            ),
+          ),
+        ),
+      );
+    }
     final desktop = ResponsiveLayout.isDesktopOrWider(context);
     final cells = [
       _quadrant(

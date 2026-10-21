@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
 import 'package:slowlight/screens/habit_tool_screen.dart';
+import 'package:slowlight/widgets/habit_editor_dialog.dart';
+import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -54,4 +56,26 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('习惯编辑名称为空不静默失败，错误数字不再变成 0', (tester) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: HabitEditorDialog()),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.text('创建习惯'));
+    await tester.pump();
+    expect(find.text('请填写习惯名称'), findsOneWidget);
+
+    await tester.enterText(find.byType(FxInput).first, '每日阅读');
+    await tester.enterText(find.byType(FxInput).at(1), '错误数字');
+    await tester.tap(find.text('创建习惯'));
+    await tester.pump();
+    expect(find.text('目标天数必须是 0 或正整数'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }

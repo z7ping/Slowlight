@@ -37,6 +37,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   String _sessionType = 'work';
   bool _running = false;
   bool _activeSession = false;
+  bool _finalizingSession = false;
+  String? _finishError;
   int _completedSessions = 0;
   int _todayWorkSeconds = 0;
   int _todayWorkCount = 0;
@@ -119,16 +121,26 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   void _startTicker() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_remainingSeconds <= 0) {
+      if (!mounted) {
         _timer?.cancel();
-        _finishNaturally();
         return;
       }
-      if (mounted) setState(() => _remainingSeconds--);
+      if (_remainingSeconds <= 1) {
+        setState(() => _remainingSeconds = 0);
+        _timer?.cancel();
+        unawaited(_finishNaturally());
+        return;
+      }
+      setState(() => _remainingSeconds--);
     });
   }
 
   Future<void> _start() async {
+    if (_finalizingSession) return;
+    if (_activeSession && _remainingSeconds <= 0) {
+      await _finishNaturally();
+      return;
+    }
     if (!_activeSession) {
       try {
         await _sessions.startSession(
@@ -147,92 +159,122 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   void _pause() {
+    if (_finalizingSession) return;
     _timer?.cancel();
     setState(() => _running = false);
   }
 
-  Future<void> _endSessionWithTags(List<int>? tagIds) async {
+  /// 结束会话是核心写入；标签是附加写入。两者状态必须分别反馈，
+  /// 否则标签保存失败时会把已结束的专注误当成整轮失败。
+  Future<bool> _endSessionWithTags(List<int>? tagIds) async {
     final result = await _sessions.endSession();
-    if (tagIds == null || tagIds.isEmpty) return;
-    final session = result['session'];
-    final rawId = session is Map ? session['id'] : null;
-    if (rawId is! num || rawId.toInt() <= 0) {
-      throw StateError('会话结束响应缺少有效记录 ID，未写入标签');
+    if (tagIds == null || tagIds.isEmpty) return true;
+    try {
+      final session = result['session'];
+      final rawId = session is Map ? session['id'] : null;
+      if (rawId is! num || rawId.toInt() <= 0) {
+        throw StateError('缺少结束记录的有效 ID');
+      }
+      await TagLinksRepository().replaceFor(
+        TagLinkedEntity.session,
+        rawId.toInt(),
+        tagIds,
+      );
+      return true;
+    } catch (_) {
+      return false;
     }
-    await TagLinksRepository().replaceFor(
-      TagLinkedEntity.session,
-      rawId.toInt(),
-      tagIds,
-    );
   }
 
   Future<void> _finishNaturally() async {
+    if (_finalizingSession) return;
+    setState(() {
+      _finalizingSession = true;
+      _running = false;
+      _finishError = null;
+    });
+    _timer?.cancel();
+
+    List<int>? tagIds;
+    if (_sessionType == 'work' && mounted) {
+      tagIds = await SystemTagPicker.showMultiple(context);
+    }
+    if (!mounted) return;
+
+    var tagsSaved = true;
+    try {
+      if (_activeSession) tagsSaved = await _endSessionWithTags(tagIds);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _finalizingSession = false;
+        _finishError = '结束记录未能保存，请重试。';
+      });
+      return;
+    }
+    if (!mounted) return;
+    _activeSession = false;
     if (_soundEnabled) {
       try {
         await SystemSound.play(SystemSoundType.alert);
       } catch (_) {}
     }
-
+    if (!mounted) return;
     if (_sessionType == 'work') {
-      List<int>? tagIds;
-      if (mounted) {
-        tagIds = await SystemTagPicker.showMultiple(context);
-      }
-      try {
-        if (_activeSession) await _endSessionWithTags(tagIds);
-      } catch (_) {
-        _message('结束专注或保存标签失败');
-      }
-      _activeSession = false;
       _completedSessions++;
-      final duration = _workMinutes;
-      if (!mounted) return;
-      _showCompletion('专注了 $duration 分钟');
+      _showCompletion(tagsSaved ? '专注了 $_workMinutes 分钟' : '专注已结束，但标签未保存');
       final longBreak = _completedSessions % _sessionsBeforeLong == 0;
       setState(() {
         _sessionType = longBreak ? 'long_break' : 'break';
-        _remainingSeconds =
-            (longBreak ? _longBreakMinutes : _breakMinutes) * 60;
+        _remainingSeconds = (longBreak ? _longBreakMinutes : _breakMinutes) * 60;
         _running = false;
+        _finalizingSession = false;
       });
     } else {
-      try {
-        if (_activeSession) await _sessions.endSession();
-      } catch (_) {}
-      _activeSession = false;
-      if (!mounted) return;
       _showCompletion('休息结束');
       setState(() {
         _sessionType = 'work';
         _remainingSeconds = _workMinutes * 60;
         _running = false;
+        _finalizingSession = false;
       });
     }
     await _loadTodayStats();
-    if (_autoStartNext && mounted) {
-      await _start();
-    }
+    if (_autoStartNext && mounted) await _start();
   }
 
   Future<void> _stop() async {
+    if (_finalizingSession) return;
     _timer?.cancel();
-    if (_activeSession) {
-      List<int>? tagIds;
-      if (_sessionType == 'work') {
-        final elapsed = _workMinutes * 60 - _remainingSeconds;
-        if (elapsed >= _workMinutes * 30 && mounted) {
-          tagIds = await SystemTagPicker.showMultiple(context);
-        }
-      }
-      try {
-        await _endSessionWithTags(tagIds);
-      } catch (_) {
-        _message('结束专注或保存标签失败');
+    setState(() {
+      _finalizingSession = true;
+      _running = false;
+      _finishError = null;
+    });
+    List<int>? tagIds;
+    if (_activeSession && _sessionType == 'work') {
+      final elapsed = _workMinutes * 60 - _remainingSeconds;
+      if (elapsed >= _workMinutes * 30 && mounted) {
+        tagIds = await SystemTagPicker.showMultiple(context);
       }
     }
-    _activeSession = false;
     if (!mounted) return;
+    var tagsSaved = true;
+    try {
+      if (_activeSession) tagsSaved = await _endSessionWithTags(tagIds);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _finalizingSession = false;
+        _finishError = '结束记录未能保存，请重试结束。';
+      });
+      return;
+    }
+    if (!mounted) return;
+    if (!tagsSaved) _message('专注已结束，但关联标签保存失败');
     setState(() {
+      _activeSession = false;
+      _finalizingSession = false;
       _sessionType = 'work';
       _remainingSeconds = _workMinutes * 60;
       _running = false;
@@ -262,118 +304,125 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       child: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
-          return SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _settingsLine(
-                  dialogContext,
-                  title: '专注时长',
-                  subtitle: '每轮工作分钟数',
-                  trailing: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [25, 45, 60]
-                        .map((minutes) {
-                          final selected = work == minutes;
-                          return FxChip(
-                            label: '$minutes',
-                            onTap: () => setDialogState(() => work = minutes),
-                            backgroundColor:
-                                selected
-                                    ? activePalette.accent.withValues(
-                                      alpha: .12,
-                                    )
-                                    : fxSubtleSurface(dialogContext),
-                            foregroundColor:
-                                selected
-                                    ? activePalette.accent
-                                    : theme.colorScheme.onSurface,
-                            borderColor:
-                                selected
-                                    ? activePalette.accent.withValues(
-                                      alpha: .35,
-                                    )
-                                    : theme.colorScheme.outlineVariant,
-                            borderRadius: 999,
-                          );
-                        })
-                        .toList(growable: false),
-                  ),
-                ),
-                _settingsLine(
-                  dialogContext,
-                  title: '自动开始下一轮',
-                  subtitle: '短休息后直接进入专注',
-                  trailing: FxSwitch(
-                    value: autoStart,
-                    onChanged:
-                        (value) => setDialogState(() => autoStart = value),
-                  ),
-                ),
-                _settingsLine(
-                  dialogContext,
-                  title: '结束音效',
-                  subtitle: '铃声提醒本轮结束',
-                  trailing: FxSwitch(
-                    value: soundEnabled,
-                    onChanged:
-                        (value) => setDialogState(() => soundEnabled = value),
-                  ),
-                ),
-                _settingsLine(
-                  dialogContext,
-                  title: '关联任务',
-                  subtitle: '产出计入该任务',
-                  trailing: SizedBox(
-                    width: 150,
-                    child: FxSelect<int>(
-                      value: linkedTaskId ?? 0,
-                      options: [
-                        const FxSelectOption(value: 0, label: '不关联'),
-                        ..._todayTasks.map(
-                          (task) =>
-                              FxSelectOption(value: task.id, label: task.title),
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * .72,
+            ),
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _settingsLine(
+                      dialogContext,
+                      title: '专注时长',
+                      subtitle: '每轮工作分钟数',
+                      trailing: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [25, 45, 60]
+                            .map((minutes) {
+                              final selected = work == minutes;
+                              return FxChip(
+                                label: '$minutes',
+                                onTap: () => setDialogState(() => work = minutes),
+                                backgroundColor:
+                                    selected
+                                        ? activePalette.accent.withValues(
+                                          alpha: .12,
+                                        )
+                                        : fxSubtleSurface(dialogContext),
+                                foregroundColor:
+                                    selected
+                                        ? activePalette.accent
+                                        : theme.colorScheme.onSurface,
+                                borderColor:
+                                    selected
+                                        ? activePalette.accent.withValues(
+                                          alpha: .35,
+                                        )
+                                        : theme.colorScheme.outlineVariant,
+                                borderRadius: 999,
+                              );
+                            })
+                            .toList(growable: false),
+                      ),
+                    ),
+                    _settingsLine(
+                      dialogContext,
+                      title: '自动开始下一轮',
+                      subtitle: '短休息后直接进入专注',
+                      trailing: FxSwitch(
+                        value: autoStart,
+                        onChanged:
+                            (value) => setDialogState(() => autoStart = value),
+                      ),
+                    ),
+                    _settingsLine(
+                      dialogContext,
+                      title: '结束音效',
+                      subtitle: '铃声提醒本轮结束',
+                      trailing: FxSwitch(
+                        value: soundEnabled,
+                        onChanged:
+                            (value) => setDialogState(() => soundEnabled = value),
+                      ),
+                    ),
+                    _settingsLine(
+                      dialogContext,
+                      title: '关联任务',
+                      subtitle: '产出计入该任务',
+                      trailing: SizedBox(
+                        width: 150,
+                        child: FxSelect<int>(
+                          value: linkedTaskId ?? 0,
+                          options: [
+                            const FxSelectOption(value: 0, label: '不关联'),
+                            ..._todayTasks.map(
+                              (task) =>
+                                  FxSelectOption(value: task.id, label: task.title),
+                            ),
+                          ],
+                          onChanged:
+                              (value) => setDialogState(
+                                () =>
+                                    linkedTaskId =
+                                        value == null || value == 0 ? null : value,
+                              ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        FxButton(
+                          label: '取消',
+                          variant: FxButtonVariant.outline,
+                          size: FxButtonSize.sm,
+                          onPressed:
+                              () => Navigator.of(
+                                dialogContext,
+                                rootNavigator: true,
+                              ).pop(false),
+                        ),
+                        const SizedBox(width: 8),
+                        FxButton(
+                          label: '保存设置',
+                          size: FxButtonSize.sm,
+                          onPressed:
+                              () => Navigator.of(
+                                dialogContext,
+                                rootNavigator: true,
+                              ).pop(true),
                         ),
                       ],
-                      onChanged:
-                          (value) => setDialogState(
-                            () =>
-                                linkedTaskId =
-                                    value == null || value == 0 ? null : value,
-                          ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    FxButton(
-                      label: '取消',
-                      variant: FxButtonVariant.outline,
-                      size: FxButtonSize.sm,
-                      onPressed:
-                          () => Navigator.of(
-                            dialogContext,
-                            rootNavigator: true,
-                          ).pop(false),
-                    ),
-                    const SizedBox(width: 8),
-                    FxButton(
-                      label: '保存设置',
-                      size: FxButtonSize.sm,
-                      onPressed:
-                          () => Navigator.of(
-                            dialogContext,
-                            rootNavigator: true,
-                          ).pop(true),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           );
         },
@@ -400,40 +449,54 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     required Widget trailing,
   }) {
     final theme = Theme.of(dialogContext);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 58),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: SlowlightTypography.secondary(
-                    dialogContext,
-                  ).copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: SlowlightTypography.caption(
-                    dialogContext,
-                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack = constraints.maxWidth < 290 ||
+            MediaQuery.textScalerOf(context).scale(1) >= 1.4;
+        final copy = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: SlowlightTypography.secondary(dialogContext).copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: SlowlightTypography.caption(dialogContext).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
+        return Container(
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
-          const SizedBox(width: 12),
-          trailing,
-        ],
-      ),
+          child: stack
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    copy,
+                    const SizedBox(height: 8),
+                    Align(alignment: Alignment.centerRight, child: trailing),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: copy),
+                    const SizedBox(width: 12),
+                    trailing,
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -572,27 +635,44 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 children: [
                   if (!_running)
                     FxButton(
-                      label: _remainingSeconds == totalSeconds ? '开始专注' : '继续',
+                      label: _remainingSeconds == 0 && _activeSession
+                          ? '重试保存本轮'
+                          : _activeSession
+                              ? '继续'
+                              : isWork ? '开始专注' : '开始休息',
                       icon: LucideIcons.play,
-                      onPressed: _start,
+                      onPressed: _finalizingSession ? null : _start,
                     )
                   else
                     FxButton(
                       label: '暂停',
                       icon: LucideIcons.pause,
                       variant: FxButtonVariant.outline,
-                      onPressed: _pause,
+                      onPressed: _finalizingSession ? null : _pause,
                     ),
                   if (_activeSession)
                     FxButton(
-                      label: '结束专注',
+                      label: _finalizingSession
+                          ? '保存中…'
+                          : isWork ? '结束专注' : '结束休息',
                       size: FxButtonSize.lg,
                       variant: FxButtonVariant.destructive,
-                      onPressed: _stop,
+                      onPressed: _finalizingSession ? null : _stop,
                     ),
                 ],
               ),
             ),
+            if (_finishError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _finishError!,
+                key: const ValueKey('pomodoro-finish-error'),
+                textAlign: TextAlign.center,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             AnimatedOpacity(
               opacity: quietOpacity,
