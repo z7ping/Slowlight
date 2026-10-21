@@ -102,6 +102,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(TagChoiceField), findsOneWidget);
+    expect(tester.widget<TagChoiceField>(find.byType(TagChoiceField)).onMultipleChanged, isNotNull);
     expect(find.text('无标签'), findsOneWidget);
     expect(find.text('标签'), findsOneWidget);
 
@@ -465,6 +466,10 @@ void main() {
     expect(find.text('选择标签'), findsOneWidget);
     expect(originalController.text, '买一本书\n记录原因');
     await tester.tap(find.text('无标签').last);
+    await tester.pump();
+    // 多选页保持打开，用户明确点击「完成」才返回编辑器。
+    expect(find.text('选择标签'), findsOneWidget);
+    await tester.tap(find.text('完成'));
     await tester.pumpAndSettle();
     expect(tester.widget<EditableText>(find.byType(EditableText).first)
         .controller, same(originalController));
