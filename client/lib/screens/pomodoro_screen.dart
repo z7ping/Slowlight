@@ -121,12 +121,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   void _startTicker() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_remainingSeconds <= 0) {
+      if (!mounted) {
         _timer?.cancel();
-        _finishNaturally();
         return;
       }
-      if (mounted) setState(() => _remainingSeconds--);
+      if (_remainingSeconds <= 1) {
+        setState(() => _remainingSeconds = 0);
+        _timer?.cancel();
+        unawaited(_finishNaturally());
+        return;
+      }
+      setState(() => _remainingSeconds--);
     });
   }
 
