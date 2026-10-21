@@ -5,6 +5,7 @@ import 'package:slowlight/ai/ai_models.dart';
 
 class FakeSecretStore implements AiSecretStore {
   final values = <AiProviderType, String>{};
+  bool failNextWrite = false;
 
   @override
   Future<void> delete(AiProviderType provider) async => values.remove(provider);
@@ -14,8 +15,20 @@ class FakeSecretStore implements AiSecretStore {
 
   @override
   Future<void> write(AiProviderType provider, String value) async {
+    if (failNextWrite) {
+      failNextWrite = false;
+      throw StateError('secure store unavailable');
+    }
     values[provider] = value;
   }
+}
+
+class _FailingConfigStore extends AiConfigStore {
+  _FailingConfigStore({required super.secrets});
+
+  @override
+  Future<void> save(AiConfig config) async =>
+      throw StateError('preferences unavailable');
 }
 
 void main() {
@@ -64,4 +77,59 @@ void main() {
     expect(allPrefs, isNot(contains('sk-secret')));
     expect(await store.loadApiKey(AiProviderType.deepseek), 'sk-secret');
   });
+  test('credential write failure never publishes new active configuration', () async {
+    final secrets = FakeSecretStore()..failNextWrite = true;
+    final store = AiConfigStore(secrets: secrets);
+    final candidate = const AiConfig(
+      enabled: true,
+      provider: AiProviderType.openai,
+      model: 'test-model',
+    );
+
+    await expectLater(
+      store.saveConfiguration(candidate, newApiKey: 'secret-new'),
+      throwsStateError,
+    );
+    expect((await store.load()).enabled, false);
+    expect(await store.loadApiKey(AiProviderType.openai), isNull);
+  });
+
+  test('preference commit failure restores the previous provider credential', () async {
+    final secrets = FakeSecretStore();
+    await secrets.write(AiProviderType.deepseek, 'secret-original');
+    final store = _FailingConfigStore(secrets: secrets);
+    await expectLater(
+      store.saveConfiguration(
+        const AiConfig(enabled: true, provider: AiProviderType.deepseek),
+        newApiKey: 'secret-next',
+      ),
+      throwsStateError,
+    );
+    expect(await store.loadApiKey(AiProviderType.deepseek), 'secret-original');
+    expect((await store.load()).enabled, false);
+  });
+
+  test('credential preservation and all four provider configurations use one store', () async {
+    final secrets = FakeSecretStore();
+    final store = AiConfigStore(secrets: secrets);
+    for (final provider in AiProviderType.values) {
+      final config = AiConfig(
+        enabled: true,
+        provider: provider,
+        endpoint: 'https://example.org/v1',
+        model: 'example-model',
+      );
+      await store.saveConfiguration(
+        config,
+        newApiKey: provider.apiKeyRequired ? 'secret-' + provider.name : null,
+      );
+      expect((await store.load()).provider, provider);
+    }
+    expect(await store.loadApiKey(AiProviderType.openai), 'secret-openai');
+    expect(await store.loadApiKey(AiProviderType.deepseek), 'secret-deepseek');
+    expect(await store.loadApiKey(AiProviderType.compatible), isNull);
+    expect(AiProviderType.compatible.apiKeyRequired, false);
+    expect(AiProviderType.ollama.apiKeyRequired, false);
+  });
+
 }
