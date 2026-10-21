@@ -386,21 +386,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     final selected = desktop && _open == id;
     final theme = Theme.of(context);
-    return FxListTile(
-      key: ValueKey('settings.category.$id'),
-      density: desktop
-          ? FxListTileDensity.sidebar
-          : FxListTileDensity.detailed,
-      minTileHeight: desktop ? 44.0 : 58.0,
-      title: _sectionTitle(id),
-      subtitle: desktop ? null : _sectionDescription(id),
-      leading: Icon(icon, size: 20),
-      trailing: desktop ? null : Icon(LucideIcons.chevronRight,
-        size: 18, color: theme.colorScheme.onSurfaceVariant),
-      selected: selected,
-      selectedColor: theme.colorScheme.primary,
-      selectedTileColor: theme.colorScheme.primary.withValues(alpha: .07),
-      onTap: () => _openSection(id),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 单列导航的摘要靠右；空间不足或大字体时保留二行可读性。
+        final stackSummary = !desktop &&
+            (constraints.maxWidth < 400 ||
+                MediaQuery.textScalerOf(context).scale(1) >= 1.6);
+        return FxListTile(
+          key: ValueKey('settings.category.$id'),
+          density: desktop
+              ? FxListTileDensity.sidebar
+              : stackSummary
+                  ? FxListTileDensity.detailed
+                  : FxListTileDensity.standard,
+          minTileHeight: desktop ? 44.0 : 58.0,
+          title: _sectionTitle(id),
+          subtitle: stackSummary ? _sectionDescription(id) : null,
+          leading: Icon(icon, size: 20),
+          trailing: desktop
+              ? null
+              : stackSummary
+                  ? Icon(
+                      LucideIcons.chevronRight,
+                      key: ValueKey('settings.chevron.$id'),
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    )
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * .5,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _sectionDescription(id),
+                              key: ValueKey('settings.summary.$id'),
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: SlowlightTypography.caption(context)
+                                  .copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            LucideIcons.chevronRight,
+                            key: ValueKey('settings.chevron.$id'),
+                            size: 18,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ),
+          selected: selected,
+          selectedColor: theme.colorScheme.primary,
+          selectedTileColor: theme.colorScheme.primary.withValues(alpha: .07),
+          onTap: () => _openSection(id),
+        );
+      },
     );
   }
 
