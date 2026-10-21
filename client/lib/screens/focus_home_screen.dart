@@ -55,6 +55,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   List<Task> _tasks = const [];
   List<Habit> _habits = const [];
   bool _loading = true;
+  bool _hasLoadedCoreData = false;
+  bool _initialLoadFailed = false;
   bool _organizeToolsExpanded = false;
   bool _shortcutModifierPressed = false;
   int _dashboardRefreshTick = 0;
@@ -120,12 +122,18 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
         _tasks = results[1] as List<Task>;
         _habits = results[2] as List<Habit>;
         _loading = false;
+        _hasLoadedCoreData = true;
+        _initialLoadFailed = false;
         _dashboardRefreshTick++;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
-      _message('数据加载失败');
+      setState(() {
+        _loading = false;
+        // Do not display an empty Today view as if the user had no records.
+        _initialLoadFailed = !_hasLoadedCoreData;
+      });
+      if (_hasLoadedCoreData) _message('数据刷新失败，仍显示上次加载的内容');
     }
   }
 
@@ -352,8 +360,24 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final desktop = ResponsiveLayout.isDesktopOrWider(context);
-    final content =
-        _loading ? const Center(child: FxCircularProgress()) : _buildContent();
+    final content = _loading
+        ? const Center(child: FxCircularProgress())
+        : _initialLoadFailed
+            ? Center(
+                child: SingleChildScrollView(
+                  child: FxEmptyState(
+                    key: const ValueKey('home-core-load-error'),
+                    icon: LucideIcons.triangleAlert,
+                    title: '暂时无法加载记录',
+                    subtitle: '清单、任务或习惯数据读取失败，请检查服务连接后重试。',
+                    action: FxButton(
+                      label: '重新加载',
+                      onPressed: _reload,
+                    ),
+                  ),
+                ),
+              )
+            : _buildContent();
 
     if (desktop) {
       return _shortcutRegion(
