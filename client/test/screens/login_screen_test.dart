@@ -11,6 +11,7 @@ void main() {
     testWidgets('空凭据提交会被本地校验拦截', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
+      expect(find.byKey(const ValueKey('login.primary_action')), findsOneWidget);
 
       await tester.tap(find.text('登录'));
       await tester.pump();
