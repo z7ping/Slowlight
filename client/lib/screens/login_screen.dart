@@ -103,132 +103,217 @@ class _LoginScreenState extends State<LoginScreen> {
     FxNotice.showContent(context, Text(text));
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildLoginContents(BuildContext context, {required bool compactHeight}) {
     final theme = Theme.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                children: [
-                  const SlowlightLogo(size: 52),
-                  const SizedBox(height: 14),
-                  Text(
-                    kBrandDisplayName,
-                    textAlign: TextAlign.center,
-                    style: SlowlightTypography.pageTitle(context),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '登录云端，跨设备保存你的记录；也可选择本地独立使用',
-                    textAlign: TextAlign.center,
-                    style: SlowlightTypography.secondary(
-                      context,
-                    ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 22),
-                  FxInput(
-                    controller: _usernameController,
-                    enabled: !_isLoading,
-                    textInputAction: TextInputAction.next,
-                    placeholder: _isLogin ? '邮箱或用户名' : '用户名',
-                  ),
-                  if (!_isLogin) ...[
-                    const SizedBox(height: 8),
-                    FxInput(
-                      controller: _emailController,
-                      enabled: !_isLoading,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      placeholder: '邮箱',
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  FxInput(
-                    controller: _passwordController,
-                    enabled: !_isLoading,
-                    obscureText: _obscurePassword,
-                    textInputAction:
-                        _isLogin ? TextInputAction.done : TextInputAction.next,
-                    onSubmitted: _isLogin ? (_) => _submit() : null,
-                    placeholder: '密码',
-                    trailing: FxIconButton(
-                      tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                      onPressed:
-                          () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                      icon:
-                          _obscurePassword
-                              ? LucideIcons.eye
-                              : LucideIcons.eyeOff,
-                      iconSize: 17,
-                    ),
-                  ),
-                  if (!_isLogin) ...[
-                    const SizedBox(height: 8),
-                    FxInput(
-                      controller: _nicknameController,
-                      enabled: !_isLoading,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _submit(),
-                      placeholder: '昵称（可选）',
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  FxButton(
-                    label:
-                        _isLoading
-                            ? '处理中…'
-                            : _isLogin
-                            ? '登录'
-                            : '注册',
-                    expanded: true,
-                    onPressed: _isLoading ? null : _submit,
-                  ),
-                  const SizedBox(height: 18),
-                  FxSeparator.horizontal(
-                    color: theme.colorScheme.outlineVariant,
-                  ),
-                  const SizedBox(height: 12),
-                  FxButton(
-                    label: '仅使用本地数据（不与云端自动同步）',
-                    icon: LucideIcons.smartphone,
-                    variant: FxButtonVariant.link,
-                    expanded: true,
-                    onPressed: _isLoading ? null : _useLocal,
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 4,
-                    children: [
-                      Text(
-                        _isLogin ? '还没有账号？' : '已有账号？',
-                        style: SlowlightTypography.caption(
-                          context,
-                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      FxButton(
-                        label: _isLogin ? '注册' : '登录',
-                        variant: FxButtonVariant.link,
-                        size: FxButtonSize.sm,
-                        onPressed:
-                            _isLoading
-                                ? null
-                                : () => setState(() => _isLogin = !_isLogin),
-                      ),
-                    ],
-                  ),
-                ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SlowlightLogo(size: compactHeight ? 60 : 72),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              Text(
+                kBrandDisplayName,
+                style: SlowlightTypography.hero(context).copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: SlowlightSpacing.xs),
+              Text(
+                kBrandTagline,
+                textAlign: TextAlign.center,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: compactHeight ? SlowlightSpacing.page : 40),
+        Text(
+          _isLogin ? '欢迎回来' : '创建云端账号',
+          style: SlowlightTypography.hero(context).copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        Text(
+          _isLogin
+              ? '登录后，让每一段记录在设备间延续。'
+              : '用一个账号，保存值得回看的日常。',
+          style: SlowlightTypography.secondary(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.page),
+        FxInput(
+          controller: _usernameController,
+          enabled: !_isLoading,
+          textInputAction: TextInputAction.next,
+          label: '账号',
+          placeholder: _isLogin ? '邮箱或用户名' : '设置用户名',
+        ),
+        if (!_isLogin) ...[
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          FxInput(
+            controller: _emailController,
+            enabled: !_isLoading,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            label: '邮箱',
+            placeholder: '请输入邮箱',
+          ),
+        ],
+        const SizedBox(height: SlowlightSpacing.xxxl),
+        FxInput(
+          controller: _passwordController,
+          enabled: !_isLoading,
+          obscureText: _obscurePassword,
+          textInputAction:
+              _isLogin ? TextInputAction.done : TextInputAction.next,
+          onSubmitted: _isLogin ? (_) => _submit() : null,
+          label: '密码',
+          placeholder: '请输入密码',
+          enableSuggestions: false,
+          autocorrect: false,
+          trailing: FxIconButton(
+            tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+            onPressed: _isLoading
+                ? null
+                : () => setState(
+                    () => _obscurePassword = !_obscurePassword,
+                  ),
+            icon:
+                _obscurePassword
+                    ? LucideIcons.eye
+                    : LucideIcons.eyeOff,
+            iconSize: SlowlightIconSize.sm,
+          ),
+        ),
+        if (!_isLogin) ...[
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          FxInput(
+            controller: _nicknameController,
+            enabled: !_isLoading,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            label: '昵称（可选）',
+            placeholder: '如何称呼你？',
+          ),
+        ],
+        const SizedBox(height: SlowlightSpacing.page),
+        ConstrainedBox(
+          key: const ValueKey('login.primary_action'),
+          constraints: BoxConstraints(
+            minHeight: SlowlightPlatformDensity.usesMobileTouchTargets
+                ? 52
+                : SlowlightControlSize.minTouchTarget,
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: FxButton(
+              label: _isLoading ? '处理中…' : _isLogin ? '登录' : '创建账号',
+              size: FxButtonSize.lg,
+              expanded: true,
+              onPressed: _isLoading ? null : _submit,
             ),
           ),
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                _isLogin ? '还没有账号？' : '已有账号？',
+                style: SlowlightTypography.secondary(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            FxButton(
+              key: const ValueKey('login.switch_mode'),
+              label: _isLogin ? '注册' : '返回登录',
+              variant: FxButtonVariant.link,
+              size: FxButtonSize.sm,
+              onPressed: _isLoading
+                  ? null
+                  : () => setState(() => _isLogin = !_isLogin),
+            ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.page),
+        FxSeparator.horizontal(
+          color: theme.colorScheme.outlineVariant,
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
+        Center(
+          child: FxButton(
+            key: const ValueKey('login.local_action'),
+            label: '不登录，使用本地数据',
+            icon: LucideIcons.smartphone,
+            variant: FxButtonVariant.ghost,
+            size: FxButtonSize.lg,
+            onPressed: _isLoading ? null : _useLocal,
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.xs),
+        Text(
+          '本地记录不会自动上传，随时可以在设置中切换。',
+          textAlign: TextAlign.center,
+          style: SlowlightTypography.caption(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, viewport) {
+            final desktop = viewport.maxWidth >= SlowlightBreakpoints.tabletMin;
+            final compactHeight = desktop || viewport.maxHeight < 640;
+            final contents = _buildLoginContents(
+              context,
+              compactHeight: compactHeight,
+            );
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: viewport.maxHeight),
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: SlowlightSpacing.page,
+                      vertical: compactHeight
+                          ? SlowlightSpacing.xxxl
+                          : SlowlightSpacing.page,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 448),
+                      child: desktop
+                          ? FxCard(
+                              padding: const EdgeInsets.all(
+                                SlowlightSpacing.page,
+                              ),
+                              borderRadius: SlowlightRadius.xl,
+                              child: contents,
+                            )
+                          : contents,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

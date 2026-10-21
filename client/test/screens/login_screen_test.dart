@@ -11,6 +11,7 @@ void main() {
     testWidgets('空凭据提交会被本地校验拦截', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
+      expect(find.byKey(const ValueKey('login.primary_action')), findsOneWidget);
 
       await tester.tap(find.text('登录'));
       await tester.pump();
@@ -60,7 +61,7 @@ void main() {
       await tester.enterText(fields.at(0), 'testuser');
       await tester.enterText(fields.at(2), 'password123');
 
-      final submit = find.text('注册');
+      final submit = find.text('创建账号');
       await tester.ensureVisible(submit);
       await tester.pumpAndSettle();
       await tester.tap(submit);
@@ -76,7 +77,9 @@ void main() {
           (tester) async {
         debugDefaultTargetPlatformOverride = platform;
         addTearDown(() => debugDefaultTargetPlatformOverride = null);
-        tester.view.physicalSize = const Size(1280, 1000);
+        tester.view.physicalSize = platform == TargetPlatform.android
+            ? const Size(360, 800)
+            : const Size(1280, 720);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         await tester.pumpWidget(buildFxTestHost(
@@ -91,6 +94,8 @@ void main() {
         await tester.pump();
         final fields = find.byType(FxInput);
         expect(fields, findsNWidgets(2));
+        expect(tester.getSize(find.byKey(const ValueKey('login.primary_action'))).width,
+            closeTo(tester.getSize(fields.at(0)).width, 1));
         final normal = tester.getSize(fields.at(0)).height;
         final password = tester.getSize(fields.at(1)).height;
         expect(password, closeTo(normal, 0.1));
