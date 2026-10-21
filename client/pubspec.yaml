@@ -23,6 +23,7 @@ dependencies:
   sqflite: ^2.3.0
   sqflite_common_ffi: ^2.3.0
   path: ^1.8.3
+  path_provider: ^2.1.5
   table_calendar: ^3.1.2
   window_manager: ^0.3.9
   # Windows 多屏休息提醒仍使用多窗口能力；托盘本身不创建额外快速面板。
