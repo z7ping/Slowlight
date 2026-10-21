@@ -10,6 +10,7 @@ void main() {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(bottom: 32);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 32);
     addTearDown(tester.view.reset);
 
     final details = List.filled(
