@@ -637,7 +637,11 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                     DataModeManager().isCloud
                         ? Icons.cloud_upload_outlined
                         : Icons.login_outlined,
-                onPressed: _executing ? null : _continue,
+                onPressed:
+                    _executing || _loading ||
+                    (DataModeManager().isCloud && _previewError != null)
+                        ? null
+                        : _continue,
               ),
             ],
           );
@@ -676,6 +680,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   }
 
   Future<void> _execute() async {
+    if (_executing || _loading || _previewError != null) return;
     setState(() => _executing = true);
     try {
       final result = await MigrationService().execute(conflictPolicy: _choice);
@@ -701,6 +706,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   }
 
   Future<void> _continue() async {
+    if (_executing || _loading) return;
+    if (DataModeManager().isCloud && _previewError != null) return;
     if (DataModeManager().isCloud) {
       await _execute();
       return;

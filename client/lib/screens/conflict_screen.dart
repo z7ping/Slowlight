@@ -19,6 +19,8 @@ class _ConflictScreenState extends State<ConflictScreen> {
   final _sync = SyncService();
   List<_ConflictPreview> _conflicts = const [];
   bool _loading = true;
+  bool _hasLoaded = false;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -27,8 +29,21 @@ class _ConflictScreenState extends State<ConflictScreen> {
   }
 
   Future<void> _loadConflicts() async {
-    if (mounted) setState(() => _loading = true);
-    final rows = await _sync.getAllConflicts();
+    if (mounted && !_hasLoaded) setState(() => _loading = true);
+    late final List<Map<String, dynamic>> rows;
+    try {
+      rows = await _sync.getAllConflicts();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+      if (_hasLoaded) {
+        FxNotice.showContent(context, const Text('冲突列表刷新失败，仍显示上次读取的记录'));
+      }
+      return;
+    }
     final previews = <_ConflictPreview>[];
     for (final local in rows) {
       final type = local['_entity_type'] as String;
@@ -53,6 +68,8 @@ class _ConflictScreenState extends State<ConflictScreen> {
     setState(() {
       _conflicts = previews;
       _loading = false;
+      _hasLoaded = true;
+      _loadFailed = false;
     });
   }
 
@@ -80,6 +97,17 @@ class _ConflictScreenState extends State<ConflictScreen> {
               child:
                   _loading
                       ? const Center(child: FxCircularProgress())
+                      : _loadFailed && !_hasLoaded
+                      ? FxEmptyState(
+                        icon: LucideIcons.triangleAlert,
+                        title: '同步冲突读取失败',
+                        subtitle: '目前无法确认是否存在冲突，请检查连接后重试。',
+                        action: FxButton(
+                          label: '重新加载',
+                          variant: FxButtonVariant.secondary,
+                          onPressed: _loadConflicts,
+                        ),
+                      )
                       : _conflicts.isEmpty
                       ? _empty(theme)
                       : FxRefresh(
@@ -404,17 +432,22 @@ class _ConflictScreenState extends State<ConflictScreen> {
     required String entityType,
     required bool keepLocal,
   }) async {
-    final resolved = await _sync.resolveConflict(
-      localId, entityType: entityType, keepLocal: keepLocal,
-    );
-    if (!mounted) return;
-    FxNotice.showContent(
-      context,
-      Text(resolved
-          ? (keepLocal ? '已保留本地版本，等待同步' : '已使用服务端版本')
-          : '处理失败，数据已保留，请稍后重试'),
-    );
-    await _loadConflicts();
+    try {
+      final resolved = await _sync.resolveConflict(
+        localId, entityType: entityType, keepLocal: keepLocal,
+      );
+      if (!mounted) return;
+      FxNotice.showContent(
+        context,
+        Text(resolved
+            ? (keepLocal ? '已保留本地版本，等待同步' : '已使用服务端版本')
+            : '处理失败，数据已保留，请稍后重试'),
+      );
+      if (resolved) await _loadConflicts();
+    } catch (_) {
+      if (!mounted) return;
+      FxNotice.showContent(context, const Text('处理失败，未确认冲突已解决，请重试'));
+    }
   }
 }
 
