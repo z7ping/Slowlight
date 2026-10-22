@@ -529,7 +529,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final largeText =
-                    MediaQuery.textScalerOf(context).scale(1) >= 1.6;
+                    MediaQuery.textScalerOf(context).scale(1) >= 1.3;
                 final narrow = constraints.maxWidth < 270 || largeText;
                 if (narrow) {
                   return Column(
