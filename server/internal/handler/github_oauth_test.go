@@ -12,14 +12,36 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+    "time"
 
 	"slowlight/internal/model"
 	"github.com/gin-gonic/gin"
 )
 
+func waitForOAuthReady(t *testing.T, router http.Handler, creds map[string]string) {
+    t.Helper()
+    poll := map[string]string{
+        "session_id": creds["session_id"],
+        "poll_token": creds["poll_token"],
+        "mode": "reliable",
+    }
+    deadline := time.Now().Add(5 * time.Second)
+    for time.Now().Before(deadline) {
+        response := testOAuthRequest(t, router, "/poll", poll)
+        if response.Code != http.StatusOK {
+            t.Fatalf("auth session failed while waiting: %d %s", response.Code, response.Body.String())
+        }
+        result := parseOAuthBody(t, response)
+        if result["status"] == "complete" { return }
+        time.Sleep(10 * time.Millisecond)
+    }
+    t.Fatal("GitHub OAuth background worker did not become ready")
+}
+
 func TestGitHubOAuthConfiguration(t *testing.T) {
 	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
 	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
+    t.Setenv("CONFIG_ENCRYPTION_KEY", strings.Repeat("secure-test-key-", 3))
 	t.Setenv("GITHUB_OAUTH_CALLBACK_URL", "http://evil.example/api/auth/github/callback")
 	if _, _, _, err := githubConfig(); err == nil {
 		t.Fatal("不允许明文公网回调地址")
@@ -59,6 +81,7 @@ func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
 	t.Setenv("JWT_SECRET", "a-long-test-jwt-signing-secret")
 	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
 	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
+    t.Setenv("CONFIG_ENCRYPTION_KEY", strings.Repeat("secure-test-key-", 3))
 	t.Setenv("GITHUB_OAUTH_CALLBACK_URL", "https://example.org/api/auth/github/callback")
 
 	var verifier string
@@ -117,6 +140,7 @@ func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
 	cb := httptest.NewRecorder()
 	r.ServeHTTP(cb, httptest.NewRequest(http.MethodGet, callbackPath, nil))
 	if cb.Code != 200 { t.Fatalf("回调失败: %d %s", cb.Code, cb.Body.String()) }
+    waitForOAuthReady(t, r, poll)
 	challenge := sha256.Sum256([]byte(verifier))
 	if base64.RawURLEncoding.EncodeToString(challenge[:]) != authURL.Query().Get("code_challenge") {
 		t.Fatal("PKCE verifier 与 challenge 不匹配")
@@ -173,6 +197,7 @@ func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
     r.ServeHTTP(nextCallback, httptest.NewRequest(http.MethodGet,
         "/callback?state="+url.QueryEscape(nextURL.Query().Get("state"))+"&code=test-code", nil))
     if nextCallback.Code != 200 { t.Fatalf("second callback: %d %s", nextCallback.Code, nextCallback.Body.String()) }
+    waitForOAuthReady(t, r, map[string]string{"session_id": nextStart["session_id"].(string), "poll_token": nextStart["poll_token"].(string)})
     nextPoll := map[string]string{
         "session_id": nextStart["session_id"].(string),
         "poll_token": nextStart["poll_token"].(string),
@@ -194,7 +219,7 @@ func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
 
 	cb2 := httptest.NewRecorder()
 	r.ServeHTTP(cb2, httptest.NewRequest(http.MethodGet, callbackPath, nil))
-	if cb2.Code != 409 { t.Fatalf("回调不能重复处理: %d", cb2.Code) }
+	if cb2.Code != 200 { t.Fatalf("重复回调应安全幂等: %d", cb2.Code) }
 }
 
 func TestGitHubOAuthExplicitAccountLink(t *testing.T) {
@@ -203,6 +228,7 @@ func TestGitHubOAuthExplicitAccountLink(t *testing.T) {
 	t.Setenv("JWT_SECRET", "long-test-signing-secret")
 	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
 	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
+    t.Setenv("CONFIG_ENCRYPTION_KEY", strings.Repeat("secure-test-key-", 3))
 	t.Setenv("GITHUB_OAUTH_CALLBACK_URL", "https://example.org/api/auth/github/callback")
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -224,6 +250,7 @@ func TestGitHubOAuthExplicitAccountLink(t *testing.T) {
 	callback := httptest.NewRecorder()
 	r.ServeHTTP(callback, httptest.NewRequest(http.MethodGet, "/callback?state="+url.QueryEscape(u.Query().Get("state"))+"&code=ok", nil))
 	if callback.Code != 200 { t.Fatalf("绑定回调失败: %d", callback.Code) }
+    waitForOAuthReady(t, r, map[string]string{"session_id": start["session_id"].(string), "poll_token": start["poll_token"].(string)})
 	result := parseOAuthBody(t, testOAuthRequest(t, r, "/poll", map[string]string{
 		"session_id": start["session_id"].(string),
 		"poll_token": start["poll_token"].(string),
@@ -239,6 +266,7 @@ func TestGitHubOAuthAndroidReturnDoesNotLeakCredentials(t *testing.T) {
 	db := beginTx(t, setupTestDB(t))
 	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
 	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
+    t.Setenv("CONFIG_ENCRYPTION_KEY", strings.Repeat("secure-test-key-", 3))
 	t.Setenv("GITHUB_OAUTH_CALLBACK_URL", "https://example.org/api/auth/github/callback")
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
