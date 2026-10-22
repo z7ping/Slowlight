@@ -184,6 +184,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         minute <= 59) {
       _reminder = TimeOfDay(hour: hour, minute: minute);
     }
+    if (habit?.scheduleRule.isEmpty == true && _reminder != null) {
+      _reminderMode = 'daily';
+    }
     _loadTags();
     _loadCanonicalTags();
   }
@@ -282,6 +285,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       error = '预期时长必须是 0 或正整数';
     } else if (rule.validationError != null) {
       error = rule.validationError;
+    } else if (_reminderMode == 'daily' && _reminder == null) {
+      error = '请设置每天提醒的时间';
     }
     if (error != null) {
       setState(() => _validationError = error);
@@ -731,6 +736,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             onChanged: (v) => setState(() {
               _reminderMode = (_mode == 'goal' ? const ['off','daily'] :
                   const ['off','schedule','daily'])[v];
+              if (_reminderMode == 'daily' && _reminder == null) {
+                _reminder = const TimeOfDay(hour: 9, minute: 0);
+              }
             }),
           ),
         ),
