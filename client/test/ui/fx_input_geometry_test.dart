@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
 
@@ -61,6 +62,12 @@ void main() {
 
         final fields = find.byType(FxInput);
         final minimum = platform == TargetPlatform.android ? 44.0 : 36.0;
+        final expectedPadding = platform == TargetPlatform.android ? 12.0 : 8.0;
+        for (final input in tester.widgetList<ShadInput>(find.byType(ShadInput))) {
+          expect(input.constraints?.minHeight, minimum);
+          expect(input.inputPadding,
+              EdgeInsets.symmetric(vertical: expectedPadding));
+        }
         for (var index = 0; index < 4; index++) {
           // 防止仅调整文字位置却将输入框压成截图中的细条。
           expect(tester.getSize(fields.at(index)).height,

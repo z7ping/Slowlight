@@ -52,6 +52,9 @@ abstract final class SlowlightPlatformDensity {
 
   /// ShadInput 与 FxInput 共用的输入区内边距语义。
   static double get inputHorizontalPadding => usesMobileTouchTargets ? 14 : 12;
+  // 对应单行控件的 44/36px 最低高度及 20/19.5px 文本行高。
+  static double get singleLineInputVerticalPadding =>
+      usesMobileTouchTargets ? 12 : 8;
   static double get multilineInputVerticalPadding =>
       usesMobileTouchTargets ? 12 : 8;
 
