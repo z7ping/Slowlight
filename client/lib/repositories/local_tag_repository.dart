@@ -1,4 +1,5 @@
 import '../db/local_db.dart';
+import '../db/local_product_core_schema.dart';
 import '../models/tag.dart';
 
 /// 本地普通标签仓储（内部实现，被 LocalApiService 使用）。
@@ -6,6 +7,7 @@ class LocalTagRepository {
   final _db = LocalDb();
 
   Future<List<Tag>> getAll() async {
+    await LocalProductCoreSchema.ensureReady();
     final db = await _db.database;
     final maps = await db.query('tags', orderBy: 'created_at ASC');
     return maps.map(_fromMap).toList();
