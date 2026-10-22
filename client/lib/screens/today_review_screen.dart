@@ -511,7 +511,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _noteController.clear();
         _noteResultUnknown = false;
       });
-      FxNotice.showContent(context, const Text('记录已保存'));
+      FxNotice.showContent(context, Text(saved.id < 0
+          ? '记录已保存在本机，等待云端同步'
+          : '记录已保存'));
     } catch (_) {
       if (!mounted) return;
       setState(() => _noteResultUnknown = true);
@@ -896,7 +898,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _unknownAnswers.remove(key);
         controller.clear();
       });
-      FxNotice.showContent(context, const Text('回应已保存'));
+      FxNotice.showContent(context, Text(saved.id < 0
+          ? '回应已保存在本机，等待云端同步'
+          : '回应已保存'));
     } catch (_) {
       if (!mounted) return;
       setState(() => _unknownAnswers.add(key));
