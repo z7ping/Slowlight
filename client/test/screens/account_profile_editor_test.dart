@@ -35,6 +35,46 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('设置密码校验留在原表单字段，修改输入后恢复', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(builder: (context) => FxButton(
+          label: '设置密码',
+          onPressed: () => manageAccountPassword(
+            context,
+            alreadySet: false,
+            username: '',
+          ),
+        )),
+      ),
+    ));
+    await tester.tap(find.text('设置密码'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('account.password.save')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('账号须为 3–30 位'), findsOneWidget);
+    expect(find.text('密码须为 10–72 字节'), findsOneWidget);
+    expect(find.text('账号密码操作失败'), findsNothing);
+
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('account.password.username')),
+        matching: find.byType(EditableText),
+      ),
+      'available_name',
+    );
+    await tester.pump();
+    expect(find.textContaining('账号须为 3–30 位'), findsNothing);
+    expect(find.text('密码须为 10–72 字节'), findsOneWidget);
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   for (final existing in [false, true]) {
     testWidgets('${existing ? "密码已设置" : "GitHub 首次设置"} 表单正确区分入口',
         (tester) async {

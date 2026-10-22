@@ -41,8 +41,10 @@ class _NicknameForm extends StatefulWidget {
 }
 
 class _NicknameFormState extends State<_NicknameForm> {
-  late final TextEditingController _name = TextEditingController(text: widget.initialName);
+  late final TextEditingController _name =
+      TextEditingController(text: widget.initialName);
   bool _saving = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -53,15 +55,21 @@ class _NicknameFormState extends State<_NicknameForm> {
   Future<void> _save() async {
     final value = _name.text.trim();
     if (value.isEmpty || value.runes.length > 50) {
-      FxNotice.error(context, '昵称应为 1–50 个字符');
+      setState(() => _error = '昵称应为 1–50 个字符');
       return;
     }
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     try {
       await AuthService.updateNickname(value);
       if (mounted) Navigator.of(context).pop(true);
-    } catch (e) {
-      if (mounted) FxNotice.errorWithDetails(context, '保存昵称失败', e.toString());
+    } catch (error) {
+      FxNotice.recordError('保存昵称失败', error);
+      if (mounted) {
+        setState(() => _error = FxNotice.readableError(error));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -76,6 +84,10 @@ class _NicknameFormState extends State<_NicknameForm> {
         key: const ValueKey('account.nickname.input'),
         controller: _name,
         label: '昵称',
+        errorText: _error,
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
         maxLength: 50,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) { if (!_saving) _save(); },
@@ -109,6 +121,11 @@ class _PasswordFormState extends State<_PasswordForm> {
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   bool _saving = false;
+  String? _usernameError;
+  String? _oldError;
+  String? _passwordError;
+  String? _confirmError;
+  String? _formError;
 
   @override
   void dispose() {
@@ -120,20 +137,26 @@ class _PasswordFormState extends State<_PasswordForm> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
+    final username = _username.text.trim();
     final password = _password.text;
-    if (!widget.alreadySet &&
-        (!RegExp(r'^[a-zA-Z][a-zA-Z0-9_]{2,29}$').hasMatch(_username.text.trim()) ||
-            _username.text.trim().toLowerCase().startsWith('github_'))) {
-      FxNotice.error(context, '账号须为 3–30 位字母、数字或下划线，且以字母开头');
-      return;
-    }
-    final byteLength = utf8.encode(password).length;
-    if (byteLength < 10 || byteLength > 72 || password != _confirm.text) {
-      FxNotice.error(context, '密码须为 10–72 字节，且两次输入一致');
-      return;
-    }
-    if (widget.alreadySet && _old.text.isEmpty) {
-      FxNotice.error(context, '请填写当前密码');
+    final invalidUsername = !widget.alreadySet &&
+        (!RegExp(r'^[a-zA-Z][a-zA-Z0-9_]{2,29}$').hasMatch(username) ||
+         username.toLowerCase().startsWith('github_'));
+    final invalidPassword =
+        utf8.encode(password).length < 10 || utf8.encode(password).length > 72;
+    final invalidConfirm = !invalidPassword && password != _confirm.text;
+    final missingOld = widget.alreadySet && _old.text.isEmpty;
+    setState(() {
+      _usernameError = invalidUsername
+          ? '账号须为 3–30 位字母、数字或下划线，以字母开头且不能使用 github_ 前缀'
+          : null;
+      _passwordError = invalidPassword ? '密码须为 10–72 字节' : null;
+      _confirmError = invalidConfirm ? '两次输入的密码不一致' : null;
+      _oldError = missingOld ? '请填写当前密码' : null;
+      _formError = null;
+    });
+    if (invalidUsername || invalidPassword || invalidConfirm || missingOld) {
       return;
     }
 
@@ -151,14 +174,23 @@ class _PasswordFormState extends State<_PasswordForm> {
           shouldContinue: () => mounted && _saving,
         );
         if (!verified || !mounted) return;
-        await AuthService.setupPassword(
-          username: _username.text.trim(),
-          password: password,
-        );
+        await AuthService.setupPassword(username: username, password: password);
       }
       if (mounted) Navigator.of(context).pop(true);
-    } catch (e) {
-      if (mounted) FxNotice.errorWithDetails(context, '账号密码操作失败', e.toString());
+    } catch (error) {
+      FxNotice.recordError('账号密码操作失败', error);
+      if (mounted) {
+        final message = FxNotice.readableError(error);
+        setState(() {
+          if (message.contains('登录账号已被使用')) {
+            _usernameError = '该登录账号已被使用，请更换';
+          } else if (message.contains('原密码不正确')) {
+            _oldError = message;
+          } else {
+            _formError = message;
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -172,21 +204,63 @@ class _PasswordFormState extends State<_PasswordForm> {
       if (!widget.alreadySet) ...[
         const Text('设置后可以使用 GitHub 或账号密码登录同一个 Slowlight 账号。保存前需要重新验证 GitHub 身份。'),
         const SizedBox(height: 12),
-        FxInput(key: const ValueKey('account.password.username'),
-          label: '登录账号', placeholder: '3–30 位字母、数字、下划线',
-          controller: _username, enabled: !_saving),
+        FxInput(
+          key: const ValueKey('account.password.username'),
+          label: '登录账号',
+          placeholder: '3–30 位字母、数字、下划线',
+          controller: _username,
+          errorText: _usernameError,
+          onChanged: (_) {
+            if (_usernameError != null) setState(() => _usernameError = null);
+          },
+          enabled: !_saving,
+        ),
       ] else ...[
         Text('登录账号：${widget.username}'),
         const SizedBox(height: 12),
-        FxInput(label: '当前密码', controller: _old,
-          obscureText: true, enabled: !_saving),
+        FxInput(
+          label: '当前密码',
+          controller: _old,
+          errorText: _oldError,
+          onChanged: (_) {
+            if (_oldError != null) setState(() => _oldError = null);
+          },
+          obscureText: true,
+          enabled: !_saving,
+        ),
       ],
       const SizedBox(height: 12),
-      FxInput(key: const ValueKey('account.password.new'),
+      FxInput(
+        key: const ValueKey('account.password.new'),
         label: widget.alreadySet ? '新密码' : '登录密码',
-        controller: _password, obscureText: true, enabled: !_saving),
+        controller: _password,
+        errorText: _passwordError,
+        onChanged: (_) {
+          if (_passwordError != null) setState(() => _passwordError = null);
+        },
+        obscureText: true,
+        enabled: !_saving,
+      ),
       const SizedBox(height: 12),
-      FxInput(label: '确认密码', controller: _confirm, obscureText: true, enabled: !_saving),
+      FxInput(
+        label: '确认密码',
+        controller: _confirm,
+        errorText: _confirmError,
+        onChanged: (_) {
+          if (_confirmError != null) setState(() => _confirmError = null);
+        },
+        obscureText: true,
+        enabled: !_saving,
+      ),
+      if (_formError != null) ...[
+        const SizedBox(height: SlowlightSpacing.md),
+        Text(
+          _formError!,
+          key: const ValueKey('account.password.form_error'),
+          style: SlowlightTypography.secondary(context)
+              .copyWith(color: Theme.of(context).colorScheme.error),
+        ),
+      ],
       const SizedBox(height: 20),
       Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         FxButton(label: '取消', variant: FxButtonVariant.ghost,

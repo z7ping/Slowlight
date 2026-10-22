@@ -6,7 +6,20 @@ import 'package:slowlight/ui/fx.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
-  testWidgets('Android 通知避让系统导航栏，长错误通过详情完整查看', (tester) async {
+  test('异常信息提取短中文业务原因，技术栈不暴露给用户', () {
+    expect(FxNotice.readableError(Exception('登录账号已被使用')), '登录账号已被使用');
+    expect(FxNotice.readableError(StateError('原密码不正确')), '原密码不正确');
+    expect(
+      FxNotice.readableError('ClientException with SocketException: Connection refused'),
+      '操作未完成，请稍后重试或到应用诊断查看记录',
+    );
+    expect(
+      FxNotice.readableError('Exception: server error\\n#0 stack'),
+      '操作未完成，请稍后重试或到应用诊断查看记录',
+    );
+  });
+
+  testWidgets('Android 长错误仅使用 Sonner，不再打开二次详情弹窗', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(bottom: 32);
@@ -42,19 +55,12 @@ void main() {
 
     expect(find.text('登录失败'), findsOneWidget);
     expect(find.text(details), findsNothing);
+    expect(find.text('查看详情'), findsNothing);
+    expect(find.text('操作未完成，请稍后重试或到应用诊断查看记录'), findsOneWidget);
+    expect(find.byType(ShadDialog), findsNothing);
     final toast = find.byType(ShadToast).last;
     expect(tester.getRect(toast).bottom, lessThanOrEqualTo(768));
-
-    await tester.tap(find.text('查看详情'));
-    await tester.pumpAndSettle();
-
-    expect(find.text(details), findsOneWidget);
-    expect(find.byType(SelectableText), findsOneWidget);
     expect(tester.takeException(), isNull);
-
-    await tester.tap(find.text('关闭'));
-    await tester.pumpAndSettle();
-    expect(find.text(details), findsNothing);
 
     await disposeFxTestHost(tester);
   });

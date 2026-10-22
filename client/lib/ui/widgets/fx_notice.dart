@@ -7,7 +7,6 @@ import '../app_theme.dart';
 import '../color_tokens.dart';
 import '../layout_tokens.dart';
 import 'fx_button.dart';
-import 'fx_dialog.dart';
 
 /// Slowlight 全局通知承载层。
 ///
@@ -213,48 +212,44 @@ abstract final class FxNotice {
     );
   }
 
-  /// 长错误只在通知中显示简短标题，完整异常留在可滚动、可选择的详情弹窗。
-  /// 避免 Sonner 对多行内容的高度测量导致底部通知被屏幕裁切。
+  /// 长错误只在通知中显示简短标题，完整异常  /// 错误详情留在诊断日志；轻量反馈不打开第二层 Dialog。
+  static void recordError(String title, Object details) {
+    if (!kIsWeb) {
+      AppErrorLogger.instance.write(source: 'UI $title', error: details.toString());
+    }
+  }
+
+  /// 仅将可阅读的短中文业务消息交给 UI，异常栈与内部实现不向用户展示。
+  @visibleForTesting
+  static String readableError(Object details) {
+    final message = details.toString().trim().replaceFirst(
+      RegExp(r'^(?:Exception|Bad state|FormatException):\s*'),
+      '',
+    ).trim();
+    if (message.isEmpty ||
+        message.length > 100 ||
+        message.contains('\n') ||
+        !RegExp(r'[\u3400-\u9fff]').hasMatch(message) ||
+        RegExp(r'(?:Exception|StackTrace|#[0-9]+\s|dart:|https?://)', caseSensitive: false)
+            .hasMatch(message)) {
+      return '操作未完成，请稍后重试或到应用诊断查看记录';
+    }
+    return message;
+  }
+
+  /// 兼容原有调用：保留完整诊断记录，通知仅显示安全的短错误信息。
   static Object? errorWithDetails(
     BuildContext context,
     String title,
     String details,
   ) {
-    if (!kIsWeb) {
-      AppErrorLogger.instance.write(source: 'UI $title', error: details);
-    }
+    recordError(title, details);
     return show(
       context,
       title,
+      description: readableError(details),
       variant: FxNoticeVariant.destructive,
-      action: FxNoticeAction(
-          label: '查看详情',
-          onPressed: () {
-            if (!context.mounted) return;
-            FxDialog.raw<void>(
-              context: context,
-              builder: (dialogContext) => FxAlertDialog(
-                title: Text(title),
-                content: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.5,
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(details),
-                  ),
-                ),
-                actions: [
-                  FxButton(
-                    label: '关闭',
-                    onPressed: () =>
-                        Navigator.of(dialogContext, rootNavigator: true).pop(),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
+    );
   }
 
   static Future<void> dismiss(BuildContext context, Object? id) =>
