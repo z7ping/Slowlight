@@ -17,6 +17,7 @@ void main() {
         habits: const [],
         dimensionLoader: dimensions,
         reviewLoader: review,
+        timelineLoader: () async => const [],
       ),
     ),
   );

@@ -25,6 +25,7 @@ func newReviewRouter(h *ReviewHandler, userID uint) *gin.Engine {
 	r := newTestGin()
 	r.Use(func(c *gin.Context) { withUser(c, userID); c.Next() })
 	r.GET("/review/today", h.GetTodayReview)
+	r.GET("/review/today/timeline", h.GetTodayTimeline)
 	r.GET("/review/tasks", h.GetTasksReview)
 	return r
 }
@@ -313,4 +314,42 @@ func TestGetTodayReview_PatternComparison(t *testing.T) {
 	assertEqual(t, review.Patterns.HabitDelta, 1, "HabitDelta")
 	// 今天1个任务 - 昨天2个 = -1
 	assertEqual(t, review.Patterns.TaskDelta, -1, "TaskDelta")
+}
+
+func TestGetTodayTimeline_MixedFactsAndCorrections(t *testing.T) {
+    tx, h, userID := setupReviewTest(t)
+    list := createTestList(t, tx, userID, "读书")
+    task := createTestTask(t, tx, userID, list.ID, "读完一章")
+    now := time.Now().UTC()
+    if err := tx.Model(&task).Updates(map[string]interface{}{
+        "is_completed": true, "completed_at": now,
+    }).Error; err != nil { t.Fatal(err) }
+    habit := model.Habit{UserID: userID, Name: "日记", Frequency: "daily"}
+    if err := tx.Create(&habit).Error; err != nil { t.Fatal(err) }
+    rows := []model.BehaviorEvent{
+        {UserID: userID, EntityType: "task", EntityID: task.ID, EventType: "task_completed", OccurredAt: now.Add(-30*time.Minute)},
+        {UserID: userID, EntityType: "habit", EntityID: habit.ID, EventType: "habit_checked", OccurredAt: now.Add(-25*time.Minute)},
+        {UserID: userID, EntityType: "session", EntityID: 12, EventType: "session_ended", OccurredAt: now.Add(-20*time.Minute), DurationMin: 25},
+        {UserID: userID, EntityType: "session", EntityID: 13, EventType: "session_ended", OccurredAt: now.Add(-15*time.Minute), IsDeleted: true},
+        {UserID: userID, EntityType: "session", EntityID: 14, EventType: "session_ended", OccurredAt: now.AddDate(0, 0, -2)},
+    }
+    for _, row := range rows {
+        if err := tx.Create(&row).Error; err != nil { t.Fatal(err) }
+    }
+    entry := model.Reflection{UserID: userID, EntryType: "observation", Content: "今天读得很投入", Context: "{}", CreatedAt: now.Add(-10*time.Minute)}
+    if err := tx.Create(&entry).Error; err != nil { t.Fatal(err) }
+    r := newReviewRouter(h, userID)
+    w := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodGet, "/review/today/timeline", nil)
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusOK { t.Fatalf("status=%d body=%s", w.Code, w.Body.String()) }
+    var result struct { Items []todayTimelineItem `json:"items"` }
+    if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+    if len(result.Items) != 4 { t.Fatalf("want 4 real records, got %#v", result.Items) }
+    if result.Items[0].Kind != "observation" ||
+        result.Items[1].Kind != "session_ended" ||
+        result.Items[2].Kind != "habit_checked" ||
+        result.Items[3].Kind != "task_completed" {
+        t.Fatalf("timeline order mismatch: %#v", result.Items)
+    }
 }

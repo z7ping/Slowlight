@@ -216,7 +216,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '今天的轨迹',
+          '今天，发生了什么',
           style: SlowlightTypography.pageTitle(
             context,
           ).copyWith(fontWeight: FontWeight.w700),
