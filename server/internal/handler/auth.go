@@ -101,7 +101,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	var user model.User
-	if err := h.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	if err := h.DB.Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}
