@@ -13,6 +13,18 @@ class CalDAVScreen extends StatefulWidget {
 }
 
 /// 保留旧 CalDAV 表单的验证语义；视觉统一不应削弱校验。
+/// 真实数据源为空/失败时不得展示“0 个已同步任务”。
+String calDavSyncedTaskLabel(
+  Map<String, dynamic>? status, {
+  required bool loading,
+  required bool stale,
+}) {
+  if (status == null) return loading ? '读取中…' : '状态未知';
+  final count = status['task_count'];
+  if (count == null) return '状态未知';
+  return '$count 个${stale ? '（上次记录）' : ''}';
+}
+
 abstract final class CalDavFormValidation {
   static String? serverUrl(String value) {
     if (value.trim().isEmpty) return '请输入服务器地址';
@@ -630,9 +642,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             _buildStatusItem('用户', _usernameController.text),
             _buildStatusItem(
               '已同步任务',
-              _status == null
-                  ? (_statusLoading ? '读取中…' : '状态未知')
-                  : '${_status!['task_count'] ?? '未知'} 个${_statusError == null ? '' : '（上次记录）'}',
+              calDavSyncedTaskLabel(
+                _status,
+                loading: _statusLoading,
+                stale: _statusError != null,
+              ),
             ),
             if (_statusError != null)
               Padding(
