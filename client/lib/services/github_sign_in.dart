@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'api_service.dart';
 import 'auth_service.dart';
+import 'data_mode_manager.dart';
 import 'github_oauth_pending.dart';
 import 'network_retry.dart';
 
@@ -55,8 +56,19 @@ class GitHubSignIn {
   static bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  static Future<bool> hasPendingAuthorization() async =>
-      _isAndroid && await GitHubOAuthPending.load() != null;
+  static Future<bool> hasPendingAuthorization() async {
+    if (!_isAndroid) return false;
+    final pending = await GitHubOAuthPending.load();
+    return pending != null && !pending.linkExisting;
+  }
+
+  static Future<bool> hasPendingBindingAuthorization() async {
+    if (!_isAndroid || DataModeManager().isLocal) return false;
+    final pending = await GitHubOAuthPending.load();
+    if (pending == null || !pending.linkExisting) return false;
+    final user = await AuthService.getUser();
+    return user != null && user.id == pending.targetUserId;
+  }
 
   static Future<bool> deviceFlowAvailable() async {
     try {
@@ -177,12 +189,21 @@ class GitHubSignIn {
 
     final isAndroid = _isAndroid;
     // 仅普通登录支持冷启动恢复。账号绑定必须由当前登录用户重新确认。
-    if (resumePending && (!isAndroid || linkExisting)) return false;
+    if (resumePending && !isAndroid) return false;
     GitHubOAuthPending? pending;
     Uri? authUrl;
     if (resumePending) {
       pending = await GitHubOAuthPending.load();
-      if (pending == null) return false;
+      if (pending == null || pending.linkExisting != linkExisting) return false;
+      if (linkExisting) {
+        final user = await AuthService.getUser();
+        if (DataModeManager().isLocal ||
+            user == null || user.id != pending.targetUserId) {
+          // 绝不把旧设备上的授权绑定到当前其他用户。
+          await GitHubOAuthPending.clear();
+          throw StateError('当前账号已变化，无法恢复 GitHub 绑定');
+        }
+      }
       onStatus?.call('正在恢复上次 GitHub 授权…');
       if (pending.flow == 'device') {
         onDeviceCode?.call(pending.userCode, Uri.parse(pending.verificationUri));
@@ -216,6 +237,10 @@ class GitHubSignIn {
         }
       }
       final seconds = start['expires_in'];
+      final account = linkExisting ? await AuthService.getUser() : null;
+      if (linkExisting && (DataModeManager().isLocal || account == null)) {
+        throw StateError('必须登录云端账号才能绑定 GitHub');
+      }
       pending = GitHubOAuthPending(
         sessionId: start['session_id'] as String,
         pollToken: start['poll_token'] as String,
@@ -226,8 +251,10 @@ class GitHubSignIn {
         flow: useDeviceCode ? 'device' : 'browser',
         userCode: userCode,
         verificationUri: verificationUri,
+        linkExisting: linkExisting,
+        targetUserId: account?.id ?? 0,
       );
-      if (isAndroid && !linkExisting) await GitHubOAuthPending.save(pending);
+      if (isAndroid) await GitHubOAuthPending.save(pending);
     }
     if (pending == null) return false;
 
@@ -240,7 +267,7 @@ class GitHubSignIn {
           onStatus?.call('请前往 GitHub 输入验证码，等待确认…');
         } else {
           if (!await openAuthorization(authUrl!)) {
-            if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
+            if (isAndroid) await GitHubOAuthPending.clear();
             throw StateError('无法打开 GitHub 授权页面，请检查系统默认浏览器');
           }
           onStatus?.call('等待 GitHub 完成授权…');
@@ -268,7 +295,7 @@ class GitHubSignIn {
             onStatus?.call('网络连接暂时中断，正在继续确认授权…');
             continue;
           }
-          if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
+          if (isAndroid) await GitHubOAuthPending.clear();
           rethrow;
         }
         if (!shouldContinue() || result == null) return false;
@@ -292,7 +319,7 @@ class GitHubSignIn {
           } catch (_) {
             // 授权会话到期后服务端自动清理，不在客户端丢弃已保存的 JWT。
           }
-          if (isAndroid && !linkExisting) {
+          if (isAndroid) {
             try {
               await GitHubOAuthPending.clear();
             } catch (_) {
@@ -301,10 +328,10 @@ class GitHubSignIn {
           }
           return true;
         }
-        if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
+        if (isAndroid) await GitHubOAuthPending.clear();
         throw StateError('GitHub 登录状态异常，请重试');
       }
-      if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
+      if (isAndroid) await GitHubOAuthPending.clear();
       throw StateError('GitHub 授权已超时，请重新发起登录');
     } finally {
       WidgetsBinding.instance.removeObserver(resumeObserver);
