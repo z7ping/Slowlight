@@ -242,12 +242,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = _accountUser;
 
     Widget sectionCard({
+      Key? key,
       required String title,
       String? subtitle,
       required Widget child,
       Color? color,
       Border? border,
     }) => FxCard(
+      key: key,
       expanded: true,
       color: color,
       border: border,
@@ -374,6 +376,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             sectionCard(
+              key: const ValueKey('settings.account.personal'),
               title: '个人信息',
               child: responsiveRow(
                 leading: CircleAvatar(
