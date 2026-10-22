@@ -283,6 +283,7 @@ func TestGitHubOAuthAndroidReturnDoesNotLeakCredentials(t *testing.T) {
 	r := newTestGin()
 	r.POST("/start", h.Start)
 	r.GET("/callback", h.Callback)
+    r.POST("/poll", h.Poll)
 
 	bad := testOAuthRequest(t, r, "/start", map[string]string{"platform": "unknown"})
 	if bad.Code != http.StatusBadRequest {
@@ -301,6 +302,7 @@ func TestGitHubOAuthAndroidReturnDoesNotLeakCredentials(t *testing.T) {
 	r.ServeHTTP(callback, httptest.NewRequest(http.MethodGet,
 		"/callback?state="+url.QueryEscape(state)+"&code=mobile-code", nil))
 	if callback.Code != http.StatusOK { t.Fatalf("Android callback %d: %s", callback.Code, callback.Body.String()) }
+    waitForOAuthReady(t, r, map[string]string{"session_id": grant["session_id"].(string), "poll_token": grant["poll_token"].(string)})
 	page := callback.Body.String()
 	if !strings.Contains(page, "slowlight://oauth-complete") {
 		t.Fatal("授权成功页面未提供返回 Slowlight 入口")
