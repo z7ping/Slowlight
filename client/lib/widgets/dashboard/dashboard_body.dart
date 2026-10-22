@@ -834,35 +834,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     }
   }
 
-  Widget _skeleton() => ListView(
-    padding: const EdgeInsets.all(20),
-    children: List.generate(
-      4,
-      (index) => Container(
-        height: index == 0 ? 64 : 150,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.warmGray300.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(SlowlightRadius.lg),
-        ),
-      ),
-    ),
-  );
 
-  Widget _errorView() => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('今天的数据加载失败'),
-        const SizedBox(height: 10),
-        FxButton(
-          label: '重试',
-          variant: FxButtonVariant.secondary,
-          onPressed: _load,
-        ),
-      ],
-    ),
-  );
 }
 
 class _MobileTaskSwipeRow extends StatefulWidget {
