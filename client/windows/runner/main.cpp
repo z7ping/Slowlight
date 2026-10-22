@@ -2,12 +2,63 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 #include <cwchar>
+#include <string>
 
 #include "app_identity.h"
 #include "flutter_window.h"
 #include "utils.h"
 
 namespace {
+
+// URL return only wakes the app; credentials remain in the existing OAuth poll.
+struct ExistingWindowSearch {
+  std::wstring executable_path;
+  HWND window = nullptr;
+};
+
+BOOL CALLBACK FindExistingAppWindow(HWND hwnd, LPARAM context) {
+  auto* search = reinterpret_cast<ExistingWindowSearch*>(context);
+  wchar_t window_class[64] = {};
+  if (::GetClassNameW(hwnd, window_class, _countof(window_class)) == 0 ||
+      std::wcscmp(window_class, L"FLUTTER_RUNNER_WIN32_WINDOW") != 0) {
+    return TRUE;
+  }
+
+  DWORD process_id = 0;
+  ::GetWindowThreadProcessId(hwnd, &process_id);
+  if (process_id == 0 || process_id == ::GetCurrentProcessId()) {
+    return TRUE;
+  }
+  HANDLE process = ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
+                                 process_id);
+  if (process == nullptr) {
+    return TRUE;
+  }
+  wchar_t process_path[MAX_PATH] = {};
+  DWORD path_length = _countof(process_path);
+  const bool same_executable =
+      ::QueryFullProcessImageNameW(process, 0, process_path, &path_length) &&
+      _wcsicmp(process_path, search->executable_path.c_str()) == 0;
+  ::CloseHandle(process);
+  if (!same_executable) {
+    return TRUE;
+  }
+
+  search->window = hwnd;
+  return FALSE;
+}
+
+HWND FindRunningSlowlightWindow() {
+  wchar_t self_path[MAX_PATH] = {};
+  const DWORD length = ::GetModuleFileNameW(nullptr, self_path,
+                                            _countof(self_path));
+  if (length == 0 || length >= _countof(self_path)) {
+    return nullptr;
+  }
+  ExistingWindowSearch search{self_path, nullptr};
+  ::EnumWindows(FindExistingAppWindow, reinterpret_cast<LPARAM>(&search));
+  return search.window;
+}
 
 bool EnvironmentVariableEquals(const wchar_t* name, const wchar_t* expected) {
   wchar_t value[32] = {};
@@ -77,13 +128,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
+  std::vector<std::string> command_line_arguments =
+      GetCommandLineArguments();
+  if (command_line_arguments.size() == 1 &&
+      command_line_arguments.front() == "slowlight://oauth-complete") {
+    // A second protocol invocation only brings the running tray/main window
+    // to the front instead of creating an independent Flutter instance.
+    const HWND existing_window = FindRunningSlowlightWindow();
+    if (existing_window != nullptr) {
+      ::ShowWindowAsync(existing_window,
+                        ::IsIconic(existing_window) ? SW_RESTORE : SW_SHOW);
+      ::SetForegroundWindow(existing_window);
+      ::CoUninitialize();
+      return EXIT_SUCCESS;
+    }
+    // If no instance is running, launch normally; return alone is not login.
+  }
+
   ConfigureWindowsAppIdentity();
 
   ConfigureRenderingMode();
   flutter::DartProject project(L"data");
-
-  std::vector<std::string> command_line_arguments =
-      GetCommandLineArguments();
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
