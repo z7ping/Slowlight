@@ -159,18 +159,16 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _anchorDate = TextEditingController(text: rule.anchorDate);
     _windowStart = _parseTime(rule.windowStart) ?? const TimeOfDay(hour: 8, minute: 0);
     _windowEnd = _parseTime(rule.windowEnd) ?? const TimeOfDay(hour: 22, minute: 0);
-    if (habit?.scheduleRule.isNotEmpty == true && rule.anchorTime.isNotEmpty) {
-      _specificTime = _parseTime(rule.anchorTime);
-    }
 
     _systemTagId = habit?.systemTagId;
     _preferredPeriod = habit?.preferredPeriod ?? '';
-    _specificTime = _parseTime(habit?.specificTime ?? '');
+    _specificTime = habit?.scheduleRule.isNotEmpty == true
+        ? _parseTime(rule.anchorTime) : _parseTime(habit?.specificTime ?? '');
     _generateTask = habit?.generateTask ?? false;
     _showCheckinDialog = habit?.showCheckinDialog ?? false;
 
     final reminderAt = habit?.reminderAt ?? const <String, dynamic>{};
-    if (habit?.scheduleRule.isNotEmpty == true) {
+    if (habit?.scheduleRule.isNotEmpty == true && _reminderMode == 'daily') {
       _reminder = _parseTime(rule.reminderTime);
     }
 
@@ -311,7 +309,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         showCheckinDialog: _showCheckinDialog,
         specificTime: _specificTime == null ? '' : _formatTime(_specificTime!),
         reminderAt:
-            _reminder == null
+            _reminderMode != 'daily' || _reminder == null
                 ? const <String, dynamic>{'enabled': false}
                 : {
                   'enabled': true,
@@ -616,7 +614,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                   child: FxSegmented(
                     labels: _mode == 'interval' ? unitLabels : const ['周', '月'],
                     selectedIndex: _mode == 'interval'
-                        ? units.indexOf(_unit).clamp(0, units.length - 1)
+                        ? units.indexOf(_unit).clamp(0, units.length - 1).toInt()
                         : (_unit == 'month' ? 1 : 0),
                     onChanged: (i) => setState(() =>
                         _unit = _mode == 'interval' ? units[i] : const ['week','month'][i]),
@@ -654,7 +652,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                         selected: (_unit == 'week' ? _weekdays : _monthDays).contains(d),
                         onTap: () => setState(() {
                           final values = _unit == 'week' ? _weekdays : _monthDays;
-                          values.contains(d) ? values.remove(d) : values.add(d);
+                          if (values.contains(d)) {
+                            values.remove(d);
+                          } else {
+                            values.add(d);
+                          }
                         }),
                       ),
                   ]),
@@ -725,7 +727,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                 ? const ['不提醒', '每天定时'] : const ['不提醒', '按计划', '每天定时'],
             selectedIndex: _mode == 'goal'
                 ? (_reminderMode == 'daily' ? 1 : 0)
-                : const ['off','schedule','daily'].indexOf(_reminderMode),
+                : const ['off','schedule','daily'].indexOf(_reminderMode).clamp(0, 2).toInt(),
             onChanged: (v) => setState(() {
               _reminderMode = (_mode == 'goal' ? const ['off','daily'] :
                   const ['off','schedule','daily'])[v];
