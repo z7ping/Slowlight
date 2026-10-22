@@ -7,6 +7,48 @@ import '../api_service.dart';
 import '../data_mode_manager.dart';
 import '../local_api_service.dart';
 
+
+/// 创建任务的结构化 HTTP 失败，不回显原始数据库响应。
+class TaskCreateException implements Exception {
+  const TaskCreateException({
+    required this.message,
+    required this.confirmedNotCreated,
+  });
+
+  final String message;
+  final bool confirmedNotCreated;
+
+  factory TaskCreateException.fromResponse(http.Response response) {
+    String? code;
+    try {
+      final body = json.decode(response.body);
+      if (body is Map<String, dynamic>) code = body['code'] as String?;
+    } catch (_) {
+      // 代理可能返回 HTML；不显示不可信的响应体。
+    }
+    final status = response.statusCode;
+    final confirmed = status == 400 || status == 401 || status == 403 ||
+        status == 404 || status == 409 || status == 422 ||
+        (status == 500 && code == 'task_create_db_error');
+    final message = switch (status) {
+      400 || 422 => '任务信息无效，请检查后重试',
+      401 => '登录已失效，请重新登录',
+      403 => '无权创建任务',
+      404 => '目标清单不存在，请刷新后重试',
+      409 => '任务数据冲突，请刷新后重试',
+      500 when code == 'task_create_db_error' => '任务保存失败，请稍后重试',
+      _ => '服务暂时无法完成创建请求',
+    };
+    return TaskCreateException(
+      message: message,
+      confirmedNotCreated: confirmed,
+    );
+  }
+
+  @override
+  String toString() => message;
+}
+
 /// 任务相关 API。
 ///
 /// Data Mode 只决定数据来源：Local 直接落 SQLite，Cloud 调 Slowlight Server。
@@ -129,7 +171,7 @@ class TaskApi {
     if (response.statusCode == 201) {
       return Task.fromJson(json.decode(response.body));
     }
-    throw Exception('创建任务失败: ${response.statusCode} ${response.body}');
+    throw TaskCreateException.fromResponse(response);
   }
 
   /// 更新任务

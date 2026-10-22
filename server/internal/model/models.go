@@ -49,7 +49,7 @@ type Task struct {
 	DueTime     *string        `json:"due_time" gorm:"size:10"`
 	IsCompleted bool           `json:"is_completed" gorm:"default:false"`
 	CompletedAt *time.Time     `json:"completed_at"`
-	Priority    string         `json:"priority" gorm:"size:10;default:'none'"`
+	Priority    string         `json:"priority" gorm:"size:20;default:'none'"`
 	SortOrder   int            `json:"sort_order" gorm:"default:0"`
 
 	// 重复任务

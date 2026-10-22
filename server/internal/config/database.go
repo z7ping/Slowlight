@@ -89,6 +89,11 @@ func InitDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("数据库连通性检查失败: %w", err)
 	}
 
+	// 启动时自动扩容旧库的 VARCHAR(10)，不覆盖现有任务。
+	if err := widenLegacyTaskPriorityColumn(db); err != nil {
+		return nil, fmt.Errorf("任务优先级字段迁移失败: %w", err)
+	}
+
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.OAuthIdentity{},
@@ -130,4 +135,22 @@ func InitDB() (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+// widenLegacyTaskPriorityColumn 只在旧列小于 20 字符时执行 DDL，新库由 AutoMigrate 创建。
+func widenLegacyTaskPriorityColumn(db *gorm.DB) error {
+	var currentLength int
+	if err := db.Raw(`
+		SELECT COALESCE(MAX(character_maximum_length), 0)
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+		  AND table_name = 'tasks'
+		  AND column_name = 'priority'
+	`).Scan(&currentLength).Error; err != nil {
+		return err
+	}
+	if currentLength > 0 && currentLength < 20 {
+		return db.Exec(`ALTER TABLE tasks ALTER COLUMN priority TYPE VARCHAR(20)`).Error
+	}
+	return nil
 }

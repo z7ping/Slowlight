@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     due_time VARCHAR(10),
     is_completed BOOLEAN DEFAULT FALSE,
     completed_at TIMESTAMP,
-    priority VARCHAR(10) DEFAULT 'none',
+    priority VARCHAR(20) DEFAULT 'none',
     sort_order BIGINT DEFAULT 0,
     repeat_type VARCHAR(20) DEFAULT 'none',
     repeat_interval BIGINT DEFAULT 1,

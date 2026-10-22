@@ -10,6 +10,7 @@ import 'package:slowlight/repositories/tag_repository.dart';
 import 'package:slowlight/screens/habit_tool_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
 import 'package:slowlight/services/data_service.dart';
+import 'package:slowlight/services/api/task_api.dart';
 import 'package:slowlight/widgets/habit_editor_dialog.dart';
 
 import '../support/fx_test_host.dart';
@@ -45,6 +46,26 @@ class _PartialTaskService implements DataService {
       return updates == 1
           ? Future<Task>.error(StateError('附加属性保存失败'))
           : Future<Task>.value(created);
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _RejectedCreateService implements DataService {
+  int creates = 0;
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #getLists) {
+      return Future<List<TodoList>>.value([
+        TodoList(id: 1, name: '收集箱', createdAt: DateTime(2026)),
+      ]);
+    }
+    if (invocation.memberName == #createTask) {
+      creates++;
+      return Future<Task>.error(const TaskCreateException(
+        message: '任务保存失败，请稍后重试',
+        confirmedNotCreated: true,
+      ));
     }
     return super.noSuchMethod(invocation);
   }
@@ -117,6 +138,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.creates, 1);
     expect(service.updates, 2);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('明确的云端创建失败可以重试且不显示数据库异常', (tester) async {
+    final service = _RejectedCreateService();
+    tester.view.physicalSize = const Size(800, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SizedBox(
+        width: 520, height: 640,
+        child: TaskCreateSheet(
+          quickMode: true,
+          desktopDialog: true,
+          dataService: service,
+          tagRepository: _NoTags(),
+        ),
+      )),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '重要任务');
+    await tester.tap(find.text('添加任务'));
+    await tester.pumpAndSettle();
+    expect(service.creates, 1);
+    expect(find.textContaining('创建失败：任务保存失败'), findsOneWidget);
+    expect(find.textContaining('创建结果未确认'), findsNothing);
+    expect(find.textContaining('SQLSTATE'), findsNothing);
+    expect(find.text('我已核对任务列表，仍需重试'), findsNothing);
+    await tester.tap(find.text('添加任务'));
+    await tester.pumpAndSettle();
+    expect(service.creates, 2);
     await disposeFxTestHost(tester);
   });
 

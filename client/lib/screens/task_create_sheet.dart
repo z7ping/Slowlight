@@ -11,6 +11,7 @@ import '../repositories/tag_repository.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../services/data_service.dart';
+import '../services/api/task_api.dart';
 
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -1151,10 +1152,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _creationResultUnknown = _pendingCreatedTask == null;
-        _error = _pendingCreatedTask == null
-            ? '创建结果未确认：$e。请先查看任务列表确认是否已经生成，避免重复创建。'
-            : '任务已创建，但其余设置尚未保存：$e。重试只会更新原任务，不会重复创建。';
+        final confirmedFailure =
+            e is TaskCreateException && e.confirmedNotCreated;
+        _creationResultUnknown = _pendingCreatedTask == null && !confirmedFailure;
+        _error = _pendingCreatedTask != null
+            ? '任务已创建，但其余设置尚未保存。重试只会更新原任务，不会重复创建。'
+            : confirmedFailure
+                ? '创建失败：${e.message}'
+                : '创建结果未确认。请先查看任务列表确认是否已经生成，避免重复创建。';
       });
     }
   }
