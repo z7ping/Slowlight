@@ -88,33 +88,47 @@ class _DashboardBodyState extends State<DashboardBody> {
     }
     // 统计与提问只是首页的辅助区域：不得因为它们不可用而
     // 隐藏从主业务接口成功加载的任务、习惯与记录入口。
-    final dimensions = (widget.dimensionLoader ?? AnalyticsApi.getDimensionSummary)()
-        .then<Object>((data) => data, onError: (Object e) => e);
-    final review = (widget.reviewLoader ?? ReviewApi.getTodayReview)()
-        .then<Object>((data) => data, onError: (Object e) => e);
-    final results = await Future.wait<Object>([dimensions, review]);
+    Future<Object> read(Future<Map<String, dynamic>> Function() fetch) async {
+      try {
+        return await fetch();
+      } catch (error) {
+        return error;
+      }
+    }
+    final results = await Future.wait<Object>([
+      read(widget.dimensionLoader ?? AnalyticsApi.getDimensionSummary),
+      read(widget.reviewLoader ?? ReviewApi.getTodayReview),
+    ]);
     if (!mounted || version != _loadVersion) return;
     final dimResult = results[0];
     final reviewResult = results[1];
     setState(() {
       if (dimResult is Map<String, dynamic>) {
-        _dimensions = (dimResult['dimensions'] as List? ?? const [])
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .take(4)
-            .toList(growable: false);
+        try {
+          _dimensions = (dimResult['dimensions'] as List? ?? const [])
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .take(4)
+              .toList(growable: false);
+        } catch (_) {
+          _dimensionLoadFailed = true;
+        }
       } else {
         _dimensionLoadFailed = true;
       }
       if (reviewResult is Map<String, dynamic>) {
-        _insights = (reviewResult['questions'] as List? ?? const [])
-            .whereType<Map>()
-            .take(1)
-            .map((item) => Insight.fromJson(Map<String, dynamic>.from(item)))
-            .toList(growable: false);
-        _facts = reviewResult['facts'] is Map
-            ? Map<String, dynamic>.from(reviewResult['facts'] as Map)
-            : <String, dynamic>{};
+        try {
+          _insights = (reviewResult['questions'] as List? ?? const [])
+              .whereType<Map>()
+              .take(1)
+              .map((item) => Insight.fromJson(Map<String, dynamic>.from(item)))
+              .toList(growable: false);
+          _facts = reviewResult['facts'] is Map
+              ? Map<String, dynamic>.from(reviewResult['facts'] as Map)
+              : <String, dynamic>{};
+        } catch (_) {
+          _reviewLoadFailed = true;
+        }
       } else {
         _reviewLoadFailed = true;
       }
