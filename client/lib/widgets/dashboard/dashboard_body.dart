@@ -55,7 +55,8 @@ class DashboardBody extends StatefulWidget {
 }
 
 class _DashboardBodyState extends State<DashboardBody> {
-  bool _loading = true;
+  bool _dimensionLoading = true;
+  bool _reviewLoading = true;
   bool _dimensionLoadFailed = false;
   bool _reviewLoadFailed = false;
   List<Map<String, dynamic>> _dimensions = const [];
@@ -79,61 +80,62 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Future<void> _load() async {
     final version = ++_loadVersion;
-    if (mounted) {
+    if (mounted) setState(() {
+      _dimensionLoading = true;
+      _reviewLoading = true;
+      _dimensionLoadFailed = false;
+      _reviewLoadFailed = false;
+    });
+
+    // 独立完成/报错：任意一个辅助接口迟迟未返回，也不能阻塞另一个区域。
+    Future<void> loadDimensions() async {
+      List<Map<String, dynamic>>? parsed;
+      try {
+        final data = await (widget.dimensionLoader ?? AnalyticsApi.getDimensionSummary)();
+        parsed = (data['dimensions'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .take(4)
+            .toList(growable: false);
+      } catch (_) {
+        // 失败不是空数据，不覆盖上次成功读取的结果。
+      }
+      if (!mounted || version != _loadVersion) return;
       setState(() {
-        _loading = true;
-        _dimensionLoadFailed = false;
-        _reviewLoadFailed = false;
+        _dimensionLoading = false;
+        _dimensionLoadFailed = parsed == null;
+        if (parsed != null) _dimensions = parsed;
       });
     }
-    // 统计与提问只是首页的辅助区域：不得因为它们不可用而
-    // 隐藏从主业务接口成功加载的任务、习惯与记录入口。
-    Future<Object> read(Future<Map<String, dynamic>> Function() fetch) async {
+
+    Future<void> loadReview() async {
+      List<Insight>? insights;
+      Map<String, dynamic>? facts;
       try {
-        return await fetch();
-      } catch (error) {
-        return error;
+        final data = await (widget.reviewLoader ?? ReviewApi.getTodayReview)();
+        insights = (data['questions'] as List? ?? const [])
+            .whereType<Map>()
+            .take(1)
+            .map((item) => Insight.fromJson(Map<String, dynamic>.from(item)))
+            .toList(growable: false);
+        facts = data['facts'] is Map
+            ? Map<String, dynamic>.from(data['facts'] as Map)
+            : <String, dynamic>{};
+      } catch (_) {
+        // 今日提问与四维统计各自退化，不遮挡任务/习惯。
       }
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _reviewLoading = false;
+        _reviewLoadFailed = insights == null;
+        if (insights != null) {
+          _insights = insights;
+          _facts = facts ?? <String, dynamic>{};
+        }
+      });
     }
-    final results = await Future.wait<Object>([
-      read(widget.dimensionLoader ?? AnalyticsApi.getDimensionSummary),
-      read(widget.reviewLoader ?? ReviewApi.getTodayReview),
-    ]);
-    if (!mounted || version != _loadVersion) return;
-    final dimResult = results[0];
-    final reviewResult = results[1];
-    setState(() {
-      if (dimResult is Map<String, dynamic>) {
-        try {
-          _dimensions = (dimResult['dimensions'] as List? ?? const [])
-              .whereType<Map>()
-              .map((item) => Map<String, dynamic>.from(item))
-              .take(4)
-              .toList(growable: false);
-        } catch (_) {
-          _dimensionLoadFailed = true;
-        }
-      } else {
-        _dimensionLoadFailed = true;
-      }
-      if (reviewResult is Map<String, dynamic>) {
-        try {
-          _insights = (reviewResult['questions'] as List? ?? const [])
-              .whereType<Map>()
-              .take(1)
-              .map((item) => Insight.fromJson(Map<String, dynamic>.from(item)))
-              .toList(growable: false);
-          _facts = reviewResult['facts'] is Map
-              ? Map<String, dynamic>.from(reviewResult['facts'] as Map)
-              : <String, dynamic>{};
-        } catch (_) {
-          _reviewLoadFailed = true;
-        }
-      } else {
-        _reviewLoadFailed = true;
-      }
-      _loading = false;
-    });
+
+    await Future.wait([loadDimensions(), loadReview()]);
   }
 
   Widget _card(Widget child, {EdgeInsetsGeometry? padding}) {
@@ -279,7 +281,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           const SizedBox(height: 10),
           if (_dimensionLoadFailed)
             _partialUnavailable('四维统计暂时不可用')
-          else if (_loading && _dimensions.isEmpty)
+          else if (_dimensionLoading && _dimensions.isEmpty)
             _empty('正在读取四维统计…')
           else if (_dimensions.isEmpty)
             _empty('还没有四维行为记录')
@@ -715,7 +717,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         label: '重试',
         size: FxButtonSize.sm,
         variant: FxButtonVariant.ghost,
-        onPressed: _loading ? null : _load,
+        onPressed: (_dimensionLoading || _reviewLoading) ? null : _load,
       ),
     ],
   );
@@ -727,7 +729,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         .where((item) => !_ignored.contains(item.id))
         .take(1)
         .toList(growable: false);
-    final insight = visible.isEmpty ? null : visible.first;
+    final insight = _reviewLoadFailed || visible.isEmpty ? null : visible.first;
     return _card(
       FxInkWell(
         borderRadius: BorderRadius.circular(SlowlightRadius.lg),
@@ -746,7 +748,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             if (_reviewLoadFailed)
               _partialUnavailable('今日提问暂时无法读取')
             else Text(
-              insight?.content ?? (_loading ? '正在读取今日提问…' : '今天暂时没有特别需要关注的变化。'),
+              insight?.content ?? (_reviewLoading ? '正在读取今日提问…' : '今天暂时没有特别需要关注的变化。'),
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
               style: SlowlightTypography.secondary(context).copyWith(
