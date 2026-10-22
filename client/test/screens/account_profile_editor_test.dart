@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/user.dart';
 import 'package:slowlight/screens/account_profile_editor.dart';
+import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -16,9 +17,9 @@ void main() {
     );
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(
-        body: Builder(builder: (context) => TextButton(
+        body: Builder(builder: (context) => FxButton(
           onPressed: () => editCloudNickname(context, user),
-          child: const Text('编辑资料'),
+          label: '编辑资料',
         )),
       ),
     ));
@@ -39,13 +40,13 @@ void main() {
         (tester) async {
       await tester.pumpWidget(buildFxTestHost(
         home: Scaffold(
-          body: Builder(builder: (context) => TextButton(
+          body: Builder(builder: (context) => FxButton(
             onPressed: () => manageAccountPassword(
               context,
               alreadySet: existing,
               username: 'clouduser',
             ),
-            child: const Text('管理账号'),
+            label: '管理账号',
           )),
         ),
       ));
