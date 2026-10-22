@@ -108,19 +108,16 @@ class MigrationService {
   Future<List<Map<String, dynamic>>> reports() =>
       MigrationHistoryRepository().all();
 
+  @Deprecated('Use prepare() and executePlan() to guarantee preview safety.')
   Future<Map<String, dynamic>> execute(
       {String conflictPolicy = 'reject'}) async {
-    final snapshot = await _snapshot();
-    return _executeSnapshot(snapshot, conflictPolicy);
+    throw StateError('必须先预览并确认迁移，禁止直接执行全量上传');
   }
 
   /// 只重放本机留痕中的失败快照；成功或云端审计记录不具备重试资格。
   Future<Map<String, dynamic>> retryLocalReport(int reportID) async {
-    final store = LocalMigrationReportStore();
-    final snapshot = await store.retrySnapshot(reportID);
-    if (snapshot == null) throw StateError('该记录不可重试');
-    return _executeSnapshot(
-        snapshot, snapshot['conflict_policy']?.toString() ?? 'reject');
+    // Historical callers must use the read-only receipt check too.
+    return recoverReport(reportID);
   }
 
   Future<Map<String, dynamic>> _executeSnapshot(
