@@ -15,6 +15,8 @@ import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
 import 'home_screen.dart';
 
+enum _LoginView { welcome, github, password, register, local }
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -27,7 +29,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _emailController = TextEditingController();
   final _nicknameController = TextEditingController();
-  bool _isLogin = true;
+  _LoginView _view = _LoginView.welcome;
+  bool _allowCompletionPop = false;
+  bool get _isLogin => _view != _LoginView.register;
+
+  void _open(_LoginView next) {
+    if (_isLoading) return;
+    setState(() => _view = next);
+  }
   bool _isLoading = false;
   bool _githubAuthorizing = false;
   bool _githubFinishing = false;
@@ -133,6 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isCurrent() => mounted && attempt == _githubAttempt;
     setState(() {
       _isLoading = true;
+      _view = _LoginView.github;
       _githubAuthorizing = true;
       _githubFinishing = false;
       _githubStatus = resumePending ? '正在恢复上次 GitHub 授权…' : '等待 GitHub 完成授权…';
@@ -191,6 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _isLoading = false;
           _githubAuthorizing = false;
+          _githubFinishing = false;
         });
       }
     }
@@ -201,6 +212,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final attempt = ++_githubAttempt;
     setState(() {
       _githubAuthorizing = false;
+      _githubFinishing = false;
+      _view = _LoginView.welcome;
       _isLoading = true;
       _githubError = null;
     });
@@ -233,196 +246,305 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _finish(bool value, {String? successMessage}) {
-    // 通知宿主在 Navigator 外层，先捕获再跳转，避免登录页销毁后提示丢失。
+    // 授权中 PopScope 禁止返回；只有真实登录/本地模式成功后放行导航。
+    // 下一帧执行，保证 PopScope 先更新，且提示不依赖即将销毁的页面。
     final notice = successMessage == null ? null : FxNotice.capture(context);
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop(value);
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    }
-    if (successMessage != null) {
-      notice!.show(
-        successMessage,
-        description: value ? '已进入云端模式，可在侧边栏查看同步状态' : '当前数据保存在本机',
-        variant: FxNoticeVariant.success,
-        duration: const Duration(seconds: 4),
-      );
-    }
+    setState(() => _allowCompletionPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop(value);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+      if (successMessage != null) {
+        notice!.show(
+          successMessage,
+          description: value ? '已进入云端模式，可在侧边栏查看同步状态' : '当前数据保存在本机',
+          variant: FxNoticeVariant.success,
+          duration: const Duration(seconds: 4),
+        );
+      }
+    });
   }
 
   void _message(String text) {
     FxNotice.showContent(context, Text(text));
   }
 
-  Widget _buildLoginContents(BuildContext context,
-      {required bool compactHeight}) {
+
+  Widget _backButton() => Align(
+        alignment: Alignment.centerLeft,
+        child: FxButton(
+          key: const ValueKey('login.back'),
+          label: '返回',
+          icon: Icons.arrow_back_rounded,
+          variant: FxButtonVariant.ghost,
+          size: FxButtonSize.sm,
+          onPressed: _isLoading ? null : () => _open(_LoginView.welcome),
+        ),
+      );
+
+  Widget _brand(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
+      key: const ValueKey('login.brand'),
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Align(
-          alignment: Alignment.center,
+        const SlowlightLogo(size: 44),
+        const SizedBox(width: SlowlightSpacing.xl),
+        Expanded(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SlowlightLogo(size: compactHeight ? 60 : 72),
-              const SizedBox(height: SlowlightSpacing.xxxl),
-              Text(
-                kBrandDisplayName,
-                style: SlowlightTypography.hero(context).copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              Text(kBrandDisplayName,
+                  style: SlowlightTypography.cardTitle(context).copyWith(
+                    fontWeight: FontWeight.w700,
+                  )),
               const SizedBox(height: SlowlightSpacing.xs),
-              Text(
-                kBrandTagline,
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.secondary(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+              Text(kBrandTagline,
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
             ],
           ),
         ),
-        SizedBox(height: compactHeight ? SlowlightSpacing.page : 40),
-        Text(
-          _isLogin ? '欢迎回来' : '创建云端账号',
-          style: SlowlightTypography.hero(context).copyWith(
-            fontWeight: FontWeight.w700,
+      ],
+    );
+  }
+
+  Widget _home(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      key: const ValueKey('login.page_welcome'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _brand(context),
+        const SizedBox(height: SlowlightSpacing.page * 2),
+        Text('欢迎回来', style: SlowlightTypography.hero(context)),
+        const SizedBox(height: SlowlightSpacing.md),
+        Text('选择一种方式开始，让每段记录都有迹可循。',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
+        const SizedBox(height: SlowlightSpacing.page),
+        if (_githubError != null) ...[
+          Text(_githubError!,
+              key: const ValueKey('login.github_error'),
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.error,
+              )),
+          const SizedBox(height: SlowlightSpacing.md),
+        ],
+        SizedBox(
+          width: double.infinity,
+          child: FxButton(
+            key: const ValueKey('login.github_action'),
+            label: _githubError == null ? '使用 GitHub 继续' : '继续 GitHub 授权',
+            icon: LucideIcons.gitFork,
+            size: FxButtonSize.lg,
+            expanded: true,
+            onPressed: _isLoading
+                ? null
+                : () => _loginWithGitHub(
+                    resumePending: _githubError != null && _githubCanResume),
           ),
         ),
+        if (_deviceFlowEnabled) ...[
+          const SizedBox(height: SlowlightSpacing.xs),
+          Align(
+            alignment: Alignment.center,
+            child: FxButton(
+              key: const ValueKey('login.github_device_action'),
+              label: '验证码登录（备用）',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.link,
+              onPressed: _isLoading
+                  ? null
+                  : () => _loginWithGitHub(useDeviceCode: true),
+            ),
+          ),
+        ],
+        const SizedBox(height: SlowlightSpacing.xl),
+        FxButton(
+          key: const ValueKey('login.password_action'),
+          label: '使用账号密码登录',
+          icon: LucideIcons.userRound,
+          variant: FxButtonVariant.outline,
+          size: FxButtonSize.lg,
+          expanded: true,
+          onPressed: _isLoading ? null : () => _open(_LoginView.password),
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('还没有账号？',
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                )),
+            FxButton(
+              key: const ValueKey('login.switch_mode'),
+              label: '创建账号',
+              variant: FxButtonVariant.link,
+              size: FxButtonSize.sm,
+              onPressed: _isLoading ? null : () => _open(_LoginView.register),
+            ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.page),
+        FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
+        const SizedBox(height: SlowlightSpacing.md),
+        FxButton(
+          key: const ValueKey('login.local_action'),
+          label: '不登录，使用本地数据',
+          icon: LucideIcons.smartphone,
+          variant: FxButtonVariant.ghost,
+          size: FxButtonSize.lg,
+          expanded: true,
+          onPressed: _isLoading ? null : () => _open(_LoginView.local),
+        ),
+        const SizedBox(height: SlowlightSpacing.xs),
+        Text('无需账号，记录仅保存在当前设备',
+            textAlign: TextAlign.center,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
+      ],
+    );
+  }
+
+  Widget _oauth(BuildContext context) {
+    final theme = Theme.of(context);
+    final isWaiting = _githubAuthorizing;
+    return Column(
+      key: const ValueKey('login.page_github'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!_githubFinishing)
+          _githubAuthorizing
+              ? Align(
+                  alignment: Alignment.centerLeft,
+                  child: FxButton(
+                    key: const ValueKey('login.back'),
+                    label: '返回',
+                    icon: Icons.arrow_back_rounded,
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.ghost,
+                    onPressed: _stopGitHubWaiting,
+                  ),
+                )
+              : _backButton(),
+        const SizedBox(height: SlowlightSpacing.xxxl),
+        Center(
+          child: Icon(LucideIcons.gitFork,
+              size: SlowlightIconSize.heroGlyph,
+              color: theme.colorScheme.onSurface),
+        ),
+        const SizedBox(height: SlowlightSpacing.xxxl),
+        Text(isWaiting ? '等待 GitHub 授权' : 'GitHub 授权未完成',
+            style: SlowlightTypography.hero(context),
+            textAlign: TextAlign.center),
         const SizedBox(height: SlowlightSpacing.md),
         Text(
-          _isLogin ? '登录后，让每一段记录在设备间延续。' : '用一个账号，保存值得回看的日常。',
+          isWaiting
+              ? '请在浏览器完成授权，客户端会自动检查登录结果。'
+              : '你可以继续检查上次授权，或重新发起登录。',
+          textAlign: TextAlign.center,
           style: SlowlightTypography.secondary(context).copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.md),
-        Text(
-          '只想先在这台设备上记录？页面下方可以不登录直接开始。',
-          style: SlowlightTypography.caption(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        const SizedBox(height: SlowlightSpacing.page),
+        FxCard(
+          padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+          color: fxSubtleSurface(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _oauthStep(context,
+                  label: '已发起授权',
+                  icon: Icons.check_circle_outline_rounded,
+                  active: isWaiting),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              _oauthStep(context,
+                  label: isWaiting ? _githubStatus : '等待授权结果',
+                  icon: Icons.sync_rounded,
+                  active: isWaiting,
+                  loading: isWaiting),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              _oauthStep(context,
+                  label: '完成登录',
+                  icon: Icons.circle_outlined,
+                  active: false),
+            ],
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.page),
-        FxButton(
-          key: const ValueKey('login.github_action'),
-          label: '使用 GitHub 继续',
-          expanded: true,
-          size: FxButtonSize.lg,
-          variant: FxButtonVariant.outline,
-          onPressed: _isLoading
-              ? null
-              : () {
-                  unawaited(_loginWithGitHub());
-                },
-        ),
-        if (_githubError != null && !_githubAuthorizing) ...[
-          const SizedBox(height: SlowlightSpacing.md),
-          Text(
-            _githubError!,
-            key: const ValueKey('login.github_error'),
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.error,
-            ),
+        if (_githubDeviceCode != null &&
+            _githubVerificationUri != null) ...[
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          SelectableText(
+            _githubDeviceCode!,
+            key: const ValueKey('login.github_device_code'),
+            style: SlowlightTypography.sectionTitle(context),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: SlowlightSpacing.md),
           FxButton(
-            key: const ValueKey('login.github_retry'),
-            label: _githubCanResume ? '继续检查上次授权' : '重新授权',
+            key: const ValueKey('login.github_device_copy'),
+            label: '复制验证码',
+            variant: FxButtonVariant.outline,
+            onPressed: () async {
+              await Clipboard.setData(
+                  ClipboardData(text: _githubDeviceCode!));
+              if (mounted) _message('验证码已复制');
+            },
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            key: const ValueKey('login.github_device_open'),
+            label: '打开 GitHub 验证页面',
             variant: FxButtonVariant.outline,
             expanded: true,
-            onPressed: _isLoading
-                ? null
-                : () {
-                    unawaited(
-                        _loginWithGitHub(resumePending: _githubCanResume));
-                  },
+            onPressed: () async {
+              final uri = _githubVerificationUri;
+              if (uri != null &&
+                  !await launchUrl(uri,
+                      mode: LaunchMode.externalApplication) &&
+                  mounted) {
+                _message('无法打开 GitHub，请手动访问 github.com/login/device');
+              }
+            },
           ),
         ],
-        if (_deviceFlowEnabled && !_githubAuthorizing) ...[
-          const SizedBox(height: SlowlightSpacing.md),
-          FxButton(
-            key: const ValueKey('login.github_device_action'),
-            label: '使用验证码登录（备用）',
-            variant: FxButtonVariant.ghost,
-            expanded: true,
-            onPressed:
-                _isLoading ? null : () => _loginWithGitHub(useDeviceCode: true),
-          ),
+        if (_githubError != null) ...[
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          Text(_githubError!,
+              key: const ValueKey('login.github_error'),
+              style: SlowlightTypography.secondary(context).copyWith(
+                color: theme.colorScheme.error,
+              )),
         ],
-        if (_githubAuthorizing) ...[
-          if (_githubDeviceCode != null && _githubVerificationUri != null) ...[
-            const SizedBox(height: SlowlightSpacing.md),
-            SelectableText(
-              _githubDeviceCode!,
-              textAlign: TextAlign.center,
-              style: SlowlightTypography.secondary(context),
-            ),
-            const SizedBox(height: SlowlightSpacing.xs),
-            FxButton(
-              key: const ValueKey('login.github_device_copy'),
-              label: '复制验证码',
-              variant: FxButtonVariant.outline,
-              onPressed: () async {
-                await Clipboard.setData(
-                    ClipboardData(text: _githubDeviceCode!));
-                if (mounted) _message('验证码已复制');
-              },
-            ),
-            const SizedBox(height: SlowlightSpacing.xs),
-            FxButton(
-              key: const ValueKey('login.github_device_open'),
-              label: '打开 GitHub 验证页面',
-              variant: FxButtonVariant.outline,
-              onPressed: () async {
-                final target = _githubVerificationUri;
-                if (target != null &&
-                    !await launchUrl(target,
-                        mode: LaunchMode.externalApplication) &&
-                    mounted) {
-                  _message('无法打开 GitHub，请手动访问 github.com/login/device');
-                }
-              },
-            ),
-          ],
-          const SizedBox(height: SlowlightSpacing.md),
-          Text(
-            _githubStatus,
-            textAlign: TextAlign.center,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: SlowlightSpacing.md),
-          if (Theme.of(context).platform == TargetPlatform.windows ||
-              Theme.of(context).platform == TargetPlatform.android) ...[
+        const SizedBox(height: SlowlightSpacing.page),
+        if (isWaiting) ...[
+          if (theme.platform == TargetPlatform.windows ||
+              theme.platform == TargetPlatform.android)
             FxButton(
               key: const ValueKey('login.github_check'),
               label: '检查授权结果',
-              variant: FxButtonVariant.outline,
+              icon: Icons.refresh_rounded,
+              expanded: true,
               onPressed: () {
                 if (!GitHubSignIn.checkAuthorizationNow()) {
                   _message('授权会话正在初始化，请稍后重试');
                 }
               },
             ),
-            const SizedBox(height: SlowlightSpacing.xs),
-            Text(
-              '浏览器授权成功后会自动检查；'
-              '如果返回应用后仍在等待，可手动检查。',
-              textAlign: TextAlign.center,
-              style: SlowlightTypography.caption(context).copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
           if (_githubDeviceCode == null) ...[
             const SizedBox(height: SlowlightSpacing.md),
             FxButton(
@@ -433,7 +555,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 try {
                   if (!await GitHubSignIn.reopenAuthorization() && mounted) {
-                    _message('无法重新打开授权页，请停止等待后重新授权');
+                    _message('无法打开授权页，请取消等待后重新授权');
                   }
                 } catch (_) {
                   if (mounted) _message('无法打开浏览器，请检查默认浏览器设置');
@@ -441,31 +563,92 @@ class _LoginScreenState extends State<LoginScreen> {
               },
             ),
           ],
+          const SizedBox(height: SlowlightSpacing.md),
           FxButton(
             key: const ValueKey('login.github_cancel'),
-            label: '停止等待',
+            label: '取消授权等待',
             variant: FxButtonVariant.link,
+            expanded: true,
             onPressed: _githubFinishing ? null : _stopGitHubWaiting,
           ),
+        ] else ...[
+          FxButton(
+            key: const ValueKey('login.github_retry'),
+            label: _githubCanResume ? '继续检查上次授权' : '重新授权',
+            expanded: true,
+            onPressed: _isLoading
+                ? null
+                : () => _loginWithGitHub(resumePending: _githubCanResume),
+          ),
         ],
-        const SizedBox(height: SlowlightSpacing.xl),
-        Center(
-          child: Text(
-            _isLogin ? '或使用账号密码' : '或创建普通账号',
+        const SizedBox(height: SlowlightSpacing.md),
+        Text('只有客户端完成确认后才算登录成功。',
+            textAlign: TextAlign.center,
             style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+            )),
+      ],
+    );
+  }
+
+  Widget _oauthStep(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required bool active,
+    bool loading = false,
+  }) {
+    final foreground = active
+        ? Theme.of(context).colorScheme.onSurface
+        : Theme.of(context).colorScheme.onSurfaceVariant;
+    return Row(
+      children: [
+        if (loading)
+          FxCircularProgress(
+            constraints: const BoxConstraints.tightFor(width: 19, height: 19),
+            strokeWidth: 2,
+            semanticsLabel: '正在检查授权',
+          )
+        else
+          Icon(icon, size: SlowlightIconSize.md, color: foreground),
+        const SizedBox(width: SlowlightSpacing.xl),
+        Expanded(
+          child: Text(label,
+              style: SlowlightTypography.secondary(context).copyWith(
+                color: foreground,
+              )),
         ),
-        const SizedBox(height: SlowlightSpacing.xl),
+      ],
+    );
+  }
+
+  Widget _credentials(BuildContext context) {
+    final theme = Theme.of(context);
+    final register = !_isLogin;
+    return Column(
+      key: ValueKey(register ? 'login.page_register' : 'login.page_password'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _backButton(),
+        const SizedBox(height: SlowlightSpacing.page),
+        Text(register ? '创建云端账号' : '账号密码登录',
+            style: SlowlightTypography.hero(context)),
+        const SizedBox(height: SlowlightSpacing.md),
+        Text(register
+                ? '创建账号，在不同设备查看自己的记录。'
+                : '登录后，在不同设备间延续记录。',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
+        const SizedBox(height: SlowlightSpacing.page),
         FxInput(
           controller: _usernameController,
           enabled: !_isLoading,
           textInputAction: TextInputAction.next,
           label: '账号',
-          placeholder: _isLogin ? '邮箱或用户名' : '设置用户名',
+          placeholder: register ? '设置用户名' : '邮箱或用户名',
         ),
-        if (!_isLogin) ...[
+        if (register) ...[
           const SizedBox(height: SlowlightSpacing.xxxl),
           FxInput(
             controller: _emailController,
@@ -481,9 +664,10 @@ class _LoginScreenState extends State<LoginScreen> {
           controller: _passwordController,
           enabled: !_isLoading,
           obscureText: _obscurePassword,
-          textInputAction:
-              _isLogin ? TextInputAction.done : TextInputAction.next,
-          onSubmitted: _isLogin ? (_) => _submit() : null,
+          textInputAction: register
+              ? TextInputAction.next
+              : TextInputAction.done,
+          onSubmitted: register ? null : (_) => _submit(),
           label: '密码',
           placeholder: '请输入密码',
           enableSuggestions: false,
@@ -499,7 +683,7 @@ class _LoginScreenState extends State<LoginScreen> {
             iconSize: SlowlightIconSize.sm,
           ),
         ),
-        if (!_isLogin) ...[
+        if (register) ...[
           const SizedBox(height: SlowlightSpacing.xxxl),
           FxInput(
             controller: _nicknameController,
@@ -518,116 +702,182 @@ class _LoginScreenState extends State<LoginScreen> {
                 ? 52
                 : SlowlightControlSize.minTouchTarget,
           ),
-          child: SizedBox(
-            width: double.infinity,
-            child: FxButton(
-              label: _isLoading
-                  ? '处理中…'
-                  : _isLogin
-                      ? '登录'
-                      : '创建账号',
-              size: FxButtonSize.lg,
-              expanded: true,
-              onPressed: _isLoading ? null : _submit,
-            ),
+          child: FxButton(
+            label: _isLoading
+                ? '处理中…'
+                : register
+                    ? '创建账号'
+                    : '登录',
+            expanded: true,
+            size: FxButtonSize.lg,
+            onPressed: _isLoading ? null : _submit,
           ),
         ),
         const SizedBox(height: SlowlightSpacing.md),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Flexible(
-              child: Text(
-                _isLogin ? '还没有账号？' : '已有账号？',
-                style: SlowlightTypography.secondary(context).copyWith(
+            Text(register ? '已经有账号？' : '还没有账号？',
+                style: SlowlightTypography.caption(context).copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
+                )),
             FxButton(
               key: const ValueKey('login.switch_mode'),
-              label: _isLogin ? '注册' : '返回登录',
+              label: register ? '返回登录' : '创建账号',
               variant: FxButtonVariant.link,
               size: FxButtonSize.sm,
               onPressed: _isLoading
                   ? null
-                  : () => setState(() => _isLogin = !_isLogin),
+                  : () => _open(register
+                      ? _LoginView.password
+                      : _LoginView.register),
             ),
           ],
         ),
         const SizedBox(height: SlowlightSpacing.page),
-        FxSeparator.horizontal(
-          color: theme.colorScheme.outlineVariant,
-        ),
-        const SizedBox(height: SlowlightSpacing.xl),
-        Center(
-          child: FxButton(
-            key: const ValueKey('login.local_action'),
-            label: '不登录，使用本地数据',
-            icon: LucideIcons.smartphone,
-            variant: FxButtonVariant.ghost,
-            size: FxButtonSize.lg,
-            onPressed: _isLoading ? null : _useLocal,
-          ),
-        ),
-        const SizedBox(height: SlowlightSpacing.xs),
-        Text(
-          '本机记录不会自动上传或合并。将来可在设置中选择云端数据，迁移需要主动预览并确认。',
-          textAlign: TextAlign.center,
-          style: SlowlightTypography.caption(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
+        const SizedBox(height: SlowlightSpacing.md),
+        FxButton(
+          key: const ValueKey('login.github_from_password'),
+          label: '使用 GitHub 继续',
+          icon: LucideIcons.gitFork,
+          variant: FxButtonVariant.ghost,
+          expanded: true,
+          onPressed: _isLoading ? null : () => _loginWithGitHub(),
         ),
       ],
     );
   }
 
+  Widget _localIntro(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      key: const ValueKey('login.page_local'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _backButton(),
+        const SizedBox(height: SlowlightSpacing.page),
+        Align(
+          child: Icon(LucideIcons.smartphone,
+              size: SlowlightIconSize.heroGlyph,
+              color: theme.colorScheme.onSurface),
+        ),
+        const SizedBox(height: SlowlightSpacing.xxxl),
+        Text('无需登录，直接开始',
+            style: SlowlightTypography.hero(context),
+            textAlign: TextAlign.center),
+        const SizedBox(height: SlowlightSpacing.md),
+        Text('所有记录保存在当前设备，不会自动上传或合并到云端。',
+            textAlign: TextAlign.center,
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
+        const SizedBox(height: SlowlightSpacing.page),
+        FxCard(
+          padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+          color: fxSubtleSurface(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _localFact(context, '使用任务、习惯与回顾'),
+              const SizedBox(height: SlowlightSpacing.xl),
+              _localFact(context, '不需要网络或云端账号'),
+              const SizedBox(height: SlowlightSpacing.xl),
+              _localFact(context, '迁移云端需要主动预览并确认'),
+            ],
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.page),
+        FxButton(
+          key: const ValueKey('login.local_confirm'),
+          label: _isLoading ? '正在准备本地数据…' : '开始使用本地数据',
+          expanded: true,
+          size: FxButtonSize.lg,
+          onPressed: _isLoading ? null : _useLocal,
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        FxButton(
+          key: const ValueKey('login.local_cancel'),
+          label: '返回登录',
+          variant: FxButtonVariant.ghost,
+          expanded: true,
+          onPressed: _isLoading ? null : () => _open(_LoginView.welcome),
+        ),
+      ],
+    );
+  }
+
+  Widget _localFact(BuildContext context, String label) => Row(
+        children: [
+          Icon(Icons.check_circle_outline,
+              size: SlowlightIconSize.md,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
+          const SizedBox(width: SlowlightSpacing.xl),
+          Expanded(
+            child: Text(label,
+                style: SlowlightTypography.secondary(context)),
+          ),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_githubAuthorizing,
+      canPop: _allowCompletionPop ||
+          (_view == _LoginView.welcome && !_githubAuthorizing),
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _githubAuthorizing && !_githubFinishing) {
-          unawaited(_stopGitHubWaiting());
+        if (didPop || _allowCompletionPop) return;
+        if (_view == _LoginView.github && _githubAuthorizing) {
+          if (!_githubFinishing) unawaited(_stopGitHubWaiting());
+        } else if (!_isLoading) {
+          _open(_LoginView.welcome);
         }
       },
       child: Scaffold(
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, viewport) {
-              final desktop =
+              final isDesktop =
+                  !SlowlightPlatformDensity.usesMobileTouchTargets &&
                   viewport.maxWidth >= SlowlightBreakpoints.tabletMin;
-              final compactHeight = desktop || viewport.maxHeight < 640;
-              final contents = _buildLoginContents(
-                context,
-                compactHeight: compactHeight,
+              final content = switch (_view) {
+                _LoginView.welcome => _home(context),
+                _LoginView.github => _oauth(context),
+                _LoginView.password || _LoginView.register =>
+                  _credentials(context),
+                _LoginView.local => _localIntro(context),
+              };
+              final panel = ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 510),
+                child: isDesktop
+                    ? FxCard(
+                        padding: const EdgeInsets.all(SlowlightSpacing.page),
+                        borderRadius: SlowlightRadius.xl,
+                        child: content,
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: SlowlightSpacing.page,
+                        ),
+                        child: content,
+                      ),
               );
               return SingleChildScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: viewport.maxHeight),
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: SlowlightSpacing.page,
-                        vertical: compactHeight
-                            ? SlowlightSpacing.xxxl
-                            : SlowlightSpacing.page,
-                      ),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 448),
-                        child: desktop
-                            ? FxCard(
-                                padding: const EdgeInsets.all(
-                                  SlowlightSpacing.page,
-                                ),
-                                borderRadius: SlowlightRadius.xl,
-                                child: contents,
-                              )
-                            : contents,
-                      ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? SlowlightSpacing.page : 0,
+                      vertical: SlowlightSpacing.page,
                     ),
+                    child: isDesktop
+                        ? Center(child: panel)
+                        : Align(
+                            alignment: Alignment.topCenter,
+                            child: panel,
+                          ),
                   ),
                 ),
               );
