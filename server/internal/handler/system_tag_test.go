@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+    "errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -413,4 +414,47 @@ func TestUpdateSystemTag_RenameCustom(t *testing.T) {
 	var tag model.SystemTag
 	json.Unmarshal(w.Body.Bytes(), &tag)
 	assertEqual(t, tag.Name, "身体💪", "RenamedName")
+}
+
+func TestManagedLabelsAreSelectableCanonicalTags(t *testing.T) {
+    tx, handler, userID := setupSystemTagTest(t)
+    if err := createDefaultAccountData(tx, userID); err != nil { t.Fatal(err) }
+    var initial int64
+    if err := tx.Model(&model.Tag{}).Where("user_id = ?", userID).Count(&initial).Error; err != nil { t.Fatal(err) }
+    if initial != 4 { t.Fatalf("want four selectable defaults; got %d", initial) }
+
+    router := newSystemTagRouter(handler, userID)
+    add := httptest.NewRecorder()
+    body := bytes.NewBufferString(`{"name":"项目复盘","icon":"✍️","color":"#445566"}`)
+    req := httptest.NewRequest(http.MethodPost, "/system-tags", body)
+    req.Header.Set("Content-Type", "application/json")
+    router.ServeHTTP(add, req)
+    if add.Code != http.StatusCreated { t.Fatalf("create failed: %d %s", add.Code, add.Body.String()) }
+    var legacy model.SystemTag
+    if err := json.Unmarshal(add.Body.Bytes(), &legacy); err != nil { t.Fatal(err) }
+
+    var alias model.LegacySystemTagAlias
+    if err := tx.Where("user_id = ? AND system_tag_id = ?", userID, legacy.ID).
+        Take(&alias).Error; err != nil { t.Fatal(err) }
+    if alias.TagID == 0 { t.Fatal("missing canonical mapping") }
+
+    path := fmt.Sprintf("/system-tags/%d", legacy.ID)
+    change := httptest.NewRecorder()
+    update := httptest.NewRequest(http.MethodPut, path,
+        bytes.NewBufferString(`{"name":"复盘归档","color":"#abcdef"}`))
+    update.Header.Set("Content-Type", "application/json")
+    router.ServeHTTP(change, update)
+    if change.Code != http.StatusOK { t.Fatalf("update failed: %d %s", change.Code, change.Body.String()) }
+    var canonical model.Tag
+    if err := tx.First(&canonical, alias.TagID).Error; err != nil { t.Fatal(err) }
+    if canonical.Name != "复盘归档" || canonical.Color != "#abcdef" {
+        t.Fatalf("picker label not in sync: %#v", canonical)
+    }
+
+    remove := httptest.NewRecorder()
+    router.ServeHTTP(remove, httptest.NewRequest(http.MethodDelete, path, nil))
+    if remove.Code != http.StatusOK { t.Fatalf("delete failed: %d %s", remove.Code, remove.Body.String()) }
+    if err := tx.First(&canonical, alias.TagID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+        t.Fatalf("deleted managed label must disappear from canonical picker: %v", err)
+    }
 }

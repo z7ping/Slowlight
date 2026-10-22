@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:sqflite/sqflite.dart';
 
 import '../db/local_db.dart';
 import '../db/local_product_core_schema.dart';
@@ -40,6 +41,44 @@ class ObservationTagRepository {
     }
   }
 
+  // Mirror old UI metadata to canonical label IDs without mixing namespaces.
+  Future<void> _upsertLocalCanonical(
+    Transaction txn, {
+    required int legacyId,
+    required String name,
+    required String color,
+    required String now,
+  }) async {
+    final aliases = await txn.query('legacy_system_tag_aliases',
+        columns: ['tag_id'], where: 'system_tag_id = ?',
+        whereArgs: [legacyId], limit: 1);
+    int canonicalId;
+    if (aliases.isNotEmpty) {
+      canonicalId = aliases.first['tag_id'] as int;
+    } else {
+      final existing = await txn.query('tags',
+          columns: ['id'], where: 'name = ?', whereArgs: [name],
+          orderBy: 'id ASC', limit: 1);
+      canonicalId = existing.isNotEmpty
+          ? existing.first['id'] as int
+          : await txn.insert('tags', {
+              'name': name, 'color': color,
+              'created_at': now, 'updated_at': now,
+            });
+      await txn.insert('legacy_system_tag_aliases', {
+        'system_tag_id': legacyId, 'tag_id': canonicalId,
+      });
+    }
+    final duplicate = await txn.query('tags', columns: ['id'],
+        where: 'name = ? AND id != ?', whereArgs: [name, canonicalId],
+        limit: 1);
+    if (duplicate.isNotEmpty) throw StateError('同名标签已存在，请使用其他名称');
+    final updated = await txn.update('tags',
+        {'name': name, 'color': color, 'updated_at': now},
+        where: 'id = ?', whereArgs: [canonicalId]);
+    if (updated != 1) throw StateError('对应统一标签不存在');
+  }
+
   Future<ObservationTag> create({
     required String name,
     required String icon,
@@ -51,22 +90,19 @@ class ObservationTagRepository {
       await LocalProductCoreSchema.ensureReady();
       final db = await LocalDb().database;
       final now = DateTime.now().toUtc().toIso8601String();
-      final id = await db.insert('system_tags', {
-        'name': name.trim(),
-        'icon': icon,
-        'color': color,
-        'dimension_key': key,
-        'is_default': 0,
-        'created_at': now,
-        'updated_at': now,
+      final created = await db.transaction((txn) async {
+        final id = await txn.insert('system_tags', {
+          'name': name.trim(), 'icon': icon, 'color': color,
+          'dimension_key': key, 'is_default': 0,
+          'created_at': now, 'updated_at': now,
+        });
+        await _upsertLocalCanonical(txn,
+            legacyId: id, name: name.trim(), color: color, now: now);
+        final rows = await txn.query('system_tags',
+            where: 'id = ?', whereArgs: [id], limit: 1);
+        return rows.first;
       });
-      final rows = await db.query(
-        'system_tags',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      return ObservationTag.fromJson(Map<String, dynamic>.from(rows.first));
+      return ObservationTag.fromJson(Map<String, dynamic>.from(created));
     }
 
     final value = await _cloudRequest('POST', '/system-tags', body: {
@@ -90,26 +126,19 @@ class ObservationTagRepository {
       await LocalProductCoreSchema.ensureReady();
       final db = await LocalDb().database;
       final now = DateTime.now().toUtc().toIso8601String();
-      await db.update(
-        'system_tags',
-        {
-          'name': name.trim(),
-          'icon': icon,
-          'color': color,
-          'dimension_key': key,
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [tag.id],
-      );
-      final rows = await db.query(
-        'system_tags',
-        where: 'id = ?',
-        whereArgs: [tag.id],
-        limit: 1,
-      );
-      if (rows.isEmpty) throw StateError('观察标签不存在');
-      return ObservationTag.fromJson(Map<String, dynamic>.from(rows.first));
+      final updated = await db.transaction((txn) async {
+        final count = await txn.update('system_tags', {
+          'name': name.trim(), 'icon': icon, 'color': color,
+          'dimension_key': key, 'updated_at': now,
+        }, where: 'id = ?', whereArgs: [tag.id]);
+        if (count != 1) throw StateError('观察标签不存在');
+        await _upsertLocalCanonical(txn,
+            legacyId: tag.id, name: name.trim(), color: color, now: now);
+        final rows = await txn.query('system_tags',
+            where: 'id = ?', whereArgs: [tag.id], limit: 1);
+        return rows.first;
+      });
+      return ObservationTag.fromJson(Map<String, dynamic>.from(updated));
     }
 
     final value = await _cloudRequest('PUT', '/system-tags/${tag.id}', body: {
@@ -139,6 +168,26 @@ class ObservationTagRepository {
           where: 'system_tag_id = ?',
           whereArgs: [tag.id],
         );
+        final aliases = await txn.query('legacy_system_tag_aliases',
+            columns: ['tag_id'], where: 'system_tag_id = ?',
+            whereArgs: [tag.id], limit: 1);
+        if (aliases.isNotEmpty) {
+          final canonicalId = aliases.first['tag_id'] as int;
+          await txn.delete('legacy_system_tag_aliases',
+              where: 'system_tag_id = ?', whereArgs: [tag.id]);
+          final others = await txn.query('legacy_system_tag_aliases',
+              columns: ['tag_id'], where: 'tag_id = ?',
+              whereArgs: [canonicalId], limit: 1);
+          if (others.isEmpty) {
+            for (final links in [
+              'task_tags', 'habit_tags', 'work_session_tags', 'reflection_tags',
+            ]) {
+              await txn.delete(links,
+                  where: 'tag_id = ?', whereArgs: [canonicalId]);
+            }
+            await txn.delete('tags', where: 'id = ?', whereArgs: [canonicalId]);
+          }
+        }
         await txn.delete('system_tags', where: 'id = ?', whereArgs: [tag.id]);
       });
       return;

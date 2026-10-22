@@ -491,5 +491,18 @@ func createDefaultAccountData(tx *gorm.DB, id uint) error {
 		{UserID: id, Name: "关系", Icon: "❤️", Color: "#eb2f96", DimensionKey: model.DimensionRelationship, SortOrder: 4, IsDefault: true},
 	}
 	if err := tx.Create(&tags).Error; err != nil { return fmt.Errorf("初始化默认观察标签失败: %w", err) }
+    // Both password and GitHub sign-up should see the same default
+    // labels in the canonical multi-select, without waiting for a restart.
+    for _, legacy := range tags {
+        canonical := model.Tag{UserID: id, Name: legacy.Name, Color: legacy.Color}
+        if err := tx.Create(&canonical).Error; err != nil {
+            return fmt.Errorf("初始化统一标签失败: %w", err)
+        }
+        if err := tx.Create(&model.LegacySystemTagAlias{
+            UserID: id, SystemTagID: legacy.ID, TagID: canonical.ID,
+        }).Error; err != nil {
+            return fmt.Errorf("初始化标签映射失败: %w", err)
+        }
+    }
 	return nil
 }

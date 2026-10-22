@@ -65,21 +65,9 @@ abstract final class UnifiedTagSchema {
             .isNotEmpty) {
           continue;
         }
+        // 管理页可见的默认标签也映射为 canonical 标签供任务选择。
         final name = row['name']?.toString().trim() ?? '';
         if (name.isEmpty) continue;
-
-        // 未被使用的历史四维占位标签，不应该重新出现在用户标签库。
-        if (row['is_default'] == 1) {
-          var uses = reflectionIDs[oldId]?.length ?? 0;
-          for (final table in ['tasks', 'habits', 'work_sessions']) {
-            final result = await txn.rawQuery(
-              'SELECT COUNT(*) AS n FROM $table WHERE system_tag_id = ?',
-              [oldId],
-            );
-            uses += (result.first['n'] as int?) ?? 0;
-          }
-          if (uses == 0) continue;
-        }
 
         final matches = await txn.query(
           'tags',

@@ -1,7 +1,10 @@
 package handler
 
 import (
+    "errors"
+    "fmt"
 	"net/http"
+    "strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -15,6 +18,36 @@ type SystemTagHandler struct {
 
 func NewSystemTagHandler(db *gorm.DB) *SystemTagHandler {
 	return &SystemTagHandler{DB: db}
+}
+
+// syncSystemTagToCanonical preserves separate ID namespaces while making the
+// labels managed on this page available to canonical task/habit tag pickers.
+func syncSystemTagToCanonical(tx *gorm.DB, legacy model.SystemTag) error {
+    name := strings.TrimSpace(legacy.Name)
+    if name == "" { return errors.New("标签名称不能为空") }
+
+    var alias model.LegacySystemTagAlias
+    err := tx.Where("user_id = ? AND system_tag_id = ?", legacy.UserID, legacy.ID).Take(&alias).Error
+    if errors.Is(err, gorm.ErrRecordNotFound) {
+        var canonical model.Tag
+        err = tx.Unscoped().Where("user_id = ? AND name = ?", legacy.UserID, name).Take(&canonical).Error
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            canonical = model.Tag{UserID: legacy.UserID, Name: name, Color: legacy.Color}
+            if err := tx.Create(&canonical).Error; err != nil { return err }
+        } else if err != nil { return err } else if canonical.DeletedAt.Valid {
+            return fmt.Errorf("同名标签已被删除，不能自动恢复")
+        }
+        alias = model.LegacySystemTagAlias{UserID: legacy.UserID, SystemTagID: legacy.ID, TagID: canonical.ID}
+        if err := tx.Create(&alias).Error; err != nil { return err }
+    } else if err != nil { return err }
+
+    var canonical model.Tag
+    if err := tx.Where("id = ? AND user_id = ?", alias.TagID, legacy.UserID).First(&canonical).Error; err != nil {
+        return fmt.Errorf("对应统一标签不可用: %w", err)
+    }
+    return tx.Model(&canonical).Updates(map[string]interface{}{
+        "name": name, "color": legacy.Color,
+    }).Error
 }
 
 func (h *SystemTagHandler) GetSystemTags(c *gin.Context) {
@@ -67,7 +100,10 @@ func (h *SystemTagHandler) CreateSystemTag(c *gin.Context) {
 	if tag.Color == "" {
 		tag.Color = "#1890ff"
 	}
-	if err := h.DB.Create(&tag).Error; err != nil {
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Create(&tag).Error; err != nil { return err }
+        return syncSystemTagToCanonical(tx, tag)
+    }); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建标签失败"})
 		return
 	}
@@ -126,11 +162,14 @@ func (h *SystemTagHandler) UpdateSystemTag(c *gin.Context) {
 		return
 	}
 
-	if err := h.DB.Model(&tag).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新标签失败"})
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Model(&tag).Updates(updates).Error; err != nil { return err }
+        if err := tx.First(&tag, tag.ID).Error; err != nil { return err }
+        return syncSystemTagToCanonical(tx, tag)
+    }); err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "更新标签失败，请检查名称是否与已有标签冲突"})
 		return
 	}
-	h.DB.First(&tag, tag.ID)
 	c.JSON(http.StatusOK, tag)
 }
 
@@ -147,8 +186,29 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
 		return
 	}
 
-	h.DB.Model(&model.Habit{}).Where("system_tag_id = ?", tag.ID).Update("system_tag_id", nil)
-	h.DB.Model(&model.Task{}).Where("system_tag_id = ?", tag.ID).Update("system_tag_id", nil)
-	h.DB.Delete(&tag)
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Model(&model.Habit{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
+            Update("system_tag_id", nil).Error; err != nil { return err }
+        if err := tx.Model(&model.Task{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
+            Update("system_tag_id", nil).Error; err != nil { return err }
+        var alias model.LegacySystemTagAlias
+        err := tx.Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).Take(&alias).Error
+        if err == nil {
+            if err := tx.Delete(&alias).Error; err != nil { return err }
+            var other int64
+            if err := tx.Model(&model.LegacySystemTagAlias{}).
+                Where("user_id = ? AND tag_id = ?", userID, alias.TagID).Count(&other).Error; err != nil { return err }
+            if other == 0 {
+                // Removing a managed label also removes its canonical associations.
+                for _, link := range []interface{}{&model.TaskTag{}, &model.HabitTag{}, &model.WorkSessionTag{}, &model.ReflectionTag{}} {
+                    if err := tx.Where("tag_id = ?", alias.TagID).Delete(link).Error; err != nil { return err }
+                }
+                if err := tx.Where("id = ? AND user_id = ?", alias.TagID, userID).Delete(&model.Tag{}).Error; err != nil { return err }
+            }
+        } else if !errors.Is(err, gorm.ErrRecordNotFound) { return err }
+        return tx.Delete(&tag).Error
+    }); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "删除标签失败"}); return
+    }
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
 }

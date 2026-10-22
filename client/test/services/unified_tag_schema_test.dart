@@ -1,6 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:slowlight/repositories/local_tag_repository.dart';
+import 'package:slowlight/repositories/observation_tag_repository.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/local_db.dart';
@@ -27,7 +31,7 @@ void main() {
     await databaseFactory.deleteDatabase(dbPath);
   });
 
-  test('本地任务、习惯、专注、观察历史关联映射到同一个标签，重复运行不恢复已删除关系', () async {
+  test('管理页默认标签也映射为可选 canonical 标签，历史关联幂等', () async {
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
@@ -66,13 +70,18 @@ void main() {
 
     await LocalProductCoreSchema.ensureReady();
     final aliases = await db.query('legacy_system_tag_aliases');
-    expect(aliases, hasLength(1));
-    expect(aliases.single['system_tag_id'], oldTagId);
-    expect(aliases.single['tag_id'], tagId);
+    expect(aliases, hasLength(2));
+    final mapped = {for (final row in aliases) row['system_tag_id']: row['tag_id']};
+    expect(mapped[oldTagId], tagId);
+    final defaultCanonicalId = mapped[unusedDefault] as int;
+    expect(defaultCanonicalId, isNot(tagId));
+    final defaults = await db.query('tags',
+        where: 'id = ?', whereArgs: [defaultCanonicalId]);
+    expect(defaults.single['name'], '身体');
     expect(
       await db.query('legacy_system_tag_aliases',
           where: 'system_tag_id = ?', whereArgs: [unusedDefault]),
-      isEmpty,
+      hasLength(1),
     );
     for (final (table, column, id) in [
       ('task_tags', 'task_id', taskId),
@@ -93,6 +102,37 @@ void main() {
       isNotEmpty,
       reason: '历史数据必须保留',
     );
+  });
+
+  test('本地管理标签新建、重命名、删除均同步 canonical 选择器', () async {
+    SharedPreferences.setMockInitialValues({});
+    DataModeManager().resetForTesting();
+    await DataModeManager().setLocal();
+    addTearDown(() => DataModeManager().resetForTesting());
+
+    final manager = ObservationTagRepository();
+    final choices = LocalTagRepository();
+    final created = await manager.create(
+      name: '项目复盘', icon: '✍️', color: '#223344',
+    );
+    final db = await LocalDb().database;
+    final alias = await db.query('legacy_system_tag_aliases',
+        where: 'system_tag_id = ?', whereArgs: [created.id]);
+    expect(alias, hasLength(1));
+    final canonicalId = alias.single['tag_id'];
+    expect((await choices.getAll()).where((tag) => tag.id == canonicalId)
+        .single.name, '项目复盘');
+
+    await manager.update(created,
+        name: '日常复盘', icon: '✍️', color: '#445566');
+    final updated = (await choices.getAll())
+        .singleWhere((tag) => tag.id == canonicalId);
+    expect(updated.name, '日常复盘');
+    expect(updated.color, '#445566');
+
+    await manager.delete(created);
+    expect((await choices.getAll()).where((tag) => tag.id == canonicalId),
+        isEmpty);
   });
 
   test('本地关联表重复建表不报错，未关联标签也可保留', () async {

@@ -131,9 +131,17 @@ func TestBackfillLegacyTagLinksReusesCanonicalAndIsIdempotent(t *testing.T) {
 		Where("user_id = ? AND system_tag_id = ?", user.ID, unused.ID).Count(&skipped).Error; err != nil {
 		t.Fatal(err)
 	}
-	if skipped != 0 {
-		t.Fatal("unused default dimension must not become a user label")
+	if skipped != 1 {
+		t.Fatal("default label displayed in manager must have a canonical alias")
 	}
+    var defaultAlias model.LegacySystemTagAlias
+    if err := tx.Where("user_id = ? AND system_tag_id = ?", user.ID, unused.ID).
+        Take(&defaultAlias).Error; err != nil { t.Fatal(err) }
+    if defaultAlias.TagID == existing.ID { t.Fatal("legacy ID aliases cannot mix labels") }
+    var defaultCanonical model.Tag
+    if err := tx.Where("id = ? AND user_id = ?", defaultAlias.TagID, user.ID).
+        Take(&defaultCanonical).Error; err != nil { t.Fatal(err) }
+    if defaultCanonical.Name != "身体" { t.Fatal("visible default name missing from canonical tags") }
 
 	var otherAlias model.LegacySystemTagAlias
 	if err := tx.Where("user_id = ? AND system_tag_id = ?", otherUser.ID, other.ID).Take(&otherAlias).Error; err != nil {
