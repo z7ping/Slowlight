@@ -11,7 +11,9 @@ import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
 class TaskToolScreen extends StatefulWidget {
-  const TaskToolScreen({super.key});
+  final Future<List<dynamic>> Function()? dataLoader;
+
+  const TaskToolScreen({super.key, this.dataLoader});
 
   @override
   State<TaskToolScreen> createState() => _TaskToolScreenState();
@@ -24,6 +26,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   List<Task> _all = const [];
   List<Task> _completed = const [];
   List<TodoList> _lists = const [];
+  bool _hasLoaded = false;
+  bool _loadFailed = false;
+  int _loadVersion = 0;
   Task? _selectedTask;
   final Map<int, double> _swipeOffsets = {};
 
@@ -34,16 +39,22 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
+    final request = ++_loadVersion;
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadFailed = false;
+      });
+    }
     try {
       final data = DataService();
-      final values = await Future.wait<dynamic>([
+      final values = await (widget.dataLoader?.call() ?? Future.wait<dynamic>([
         data.getTodayTasks(),
         data.getAllTasks(),
         data.getCompletedTasks(),
         data.getLists(),
-      ]);
-      if (!mounted) return;
+      ]));
+      if (!mounted || request != _loadVersion) return;
       setState(() {
         _today = values[0] as List<Task>;
         _all = values[1] as List<Task>;
@@ -56,10 +67,17 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
           );
         }
         _swipeOffsets.clear();
+        _hasLoaded = true;
+        _loadFailed = false;
         _loading = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted || request != _loadVersion) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+      // 已加载过数据则保留，不能在刷新失败时把内容改成空任务。
     }
   }
 
@@ -157,7 +175,15 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: FxCircularProgress());
+    if (_loading && !_hasLoaded) return const Center(child: FxCircularProgress());
+    if (_loadFailed && !_hasLoaded) {
+      return Center(child: FxEmptyState(
+        icon: LucideIcons.triangleAlert,
+        title: '任务读取失败',
+        subtitle: '暂时无法获取任务记录，请检查数据服务后重试。',
+        action: FxButton(label: '重试', onPressed: _load),
+      ));
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final mobile = constraints.maxWidth < 600;
@@ -172,6 +198,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
                     children: [
                       _taskActionBar(),
+                      if (_loadFailed) _refreshErrorNotice(),
                       const SizedBox(height: 14),
                       _card(
                         child:
@@ -203,12 +230,37 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     );
   }
 
+  Widget _refreshErrorNotice() => Padding(
+    padding: const EdgeInsets.only(top: 10),
+    child: FxCard(
+      padding: const EdgeInsets.all(12),
+      expanded: true,
+      child: Row(
+        children: [
+          const Icon(LucideIcons.triangleAlert, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            '刷新失败，仍显示上次加载的任务',
+            style: SlowlightTypography.secondary(context),
+          )),
+          FxButton(
+            label: _loading ? '重试中…' : '重试',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.ghost,
+            onPressed: _loading ? null : _load,
+          ),
+        ],
+      ),
+    ),
+  );
+
   Widget _desktopContent() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: Column(
         children: [
           _taskActionBar(),
+          if (_loadFailed) _refreshErrorNotice(),
           const SizedBox(height: 14),
           Expanded(
             child:

@@ -37,8 +37,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   CalendarMonthData? _data;
   CalendarDisplayMode _displayMode = CalendarDisplayMode.all;
   bool _loading = true;
+  bool _loadFailed = false;
+  int _loadVersion = 0;
 
-  List<CalendarRecord> get _records => _data?.records ?? const [];
+  bool get _hasCurrentMonth => _data != null &&
+      _data!.month.year == _focused.year &&
+      _data!.month.month == _focused.month;
+  List<CalendarRecord> get _records =>
+      _hasCurrentMonth ? _data!.records : const [];
 
   @override
   void initState() {
@@ -53,18 +59,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
+    final requested = DateTime(_focused.year, _focused.month, 1);
+    final version = ++_loadVersion;
+    if (mounted) setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
-      final data = await _monthLoader(_focused);
-      if (!mounted) return;
+      final data = await _monthLoader(requested);
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _data = data;
+        _loadFailed = false;
         _loading = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
-        _data = CalendarMonthData(month: _focused, records: const []);
+        // 保留上次成功的数据，仅在月份相符时继续展示。
+        // 禁止把接口失败伪造成本月零条记录。
+        _loadFailed = true;
         _loading = false;
       });
     }
@@ -147,8 +161,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 children: [
                   _toolbar(),
                   const SizedBox(height: 12),
-                  if ((_data?.unavailableTypes.isNotEmpty ?? false))
+                  if (_hasCurrentMonth && _data!.unavailableTypes.isNotEmpty)
                     _partialDataNotice(),
+                  if (_loadFailed && _hasCurrentMonth)
+                    _monthRefreshFailedNotice(),
+                  if (_loading && !_hasCurrentMonth)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(child: FxCircularProgress()),
+                    )
+                  else if (_loadFailed && !_hasCurrentMonth)
+                    FxEmptyState(
+                      icon: LucideIcons.triangleAlert,
+                      title: '当前月份读取失败',
+                      subtitle: '未能加载这一个月的记录；请重试，不代表没有安排。',
+                      action: FxButton(label: '重新加载', onPressed: _load),
+                    )
+                  else ...[
                   CalendarMonthGrid(
                     focusedMonth: _focused,
                     selectedDate: _selected,
@@ -162,6 +191,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                   const SizedBox(height: 14),
                   _dayPanel(),
+                  ],
                 ],
               ),
             ),
@@ -234,6 +264,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
               setState(() => _displayMode = CalendarDisplayMode.values[index]),
     );
   }
+
+  Widget _monthRefreshFailedNotice() => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: FxCard(
+      padding: const EdgeInsets.all(12),
+      expanded: true,
+      child: Row(children: [
+        const Icon(LucideIcons.triangleAlert, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: Text(
+          '刷新失败，当前仍展示上次读取的记录',
+          style: SlowlightTypography.secondary(context),
+        )),
+        FxButton(
+          label: '重试',
+          size: FxButtonSize.sm,
+          variant: FxButtonVariant.ghost,
+          onPressed: _loading ? null : _load,
+        ),
+      ]),
+    ),
+  );
 
   Widget _partialDataNotice() {
     final labels = _data!.unavailableTypes.map(
