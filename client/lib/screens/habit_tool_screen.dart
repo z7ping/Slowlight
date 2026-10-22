@@ -30,6 +30,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   late final TagLinksRepository _tagLinks;
   bool _editingHabit = false;
   int? _expandedHabitId;
+  int _filter = 0; // 全部 / 待记录 / 已记录
   final Set<int> _pendingHabitActions = <int>{};
 
   @override
@@ -347,7 +348,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       return;
     }
     setState(() => _expandedHabitId = habit.id);
-    await _controller.loadLogs(habit.id);
+    try {
+      await _controller.loadLogs(habit.id);
+    } catch (_) {
+      _message('近期记录暂时无法获取，可以稍后重试');
+    }
   }
 
   @override
@@ -355,15 +360,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     if (_controller.loading && _controller.habits.isEmpty) {
       return const Center(child: FxCircularProgress());
     }
-    if (_controller.error != null && _controller.habits.isEmpty) {
-      return Center(
-        child: FxButton(
-          label: '重试',
-          variant: FxButtonVariant.secondary,
-          onPressed: _controller.load,
-        ),
-      );
-    }
+    final all = _controller.habits;
+    final visible = all.where((habit) => switch (_filter) {
+      1 => !habit.checkedToday,
+      2 => habit.checkedToday,
+      _ => true,
+    }).toList(growable: false);
     return FxRefresh(
       onRefresh: _controller.load,
       child: ListView(
@@ -377,15 +379,55 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _header(),
-                  const SizedBox(height: 14),
-                  if (_controller.habits.isEmpty)
+                  const SizedBox(height: SlowlightSpacing.page),
+                  if (_controller.error != null) ...[
+                    FxCard(
+                      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('习惯加载失败，显示的记录可能不是最新的。',
+                              style: SlowlightTypography.secondary(context)),
+                          const SizedBox(height: SlowlightSpacing.md),
+                          FxButton(
+                            label: '重新加载',
+                            icon: LucideIcons.refreshCw,
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _controller.load,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: SlowlightSpacing.page),
+                  ],
+                  _summaryBar(),
+                  const SizedBox(height: SlowlightSpacing.xxxl),
+                  if (all.isEmpty && _controller.error == null)
                     FxEmptyState(
                       icon: LucideIcons.repeat2,
                       title: '还没有习惯记录',
-                      subtitle: '从一个小习惯开始，比如每天喝一杯水',
+                      subtitle: '从一件愿意重复的小事开始。',
+                      action: FxButton(
+                        label: '创建第一个习惯',
+                        icon: LucideIcons.plus,
+                        variant: FxButtonVariant.outline,
+                        onPressed: _createHabit,
+                      ),
+                    )
+                  else if (all.isNotEmpty && visible.isEmpty)
+                    FxEmptyState(
+                      icon: LucideIcons.listFilter,
+                      title: '当前筛选没有习惯',
+                      subtitle: '切换到全部习惯，继续查看记录。',
+                      action: FxButton(
+                        label: '查看全部习惯',
+                        variant: FxButtonVariant.outline,
+                        onPressed: () => setState(() => _filter = 0),
+                      ),
                     )
                   else
-                    ..._controller.habits.map(_habitCard),
+                    ...visible.map(_habitCard),
                 ],
               ),
             ),
@@ -398,16 +440,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   Widget _header() {
     final theme = Theme.of(context);
     return FxActionBar(
-      // Android 360dp 的实际内容区有足够宽度放下计数与操作。
-      // 过窄和超大字体时再统一按 FxActionBar 规则折行。
-      stackBelow: 300,
-      leading: FxChip(
-        label: '${_controller.habits.length} 个习惯',
-        variant: FxChipVariant.outline,
-        backgroundColor: fxSubtleSurface(context),
-        foregroundColor: theme.colorScheme.onSurfaceVariant,
-        borderColor: theme.colorScheme.outline,
-        borderRadius: SlowlightRadius.pill,
+      stackBelow: 280,
+      leading: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('习惯', style: SlowlightTypography.pageTitle(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text(
+            '记录每天的行动，不必追求完美。',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
       actions: [
         FxButton(
@@ -416,6 +461,49 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           size: FxButtonSize.sm,
           onPressed: _createHabit,
         ),
+      ],
+    );
+  }
+
+  Widget _summaryBar() {
+    final theme = Theme.of(context);
+    final total = _controller.habits.length;
+    final done = _controller.habits.where((habit) => habit.checkedToday).length;
+    return FxActionBar(
+      stackBelow: 560,
+      leading: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: SlowlightSpacing.xl,
+        runSpacing: SlowlightSpacing.md,
+        children: [
+          FxChip(
+            label: '$total 个习惯',
+            variant: FxChipVariant.outline,
+            backgroundColor: fxSubtleSurface(context),
+            foregroundColor: theme.colorScheme.onSurfaceVariant,
+            borderColor: theme.colorScheme.outline,
+            borderRadius: SlowlightRadius.pill,
+          ),
+          Text(
+            '今日已记录 $done/$total',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        if (total > 0)
+          FxSegmented(
+            labels: const ['全部', '待记录', '已记录'],
+            selectedIndex: _filter,
+            onChanged: (index) => setState(() => _filter = index),
+            itemKeys: const [
+              ValueKey('habits.filter_all'),
+              ValueKey('habits.filter_pending'),
+              ValueKey('habits.filter_done'),
+            ],
+          ),
       ],
     );
   }
