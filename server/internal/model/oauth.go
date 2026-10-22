@@ -19,6 +19,8 @@ type OAuthLoginSession struct {
 	PollHash     string    `gorm:"size:64;not null"`
 	CodeVerifier string    `gorm:"size:128;not null"`
 	Status       string    `gorm:"size:20;not null;index"`
+	ErrorCode    string    `gorm:"size:64"`
+	ErrorStage   string    `gorm:"size:32"`
 	TargetUserID uint      `gorm:"default:0"`
 	ResultUserID uint      `gorm:"default:0"`
 	ExpiresAt    time.Time `gorm:"not null;index"`

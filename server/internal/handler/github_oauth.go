@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,6 +28,34 @@ import (
 
 const githubOAuthTTL = 10 * time.Minute
 
+type githubOAuthError struct {
+    Stage string
+    Code string
+}
+
+func (e *githubOAuthError) Error() string { return e.Code }
+
+func githubOAuthMessage(code string) string {
+    switch code {
+    case "access_denied": return "已取消 GitHub 授权，可重新发起登录"
+    case "github_unavailable", "github_profile_unavailable": return "GitHub 服务暂时不可用，请稍后重新授权"
+    case "oauth_config_invalid": return "GitHub 授权配置异常，请联系管理员"
+    case "github_token_invalid": return "GitHub 授权码已失效，请重新授权"
+    case "oauth_account_conflict": return "该 GitHub 账号已绑定其他用户"
+    case "oauth_account_save_failed": return "账号信息保存失败，请稍后重新授权"
+    default: return "GitHub 授权未完成，请重新发起登录"
+    }
+}
+
+func githubOAuthHTTPStatus(code string) int {
+    switch code {
+    case "access_denied", "github_token_invalid": return http.StatusBadRequest
+    case "oauth_account_conflict": return http.StatusConflict
+    case "oauth_config_invalid", "github_unavailable", "github_profile_unavailable": return http.StatusServiceUnavailable
+    default: return http.StatusInternalServerError
+    }
+}
+
 type GitHubOAuthHandler struct {
 	DB *gorm.DB
 	Client *http.Client
@@ -37,7 +66,7 @@ type GitHubOAuthHandler struct {
 
 func NewGitHubOAuthHandler(db *gorm.DB) *GitHubOAuthHandler {
 	return &GitHubOAuthHandler{
-		DB: db, Client: &http.Client{Timeout: 12 * time.Second},
+		DB: db, Client: &http.Client{Timeout: 30 * time.Second},
 		AuthURL: "https://github.com/login/oauth/authorize",
 		TokenURL: "https://github.com/login/oauth/access_token",
 		UserURL: "https://api.github.com/user",
@@ -160,7 +189,9 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
 		c.JSON(200, gin.H{"status": "pending"})
 	case "failed":
-		c.JSON(400, gin.H{"error": "GitHub 授权取消或失败，请重试"})
+        code := session.ErrorCode
+        if code == "" { code = "oauth_unknown_failure" }
+        c.JSON(githubOAuthHTTPStatus(code), gin.H{"code": code, "error": githubOAuthMessage(code), "stage": session.ErrorStage})
 	case "ready":
 		var user model.User
 		if err := h.DB.First(&user, session.ResultUserID).Error; err != nil {
@@ -203,25 +234,51 @@ func (h *GitHubOAuthHandler) Callback(c *gin.Context) {
 	if updated.Error != nil || updated.RowsAffected != 1 {
 		c.String(409, "授权已处理，请返回 Slowlight"); return
 	}
-	fail := func() {
-		h.DB.Model(&model.OAuthLoginSession{}).Where("id = ? AND status = ?", session.ID, "processing").Update("status", "failed")
-		c.Header("Cache-Control", "no-store")
-		c.String(400, "GitHub 授权失败或已取消，请返回 Slowlight 重试")
-	}
-	if c.Query("error") != "" || c.Query("code") == "" { fail(); return }
-	clientID, secret, callback, err := githubConfig()
-	if err != nil { fail(); return }
-	accessToken, err := h.exchangeToken(c.Request.Context(), clientID, secret, callback, c.Query("code"), session.CodeVerifier)
-	if err != nil { fail(); return }
-	profile, err := h.loadProfile(c.Request.Context(), accessToken)
-	if err != nil { fail(); return }
-	user, err := h.resolveUser(profile, session.TargetUserID)
-	if err != nil { fail(); return }
-	if err := h.DB.Model(&model.OAuthLoginSession{}).
-		Where("id = ? AND status = ?", session.ID, "processing").
-		Updates(map[string]interface{}{"status": "ready", "result_user_id": user.ID, "code_verifier": ""}).Error; err != nil {
-		fail(); return
-	}
+    started := time.Now()
+    fail := func(stage, code string) {
+        update := h.DB.Model(&model.OAuthLoginSession{}).
+            Where("id = ? AND status = ?", session.ID, "processing").
+            Updates(map[string]interface{}{"status": "failed", "error_code": code, "error_stage": stage, "code_verifier": ""})
+        log.Printf("github oauth failed session=%s stage=%s code=%s duration_ms=%d update_failed=%t",
+            oauthHash(session.ID)[:12], stage, code, time.Since(started).Milliseconds(), update.Error != nil)
+        c.Header("Cache-Control", "no-store")
+        c.String(githubOAuthHTTPStatus(code), "%s", githubOAuthMessage(code))
+    }
+    if c.Query("error") != "" {
+        code := "oauth_callback_invalid"
+        if c.Query("error") == "access_denied" { code = "access_denied" }
+        fail("callback", code)
+        return
+    }
+    if c.Query("code") == "" { fail("callback", "oauth_callback_invalid"); return }
+    clientID, secret, callback, err := githubConfig()
+    if err != nil { fail("config", "oauth_config_invalid"); return }
+    // 与浏览器连接断开解耦；后台处理时间有界，并继续更新会话状态。
+    ctx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 80*time.Second)
+    defer cancel()
+    accessToken, err := h.exchangeToken(ctx, clientID, secret, callback, c.Query("code"), session.CodeVerifier)
+    if err != nil {
+        if oe, ok := err.(*githubOAuthError); ok { fail(oe.Stage, oe.Code) } else { fail("token", "github_unavailable") }
+        return
+    }
+    profile, err := h.loadProfile(ctx, accessToken)
+    if err != nil {
+        if oe, ok := err.(*githubOAuthError); ok { fail(oe.Stage, oe.Code) } else { fail("profile", "github_profile_unavailable") }
+        return
+    }
+    user, err := h.resolveUser(profile, session.TargetUserID)
+    if err != nil {
+        if err.Error() == "GitHub 账号已绑定其他用户" || err.Error() == "当前账号已有 GitHub 绑定" {
+            fail("account", "oauth_account_conflict")
+        } else { fail("account", "oauth_account_save_failed") }
+        return
+    }
+    if err := h.DB.Model(&model.OAuthLoginSession{}).
+        Where("id = ? AND status = ?", session.ID, "processing").
+        Updates(map[string]interface{}{"status": "ready", "result_user_id": user.ID, "code_verifier": ""}).Error; err != nil {
+        fail("session", "oauth_account_save_failed"); return
+    }
+    log.Printf("github oauth ready session=%s duration_ms=%d", oauthHash(session.ID)[:12], time.Since(started).Milliseconds())
 	c.Header("Cache-Control", "no-store")
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Header("X-Content-Type-Options", "nosniff")
@@ -241,35 +298,71 @@ const desktopOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="ut
 const androidOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>授权成功</h1><p>正在返回所行映我…</p><p><a href="slowlight://oauth-complete" style="display:inline-block;background:#437bff;color:white;padding:14px 24px;border-radius:10px;text-decoration:none">返回所行映我</a></p><p style="opacity:.7">如果没有自动返回，请点击按钮。</p><script>window.location.replace("slowlight://oauth-complete");</script></body></html>`
 
 func (h *GitHubOAuthHandler) exchangeToken(ctx context.Context, id, secret, redirect, code, verifier string) (string, error) {
-	body := url.Values{"client_id": {id}, "client_secret": {secret}, "code": {code}, "redirect_uri": {redirect}, "code_verifier": {verifier}}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.TokenURL, strings.NewReader(body.Encode()))
-	if err != nil { return "", err }
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	resp, err := h.Client.Do(req)
-	if err != nil { return "", err }
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 { return "", errors.New("GitHub token 交换失败") }
-	var payload struct { AccessToken string `json:"access_token"` }
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 65536)).Decode(&payload); err != nil { return "", err }
-	if payload.AccessToken == "" { return "", errors.New("GitHub 未返回访问令牌") }
-	return payload.AccessToken, nil
+    body := url.Values{"client_id": {id}, "client_secret": {secret}, "code": {code}, "redirect_uri": {redirect}, "code_verifier": {verifier}}
+    req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.TokenURL, strings.NewReader(body.Encode()))
+    if err != nil { return "", &githubOAuthError{Stage: "token", Code: "oauth_config_invalid"} }
+    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+    req.Header.Set("Accept", "application/json")
+    // 授权码一次性使用；请求可能已经送达时，不自动重发。
+    resp, err := h.Client.Do(req)
+    if err != nil { return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"} }
+    defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+        if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+            return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"}
+        }
+        return "", &githubOAuthError{Stage: "token", Code: "oauth_config_invalid"}
+    }
+    var payload struct {
+        AccessToken string `json:"access_token"`
+        Error string `json:"error"`
+    }
+    if err := json.NewDecoder(io.LimitReader(resp.Body, 65536)).Decode(&payload); err != nil {
+        return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"}
+    }
+    if payload.Error != "" {
+        switch payload.Error {
+        case "bad_verification_code": return "", &githubOAuthError{Stage: "token", Code: "github_token_invalid"}
+        case "incorrect_client_credentials", "redirect_uri_mismatch", "unsupported_grant_type":
+            return "", &githubOAuthError{Stage: "token", Code: "oauth_config_invalid"}
+        default: return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"}
+        }
+    }
+    if payload.AccessToken == "" { return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"} }
+    return payload.AccessToken, nil
 }
 
+// GitHub /user GET 幂等，临时错误允许有限次数的指数退避。
 func (h *GitHubOAuthHandler) loadProfile(ctx context.Context, accessToken string) (githubProfile, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.UserURL, nil)
-	if err != nil { return githubProfile{}, err }
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "Slowlight")
-	resp, err := h.Client.Do(req)
-	if err != nil { return githubProfile{}, err }
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 { return githubProfile{}, errors.New("GitHub 用户信息获取失败") }
-	var p githubProfile
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 65536)).Decode(&p); err != nil { return p, err }
-	if p.ID <= 0 || strings.TrimSpace(p.Login) == "" { return p, errors.New("GitHub 用户标识无效") }
-	return p, nil
+    for attempt := 0; attempt < 3; attempt++ {
+        if ctx.Err() != nil { break }
+        if attempt > 0 {
+            pause := time.Duration(1 << (attempt - 1)) * time.Second
+            select {
+            case <-time.After(pause):
+            case <-ctx.Done():
+                return githubProfile{}, &githubOAuthError{Stage: "profile", Code: "github_profile_unavailable"}
+            }
+        }
+        req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.UserURL, nil)
+        if err != nil { return githubProfile{}, &githubOAuthError{Stage: "profile", Code: "oauth_config_invalid"} }
+        req.Header.Set("Authorization", "Bearer "+accessToken)
+        req.Header.Set("Accept", "application/vnd.github+json")
+        req.Header.Set("User-Agent", "Slowlight")
+        resp, err := h.Client.Do(req)
+        if err != nil { continue }
+        if resp.StatusCode == http.StatusOK {
+            var profile githubProfile
+            decodeErr := json.NewDecoder(io.LimitReader(resp.Body, 65536)).Decode(&profile)
+            resp.Body.Close()
+            if decodeErr == nil && profile.ID > 0 && strings.TrimSpace(profile.Login) != "" { return profile, nil }
+            return githubProfile{}, &githubOAuthError{Stage: "profile", Code: "github_profile_unavailable"}
+        }
+        retryable := resp.StatusCode == 429 || resp.StatusCode >= 500
+        resp.Body.Close()
+        if !retryable { return githubProfile{}, &githubOAuthError{Stage: "profile", Code: "github_profile_unavailable"} }
+    }
+    return githubProfile{}, &githubOAuthError{Stage: "profile", Code: "github_profile_unavailable"}
 }
 
 func (h *GitHubOAuthHandler) resolveUser(p githubProfile, target uint) (model.User, error) {
