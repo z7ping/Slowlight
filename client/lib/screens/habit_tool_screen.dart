@@ -530,7 +530,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
               builder: (context, constraints) {
                 final largeText =
                     MediaQuery.textScalerOf(context).scale(1) >= 1.6;
-                final narrow = constraints.maxWidth < 290 || largeText;
+                final narrow = constraints.maxWidth < 270 || largeText;
                 if (narrow) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
