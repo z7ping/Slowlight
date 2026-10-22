@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -66,7 +67,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if nickname == "" {
 		nickname = req.Username
 	}
+	passwordEnabled := true
 	user := model.User{
+		PasswordLoginEnabled: &passwordEnabled,
 		Username: req.Username,
 		Email:    req.Email,
 		Password: string(hashedPassword),
@@ -102,7 +105,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+	if !passwordLoginEnabled(h.DB, user) || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}
@@ -147,12 +150,17 @@ func jwtSigningSecret() ([]byte, error) {
 }
 
 func generateToken(userID uint) (string, error) {
+	return generateTokenWithMethod(userID, "password")
+}
+
+func generateTokenWithMethod(userID uint, method string) (string, error) {
 	secret, err := jwtSigningSecret()
 	if err != nil {
 		return "", err
 	}
 	claims := jwt.MapClaims{
 		"user_id": userID,
+		"auth_method": method,
 		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}
@@ -203,6 +211,11 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		c.Set("userID", uint(rawUserID))
+		method, _ := claims["auth_method"].(string)
+		c.Set("authMethod", strings.TrimSpace(method))
+		if issued, ok := claims["iat"].(float64); ok {
+			c.Set("authIssuedAt", int64(issued))
+		}
 		c.Next()
 	}
 }
