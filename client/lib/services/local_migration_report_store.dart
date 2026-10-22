@@ -85,7 +85,8 @@ class LocalMigrationReportStore {
   Future<Map<String, dynamic>?> retrySnapshot(int id) async {
     final db = await _database();
     final rows = await db.query('migration_reports',
-        where: 'id = ? AND status = ?', whereArgs: [id, 'failed'], limit: 1);
+        where: "id = ? AND status IN ('failed', 'running')",
+        whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     final raw = rows.first['snapshot']?.toString() ?? '{}';
     return Map<String, dynamic>.from(jsonDecode(raw) as Map);
