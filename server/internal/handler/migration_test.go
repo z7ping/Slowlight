@@ -17,6 +17,7 @@ func migrationRouter(h *MigrationHandler, userID uint) *gin.Engine {
 	r.Use(func(c *gin.Context) { withUser(c, userID); c.Next() })
 	r.POST("/migration/preview", h.PreviewMigration)
 	r.POST("/migration/execute", h.ExecuteMigration)
+	r.POST("/migration/recover", h.RecoverMigration)
 	return r
 }
 
@@ -162,4 +163,106 @@ func TestMigrationRejectsModifiedSnapshotForSameSource(t *testing.T) {
     if got := send(uniqueName("修改后记录")); got != http.StatusConflict {
         t.Fatalf("changed source snapshot should be blocked, got %d", got)
     }
+}
+
+func TestMigrationWizardPerItemPolicyAndReadOnlyRecovery(t *testing.T) {
+ db := setupTestDB(t)
+ tx := beginTx(t, db)
+ user := createTestUser(t, tx)
+ existingA := model.List{UserID: user.ID, Name: uniqueName("本地优先")}
+ existingB := model.List{UserID: user.ID, Name: uniqueName("云端优先")}
+ existingC := model.List{UserID: user.ID, Name: uniqueName("保留两份")}
+ for _, row := range []*model.List{&existingA, &existingB, &existingC} {
+   if err := tx.Create(row).Error; err != nil { t.Fatal(err) }
+ }
+ router := migrationRouter(NewMigrationHandler(tx), user.ID)
+ snapshot := map[string]interface{}{
+   "source_id": uniqueName("wizard-source"),
+   "lists": []map[string]interface{}{
+     {"id": 1, "name": existingA.Name},
+     {"id": 2, "name": existingB.Name},
+     {"id": 3, "name": existingC.Name},
+   },
+ }
+ call := func(path string, body map[string]interface{}) (int, map[string]interface{}) {
+   data, err := json.Marshal(body)
+   if err != nil { t.Fatal(err) }
+   w := httptest.NewRecorder()
+   req, _ := http.NewRequest(http.MethodPost, path, bytes.NewReader(data))
+   req.Header.Set("Content-Type", "application/json")
+   router.ServeHTTP(w, req)
+   out := map[string]interface{}{}
+   if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil { t.Fatal(err) }
+   return w.Code, out
+ }
+ code, preview := call("/migration/preview", snapshot)
+ if code != 200 { t.Fatalf("preview: %d %v", code, preview) }
+ version, ok := preview["preview_version"].(string)
+ if !ok || version == "" { t.Fatalf("missing preview version: %v", preview) }
+ choices := []map[string]interface{}{
+   {"entity": "list", "local_id": 1, "policy": "local"},
+   {"entity": "list", "local_id": 2, "policy": "cloud"},
+   {"entity": "list", "local_id": 3, "policy": "both"},
+ }
+ execute := map[string]interface{}{
+   "source_id": snapshot["source_id"],
+   "lists": snapshot["lists"],
+   "preview_version": version,
+   "conflict_policy": "reject",
+   "conflict_choices": choices,
+ }
+ code, result := call("/migration/execute", execute)
+ if code != 200 { t.Fatalf("execute: %d %v", code, result) }
+ idmap := result["id_map"].(map[string]interface{})["lists"].(map[string]interface{})
+ if idmap["2"] != float64(existingB.ID) { t.Fatalf("cloud record not reused: %v", idmap) }
+ var orig, renamed, duplicate model.List
+ if err := tx.Where("id = ?", existingA.ID).First(&orig).Error; err != nil { t.Fatal(err) }
+ if orig.Name == existingA.Name { t.Fatalf("local conflict did not back up cloud: %v", orig) }
+ if err := tx.Where("user_id = ? AND name = ?", user.ID, existingA.Name).First(&renamed).Error; err != nil { t.Fatal(err) }
+ if renamed.ID == existingA.ID { t.Fatalf("local record was not imported") }
+ if err := tx.Where("user_id = ? AND name = ?", user.ID, existingC.Name+"（本地副本）").First(&duplicate).Error; err != nil { t.Fatalf("both copy missing: %v", err) }
+ code, recovered := call("/migration/recover", execute)
+ if code != 200 { t.Fatalf("recover: %d %v", code, recovered) }
+ idmapRecovery := recovered["id_map"].(map[string]interface{})["lists"].(map[string]interface{})
+ if idmapRecovery["3"] != idmap["3"] { t.Fatalf("recovery ID mapping mismatch: %v", idmapRecovery) }
+ var count int64
+ tx.Model(&model.List{}).Where("user_id = ?", user.ID).Count(&count)
+ if count != 5 { t.Fatalf("unexpected list count (possible repeat import): %d", count) }
+ code, replay := call("/migration/execute", execute)
+ if code != 200 { t.Fatalf("same snapshot replay: %d %v", code, replay) }
+ tx.Model(&model.List{}).Where("user_id = ?", user.ID).Count(&count)
+ if count != 5 { t.Fatalf("replay duplicated data: %d", count) }
+}
+
+func TestMigrationWizardStalePreviewIsRejected(t *testing.T) {
+ db := setupTestDB(t)
+ tx := beginTx(t, db)
+ user := createTestUser(t, tx)
+ router := migrationRouter(NewMigrationHandler(tx), user.ID)
+ snapshot := map[string]interface{}{
+   "source_id": uniqueName("stale-source"),
+   "lists": []map[string]interface{}{{"id": 1, "name": uniqueName("新增清单")}},
+ }
+ call := func(path string, value map[string]interface{}) (int, map[string]interface{}) {
+   data, _ := json.Marshal(value)
+   w := httptest.NewRecorder()
+   req, _ := http.NewRequest(http.MethodPost, path, bytes.NewReader(data))
+   req.Header.Set("Content-Type", "application/json")
+   router.ServeHTTP(w, req)
+   result := map[string]interface{}{}
+   json.Unmarshal(w.Body.Bytes(), &result)
+   return w.Code, result
+ }
+ code, preview := call("/migration/preview", snapshot)
+ if code != 200 { t.Fatalf("preview: %d %v", code, preview) }
+ name := snapshot["lists"].([]map[string]interface{})[0]["name"].(string)
+ row := model.List{UserID: user.ID, Name: name}
+ if err := tx.Create(&row).Error; err != nil { t.Fatal(err) }
+ snapshot["preview_version"] = preview["preview_version"]
+ snapshot["conflict_policy"] = "reject"
+ code, result := call("/migration/execute", snapshot)
+ if code != http.StatusConflict { t.Fatalf("stale preview should 409, got %d: %v", code, result) }
+ var count int64
+ tx.Model(&model.List{}).Where("user_id = ? AND name = ?", user.ID, name).Count(&count)
+ if count != 1 { t.Fatalf("stale preview unexpectedly inserted: %d", count) }
 }
