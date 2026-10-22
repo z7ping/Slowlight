@@ -65,6 +65,15 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         _lastReport = report?['created_at']?.toString();
         final preview = await MigrationService().preview();
         final summary = Map<String, dynamic>.from(preview['summary'] as Map);
+        // 服务端预览统计缺失时不可回退为另一份本机数量，避免误导。
+        for (final key in const [
+          'lists', 'tags', 'system_tags', 'tasks',
+          'subtasks', 'habits', 'habit_logs', 'sessions',
+        ]) {
+          if (summary[key] is! num) {
+            throw const FormatException('迁移预览统计不完整');
+          }
+        }
         _counts['清单'] = (summary['lists'] as num?)?.toInt() ?? _counts['清单']!;
         _counts['标签'] = (summary['tags'] as num?)?.toInt() ?? _counts['标签']!;
         _counts['观察标签（旧）'] =
