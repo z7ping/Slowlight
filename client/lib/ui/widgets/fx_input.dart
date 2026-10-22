@@ -17,6 +17,8 @@ class FxInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? placeholder;
   final String? label;
+  /// 表单内联错误，不另起通知或弹窗。
+  final String? errorText;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final TapRegionCallback? onPressedOutside;
@@ -45,6 +47,7 @@ class FxInput extends StatelessWidget {
     this.controller,
     this.placeholder,
     this.label,
+    this.errorText,
     this.onChanged,
     this.onSubmitted,
     this.onPressedOutside,
@@ -128,17 +131,28 @@ class FxInput extends StatelessWidget {
 
     final field = input;
 
-    if (label == null) return field;
-    final labelStyle = SlowlightTypography.fieldLabel(
-      context,
-    ).copyWith(color: theme.colorScheme.onSurfaceVariant);
+    if (label == null && (errorText == null || errorText!.isEmpty)) {
+      return field;
+    }
+    final labelStyle = SlowlightTypography.fieldLabel(context)
+        .copyWith(color: theme.colorScheme.onSurfaceVariant);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label!, style: labelStyle),
-        const SizedBox(height: _labelGap),
+        if (label != null) ...[
+          Text(label!, style: labelStyle),
+          const SizedBox(height: _labelGap),
+        ],
         field,
+        if (errorText != null && errorText!.isNotEmpty) ...[
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text(
+            errorText!,
+            style: SlowlightTypography.secondary(context)
+                .copyWith(color: theme.colorScheme.error),
+          ),
+        ],
       ],
     );
   }
