@@ -45,5 +45,12 @@ Type: files; Name: "{userprograms}\所行映我.lnk"
 [Icons]
 Name: "{userprograms}\所行映我"; Filename: "{app}\{#MyExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\resources\{#MyAppIconName}"; IconIndex: 0; AppUserModelID: "{#MyAppUserModelId}"; Comment: "{#MyAppName}"
 
+[Registry]
+; Register the credential-free browser return URL for the current user.
+Root: HKCU; Subkey: "Software\Classes\slowlight"; ValueType: string; ValueName: ""; ValueData: "URL:Slowlight"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\slowlight"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\slowlight\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\resources\{#MyAppIconName}"
+Root: HKCU; Subkey: "Software\Classes\slowlight\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyExeName}"" ""%1"""
+
 [Run]
 Filename: "{app}\{#MyExeName}"; Description: "启动所行映我"; Flags: nowait postinstall skipifsilent
