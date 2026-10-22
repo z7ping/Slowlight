@@ -11,7 +11,9 @@ import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
 class TaskToolScreen extends StatefulWidget {
-  const TaskToolScreen({super.key});
+  final Future<List<dynamic>> Function()? dataLoader;
+
+  const TaskToolScreen({super.key, this.dataLoader});
 
   @override
   State<TaskToolScreen> createState() => _TaskToolScreenState();
@@ -46,12 +48,12 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     }
     try {
       final data = DataService();
-      final values = await Future.wait<dynamic>([
+      final values = await (widget.dataLoader?.call() ?? Future.wait<dynamic>([
         data.getTodayTasks(),
         data.getAllTasks(),
         data.getCompletedTasks(),
         data.getLists(),
-      ]);
+      ]));
       if (!mounted || request != _loadVersion) return;
       setState(() {
         _today = values[0] as List<Task>;
