@@ -320,7 +320,9 @@ func TestGetTodayTimeline_MixedFactsAndCorrections(t *testing.T) {
     tx, h, userID := setupReviewTest(t)
     list := createTestList(t, tx, userID, "读书")
     task := createTestTask(t, tx, userID, list.ID, "读完一章")
-    now := time.Now().UTC()
+    localToday := time.Now().In(model.UserLocation(""))
+    localNoon := time.Date(localToday.Year(), localToday.Month(), localToday.Day(), 12, 0, 0, 0, model.UserLocation(""))
+    now := localNoon.UTC()
     if err := tx.Model(&task).Updates(map[string]interface{}{
         "is_completed": true, "completed_at": now,
     }).Error; err != nil { t.Fatal(err) }
