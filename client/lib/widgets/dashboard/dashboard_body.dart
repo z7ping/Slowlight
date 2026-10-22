@@ -717,7 +717,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         label: '重试',
         size: FxButtonSize.sm,
         variant: FxButtonVariant.ghost,
-        onPressed: (_dimensionLoading || _reviewLoading) ? null : _load,
+        onPressed: _load,
       ),
     ],
   );
