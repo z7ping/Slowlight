@@ -269,8 +269,10 @@ class _DashboardBodyState extends State<DashboardBody> {
             child: Column(
               children: [
                 _timelineCard(),
-                const SizedBox(height: 14),
-                _questionCard(),
+                if (_shouldShowQuestion) ...[
+                  const SizedBox(height: 14),
+                  _questionCard(),
+                ],
               ],
             ),
           ),
@@ -301,8 +303,10 @@ class _DashboardBodyState extends State<DashboardBody> {
       _timelineCard(),
       const SizedBox(height: 12),
       _habitCard(maxItems: 3, mobile: true),
-      const SizedBox(height: 12),
-      _questionCard(),
+      if (_shouldShowQuestion) ...[
+        const SizedBox(height: 12),
+        _questionCard(),
+      ],
       const SizedBox(height: 12),
       _dimensionCard(),
     ],
@@ -889,52 +893,6 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
-  Widget _focusCard() {
-    final theme = Theme.of(context);
-    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
-    final count = (_facts['focus_count'] as num?)?.toInt() ?? 0;
-    final minutes = (_facts['focus_minutes'] as num?)?.toInt() ?? 0;
-    return _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const FxSectionHeader(title: '专注', trailing: '今日'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '$count',
-                style: SlowlightTypography.hero(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                '次 · $minutes 分钟',
-                style: SlowlightTypography.secondary(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-          if (widget.onStartFocus != null) ...[
-            const SizedBox(height: 10),
-            FxButton(
-              label: '开始专注',
-              icon: LucideIcons.timer,
-              variant: FxButtonVariant.outline,
-              size: FxButtonSize.sm,
-              onPressed: widget.onStartFocus,
-            ),
-          ],
-        ],
-      ),
-      padding: EdgeInsets.all(mobile ? 12 : 16),
-    );
-  }
-
   Widget _partialUnavailable(String message) => Row(
     children: [
       Expanded(
@@ -948,6 +906,11 @@ class _DashboardBodyState extends State<DashboardBody> {
       ),
     ],
   );
+
+  bool get _shouldShowQuestion =>
+      _reviewLoading ||
+      _reviewLoadFailed ||
+      _insights.any((item) => !_ignored.contains(item.id));
 
   Widget _questionCard() {
     final theme = Theme.of(context);
@@ -1085,13 +1048,6 @@ class _DashboardBodyState extends State<DashboardBody> {
   String _dateKey(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-${_two(value.month)}-${_two(value.day)}';
   String _two(int value) => value.toString().padLeft(2, '0');
-  String _greeting(int hour) =>
-      hour < 12
-          ? '早上好'
-          : hour < 18
-          ? '下午好'
-          : '晚上好';
-
   Color _parseColor(String? value) {
     try {
       var hex = (value ?? '').replaceAll('#', '');
