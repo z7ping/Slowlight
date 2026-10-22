@@ -246,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: SlowlightSpacing.md),
           if (Theme.of(context).platform == TargetPlatform.windows) ...[
-            const SizedBox(height: SlowlightSpacing.sm),
+            const SizedBox(height: SlowlightSpacing.md),
             FxButton(
               key: const ValueKey('login.github_check'),
               label: '检查授权结果',
