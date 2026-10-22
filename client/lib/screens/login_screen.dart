@@ -16,7 +16,10 @@ import '../ui/widgets/slowlight_logo.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  /// When called from local migration, authentication must not change data mode.
+  final bool preserveDataMode;
+
+  const LoginScreen({super.key, this.preserveDataMode = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -103,8 +106,10 @@ class _LoginScreenState extends State<LoginScreen> {
       } catch (_) {
         // 已完成的账号登录不应被临时授权清理失败撤销。
       }
-      await DataModeManager().setCloud();
-      authStateNotifier.value = !authStateNotifier.value;
+      if (!widget.preserveDataMode) {
+        await DataModeManager().setCloud();
+        authStateNotifier.value = !authStateNotifier.value;
+      }
       if (mounted) {
         _finish(
           true,
@@ -164,9 +169,13 @@ class _LoginScreenState extends State<LoginScreen> {
         },
       );
       if (!isCurrent() || !completed) return;
-      await DataModeManager().setCloud();
+      if (!widget.preserveDataMode) {
+        await DataModeManager().setCloud();
+      }
       if (!isCurrent()) return;
-      authStateNotifier.value = !authStateNotifier.value;
+      if (!widget.preserveDataMode) {
+        authStateNotifier.value = !authStateNotifier.value;
+      }
       if (mounted) _finish(true, successMessage: 'GitHub 登录成功');
     } catch (e) {
       unawaited(
@@ -221,9 +230,13 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       // 用户主动进入本地模式，必须同步放弃待恢复 GitHub 会话。
       await GitHubSignIn.cancelPendingAuthorization();
-      await DataModeManager().setLocal();
-      await AuthService.initLocalUser();
-      authStateNotifier.value = !authStateNotifier.value;
+      if (!widget.preserveDataMode) {
+        await DataModeManager().setLocal();
+        await AuthService.initLocalUser();
+      }
+      if (!widget.preserveDataMode) {
+        authStateNotifier.value = !authStateNotifier.value;
+      }
       if (mounted) _finish(false);
     } catch (e) {
       if (mounted) FxNotice.errorWithDetails(context, '进入本地数据失败', e.toString());
@@ -247,7 +260,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (successMessage != null) {
       notice!.show(
         successMessage,
-        description: value ? '已进入云端模式，可在侧边栏查看同步状态' : '当前数据保存在本机',
+        description: widget.preserveDataMode
+            ? '云端身份已验证，当前仍使用本机数据。'
+            : value ? '已进入云端模式，可在侧边栏查看同步状态' : '当前数据保存在本机',
         variant: FxNoticeVariant.success,
         duration: const Duration(seconds: 4),
       );
