@@ -264,7 +264,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
           ),
         ),
         if (_showRawLogs) ...[
-          const SizedBox(height: SlowlightSpacing.sm),
+          const SizedBox(height: SlowlightSpacing.md),
           Row(
             children: [
               Expanded(
