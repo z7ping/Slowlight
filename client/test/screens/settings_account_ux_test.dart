@@ -31,6 +31,7 @@ void main() {
     await tester.pump();
     expect(find.text('个人信息'), findsOneWidget);
     expect(find.text('登录方式'), findsOneWidget);
+    expect(find.text('GH'), findsOneWidget);
     expect(find.text('数据模式'), findsOneWidget);
     expect(find.text('本地使用'), findsOneWidget);
     expect(find.text('登录云端账号'), findsOneWidget);
