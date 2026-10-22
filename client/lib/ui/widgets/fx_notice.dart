@@ -252,7 +252,7 @@ abstract final class FxNotice {
     );
   }
 
-miss(BuildContext context, Object? id) =>
+  static Future<void> dismiss(BuildContext context, Object? id) =>
       _dismissWithSonner(_sonnerOf(context), id);
 
   static Future<void> clear(BuildContext context) =>
