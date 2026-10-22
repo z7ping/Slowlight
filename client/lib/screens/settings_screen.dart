@@ -55,6 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _switchingMode = false;
   bool _linkingGitHub = false;
   bool _loadingAccount = true;
+  bool _checkingGitHub = true;
   int _accountLoadVersion = 0;
   User? _accountUser;
   bool? _githubLinked;
@@ -152,13 +153,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _loadingAccount = true;
+        _checkingGitHub = true;
         _accountUser = null;
         _githubLinked = null;
       });
     }
     if (DataModeManager().isLocal) {
       if (mounted && version == _accountLoadVersion) {
-        setState(() => _loadingAccount = false);
+        setState(() {
+          _loadingAccount = false;
+          _checkingGitHub = false;
+        });
       }
       return;
     }
@@ -172,11 +177,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // 无法确认绑定状态时保持「未知」，不能伪装成「未绑定」。
       final linked = await AuthService.isGitHubLinked();
       if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
-        setState(() => _githubLinked = linked);
+        setState(() {
+          _githubLinked = linked;
+          _checkingGitHub = false;
+        });
       }
     } catch (_) {
       if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
-        setState(() => _loadingAccount = false);
+        setState(() {
+          _loadingAccount = false;
+          _checkingGitHub = false;
+        });
       }
     }
   }
@@ -258,7 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? user!.nickname!.trim()
         : (user?.username ?? '账号信息待确认');
     final email = accountEmailLabel(user?.email ?? '');
-    final statusText = _loadingAccount
+    final statusText = _checkingGitHub
         ? '正在检查'
         : _githubLinked == true
             ? '已绑定'
@@ -304,8 +315,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   )),
                   if (_loadingAccount)
-                    const SizedBox(
-                      height: 18, width: 18, child: FxCircularProgress(),
+                    const FxCircularProgress(
+                      constraints: BoxConstraints.tightFor(width: 18, height: 18),
+                      strokeWidth: 2,
                     ),
                 ]),
                 if (user == null && !_loadingAccount) ...[
@@ -361,9 +373,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       label: '绑定',
                       size: FxButtonSize.sm,
                       variant: FxButtonVariant.outline,
-                      onPressed: _loadingAccount ? null : _bindGitHub,
+                      onPressed: _checkingGitHub ? null : _bindGitHub,
                     )
-                  else if (_githubLinked == null && !_loadingAccount && !_linkingGitHub)
+                  else if (_githubLinked == null && !_checkingGitHub && !_linkingGitHub)
                     FxButton(
                       label: '重新检查',
                       icon: LucideIcons.refreshCw,
@@ -379,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   hint('点击「绑定」，在系统浏览器授权 GitHub。'
                       '只建立登录关联，不会自动迁移本地记录。')
                 else
-                  hint(_loadingAccount
+                  hint(_checkingGitHub
                       ? '正在向云端核对绑定状态…'
                       : '暂时无法确认绑定状态，可能是网络或服务异常。'
                         '为避免重复关联，请先重新检查。'),
