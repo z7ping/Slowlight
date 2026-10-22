@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 16,
+        version: 17,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 16,
+      version: 17,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -156,6 +156,7 @@ class LocalDb {
         icon TEXT DEFAULT '✅',
         color TEXT DEFAULT '#52c41a',
         frequency TEXT DEFAULT 'daily',
+        schedule_rule TEXT NOT NULL DEFAULT '{}',
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -270,6 +271,13 @@ class LocalDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 17) {
+      final columns = await db.rawQuery('PRAGMA table_info(habits)');
+      if (!columns.any((column) => column['name'] == 'schedule_rule')) {
+        await db.execute("ALTER TABLE habits ADD COLUMN schedule_rule TEXT NOT NULL DEFAULT '{}'");
+      }
+    }
+
     if (oldVersion < 2) {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS reminder_sessions (
