@@ -12,6 +12,13 @@ import 'local_api_service.dart';
 import 'review_local_service.dart';
 import 'api/task_api.dart';
 
+class MigrationCommitRejected implements Exception {
+  final String message;
+  const MigrationCommitRejected(this.message);
+  @override
+  String toString() => message;
+}
+
 final _localApi = LocalApiService();
 
 class ApiService {
@@ -131,7 +138,26 @@ class ApiService {
     ).timeout(_postTimeout);
     final data = json.decode(response.body) as Map<String, dynamic>;
     if (response.statusCode == 200) return data;
+    if (response.statusCode == 409) {
+      throw MigrationCommitRejected(
+        data['error']?.toString() ?? '迁移预览已过期，请重新检查',
+      );
+    }
     throw Exception(data['error'] ?? '迁移执行失败');
+  }
+
+  /// Read-only recovery lookup by the exact submitted snapshot fingerprint.
+  static Future<Map<String, dynamic>> recoverMigration(
+    Map<String, dynamic> snapshot,
+  ) async {
+    final response = await HttpUtil.post(
+      Uri.parse('$baseUrl/migration/recover'),
+      headers: await _authHeaders(),
+      body: json.encode(snapshot),
+    ).timeout(_postTimeout);
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) return data;
+    throw Exception(data['error'] ?? '尚未确认迁移结果');
   }
 
   static Future<Map<String, dynamic>?> getLatestMigrationReport() async {

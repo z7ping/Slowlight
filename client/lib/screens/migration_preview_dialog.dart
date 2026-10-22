@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../db/local_db.dart';
+import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/data_mode_manager.dart';
 import '../services/migration_service.dart';
@@ -8,729 +9,607 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'login_screen.dart';
 
-/// 本地数据迁移到云端的预览与冲突确认界面。
+/// Single flow and business state shared by Windows and Android.
 class MigrationPreviewDialog extends StatefulWidget {
-  const MigrationPreviewDialog({super.key});
+  const MigrationPreviewDialog({super.key, this.fullScreen = false});
+  final bool fullScreen;
 
-  static Future<void> show(BuildContext context) => FxDialog.show<void>(
-    context: context,
-    width: 880,
-    child: const MigrationPreviewDialog(),
-  );
+  static Future<void> show(BuildContext context) async {
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => const Scaffold(
+            body: SafeArea(child: MigrationPreviewDialog(fullScreen: true)),
+          ),
+        ),
+      );
+    } else {
+      await FxDialog.show<void>(
+        context: context,
+        width: 840,
+        barrierDismissible: false,
+        child: const MigrationPreviewDialog(),
+      );
+    }
+  }
 
   @override
   State<MigrationPreviewDialog> createState() => _MigrationPreviewDialogState();
 }
 
-class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
-  final _counts = <String, int>{
-    '清单': 0, '标签': 0, '观察标签（旧）': 0, '任务': 0,
-    '子任务': 0, '习惯': 0, '打卡记录': 0, '专注记录': 0,
-  };
+enum _MigrationStep { inspect, conflicts, confirm, result }
 
+class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
+  static const _keys = [
+    'lists', 'tags', 'system_tags', 'tasks',
+    'subtasks', 'habits', 'habit_logs', 'sessions',
+  ];
+  static const _labels = [
+    '清单', '标签', '观察标签（旧）', '任务',
+    '子任务', '习惯', '打卡记录', '专注记录',
+  ];
+  static const _policies = [
+    ('cloud', '保留云端', '复用云端同名实体，关联数据按映射迁移'),
+    ('local', '保留本地', '云端原同名项将改名备份，再导入本地记录'),
+    ('both', '两份都保留', '本地记录用独立副本名称导入，不覆盖云端'),
+  ];
+
+  final _service = MigrationService();
+  final _counts = <String, int>{};
+  final _choices = <String, String>{};
+  MigrationPlan? _plan;
+  _MigrationStep _step = _MigrationStep.inspect;
   bool _loading = true;
-  String? _choice;
-  int _conflictCount = 0;
-  List<Map<String, dynamic>> _conflicts = const [];
-  String? _previewError;
-  String? _lastReport;
+  bool _authRequired = false;
   bool _executing = false;
+  bool _switching = false;
+  bool _reconciling = false;
+  bool _outcomeUnknown = false;
+  bool _showAllMobile = false;
+  String? _previewError;
+  String? _resultMessage;
+  Map<String, dynamic>? _result;
+  int? _localReportId;
+  int _focused = 0;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadCounts();
-  }
-
-  Future<void> _loadCounts() async {
-    try {
-      final db = await LocalDb().database;
-      final values = await Future.wait([
-        db.rawQuery('SELECT COUNT(*) AS count FROM lists WHERE deleted_at IS NULL'),
-        db.rawQuery('SELECT COUNT(*) AS count FROM tags'),
-        db.rawQuery('SELECT COUNT(*) AS count FROM system_tags'),
-        db.rawQuery('SELECT COUNT(*) AS count FROM tasks WHERE deleted_at IS NULL'),
-        db.rawQuery('SELECT COUNT(*) AS count FROM subtasks'),
-        db.rawQuery('SELECT COUNT(*) AS count FROM habits WHERE deleted_at IS NULL'),
-        db.rawQuery('SELECT COUNT(*) AS count FROM habit_logs'),
-        db.rawQuery('SELECT COUNT(*) AS count FROM work_sessions'),
-      ]);
-      const labels = ['清单', '标签', '观察标签（旧）', '任务', '子任务', '习惯', '打卡记录', '专注记录'];
-      for (var i = 0; i < labels.length; i++) {
-        _counts[labels[i]] = (values[i].first['count'] as int?) ?? 0;
-      }
-
-      if (DataModeManager().isCloud) {
-        final report = await MigrationService().latestReport();
-        _lastReport = report?['created_at']?.toString();
-        final preview = await MigrationService().preview();
-        final summary = Map<String, dynamic>.from(preview['summary'] as Map);
-        // 服务端预览统计缺失时不可回退为另一份本机数量，避免误导。
-        for (final key in const [
-          'lists', 'tags', 'system_tags', 'tasks',
-          'subtasks', 'habits', 'habit_logs', 'sessions',
-        ]) {
-          if (summary[key] is! num) {
-            throw const FormatException('迁移预览统计不完整');
-          }
-        }
-        _counts['清单'] = (summary['lists'] as num?)?.toInt() ?? _counts['清单']!;
-        _counts['标签'] = (summary['tags'] as num?)?.toInt() ?? _counts['标签']!;
-        _counts['观察标签（旧）'] =
-            (summary['system_tags'] as num?)?.toInt() ?? _counts['观察标签（旧）']!;
-        _counts['任务'] = (summary['tasks'] as num?)?.toInt() ?? _counts['任务']!;
-        _counts['子任务'] = (summary['subtasks'] as num?)?.toInt() ?? _counts['子任务']!;
-        _counts['习惯'] = (summary['habits'] as num?)?.toInt() ?? _counts['习惯']!;
-        _counts['打卡记录'] =
-            (summary['habit_logs'] as num?)?.toInt() ?? _counts['打卡记录']!;
-        _counts['专注记录'] =
-            (summary['sessions'] as num?)?.toInt() ?? _counts['专注记录']!;
-        _conflicts =
-            (preview['conflicts'] as List? ?? const [])
-                .whereType<Map>()
-                .map((item) => Map<String, dynamic>.from(item))
-                .toList();
-        _conflictCount = _conflicts.length;
-        _choice = null; // 新预览不沿用旧的处理策略
-      }
-    } catch (e) {
-      _previewError = e.toString();
-    }
-    if (mounted) setState(() => _loading = false);
-  }
-
-  int get _currentStep {
-    if (_loading || _previewError != null) return 0;
-    if (!DataModeManager().isCloud) return 1;
-    if (_conflictCount > 0) return 1;
-    return 2;
-  }
-
-  Widget _card({
-    required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-  }) {
-    final theme = Theme.of(context);
-    return FxCard(
-      padding: padding,
-      color: fxSurface(context),
-      borderRadius: SlowlightRadius.lg,
-      border: Border.all(color: fxBorder(context)),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
-      expanded: true,
-      child: child,
-    );
-  }
-
-  Widget _chip(String label, {bool accent = false}) {
-    final theme = Theme.of(context);
-    return FxChip(
-      label: label,
-      backgroundColor:
-          accent
-              ? activePalette.accent.withValues(alpha: .12)
-              : fxSubtleSurface(context),
-      foregroundColor:
-          accent ? activePalette.accent : theme.colorScheme.onSurfaceVariant,
-      borderRadius: 999,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-    );
+    _load();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: 880,
-        maxHeight: (MediaQuery.sizeOf(context).height - 96).clamp(520.0, 660.0),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _dialogHeader(),
-          const SizedBox(height: SlowlightSpacing.xl),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _overviewCard(),
-                  const SizedBox(height: SlowlightSpacing.xxxl),
-                  const FxSectionHeader(
-                    title: '迁移进度',
-                    trailing: '先扫描、再比对，最后由你确认写入',
-                  ),
-                  const SizedBox(height: SlowlightSpacing.xs),
-                  _progressCard(),
-                  const SizedBox(height: SlowlightSpacing.xxxl),
-                  const FxSectionHeader(
-                    title: '迁移数据',
-                    trailing: '当前只读取数量，不会修改本地数据',
-                  ),
-                  const SizedBox(height: SlowlightSpacing.xs),
-                  _countGrid(),
-                  const SizedBox(height: SlowlightSpacing.xxxl),
-                  FxSectionHeader(
-                    title: '冲突处理',
-                    trailing:
-                        DataModeManager().isCloud
-                            ? (_conflictCount == 0
-                                ? '云端比对完成 · 无需处理'
-                                : '发现 $_conflictCount 项需要确认')
-                            : '登录云端后才会读取并比较云端数据',
-                  ),
-                  const SizedBox(height: SlowlightSpacing.xs),
-                  if (DataModeManager().isCloud && _conflictCount > 0)
-                    _conflictCard()
-                  else
-                    _comparisonStateCard(),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: SlowlightSpacing.xl),
-          _footer(),
-        ],
-      ),
-    );
+  void dispose() {
+    _loadGeneration++;
+    super.dispose();
   }
 
-  Widget _dialogHeader() {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '迁移本地数据到云端',
-          style: SlowlightTypography.pageTitle(
-            context,
-          ).copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          '先扫描和比较，再决定如何处理冲突；预览阶段不会写入或删除数据。',
-          style: SlowlightTypography.caption(
-            context,
-          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
+  Future<void> _load() async {
+    final generation = ++_loadGeneration;
+    setState(() {
+      _loading = true;
+      _previewError = null;
+      _authRequired = false;
+      _plan = null;
+      _choices.clear();
+      _focused = 0;
+      _step = _MigrationStep.inspect;
+      _counts.clear();
+    });
+    try {
+      final db = await LocalDb().database;
+      final queries = [
+        'SELECT COUNT(*) AS count FROM lists WHERE deleted_at IS NULL',
+        'SELECT COUNT(*) AS count FROM tags',
+        'SELECT COUNT(*) AS count FROM system_tags',
+        'SELECT COUNT(*) AS count FROM tasks WHERE deleted_at IS NULL',
+        'SELECT COUNT(*) AS count FROM subtasks',
+        'SELECT COUNT(*) AS count FROM habits WHERE deleted_at IS NULL',
+        'SELECT COUNT(*) AS count FROM habit_logs',
+        'SELECT COUNT(*) AS count FROM work_sessions',
+      ];
+      final rows = await Future.wait(queries.map(db.rawQuery));
+      if (!mounted || generation != _loadGeneration) return;
+      for (var i = 0; i < _keys.length; i++) {
+        _counts[_keys[i]] = (rows[i].first['count'] as num?)?.toInt() ?? 0;
+      }
+      final token = await AuthService.getToken();
+      if (!mounted || generation != _loadGeneration) return;
+      if (token == null || token.startsWith('local:')) {
+        setState(() => _authRequired = true);
+        return;
+      }
+      final plan = await _service.prepare();
+      if (!mounted || generation != _loadGeneration) return;
+      for (final key in _keys) {
+        if (plan.counts[key] is! num) {
+          throw const FormatException('云端迁移预览统计不完整');
+        }
+      }
+      setState(() {
+        _plan = plan;
+        for (final key in _keys) {
+          _counts[key] = (plan.counts[key] as num).toInt();
+        }
+      });
+    } catch (error) {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _previewError = error.toString());
+      }
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
-  Widget _overviewCard() {
-    final theme = Theme.of(context);
-    return _card(
-      padding: const EdgeInsets.all(SlowlightSpacing.xl),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 620;
-          final identity = Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(
-                    alpha: .55,
-                  ),
-                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                ),
-                child: Icon(
-                  Icons.cloud_upload_outlined,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: SlowlightSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '本机数据 → Slowlight 云端',
-                      style: SlowlightTypography.cardTitle(
-                        context,
-                      ).copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '本地数据始终保留；只有最终确认后才会开始迁移。',
-                      style: SlowlightTypography.caption(
-                        context,
-                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-          final badges = Wrap(
-            spacing: SlowlightSpacing.xs,
-            runSpacing: SlowlightSpacing.xs,
-            children: [
-              _chip('本机 → 云端'),
-              _chip(
-                DataModeManager().isCloud ? '云端已连接' : '云端未登录',
-                accent: DataModeManager().isCloud,
-              ),
-              _chip(
-                _loading
-                    ? '正在扫描'
-                    : _previewError != null
-                    ? '比对异常'
-                    : '预览就绪',
-                accent: !_loading && _previewError == null,
-              ),
-            ],
-          );
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                identity,
-                const SizedBox(height: SlowlightSpacing.md),
-                badges,
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: identity),
-              const SizedBox(width: SlowlightSpacing.xl),
-              badges,
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _progressCard() {
-    const labels = ['扫描数据', '处理冲突', '确认迁移', '完成'];
-    return _card(
-      padding: const EdgeInsets.symmetric(
-        horizontal: SlowlightSpacing.xl,
-        vertical: SlowlightSpacing.md,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact =
-              constraints.maxWidth < 560 ||
-              MediaQuery.textScalerOf(
-                    context,
-                  ).scale(SlowlightTypography.secondarySize) >=
-                  SlowlightTypography.secondarySize * 1.3;
-          if (compact) {
-            return Wrap(
-              spacing: SlowlightSpacing.xl,
-              runSpacing: SlowlightSpacing.md,
-              children: List.generate(
-                labels.length,
-                (index) => _progressItem(index, labels[index]),
-              ),
-            );
-          }
-          return Row(
-            children: List.generate(labels.length * 2 - 1, (position) {
-              if (position.isOdd) {
-                final before = position ~/ 2;
-                return Expanded(
-                  child: Container(
-                    height: 1,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: SlowlightSpacing.xs,
-                    ),
-                    color:
-                        before < _currentStep
-                            ? Theme.of(context).colorScheme.primary
-                            : fxDivider(context),
-                  ),
-                );
-              }
-              final index = position ~/ 2;
-              return _progressItem(index, labels[index]);
-            }),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _progressItem(int index, String label) {
-    final theme = Theme.of(context);
-    final completed = index < _currentStep;
-    final current = index == _currentStep;
-    final emphasized = completed || current;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color:
-                emphasized
-                    ? theme.colorScheme.primary
-                    : fxSubtleSurface(context),
-            shape: BoxShape.circle,
-          ),
-          child:
-              completed
-                  ? Icon(
-                    Icons.check,
-                    size: 14,
-                    color: theme.colorScheme.onPrimary,
-                  )
-                  : Text(
-                    '${index + 1}',
-                    style: SlowlightTypography.caption(context).copyWith(
-                      fontWeight: FontWeight.w700,
-                      color:
-                          current
-                              ? theme.colorScheme.onPrimary
-                              : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-        ),
-        const SizedBox(width: 7),
-        Text(
-          label,
-          style: SlowlightTypography.caption(context).copyWith(
-            fontWeight: current ? FontWeight.w700 : FontWeight.w500,
-            color:
-                emphasized
-                    ? theme.colorScheme.onSurface
-                    : theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _countGrid() => LayoutBuilder(
-    builder: (context, constraints) {
-      final largeText = MediaQuery.textScalerOf(context)
-              .scale(SlowlightTypography.bodySize) >=
-          SlowlightTypography.bodySize * 1.3;
-      final columns = largeText ? 1 : constraints.maxWidth < 520 ? 2 : 4;
-      final gap = SlowlightSpacing.xs;
-      final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
-      return Wrap(
-        spacing: gap,
-        runSpacing: gap,
-        children: [
-          for (final entry in _counts.entries)
-            SizedBox(
-              width: width,
-              child: FxStatCell(
-                label: entry.key,
-                value: _loading || _previewError != null ? '—' : '${entry.value}',
-              ),
-            ),
-        ],
-      );
-    },
-  );
-
-  Widget _comparisonStateCard() {
-    final theme = Theme.of(context);
-    final cloud = DataModeManager().isCloud;
-    return _card(
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: .42),
-              borderRadius: BorderRadius.circular(SlowlightRadius.md),
-            ),
-            child: Icon(
-              cloud ? Icons.cloud_done_outlined : Icons.login_outlined,
-              size: 20,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: SlowlightSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  cloud ? '当前没有需要确认的冲突' : '登录云端后开始数据比对',
-                  style: SlowlightTypography.secondary(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  cloud ? '可以继续到确认迁移；本地数据仍不会被删除。' : '登录仅用于读取云端并生成冲突预览，确认前不会写入。',
-                  style: SlowlightTypography.caption(
-                    context,
-                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _conflictEntity(String? entity) => switch (entity) {
-    'list' => '清单',
-    'tag' => '标签',
-    'system_tag' => '观察标签（旧）',
-    'habit' => '习惯',
-    _ => '记录',
+  List<Map<String, dynamic>> get _conflicts => _plan?.conflicts ?? const [];
+  int get _total => _counts.values.fold<int>(0, (s, n) => s + n);
+  bool get _ready => _plan != null && !_loading && _previewError == null &&
+      _total > 0 && _conflicts.every((c) => _choices.containsKey(_key(c)));
+  String _key(Map<String, dynamic> c) => '${c['entity']}:${c['local_id']}';
+  String _entity(Object? entity) => switch (entity) {
+    'list' => '清单', 'tag' => '标签', 'system_tag' => '观察标签（旧）',
+    'habit' => '习惯', _ => '记录'
+  };
+  String _policyLabel(String? value) => switch (value) {
+    'cloud' => '保留云端', 'local' => '保留本地',
+    'both' => '两份都保留', _ => '待处理',
   };
 
-  Widget _conflictCard() {
-    final theme = Theme.of(context);
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '发现 $_conflictCount 项同名冲突',
-            style: SlowlightTypography.secondary(context)
-                .copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Text(
-            '云端存在同名记录，但当前数据不足以判断字段内容是否不同。',
-            style: SlowlightTypography.caption(context)
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: SlowlightSpacing.md),
-          for (var i = 0; i < _conflicts.length; i++) ...[
-            if (i > 0) const SizedBox(height: SlowlightSpacing.xs),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(SlowlightSpacing.md),
-              decoration: BoxDecoration(
-                color: fxSubtleSurface(context),
-                borderRadius: BorderRadius.circular(SlowlightRadius.md),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${i + 1}.', style: SlowlightTypography.caption(context)),
-                  const SizedBox(width: SlowlightSpacing.xs),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${_conflictEntity(_conflicts[i]['entity']?.toString())}：${_conflicts[i]['name']?.toString() ?? '未命名'}',
-                          style: SlowlightTypography.secondary(context),
-                        ),
-                        Text(
-                          _conflicts[i]['reason']?.toString() ?? '云端存在同名记录',
-                          style: SlowlightTypography.caption(context)
-                              .copyWith(color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: SlowlightSpacing.md),
-          Text(
-            '对以上全部 $_conflictCount 项应用同一策略',
-            style: SlowlightTypography.secondary(context)
-                .copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Wrap(
-            spacing: SlowlightSpacing.xs,
-            runSpacing: SlowlightSpacing.xs,
-            children: [
-              _choiceButton('cloud', '保留云端', Icons.cloud_outlined),
-              _choiceButton('local', '保留本地', Icons.computer_outlined),
-              _choiceButton('both', '两份都保留', Icons.copy_outlined),
-            ],
-          ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Text(
-            switch (_choice) {
-              'cloud' => '复用云端同名记录，关联本地记录按映射迁移。',
-              'local' => '云端原同名记录将改名备份，再导入本地记录。',
-              'both' => '两份都保留；需要确保服务端同名规则允许。',
-              _ => '请明确选择整批处理策略。未选择时不能提交迁移。',
-            },
-            style: SlowlightTypography.caption(context)
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _choiceButton(String value, String label, IconData icon) => FxButton(
+  Widget _button(String label, {required VoidCallback? onPressed,
+      bool primary = false}) => FxButton(
     label: label,
-    icon: icon,
-    variant:
-        _choice == value ? FxButtonVariant.primary : FxButtonVariant.outline,
-    size: FxButtonSize.sm,
-    onPressed: () => setState(() => _choice = value),
+    variant: primary ? FxButtonVariant.primary : FxButtonVariant.outline,
+    onPressed: onPressed,
   );
 
-  Widget _footer() {
-    final theme = Theme.of(context);
-    final status =
-        _loading
-            ? '正在扫描本机数据…'
-            : _previewError != null
-            ? '云端比对失败：$_previewError'
-            : DataModeManager().isCloud
-            ? (_lastReport == null ? '预览已就绪' : '预览已就绪 · 最近迁移 $_lastReport')
-            : '登录云端后将计算冲突';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(top: SlowlightSpacing.md),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: fxDivider(context))),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final actions = Wrap(
-            alignment: WrapAlignment.end,
-            spacing: SlowlightSpacing.xs,
-            runSpacing: SlowlightSpacing.xs,
-            children: [
-              FxButton(
-                label: _previewError == null ? '取消' : '重试',
-                variant: FxButtonVariant.outline,
-                onPressed:
-                    _previewError == null
-                        ? () => Navigator.of(context, rootNavigator: true).pop()
-                        : () => setState(() {
-                          _loading = true;
-                          _previewError = null;
-                          _loadCounts();
-                        }),
-              ),
-              FxButton(
-                label:
-                    _executing
-                        ? '正在迁移…'
-                        : DataModeManager().isCloud
-                        ? '确认并迁移'
-                        : '登录云端并预览',
-                icon:
-                    DataModeManager().isCloud
-                        ? Icons.cloud_upload_outlined
-                        : Icons.login_outlined,
-                onPressed:
-                    _executing || _loading ||
-                    (DataModeManager().isCloud &&
-                        (_previewError != null ||
-                            (_conflictCount > 0 && _choice == null)))
-                        ? null
-                        : _continue,
-              ),
-            ],
-          );
-
-          final statusText = Text(
-            status,
-            maxLines: constraints.maxWidth < 620 ? null : 1,
-            overflow: constraints.maxWidth < 620 ? null : TextOverflow.ellipsis,
-            style: SlowlightTypography.caption(context).copyWith(
-              color:
-                  _previewError == null
-                      ? theme.colorScheme.onSurfaceVariant
-                      : theme.colorScheme.error,
-            ),
-          );
-          if (constraints.maxWidth < 620) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                statusText,
-                const SizedBox(height: SlowlightSpacing.xs),
-                actions,
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: statusText),
-              const SizedBox(width: SlowlightSpacing.xl),
-              actions,
-            ],
-          );
-        },
-      ),
+  Future<void> _signIn() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) =>
+        const LoginScreen(preserveDataMode: true)),
     );
+    if (mounted) await _load();
   }
 
-  Future<void> _execute() async {
-    if (_executing || _loading || _previewError != null ||
-        (_conflictCount > 0 && _choice == null)) return;
+  void _next() {
+    if (_loading || _executing) return;
+    setState(() {
+      if (_step == _MigrationStep.inspect && _plan != null && _total > 0) {
+        _step = _conflicts.isEmpty ? _MigrationStep.confirm :
+            _MigrationStep.conflicts;
+      } else if (_step == _MigrationStep.conflicts && _ready) {
+        _step = _MigrationStep.confirm;
+      }
+    });
+  }
+
+  void _previous() {
+    if (_executing || _reconciling) return;
+    setState(() {
+      _step = switch (_step) {
+        _MigrationStep.conflicts => _MigrationStep.inspect,
+        _MigrationStep.confirm => _conflicts.isEmpty
+          ? _MigrationStep.inspect : _MigrationStep.conflicts,
+        _ => _step,
+      };
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_ready || _executing || _step != _MigrationStep.confirm) return;
+    final confirmed = await FxDialog.confirm(
+      context: context, title: '确认开始迁移？', confirmText: '开始迁移',
+      content: '按每一项已确认的策略提交；本地原始数据不删除。'
+          '提交和本机映射核验完成之前不会切换当前数据源。',
+    );
+    if (confirmed != true || !mounted) return;
     setState(() => _executing = true);
     try {
-      final result = await MigrationService().execute(
-        conflictPolicy: _choice ?? 'reject',
-      );
+      final result = await _service.executePlan(
+        _plan!, Map<String, String>.from(_choices));
       if (!mounted) return;
-      final created = Map<String, dynamic>.from(result['created'] as Map);
-      final report = <String>[
-        '清单 ${created['lists'] ?? 0}',
-        '任务 ${created['tasks'] ?? 0}',
-        '子任务 ${created['subtasks'] ?? 0}',
-        '习惯 ${created['habits'] ?? 0}',
-        '打卡 ${created['habit_logs'] ?? 0}',
-        '专注 ${created['sessions'] ?? 0}',
-      ].join(' · ');
-      FxNotice.showContent(context, Text('迁移完成：$report'));
-      Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        FxNotice.showContent(context, Text('迁移失败：$e'));
-      }
+      setState(() {
+        _result = result;
+        _outcomeUnknown = false;
+        _resultMessage = '云端提交与本机 ID 映射均已确认';
+        _step = _MigrationStep.result;
+      });
+    } on MigrationExecutionException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _localReportId = error.localReportId;
+        _outcomeUnknown = true;
+        _resultMessage = '执行结果未确认，请查询原始回执后再恢复';
+        _step = _MigrationStep.result;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _previewError = error.toString();
+        _plan = null;
+        _step = _MigrationStep.inspect;
+      });
     } finally {
       if (mounted) setState(() => _executing = false);
     }
   }
 
-  Future<void> _continue() async {
-    if (_executing || _loading) return;
-    if (DataModeManager().isCloud &&
-        (_previewError != null || (_conflictCount > 0 && _choice == null))) return;
-    if (DataModeManager().isCloud) {
-      await _execute();
-      return;
-    }
-
-    final token = await AuthService.getToken();
-    if (token == null || token.startsWith('local:')) {
+  Future<void> _reconcile() async {
+    if (_reconciling || _localReportId == null) return;
+    setState(() => _reconciling = true);
+    try {
+      final result = await _service.recoverReport(_localReportId!);
       if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
-
-    final updatedToken = await AuthService.getToken();
-    if (updatedToken == null || updatedToken.startsWith('local:')) {
+      setState(() {
+        _result = result;
+        _outcomeUnknown = false;
+        _resultMessage = '已查询到原始云端回执并恢复本机映射';
+      });
+    } catch (error) {
       if (mounted) {
-        FxNotice.showContent(context, Text('请先登录云端账号后再迁移'));
+        FxNotice.showContent(context, Text(
+          '尚不能证明迁移完成；不会再次导入。$error',
+        ));
       }
-      return;
+    } finally {
+      if (mounted) setState(() => _reconciling = false);
     }
+  }
 
-    await DataModeManager().setCloud();
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _previewError = null;
-    });
-    await _loadCounts();
+  Future<void> _switchCloud() async {
+    if (_result == null || _outcomeUnknown || _switching) return;
+    setState(() => _switching = true);
+    try {
+      await DataModeManager().setCloud();
+      authStateNotifier.value = !authStateNotifier.value;
+      if (mounted) Navigator.of(context, rootNavigator: !widget.fullScreen).pop();
+    } catch (error) {
+      if (mounted) FxNotice.showContent(context, Text('切换云端失败：$error'));
+    } finally {
+      if (mounted) setState(() => _switching = false);
+    }
+  }
+
+  void _close() {
+    if (_executing || _reconciling) return;
+    Navigator.of(context, rootNavigator: !widget.fullScreen).pop();
+  }
+
+  Widget _header() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: SlowlightSpacing.xl, vertical: SlowlightSpacing.md),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(widget.fullScreen ? '数据迁移' :
+              '迁移本地数据到云端',
+              style: SlowlightTypography.pageTitle(context))),
+          if (!_executing)
+            IconButton(
+              tooltip: '关闭迁移', icon: const Icon(Icons.close, size: 20),
+              onPressed: _close),
+        ]),
+        Text('本地数据始终保留；预览阶段不会写入或删除数据。',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant)),
+        const SizedBox(height: SlowlightSpacing.md),
+        Row(children: [
+          for (var i = 0; i < _MigrationStep.values.length; i++)
+            Expanded(child: Column(children: [
+              Container(
+                height: widget.fullScreen ? 4 : 23,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: i <= _step.index
+                    ? theme.colorScheme.primary : fxSubtleSurface(context),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.sm)),
+                child: widget.fullScreen ? null : Text('${i+1}',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: i <= _step.index ? theme.colorScheme.onPrimary :
+                        theme.colorScheme.onSurfaceVariant)),
+              ),
+              const SizedBox(height: 4),
+              Text(const ['检查数据', '处理冲突', '最终确认', '迁移结果'][i],
+                textAlign: TextAlign.center,
+                style: SlowlightTypography.caption(context)),
+            ])),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _stats() => LayoutBuilder(builder: (context, size) {
+    final scale = MediaQuery.textScalerOf(context)
+        .scale(SlowlightTypography.bodySize);
+    final columns = scale >= SlowlightTypography.bodySize * 1.3
+        ? (widget.fullScreen ? 1 : 2)
+        : widget.fullScreen || size.maxWidth < 560 ? 2 : 4;
+    const gap = SlowlightSpacing.xs;
+    final cellWidth = (size.maxWidth - (columns - 1) * gap) / columns;
+    return Wrap(spacing: gap, runSpacing: gap, children: [
+      for (var i = 0; i < _keys.length; i++)
+        SizedBox(width: cellWidth,
+          child: Container(
+            padding: const EdgeInsets.all(SlowlightSpacing.md),
+            decoration: BoxDecoration(
+              border: Border.all(color: fxBorder(context)),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_loading || _previewError != null ? '—' :
+                    '${_counts[_keys[i]] ?? 0}',
+                  style: SlowlightTypography.statValue(context)),
+                Text(_labels[i],
+                  style: SlowlightTypography.caption(context)),
+              ]),
+          )),
+    ]);
+  });
+
+  Widget _inspection() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('本机数据概览',
+          style: SlowlightTypography.cardTitle(context)),
+      const SizedBox(height: SlowlightSpacing.xs),
+      _stats(),
+      const SizedBox(height: SlowlightSpacing.md),
+      if (_loading) const Center(child: CircularProgressIndicator())
+      else if (_previewError != null) ...[
+        Text('迁移预览失败：$_previewError'),
+        const SizedBox(height: SlowlightSpacing.xs),
+        _button('重新检查', onPressed: _load),
+      ] else if (_authRequired) ...[
+        const Text('请登录云端并预览；登录不会改变当前本机数据源。'),
+        _button('登录云端并预览', onPressed: _signIn, primary: true),
+      ] else if (_total == 0)
+        const Text('本机没有可迁移数据，无需执行迁移。')
+      else ...[
+        Text(_conflicts.isEmpty
+          ? '云端比对完成，没有同名冲突'
+          : '云端比对完成，发现 ${_conflicts.length} 项同名冲突'),
+        const SizedBox(height: SlowlightSpacing.xs),
+        const Text('同名并不代表字段内容不同；只展示可信的冲突事实。'),
+      ],
+    ],
+  );
+
+  Widget _conflictRow(int i) {
+    final c = _conflicts[i];
+    return Material(
+      color: _focused == i ? fxSubtleSurface(context) : Colors.transparent,
+      child: InkWell(
+        key: ValueKey('migration.conflict.$i'),
+        onTap: () => setState(() => _focused = i),
+        child: Padding(
+          padding: const EdgeInsets.all(SlowlightSpacing.md),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${_entity(c['entity'])}：${c['name'] ?? '未命名'}',
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: SlowlightTypography.secondary(context)),
+            Text(_policyLabel(_choices[_key(c)]),
+              style: SlowlightTypography.caption(context)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _policyDetail() {
+    final conflict = _conflicts[_focused];
+    final key = _key(conflict);
+    return Container(
+      padding: const EdgeInsets.all(SlowlightSpacing.md),
+      decoration: BoxDecoration(
+        border: Border.all(color: fxBorder(context)),
+        borderRadius: BorderRadius.circular(SlowlightRadius.lg)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${_entity(conflict['entity'])}：${conflict['name'] ?? '未命名'}',
+          style: SlowlightTypography.cardTitle(context)),
+        const SizedBox(height: 4),
+        Text(conflict['reason']?.toString() ?? '云端存在同名项',
+          style: SlowlightTypography.caption(context)),
+        const SizedBox(height: SlowlightSpacing.xs),
+        Text('只有同名冲突证据；目前没有可靠的字段级差异。',
+          style: SlowlightTypography.caption(context)),
+        const SizedBox(height: SlowlightSpacing.md),
+        for (final policy in _policies) ...[
+          SizedBox(width: double.infinity,
+            child: _button(
+              '${_choices[key] == policy.$1 ? '✓ ' : ''}${policy.$2}',
+              primary: _choices[key] == policy.$1,
+              onPressed: () => setState(() => _choices[key] = policy.$1),
+            )),
+          Text(policy.$3, style: SlowlightTypography.caption(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+        ],
+      ]),
+    );
+  }
+
+  Future<void> _applyAll() async {
+    if (_conflicts.isEmpty) return;
+    final value = _choices[_key(_conflicts[_focused])];
+    if (value == null) return;
+    final confirmed = await FxDialog.confirm(
+      context: context, title: '对全部冲突应用相同策略？',
+      confirmText: '应用全部',
+      content: '将「${_policyLabel(value)}」应用到全部 ${_conflicts.length} 项，'
+          '替换先前逐项选择；不会立即迁移数据。',
+    );
+    if (confirmed == true && mounted) {
+      setState(() {
+        for (final conflict in _conflicts) {
+          _choices[_key(conflict)] = value;
+        }
+      });
+    }
+  }
+
+  Widget _conflictStep() {
+    if (_conflicts.isEmpty) return const Text('没有需要处理的同名冲突。');
+    final narrow = widget.fullScreen || MediaQuery.sizeOf(context).width < 680;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('处理同名冲突', style: SlowlightTypography.cardTitle(context)),
+      Text('${_choices.length} / ${_conflicts.length} 项已处理',
+        style: SlowlightTypography.caption(context)),
+      const SizedBox(height: SlowlightSpacing.md),
+      if (narrow) ...[
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _button('上一项', onPressed: _focused > 0
+            ? () => setState(() => _focused--) : null),
+          Text('${_focused + 1} / ${_conflicts.length}'),
+          _button('下一项', onPressed: _focused + 1 < _conflicts.length
+            ? () => setState(() => _focused++) : null),
+        ]),
+        const SizedBox(height: SlowlightSpacing.xs),
+        _policyDetail(),
+        const SizedBox(height: SlowlightSpacing.xs),
+        _button(_showAllMobile ? '收起全部冲突' : '查看全部冲突',
+          onPressed: () => setState(() => _showAllMobile = !_showAllMobile)),
+        if (_showAllMobile)
+          for (var i = 0; i < _conflicts.length; i++) _conflictRow(i),
+      ] else
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Container(
+            constraints: const BoxConstraints(maxHeight: 320),
+            decoration: BoxDecoration(
+              border: Border.all(color: fxBorder(context)),
+              borderRadius: BorderRadius.circular(SlowlightRadius.lg)),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _conflicts.length,
+              itemBuilder: (_, index) => _conflictRow(index),
+            ),
+          )),
+          const SizedBox(width: SlowlightSpacing.md),
+          Expanded(child: _policyDetail()),
+        ]),
+      const SizedBox(height: SlowlightSpacing.md),
+      _button('将当前策略应用到全部',
+        onPressed: _choices.containsKey(_key(_conflicts[_focused]))
+          ? _applyAll : null),
+    ]);
+  }
+
+  Widget _confirmation() {
+    int count(String policy) =>
+      _choices.values.where((value) => value == policy).length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('最终迁移确认', style: SlowlightTypography.cardTitle(context)),
+      const SizedBox(height: SlowlightSpacing.md),
+      for (final policy in const ['cloud', 'local', 'both'])
+        Padding(padding: const EdgeInsets.only(bottom: SlowlightSpacing.xs),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(_policyLabel(policy)),
+              Text('${count(policy)} 项'),
+            ])),
+      const SizedBox(height: SlowlightSpacing.md),
+      Text('待迁移：$_total 条（八类数据合计）'),
+      Text('同名冲突：${_conflicts.length} 项，已确认 ${_choices.length} 项'),
+      const SizedBox(height: SlowlightSpacing.md),
+      const Text('执行时重新核对预览版本、云端同名记录和当前账号。'
+          '本地记录不会删除，失败或结果未知时不切换数据源。'),
+      if (_executing) ...[
+        const SizedBox(height: SlowlightSpacing.md),
+        const Center(child: CircularProgressIndicator()),
+        const Text('正在执行并核对映射，请勿重复提交。'),
+      ],
+    ]);
+  }
+
+  Widget _resultStep() {
+    final created = _result?['created'];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(_outcomeUnknown ? '执行结果未确认' : '迁移已核验完成',
+        style: SlowlightTypography.cardTitle(context)),
+      const SizedBox(height: SlowlightSpacing.xs),
+      Text(_resultMessage ?? ''),
+      const SizedBox(height: SlowlightSpacing.md),
+      if (_outcomeUnknown) ...[
+        const Text('没有证据证明服务端未提交。不能再次执行新的全量迁移。'),
+        const SizedBox(height: SlowlightSpacing.md),
+        _button(_reconciling ? '正在核对…' : '查询原始回执并恢复映射',
+          onPressed: _reconciling ? null : _reconcile, primary: true),
+        const SizedBox(height: SlowlightSpacing.xs),
+        const Text('找不到回执则维持未确认，不重新导入。'),
+      ] else ...[
+        const Text('服务端迁移和本机 ID 映射均已完成。'),
+        if (created is Map)
+          for (var i = 0; i < _keys.length; i++)
+            Text('${_labels[i]}：${created[_keys[i]] ?? 0}'),
+        const SizedBox(height: SlowlightSpacing.md),
+        if (DataModeManager().isLocal)
+          _button(_switching ? '正在切换…' : '使用云端数据',
+            onPressed: _switching ? null : _switchCloud, primary: true),
+      ],
+    ]);
+  }
+
+  Widget _footer() {
+    final canNext = _step == _MigrationStep.inspect
+      ? !_loading && _previewError == null && _plan != null && _total > 0
+      : _step == _MigrationStep.conflicts && _ready;
+    final actions = <Widget>[
+      if (_step == _MigrationStep.conflicts ||
+          _step == _MigrationStep.confirm)
+        _button('上一步', onPressed: _executing ? null : _previous),
+      if (_step == _MigrationStep.inspect ||
+          _step == _MigrationStep.conflicts)
+        _button('下一步', onPressed: canNext ? _next : null, primary: true),
+      if (_step == _MigrationStep.confirm)
+        _button(_executing ? '迁移中…' : '开始迁移',
+          onPressed: _ready && !_executing ? _submit : null, primary: true),
+      if (_step == _MigrationStep.result)
+        _button('关闭', onPressed: _reconciling ? null : _close),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(SlowlightSpacing.md),
+      decoration: BoxDecoration(border: Border(
+        top: BorderSide(color: fxBorder(context)))),
+      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          if (i > 0) const SizedBox(width: SlowlightSpacing.xs),
+          if (widget.fullScreen)
+            Expanded(child: actions[i])
+          else
+            actions[i],
+        ],
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final available = MediaQuery.sizeOf(context).height - 110;
+    final body = Column(
+      mainAxisSize: widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        _header(),
+        Flexible(child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: SlowlightSpacing.xl, vertical: SlowlightSpacing.md),
+          child: switch (_step) {
+            _MigrationStep.inspect => _inspection(),
+            _MigrationStep.conflicts => _conflictStep(),
+            _MigrationStep.confirm => _confirmation(),
+            _MigrationStep.result => _resultStep(),
+          },
+        )),
+        _footer(),
+      ],
+    );
+    return PopScope(
+      canPop: !_executing && !_reconciling,
+      child: widget.fullScreen
+        ? SizedBox.expand(child: body)
+        : ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 840, maxHeight: available > 300 ? available : 300),
+          child: body),
+    );
   }
 }

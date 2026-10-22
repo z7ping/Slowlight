@@ -53,6 +53,43 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('迁移向导 Windows 共用四阶段结构和完整八类数据', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_host());
+    await tester.tap(find.text('打开'));
+    await tester.pump();
+    expect(find.byType(MigrationPreviewDialog), findsOneWidget);
+    for (final stage in ['检查数据','处理冲突','最终确认','迁移结果']) {
+      expect(find.text(stage), findsOneWidget);
+    }
+    expect(find.text('子任务'), findsOneWidget);
+    expect(find.textContaining('字段内容存在差异'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 全屏向导在 360dp 和字体放大时不溢出', (tester) async {
+    tester.view.physicalSize = const Size(360, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(
+        body: SafeArea(
+          child: MigrationPreviewDialog(fullScreen: true),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(find.byType(MigrationPreviewDialog), findsOneWidget);
+    expect(find.text('数据迁移'), findsOneWidget);
+    expect(find.text('清单'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('数据迁移预览窄窗口不产生布局异常', (tester) async {
     tester.view.physicalSize = const Size(460, 760);
     tester.view.devicePixelRatio = 1;
