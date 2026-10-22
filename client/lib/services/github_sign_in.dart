@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'api_service.dart';
 import 'auth_service.dart';
+import 'github_oauth_pending.dart';
 import 'network_retry.dart';
 
 /// OAuth 回调唤醒 Android 后，立即检查授权结果，而不是等下一轮定时轮询。
@@ -50,6 +51,16 @@ class _OAuthResumeObserver extends WidgetsBindingObserver {
 /// Windows 仍通过默认浏览器授权；两端都通过服务端一次性凭据领取 JWT。
 class GitHubSignIn {
   static _OAuthResumeObserver? _activeObserver;
+
+  static bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  static Future<bool> hasPendingAuthorization() async =>
+      _isAndroid && await GitHubOAuthPending.load() != null;
+
+  static Future<void> cancelPendingAuthorization() async {
+    if (_isAndroid) await GitHubOAuthPending.clear();
+  }
 
   /// 桌面端在浏览器授权后可以主动唤醒正在等待的 OAuth 轮询。
   /// 只检查已有授权会话；不会重新申请授权或重复领取凭据。
@@ -127,6 +138,8 @@ class GitHubSignIn {
   static Future<bool> signIn({
     required bool Function() shouldContinue,
     bool linkExisting = false,
+    bool resumePending = false,
+    void Function(String)? onStatus,
   }) async {
     ApiService.validateCloudEndpoint();
     final endpoint = Uri.parse(ApiService.baseUrl);
@@ -136,55 +149,96 @@ class GitHubSignIn {
       throw StateError('GitHub 登录要求 HTTPS 云端服务');
     }
 
-    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    final start = await ApiService.post(
-      linkExisting ? '/auth/github/link/start' : '/auth/github/start',
-      body: {'platform': isAndroid ? 'android' : 'desktop'},
-      authenticated: linkExisting,
-    );
-    if (!shouldContinue()) return false;
-    final authUrl = Uri.parse(start['authorization_url'] as String);
-    final sessionId = start['session_id'] as String;
-    final pollToken = start['poll_token'] as String;
-    if (authUrl.scheme != 'https' || authUrl.host != 'github.com') {
-      throw StateError('GitHub 授权地址无效');
+    final isAndroid = _isAndroid;
+    // 仅普通登录支持冷启动恢复。账号绑定必须由当前登录用户重新确认。
+    if (resumePending && (!isAndroid || linkExisting)) return false;
+    GitHubOAuthPending? pending;
+    Uri? authUrl;
+    if (resumePending) {
+      pending = await GitHubOAuthPending.load();
+      if (pending == null) return false;
+      onStatus?.call('正在恢复上次 GitHub 授权…');
+    } else {
+      final start = await ApiService.post(
+        linkExisting ? '/auth/github/link/start' : '/auth/github/start',
+        body: {'platform': isAndroid ? 'android' : 'desktop'},
+        authenticated: linkExisting,
+      );
+      if (!shouldContinue()) return false;
+      authUrl = Uri.parse(start['authorization_url'] as String);
+      if (authUrl.scheme != 'https' || authUrl.host != 'github.com') {
+        throw StateError('GitHub 授权地址无效');
+      }
+      final seconds = start['expires_in'];
+      pending = GitHubOAuthPending(
+        sessionId: start['session_id'] as String,
+        pollToken: start['poll_token'] as String,
+        expiresAt: DateTime.now().add(
+          Duration(seconds: seconds is int ? seconds : 600),
+        ),
+        endpoint: ApiService.baseUrl,
+      );
+      if (isAndroid && !linkExisting) await GitHubOAuthPending.save(pending);
     }
+    if (pending == null) return false;
 
     final resumeObserver = _OAuthResumeObserver();
     _activeObserver = resumeObserver;
     WidgetsBinding.instance.addObserver(resumeObserver);
     try {
-      if (!await openAuthorization(authUrl)) {
-        throw StateError('无法打开 GitHub 授权页面，请检查系统默认浏览器');
+      if (!resumePending) {
+        if (!await openAuthorization(authUrl!)) {
+          if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
+          throw StateError('无法打开 GitHub 授权页面，请检查系统默认浏览器');
+        }
+        onStatus?.call('等待 GitHub 完成授权…');
       }
-      // Android 回调只负责唤醒 App，JWT 仍通过 poll_token 从服务端领取。
-      final expires = start['expires_in'];
-      final deadline = DateTime.now().add(
-        Duration(seconds: expires is int ? expires : 600),
-      );
-      while (DateTime.now().isBefore(deadline)) {
+      while (DateTime.now().isBefore(pending.expiresAt)) {
         if (!shouldContinue()) return false;
         await resumeObserver.waitUntilPoll();
         if (!shouldContinue()) return false;
 
-        final result = await pollWithNetworkRetry(
-          request: () => ApiService.post('/auth/github/poll', body: {
-            'session_id': sessionId,
-            'poll_token': pollToken,
-          }),
-          shouldContinue: shouldContinue,
-        );
+        Map<String, dynamic>? result;
+        try {
+          result = await pollWithNetworkRetry(
+            request: () => ApiService.post('/auth/github/poll', body: {
+              'session_id': pending!.sessionId,
+              'poll_token': pending.pollToken,
+            }),
+            shouldContinue: shouldContinue,
+          );
+        } catch (error) {
+          if (isTransientNetworkFailure(error) && shouldContinue()) {
+            // 轮询网络中断不等于授权失败，保持同一会话至过期。
+            onStatus?.call('网络连接暂时中断，正在继续确认授权…');
+            continue;
+          }
+          if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
+          rethrow;
+        }
         if (!shouldContinue() || result == null) return false;
-        if (result['status'] == 'pending') continue;
+        if (result['status'] == 'pending') {
+          onStatus?.call('正在确认 GitHub 授权结果…');
+          continue;
+        }
         if (result['status'] == 'complete') {
           await AuthService.completeOAuthLogin(
             result,
             linkingExisting: linkExisting,
           );
+          if (isAndroid && !linkExisting) {
+            try {
+              await GitHubOAuthPending.clear();
+            } catch (_) {
+              // 登录凭据已经保存，暂存记录清理失败不能冒充登录失败。
+            }
+          }
           return true;
         }
+        if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
         throw StateError('GitHub 登录状态异常，请重试');
       }
+      if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
       throw StateError('GitHub 授权已超时，请重新发起登录');
     } finally {
       WidgetsBinding.instance.removeObserver(resumeObserver);
