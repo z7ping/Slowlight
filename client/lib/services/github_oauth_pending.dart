@@ -14,6 +14,8 @@ class GitHubOAuthPending {
     this.flow = 'browser',
     this.userCode = '',
     this.verificationUri = '',
+    this.linkExisting = false,
+    this.targetUserId = 0,
   });
 
   static const storageKey = 'github_oauth_pending';
@@ -26,12 +28,15 @@ class GitHubOAuthPending {
   final String flow;
   final String userCode;
   final String verificationUri;
+  final bool linkExisting;
+  final int targetUserId;
 
   bool get isValid =>
       sessionId.isNotEmpty &&
       pollToken.isNotEmpty &&
       endpoint == ApiService.baseUrl &&
       expiresAt.isAfter(DateTime.now()) &&
+      (!linkExisting || targetUserId > 0) &&
       (flow == 'browser' ||
           (flow == 'device' &&
               userCode.isNotEmpty &&
@@ -46,6 +51,8 @@ class GitHubOAuthPending {
         'flow': flow,
         'user_code': userCode,
         'verification_uri': verificationUri,
+        'link_existing': linkExisting,
+        'target_user_id': targetUserId,
       };
 
   static GitHubOAuthPending? fromJson(Object? data) {
@@ -66,6 +73,10 @@ class GitHubOAuthPending {
       verificationUri: data['verification_uri'] is String
           ? data['verification_uri'] as String
           : '',
+      linkExisting: data['link_existing'] == true,
+      targetUserId: data['target_user_id'] is int
+          ? data['target_user_id'] as int
+          : 0,
     );
     return pending.isValid ? pending : null;
   }
