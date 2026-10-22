@@ -165,6 +165,8 @@ func (h *GitHubOAuthHandler) start(c *gin.Context, targetUser uint) {
 type oauthPollRequest struct {
 	SessionID string `json:"session_id" binding:"required"`
 	PollToken string `json:"poll_token" binding:"required"`
+    // 空模式保留旧版一次性领取；reliable 模式需显式 ack。
+    Mode string `json:"mode"`
 }
 
 // Poll 使用客户端持有的高熵凭据领取结果，成功后原子性标记 consumed。
