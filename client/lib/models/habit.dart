@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'habit_schedule_rule.dart';
 
 class Habit {
   final int id;
@@ -90,6 +91,9 @@ class Habit {
   }
 
   String get frequencyText {
+    if (scheduleRule.isNotEmpty) {
+      return HabitScheduleRule.fromJson(scheduleRule, legacyFrequency: frequency).summary;
+    }
     switch (frequency) {
       case 'daily':
         return '每天';
