@@ -52,7 +52,7 @@ Docker Compose 已透传这三个变量；重建 Go 服务端后生效。新安�
 - `POST /api/auth/github/start` 发起登录；`GET /api/auth/github/callback` 接收 GitHub 回调；`POST /api/auth/github/poll` 一次性领取 Slowlight JWT。
 - 客户端在 `start` / `link/start` 的 JSON 请求体中可传 `{"platform":"android"}`。Android 首选系统安全浏览器标签（Custom Tabs，允许复用浏览器登录态），不支持时回退系统默认浏览器；Windows 使用默认浏览器。
 - GitHub 并未保证 OAuth 授权页由 GitHub 手机 App 接管，**不得**拼造 GitHub App URI 或把已安装 GitHub App 作为登录前提。
-- Android 成功回调会尝试打开 `slowlight://oauth-complete` 唤醒 Slowlight；浏览器禁止自动打开时，授权成功页提供「返回所行映我」按钮。回跳 URI **不包含** `code`、`state`、JWT、轮询凭据；实际登录结果仍由客户端原有的一次性领取机制获取。Windows 授权后返回客户端即可自动完成登录。
+- Android 成功回调会尝试打开 `slowlight://oauth-complete` 唤醒 Slowlight；浏览器禁止自动打开时可点击「返回所行映我」。Windows 回调页也提供该按钮：**安装版**通过 Inno Setup 注册当前用户的 `slowlight://` 协议，点击后优先恢复同一安装目录下已经运行的客户端窗口（包括托盘隐藏状态），不会另开第二个会话；便携版或仅 `flutter run -d windows` 未注册协议时，须手动切回应用。浏览器可能要求确认“打开所行映我”。回跳 URI **不包含** `code`、`state`、JWT、轮询凭据；只是返回应用，不代表登录完成，实际结果仍由客户端安全轮询确认。若 Windows 客户端在授权期间已完全退出，重新打开并不能自动恢复旧授权会话，需要重新发起登录。
 - 注意 Android Manifest 已禁用 Flutter 自行解析此唤醒 URI，以防 OAuth 回调被解释成应用内页面路由；如将来引入其他 App Links，需单独评估路由管理。
 - 已登录云端用户可以在「设置 → 账号」显式绑定 GitHub，对应服务端受 JWT 保护的 `POST /api/auth/github/link/start`。**不会通过同邮箱自动绑定或合并账号**。
 - 新 GitHub 用户创建独立的 Slowlight 账号。内部账号以 GitHub 不变的数字 ID 为锚点，首次注册使用占位邮箱，不向 GitHub 索取私人邮箱/仓库权限；常规密码无法登录该账号。
