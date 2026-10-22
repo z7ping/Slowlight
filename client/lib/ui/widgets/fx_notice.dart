@@ -223,14 +223,14 @@ abstract final class FxNotice {
   @visibleForTesting
   static String readableError(Object details) {
     final message = details.toString().trim().replaceFirst(
-      RegExp(r'^(?:Exception|Bad state|FormatException):\\s*'),
+      RegExp(r'^(?:Exception|Bad state|FormatException):\s*'),
       '',
     ).trim();
     if (message.isEmpty ||
         message.length > 100 ||
-        message.contains('\\n') ||
-        !RegExp(r'[\\u3400-\\u9fff]').hasMatch(message) ||
-        RegExp(r'(?:Exception|StackTrace|#[0-9]+\\s|dart:|https?://)', caseSensitive: false)
+        message.contains('\n') ||
+        !RegExp(r'[\u3400-\u9fff]').hasMatch(message) ||
+        RegExp(r'(?:Exception|StackTrace|#[0-9]+\s|dart:|https?://)', caseSensitive: false)
             .hasMatch(message)) {
       return '操作未完成，请稍后重试或到应用诊断查看记录';
     }
