@@ -114,6 +114,19 @@ class GitHubSignIn {
   static bool isSafeToRetryPoll(Object error) =>
       NetworkRetry.requestNotSent(error);
 
+  /// 与服务端受控 phase 枚举一一对应，不把换码或查用户资料说成已登录。
+  @visibleForTesting
+  static String statusForPhase(Object? phase) {
+    switch (phase) {
+      case 'authorization': return '等待在 GitHub 网页确认授权…';
+      case 'callback': return 'GitHub 已返回，正在受理授权…';
+      case 'token': return '正在核验 GitHub 授权码…';
+      case 'profile': return '正在获取 GitHub 身份信息，网络异常时会自动重试…';
+      case 'account': return '正在确认所行映我云端账号…';
+      default: return '正在向云端确认 GitHub 授权结果…';
+    }
+  }
+
   static String describeError(Object error) {
     if (!isTransientNetworkFailure(error)) return error.toString();
     final host = Uri.parse(ApiService.baseUrl).host;
@@ -221,7 +234,7 @@ class GitHubSignIn {
         }
         if (!shouldContinue() || result == null) return false;
         if (result['status'] == 'pending') {
-          onStatus?.call('正在确认 GitHub 授权结果…');
+          onStatus?.call(statusForPhase(result['phase']));
           continue;
         }
         if (result['status'] == 'complete') {
