@@ -701,27 +701,25 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   }
 
   Widget _stats(Habit habit) {
-    final logs = _controller.logsFor(habit.id);
     final now = DateTime.now();
-    final monthPrefix = '${now.year}-${_two(now.month)}-';
-    final monthCount =
-        logs.where((log) => log.date.startsWith(monthPrefix)).length;
-    final target =
-        habit.frequency == 'daily'
-            ? now.day
-            : (habit.targetDays <= 0 ? monthCount : habit.targetDays * 4);
-    final rate =
-        target <= 0 ? 0 : (monthCount / target * 100).clamp(0, 100).round();
+    final today = DateTime(now.year, now.month, now.day);
+    final lastSeven = List.generate(7,
+        (index) => today.subtract(Duration(days: index)));
+    final checked = habit.checkedDays.toSet();
+    final recentCount = lastSeven.where((day) =>
+        checked.contains('${day.year}-${_two(day.month)}-${_two(day.day)}'))
+        .length;
+    // 记录事实，不把不同频率的习惯统一当作“完成率”评判。
     final values = [
-      ('${habit.streakCount}', '连续'),
-      ('${habit.checkedDays.length}', '总计'),
-      ('$rate%', '本月完成率'),
+      ('${habit.streakCount}', '当前连续'),
+      ('${habit.checkedDays.length}', '已记录天数'),
+      ('$recentCount / 7', '最近七天'),
     ];
     return FxResponsiveFormGrid(
       minColumnWidth: 140,
       maxColumns: 3,
-      horizontalGap: 8,
-      verticalGap: 8,
+      horizontalGap: SlowlightSpacing.md,
+      verticalGap: SlowlightSpacing.md,
       children: values
           .map((item) => _miniStat(item.$1, item.$2))
           .toList(growable: false),
@@ -834,42 +832,59 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     final checked = habit.checkedDays.toSet();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    return Row(
-      children: List.generate(7, (index) {
-        final day = today.subtract(Duration(days: 6 - index));
-        final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
-        final active = checked.contains(key);
-        return Expanded(
-          child: Semantics(
+    const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
+    final touch = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final target = touch ? SlowlightControlSize.minTouchTarget : 36.0;
+    // Android 360dp 不能把 7 天的可点区域缩到不足 44dp。
+    // 留出独立横向滚动，不挤压右侧“记录今天”。
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: List.generate(7, (index) {
+          final day = today.subtract(Duration(days: 6 - index));
+          final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
+          final active = checked.contains(key);
+          return Semantics(
             button: true,
-            label: '${day.month}月${day.day}日${active ? '已打卡' : '未打卡'}',
+            label: '${day.month}月${day.day}日${active ? '已记录' : '未记录'}',
             child: FxInkWell(
-              borderRadius: BorderRadius.circular(999),
+              key: ValueKey('habits.week.${habit.id}.$index'),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
               onTap: () => _tapWeekDay(habit, day),
               child: SizedBox(
-                height: 44,
-                child: Center(
-                  child: Container(
-                    width: 13,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: active ? color : Colors.transparent,
-                      border: Border.all(
-                        color:
-                            active
-                                ? color
-                                : Theme.of(context).colorScheme.outline,
-                        width: 1.5,
+                width: target,
+                height: touch ? 54 : 46,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      weekdayLabels[day.weekday - 1],
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: SlowlightSpacing.xs),
+                    Container(
+                      width: 13,
+                      height: 13,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: active ? color : Colors.transparent,
+                        border: Border.all(
+                          color: active
+                              ? color
+                              : Theme.of(context).colorScheme.outline,
+                          width: _sameDay(day, today) ? 2 : 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 
@@ -974,8 +989,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   String _habitMeta(Habit habit) {
     final parts = <String>[habit.frequencyText];
-    if (habit.specificTime.isNotEmpty) parts.add('目标 ${habit.specificTime}');
-    if (habit.streakCount > 0) parts.add('连续 🔥 ${habit.streakCount} 天');
+    if (habit.preferredPeriod.isNotEmpty) {
+      parts.add(_periodText(habit.preferredPeriod));
+    }
+    if (habit.durationMin > 0) {
+      parts.add('${habit.durationMin} 分钟');
+    }
+    if (habit.specificTime.isNotEmpty) {
+      parts.add('目标 ${habit.specificTime}');
+    }
     return parts.join(' · ');
   }
 
