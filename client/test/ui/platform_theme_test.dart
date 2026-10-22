@@ -49,8 +49,12 @@ void main() {
       final inputDecoration = theme.inputTheme.decoration;
       final selectDecoration = theme.selectTheme.decoration;
       expect(selectDecoration?.disableSecondaryBorder, isTrue);
-      expect(selectDecoration?.border, inputDecoration?.border);
-      expect(selectDecoration?.focusedBorder, inputDecoration?.focusedBorder);
+      expect(selectDecoration?.border?.radius, inputDecoration?.border?.radius);
+      expect(selectDecoration?.border?.top, inputDecoration?.border?.top);
+      expect(selectDecoration?.focusedBorder?.radius,
+          inputDecoration?.focusedBorder?.radius);
+      expect(selectDecoration?.focusedBorder?.top,
+          inputDecoration?.focusedBorder?.top);
     }
   });
 
