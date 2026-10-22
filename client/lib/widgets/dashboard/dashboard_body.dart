@@ -380,7 +380,6 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _timelineCard() {
-    final theme = Theme.of(context);
     final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     final items = _timelineExpanded ? _timeline : _timeline.take(5).toList();
     return _card(
