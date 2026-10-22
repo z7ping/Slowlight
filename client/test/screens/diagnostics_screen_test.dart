@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show Scrollable, ScrollableState, ValueKey;
+import 'package:flutter/material.dart' show Scrollable, ScrollableState, Size, ValueKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/diagnostics_screen.dart';
 import 'package:slowlight/services/app_error_logger.dart';

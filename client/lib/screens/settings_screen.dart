@@ -202,9 +202,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = _accountUser;
     if (user == null) return '云端账号 · 信息待确认';
     if (_githubLinked == true) {
-      return '${user.nickname ?? user.username ?? '云端账号'} · GitHub 已绑定';
+      final name = user.nickname.trim().isNotEmpty ? user.nickname : user.username;
+      return '$name · GitHub 已绑定';
     }
-    return '${user.nickname ?? user.username ?? '云端账号'} · 云端';
+    final name = user.nickname.trim().isNotEmpty ? user.nickname : user.username;
+    return '$name · 云端';
   }
 
   Widget _accountPanel() {
@@ -269,9 +271,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
 
-    final displayName = user?.nickname?.trim().isNotEmpty == true
-        ? user!.nickname!.trim()
-        : (user?.username ?? '账号信息待确认');
+    final displayName = user == null
+        ? '账号信息待确认'
+        : user.nickname.trim().isNotEmpty
+            ? user.nickname.trim()
+            : user.username;
     final email = accountEmailLabel(user?.email ?? '');
     final statusText = _checkingGitHub
         ? '正在检查'
