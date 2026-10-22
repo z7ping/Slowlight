@@ -108,7 +108,11 @@ class AuthService {
   /// 服务端为资料真相；成功读取后才更新本机缓存，不改变 JWT/登录方式。
   static Future<User> refreshCloudUser() async {
     ApiService.validateCloudEndpoint();
+    final token = await getToken();
     final data = await ApiService.get('/auth/profile');
+    if (token == null || token != await getToken()) {
+      throw StateError('账号已切换，已取消过期的资料更新');
+    }
     final user = User.fromJson(data);
     await _cacheUser(user);
     return user;
@@ -116,9 +120,13 @@ class AuthService {
 
   static Future<User> updateNickname(String nickname) async {
     ApiService.validateCloudEndpoint();
+    final token = await getToken();
     final data = await ApiService.patchAccountProfile({
       'nickname': nickname.trim(),
     });
+    if (token == null || token != await getToken()) {
+      throw StateError('账号已切换，请重新检查云端资料');
+    }
     final user = User.fromJson(data);
     await _cacheUser(user);
     return user;
