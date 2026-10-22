@@ -59,7 +59,7 @@ class _SampleHabitRepo extends HabitRepository {
 }
 
 void main() {
-  testWidgets('09 Android 360dp 普通字体的习惯数与添加操作同排', (tester) async {
+  testWidgets('09 Android 360dp 首页同时可见习惯概况与添加操作', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 800);
@@ -165,6 +165,35 @@ void main() {
     expect(find.text('还没有习惯记录'), findsNothing);
     await disposeFxTestHost(tester);
   });
+
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('有数据习惯卡 $platform × $scale：主要动作不溢出',
+          (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        tester.view.physicalSize = platform == TargetPlatform.android
+            ? const Size(360, 800)
+            : const Size(1280, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(buildFxTestHost(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: child!,
+          ),
+          home: Scaffold(body: HabitToolScreen(repository: _SampleHabitRepo())),
+        ));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('habits.card.1')), findsOneWidget);
+        expect(find.byKey(const ValueKey('habits.today.1')), findsOneWidget);
+        expect(find.text('每日阅读'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
 
   testWidgets('习惯编辑名称为空不静默失败，错误数字不再变成 0', (tester) async {
     tester.view.physicalSize = const Size(420, 900);
