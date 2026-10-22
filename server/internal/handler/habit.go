@@ -97,6 +97,7 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		Icon:              habitString(payload, "icon", "✅"),
 		Color:             habitString(payload, "color", "#52c41a"),
 		Frequency:         habitString(payload, "frequency", "daily"),
+		ScheduleRule:      habitJSON(payload["schedule_rule"], "{}"),
 		TargetDays:        habitInt(payload, "target_days", 0),
 		PreferredPeriod:   habitString(payload, "preferred_period", ""),
 		SystemTagID:       systemTagID,
@@ -175,6 +176,9 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 			return
 		}
 		updates["system_tag_id"] = tagID
+	}
+	if value, ok := payload["schedule_rule"]; ok {
+		updates["schedule_rule"] = habitJSON(value, "{}")
 	}
 	if value, ok := payload["reminder_at"]; ok {
 		updates["reminder_at"] = habitJSON(value, "{}")
