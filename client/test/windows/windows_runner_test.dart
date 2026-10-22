@@ -3,6 +3,28 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Windows installer registers credential-free OAuth return protocol', () {
+    final installer =
+        File('windows/installer/slowlight.iss').readAsStringSync();
+    final runner = File('windows/runner/main.cpp').readAsStringSync();
+
+    expect(installer, contains('[Registry]'));
+    expect(installer, contains(r'Software\Classes\slowlight'));
+    expect(installer, contains('ValueName: "URL Protocol"'));
+    expect(installer, contains(r'shell\open\command'));
+    expect(installer, contains(r'"""{app}\{#MyExeName}"" ""%1"""'));
+    expect(runner, contains('command_line_arguments.front() == "slowlight://oauth-complete"'));
+    expect(runner, contains('FindRunningSlowlightWindow()'));
+    expect(runner, contains('::EnumWindows(FindExistingAppWindow'));
+    expect(runner, contains('::QueryFullProcessImageNameW'));
+    expect(runner, contains('::ShowWindowAsync(existing_window'));
+    expect(runner, contains('::SetForegroundWindow(existing_window)'));
+    expect(
+      runner.indexOf('if (command_line_arguments.size() == 1'),
+      lessThan(runner.indexOf('flutter::DartProject project')),
+    );
+  });
+
   test('Windows runner delegates first visibility to Dart startup', () {
     final flutterWindow =
         File('windows/runner/flutter_window.cpp').readAsStringSync();
