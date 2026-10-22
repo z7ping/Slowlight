@@ -58,6 +58,15 @@ class GitHubSignIn {
   static Future<bool> hasPendingAuthorization() async =>
       _isAndroid && await GitHubOAuthPending.load() != null;
 
+  static Future<bool> deviceFlowAvailable() async {
+    try {
+      final response = await ApiService.post('/auth/github/device/status', body: {});
+      return response['enabled'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> cancelPendingAuthorization() async {
     if (_isAndroid) await GitHubOAuthPending.clear();
   }
@@ -119,6 +128,7 @@ class GitHubSignIn {
   static String statusForPhase(Object? phase) {
     switch (phase) {
       case 'authorization': return '等待在 GitHub 网页确认授权…';
+      case 'device': return '等待 GitHub 确认验证码…';
       case 'callback': return 'GitHub 已返回，正在受理授权…';
       case 'token': return '正在核验 GitHub 授权码…';
       case 'profile': return '正在获取 GitHub 身份信息，网络异常时会自动重试…';
@@ -153,7 +163,9 @@ class GitHubSignIn {
     required bool Function() shouldContinue,
     bool linkExisting = false,
     bool resumePending = false,
+    bool useDeviceCode = false,
     void Function(String)? onStatus,
+    void Function(String userCode, Uri verificationUri)? onDeviceCode,
   }) async {
     ApiService.validateCloudEndpoint();
     final endpoint = Uri.parse(ApiService.baseUrl);
@@ -172,16 +184,36 @@ class GitHubSignIn {
       pending = await GitHubOAuthPending.load();
       if (pending == null) return false;
       onStatus?.call('正在恢复上次 GitHub 授权…');
+      if (pending.flow == 'device') {
+        onDeviceCode?.call(pending.userCode, Uri.parse(pending.verificationUri));
+      }
     } else {
       final start = await ApiService.post(
-        linkExisting ? '/auth/github/link/start' : '/auth/github/start',
-        body: {'platform': isAndroid ? 'android' : 'desktop'},
+        useDeviceCode
+            ? (linkExisting ? '/auth/github/device/link/start' : '/auth/github/device/start')
+            : (linkExisting ? '/auth/github/link/start' : '/auth/github/start'),
+        body: useDeviceCode
+            ? {}
+            : {'platform': isAndroid ? 'android' : 'desktop'},
         authenticated: linkExisting,
       );
       if (!shouldContinue()) return false;
-      authUrl = Uri.parse(start['authorization_url'] as String);
-      if (authUrl.scheme != 'https' || authUrl.host != 'github.com') {
-        throw StateError('GitHub 授权地址无效');
+      String userCode = '';
+      String verificationUri = '';
+      if (useDeviceCode) {
+        userCode = start['user_code'] as String;
+        verificationUri = start['verification_uri'] as String;
+        final verification = Uri.parse(verificationUri);
+        if (verification.scheme != 'https' || verification.host != 'github.com' ||
+            userCode.isEmpty) {
+          throw StateError('GitHub 设备授权信息无效');
+        }
+        onDeviceCode?.call(userCode, verification);
+      } else {
+        authUrl = Uri.parse(start['authorization_url'] as String);
+        if (authUrl.scheme != 'https' || authUrl.host != 'github.com') {
+          throw StateError('GitHub 授权地址无效');
+        }
       }
       final seconds = start['expires_in'];
       pending = GitHubOAuthPending(
@@ -191,6 +223,9 @@ class GitHubSignIn {
           Duration(seconds: seconds is int ? seconds : 600),
         ),
         endpoint: ApiService.baseUrl,
+        flow: useDeviceCode ? 'device' : 'browser',
+        userCode: userCode,
+        verificationUri: verificationUri,
       );
       if (isAndroid && !linkExisting) await GitHubOAuthPending.save(pending);
     }
@@ -201,11 +236,15 @@ class GitHubSignIn {
     WidgetsBinding.instance.addObserver(resumeObserver);
     try {
       if (!resumePending) {
-        if (!await openAuthorization(authUrl!)) {
-          if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
-          throw StateError('无法打开 GitHub 授权页面，请检查系统默认浏览器');
+        if (useDeviceCode) {
+          onStatus?.call('请前往 GitHub 输入验证码，等待确认…');
+        } else {
+          if (!await openAuthorization(authUrl!)) {
+            if (isAndroid && !linkExisting) await GitHubOAuthPending.clear();
+            throw StateError('无法打开 GitHub 授权页面，请检查系统默认浏览器');
+          }
+          onStatus?.call('等待 GitHub 完成授权…');
         }
-        onStatus?.call('等待 GitHub 完成授权…');
       }
       while (DateTime.now().isBefore(pending.expiresAt)) {
         if (!shouldContinue()) return false;
