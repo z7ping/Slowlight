@@ -149,6 +149,7 @@ func main() {
 		migrationHandler := handler.NewMigrationHandler(db)
 		api.POST("/migration/preview", migrationHandler.PreviewMigration)
 		api.POST("/migration/execute", migrationHandler.ExecuteMigration)
+		api.POST("/migration/recover", migrationHandler.RecoverMigration)
 		api.GET("/migration/reports/latest", migrationHandler.GetLatestReport)
 		api.GET("/migration/reports", migrationHandler.GetReports)
 
