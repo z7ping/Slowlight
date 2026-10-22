@@ -345,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: FxButton(
             key: const ValueKey('login.github_action'),
             label: _githubError == null ? '使用 GitHub 继续' : '继续 GitHub 授权',
-            icon: LucideIcons.github,
+            icon: LucideIcons.gitFork,
             size: FxButtonSize.lg,
             expanded: true,
             onPressed: _isLoading
@@ -441,7 +441,7 @@ class _LoginScreenState extends State<LoginScreen> {
               : _backButton(),
         const SizedBox(height: SlowlightSpacing.xxxl),
         Center(
-          child: Icon(LucideIcons.github,
+          child: Icon(LucideIcons.gitFork,
               size: SlowlightIconSize.heroGlyph,
               color: theme.colorScheme.onSurface),
         ),
@@ -739,7 +739,7 @@ class _LoginScreenState extends State<LoginScreen> {
         FxButton(
           key: const ValueKey('login.github_from_password'),
           label: '使用 GitHub 继续',
-          icon: LucideIcons.github,
+          icon: LucideIcons.gitFork,
           variant: FxButtonVariant.ghost,
           expanded: true,
           onPressed: _isLoading ? null : () => _loginWithGitHub(),
