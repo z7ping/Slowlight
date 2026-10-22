@@ -101,6 +101,7 @@ abstract class ApiDataSource {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
