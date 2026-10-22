@@ -41,6 +41,9 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
 
   bool _loading = true;
   bool _saving = false;
+  bool _syncing = false;
+  bool _statusLoading = false;
+  String? _statusError;
   bool _testing = false;
   bool _configured = false;
   bool _obscurePassword = true;
@@ -95,10 +98,19 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Future<void> _loadStatus() async {
+    if (_statusLoading) return;
+    if (mounted) setState(() {
+      _statusLoading = true;
+      _statusError = null;
+    });
     try {
       final status = await ApiService.getCalDAVStatus();
       if (mounted) setState(() => _status = status);
-    } catch (_) {}
+    } catch (error) {
+      if (mounted) setState(() => _statusError = error.toString());
+    } finally {
+      if (mounted) setState(() => _statusLoading = false);
+    }
   }
 
   Future<void> _testConnection() async {
@@ -214,6 +226,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Future<void> _syncNow() async {
+    if (!_configured || _syncing || _saving || _testing) return;
+    setState(() => _syncing = true);
     try {
       final result = await ApiService.syncCalDAV();
       if (mounted) {
@@ -237,7 +251,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   : FxNoticeVariant.success,
         );
 
-        _loadStatus();
+        await _loadStatus();
       }
     } catch (e) {
       if (mounted) {
@@ -248,6 +262,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           variant: FxNoticeVariant.destructive,
         );
       }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
     }
   }
 
@@ -261,7 +277,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               title: 'CalDAV 同步',
               actionIcon: _configured ? LucideIcons.refreshCw : null,
               actionTooltip: '立即同步',
-              onAction: _configured ? _syncNow : null,
+              onAction: _configured && !_syncing ? _syncNow : null,
             ),
             Expanded(
               child: _loading
@@ -612,7 +628,30 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             const SizedBox(height: 12),
             _buildStatusItem('服务器', _baseUrlController.text),
             _buildStatusItem('用户', _usernameController.text),
-            _buildStatusItem('已同步任务', '${_status?['task_count'] ?? 0} 个'),
+            _buildStatusItem(
+              '已同步任务',
+              _status == null
+                  ? (_statusLoading ? '读取中…' : '状态未知')
+                  : '${_status!['task_count'] ?? '未知'} 个${_statusError == null ? '' : '（上次记录）'}',
+            ),
+            if (_statusError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(children: [
+                  Expanded(child: Text(
+                    '状态读取失败，请检查连接后重试',
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  )),
+                  FxButton(
+                    label: '重试读取',
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.outline,
+                    onPressed: _statusLoading ? null : _loadStatus,
+                  ),
+                ]),
+              ),
             if (_status?['states'] != null) ...[
               const SizedBox(height: 8),
               const Text(
@@ -642,7 +681,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: FxButton(label: '立即同步', onPressed: _syncNow),
+              child: FxButton(
+                label: _syncing ? '同步中…' : '立即同步',
+                onPressed: _syncing ? null : _syncNow,
+              ),
             ),
           ],
         ),
