@@ -102,7 +102,8 @@ type Habit struct {
 	Name            string         `json:"name" gorm:"size:100;not null"`
 	Icon            string         `json:"icon" gorm:"size:50;default:'✅'"`
 	Color           string         `json:"color" gorm:"size:20;default:'#52c41a'"`
-	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // daily/weekly/monthly
+	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // legacy daily/weekly/monthly/yearly
+	ScheduleRule    string         `json:"schedule_rule" gorm:"type:text;default:'{}'"` // V3 JSON rule (empty = legacy)
 	TargetDays      int            `json:"target_days" gorm:"default:0"`            // 0 = 无限制
 	StreakCount     int            `json:"streak_count" gorm:"default:0"`           // 连续打卡天数
 	PreferredPeriod string         `json:"preferred_period" gorm:"size:20;default:''"` // morning/afternoon/evening/night
