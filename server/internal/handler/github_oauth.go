@@ -63,6 +63,7 @@ type GitHubOAuthHandler struct {
 	Client *http.Client
 	AuthURL string
 	TokenURL string
+    DeviceAuthURL string
 	UserURL string
 }
 
@@ -71,6 +72,7 @@ func NewGitHubOAuthHandler(db *gorm.DB) *GitHubOAuthHandler {
 		DB: db, Client: &http.Client{Timeout: 30 * time.Second},
 		AuthURL: "https://github.com/login/oauth/authorize",
 		TokenURL: "https://github.com/login/oauth/access_token",
+        DeviceAuthURL: "https://github.com/login/device/code",
 		UserURL: "https://api.github.com/user",
 	}
 }
@@ -217,6 +219,10 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
     case "pending":
         c.Header("Cache-Control", "no-store")
         c.JSON(200, gin.H{"status": "pending", "phase": "authorization"})
+    case "device_pending", "device_processing":
+        h.resumeDeviceIfDue(session)
+        c.Header("Cache-Control", "no-store")
+        c.JSON(200, gin.H{"status": "pending", "phase": "device"})
     case "processing", "retryable":
         h.resumeIfRequired(session)
         phase := session.ErrorStage
