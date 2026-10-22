@@ -26,6 +26,15 @@ import 'migration_history_dialog.dart';
 import 'migration_preview_dialog.dart';
 import 'reminder_screen.dart';
 
+/// GitHub OAuth 创建用户时服务端采用内部邮箱占位符，并非用户邮箱。
+String accountEmailLabel(String email) {
+  if (email.trim().isEmpty ||
+      email.toLowerCase().endsWith('@oauth.slowlight.invalid')) {
+    return '未设置联系邮箱';
+  }
+  return email.trim();
+}
+
 class SettingsScreen extends StatefulWidget {
   final String initialSection;
 
@@ -184,94 +193,233 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _accountPanel() {
+    final theme = Theme.of(context);
+    final subtle = theme.colorScheme.onSurfaceVariant;
     final style = SlowlightTypography.secondary(context);
-    if (DataModeManager().isLocal) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('当前以本地模式使用，不需要云端账号。', style: style),
-          const SizedBox(height: SlowlightSpacing.md),
-          FxButton(
-            label: '前往云端登录',
-            variant: FxButtonVariant.outline,
-            onPressed: () => _setDataMode(1),
-          ),
-        ],
-      );
-    }
     final user = _accountUser;
-    return Column(
+
+    Widget hint(String value, {IconData icon = LucideIcons.info}) => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(user?.nickname ?? user?.username ?? '账号信息待确认',
-            style: SlowlightTypography.cardTitle(context)),
-        const SizedBox(height: SlowlightSpacing.xs),
-        Text(user?.email.isNotEmpty == true ? user!.email : '请检查账号状态',
-            style: style),
-        if (user == null) ...[
-          const SizedBox(height: SlowlightSpacing.md),
-          FxButton(
-            label: '重新读取账号信息',
-            variant: FxButtonVariant.outline,
-            onPressed: _loadAccount,
-          ),
-        ],
-        const SizedBox(height: SlowlightSpacing.md),
-        Text(_githubLinked == true
-            ? 'GitHub：已绑定'
-            : _githubLinked == false
-                ? 'GitHub：未绑定'
-                : 'GitHub：绑定状态暂不可用',
-            style: style),
-        const SizedBox(height: SlowlightSpacing.md),
-        if (_githubLinked == false || _linkingGitHub)
-          FxButton(
-            key: const ValueKey('settings.github_link'),
-            label: _linkingGitHub ? '等待 GitHub 授权…' : '绑定 GitHub',
-            icon: LucideIcons.gitFork,
-            variant: FxButtonVariant.outline,
-            onPressed: _linkingGitHub ? null : _bindGitHub,
-          ),
-        if (_githubLinked == null)
-          FxButton(
-            label: '重新检查绑定状态',
-            variant: FxButtonVariant.outline,
-            onPressed: _loadAccount,
-          ),
-        if (_linkingGitHub) ...[
-          const SizedBox(height: SlowlightSpacing.md),
-          if (defaultTargetPlatform == TargetPlatform.windows) ...[
-            Text(
-              '浏览器完成 GitHub 授权后，本应用会自动核验。'
-              '如果仍显示等待，可以主动检查授权结果。',
-              style: style,
-            ),
-            const SizedBox(height: SlowlightSpacing.md),
-            FxButton(
-              label: '检查授权结果',
-              variant: FxButtonVariant.outline,
-              onPressed: () {
-                if (!GitHubSignIn.checkAuthorizationNow()) {
-                  _message('授权会话正在初始化，请稍后重试');
-                }
-              },
-            ),
-            const SizedBox(height: SlowlightSpacing.md),
-          ],
-          FxButton(
-            label: '取消授权等待',
-            variant: FxButtonVariant.link,
-            onPressed: () => setState(() => _linkingGitHub = false),
-          ),
-        ],
-        const SizedBox(height: SlowlightSpacing.md),
-        FxButton(
-          label: '退出登录',
-          icon: LucideIcons.logOut,
-          variant: FxButtonVariant.ghost,
-          onPressed: _logoutAccount,
+        Icon(icon, size: 16, color: subtle),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(value, style: SlowlightTypography.caption(context)
+              .copyWith(color: subtle)),
         ),
       ],
+    );
+
+    if (DataModeManager().isLocal) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: FxCard(
+          expanded: true,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  child: Icon(LucideIcons.hardDrive, color: subtle, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('本地使用', style: SlowlightTypography.cardTitle(context)),
+                    const SizedBox(height: 4),
+                    Text('无需登录 · 记录保存在本设备', style: style),
+                  ],
+                )),
+              ]),
+              const SizedBox(height: 16),
+              hint('本地记录没有需要绑定的云端账号。要使用 GitHub，'
+                  '请先登录云端账号；已有本地记录不会自动上传或合并。'),
+              const SizedBox(height: 16),
+              FxButton(
+                label: '登录云端账号',
+                icon: LucideIcons.cloud,
+                variant: FxButtonVariant.outline,
+                onPressed: _switchingMode ? null : () => _setDataMode(1),
+              ),
+              const SizedBox(height: 12),
+              Text('登录后可在「数据管理」中预览并确认迁移。',
+                style: SlowlightTypography.caption(context).copyWith(color: subtle)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final displayName = user?.nickname?.trim().isNotEmpty == true
+        ? user!.nickname!.trim()
+        : (user?.username ?? '账号信息待确认');
+    final email = accountEmailLabel(user?.email ?? '');
+    final statusText = _loadingAccount
+        ? '正在检查'
+        : _githubLinked == true
+            ? '已绑定'
+            : _githubLinked == false
+                ? '未绑定'
+                : '状态未确认';
+    final statusColor = _githubLinked == true
+        ? theme.colorScheme.primary
+        : subtle;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 680),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FxCard(
+            expanded: true,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('当前云端身份', style: SlowlightTypography.secondary(context)
+                    .copyWith(color: subtle)),
+                const SizedBox(height: 14),
+                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: theme.colorScheme.primary.withValues(alpha: .10),
+                    child: Icon(LucideIcons.userRound,
+                        color: theme.colorScheme.primary, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(displayName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.cardTitle(context)),
+                      const SizedBox(height: 5),
+                      Text(email, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: style.copyWith(color: subtle)),
+                    ],
+                  )),
+                  if (_loadingAccount)
+                    const SizedBox(
+                      height: 18, width: 18, child: FxCircularProgress(),
+                    ),
+                ]),
+                if (user == null && !_loadingAccount) ...[
+                  const SizedBox(height: 14),
+                  hint('当前无法读取账号信息，已保留登录状态。'),
+                  const SizedBox(height: 10),
+                  FxButton(
+                    label: '重新读取',
+                    icon: LucideIcons.refreshCw,
+                    variant: FxButtonVariant.outline,
+                    size: FxButtonSize.sm,
+                    onPressed: _loadAccount,
+                  ),
+                ],
+                const SizedBox(height: 18),
+                FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
+                const SizedBox(height: 14),
+                hint('当前使用云端数据，本机会保留离线缓存。'
+                    '切换数据模式不会自动合并本地记录。', icon: LucideIcons.cloud),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          FxCard(
+            expanded: true,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('关联登录方式',
+                    style: SlowlightTypography.cardTitle(context)),
+                const SizedBox(height: 4),
+                Text('用第三方身份登录同一个云端账号',
+                    style: style.copyWith(color: subtle)),
+                const SizedBox(height: 18),
+                Row(children: [
+                  Icon(LucideIcons.gitFork, size: 23,
+                      color: theme.colorScheme.onSurface),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('GitHub', style: SlowlightTypography.body(context)
+                          .copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 3),
+                      Text(statusText, style: SlowlightTypography.caption(context)
+                          .copyWith(color: statusColor)),
+                    ],
+                  )),
+                  if (_githubLinked == false && !_linkingGitHub)
+                    FxButton(
+                      key: const ValueKey('settings.github_link'),
+                      label: '绑定',
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.outline,
+                      onPressed: _loadingAccount ? null : _bindGitHub,
+                    )
+                  else if (_githubLinked == null && !_loadingAccount && !_linkingGitHub)
+                    FxButton(
+                      label: '重新检查',
+                      icon: LucideIcons.refreshCw,
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.outline,
+                      onPressed: _loadAccount,
+                    ),
+                ]),
+                const SizedBox(height: 12),
+                if (_githubLinked == true)
+                  hint('此 GitHub 身份已关联当前云端账号。')
+                else if (_githubLinked == false)
+                  hint('点击「绑定」，在系统浏览器授权 GitHub。'
+                      '只建立登录关联，不会自动迁移本地记录。')
+                else
+                  hint(_loadingAccount
+                      ? '正在向云端核对绑定状态…'
+                      : '暂时无法确认绑定状态，可能是网络或服务异常。'
+                        '为避免重复关联，请先重新检查。'),
+                if (_linkingGitHub) ...[
+                  const SizedBox(height: 14),
+                  Text('正在等待浏览器授权…', style: style),
+                  const SizedBox(height: 8),
+                  if (defaultTargetPlatform == TargetPlatform.windows)
+                    FxButton(
+                      label: '检查授权结果',
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.outline,
+                      onPressed: () {
+                        if (!GitHubSignIn.checkAuthorizationNow()) {
+                          _message('授权会话正在初始化，请稍后重试');
+                        }
+                      },
+                    ),
+                  FxButton(
+                    label: '取消授权等待',
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.ghost,
+                    onPressed: () => setState(() => _linkingGitHub = false),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FxButton(
+              label: '退出登录',
+              icon: LucideIcons.logOut,
+              variant: FxButtonVariant.ghost,
+              onPressed: _linkingGitHub ? null : _logoutAccount,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -504,7 +652,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: SlowlightTypography.componentPageTitle(context)),
       const SizedBox(height: 6),
       Text(
-        _sectionDescription(_open),
+        _open == 'account' ? '管理账号、登录方式与身份关联' : _sectionDescription(_open),
         style: SlowlightTypography.caption(context).copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
