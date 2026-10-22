@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show ValueKey;
+import 'package:flutter/material.dart' show Scrollable, ScrollableState, ValueKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/diagnostics_screen.dart';
 import 'package:slowlight/services/app_error_logger.dart';
@@ -86,4 +86,30 @@ void main() {
     expect(logger.reads, 2);
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('Windows 日志原文固定高度，展开后默认定位最新记录', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final content = List.generate(100, (i) => '2026-10-22 09:${i.toString().padLeft(2, '0')} error $i').join('\n');
+    await tester.pumpWidget(buildFxTestHost(
+      home: DiagnosticsScreen(logger: _TestLogger(content)),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('diagnostics.raw_toggle')));
+    await tester.pumpAndSettle();
+    final viewport = find.byKey(const ValueKey('diagnostics.raw_viewport'));
+    expect(viewport, findsOneWidget);
+    expect(tester.getSize(viewport).height, 280);
+    final scrollable = find.descendant(
+      of: viewport,
+      matching: find.byType(Scrollable),
+    );
+    final scroller = tester.state<ScrollableState>(scrollable);
+    expect(scroller.position.maxScrollExtent, greaterThan(0));
+    expect(scroller.position.pixels,
+        closeTo(scroller.position.maxScrollExtent, 1));
+    await disposeFxTestHost(tester);
+  });
+
 }

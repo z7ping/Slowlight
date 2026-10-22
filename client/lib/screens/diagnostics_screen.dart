@@ -25,6 +25,8 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   late Future<String> _logs;
   late final Future<String> _version;
   bool _showRawLogs = false;
+  final ScrollController _rawScroll = ScrollController();
+  bool _followLatest = true;
   bool _exporting = false;
   bool _clearing = false;
 
@@ -35,8 +37,30 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   @override
   void initState() {
     super.initState();
+    _rawScroll.addListener(_onRawScrolled);
     _logs = _logger.readRecent();
     _version = _readVersion();
+  }
+
+  @override
+  void dispose() {
+    _rawScroll.dispose();
+    super.dispose();
+  }
+
+  void _onRawScrolled() {
+    if (!_rawScroll.hasClients) return;
+    final nearEnd = _rawScroll.position.extentAfter < 48;
+    if (nearEnd != _followLatest && mounted) {
+      setState(() => _followLatest = nearEnd);
+    }
+  }
+
+  void _jumpToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_rawScroll.hasClients) return;
+      _rawScroll.jumpTo(_rawScroll.position.maxScrollExtent);
+    });
   }
 
   Future<String> _readVersion() async {
@@ -44,9 +68,17 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     return '${info.version} (${info.buildNumber})';
   }
 
-  void _reload() {
+  Future<void> _reload() async {
     if (_busy) return;
-    setState(() => _logs = _logger.readRecent());
+    final wasFollowing = _followLatest;
+    final pending = _logger.readRecent();
+    setState(() => _logs = pending);
+    try {
+      await pending;
+      if (mounted && _showRawLogs && wasFollowing) _jumpToLatest();
+    } catch (_) {
+      // FutureBuilder 持续显示读取失败与重新读取操作。
+    }
   }
 
   Future<void> _clear() async {
@@ -197,7 +229,14 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       children: [
         FxInkWell(
           key: const ValueKey('diagnostics.raw_toggle'),
-          onTap: () => setState(() => _showRawLogs = !_showRawLogs),
+          onTap: () {
+            final showing = !_showRawLogs;
+            setState(() {
+              _showRawLogs = showing;
+              if (showing) _followLatest = true;
+            });
+            if (showing) _jumpToLatest();
+          },
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
             child: Row(
@@ -224,20 +263,60 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             ),
           ),
         ),
-        if (_showRawLogs)
+        if (_showRawLogs) ...[
+          const SizedBox(height: SlowlightSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '最新记录在底部 · 展示最近日志，导出包含完整记录',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (!_followLatest)
+                FxButton(
+                  key: const ValueKey('diagnostics.scroll_latest'),
+                  label: '跳到最新',
+                  icon: LucideIcons.arrowDown,
+                  size: FxButtonSize.sm,
+                  variant: FxButtonVariant.ghost,
+                  onPressed: () {
+                    setState(() => _followLatest = true);
+                    _jumpToLatest();
+                  },
+                ),
+            ],
+          ),
           Container(
+            key: const ValueKey('diagnostics.raw_viewport'),
+            height: _android ? 220 : 280,
             width: double.infinity,
-            padding: const EdgeInsets.all(SlowlightSpacing.md),
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLow,
+              border: Border.all(color: theme.colorScheme.outlineVariant),
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
-            child: SelectableText(
-              logs,
-              key: const ValueKey('diagnostics.raw_text'),
-              style: SlowlightTypography.caption(context),
+            child: Scrollbar(
+              controller: _rawScroll,
+              thumbVisibility: !_android,
+              child: SingleChildScrollView(
+                controller: _rawScroll,
+                padding: const EdgeInsets.all(SlowlightSpacing.md),
+                child: SelectableText(
+                  logs,
+                  key: const ValueKey('diagnostics.raw_text'),
+                  style: SlowlightTypography.caption(context).copyWith(
+                    fontFamily: 'monospace',
+                    height: 1.5,
+                  ),
+                ),
+              ),
             ),
           ),
+        ],
       ],
     );
   }
