@@ -586,6 +586,32 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": message, "created": created, "report": report, "id_map": idMap})
 }
 
+// RecoverMigration only fetches a committed receipt; it never writes/imports entities.
+func (h *MigrationHandler) RecoverMigration(c *gin.Context) {
+	var snapshot MigrationSnapshot
+	if err := c.ShouldBindJSON(&snapshot); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "迁移恢复快照格式无效"})
+		return
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "迁移恢复快照格式无效"}); return }
+	fingerprint := fmt.Sprintf("%x", sha256.Sum256(payload))
+	var report model.MigrationReport
+	if err := h.DB.Where("user_id = ? AND fingerprint = ? AND status = ?",
+		c.GetUint("userID"), fingerprint, "succeeded").First(&report).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "未查到这次迁移的已提交回执，当前结果仍未确认；不会自动重新导入"})
+		return
+	}
+	var idMap map[string]map[string]uint
+	var created map[string]int
+	if report.IDMap == "" || json.Unmarshal([]byte(report.IDMap), &idMap) != nil || idMap == nil ||
+		json.Unmarshal([]byte(report.Created), &created) != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "迁移回执缺少完整映射，已停止自动恢复"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id_map": idMap, "created": created, "report": report})
+}
+
 func (h *MigrationHandler) GetLatestReport(c *gin.Context) {
 	var report model.MigrationReport
 	if err := h.DB.Where("user_id = ?", c.GetUint("userID")).Order("created_at DESC").First(&report).Error; err != nil {
