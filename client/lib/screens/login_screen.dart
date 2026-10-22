@@ -201,7 +201,47 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
         ),
-        SizedBox(height: compactHeight ? SlowlightSpacing.page : 40),
+        const SizedBox(height: SlowlightSpacing.xl),
+        FxCard(
+          padding: const EdgeInsets.all(16),
+          expanded: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('现在就开始记录',
+                  style: SlowlightTypography.cardTitle(context)),
+              const SizedBox(height: SlowlightSpacing.sm),
+              Text(
+                '不需要账号。记录先保存在这台设备上，'
+                '以后可以选择云端数据并主动预览迁移；不会自动上传或合并。',
+                style: SlowlightTypography.secondary(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              FxButton(
+                key: const ValueKey('login.local_action'),
+                label: '使用本地数据开始',
+                icon: LucideIcons.smartphone,
+                expanded: true,
+                variant: FxButtonVariant.secondary,
+                size: FxButtonSize.lg,
+                onPressed: _isLoading ? null : _useLocal,
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: compactHeight ? SlowlightSpacing.page : 32),
+        Text('或使用云端账号',
+            style: SlowlightTypography.cardTitle(context)),
+        const SizedBox(height: SlowlightSpacing.xs),
+        Text(
+          '登录已有账号，或创建账号以使用云端记录。',
+          style: SlowlightTypography.secondary(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
         Text(
           _isLogin ? '欢迎回来' : '创建云端账号',
           style: SlowlightTypography.hero(context).copyWith(
@@ -372,29 +412,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   : () => setState(() => _isLogin = !_isLogin),
             ),
           ],
-        ),
-        const SizedBox(height: SlowlightSpacing.page),
-        FxSeparator.horizontal(
-          color: theme.colorScheme.outlineVariant,
-        ),
-        const SizedBox(height: SlowlightSpacing.xl),
-        Center(
-          child: FxButton(
-            key: const ValueKey('login.local_action'),
-            label: '不登录，使用本地数据',
-            icon: LucideIcons.smartphone,
-            variant: FxButtonVariant.ghost,
-            size: FxButtonSize.lg,
-            onPressed: _isLoading ? null : _useLocal,
-          ),
-        ),
-        const SizedBox(height: SlowlightSpacing.xs),
-        Text(
-          '本地记录不会自动上传，随时可以在设置中切换。',
-          textAlign: TextAlign.center,
-          style: SlowlightTypography.caption(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
         ),
       ],
     );
