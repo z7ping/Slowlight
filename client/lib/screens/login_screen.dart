@@ -25,7 +25,24 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
   bool _githubAuthorizing = false;
+  String _githubStatus = "等待 GitHub 完成授权…";
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        if (!mounted || _isLoading) return;
+        final pending = await GitHubSignIn.hasPendingAuthorization();
+        if (mounted && !_isLoading && pending) {
+          await _loginWithGitHub(resumePending: true);
+        }
+      } catch (_) {
+        // 不允许暂存记录读取故障阻断正常密码登录。
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -86,14 +103,23 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _loginWithGitHub() async {
+  Future<void> _loginWithGitHub({bool resumePending = false}) async {
     setState(() {
       _isLoading = true;
       _githubAuthorizing = true;
+      _githubStatus = resumePending
+          ? '正在恢复上次 GitHub 授权…'
+          : '等待 GitHub 完成授权…';
     });
     try {
       final completed = await GitHubSignIn.signIn(
         shouldContinue: () => mounted && _githubAuthorizing,
+        resumePending: resumePending,
+        onStatus: (status) {
+          if (mounted && _githubAuthorizing) {
+            setState(() => _githubStatus = status);
+          }
+        },
       );
       if (!mounted || !completed) return;
       await DataModeManager().setCloud();
@@ -237,15 +263,15 @@ class _LoginScreenState extends State<LoginScreen> {
         if (_githubAuthorizing) ...[
           const SizedBox(height: SlowlightSpacing.md),
           Text(
-            '请在 GitHub 完成授权，成功后将自动登录。'
-            'Android 会尝试返回应用，未自动返回可点击授权页按钮。',
+            _githubStatus,
             textAlign: TextAlign.center,
             style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: SlowlightSpacing.md),
-          if (Theme.of(context).platform == TargetPlatform.windows) ...[
+          if (Theme.of(context).platform == TargetPlatform.windows ||
+              Theme.of(context).platform == TargetPlatform.android) ...[
             const SizedBox(height: SlowlightSpacing.md),
             FxButton(
               key: const ValueKey('login.github_check'),
@@ -259,8 +285,8 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: SlowlightSpacing.xs),
             Text(
-              '浏览器显示授权成功后，Windows 会自动检查；'
-              '如果界面仍在等待，也可以手动检查。',
+              '浏览器授权成功后会自动检查；'
+              '如果返回应用后仍在等待，可手动检查。',
               textAlign: TextAlign.center,
               style: SlowlightTypography.caption(context).copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -271,7 +297,14 @@ class _LoginScreenState extends State<LoginScreen> {
             key: const ValueKey('login.github_cancel'),
             label: '取消授权等待',
             variant: FxButtonVariant.link,
-            onPressed: () => setState(() => _githubAuthorizing = false),
+            onPressed: () async {
+              setState(() => _githubAuthorizing = false);
+              try {
+                await GitHubSignIn.cancelPendingAuthorization();
+              } catch (_) {
+                // 取消当前等待立即生效，不依赖系统存储是否可用。
+              }
+            },
           ),
         ],
         const SizedBox(height: SlowlightSpacing.xl),
