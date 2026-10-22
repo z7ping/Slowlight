@@ -29,10 +29,19 @@ void main() {
       home: const SettingsScreen(initialSection: 'account'),
     ));
     await tester.pump();
-    expect(find.text('本地使用'), findsWidgets);
+    expect(find.text('个人信息'), findsOneWidget);
+    expect(find.text('登录方式'), findsOneWidget);
+    expect(find.text('数据模式'), findsOneWidget);
+    expect(find.text('本地使用'), findsOneWidget);
     expect(find.text('登录云端账号'), findsOneWidget);
-    expect(find.textContaining('不会自动上传或合并'), findsOneWidget);
+    expect(find.textContaining('当前没有云端身份'), findsOneWidget);
     expect(find.byKey(const ValueKey('settings.github_link')), findsNothing);
+    expect(find.byKey(const ValueKey('settings.account.logout')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('settings.account.open_data')));
+    await tester.pump();
+    expect(find.text('数据迁移'), findsOneWidget);
+    expect(find.text('迁移历史'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
