@@ -775,8 +775,9 @@ ShadButtonTheme _buttonTheme() {
   );
 }
 
-ShadInputTheme _inputTheme() {
+ShadInputTheme _inputTheme({bool dark = false}) {
   final p = _active;
+  final borderColor = dark ? p.darkBorder : p.border;
   return ShadInputTheme(
     // 单行输入依靠 minHeight，不用上下 padding 叠加尾部图标高度。
     // 多行输入在 FxInput 中使用同一密度层的多行 padding。
@@ -787,7 +788,7 @@ ShadInputTheme _inputTheme() {
       // 保留单层主焦点描边，避免 ShadDecorator 再绘制外层强调环。
       disableSecondaryBorder: true,
       border: ShadBorder.all(
-        color: p.border,
+        color: borderColor,
         width: 1,
         radius: BorderRadius.circular(SlowlightRadius.md),
       ),
@@ -836,6 +837,8 @@ ShadThemeData shadLightTheme([String? fontFamily]) {
       radius: BorderRadius.circular(SlowlightRadius.lg),
     ),
     inputTheme: _inputTheme(),
+    // Select 与 Input 共用单层边框、圆角与 Focus 视觉规范。
+    selectTheme: ShadSelectTheme(decoration: _inputTheme().decoration),
   );
 }
 
@@ -876,6 +879,10 @@ ShadThemeData shadDarkTheme([String? fontFamily]) {
       backgroundColor: p.darkCard,
       radius: BorderRadius.circular(SlowlightRadius.lg),
     ),
-    inputTheme: _inputTheme(),
+    inputTheme: _inputTheme(dark: true),
+    // Select 与 Input 共用单层边框、圆角与 Focus 视觉规范。
+    selectTheme: ShadSelectTheme(
+      decoration: _inputTheme(dark: true).decoration,
+    ),
   );
 }

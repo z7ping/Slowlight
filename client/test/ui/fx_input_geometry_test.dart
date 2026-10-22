@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
+import 'package:slowlight/widgets/task_schedule_fields.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -204,6 +205,13 @@ void main() {
         await tester.pump();
         final inputHeight = tester.getSize(find.byType(FxInput)).height;
         final selectHeight = tester.getSize(find.byType(FxSelect<String>)).height;
+        final trigger = tester.widget<ShadSelect<String>>(find.byType(ShadSelect<String>));
+        // 回归：检查真正绘制边框的 ShadSelect 内部留白，
+        // 只断言 FxSelect 外层 minHeight 会漏掉截图中的扁平下拉框。
+        expect(trigger.padding, EdgeInsets.symmetric(
+          horizontal: platform == TargetPlatform.android ? 14 : 12,
+          vertical: platform == TargetPlatform.android ? 12 : 8,
+        ));
         final minHeight = platform == TargetPlatform.android ? 44.0 : 36.0;
         expect(inputHeight, greaterThanOrEqualTo(minHeight));
         expect(selectHeight, greaterThanOrEqualTo(minHeight));
@@ -268,4 +276,49 @@ void main() {
     }
   }
 
+
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    testWidgets('${platform.name} 任务日程四项控件共享同一可视高度', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 520,
+              child: TaskScheduleFields(
+                enabled: true,
+                dueDate: DateTime(2026, 10, 22),
+                onDateChanged: (_) {},
+                dueTime: const TimeOfDay(hour: 9, minute: 30),
+                onTimeChanged: (_) {},
+                repeatType: 'none',
+                onRepeatChanged: (_) {},
+                selectedWeekdays: const <int>{},
+                onWeekdayToggled: (_) {},
+                reminderAdvanceMinutes: -1,
+                onReminderChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      final pickers = find.byType(FxInkWell);
+      expect(pickers, findsNWidgets(2));
+      final heights = [
+        tester.getSize(pickers.at(0)).height,
+        tester.getSize(pickers.at(1)).height,
+        tester.getSize(find.byType(FxSelect<String>)).height,
+        tester.getSize(find.byType(FxSelect<int>)).height,
+      ];
+      final minHeight = platform == TargetPlatform.android ? 44.0 : 36.0;
+      for (final height in heights) {
+        expect(height, greaterThanOrEqualTo(minHeight));
+        expect((height - heights.first).abs(), lessThanOrEqualTo(4));
+      }
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
 }

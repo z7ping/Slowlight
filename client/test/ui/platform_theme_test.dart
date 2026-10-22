@@ -44,6 +44,20 @@ void main() {
     );
   });
 
+  test('ShadSelect 与 ShadInput 共用边框及单层焦点视觉', () {
+    for (final theme in [shadLightTheme(), shadDarkTheme()]) {
+      final inputDecoration = theme.inputTheme.decoration;
+      final selectDecoration = theme.selectTheme.decoration;
+      expect(selectDecoration?.disableSecondaryBorder, isTrue);
+      expect(selectDecoration?.border?.radius, inputDecoration?.border?.radius);
+      expect(selectDecoration?.border?.top, inputDecoration?.border?.top);
+      expect(selectDecoration?.focusedBorder?.radius,
+          inputDecoration?.focusedBorder?.radius);
+      expect(selectDecoration?.focusedBorder?.top,
+          inputDecoration?.focusedBorder?.top);
+    }
+  });
+
   test('Android Material 与 Shad Theme 使用移动端可读字号', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
