@@ -153,6 +153,7 @@ func main() {
 
 		reviewHandler := handler.NewReviewHandler(db)
 		api.GET("/review/today", reviewHandler.GetTodayReview)
+		api.GET("/review/today/timeline", reviewHandler.GetTodayTimeline)
 		api.GET("/review/tasks", reviewHandler.GetTasksReview)
 
 		// 用户自己的 Observation / Reflection，是 Review 闭环的一部分。

@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/habit.dart';
 import '../../models/task.dart';
+import '../../models/today_timeline_item.dart';
 import '../../services/api/analytics_api.dart';
 import '../../services/api/review_api.dart';
 import '../../services/data_service.dart';
@@ -21,6 +22,8 @@ class DashboardBody extends StatefulWidget {
   final ValueChanged<Habit>? onHabitLongPress;
   final VoidCallback? onViewAllTasks;
   final VoidCallback? onViewAllHabits;
+  final VoidCallback? onViewReview;
+  final Future<List<TodayTimelineItem>> Function()? timelineLoader;
   final VoidCallback? onQuickAdd;
   final VoidCallback? onWriteObservation;
   final VoidCallback? onStartFocus;
@@ -40,6 +43,8 @@ class DashboardBody extends StatefulWidget {
     this.onHabitLongPress,
     this.onViewAllTasks,
     this.onViewAllHabits,
+    this.onViewReview,
+    this.timelineLoader,
     this.onQuickAdd,
     this.onWriteObservation,
     this.onStartFocus,
@@ -59,6 +64,10 @@ class _DashboardBodyState extends State<DashboardBody> {
   bool _reviewLoading = true;
   bool _dimensionLoadFailed = false;
   bool _reviewLoadFailed = false;
+  bool _timelineLoading = true;
+  bool _timelineLoadFailed = false;
+  bool _timelineExpanded = false;
+  List<TodayTimelineItem> _timeline = const [];
   List<Map<String, dynamic>> _dimensions = const [];
   List<Insight> _insights = const [];
   Map<String, dynamic> _facts = const {};
@@ -85,6 +94,8 @@ class _DashboardBodyState extends State<DashboardBody> {
       _reviewLoading = true;
       _dimensionLoadFailed = false;
       _reviewLoadFailed = false;
+      _timelineLoading = true;
+      _timelineLoadFailed = false;
     });
 
     // 独立完成/报错：任意一个辅助接口迟迟未返回，也不能阻塞另一个区域。
@@ -135,7 +146,22 @@ class _DashboardBodyState extends State<DashboardBody> {
       });
     }
 
-    await Future.wait([loadDimensions(), loadReview()]);
+    Future<void> loadTimeline() async {
+      List<TodayTimelineItem>? items;
+      try {
+        items = await (widget.timelineLoader ?? ReviewApi.getTodayTimeline)();
+      } catch (_) {
+        // Timeline is independent: the main Today workspace must remain usable.
+      }
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _timelineLoading = false;
+        _timelineLoadFailed = items == null;
+        if (items != null) _timeline = items;
+      });
+    }
+
+    await Future.wait([loadDimensions(), loadReview(), loadTimeline()]);
   }
 
   Widget _card(Widget child, {EdgeInsetsGeometry? padding}) {
@@ -183,15 +209,14 @@ class _DashboardBodyState extends State<DashboardBody> {
     final now = DateTime.now();
     const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
     const short = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    final subtitle =
-        desktop
-            ? '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 你有 ${widget.tasks.length} 个任务和 ${widget.habits.length} 个习惯在今天'
-            : '${now.month} 月 ${now.day} 日 ${short[now.weekday - 1]}';
+    final subtitle = desktop
+        ? '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 记录真实发生的事'
+        : '${now.month} 月 ${now.day} 日 ${short[now.weekday - 1]}';
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${_greeting(now.hour)} 👋',
+          '今天，发生了什么',
           style: SlowlightTypography.pageTitle(
             context,
           ).copyWith(fontWeight: FontWeight.w700),
@@ -231,45 +256,233 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
-  Widget _desktop() => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  // 主工作台：事实优先、行动就近，所有数据使用现有 Review/Analytics 边界。
+  Widget _desktop() => Column(
     children: [
-      SizedBox(
-        width: 280,
-        child: Column(
-          children: [
-
-            _focusCard(),
-            const SizedBox(height: 14),
-            _questionCard(),
-          ],
-        ),
+      _overviewCard(),
+      const SizedBox(height: 16),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 5,
+            child: Column(
+              children: [
+                _timelineCard(),
+                if (_shouldShowQuestion) ...[
+                  const SizedBox(height: 14),
+                  _questionCard(),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 4,
+            child: Column(
+              children: [
+                _taskCard(maxItems: 4, mobile: false),
+                const SizedBox(height: 14),
+                _habitCard(maxItems: 4, mobile: false),
+              ],
+            ),
+          ),
+        ],
       ),
-      const SizedBox(width: 16),
-      Expanded(
-        child: Column(
-          children: [
-            _taskCard(maxItems: 3, mobile: false),
-            const SizedBox(height: 14),
-            _habitCard(maxItems: 3, mobile: false),
-          ],
-        ),
-      ),
+      const SizedBox(height: 14),
+      _dimensionCard(),
     ],
   );
 
   Widget _mobile() => Column(
     children: [
-      _taskCard(maxItems: 2, mobile: true),
+      _overviewCard(),
       const SizedBox(height: 12),
-      _habitCard(maxItems: 2, mobile: true),
+      _taskCard(maxItems: 3, mobile: true),
       const SizedBox(height: 12),
-
-      _questionCard(),
+      _timelineCard(),
       const SizedBox(height: 12),
-      _focusCard(),
+      _habitCard(maxItems: 3, mobile: true),
+      if (_shouldShowQuestion) ...[
+        const SizedBox(height: 12),
+        _questionCard(),
+      ],
+      const SizedBox(height: 12),
+      _dimensionCard(),
     ],
   );
+
+  Widget _overviewCard() {
+    final theme = Theme.of(context);
+    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
+    final counts = <(String, String)>[
+      ('任务完成', _factNumber('task_completed')),
+      ('专注分钟', _factNumber('focus_minutes')),
+      ('习惯记录', _factNumber('habit_checked')),
+    ];
+    return _card(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FxSectionHeader(
+            title: '今日事实',
+            trailingWidget: widget.onStartFocus == null
+                ? null
+                : FxButton(
+                    label: '开始专注',
+                    icon: LucideIcons.timer,
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: widget.onStartFocus,
+                  ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (var i = 0; i < counts.length; i++) ...[
+                if (i > 0)
+                  Container(
+                    height: 42,
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    color: fxDivider(context),
+                  ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(counts[i].$2,
+                          style: SlowlightTypography.hero(context)
+                              .copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 3),
+                      Text(counts[i].$1,
+                          style: SlowlightTypography.caption(context)
+                              .copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (_reviewLoadFailed) ...[
+            const SizedBox(height: 8),
+            _partialUnavailable('今日事实暂时无法读取'),
+          ],
+        ],
+      ),
+      padding: EdgeInsets.all(mobile ? 12 : 16),
+    );
+  }
+
+  String _factNumber(String key) {
+    if (_reviewLoadFailed || _reviewLoading) return '—';
+    return ((_facts[key] as num?)?.toInt() ?? 0).toString();
+  }
+
+  Widget _timelineCard() {
+    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
+    final items = _timelineExpanded ? _timeline : _timeline.take(5).toList();
+    return _card(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FxSectionHeader(
+            title: '今天的轨迹',
+            trailing: _timelineLoadFailed
+                ? '读取失败'
+                : _timelineLoading ? '读取中' : '${_timeline.length} 条记录',
+            trailingWidget: widget.onViewReview == null
+                ? null
+                : FxButton(
+                    label: '进入回顾',
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: widget.onViewReview,
+                  ),
+          ),
+          const SizedBox(height: 8),
+          if (_timelineLoadFailed)
+            _partialUnavailable('今天的轨迹暂时无法读取')
+          else if (_timelineLoading && _timeline.isEmpty)
+            _empty('正在读取今天的轨迹…')
+          else if (_timeline.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('今天还没有行为记录。',
+                    style: SlowlightTypography.secondary(context)),
+                  if (widget.onWriteObservation != null) ...[
+                    const SizedBox(height: 4),
+                    FxButton(
+                      label: '记录此刻的想法',
+                      variant: FxButtonVariant.ghost,
+                      size: FxButtonSize.sm,
+                      onPressed: widget.onWriteObservation,
+                    ),
+                  ],
+                ],
+              ),
+            )
+          else ...[
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
+              _timelineRow(items[i]),
+            ],
+            if (_timeline.length > 5)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FxButton(
+                  label: _timelineExpanded ? '收起记录' : '展开更多记录',
+                  variant: FxButtonVariant.ghost,
+                  size: FxButtonSize.sm,
+                  onPressed: () =>
+                      setState(() => _timelineExpanded = !_timelineExpanded),
+                ),
+              ),
+          ],
+        ],
+      ),
+      padding: EdgeInsets.all(mobile ? 12 : 16),
+    );
+  }
+
+  Widget _timelineRow(TodayTimelineItem item) {
+    final theme = Theme.of(context);
+    final icon = switch (item.kind) {
+      'task_completed' => LucideIcons.checkCheck,
+      'habit_checked' => LucideIcons.repeat,
+      'session_ended' => LucideIcons.timer,
+      'observation' => LucideIcons.penLine,
+      _ => LucideIcons.bookOpen,
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${item.category} · ${item.timeLabel}',
+                    style: SlowlightTypography.caption(context)
+                        .copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 3),
+                Text(item.description,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: SlowlightTypography.body(context)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _dimensionCard() {
     final mobile = !ResponsiveLayout.isDesktopOrWider(context);
@@ -277,7 +490,17 @@ class _DashboardBodyState extends State<DashboardBody> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '四维足迹', trailing: '近 7 天'),
+          FxSectionHeader(
+            title: '最近 7 天 · 四维足迹',
+            trailingWidget: widget.onViewReview == null
+                ? null
+                : FxButton(
+                    label: '进入回顾',
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: widget.onViewReview,
+                  ),
+          ),
           const SizedBox(height: 10),
           if (_dimensionLoadFailed)
             _partialUnavailable('四维统计暂时不可用')
@@ -285,6 +508,9 @@ class _DashboardBodyState extends State<DashboardBody> {
             _empty('正在读取四维统计…')
           else if (_dimensions.isEmpty)
             _empty('还没有四维行为记录')
+          else if (_dimensions.every((item) =>
+              (item['active_days'] as List? ?? const []).isEmpty))
+            _empty('最近 7 天还没有归属四维的行为足迹')
           else
             LayoutBuilder(
               builder: (context, constraints) {
@@ -671,52 +897,6 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
-  Widget _focusCard() {
-    final theme = Theme.of(context);
-    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
-    final count = (_facts['focus_count'] as num?)?.toInt() ?? 0;
-    final minutes = (_facts['focus_minutes'] as num?)?.toInt() ?? 0;
-    return _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const FxSectionHeader(title: '专注', trailing: '今日'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '$count',
-                style: SlowlightTypography.hero(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                '次 · $minutes 分钟',
-                style: SlowlightTypography.secondary(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-          if (widget.onStartFocus != null) ...[
-            const SizedBox(height: 10),
-            FxButton(
-              label: '开始专注',
-              icon: LucideIcons.timer,
-              variant: FxButtonVariant.outline,
-              size: FxButtonSize.sm,
-              onPressed: widget.onStartFocus,
-            ),
-          ],
-        ],
-      ),
-      padding: EdgeInsets.all(mobile ? 12 : 16),
-    );
-  }
-
   Widget _partialUnavailable(String message) => Row(
     children: [
       Expanded(
@@ -730,6 +910,11 @@ class _DashboardBodyState extends State<DashboardBody> {
       ),
     ],
   );
+
+  bool get _shouldShowQuestion =>
+      _reviewLoading ||
+      _reviewLoadFailed ||
+      _insights.any((item) => !_ignored.contains(item.id));
 
   Widget _questionCard() {
     final theme = Theme.of(context);
@@ -867,13 +1052,6 @@ class _DashboardBodyState extends State<DashboardBody> {
   String _dateKey(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-${_two(value.month)}-${_two(value.day)}';
   String _two(int value) => value.toString().padLeft(2, '0');
-  String _greeting(int hour) =>
-      hour < 12
-          ? '早上好'
-          : hour < 18
-          ? '下午好'
-          : '晚上好';
-
   Color _parseColor(String? value) {
     try {
       var hex = (value ?? '').replaceAll('#', '');

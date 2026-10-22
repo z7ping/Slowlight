@@ -17,6 +17,7 @@ void main() {
         habits: const [],
         dimensionLoader: dimensions,
         reviewLoader: review,
+        timelineLoader: () async => const [],
       ),
     ),
   );
@@ -60,7 +61,7 @@ void main() {
     await tester.tap(find.text('重试').first);
     await tester.pumpAndSettle();
     expect(find.text('今日提问暂时无法读取'), findsNothing);
-    expect(find.text('今天暂时没有特别需要关注的变化。'), findsOneWidget);
+    expect(find.text('今日提问'), findsNothing);
     await disposeFxTestHost(tester);
   });
 
@@ -74,7 +75,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('今日任务'), findsOneWidget);
-    expect(find.text('今天暂时没有特别需要关注的变化。'), findsOneWidget);
+    expect(find.text('今日提问'), findsNothing);
     await disposeFxTestHost(tester);
   });
 }
