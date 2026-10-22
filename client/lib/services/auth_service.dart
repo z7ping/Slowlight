@@ -105,6 +105,57 @@ class AuthService {
     return null;
   }
 
+  /// 服务端为资料真相；成功读取后才更新本机缓存，不改变 JWT/登录方式。
+  static Future<User> refreshCloudUser() async {
+    ApiService.validateCloudEndpoint();
+    final data = await ApiService.get('/auth/profile');
+    final user = User.fromJson(data);
+    await _cacheUser(user);
+    return user;
+  }
+
+  static Future<User> updateNickname(String nickname) async {
+    ApiService.validateCloudEndpoint();
+    final data = await ApiService.patchAccountProfile({
+      'nickname': nickname.trim(),
+    });
+    final user = User.fromJson(data);
+    await _cacheUser(user);
+    return user;
+  }
+
+  static Future<Map<String, dynamic>> passwordStatus() =>
+      ApiService.get('/auth/password/status');
+
+  /// OAuth 用户需先完成 GitHub 身份验证，签发五分钟内的 GitHub JWT。
+  static Future<void> setupPassword({
+    required String username,
+    required String password,
+  }) async {
+    ApiService.validateCloudEndpoint();
+    await ApiService.post('/auth/password/setup', authenticated: true, body: {
+      'username': username.trim(),
+      'password': password,
+    });
+    await refreshCloudUser();
+  }
+
+  static Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    ApiService.validateCloudEndpoint();
+    await ApiService.post('/auth/password/change', authenticated: true, body: {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    });
+  }
+
+  static Future<void> _cacheUser(User user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, json.encode(user.toJson()));
+  }
+
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
     if (token == null || token.isEmpty || token.startsWith('local:')) {
