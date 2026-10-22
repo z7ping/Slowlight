@@ -212,236 +212,494 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _accountPanel() {
     final theme = Theme.of(context);
     final subtle = theme.colorScheme.onSurfaceVariant;
-    final style = SlowlightTypography.secondary(context);
+    final bodyStyle = SlowlightTypography.secondary(context);
+    final captionStyle = SlowlightTypography.caption(context);
+    final local = DataModeManager().isLocal;
     final user = _accountUser;
 
-    Widget hint(String value, {IconData icon = LucideIcons.info}) => Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: subtle),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(value, style: SlowlightTypography.caption(context)
-              .copyWith(color: subtle)),
-        ),
-      ],
+    Widget sectionCard({
+      required String title,
+      String? subtitle,
+      required Widget child,
+      Color? color,
+      Border? border,
+    }) => FxCard(
+      expanded: true,
+      color: color,
+      border: border,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: SlowlightTypography.cardTitle(context)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(subtitle, style: captionStyle.copyWith(color: subtle)),
+          ],
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
     );
 
-    if (DataModeManager().isLocal) {
-      return ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
-        child: FxCard(
-          expanded: true,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    Widget statusChip(String label, {
+      bool accent = false,
+      bool warning = false,
+    }) {
+      if (!warning) return _statusChip(label, accent: accent);
+      return FxChip(
+        label: label,
+        backgroundColor: theme.colorScheme.tertiaryContainer.withValues(alpha: .55),
+        foregroundColor: theme.colorScheme.onTertiaryContainer,
+        borderRadius: 999,
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      );
+    }
+
+    Widget responsiveRow({
+      required Widget leading,
+      required Widget content,
+      Widget? trailing,
+    }) => LayoutBuilder(
+      builder: (context, constraints) {
+        final stack = trailing != null &&
+            (constraints.maxWidth < 520 ||
+                MediaQuery.textScalerOf(context).scale(1) >= 1.6);
+        if (stack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(children: [
-                CircleAvatar(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  leading,
+                  const SizedBox(width: 14),
+                  Expanded(child: content),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Align(alignment: Alignment.centerRight, child: trailing),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            leading,
+            const SizedBox(width: 14),
+            Expanded(child: content),
+            if (trailing != null) ...[
+              const SizedBox(width: 16),
+              trailing,
+            ],
+          ],
+        );
+      },
+    );
+
+    Widget dataModeCard() => sectionCard(
+      title: '数据模式',
+      child: responsiveRow(
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          child: Icon(
+            local ? LucideIcons.hardDrive : LucideIcons.cloud,
+            color: local ? subtle : theme.colorScheme.primary,
+            size: 22,
+          ),
+        ),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  local ? '本地数据' : '云端数据',
+                  style: SlowlightTypography.body(context)
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+                statusChip('当前使用', accent: true),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              local
+                  ? '记录保存在本设备，不会自动上传。切换模式前可先查看迁移方案。'
+                  : '本机会保留离线缓存。切换数据模式不会自动合并本地记录。',
+              style: captionStyle.copyWith(color: subtle),
+            ),
+          ],
+        ),
+        trailing: FxButton(
+          key: const ValueKey('settings.account.open_data'),
+          label: '前往数据管理',
+          icon: LucideIcons.chevronRight,
+          size: FxButtonSize.sm,
+          variant: FxButtonVariant.outline,
+          onPressed: () => _openSection('data'),
+        ),
+      ),
+    );
+
+    if (local) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 820),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            sectionCard(
+              title: '个人信息',
+              child: responsiveRow(
+                leading: CircleAvatar(
                   radius: 24,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  child: Icon(LucideIcons.hardDrive, color: subtle, size: 22),
+                  child: Icon(LucideIcons.userRound, color: subtle, size: 22),
                 ),
-                const SizedBox(width: 14),
-                Expanded(child: Column(
+                content: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('本地使用', style: SlowlightTypography.cardTitle(context)),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text('本地使用',
+                            style: SlowlightTypography.cardTitle(context)),
+                        statusChip('本机'),
+                      ],
+                    ),
                     const SizedBox(height: 4),
-                    Text('无需登录 · 记录保存在本设备', style: style),
+                    Text('无需账号 · 记录只保存在这台设备',
+                        style: captionStyle.copyWith(color: subtle)),
                   ],
-                )),
-              ]),
-              const SizedBox(height: 16),
-              hint('本地记录没有需要绑定的云端账号。要使用 GitHub，'
-                  '请先登录云端账号；已有本地记录不会自动上传或合并。'),
-              const SizedBox(height: 16),
-              FxButton(
-                label: '登录云端账号',
-                icon: LucideIcons.cloud,
-                variant: FxButtonVariant.outline,
-                onPressed: _switchingMode ? null : () => _setDataMode(1),
+                ),
               ),
-              const SizedBox(height: 12),
-              Text('登录后可在「数据管理」中预览并确认迁移。',
-                style: SlowlightTypography.caption(context).copyWith(color: subtle)),
-            ],
-          ),
+            ),
+            const SizedBox(height: 14),
+            sectionCard(
+              title: '登录方式',
+              subtitle: '登录云端账号后，可关联 GitHub 作为登录方式',
+              child: responsiveRow(
+                leading: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  child: Icon(LucideIcons.github, color: subtle, size: 22),
+                ),
+                content: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('GitHub',
+                        style: SlowlightTypography.body(context)
+                            .copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
+                    Text(
+                      '当前没有云端身份，不能直接绑定。登录后再决定是否迁移本地记录。',
+                      style: captionStyle.copyWith(color: subtle),
+                    ),
+                  ],
+                ),
+                trailing: FxButton(
+                  key: const ValueKey('settings.account.login_cloud'),
+                  label: _switchingMode ? '切换中…' : '登录云端账号',
+                  icon: LucideIcons.cloud,
+                  size: FxButtonSize.sm,
+                  variant: FxButtonVariant.outline,
+                  onPressed: _switchingMode ? null : () => _setDataMode(1),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            dataModeCard(),
+          ],
         ),
       );
     }
 
     final displayName = user == null
-        ? '账号信息待确认'
+        ? (_loadingAccount ? '正在读取账号…' : '账号信息待确认')
         : user.nickname.trim().isNotEmpty
             ? user.nickname.trim()
             : user.username;
     final email = accountEmailLabel(user?.email ?? '');
-    final statusText = _checkingGitHub
-        ? '正在检查'
+    final githubStatus = _checkingGitHub
+        ? '检查中'
         : _githubLinked == true
             ? '已绑定'
             : _githubLinked == false
                 ? '未绑定'
                 : '状态未确认';
-    final statusColor = _githubLinked == true
-        ? theme.colorScheme.primary
-        : subtle;
+
+    Widget githubMessage() {
+      if (_checkingGitHub) {
+        return Text(
+          '正在向云端核对 GitHub 绑定状态…',
+          style: captionStyle.copyWith(color: subtle),
+        );
+      }
+      if (_githubLinked == true) {
+        return Text(
+          '此 GitHub 身份已关联当前 Slowlight 云端账号。',
+          style: captionStyle.copyWith(color: subtle),
+        );
+      }
+      if (_githubLinked == false) {
+        return Text(
+          '绑定后可以使用 GitHub 登录当前云端账号；不会自动迁移本地记录。',
+          style: captionStyle.copyWith(color: subtle),
+        );
+      }
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.tertiaryContainer.withValues(alpha: .32),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          border: Border.all(
+            color: theme.colorScheme.tertiary.withValues(alpha: .22),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              LucideIcons.info,
+              size: 16,
+              color: theme.colorScheme.onTertiaryContainer,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '暂时无法确认绑定状态，可能是网络或服务异常。为避免重复关联，请先重新检查。',
+                style: captionStyle.copyWith(
+                  color: theme.colorScheme.onTertiaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 680),
+      constraints: const BoxConstraints(maxWidth: 820),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FxCard(
-            expanded: true,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('当前云端身份', style: SlowlightTypography.secondary(context)
-                    .copyWith(color: subtle)),
-                const SizedBox(height: 14),
-                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundColor: theme.colorScheme.primary.withValues(alpha: .10),
-                    child: Icon(LucideIcons.userRound,
-                        color: theme.colorScheme.primary, size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          sectionCard(
+            title: '个人信息',
+            child: responsiveRow(
+              leading: CircleAvatar(
+                radius: 25,
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: .10),
+                child: Icon(
+                  LucideIcons.userRound,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(displayName,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: SlowlightTypography.cardTitle(context)),
-                      const SizedBox(height: 5),
-                      Text(email, maxLines: 2, overflow: TextOverflow.ellipsis,
-                          style: style.copyWith(color: subtle)),
-                      if (_lastLoginMethod == 'github') ...[
-                        const SizedBox(height: 4),
-                        Text('最近通过 GitHub 登录 · 绑定状态以云端查询为准',
-                            style: SlowlightTypography.caption(context)
-                                .copyWith(color: subtle)),
-                      ],
+                      Text(
+                        displayName,
+                        style: SlowlightTypography.cardTitle(context),
+                      ),
+                      statusChip('云端账号', accent: true),
                     ],
-                  )),
-                  if (_loadingAccount)
-                    const FxCircularProgress(
-                      constraints: BoxConstraints.tightFor(width: 18, height: 18),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    email,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: bodyStyle.copyWith(color: subtle),
+                  ),
+                  if (_lastLoginMethod == 'github') ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '最近通过 GitHub 登录 · 绑定状态以云端查询为准',
+                      style: captionStyle.copyWith(color: subtle),
+                    ),
+                  ],
+                ],
+              ),
+              trailing: _loadingAccount
+                  ? const FxCircularProgress(
+                      constraints: BoxConstraints.tightFor(
+                        width: 18,
+                        height: 18,
+                      ),
                       strokeWidth: 2,
-                    ),
-                ]),
-                if (user == null && !_loadingAccount) ...[
-                  const SizedBox(height: 14),
-                  hint('当前无法读取账号信息，已保留登录状态。'),
-                  const SizedBox(height: 10),
-                  FxButton(
-                    label: '重新读取',
-                    icon: LucideIcons.refreshCw,
-                    variant: FxButtonVariant.outline,
-                    size: FxButtonSize.sm,
-                    onPressed: _loadAccount,
-                  ),
-                ],
-                const SizedBox(height: 18),
-                FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
-                const SizedBox(height: 14),
-                hint('当前使用云端数据，本机会保留离线缓存。'
-                    '切换数据模式不会自动合并本地记录。', icon: LucideIcons.cloud),
-              ],
+                    )
+                  : user == null
+                      ? FxButton(
+                          label: '重新读取',
+                          icon: LucideIcons.refreshCw,
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: _loadAccount,
+                        )
+                      : null,
             ),
           ),
-          const SizedBox(height: 16),
-          FxCard(
-            expanded: true,
-            padding: const EdgeInsets.all(20),
+          const SizedBox(height: 14),
+          sectionCard(
+            title: '登录方式',
+            subtitle: '使用第三方身份登录当前 Slowlight 云端账号',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('关联登录方式',
-                    style: SlowlightTypography.cardTitle(context)),
-                const SizedBox(height: 4),
-                Text('用第三方身份登录同一个云端账号',
-                    style: style.copyWith(color: subtle)),
-                const SizedBox(height: 18),
-                Row(children: [
-                  Icon(LucideIcons.gitFork, size: 23,
-                      color: theme.colorScheme.onSurface),
-                  const SizedBox(width: 12),
-                  Expanded(child: Column(
+                responsiveRow(
+                  leading: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    child: Icon(
+                      LucideIcons.github,
+                      color: theme.colorScheme.onSurface,
+                      size: 23,
+                    ),
+                  ),
+                  content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('GitHub', style: SlowlightTypography.body(context)
-                          .copyWith(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 3),
-                      Text(statusText, style: SlowlightTypography.caption(context)
-                          .copyWith(color: statusColor)),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            'GitHub',
+                            style: SlowlightTypography.body(context)
+                                .copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          statusChip(
+                            githubStatus,
+                            accent: _githubLinked == true,
+                            warning: !_checkingGitHub && _githubLinked == null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '用于登录同一个云端账号',
+                        style: captionStyle.copyWith(color: subtle),
+                      ),
                     ],
-                  )),
-                  if (_githubLinked == false && !_linkingGitHub)
-                    FxButton(
-                      key: const ValueKey('settings.github_link'),
-                      label: '绑定',
-                      size: FxButtonSize.sm,
-                      variant: FxButtonVariant.outline,
-                      onPressed: _checkingGitHub ? null : _bindGitHub,
-                    )
-                  else if (_githubLinked == null && !_checkingGitHub && !_linkingGitHub)
-                    FxButton(
-                      label: '重新检查',
-                      icon: LucideIcons.refreshCw,
-                      size: FxButtonSize.sm,
-                      variant: FxButtonVariant.outline,
-                      onPressed: _loadAccount,
-                    ),
-                ]),
+                  ),
+                  trailing: _githubLinked == false && !_linkingGitHub
+                      ? FxButton(
+                          key: const ValueKey('settings.github_link'),
+                          label: '绑定',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: _checkingGitHub ? null : _bindGitHub,
+                        )
+                      : _githubLinked == null &&
+                              !_checkingGitHub &&
+                              !_linkingGitHub
+                          ? FxButton(
+                              key: const ValueKey(
+                                'settings.github_recheck',
+                              ),
+                              label: '重新检查',
+                              icon: LucideIcons.refreshCw,
+                              size: FxButtonSize.sm,
+                              variant: FxButtonVariant.outline,
+                              onPressed: _loadAccount,
+                            )
+                          : null,
+                ),
                 const SizedBox(height: 12),
-                if (_githubLinked == true)
-                  hint('此 GitHub 身份已关联当前云端账号。')
-                else if (_githubLinked == false)
-                  hint('点击「绑定」，在系统浏览器授权 GitHub。'
-                      '只建立登录关联，不会自动迁移本地记录。')
-                else
-                  hint(_checkingGitHub
-                      ? '正在向云端核对绑定状态…'
-                      : '暂时无法确认绑定状态，可能是网络或服务异常。'
-                        '为避免重复关联，请先重新检查。'),
+                githubMessage(),
                 if (_linkingGitHub) ...[
-                  const SizedBox(height: 14),
-                  Text('正在等待浏览器授权…', style: style),
+                  const SizedBox(height: 12),
+                  Text(
+                    '正在等待浏览器授权…',
+                    style: captionStyle.copyWith(color: subtle),
+                  ),
                   const SizedBox(height: 8),
-                  if (defaultTargetPlatform == TargetPlatform.windows)
-                    FxButton(
-                      label: '检查授权结果',
-                      size: FxButtonSize.sm,
-                      variant: FxButtonVariant.outline,
-                      onPressed: () {
-                        if (!GitHubSignIn.checkAuthorizationNow()) {
-                          _message('授权会话正在初始化，请稍后重试');
-                        }
-                      },
-                    ),
-                  FxButton(
-                    label: '取消授权等待',
-                    size: FxButtonSize.sm,
-                    variant: FxButtonVariant.ghost,
-                    onPressed: () => setState(() => _linkingGitHub = false),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (defaultTargetPlatform == TargetPlatform.windows)
+                        FxButton(
+                          label: '检查授权结果',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: () {
+                            if (!GitHubSignIn.checkAuthorizationNow()) {
+                              _message('授权会话正在初始化，请稍后重试');
+                            }
+                          },
+                        ),
+                      FxButton(
+                        label: '取消等待',
+                        size: FxButtonSize.sm,
+                        variant: FxButtonVariant.ghost,
+                        onPressed: () =>
+                            setState(() => _linkingGitHub = false),
+                      ),
+                    ],
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FxButton(
-              label: '退出登录',
-              icon: LucideIcons.logOut,
-              variant: FxButtonVariant.ghost,
-              onPressed: _linkingGitHub ? null : _logoutAccount,
+          const SizedBox(height: 14),
+          dataModeCard(),
+          const SizedBox(height: 14),
+          sectionCard(
+            title: '账号操作',
+            color: theme.colorScheme.errorContainer.withValues(alpha: .20),
+            border: Border.all(
+              color: theme.colorScheme.error.withValues(alpha: .18),
+            ),
+            child: responsiveRow(
+              leading: CircleAvatar(
+                radius: 22,
+                backgroundColor:
+                    theme.colorScheme.errorContainer.withValues(alpha: .72),
+                child: Icon(
+                  LucideIcons.logOut,
+                  color: theme.colorScheme.error,
+                  size: 21,
+                ),
+              ),
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '退出登录',
+                    style: SlowlightTypography.body(context).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '退出当前账号后，需要重新登录才能继续访问云端数据。',
+                    style: captionStyle.copyWith(color: subtle),
+                  ),
+                ],
+              ),
+              trailing: FxButton(
+                key: const ValueKey('settings.account.logout'),
+                label: '退出登录',
+                icon: LucideIcons.logOut,
+                size: FxButtonSize.sm,
+                variant: FxButtonVariant.destructive,
+                onPressed: _linkingGitHub ? null : _logoutAccount,
+              ),
             ),
           ),
         ],
