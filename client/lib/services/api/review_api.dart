@@ -4,6 +4,8 @@ import '../api_service.dart';
 import '../data_mode_manager.dart';
 import '../http_util.dart';
 import '../local_today_review_service.dart';
+import '../local_today_timeline_service.dart';
+import '../../models/today_timeline_item.dart';
 import '../review_local_service.dart';
 import 'analytics_api.dart';
 
@@ -18,6 +20,19 @@ class ReviewApi {
       return LocalTodayReviewService().computeTodayReview();
     }
     return _getJson('/review/today');
+  }
+
+  static Future<List<TodayTimelineItem>> getTodayTimeline() async {
+    if (DataModeManager().isLocal) {
+      return LocalTodayTimelineService().getTodayTimeline();
+    }
+    final data = await _getJson('/review/today/timeline');
+    final values = data['items'];
+    if (values is! List) throw StateError('Invalid today timeline');
+    return TodayTimelineItem.sorted(values
+        .whereType<Map>()
+        .map((item) => TodayTimelineItem.fromJson(Map<String, dynamic>.from(item)))
+        .whereType<TodayTimelineItem>());
   }
 
   static Future<Map<String, dynamic>> getTasksReview({int days = 7}) async {
