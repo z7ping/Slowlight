@@ -27,7 +27,7 @@ void main() {
     await databaseFactory.deleteDatabase(dbPath);
   });
 
-  test('本地任务、习惯、专注、观察历史关联映射到同一个标签，重复运行不恢复已删除关系', () async {
+  test('管理页默认标签也映射为可选 canonical 标签，历史关联幂等', () async {
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
@@ -66,13 +66,18 @@ void main() {
 
     await LocalProductCoreSchema.ensureReady();
     final aliases = await db.query('legacy_system_tag_aliases');
-    expect(aliases, hasLength(1));
-    expect(aliases.single['system_tag_id'], oldTagId);
-    expect(aliases.single['tag_id'], tagId);
+    expect(aliases, hasLength(2));
+    final mapped = {for (final row in aliases) row['system_tag_id']: row['tag_id']};
+    expect(mapped[oldTagId], tagId);
+    final defaultCanonicalId = mapped[unusedDefault] as int;
+    expect(defaultCanonicalId, isNot(tagId));
+    final defaults = await db.query('tags',
+        where: 'id = ?', whereArgs: [defaultCanonicalId]);
+    expect(defaults.single['name'], '身体');
     expect(
       await db.query('legacy_system_tag_aliases',
           where: 'system_tag_id = ?', whereArgs: [unusedDefault]),
-      isEmpty,
+      hasLength(1),
     );
     for (final (table, column, id) in [
       ('task_tags', 'task_id', taskId),
