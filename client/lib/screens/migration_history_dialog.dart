@@ -184,7 +184,8 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
     final status = report['status']?.toString() ?? 'succeeded';
     final local = report['source'] == 'local';
     final id = (report['id'] as num?)?.toInt();
-    final canRetry = local && status == 'failed' && id != null;
+    final canRetry = local &&
+        (status == 'failed' || status == 'running') && id != null;
     final theme = Theme.of(context);
     return FxCard(
       padding: const EdgeInsets.all(SlowlightSpacing.md),
