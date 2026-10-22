@@ -43,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -157,6 +157,7 @@ class CloudCacheDb {
         icon TEXT DEFAULT '✅',
         color TEXT DEFAULT '#52c41a',
         frequency TEXT DEFAULT 'daily',
+        schedule_rule TEXT NOT NULL DEFAULT '{}',
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -241,6 +242,12 @@ class CloudCacheDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 5) {
+      final columns = await db.rawQuery('PRAGMA table_info(habits)');
+      if (!columns.any((column) => column['name'] == 'schedule_rule')) {
+        await db.execute("ALTER TABLE habits ADD COLUMN schedule_rule TEXT NOT NULL DEFAULT '{}'");
+      }
+    }
     if (oldVersion < 2) {
       await _createSyncIntents(db);
     }
