@@ -21,6 +21,14 @@ type OAuthLoginSession struct {
 	Status       string    `gorm:"size:20;not null;index"`
 	ErrorCode    string    `gorm:"size:64"`
 	ErrorStage   string    `gorm:"size:32"`
+	// 短时加密暂存 GitHub token，只用于已换码后的用户资料恢复，完成即清除。
+	RecoveryToken string `gorm:"type:text"`
+	// 设备码只以密文持久化，不会回传给客户端。
+	DeviceCodeCiphertext string `gorm:"type:text"`
+	DevicePollInterval int `gorm:"default:5"`
+	RecoveryAttempts int `gorm:"default:0"`
+	RetryAfter time.Time
+	UpdatedAt time.Time
 	TargetUserID uint      `gorm:"default:0"`
 	ResultUserID uint      `gorm:"default:0"`
 	ExpiresAt    time.Time `gorm:"not null;index"`

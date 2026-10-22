@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+    "log"
 	"net/http"
 	"net/url"
 	"os"
@@ -43,6 +43,8 @@ func githubOAuthMessage(code string) string {
     case "github_token_invalid": return "GitHub 授权码已失效，请重新授权"
     case "oauth_account_conflict": return "该 GitHub 账号已绑定其他用户"
     case "oauth_account_save_failed": return "账号信息保存失败，请稍后重新授权"
+    case "oauth_result_unknown": return "授权处理意外中断，授权码无法安全重用，请重新授权"
+    case "oauth_internal_error": return "授权处理暂时异常，请重新授权"
     default: return "GitHub 授权未完成，请重新发起登录"
     }
 }
@@ -61,6 +63,7 @@ type GitHubOAuthHandler struct {
 	Client *http.Client
 	AuthURL string
 	TokenURL string
+    DeviceAuthURL string
 	UserURL string
 }
 
@@ -69,6 +72,7 @@ func NewGitHubOAuthHandler(db *gorm.DB) *GitHubOAuthHandler {
 		DB: db, Client: &http.Client{Timeout: 30 * time.Second},
 		AuthURL: "https://github.com/login/oauth/authorize",
 		TokenURL: "https://github.com/login/oauth/access_token",
+        DeviceAuthURL: "https://github.com/login/device/code",
 		UserURL: "https://api.github.com/user",
 	}
 }
@@ -212,9 +216,19 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
         return
     }
 	switch session.Status {
-	case "pending", "processing":
-		c.Header("Cache-Control", "no-store")
-		c.JSON(200, gin.H{"status": "pending"})
+    case "pending":
+        c.Header("Cache-Control", "no-store")
+        c.JSON(200, gin.H{"status": "pending", "phase": "authorization"})
+    case "device_pending", "device_processing":
+        h.resumeDeviceIfDue(session)
+        c.Header("Cache-Control", "no-store")
+        c.JSON(200, gin.H{"status": "pending", "phase": "device"})
+    case "processing", "retryable":
+        h.resumeIfRequired(session)
+        phase := session.ErrorStage
+        if phase == "" { phase = "processing" }
+        c.Header("Cache-Control", "no-store")
+        c.JSON(200, gin.H{"status": "pending", "phase": phase})
 	case "failed":
         code := session.ErrorCode
         if code == "" { code = "oauth_unknown_failure" }
@@ -249,83 +263,60 @@ type githubProfile struct {
 }
 
 func (h *GitHubOAuthHandler) Callback(c *gin.Context) {
-	state := c.Query("state")
-	if state == "" { c.String(400, "授权状态无效"); return }
-	var session model.OAuthLoginSession
-	if err := h.DB.First(&session, "state_hash = ?", oauthHash(state)).Error; err != nil {
-		c.String(400, "授权会话不存在"); return
-	}
-	if time.Now().After(session.ExpiresAt) {
-		c.String(410, "授权已超时，请返回 Slowlight 重试"); return
-	}
-	updated := h.DB.Model(&model.OAuthLoginSession{}).
-		Where("id = ? AND status = ? AND expires_at > ?", session.ID, "pending", time.Now()).
-		Update("status", "processing")
-	if updated.Error != nil || updated.RowsAffected != 1 {
-		c.String(409, "授权已处理，请返回 Slowlight"); return
-	}
-    started := time.Now()
-    fail := func(stage, code string) {
-        update := h.DB.Model(&model.OAuthLoginSession{}).
-            Where("id = ? AND status = ?", session.ID, "processing").
-            Updates(map[string]interface{}{"status": "failed", "error_code": code, "error_stage": stage, "code_verifier": ""})
-        log.Printf("github oauth failed session=%s stage=%s code=%s duration_ms=%d update_failed=%t",
-            oauthHash(session.ID)[:12], stage, code, time.Since(started).Milliseconds(), update.Error != nil)
+    state := c.Query("state")
+    if state == "" { c.String(http.StatusBadRequest, "授权状态无效"); return }
+    var session model.OAuthLoginSession
+    if err := h.DB.First(&session, "state_hash = ?", oauthHash(state)).Error; err != nil {
+        c.String(http.StatusNotFound, "授权会话不存在"); return
+    }
+    if time.Now().After(session.ExpiresAt) {
+        c.String(http.StatusGone, "授权已超时，请返回 Slowlight 重试"); return
+    }
+    if session.Status == "pending" {
+        updated := h.DB.Model(&model.OAuthLoginSession{}).
+            Where("id = ? AND status = ? AND expires_at > ?", session.ID, "pending", time.Now()).
+            Updates(map[string]interface{}{"status": "processing", "error_stage": "callback"})
+        if updated.Error != nil {
+            c.String(http.StatusInternalServerError, "授权会话状态更新失败"); return
+        }
+        if updated.RowsAffected == 1 {
+            if c.Query("error") != "" || c.Query("code") == "" {
+                code := "oauth_callback_invalid"
+                if c.Query("error") == "access_denied" { code = "access_denied" }
+                h.oauthFailed(session.ID, "callback", code, time.Now())
+                c.Header("Cache-Control", "no-store")
+                c.String(githubOAuthHTTPStatus(code), "%s", githubOAuthMessage(code))
+                return
+            }
+            go h.processOAuthCallback(session, c.Query("code"))
+        } else {
+            // 两次浏览器回调并发，后一条只展示处理状态，绝不重复兑换授权码。
+            if err := h.DB.First(&session, "id = ?", session.ID).Error; err != nil {
+                c.String(http.StatusConflict, "授权状态未确认"); return
+            }
+        }
+    }
+    if session.Status == "failed" {
         c.Header("Cache-Control", "no-store")
-        c.String(githubOAuthHTTPStatus(code), "%s", githubOAuthMessage(code))
-    }
-    if c.Query("error") != "" {
-        code := "oauth_callback_invalid"
-        if c.Query("error") == "access_denied" { code = "access_denied" }
-        fail("callback", code)
+        c.String(githubOAuthHTTPStatus(session.ErrorCode), "%s", githubOAuthMessage(session.ErrorCode))
         return
     }
-    if c.Query("code") == "" { fail("callback", "oauth_callback_invalid"); return }
-    clientID, secret, callback, err := githubConfig()
-    if err != nil { fail("config", "oauth_config_invalid"); return }
-    // 与浏览器连接断开解耦；后台处理时间有界，并继续更新会话状态。
-    ctx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 80*time.Second)
-    defer cancel()
-    accessToken, err := h.exchangeToken(ctx, clientID, secret, callback, c.Query("code"), session.CodeVerifier)
-    if err != nil {
-        if oe, ok := err.(*githubOAuthError); ok { fail(oe.Stage, oe.Code) } else { fail("token", "github_unavailable") }
+    // 浏览器无需等待 GitHub /token、/user、数据库操作，规避代理回调超时。
+    c.Header("Cache-Control", "no-store")
+    c.Header("Referrer-Policy", "no-referrer")
+    c.Header("X-Content-Type-Options", "nosniff")
+    if strings.HasPrefix(state, "android_") {
+        c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'")
+        c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(androidOAuthReturnHTML))
         return
     }
-    profile, err := h.loadProfile(ctx, accessToken)
-    if err != nil {
-        if oe, ok := err.(*githubOAuthError); ok { fail(oe.Stage, oe.Code) } else { fail("profile", "github_profile_unavailable") }
-        return
-    }
-    user, err := h.resolveUser(profile, session.TargetUserID)
-    if err != nil {
-        if err.Error() == "GitHub 账号已绑定其他用户" || err.Error() == "当前账号已有 GitHub 绑定" {
-            fail("account", "oauth_account_conflict")
-        } else { fail("account", "oauth_account_save_failed") }
-        return
-    }
-    if err := h.DB.Model(&model.OAuthLoginSession{}).
-        Where("id = ? AND status = ?", session.ID, "processing").
-        Updates(map[string]interface{}{"status": "ready", "result_user_id": user.ID, "code_verifier": ""}).Error; err != nil {
-        fail("session", "oauth_account_save_failed"); return
-    }
-    log.Printf("github oauth ready session=%s duration_ms=%d", oauthHash(session.ID)[:12], time.Since(started).Milliseconds())
-	c.Header("Cache-Control", "no-store")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Header("X-Content-Type-Options", "nosniff")
-	if strings.HasPrefix(state, "android_") {
-		// Android 使用无敏感信息的私有 URI 唤醒已有 Slowlight 实例。
-		// 浏览器可能禁止无手势跳转，保留显式返回按钮。
-		c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'")
-		c.Data(200, "text/html; charset=utf-8", []byte(androidOAuthReturnHTML))
-		return
-	}
-	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
-	c.Data(200, "text/html; charset=utf-8", []byte(desktopOAuthReturnHTML))
+    c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+    c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(desktopOAuthReturnHTML))
 }
 
-const desktopOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>GitHub 授权已完成</h1><p>请返回所行映我，等待 Windows 客户端确认登录。</p><p style="opacity:.7">如果客户端仍在等待，请点击「检查授权结果」。完成客户端验证前，这里不代表已经登录。</p></body></html>`
+const desktopOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>GitHub 授权请求已接收</h1><p>请返回所行映我，等待 Windows 客户端确认登录。</p><p style="opacity:.7">如果客户端仍在等待，请点击「检查授权结果」。完成客户端验证前，这里不代表已经登录。</p></body></html>`
 
-const androidOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>授权成功</h1><p>正在返回所行映我…</p><p><a href="slowlight://oauth-complete" style="display:inline-block;background:#437bff;color:white;padding:14px 24px;border-radius:10px;text-decoration:none">返回所行映我</a></p><p style="opacity:.7">如果没有自动返回，请点击按钮。</p><script>window.location.replace("slowlight://oauth-complete");</script></body></html>`
+const androidOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>正在验证 GitHub 身份</h1><p>请返回所行映我，应用将继续检查登录结果。</p><p><a href="slowlight://oauth-complete" style="display:inline-block;background:#437bff;color:white;padding:14px 24px;border-radius:10px;text-decoration:none">返回所行映我</a></p><p style="opacity:.7">如果没有自动返回，请点击按钮。</p><script>window.location.replace("slowlight://oauth-complete");</script></body></html>`
 
 func (h *GitHubOAuthHandler) exchangeToken(ctx context.Context, id, secret, redirect, code, verifier string) (string, error) {
     body := url.Values{"client_id": {id}, "client_secret": {secret}, "code": {code}, "redirect_uri": {redirect}, "code_verifier": {verifier}}
@@ -334,8 +325,14 @@ func (h *GitHubOAuthHandler) exchangeToken(ctx context.Context, id, secret, redi
     req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
     req.Header.Set("Accept", "application/json")
     // 授权码一次性使用；请求可能已经送达时，不自动重发。
+    started := time.Now()
     resp, err := h.Client.Do(req)
-    if err != nil { return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"} }
+    if err != nil {
+        log.Printf("github oauth provider session=%v stage=token network_error=true duration_ms=%d", ctx.Value(oauthRequestSessionKey{}), time.Since(started).Milliseconds())
+        return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"}
+    }
+    log.Printf("github oauth provider session=%v stage=token http_status=%d duration_ms=%d",
+        ctx.Value(oauthRequestSessionKey{}), resp.StatusCode, time.Since(started).Milliseconds())
     defer resp.Body.Close()
     if resp.StatusCode != http.StatusOK {
         if resp.StatusCode == 429 || resp.StatusCode >= 500 {
@@ -379,8 +376,15 @@ func (h *GitHubOAuthHandler) loadProfile(ctx context.Context, accessToken string
         req.Header.Set("Authorization", "Bearer "+accessToken)
         req.Header.Set("Accept", "application/vnd.github+json")
         req.Header.Set("User-Agent", "Slowlight")
+        started := time.Now()
         resp, err := h.Client.Do(req)
-        if err != nil { continue }
+        if err != nil {
+            log.Printf("github oauth provider session=%v stage=profile attempt=%d network_error=true duration_ms=%d",
+                ctx.Value(oauthRequestSessionKey{}), attempt+1, time.Since(started).Milliseconds())
+            continue
+        }
+        log.Printf("github oauth provider session=%v stage=profile attempt=%d http_status=%d duration_ms=%d",
+            ctx.Value(oauthRequestSessionKey{}), attempt+1, resp.StatusCode, time.Since(started).Milliseconds())
         if resp.StatusCode == http.StatusOK {
             var profile githubProfile
             decodeErr := json.NewDecoder(io.LimitReader(resp.Body, 65536)).Decode(&profile)

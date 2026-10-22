@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../ai/ai_config_store.dart';
@@ -79,6 +81,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _savingReminder = false;
   bool _switchingMode = false;
   bool _linkingGitHub = false;
+  bool _githubDeviceEnabled = false;
+  String? _githubDeviceCode;
+  Uri? _githubDeviceUri;
+  String _githubLinkingStatus = "正在等待 GitHub 授权…";
   bool _loadingAccount = true;
   bool _checkingGitHub = true;
   int _accountLoadVersion = 0;
@@ -116,6 +122,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
     _loadAccount();
+    GitHubSignIn.deviceFlowAvailable().then((enabled) {
+      if (mounted) setState(() => _githubDeviceEnabled = enabled);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        if (mounted && !_linkingGitHub &&
+            await GitHubSignIn.hasPendingBindingAuthorization()) {
+          await _bindGitHub(resumePending: true);
+        }
+      } catch (_) {
+        // 恢复失败不阻断账号设置。
+      }
+    });
   }
 
   @override
@@ -674,6 +693,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 githubMessage(),
+                if (_githubDeviceEnabled && _githubLinked == false && !_linkingGitHub) ...[
+                  const SizedBox(height: 8),
+                  FxButton(
+                    label: '使用验证码绑定 GitHub（备用）',
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.ghost,
+                    onPressed: () => _bindGitHub(useDeviceCode: true),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 FxSeparator.horizontal(height: 1, color: fxDivider(context)),
                 const SizedBox(height: 12),
@@ -738,9 +766,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                 ),
                 if (_linkingGitHub) ...[
+                  if (_githubDeviceCode != null && _githubDeviceUri != null) ...[
+                    const SizedBox(height: 12),
+                    SelectableText(
+                      _githubDeviceCode!,
+                      style: SlowlightTypography.secondary(context),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        FxButton(
+                          label: '复制验证码',
+                          size: FxButtonSize.sm,
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: _githubDeviceCode!));
+                            if (mounted) _message('验证码已复制');
+                          },
+                        ),
+                        FxButton(
+                          label: '打开 GitHub 验证页',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: () async {
+                            final uri = _githubDeviceUri;
+                            if (uri != null && !await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+                              _message('请手动打开 github.com/login/device');
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Text(
-                    '正在等待浏览器授权…',
+                    _githubLinkingStatus,
                     style: captionStyle.copyWith(color: subtle),
                   ),
                   const SizedBox(height: 8),
@@ -748,7 +808,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      if (defaultTargetPlatform == TargetPlatform.windows)
+                      if (defaultTargetPlatform == TargetPlatform.windows ||
+                          defaultTargetPlatform == TargetPlatform.android)
                         FxButton(
                           label: '检查授权结果',
                           size: FxButtonSize.sm,
@@ -763,8 +824,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         label: '取消等待',
                         size: FxButtonSize.sm,
                         variant: FxButtonVariant.ghost,
-                        onPressed: () =>
-                            setState(() => _linkingGitHub = false),
+                        onPressed: () async {
+                          setState(() => _linkingGitHub = false);
+                          try {
+                            await GitHubSignIn.cancelPendingAuthorization();
+                          } catch (_) {
+                            // 取消等待立即生效，不依赖存储。
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -1765,13 +1832,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _bindGitHub() async {
+  Future<void> _bindGitHub({
+    bool resumePending = false,
+    bool useDeviceCode = false,
+  }) async {
     if (DataModeManager().isLocal) return;
-    setState(() => _linkingGitHub = true);
+    setState(() {
+      _linkingGitHub = true;
+      _githubLinkingStatus = "正在等待 GitHub 授权…";
+      _githubDeviceCode = null;
+      _githubDeviceUri = null;
+    });
     try {
       final completed = await GitHubSignIn.signIn(
         linkExisting: true,
+        resumePending: resumePending,
+        useDeviceCode: useDeviceCode,
         shouldContinue: () => mounted && _linkingGitHub,
+        onDeviceCode: (code, uri) {
+          if (mounted && _linkingGitHub) {
+            setState(() {
+              _githubDeviceCode = code;
+              _githubDeviceUri = uri;
+            });
+          }
+        },
+        onStatus: (status) {
+          if (mounted && _linkingGitHub) {
+            setState(() => _githubLinkingStatus = status);
+          }
+        },
       );
       if (mounted && completed) {
         // OAuth 回调已完成后仍需刷新本机身份和真实绑定状态。

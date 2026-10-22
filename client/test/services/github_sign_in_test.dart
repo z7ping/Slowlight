@@ -217,4 +217,13 @@ void main() {
     expect(attempts, 2);
   });
 
+  test('GitHub 阶段文案只描述正在进行的步骤', () {
+    expect(GitHubSignIn.statusForPhase('authorization'), contains('GitHub'));
+    expect(GitHubSignIn.statusForPhase('token'), contains('授权码'));
+    expect(GitHubSignIn.statusForPhase('profile'), contains('身份信息'));
+    expect(GitHubSignIn.statusForPhase('device'), contains('验证码'));
+    expect(GitHubSignIn.statusForPhase('account'), contains('云端账号'));
+    expect(GitHubSignIn.statusForPhase('future_phase'), contains('确认'));
+  });
+
 }

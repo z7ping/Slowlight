@@ -13,6 +13,7 @@ import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
+import 'services/github_sign_in.dart';
 import 'services/notification_service.dart';
 import 'services/auto_start_service.dart';
 import 'services/tray_service.dart';
@@ -291,6 +292,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _isLoading = true;
   bool _hasAccess = false;
+  bool _pendingGitHubLogin = false;
   bool _authCheckFailed = false;
   int _authCheckGeneration = 0;
 
@@ -313,6 +315,7 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkAuth() async {
     final generation = ++_authCheckGeneration;
     var hasAccess = false;
+    var pendingGitHubLogin = false;
     var checkFailed = false;
     try {
       if (DataModeManager().isLocal) {
@@ -340,12 +343,24 @@ class _AuthGateState extends State<AuthGate> {
           CloudSyncCoordinator().stop();
         }
       }
+      // Android 启动时先判断有没有未结束的 GitHub 授权。
+      // Local Mode 不丢弃现有本地数据，只暂时展示可取消的登录恢复页。
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android &&
+          (DataModeManager().isLocal || !hasAccess)) {
+        try {
+          pendingGitHubLogin = await GitHubSignIn.hasPendingAuthorization();
+        } catch (_) {
+          // 系统安全存储异常不应让本地数据或有效账号不可访问。
+          pendingGitHubLogin = false;
+        }
+      }
     } catch (_) {
       checkFailed = true;
     }
     if (!mounted || generation != _authCheckGeneration) return;
     setState(() {
       _hasAccess = hasAccess;
+      _pendingGitHubLogin = pendingGitHubLogin;
       _authCheckFailed = checkFailed;
       _isLoading = false;
     });
@@ -374,6 +389,8 @@ class _AuthGateState extends State<AuthGate> {
         ),
       );
     }
-    return _hasAccess ? const HomeScreen() : const LoginScreen();
+    return _pendingGitHubLogin || !_hasAccess
+        ? const LoginScreen()
+        : const HomeScreen();
   }
 }
