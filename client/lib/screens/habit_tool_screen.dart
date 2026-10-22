@@ -30,6 +30,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   late final TagLinksRepository _tagLinks;
   bool _editingHabit = false;
   int? _expandedHabitId;
+  int _filter = 0; // 全部 / 待记录 / 已记录
   final Set<int> _pendingHabitActions = <int>{};
 
   @override
@@ -347,7 +348,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       return;
     }
     setState(() => _expandedHabitId = habit.id);
-    await _controller.loadLogs(habit.id);
+    try {
+      await _controller.loadLogs(habit.id);
+    } catch (_) {
+      _message('近期记录暂时无法获取，可以稍后重试');
+    }
   }
 
   @override
@@ -355,15 +360,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     if (_controller.loading && _controller.habits.isEmpty) {
       return const Center(child: FxCircularProgress());
     }
-    if (_controller.error != null && _controller.habits.isEmpty) {
-      return Center(
-        child: FxButton(
-          label: '重试',
-          variant: FxButtonVariant.secondary,
-          onPressed: _controller.load,
-        ),
-      );
-    }
+    final all = _controller.habits;
+    final visible = all.where((habit) => switch (_filter) {
+      1 => !habit.checkedToday,
+      2 => habit.checkedToday,
+      _ => true,
+    }).toList(growable: false);
     return FxRefresh(
       onRefresh: _controller.load,
       child: ListView(
@@ -377,15 +379,55 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _header(),
-                  const SizedBox(height: 14),
-                  if (_controller.habits.isEmpty)
+                  const SizedBox(height: SlowlightSpacing.page),
+                  if (_controller.error != null) ...[
+                    FxCard(
+                      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('习惯加载失败，显示的记录可能不是最新的。',
+                              style: SlowlightTypography.secondary(context)),
+                          const SizedBox(height: SlowlightSpacing.md),
+                          FxButton(
+                            label: '重新加载',
+                            icon: LucideIcons.refreshCw,
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _controller.load,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: SlowlightSpacing.page),
+                  ],
+                  _summaryBar(),
+                  const SizedBox(height: SlowlightSpacing.xxxl),
+                  if (all.isEmpty && _controller.error == null)
                     FxEmptyState(
                       icon: LucideIcons.repeat2,
                       title: '还没有习惯记录',
-                      subtitle: '从一个小习惯开始，比如每天喝一杯水',
+                      subtitle: '从一件愿意重复的小事开始。',
+                      action: FxButton(
+                        label: '创建第一个习惯',
+                        icon: LucideIcons.plus,
+                        variant: FxButtonVariant.outline,
+                        onPressed: _createHabit,
+                      ),
+                    )
+                  else if (all.isNotEmpty && visible.isEmpty)
+                    FxEmptyState(
+                      icon: LucideIcons.listFilter,
+                      title: '当前筛选没有习惯',
+                      subtitle: '切换到全部习惯，继续查看记录。',
+                      action: FxButton(
+                        label: '查看全部习惯',
+                        variant: FxButtonVariant.outline,
+                        onPressed: () => setState(() => _filter = 0),
+                      ),
                     )
                   else
-                    ..._controller.habits.map(_habitCard),
+                    ...visible.map(_habitCard),
                 ],
               ),
             ),
@@ -398,16 +440,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   Widget _header() {
     final theme = Theme.of(context);
     return FxActionBar(
-      // Android 360dp 的实际内容区有足够宽度放下计数与操作。
-      // 过窄和超大字体时再统一按 FxActionBar 规则折行。
-      stackBelow: 300,
-      leading: FxChip(
-        label: '${_controller.habits.length} 个习惯',
-        variant: FxChipVariant.outline,
-        backgroundColor: fxSubtleSurface(context),
-        foregroundColor: theme.colorScheme.onSurfaceVariant,
-        borderColor: theme.colorScheme.outline,
-        borderRadius: SlowlightRadius.pill,
+      stackBelow: 280,
+      leading: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('习惯', style: SlowlightTypography.pageTitle(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text(
+            '记录每天的行动，不必追求完美。',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
       actions: [
         FxButton(
@@ -420,200 +465,182 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     );
   }
 
+  Widget _summaryBar() {
+    final theme = Theme.of(context);
+    final total = _controller.habits.length;
+    final done = _controller.habits.where((habit) => habit.checkedToday).length;
+    return FxActionBar(
+      stackBelow: 560,
+      leading: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: SlowlightSpacing.xl,
+        runSpacing: SlowlightSpacing.md,
+        children: [
+          FxChip(
+            label: '$total 个习惯',
+            variant: FxChipVariant.outline,
+            backgroundColor: fxSubtleSurface(context),
+            foregroundColor: theme.colorScheme.onSurfaceVariant,
+            borderColor: theme.colorScheme.outline,
+            borderRadius: SlowlightRadius.pill,
+          ),
+          Text(
+            '今日已记录 $done/$total',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        if (total > 0)
+          FxSegmented(
+            labels: const ['全部', '待记录', '已记录'],
+            selectedIndex: _filter,
+            onChanged: (index) => setState(() => _filter = index),
+            itemKeys: const [
+              ValueKey('habits.filter_all'),
+              ValueKey('habits.filter_pending'),
+              ValueKey('habits.filter_done'),
+            ],
+          ),
+      ],
+    );
+  }
+
   Widget _habitCard(Habit habit) {
     final theme = Theme.of(context);
     final expanded = _expandedHabitId == habit.id;
     final color = _parseColor(habit.color);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: SlowlightSpacing.xl),
       child: FxCard(
-        padding: const EdgeInsets.fromLTRB(13, 13, 14, 13),
+        key: ValueKey('habits.card.${habit.id}'),
+        padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
         color: fxSurface(context),
         borderRadius: SlowlightRadius.lg,
-        border: Border(
-          left: BorderSide(color: color, width: 3),
-          top: BorderSide(color: theme.colorScheme.outline),
-          right: BorderSide(color: theme.colorScheme.outline),
-          bottom: BorderSide(color: theme.colorScheme.outline),
-        ),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
         boxShadow:
             theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
         expanded: true,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FxInkWell(
-              borderRadius: BorderRadius.circular(SlowlightRadius.md),
-              onTap: () => _toggleExpanded(habit),
-              onLongPress: () => _openDetailedCheckin(habit),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final scale = MediaQuery.textScalerOf(context).scale(1);
-                    final showWeek =
-                        !expanded && constraints.maxWidth >= 560 && scale < 1.6;
-                    return Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: .12),
-                            borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                          ),
-                          child: Text(
-                            habit.icon,
-                            style: const TextStyle(fontSize: SlowlightTypography.bodySize),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                habit.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: SlowlightTypography.secondary(
-                                  context,
-                                ).copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _habitMeta(habit),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: SlowlightTypography.caption(
-                                  context,
-                                ).copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (showWeek) ...[
-                          SizedBox(width: 154, child: _weekDots(habit, color)),
-                          const SizedBox(width: 6),
-                        ],
-                        FxInkWell(
-                          borderRadius: BorderRadius.circular(999),
-                          onTap: () => _toggleToday(habit),
-                          child: SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: Container(
-                                width: 26,
-                                height: 26,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color:
-                                      habit.checkedToday
-                                          ? color
-                                          : Colors.transparent,
-                                  border: Border.all(
-                                    color:
-                                        habit.checkedToday
-                                            ? color
-                                            : theme.colorScheme.outline,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Icon(
-                                  LucideIcons.check,
-                                  size: 14,
-                                  color:
-                                      habit.checkedToday
-                                          ? Colors.white
-                                          : theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final largeText =
+                    MediaQuery.textScalerOf(context).scale(1) >= 1.3;
+                final narrow = constraints.maxWidth < 270 || largeText;
+                if (narrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _habitHeading(habit, expanded, color),
+                      const SizedBox(height: SlowlightSpacing.md),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _todayButton(habit),
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: _habitHeading(habit, expanded, color)),
+                    const SizedBox(width: SlowlightSpacing.md),
+                    _todayButton(habit),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: SlowlightSpacing.xl),
+            FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
+            const SizedBox(height: SlowlightSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '最近 7 天',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                FxButton(
+                  key: ValueKey('habits.details.${habit.id}'),
+                  label: expanded ? '收起详情' : '查看详情',
+                  icon: expanded
+                      ? LucideIcons.chevronUp
+                      : LucideIcons.chevronDown,
+                  size: FxButtonSize.sm,
+                  variant: FxButtonVariant.link,
+                  onPressed: () => _toggleExpanded(habit),
+                ),
+              ],
+            ),
+            const SizedBox(height: SlowlightSpacing.xs),
+            _weekDots(habit, color),
+            if (expanded) ...[
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              _stats(habit),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              _heatmap(habit, color),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              Text(
+                '最近记录',
+                style: SlowlightTypography.fieldLabel(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            ),
-            if (expanded) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .05),
-                  border: Border.all(color: color.withValues(alpha: .24)),
-                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _stats(habit),
-                    const SizedBox(height: 12),
-                    _heatmap(habit, color),
-                    const SizedBox(height: 12),
-                    Text(
-                      '最近打卡',
-                      style: SlowlightTypography.fieldLabel(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: SlowlightSpacing.md),
+              _logs(habit, color),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+              FxActionBar(
+                stackBelow: 280,
+                actions: [
+                  FxButton(
+                    label: '编辑',
+                    icon: LucideIcons.pencil,
+                    variant: FxButtonVariant.outline,
+                    size: FxButtonSize.sm,
+                    onPressed: () => _editHabit(habit),
+                  ),
+                  FxButton(
+                    label: '补卡',
+                    icon: LucideIcons.calendarPlus,
+                    variant: FxButtonVariant.outline,
+                    size: FxButtonSize.sm,
+                    onPressed: () => _backfill(habit),
+                  ),
+                  FxMenu<String>(
+                    tooltip: '更多操作',
+                    onSelected: (value) {
+                      if (value == 'delete') _delete(habit);
+                    },
+                    itemBuilder: (_) => const [
+                      FxMenuItem(
+                        value: 'delete',
+                        child: Text('删除习惯'),
+                      ),
+                    ],
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: SlowlightSpacing.xl,
+                        vertical: SlowlightSpacing.md,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(LucideIcons.ellipsis,
+                              size: SlowlightIconSize.sm),
+                          SizedBox(width: SlowlightSpacing.xs),
+                          Text('更多'),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 7),
-                    _logs(habit, color),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        FxButton(
-                          label: '编辑',
-                          icon: LucideIcons.pencil,
-                          variant: FxButtonVariant.ghost,
-                          size: FxButtonSize.sm,
-                          onPressed: () => _editHabit(habit),
-                        ),
-                        FxMenu<String>(
-                          tooltip: '更多',
-                          onSelected: (value) {
-                            if (value == 'backfill') _backfill(habit);
-                            if (value == 'delete') _delete(habit);
-                          },
-                          itemBuilder:
-                              (_) => const [
-                                FxMenuItem(
-                                  value: 'backfill',
-                                  child: Text('补卡'),
-                                ),
-                                FxMenuItem(
-                                  value: 'delete',
-                                  child: Text('删除'),
-                                ),
-                              ],
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(LucideIcons.ellipsis, size: 16),
-                                SizedBox(width: 6),
-                                Text('更多'),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ],
@@ -622,28 +649,97 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     );
   }
 
+  Widget _habitHeading(Habit habit, bool expanded, Color color) {
+    final theme = Theme.of(context);
+    return FxInkWell(
+      key: ValueKey('habits.expand.${habit.id}'),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+      onTap: () => _toggleExpanded(habit),
+      onLongPress: () => _openDetailedCheckin(habit),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(SlowlightRadius.md),
+              ),
+              child: Text(habit.icon,
+                  style: SlowlightTypography.cardTitle(context)),
+            ),
+            const SizedBox(width: SlowlightSpacing.xl),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    habit.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: SlowlightTypography.cardTitle(context),
+                  ),
+                  const SizedBox(height: SlowlightSpacing.xs),
+                  Text(
+                    _habitMeta(habit),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+              size: SlowlightIconSize.sm,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _todayButton(Habit habit) => FxButton(
+        key: ValueKey('habits.today.${habit.id}'),
+        label: habit.checkedToday ? '已记录' : '记录今天',
+        icon: habit.checkedToday
+            ? LucideIcons.circleCheck
+            : LucideIcons.check,
+        size: FxButtonSize.sm,
+        variant: habit.checkedToday
+            ? FxButtonVariant.outline
+            : FxButtonVariant.primary,
+        onPressed: _pendingHabitActions.contains(habit.id)
+            ? null
+            : () => _toggleToday(habit),
+      );
+
   Widget _stats(Habit habit) {
-    final logs = _controller.logsFor(habit.id);
     final now = DateTime.now();
-    final monthPrefix = '${now.year}-${_two(now.month)}-';
-    final monthCount =
-        logs.where((log) => log.date.startsWith(monthPrefix)).length;
-    final target =
-        habit.frequency == 'daily'
-            ? now.day
-            : (habit.targetDays <= 0 ? monthCount : habit.targetDays * 4);
-    final rate =
-        target <= 0 ? 0 : (monthCount / target * 100).clamp(0, 100).round();
+    final today = DateTime(now.year, now.month, now.day);
+    final lastSeven = List.generate(7,
+        (index) => today.subtract(Duration(days: index)));
+    final checked = habit.checkedDays.toSet();
+    final recentCount = lastSeven.where((day) =>
+        checked.contains('${day.year}-${_two(day.month)}-${_two(day.day)}'))
+        .length;
+    // 记录事实，不把不同频率的习惯统一当作“完成率”评判。
     final values = [
-      ('${habit.streakCount}', '连续'),
-      ('${habit.checkedDays.length}', '总计'),
-      ('$rate%', '本月完成率'),
+      ('${habit.streakCount}', '当前连续'),
+      ('${habit.checkedDays.length}', '已记录天数'),
+      ('$recentCount / 7', '最近七天'),
     ];
     return FxResponsiveFormGrid(
       minColumnWidth: 140,
       maxColumns: 3,
-      horizontalGap: 8,
-      verticalGap: 8,
+      horizontalGap: SlowlightSpacing.md,
+      verticalGap: SlowlightSpacing.md,
       children: values
           .map((item) => _miniStat(item.$1, item.$2))
           .toList(growable: false),
@@ -756,42 +852,59 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     final checked = habit.checkedDays.toSet();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    return Row(
-      children: List.generate(7, (index) {
-        final day = today.subtract(Duration(days: 6 - index));
-        final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
-        final active = checked.contains(key);
-        return Expanded(
-          child: Semantics(
+    const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
+    final touch = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final target = touch ? SlowlightControlSize.minTouchTarget : 36.0;
+    // Android 360dp 不能把 7 天的可点区域缩到不足 44dp。
+    // 留出独立横向滚动，不挤压右侧“记录今天”。
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: List.generate(7, (index) {
+          final day = today.subtract(Duration(days: 6 - index));
+          final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
+          final active = checked.contains(key);
+          return Semantics(
             button: true,
-            label: '${day.month}月${day.day}日${active ? '已打卡' : '未打卡'}',
+            label: '${day.month}月${day.day}日${active ? '已记录' : '未记录'}',
             child: FxInkWell(
-              borderRadius: BorderRadius.circular(999),
+              key: ValueKey('habits.week.${habit.id}.$index'),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
               onTap: () => _tapWeekDay(habit, day),
               child: SizedBox(
-                height: 44,
-                child: Center(
-                  child: Container(
-                    width: 13,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: active ? color : Colors.transparent,
-                      border: Border.all(
-                        color:
-                            active
-                                ? color
-                                : Theme.of(context).colorScheme.outline,
-                        width: 1.5,
+                width: target,
+                height: touch ? 54 : 46,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      weekdayLabels[day.weekday - 1],
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: SlowlightSpacing.xs),
+                    Container(
+                      width: 13,
+                      height: 13,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: active ? color : Colors.transparent,
+                        border: Border.all(
+                          color: active
+                              ? color
+                              : Theme.of(context).colorScheme.outline,
+                          width: _sameDay(day, today) ? 2 : 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 
@@ -896,8 +1009,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   String _habitMeta(Habit habit) {
     final parts = <String>[habit.frequencyText];
-    if (habit.specificTime.isNotEmpty) parts.add('目标 ${habit.specificTime}');
-    if (habit.streakCount > 0) parts.add('连续 🔥 ${habit.streakCount} 天');
+    if (habit.preferredPeriod.isNotEmpty) {
+      parts.add(_periodText(habit.preferredPeriod));
+    }
+    if (habit.durationMin > 0) {
+      parts.add('${habit.durationMin} 分钟');
+    }
+    if (habit.specificTime.isNotEmpty) {
+      parts.add('目标 ${habit.specificTime}');
+    }
     return parts.join(' · ');
   }
 
