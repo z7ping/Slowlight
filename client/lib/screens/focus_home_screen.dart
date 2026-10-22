@@ -656,6 +656,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
         onHabitLongPress: _openDetailedHabitCheckin,
         onViewAllTasks: () => _openTool(HomeToolSection.tasks),
         onViewAllHabits: () => _openTool(HomeToolSection.habits),
+        onViewReview: () => _openPrimary(HomePrimarySection.review),
         onQuickAdd: _quickAdd,
         onWriteObservation: _writeObservation,
         onStartFocus: _startFocus,
