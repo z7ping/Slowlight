@@ -1158,7 +1158,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         _error = _pendingCreatedTask != null
             ? '任务已创建，但其余设置尚未保存。重试只会更新原任务，不会重复创建。'
             : confirmedFailure
-                ? '创建失败：${e.message}'
+                ? '创建失败：${(e as TaskCreateException).message}'
                 : '创建结果未确认。请先查看任务列表确认是否已经生成，避免重复创建。';
       });
     }
