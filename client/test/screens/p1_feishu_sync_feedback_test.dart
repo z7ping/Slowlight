@@ -58,11 +58,10 @@ void main() {
     expect(fake.allRequests, 1);
     expect(find.text('同步中…'), findsOneWidget);
 
-    // 运行中的重复点击/并行单项提交被 disabled 阻止。
-    expect(
-      tester.widget<InkWell>(find.byType(InkWell).first).onTap,
-      isNotNull,
-    );
+    // 同步全部运行时，尝试点击单项同步不应发送第二个请求。
+    await tester.tap(find.text('任务与清单'));
+    await tester.pump();
+    expect(fake.taskRequests, 0);
     fake.reply.complete({
       'results': {'任务': 3},
       'errors': ['休息记录：飞书服务暂不可用'],
