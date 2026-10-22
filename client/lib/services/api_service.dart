@@ -134,6 +134,20 @@ class ApiService {
     throw Exception(data['error'] ?? '迁移执行失败');
   }
 
+  /// Read-only recovery lookup by the exact submitted snapshot fingerprint.
+  static Future<Map<String, dynamic>> recoverMigration(
+    Map<String, dynamic> snapshot,
+  ) async {
+    final response = await HttpUtil.post(
+      Uri.parse('$baseUrl/migration/recover'),
+      headers: await _authHeaders(),
+      body: json.encode(snapshot),
+    ).timeout(_postTimeout);
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) return data;
+    throw Exception(data['error'] ?? '尚未确认迁移结果');
+  }
+
   static Future<Map<String, dynamic>?> getLatestMigrationReport() async {
     final response = await HttpUtil.get(
             Uri.parse('$baseUrl/migration/reports/latest'),
