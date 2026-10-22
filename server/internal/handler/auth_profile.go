@@ -18,20 +18,28 @@ import (
 
 // 仅在 GitHub 首次自动注册时创建的 github_<subject>（可带冲突后缀）
 // 没有可供用户使用的密码。旧记录没有 PasswordLoginEnabled 时按绑定身份识别。
-func passwordLoginEnabled(db *gorm.DB, user model.User) bool {
+func passwordLoginEnabledChecked(db *gorm.DB, user model.User) (bool, error) {
 	if user.PasswordLoginEnabled != nil {
-		return *user.PasswordLoginEnabled
+		return *user.PasswordLoginEnabled, nil
 	}
 	var identity model.OAuthIdentity
 	err := db.Where("provider = ? AND user_id = ?", "github", user.ID).First(&identity).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, err
+	}
 	if err == nil {
 		generated := "github_" + identity.ProviderUserID
 		if user.Username == generated || strings.HasPrefix(user.Username, generated+"_") {
-			return false
+			return false, nil
 		}
 	}
 	// 旧普通账号即使绑定了 GitHub 仍保留原来的密码登录能力。
-	return err == nil || errors.Is(err, gorm.ErrRecordNotFound)
+	return true, nil
+}
+
+func passwordLoginEnabled(db *gorm.DB, user model.User) bool {
+	enabled, err := passwordLoginEnabledChecked(db, user)
+	return err == nil && enabled
 }
 
 func (h *AuthHandler) PasswordStatus(c *gin.Context) {
@@ -41,7 +49,11 @@ func (h *AuthHandler) PasswordStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "账号不存在"})
 		return
 	}
-	enabled := passwordLoginEnabled(h.DB, user)
+	enabled, err := passwordLoginEnabledChecked(h.DB, user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "账号密码状态暂时无法确认"})
+		return
+	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, gin.H{
 		"password_login_enabled": enabled,
