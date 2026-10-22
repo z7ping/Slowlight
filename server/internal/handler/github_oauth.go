@@ -314,7 +314,34 @@ func (h *GitHubOAuthHandler) Callback(c *gin.Context) {
     c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(desktopOAuthReturnHTML))
 }
 
-const desktopOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>GitHub 授权请求已接收</h1><p>请返回所行映我，等待 Windows 客户端确认登录。</p><p style="opacity:.7">如果客户端仍在等待，请点击「检查授权结果」。完成客户端验证前，这里不代表已经登录。</p></body></html>`
+const desktopOAuthReturnHTML = `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GitHub 授权已接收 · 所行映我</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;box-sizing:border-box;padding:32px 20px;background:#0b1220;color:#f8fafc;font:16px/1.65 system-ui,sans-serif;text-align:center}
+  main{max-width:580px}
+  h1{font-size:clamp(23px,5vw,30px);line-height:1.3;margin:0 0 18px}
+  p{margin:0 0 20px}
+  .return-link{display:inline-block;box-sizing:border-box;padding:11px 24px;min-height:44px;border-radius:10px;background:#437bff;color:#fff;font-weight:600;text-decoration:none}
+  .return-link:hover{background:#3569df}
+  .return-link:focus-visible{outline:2px solid #a9c4ff;outline-offset:3px}
+  .hint{margin:20px auto 0;color:#a8b2c3;font-size:14px}
+  @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<main>
+  <h1>GitHub 授权请求已接收</h1>
+  <p>返回 Windows 客户端，继续确认登录。</p>
+  <a class="return-link" href="slowlight://oauth-complete">返回所行映我</a>
+  <p class="hint">如果浏览器询问是否打开应用，请选择允许。未能唤起时，请手动切回客户端并点击「检查授权结果」。客户端完成确认前，这里不代表已经登录。</p>
+</main>
+</body>
+</html>`
 
 const androidOAuthReturnHTML = `<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slowlight 登录成功</title><body style="font:16px system-ui,sans-serif;background:#0b1220;color:#fff;text-align:center;padding:12vh 1rem"><h1>正在验证 GitHub 身份</h1><p>请返回所行映我，应用将继续检查登录结果。</p><p><a href="slowlight://oauth-complete" style="display:inline-block;background:#437bff;color:white;padding:14px 24px;border-radius:10px;text-decoration:none">返回所行映我</a></p><p style="opacity:.7">如果没有自动返回，请点击按钮。</p><script>window.location.replace("slowlight://oauth-complete");</script></body></html>`
 
