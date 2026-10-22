@@ -193,8 +193,8 @@ func TestIntegration_UserLifecycle(t *testing.T) {
 	status, body = apiRequest(t, "GET", baseURL+"/api/lists", token, nil)
 	var lists []map[string]interface{}
 	json.Unmarshal(body, &lists)
-	if len(lists) != 3 {
-		t.Errorf("默认清单数: %d, 期望 3", len(lists))
+	if len(lists) != 4 {
+		t.Errorf("默认清单数: %d, 期望 4（收集箱+工作/生活/学习）", len(lists))
 	}
 	t.Logf("✅ 默认清单 %d 个", len(lists))
 }
