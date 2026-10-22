@@ -6,6 +6,17 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 
+Set<String> existingWebhookEvents(List<dynamic> records, String target) {
+  final events = <String>{};
+  for (final item in records) {
+    if (item is Map && item['url']?.toString().trim() == target &&
+        item['event'] != null) {
+      events.add(item['event'].toString());
+    }
+  }
+  return events;
+}
+
 class WebhookEventDef {
   final String key;
   final String label;
@@ -144,13 +155,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
       // 逐次按「地址 + 事件」核对服务端已确认记录，
       // 不用旧列表推断不存在，防止批量部分成功后再次创建重复回调。
       final existing = await ApiService.getWebhooks();
-      final present = <String>{
-        for (final item in existing)
-          if (item is Map &&
-              item['url']?.toString().trim() == url &&
-              item['event'] != null)
-            item['event'].toString(),
-      };
+      final present = existingWebhookEvents(existing, url);
       for (final event in events.toSet()) {
         if (present.contains(event)) {
           skipped++;
