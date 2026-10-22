@@ -15,8 +15,11 @@ import '../widgets/habit_editor_dialog.dart';
 class HabitToolScreen extends StatefulWidget {
   final HabitRepository? repository;
   final TagLinksRepository? tagLinksRepository;
+  final Future<HabitEditorValue?> Function(BuildContext, {Habit? habit})? editor;
 
-  const HabitToolScreen({super.key, this.repository, this.tagLinksRepository});
+  const HabitToolScreen({
+    super.key, this.repository, this.tagLinksRepository, this.editor,
+  });
 
   @override
   State<HabitToolScreen> createState() => _HabitToolScreenState();
@@ -83,7 +86,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     if (_editingHabit) return;
     _editingHabit = true;
     try {
-      final value = await HabitEditorDialog.show(context);
+      final value = widget.editor == null
+          ? await HabitEditorDialog.show(context)
+          : await widget.editor!(context);
       if (value == null || !mounted) return;
       Habit created;
       try {
@@ -105,7 +110,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         _message('创建结果未确认，请先在习惯列表核对，避免重复创建：$e');
         return;
       }
-      if (value.tagIds != null &&
+      if (value.tagIds != null && value.tagIds!.isNotEmpty &&
           !await _saveHabitTags(created.id, List<int>.from(value.tagIds!), '创建')) {
         return;
       }
@@ -119,7 +124,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     if (_editingHabit) return;
     _editingHabit = true;
     try {
-      final value = await HabitEditorDialog.show(context, habit: habit);
+      final value = widget.editor == null
+          ? await HabitEditorDialog.show(context, habit: habit)
+          : await widget.editor!(context, habit: habit);
       if (value == null || !mounted) return;
       try {
         await _controller.update(
