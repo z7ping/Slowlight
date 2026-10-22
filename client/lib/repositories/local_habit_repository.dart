@@ -96,6 +96,7 @@ class LocalHabitRepository {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -112,6 +113,7 @@ class LocalHabitRepository {
       'icon': icon,
       'color': color,
       'frequency': frequency,
+      'schedule_rule': _encodeJson(scheduleRule ?? const {}),
       'target_days': targetDays,
       'system_tag_id': systemTagId,
       'preferred_period': preferredPeriod,
@@ -134,6 +136,7 @@ class LocalHabitRepository {
     String? icon,
     String? color,
     String? frequency,
+    Map<String, dynamic>? scheduleRule,
     int? targetDays,
     int? systemTagId,
     bool setSystemTag = false,
@@ -150,6 +153,7 @@ class LocalHabitRepository {
     if (icon != null) updates['icon'] = icon;
     if (color != null) updates['color'] = color;
     if (frequency != null) updates['frequency'] = frequency;
+    if (scheduleRule != null) updates['schedule_rule'] = _encodeJson(scheduleRule);
     if (targetDays != null) updates['target_days'] = targetDays;
     if (setSystemTag) updates['system_tag_id'] = systemTagId;
     if (preferredPeriod != null) updates['preferred_period'] = preferredPeriod;
