@@ -84,6 +84,7 @@
 | GET | `/api/sync/changes` |
 | POST | `/api/migration/preview` |
 | POST | `/api/migration/execute` |
+| POST | `/api/migration/recover` |
 | GET | `/api/migration/reports/latest` |
 | GET | `/api/migration/reports` |
 | GET | `/api/review/today` |
@@ -124,4 +125,4 @@
 | POST | `/api/caldav/test` |
 | GET | `/api/feishu/config` |
 
-共 117 条路由。
+共 118 条路由。
