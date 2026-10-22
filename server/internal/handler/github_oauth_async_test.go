@@ -10,6 +10,7 @@ import (
     "io"
 
     "slowlight/internal/model"
+    "slowlight/internal/secureconfig"
 )
 
 func TestGitHubOAuthCallbackReturnsBeforeProviderCompletes(t *testing.T) {
@@ -62,4 +63,46 @@ func TestGitHubOAuthCallbackReturnsBeforeProviderCompletes(t *testing.T) {
     if session.RecoveryToken != "" || session.Status != "ready" {
         t.Fatalf("temporary encrypted credential must be purged on success: %s", session.Status)
     }
+}
+
+func TestGitHubOAuthResumesOnlyEncryptedProfileRequest(t *testing.T) {
+    db := beginTx(t, setupTestDB(t))
+    t.Setenv("JWT_SECRET", "test-signing-key")
+    t.Setenv("CONFIG_ENCRYPTION_KEY", strings.Repeat("test-encryption", 3))
+    t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
+    t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
+    t.Setenv("GITHUB_OAUTH_CALLBACK_URL", "https://example.org/api/auth/github/callback")
+    profileCalls := 0
+    provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.URL.Path != "/user" { t.Errorf("never repeat one-time code exchange: %s", r.URL.Path); return }
+        profileCalls++
+        if r.Header.Get("Authorization") != "Bearer recovered-token" {
+            t.Error("encrypted temporary credential not restored correctly")
+        }
+        _, _ = io.WriteString(w, `{"id":7654322,"login":"recovered-user"}`)
+    }))
+    defer provider.Close()
+    h := NewGitHubOAuthHandler(db)
+    h.TokenURL = provider.URL + "/token"
+    h.UserURL = provider.URL + "/user"
+    router := newTestGin()
+    router.POST("/start", h.Start)
+    router.POST("/poll", h.Poll)
+    grant := parseOAuthBody(t, testOAuthRequest(t, router, "/start", map[string]string{}))
+    encrypted, err := secureconfig.Encrypt("recovered-token")
+    if err != nil { t.Fatal(err) }
+    sessionID := grant["session_id"].(string)
+    if err := db.Model(&model.OAuthLoginSession{}).Where("id = ?", sessionID).
+        Updates(map[string]interface{}{
+            "status": "retryable", "error_stage": "profile",
+            "recovery_token": encrypted, "retry_after": time.Now().Add(-time.Second),
+            "code_verifier": "", "recovery_attempts": 1,
+        }).Error; err != nil { t.Fatal(err) }
+    creds := map[string]string{"session_id": sessionID, "poll_token": grant["poll_token"].(string)}
+    _ = testOAuthRequest(t, router, "/poll", creds)
+    waitForOAuthReady(t, router, creds)
+    if profileCalls != 1 { t.Fatalf("expected one recovery profile request: %d", profileCalls) }
+    var state model.OAuthLoginSession
+    if err := db.First(&state, "id = ?", sessionID).Error; err != nil { t.Fatal(err) }
+    if state.RecoveryToken != "" { t.Fatal("encrypted temporary credential not cleared") }
 }
