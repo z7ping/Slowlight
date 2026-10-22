@@ -181,8 +181,10 @@ class TaskScheduleFields extends StatelessWidget {
       hoverColor: theme.colorScheme.onSurface.withValues(alpha: .04),
       focusColor: activePalette.accent.withValues(alpha: .08),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        constraints: BoxConstraints(minHeight: SlowlightPlatformDensity.inputMinHeight),
+        padding: EdgeInsets.symmetric(
+          horizontal: SlowlightPlatformDensity.inputHorizontalPadding,
+        ),
         decoration: BoxDecoration(
           color: fxSurface(context),
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
