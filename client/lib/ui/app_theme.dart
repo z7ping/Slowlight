@@ -836,6 +836,8 @@ ShadThemeData shadLightTheme([String? fontFamily]) {
       radius: BorderRadius.circular(SlowlightRadius.lg),
     ),
     inputTheme: _inputTheme(),
+    // Select 与 Input 共用单层边框、圆角与 Focus 视觉规范。
+    selectTheme: ShadSelectTheme(decoration: _inputTheme().decoration),
   );
 }
 
@@ -877,5 +879,7 @@ ShadThemeData shadDarkTheme([String? fontFamily]) {
       radius: BorderRadius.circular(SlowlightRadius.lg),
     ),
     inputTheme: _inputTheme(),
+    // Select 与 Input 共用单层边框、圆角与 Focus 视觉规范。
+    selectTheme: ShadSelectTheme(decoration: _inputTheme().decoration),
   );
 }
