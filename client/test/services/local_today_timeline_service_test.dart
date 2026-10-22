@@ -58,6 +58,15 @@ void main() {
     await db.insert('habit_logs', {
       'habit_id': habitId, 'date': date, 'created_at': iso,
     });
+    // 补记昨天的习惯，实际归属昨天，不能算成今天的行为。
+    final previous = now.subtract(const Duration(days: 1));
+    final previousDate =
+        '${previous.year.toString().padLeft(4, '0')}-'
+        '${previous.month.toString().padLeft(2, '0')}-'
+        '${previous.day.toString().padLeft(2, '0')}';
+    await db.insert('habit_logs', {
+      'habit_id': habitId, 'date': previousDate, 'created_at': iso,
+    });
     final sessionId = await db.insert('work_sessions', {
       'session_type': 'work',
       'started_at': now.subtract(const Duration(minutes: 25)).toUtc().toIso8601String(),

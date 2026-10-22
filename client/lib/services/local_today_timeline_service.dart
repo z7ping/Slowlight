@@ -10,7 +10,9 @@ class LocalTodayTimelineService {
     await LocalProductCoreSchema.ensureReady();
     await LocalBehaviorEventSchema.ensureReady();
     final db = await LocalDb().database;
-    final range = LocalTimeBoundary.dayRange(DateTime.now());
+    final now = DateTime.now();
+    final range = LocalTimeBoundary.dayRange(now);
+    final todayDate = LocalTimeBoundary.dateKey(now);
 
     final events = await db.rawQuery('''
       SELECT 'event:' || be.id AS id,
@@ -29,12 +31,13 @@ class LocalTodayTimelineService {
         AND be.occurred_at >= ? AND be.occurred_at < ?
         AND (
           (be.event_type = 'task_completed' AND t.id IS NOT NULL)
-          OR (be.event_type = 'habit_checked' AND h.id IS NOT NULL)
+          OR (be.event_type = 'habit_checked' AND h.id IS NOT NULL
+              AND be.metadata = ?)
           OR be.event_type = 'session_ended'
         )
       ORDER BY be.occurred_at DESC, be.id DESC
       LIMIT 60
-    ''', [range.startUtc, range.endUtc]);
+    ''', [range.startUtc, range.endUtc, '{"date":"$todayDate"}']);
 
     final reflections = await db.rawQuery('''
       SELECT 'reflection:' || id AS id, entry_type AS kind,
