@@ -396,7 +396,11 @@ class _DashboardBodyState extends State<DashboardBody> {
                     ),
           ),
           if (visible.isEmpty)
-            _empty('今天暂时没有任务')
+            _emptyWithNext(
+              '今天暂时没有任务',
+              '先写下一件想做的事',
+              widget.onQuickAdd,
+            )
           else
             ...visible.map((task) => _taskRow(task, mobile)),
         ],
@@ -562,7 +566,12 @@ class _DashboardBodyState extends State<DashboardBody> {
                     ),
           ),
           if (visible.isEmpty)
-            _empty('还没有习惯记录', compact: mobile)
+            _emptyWithNext(
+              '还没有习惯记录',
+              '去创建第一个习惯',
+              widget.onViewAllHabits,
+              compact: mobile,
+            )
           else
             ...visible.map((habit) => _habitRow(habit, mobile)),
         ],
@@ -786,6 +795,31 @@ class _DashboardBodyState extends State<DashboardBody> {
       setState(() => _ignored.add(insight.id));
     }
   }
+
+  // 空状态保留单一全局主入口；这里仅提供就近的轻量下一步链接。
+  Widget _emptyWithNext(
+    String title,
+    String action,
+    VoidCallback? onNext, {
+    bool compact = false,
+  }) => Padding(
+    padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: SlowlightTypography.secondary(context).copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        )),
+        if (onNext != null)
+          FxButton(
+            label: action,
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: onNext,
+          ),
+      ],
+    ),
+  );
 
   Widget _empty(String text, {bool compact = false}) => Padding(
     padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),

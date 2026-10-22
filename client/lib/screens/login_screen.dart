@@ -217,6 +217,13 @@ class _LoginScreenState extends State<LoginScreen> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
+        const SizedBox(height: SlowlightSpacing.sm),
+        Text(
+          '只想先在这台设备上记录？页面下方可以不登录直接开始。',
+          style: SlowlightTypography.caption(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: SlowlightSpacing.page),
         FxButton(
           key: const ValueKey('login.github_action'),
@@ -390,7 +397,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: SlowlightSpacing.xs),
         Text(
-          '本地记录不会自动上传，随时可以在设置中切换。',
+          '本机记录不会自动上传或合并。将来可在设置中选择云端数据，迁移需要主动预览并确认。',
           textAlign: TextAlign.center,
           style: SlowlightTypography.caption(context).copyWith(
             color: theme.colorScheme.onSurfaceVariant,
