@@ -122,6 +122,20 @@ func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
 		t.Fatal("PKCE verifier 与 challenge 不匹配")
 	}
 
+    // reliable 模式允许响应丢失后再次读取，且不会提前消费授权结果。
+    reliable := map[string]string{
+        "session_id": poll["session_id"],
+        "poll_token": poll["poll_token"],
+        "mode": "reliable",
+    }
+    for i := 0; i < 2; i++ {
+        received := testOAuthRequest(t, r, "/poll", reliable)
+        if received.Code != 200 { t.Fatalf("reliable poll %d: %d %s", i, received.Code, received.Body.String()) }
+        result := parseOAuthBody(t, received)
+        if result["status"] != "complete" || result["token"] == "" {
+            t.Fatalf("可靠轮询未发放 JWT: %v", result)
+        }
+    }
 	readyResponse := testOAuthRequest(t, r, "/poll", poll)
 	if readyResponse.Code != 200 { t.Fatalf("未能领取 JWT: %d %s", readyResponse.Code, readyResponse.Body.String()) }
 	ready := parseOAuthBody(t, readyResponse)
@@ -141,6 +155,43 @@ func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
 	db.Model(&model.SystemTag{}).Where("user_id = ?", id).Count(&tagCount)
 	if tagCount != 4 { t.Fatalf("默认标签应初始化 4 个: %d", tagCount) }
 	if replay := testOAuthRequest(t, r, "/poll", poll); replay.Code != 409 { t.Fatalf("授权结果不能重复领取: %d", replay.Code) }
+    // 旧客户端领取完成后，幂等 ack 不得重开授权结果。
+    ack := map[string]string{
+        "session_id": poll["session_id"],
+        "poll_token": poll["poll_token"],
+        "mode": "ack",
+    }
+    if confirmed := testOAuthRequest(t, r, "/poll", ack); confirmed.Code != 200 {
+        t.Fatalf("consumed ack must be idempotent: %d", confirmed.Code)
+    }
+
+    // 新会话仅使用 reliable + ack：确认之前可重读，确认之后不可领取。
+    nextStart := parseOAuthBody(t, testOAuthRequest(t, r, "/start", map[string]string{}))
+    nextURL, err := url.Parse(nextStart["authorization_url"].(string))
+    if err != nil { t.Fatal(err) }
+    nextCallback := httptest.NewRecorder()
+    r.ServeHTTP(nextCallback, httptest.NewRequest(http.MethodGet,
+        "/callback?state="+url.QueryEscape(nextURL.Query().Get("state"))+"&code=test-code", nil))
+    if nextCallback.Code != 200 { t.Fatalf("second callback: %d %s", nextCallback.Code, nextCallback.Body.String()) }
+    nextPoll := map[string]string{
+        "session_id": nextStart["session_id"].(string),
+        "poll_token": nextStart["poll_token"].(string),
+        "mode": "reliable",
+    }
+    if received := testOAuthRequest(t, r, "/poll", nextPoll); received.Code != 200 {
+        t.Fatalf("reliable next poll: %d", received.Code)
+    }
+    nextPoll["mode"] = "ack"
+    for i := 0; i < 2; i++ {
+        if confirmed := testOAuthRequest(t, r, "/poll", nextPoll); confirmed.Code != 200 {
+            t.Fatalf("idempotent ack attempt %d: %d", i, confirmed.Code)
+        }
+    }
+    nextPoll["mode"] = "reliable"
+    if replay := testOAuthRequest(t, r, "/poll", nextPoll); replay.Code != 409 {
+        t.Fatalf("reliable poll after ack must be rejected: %d", replay.Code)
+    }
+
 	cb2 := httptest.NewRecorder()
 	r.ServeHTTP(cb2, httptest.NewRequest(http.MethodGet, callbackPath, nil))
 	if cb2.Code != 409 { t.Fatalf("回调不能重复处理: %d", cb2.Code) }
