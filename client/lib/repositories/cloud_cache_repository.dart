@@ -360,6 +360,7 @@ class CloudCacheRepository {
         'icon': row['icon'] ?? '✅',
         'color': row['color'] ?? '#52c41a',
         'frequency': row['frequency'] ?? 'daily',
+        'schedule_rule': _jsonMap(row['schedule_rule']),
         'target_days': row['target_days'] ?? 0,
         'streak_count': row['streak_count'] ?? 0,
         'preferred_period': row['preferred_period'] ?? '',
@@ -440,6 +441,9 @@ class CloudCacheRepository {
       updates['system_tag_id'] = publicTagId == null
           ? null
           : await _localId(db, 'system_tags', publicTagId);
+    }
+    if (updates.containsKey('schedule_rule')) {
+      updates['schedule_rule'] = jsonEncode(updates['schedule_rule'] ?? const {});
     }
     if (updates.containsKey('reminder_at')) {
       updates['reminder_at'] = jsonEncode(updates['reminder_at'] ?? const {});
