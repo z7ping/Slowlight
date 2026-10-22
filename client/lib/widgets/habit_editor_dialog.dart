@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
+import '../models/habit_schedule_rule.dart';
 import '../models/observation_tag.dart';
 import '../models/tag.dart';
 import '../repositories/tag_links_repository.dart';
@@ -15,6 +16,7 @@ class HabitEditorValue {
   final String icon;
   final String color;
   final String frequency;
+  final Map<String, dynamic> scheduleRule;
   final int targetDays;
   final int? systemTagId;
   final List<int>? tagIds;
@@ -30,6 +32,7 @@ class HabitEditorValue {
     required this.icon,
     required this.color,
     required this.frequency,
+    this.scheduleRule = const {},
     required this.targetDays,
     required this.systemTagId,
     this.tagIds,
@@ -71,6 +74,19 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late String _icon;
   late String _color;
   late String _frequency;
+  late String _mode;
+  late String _unit;
+  late String _hourMode;
+  late String _reminderMode;
+  late bool _monthLast;
+  late bool _sameDayMultiple;
+  late List<int> _weekdays;
+  late List<int> _monthDays;
+  late TimeOfDay _windowStart;
+  late TimeOfDay _windowEnd;
+  late final TextEditingController _every;
+  late final TextEditingController _targetCount;
+  late final TextEditingController _anchorDate;
   int? _systemTagId;
   late String _preferredPeriod;
   late bool _generateTask;
@@ -127,6 +143,26 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _icon = habit?.icon ?? '✅';
     _color = habit?.color ?? '#52c41a';
     _frequency = habit?.frequency ?? 'daily';
+    final rule = HabitScheduleRule.fromJson(
+      habit?.scheduleRule ?? const {}, legacyFrequency: _frequency,
+    );
+    _mode = rule.kind;
+    _unit = rule.unit;
+    _hourMode = rule.hourMode;
+    _reminderMode = rule.reminderMode;
+    _monthLast = rule.lastDay;
+    _sameDayMultiple = rule.sameDayMultiple;
+    _weekdays = List.of(rule.weekdays);
+    _monthDays = List.of(rule.monthDays);
+    _every = TextEditingController(text: rule.every.toString());
+    _targetCount = TextEditingController(text: rule.targetCount.toString());
+    _anchorDate = TextEditingController(text: rule.anchorDate);
+    _windowStart = _parseTime(rule.windowStart) ?? const TimeOfDay(hour: 8, minute: 0);
+    _windowEnd = _parseTime(rule.windowEnd) ?? const TimeOfDay(hour: 22, minute: 0);
+    if (habit?.scheduleRule.isNotEmpty == true && rule.anchorTime.isNotEmpty) {
+      _specificTime = _parseTime(rule.anchorTime);
+    }
+
     _systemTagId = habit?.systemTagId;
     _preferredPeriod = habit?.preferredPeriod ?? '';
     _specificTime = _parseTime(habit?.specificTime ?? '');
@@ -134,6 +170,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _showCheckinDialog = habit?.showCheckinDialog ?? false;
 
     final reminderAt = habit?.reminderAt ?? const <String, dynamic>{};
+    if (habit?.scheduleRule.isNotEmpty == true) {
+      _reminder = _parseTime(rule.reminderTime);
+    }
+
     final hour = reminderAt['hour'] as int?;
     final minute = reminderAt['minute'] as int?;
     final enabled = reminderAt['enabled'];
@@ -155,6 +195,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _name.dispose();
     _targetDays.dispose();
     _duration.dispose();
+    _every.dispose();
+    _targetCount.dispose();
+    _anchorDate.dispose();
     super.dispose();
   }
 
@@ -200,11 +243,34 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       _icon = template['icon'] ?? '✅';
       _color = template['color'] ?? '#52c41a';
       _frequency = 'daily';
+      _mode = 'interval';
+      _unit = 'day';
+      _every.text = '1';
+      if (_name.text == '喝水') { _unit = 'hour'; _every.text = '2'; }
+      if (_name.text == '运动') { _unit = 'day'; _every.text = '3'; }
+
     });
   }
 
+  HabitScheduleRule _currentRule() => HabitScheduleRule(
+    kind: _mode, unit: _unit,
+    every: int.tryParse(_every.text.trim()) ?? 0,
+    anchorDate: _anchorDate.text.trim(),
+    anchorTime: _specificTime == null ? '08:00' : _formatTime(_specificTime!),
+    hourMode: _hourMode,
+    windowStart: _formatTime(_windowStart),
+    windowEnd: _formatTime(_windowEnd),
+    weekdays: _weekdays, monthDays: _monthDays,
+    lastDay: _monthLast,
+    targetCount: int.tryParse(_targetCount.text.trim()) ?? 0,
+    sameDayMultiple: _sameDayMultiple,
+    reminderMode: _reminderMode,
+    reminderTime: _reminder == null ? '09:00' : _formatTime(_reminder!),
+  );
+
   void _submit() {
     final name = _name.text.trim();
+    final rule = _currentRule();
     final targetText = _targetDays.text.trim();
     final durationText = _duration.text.trim();
     final target = targetText.isEmpty ? 0 : int.tryParse(targetText);
@@ -216,6 +282,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       error = '目标天数必须是 0 或正整数';
     } else if (duration == null || duration < 0) {
       error = '预期时长必须是 0 或正整数';
+    } else if (rule.validationError != null) {
+      error = rule.validationError;
     }
     if (error != null) {
       setState(() => _validationError = error);
@@ -228,7 +296,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         name: name,
         icon: _icon,
         color: _color,
-        frequency: _frequency,
+        frequency: _mode == 'interval' && rule.every == 1
+            ? const {'day': 'daily', 'week': 'weekly', 'month': 'monthly', 'year': 'yearly'}[_unit] ?? 'custom'
+            : 'custom',
+        scheduleRule: rule.toJson(),
         targetDays: target!,
         systemTagId: _systemTagId,
         tagIds: _canonicalTagsReady
@@ -321,25 +392,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       placeholder: '例如：每天阅读 20 分钟',
                     ),
                     const SizedBox(height: 14),
-                    FxFormField(
-                      label: '频率',
-                      child: FxSegmented(
-                        labels: const ['每天', '每周', '每月'],
-                        selectedIndex: switch (_frequency) {
-                          'weekly' => 1,
-                          'monthly' => 2,
-                          _ => 0,
-                        },
-                        onChanged:
-                            (index) => setState(() {
-                              _frequency =
-                                  const ['daily', 'weekly', 'monthly'][index];
-                            }),
-                        backgroundColor: fxSubtleSurface(context),
-                        selectedColor: fxSurface(context),
-                        borderRadius: SlowlightRadius.md,
-                      ),
-                    ),
+                    _buildScheduleFields(),
                     const SizedBox(height: 14),
                     FxResponsiveFormGrid(
                       minColumnWidth: 260,
@@ -516,6 +569,170 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           ],
         ),
       ),
+    );
+  }
+
+
+  Widget _buildScheduleFields() {
+    final rule = _currentRule();
+    final theme = Theme.of(context);
+    final preview = rule.preview();
+    const units = ['hour', 'day', 'week', 'month', 'year'];
+    const unitLabels = ['小时', '天', '周', '月', '年'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FxFormField(
+          label: '重复方式',
+          child: FxSegmented(
+            labels: const ['固定间隔', '指定日期', '周期目标'],
+            selectedIndex: const ['interval', 'specific', 'goal'].indexOf(_mode),
+            onChanged: (v) => setState(() {
+              _mode = const ['interval', 'specific', 'goal'][v];
+              if (_mode != 'interval' && !['week','month'].contains(_unit)) _unit = 'week';
+              if (_mode == 'goal' && _reminderMode == 'schedule') _reminderMode = 'daily';
+            }),
+            backgroundColor: fxSubtleSurface(context),
+            selectedColor: fxSurface(context),
+            borderRadius: SlowlightRadius.md,
+          ),
+        ),
+        const SizedBox(height: 12),
+        FxResponsiveFormGrid(
+          minColumnWidth: 270,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FxInput(
+                  label: _mode == 'goal' ? '每 N 周/月完成目标' : '每 N 小时/天/周/月',
+                  controller: _every,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 8),
+                FxFormField(
+                  label: '周期单位',
+                  child: FxSegmented(
+                    labels: _mode == 'interval' ? unitLabels : const ['周', '月'],
+                    selectedIndex: _mode == 'interval'
+                        ? units.indexOf(_unit).clamp(0, units.length - 1)
+                        : (_unit == 'month' ? 1 : 0),
+                    onChanged: (i) => setState(() =>
+                        _unit = _mode == 'interval' ? units[i] : const ['week','month'][i]),
+                    backgroundColor: fxSubtleSurface(context),
+                    selectedColor: fxSurface(context),
+                  ),
+                ),
+                if (_mode == 'interval' && _unit == 'hour') ...[
+                  const SizedBox(height: 12),
+                  FxFormField(
+                    label: '小时循环',
+                    child: FxSegmented(
+                      labels: const ['连续跨日', '每日时段'],
+                      selectedIndex: _hourMode == 'rolling' ? 0 : 1,
+                      onChanged: (i) => setState(() => _hourMode = i == 0 ? 'rolling' : 'window'),
+                    ),
+                  ),
+                  if (_hourMode == 'window') ...[
+                    const SizedBox(height: 8),
+                    FxResponsiveFormGrid(minColumnWidth: 120, children: [
+                      _timeField(title: '开始', value: _windowStart,
+                        onChanged: (v) { if (v != null) setState(() => _windowStart = v); }),
+                      _timeField(title: '结束（可次日）', value: _windowEnd,
+                        onChanged: (v) { if (v != null) setState(() => _windowEnd = v); }),
+                    ]),
+                  ],
+                ],
+                if (_mode == 'specific') ...[
+                  const SizedBox(height: 12),
+                  _fieldLabel(_unit == 'week' ? '星期（可多选）' : '每月日期（可多选）'),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    for (var d = 1; d <= (_unit == 'week' ? 7 : 31); d++)
+                      FxChoiceChip(
+                        label: _unit == 'week' ? const ['一','二','三','四','五','六','日'][d-1] : '$d',
+                        selected: (_unit == 'week' ? _weekdays : _monthDays).contains(d),
+                        onTap: () => setState(() {
+                          final values = _unit == 'week' ? _weekdays : _monthDays;
+                          values.contains(d) ? values.remove(d) : values.add(d);
+                        }),
+                      ),
+                  ]),
+                  if (_unit == 'month')
+                    FxSwitch(label: '每月最后一天', value: _monthLast,
+                      onChanged: (v) => setState(() => _monthLast = v)),
+                ],
+                if (_mode == 'goal') ...[
+                  const SizedBox(height: 12),
+                  FxInput(
+                    controller: _targetCount,
+                    label: '周期内完成次数',
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  FxSwitch(label: '允许同一天计入多次',
+                    value: _sameDayMultiple,
+                    onChanged: (v) => setState(() => _sameDayMultiple = v)),
+                ],
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: fxSubtleSurface(context),
+                borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                border: Border.all(color: fxBorder(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _fieldLabel('规则预览'),
+                  Text(rule.summary, style: SlowlightTypography.cardTitle(context)),
+                  const SizedBox(height: 8),
+                  if (rule.validationError != null)
+                    Text(rule.validationError!, style: SlowlightTypography.secondary(context)
+                        .copyWith(color: theme.colorScheme.error))
+                  else if (_mode == 'goal')
+                    Text('每个周期内自由安排，目标 ' + rule.targetCount.toString() + ' 次',
+                        style: SlowlightTypography.secondary(context))
+                  else
+                    for (final date in preview)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Text(
+                          HabitScheduleRule.dayKey(date) + ' ' +
+                          date.hour.toString().padLeft(2, '0') + ':' +
+                          date.minute.toString().padLeft(2, '0'),
+                          style: SlowlightTypography.secondary(context),
+                        ),
+                      ),
+                  const SizedBox(height: 5),
+                  Text('预览不等于实际提醒；漏记不顺延周期。',
+                      style: SlowlightTypography.secondary(context)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        FxInput(controller: _anchorDate, label: '起算日期（YYYY-MM-DD）',
+          keyboardType: TextInputType.datetime, onChanged: (_) => setState(() {})),
+        const SizedBox(height: 12),
+        FxFormField(
+          label: '提醒方式（与频率独立）',
+          child: FxSegmented(
+            labels: _mode == 'goal'
+                ? const ['不提醒', '每天定时'] : const ['不提醒', '按计划', '每天定时'],
+            selectedIndex: _mode == 'goal'
+                ? (_reminderMode == 'daily' ? 1 : 0)
+                : const ['off','schedule','daily'].indexOf(_reminderMode),
+            onChanged: (v) => setState(() {
+              _reminderMode = (_mode == 'goal' ? const ['off','daily'] :
+                  const ['off','schedule','daily'])[v];
+            }),
+          ),
+        ),
+      ],
     );
   }
 
