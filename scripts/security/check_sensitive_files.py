@@ -197,7 +197,16 @@ def main() -> int:
             problems.append(f"{rel}: 检测到 Windows 用户目录绝对路径")
         if UNIX_HOME_PATH_RE.search(text):
             problems.append(f"{rel}: 检测到 Linux 用户 home 绝对路径")
-        if INTERNAL_HOST_RE.search(text):
+        # Dart 的 DataMode.local 是枚举成员，不是内部主机名。
+        # 只豁免这个明确位置和词形；真实内部主机名仍保留扫描。
+        matches = [
+            match for match in INTERNAL_HOST_RE.finditer(text)
+            if not (
+                rel == "client/lib/services/data_mode_manager.dart"
+                and match.group(0).strip() == "DataMode.local"
+            )
+        ]
+        if matches:
             problems.append(f"{rel}: 检测到 .internal/.local/.lan 内部主机名")
 
     if problems:
