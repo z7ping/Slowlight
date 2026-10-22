@@ -8,7 +8,7 @@ import '../support/fx_test_host.dart';
 
 void main() {
   for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
-    testWidgets('首次进入时本地开始入口在云端账号表单之前可见：$platform', (tester) async {
+    testWidgets('首次进入保留云端优先，同时明确提示可以无需登录继续：$platform', (tester) async {
       debugDefaultTargetPlatformOverride = platform;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
       tester.view.physicalSize = platform == TargetPlatform.android
@@ -21,11 +21,10 @@ void main() {
       await tester.pump();
       final local = find.byKey(const ValueKey('login.local_action'));
       expect(local, findsOneWidget);
-      expect(find.text('现在就开始记录'), findsOneWidget);
-      expect(find.text('或使用云端账号'), findsOneWidget);
+      expect(find.textContaining('页面下方可以不登录直接开始'), findsOneWidget);
       expect(tester.getTopLeft(local).dy,
-          lessThan(tester.getTopLeft(find.text('欢迎回来')).dy));
-      expect(find.textContaining('不会自动上传或合并'), findsOneWidget);
+          greaterThan(tester.getTopLeft(find.text('欢迎回来')).dy));
+      expect(find.textContaining('迁移需要主动预览并确认'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
