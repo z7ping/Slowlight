@@ -238,7 +238,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             Align(
               alignment: Alignment.centerRight,
               child: FxButton(
-                label: _retryingId == id ? '重试中…' : '重试迁移',
+                label: _retryingId == id ? '核对中…' : '核对并恢复',
                 icon: LucideIcons.refreshCw,
                 variant: FxButtonVariant.outline,
                 size: FxButtonSize.sm,
@@ -263,9 +263,9 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
             : theme.colorScheme.primary;
     final label =
         failed
-            ? '失败'
+            ? '待核对'
             : running
-            ? '执行中'
+            ? '结果未确认'
             : '成功';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
@@ -307,21 +307,17 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   }
 
   Future<void> _retry(Map<String, dynamic> report) async {
-    if (!DataModeManager().isCloud) {
-      _message('重试需要切换到云端并登录');
-      return;
-    }
-    final id = (report['id'] as num?)?.toInt();
+     final id = (report['id'] as num?)?.toInt();
     if (id == null) return;
     setState(() => _retryingId = id);
     try {
-      await MigrationService().retryLocalReport(id);
+      await MigrationService().recoverReport(id);
       if (!mounted) return;
-      _message('迁移重试成功');
+      _message('已核对原始云端回执并恢复本机映射');
       _reload();
     } catch (error) {
       if (mounted) {
-        _message('重试失败：$error');
+        _message('尚未确认云端已提交，不会再次导入：$error');
         _reload();
       }
     } finally {
