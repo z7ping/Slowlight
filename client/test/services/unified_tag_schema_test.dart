@@ -1,6 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:slowlight/repositories/local_tag_repository.dart';
+import 'package:slowlight/repositories/observation_tag_repository.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/local_db.dart';
@@ -98,6 +102,37 @@ void main() {
       isNotEmpty,
       reason: '历史数据必须保留',
     );
+  });
+
+  test('本地管理标签新建、重命名、删除均同步 canonical 选择器', () async {
+    SharedPreferences.setMockInitialValues({});
+    DataModeManager().resetForTesting();
+    await DataModeManager().setLocal();
+    addTearDown(() => DataModeManager().resetForTesting());
+
+    final manager = ObservationTagRepository();
+    final choices = LocalTagRepository();
+    final created = await manager.create(
+      name: '项目复盘', icon: '✍️', color: '#223344',
+    );
+    final db = await LocalDb().database;
+    final alias = await db.query('legacy_system_tag_aliases',
+        where: 'system_tag_id = ?', whereArgs: [created.id]);
+    expect(alias, hasLength(1));
+    final canonicalId = alias.single['tag_id'];
+    expect((await choices.getAll()).where((tag) => tag.id == canonicalId)
+        .single.name, '项目复盘');
+
+    await manager.update(created,
+        name: '日常复盘', icon: '✍️', color: '#445566');
+    final updated = (await choices.getAll())
+        .singleWhere((tag) => tag.id == canonicalId);
+    expect(updated.name, '日常复盘');
+    expect(updated.color, '#445566');
+
+    await manager.delete(created);
+    expect((await choices.getAll()).where((tag) => tag.id == canonicalId),
+        isEmpty);
   });
 
   test('本地关联表重复建表不报错，未关联标签也可保留', () async {
