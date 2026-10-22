@@ -101,8 +101,14 @@ class FxInput extends StatelessWidget {
           ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
       trailing: trailing,
-      // shadcn_ui 默认将文字与占位符顶端对齐，单行需要显式居中。
-      alignment: multiline ? Alignment.topLeft : Alignment.centerLeft,
+      // v0.26.5 没有 ShadInput.alignment；输入文本从内部 Stack 顶端布局。
+      // 单行在内部使用对称留白，使文字、光标与居中占位符真正对齐。
+      // 显式 contentPadding 的特殊字段保留原有几何；多行仍从顶部开始。
+      inputPadding: !multiline && contentPadding == null
+          ? EdgeInsets.symmetric(
+              vertical: SlowlightPlatformDensity.singleLineInputVerticalPadding,
+            )
+          : null,
       placeholderAlignment: multiline ? Alignment.topLeft : Alignment.centerLeft,
       // 把约束直接交给 ShadInput，确保边框与内部编辑区域同高；
       // 多行不限制高度，维持原有顶部对齐及自动增长行为。
