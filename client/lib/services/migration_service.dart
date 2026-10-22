@@ -144,6 +144,20 @@ class MigrationService {
     }
   }
 
+  /// Query the receipt without re-executing an import, then restore local IDs.
+  Future<Map<String, dynamic>> recoverReport(int localReportId) async {
+    final store = LocalMigrationReportStore();
+    final snapshot = await store.retrySnapshot(localReportId);
+    if (snapshot == null) {
+      throw StateError('没有可恢复的迁移快照，或迁移记录已经完成');
+    }
+    final result = await ApiService.recoverMigration(snapshot);
+    _verifyIdMap(snapshot, result['id_map']);
+    await _applyIdMap(result['id_map']);
+    await store.succeed(localReportId, result);
+    return result;
+  }
+
   /// A 200 response with a partial mapping must not be reported as a successful import.
   void _verifyIdMap(Map<String, dynamic> snapshot, Object? rawMap) {
     if (rawMap is! Map) {
