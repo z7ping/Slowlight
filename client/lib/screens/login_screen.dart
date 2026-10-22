@@ -217,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.sm),
+        const SizedBox(height: SlowlightSpacing.md),
         Text(
           '只想先在这台设备上记录？页面下方可以不登录直接开始。',
           style: SlowlightTypography.caption(context).copyWith(
