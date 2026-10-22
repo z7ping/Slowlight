@@ -60,7 +60,11 @@ void main() {
         await tester.pump();
 
         final fields = find.byType(FxInput);
+        final minimum = platform == TargetPlatform.android ? 44.0 : 36.0;
         for (var index = 0; index < 4; index++) {
+          // 防止仅调整文字位置却将输入框压成截图中的细条。
+          expect(tester.getSize(fields.at(index)).height,
+              greaterThanOrEqualTo(minimum));
           final fieldCenter = tester.getRect(fields.at(index)).center.dy;
           final editable = find.descendant(
             of: fields.at(index),
