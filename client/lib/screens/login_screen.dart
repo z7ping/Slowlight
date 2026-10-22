@@ -82,6 +82,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   : _nicknameController.text.trim(),
         );
       }
+      // 使用密码登录成功后，取消尚未确认的 GitHub 会话，避免下次启动切换账号。
+      try {
+        await GitHubSignIn.cancelPendingAuthorization();
+      } catch (_) {
+        // 已完成的账号登录不应被临时授权清理失败撤销。
+      }
       await DataModeManager().setCloud();
       authStateNotifier.value = !authStateNotifier.value;
       if (mounted) {
@@ -158,6 +164,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _useLocal() async {
     setState(() => _isLoading = true);
     try {
+      // 用户主动进入本地模式，必须同步放弃待恢复 GitHub 会话。
+      await GitHubSignIn.cancelPendingAuthorization();
       await DataModeManager().setLocal();
       await AuthService.initLocalUser();
       authStateNotifier.value = !authStateNotifier.value;
