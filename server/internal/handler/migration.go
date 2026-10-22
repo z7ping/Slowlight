@@ -128,6 +128,8 @@ type MigrationConflict struct {
 	LocalID uint   `json:"local_id"`
 	Name    string `json:"name"`
 	Reason  string `json:"reason"`
+	RemoteID uint `json:"remote_id,omitempty"`
+	RemoteVersion string `json:"remote_version,omitempty"`
 }
 
 func (s MigrationSnapshot) Summary() map[string]int {
@@ -194,11 +196,11 @@ func (h *MigrationHandler) PreviewMigration(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "迁移数据格式无效"})
 		return
 	}
-	conflicts := make([]MigrationConflict, 0)
-	h.collectListConflicts(userID, snapshot.Lists, &conflicts)
-	h.collectNamedConflicts(userID, "tag", snapshot.Tags, &conflicts)
-	h.collectNamedConflicts(userID, "system_tag", snapshot.SystemTags, &conflicts)
-	h.collectHabitConflicts(userID, snapshot.Habits, &conflicts)
+	conflicts, collectErr := h.collectMigrationConflicts(userID, snapshot)
+	if collectErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "云端冲突读取失败，请稍后重试"})
+		return
+	}
     // A new preview must not offer execution if this source has already uploaded
     // a different snapshot. The exact fingerprint is checked during execute.
     payload, _ := json.Marshal(snapshot)
@@ -274,12 +276,10 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
         if !errors.Is(check.Error, gorm.ErrRecordNotFound) {
             return check.Error
         }
-		conflicts = make([]MigrationConflict, 0)
 		locked := MigrationHandler{DB: tx}
-		locked.collectListConflicts(userID, snapshot.Lists, &conflicts)
-		locked.collectNamedConflicts(userID, "tag", snapshot.Tags, &conflicts)
-		locked.collectNamedConflicts(userID, "system_tag", snapshot.SystemTags, &conflicts)
-		locked.collectHabitConflicts(userID, snapshot.Habits, &conflicts)
+		var collectErr error
+		conflicts, collectErr = locked.collectMigrationConflicts(userID, snapshot)
+		if collectErr != nil { return collectErr }
 		if snapshot.PreviewVersion != "" && migrationPreviewVersion(snapshot, conflicts) != snapshot.PreviewVersion {
 			return errStalePreview
 		}
@@ -677,46 +677,40 @@ func (h *MigrationHandler) backupMigrationName(tx *gorm.DB, userID uint, table, 
 	return tx.Table(table).Where("user_id = ? AND name = ?", userID, name).Update("name", backup).Error
 }
 
-func (h *MigrationHandler) collectListConflicts(userID uint, items []MigrationList, conflicts *[]MigrationConflict) {
-	for _, item := range items {
-		if strings.TrimSpace(item.Name) == "" {
-			continue
+// collectMigrationConflicts reads the real remote row ID and version.
+// The preview token changes if a concurrent device edits or replaces a same-name row.
+func (h *MigrationHandler) collectMigrationConflicts(userID uint, snapshot MigrationSnapshot) ([]MigrationConflict, error) {
+	conflicts := make([]MigrationConflict, 0)
+	lookup := func(table, entity string, localID uint, name string) error {
+		if strings.TrimSpace(name) == "" { return nil }
+		var row struct {
+			ID uint
+			UpdatedAt time.Time
 		}
-		var count int64
-		h.DB.Model(&model.List{}).Where("user_id = ? AND name = ?", userID, item.Name).Count(&count)
-		if count > 0 {
-			*conflicts = append(*conflicts, MigrationConflict{Entity: "list", LocalID: item.LocalID, Name: item.Name, Reason: "云端存在同名记录"})
+		err := h.DB.Table(table).Select("id, updated_at").
+			Where("user_id = ? AND name = ? AND deleted_at IS NULL", userID, name).
+			Order("id ASC").Limit(1).Scan(&row).Error
+		if err != nil { return err }
+		if row.ID != 0 {
+			conflicts = append(conflicts, MigrationConflict{
+				Entity: entity, LocalID: localID, Name: name,
+				Reason: "云端存在同名记录", RemoteID: row.ID,
+				RemoteVersion: row.UpdatedAt.UTC().Format(time.RFC3339Nano),
+			})
 		}
+		return nil
 	}
-}
-
-func (h *MigrationHandler) collectNamedConflicts(userID uint, entity string, items []MigrationTag, conflicts *[]MigrationConflict) {
-	for _, item := range items {
-		if strings.TrimSpace(item.Name) == "" {
-			continue
-		}
-		var count int64
-		switch entity {
-		case "tag":
-			h.DB.Model(&model.Tag{}).Where("user_id = ? AND name = ?", userID, item.Name).Count(&count)
-		case "system_tag":
-			h.DB.Model(&model.SystemTag{}).Where("user_id = ? AND name = ?", userID, item.Name).Count(&count)
-		}
-		if count > 0 {
-			*conflicts = append(*conflicts, MigrationConflict{Entity: entity, LocalID: item.LocalID, Name: item.Name, Reason: "云端存在同名记录"})
-		}
+	for _, item := range snapshot.Lists {
+		if err := lookup("lists", "list", item.LocalID, item.Name); err != nil { return nil, err }
 	}
-}
-
-func (h *MigrationHandler) collectHabitConflicts(userID uint, items []MigrationHabit, conflicts *[]MigrationConflict) {
-	for _, item := range items {
-		if strings.TrimSpace(item.Name) == "" {
-			continue
-		}
-		var count int64
-		h.DB.Model(&model.Habit{}).Where("user_id = ? AND name = ?", userID, item.Name).Count(&count)
-		if count > 0 {
-			*conflicts = append(*conflicts, MigrationConflict{Entity: "habit", LocalID: item.LocalID, Name: item.Name, Reason: "云端存在同名记录"})
-		}
+	for _, item := range snapshot.Tags {
+		if err := lookup("tags", "tag", item.LocalID, item.Name); err != nil { return nil, err }
 	}
+	for _, item := range snapshot.SystemTags {
+		if err := lookup("system_tags", "system_tag", item.LocalID, item.Name); err != nil { return nil, err }
+	}
+	for _, item := range snapshot.Habits {
+		if err := lookup("habits", "habit", item.LocalID, item.Name); err != nil { return nil, err }
+	}
+	return conflicts, nil
 }
