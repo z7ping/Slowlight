@@ -388,7 +388,9 @@ class _DashboardBodyState extends State<DashboardBody> {
         children: [
           FxSectionHeader(
             title: '今天的轨迹',
-            trailing: _timelineLoading ? '读取中' : '${_timeline.length} 条记录',
+            trailing: _timelineLoadFailed
+                ? '读取失败'
+                : _timelineLoading ? '读取中' : '${_timeline.length} 条记录',
             trailingWidget: widget.onViewReview == null
                 ? null
                 : FxButton(
@@ -506,6 +508,9 @@ class _DashboardBodyState extends State<DashboardBody> {
             _empty('正在读取四维统计…')
           else if (_dimensions.isEmpty)
             _empty('还没有四维行为记录')
+          else if (_dimensions.every((item) =>
+              (item['active_days'] as List? ?? const []).isEmpty))
+            _empty('最近 7 天还没有归属四维的行为足迹')
           else
             LayoutBuilder(
               builder: (context, constraints) {
