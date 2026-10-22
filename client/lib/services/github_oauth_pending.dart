@@ -11,6 +11,9 @@ class GitHubOAuthPending {
     required this.pollToken,
     required this.expiresAt,
     required this.endpoint,
+    this.flow = 'browser',
+    this.userCode = '',
+    this.verificationUri = '',
   });
 
   static const storageKey = 'github_oauth_pending';
@@ -20,6 +23,9 @@ class GitHubOAuthPending {
   final String pollToken;
   final DateTime expiresAt;
   final String endpoint;
+  final String flow;
+  final String userCode;
+  final String verificationUri;
 
   bool get isValid =>
       sessionId.isNotEmpty &&
@@ -32,6 +38,9 @@ class GitHubOAuthPending {
         'poll_token': pollToken,
         'expires_at': expiresAt.toUtc().millisecondsSinceEpoch,
         'endpoint': endpoint,
+        'flow': flow,
+        'user_code': userCode,
+        'verification_uri': verificationUri,
       };
 
   static GitHubOAuthPending? fromJson(Object? data) {
@@ -47,6 +56,11 @@ class GitHubOAuthPending {
       pollToken: pollToken,
       expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAt, isUtc: true),
       endpoint: endpoint,
+      flow: data['flow'] is String ? data['flow'] as String : 'browser',
+      userCode: data['user_code'] is String ? data['user_code'] as String : '',
+      verificationUri: data['verification_uri'] is String
+          ? data['verification_uri'] as String
+          : '',
     );
     return pending.isValid ? pending : null;
   }
