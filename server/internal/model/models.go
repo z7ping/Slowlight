@@ -12,6 +12,8 @@ type User struct {
 	Username  string         `json:"username" gorm:"size:50;uniqueIndex;not null"`
 	Email     string         `json:"email" gorm:"size:100;uniqueIndex;not null"`
 	Password  string         `json:"-" gorm:"size:255;not null"` // 不返回密码
+	// NULL = 历史数据；历史 GitHub 自动账号需要按 OAuth 身份回退识别。
+	PasswordLoginEnabled *bool `json:"-"`
 	Nickname  string         `json:"nickname" gorm:"size:50;default:''"`
 	Avatar    string         `json:"avatar" gorm:"size:255;default:''"`
 	Timezone  string         `json:"timezone" gorm:"size:50;default:'Asia/Shanghai'"`
