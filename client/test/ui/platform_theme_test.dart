@@ -44,6 +44,16 @@ void main() {
     );
   });
 
+  test('ShadSelect 与 ShadInput 共用边框及单层焦点视觉', () {
+    for (final theme in [shadLightTheme(), shadDarkTheme()]) {
+      final inputDecoration = theme.inputTheme.decoration;
+      final selectDecoration = theme.selectTheme.decoration;
+      expect(selectDecoration?.disableSecondaryBorder, isTrue);
+      expect(selectDecoration?.border, inputDecoration?.border);
+      expect(selectDecoration?.focusedBorder, inputDecoration?.focusedBorder);
+    }
+  });
+
   test('Android Material 与 Shad Theme 使用移动端可读字号', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
