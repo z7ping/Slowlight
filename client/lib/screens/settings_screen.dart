@@ -27,6 +27,30 @@ import 'migration_preview_dialog.dart';
 import 'reminder_screen.dart';
 
 /// GitHub OAuth 创建用户时服务端采用内部邮箱占位符，并非用户邮箱。
+Widget githubBrandMark(BuildContext context, {double size = 44}) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  final background = dark ? Colors.white : const Color(0xFF181717);
+  final foreground = dark ? const Color(0xFF181717) : Colors.white;
+  return Container(
+    width: size,
+    height: size,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: background,
+    ),
+    child: Text(
+      'GH',
+      style: TextStyle(
+        color: foreground,
+        fontSize: size * .30,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -.4,
+      ),
+    ),
+  );
+}
+
 String accountEmailLabel(String email) {
   if (email.trim().isEmpty ||
       email.toLowerCase().endsWith('@oauth.slowlight.invalid')) {
@@ -384,11 +408,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: '登录方式',
               subtitle: '登录云端账号后，可关联 GitHub 作为登录方式',
               child: responsiveRow(
-                leading: CircleAvatar(
-                  radius: 22,
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  child: Icon(LucideIcons.github, color: subtle, size: 22),
-                ),
+                leading: githubBrandMark(context),
                 content: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -559,15 +579,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 responsiveRow(
-                  leading: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    child: Icon(
-                      LucideIcons.github,
-                      color: theme.colorScheme.onSurface,
-                      size: 23,
-                    ),
-                  ),
+                  leading: githubBrandMark(context),
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
