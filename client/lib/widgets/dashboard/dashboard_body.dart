@@ -27,6 +27,8 @@ class DashboardBody extends StatefulWidget {
   final VoidCallback? onRefresh;
   final ValueChanged<Insight>? onInsightAction;
   final int refreshTick;
+  final Future<Map<String, dynamic>> Function()? dimensionLoader;
+  final Future<Map<String, dynamic>> Function()? reviewLoader;
 
   const DashboardBody({
     super.key,
@@ -44,6 +46,8 @@ class DashboardBody extends StatefulWidget {
     this.onRefresh,
     this.onInsightAction,
     this.refreshTick = 0,
+    this.dimensionLoader,
+    this.reviewLoader,
   });
 
   @override
@@ -51,8 +55,10 @@ class DashboardBody extends StatefulWidget {
 }
 
 class _DashboardBodyState extends State<DashboardBody> {
-  bool _loading = true;
-  String? _error;
+  bool _dimensionLoading = true;
+  bool _reviewLoading = true;
+  bool _dimensionLoadFailed = false;
+  bool _reviewLoadFailed = false;
   List<Map<String, dynamic>> _dimensions = const [];
   List<Insight> _insights = const [];
   Map<String, dynamic> _facts = const {};
@@ -70,45 +76,66 @@ class _DashboardBodyState extends State<DashboardBody> {
     if (oldWidget.refreshTick != widget.refreshTick) _load();
   }
 
+  int _loadVersion = 0;
+
   Future<void> _load() async {
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
-    try {
-      final values = await Future.wait<dynamic>([
-        AnalyticsApi.getDimensionSummary(),
-        ReviewApi.getTodayReview(),
-      ]);
-      if (!mounted) return;
-      final dimensionData = values[0] as Map<String, dynamic>;
-      final reviewData = values[1] as Map<String, dynamic>;
-      setState(() {
-        _dimensions = (dimensionData['dimensions'] as List? ?? const [])
+    final version = ++_loadVersion;
+    if (mounted) setState(() {
+      _dimensionLoading = true;
+      _reviewLoading = true;
+      _dimensionLoadFailed = false;
+      _reviewLoadFailed = false;
+    });
+
+    // 独立完成/报错：任意一个辅助接口迟迟未返回，也不能阻塞另一个区域。
+    Future<void> loadDimensions() async {
+      List<Map<String, dynamic>>? parsed;
+      try {
+        final data = await (widget.dimensionLoader ?? AnalyticsApi.getDimensionSummary)();
+        parsed = (data['dimensions'] as List? ?? const [])
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
             .take(4)
             .toList(growable: false);
-        _insights = (reviewData['questions'] as List? ?? const [])
+      } catch (_) {
+        // 失败不是空数据，不覆盖上次成功读取的结果。
+      }
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _dimensionLoading = false;
+        _dimensionLoadFailed = parsed == null;
+        if (parsed != null) _dimensions = parsed;
+      });
+    }
+
+    Future<void> loadReview() async {
+      List<Insight>? insights;
+      Map<String, dynamic>? facts;
+      try {
+        final data = await (widget.reviewLoader ?? ReviewApi.getTodayReview)();
+        insights = (data['questions'] as List? ?? const [])
             .whereType<Map>()
             .take(1)
             .map((item) => Insight.fromJson(Map<String, dynamic>.from(item)))
             .toList(growable: false);
-        _facts =
-            reviewData['facts'] is Map
-                ? Map<String, dynamic>.from(reviewData['facts'] as Map)
-                : <String, dynamic>{};
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
+        facts = data['facts'] is Map
+            ? Map<String, dynamic>.from(data['facts'] as Map)
+            : <String, dynamic>{};
+      } catch (_) {
+        // 今日提问与四维统计各自退化，不遮挡任务/习惯。
+      }
+      if (!mounted || version != _loadVersion) return;
       setState(() {
-        _error = e.toString();
-        _loading = false;
+        _reviewLoading = false;
+        _reviewLoadFailed = insights == null;
+        if (insights != null) {
+          _insights = insights;
+          _facts = facts ?? <String, dynamic>{};
+        }
       });
     }
+
+    await Future.wait([loadDimensions(), loadReview()]);
   }
 
   Widget _card(Widget child, {EdgeInsetsGeometry? padding}) {
@@ -127,8 +154,7 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return _skeleton();
-    if (_error != null) return _errorView();
+    // 首次进入时核心任务与习惯立即可用，辅助数据缓慢/失败不挡主页面。
     final desktop = ResponsiveLayout.isDesktopOrWider(context);
     return FxRefresh(
       onRefresh: () async {
@@ -253,7 +279,11 @@ class _DashboardBodyState extends State<DashboardBody> {
         children: [
           const FxSectionHeader(title: '四维足迹', trailing: '近 7 天'),
           const SizedBox(height: 10),
-          if (_dimensions.isEmpty)
+          if (_dimensionLoadFailed)
+            _partialUnavailable('四维统计暂时不可用')
+          else if (_dimensionLoading && _dimensions.isEmpty)
+            _empty('正在读取四维统计…')
+          else if (_dimensions.isEmpty)
             _empty('还没有四维行为记录')
           else
             LayoutBuilder(
@@ -678,6 +708,20 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
+  Widget _partialUnavailable(String message) => Row(
+    children: [
+      Expanded(
+        child: Text(message, style: SlowlightTypography.secondary(context)),
+      ),
+      FxButton(
+        label: '重试',
+        size: FxButtonSize.sm,
+        variant: FxButtonVariant.ghost,
+        onPressed: _load,
+      ),
+    ],
+  );
+
   Widget _questionCard() {
     final theme = Theme.of(context);
     final mobile = !ResponsiveLayout.isDesktopOrWider(context);
@@ -685,7 +729,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         .where((item) => !_ignored.contains(item.id))
         .take(1)
         .toList(growable: false);
-    final insight = visible.isEmpty ? null : visible.first;
+    final insight = _reviewLoadFailed || visible.isEmpty ? null : visible.first;
     return _card(
       FxInkWell(
         borderRadius: BorderRadius.circular(SlowlightRadius.lg),
@@ -701,8 +745,10 @@ class _DashboardBodyState extends State<DashboardBody> {
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             ),
             const SizedBox(height: 8),
-            Text(
-              insight?.content ?? '今天暂时没有特别需要关注的变化。',
+            if (_reviewLoadFailed)
+              _partialUnavailable('今日提问暂时无法读取')
+            else Text(
+              insight?.content ?? (_reviewLoading ? '正在读取今日提问…' : '今天暂时没有特别需要关注的变化。'),
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
               style: SlowlightTypography.secondary(context).copyWith(
@@ -804,35 +850,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     }
   }
 
-  Widget _skeleton() => ListView(
-    padding: const EdgeInsets.all(20),
-    children: List.generate(
-      4,
-      (index) => Container(
-        height: index == 0 ? 64 : 150,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.warmGray300.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(SlowlightRadius.lg),
-        ),
-      ),
-    ),
-  );
 
-  Widget _errorView() => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('今天的数据加载失败'),
-        const SizedBox(height: 10),
-        FxButton(
-          label: '重试',
-          variant: FxButtonVariant.secondary,
-          onPressed: _load,
-        ),
-      ],
-    ),
-  );
 }
 
 class _MobileTaskSwipeRow extends StatefulWidget {
