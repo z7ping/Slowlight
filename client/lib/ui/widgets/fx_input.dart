@@ -101,7 +101,15 @@ class FxInput extends StatelessWidget {
           ).copyWith(color: theme.colorScheme.onSurfaceVariant),
       leading: leading,
       trailing: trailing,
-      // 单行最小高度由 ShadInputTheme 约束；多行保留编辑区垂直留白。
+      // shadcn_ui 默认将文字与占位符顶端对齐，单行需要显式居中。
+      alignment: multiline ? Alignment.topLeft : Alignment.centerLeft,
+      placeholderAlignment: multiline ? Alignment.topLeft : Alignment.centerLeft,
+      // 把约束直接交给 ShadInput，确保边框与内部编辑区域同高；
+      // 多行不限制高度，维持原有顶部对齐及自动增长行为。
+      constraints: multiline
+          ? null
+          : BoxConstraints(minHeight: SlowlightPlatformDensity.inputMinHeight),
+      // 单行采用组件内部高度约束；多行保留编辑区垂直留白。
       // 显式 contentPadding 仅供已确认的特殊场景使用。
       padding: contentPadding ??
           (multiline
@@ -112,8 +120,6 @@ class FxInput extends StatelessWidget {
               : null),
     );
 
-    // 单行最小高度由 ShadInputTheme 施加到输入组件内部，
-    // 避免外层撑高边框而文本仍停留在顶部。
     final field = input;
 
     if (label == null) return field;
