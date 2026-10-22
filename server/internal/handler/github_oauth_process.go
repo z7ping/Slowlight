@@ -29,7 +29,7 @@ func (h *GitHubOAuthHandler) processOAuthCallback(session model.OAuthLoginSessio
         h.oauthFailed(session.ID, "config", "oauth_config_invalid", started)
         return
     }
-    token, err := h.exchangeToken(ctx, clientID, secret, callback, code, session.CodeVerifier)
+    token, err := h.exchangeToken(oauthLogContext(ctx, session.ID), clientID, secret, callback, code, session.CodeVerifier)
     if err != nil {
         h.oauthFailedFromError(session.ID, "token", "github_unavailable", started, err)
         return
@@ -77,7 +77,7 @@ func (h *GitHubOAuthHandler) processOAuthRecovery(sessionID string) {
 
 func (h *GitHubOAuthHandler) finishGitHubIdentity(ctx context.Context, session model.OAuthLoginSession, token string, started time.Time) {
     h.oauthStage(session.ID, "profile")
-    profile, err := h.loadProfile(ctx, token)
+    profile, err := h.loadProfile(oauthLogContext(ctx, session.ID), token)
     if err != nil {
         var oauthErr *githubOAuthError
         if errors.As(err, &oauthErr) && oauthErr.Code == "github_profile_unavailable" &&
@@ -124,7 +124,14 @@ func (h *GitHubOAuthHandler) finishGitHubIdentity(ctx context.Context, session m
         oauthHash(session.ID)[:12], time.Since(started).Milliseconds())
 }
 
+type oauthRequestSessionKey struct{}
+
+func oauthLogContext(ctx context.Context, sessionID string) context.Context {
+    return context.WithValue(ctx, oauthRequestSessionKey{}, oauthHash(sessionID)[:12])
+}
+
 func (h *GitHubOAuthHandler) oauthStage(sessionID, stage string) {
+    log.Printf("github oauth stage=%s session=%s", stage, oauthHash(sessionID)[:12])
     h.DB.Model(&model.OAuthLoginSession{}).
         Where("id = ? AND status = ?", sessionID, "processing").
         Update("error_stage", stage)
