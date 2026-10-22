@@ -201,6 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _isLoading = false;
           _githubAuthorizing = false;
+          _githubFinishing = false;
         });
       }
     }
