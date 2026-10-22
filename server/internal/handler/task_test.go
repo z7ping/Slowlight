@@ -52,7 +52,7 @@ func TestCreateTask(t *testing.T) {
 	body := map[string]interface{}{
 		"list_id":  list.ID,
 		"title":    "写单元测试",
-		"priority": "high",
+		"priority": "urgent_important",
 	}
 	jsonBody, _ := json.Marshal(body)
 
@@ -71,7 +71,7 @@ func TestCreateTask(t *testing.T) {
 	}
 
 	assertEqual(t, task.Title, "写单元测试", "Title")
-	assertEqual(t, task.Priority, "high", "Priority")
+	assertEqual(t, task.Priority, "urgent_important", "Priority")
 	assertEqual(t, task.UserID, user.ID, "UserID")
 	assertEqual(t, task.ListID, list.ID, "ListID")
 }

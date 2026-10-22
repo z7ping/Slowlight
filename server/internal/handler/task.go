@@ -157,7 +157,11 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 	tagIDs := task.TagIDs
 
 	if err := h.DB.Create(&task).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// 只返回明确的写入失败标识，避免泄漏数据库内部信息。
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": "task_create_db_error",
+			"error": "任务保存失败，请稍后重试",
+		})
 		return
 	}
 
