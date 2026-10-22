@@ -57,7 +57,7 @@ class _RejectedCreateService implements DataService {
   dynamic noSuchMethod(Invocation invocation) {
     if (invocation.memberName == #getLists) {
       return Future<List<TodoList>>.value([
-        TodoList(id: 1, name: '收集箱', createdAt: DateTime(2026)),
+        TodoList(id: 1, name: '收集箱', color: '#3B82F6', createdAt: DateTime(2026)),
       ]);
     }
     if (invocation.memberName == #createTask) {
