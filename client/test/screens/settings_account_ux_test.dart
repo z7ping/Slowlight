@@ -46,4 +46,32 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('Windows 双栏不重复内容页头，并使用 24px 外边距展开右侧内容',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(const {});
+    await DataModeManager().setLocal();
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1184, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(initialSection: 'account'),
+    ));
+    await tester.pump();
+
+    expect(find.text('管理账号、登录方式与身份关联'), findsNothing);
+    final card = tester.getRect(
+      find.byKey(const ValueKey('settings.account.personal')),
+    );
+    // 1184px 窗口未触发 1180px 上限，右侧内容应贴合 24px 页面外边距，
+    // 不再被旧的 1050px 居中容器和 820px 二次限宽收窄。
+    expect(card.right, closeTo(1160, 3));
+    expect(card.left, lessThan(290));
+    expect(card.top, lessThan(150));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
