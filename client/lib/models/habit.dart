@@ -7,6 +7,7 @@ class Habit {
   final String icon;
   final String color;
   final String frequency;
+  final Map<String, dynamic> scheduleRule;
   final int targetDays;
   final int streakCount;
   final String preferredPeriod;
@@ -27,6 +28,7 @@ class Habit {
     this.icon = '✅',
     this.color = '#52c41a',
     this.frequency = 'daily',
+    this.scheduleRule = const {},
     this.targetDays = 0,
     this.streakCount = 0,
     this.preferredPeriod = '',
@@ -49,6 +51,7 @@ class Habit {
       icon: json['icon'] ?? '✅',
       color: json['color'] ?? '#52c41a',
       frequency: json['frequency'] ?? 'daily',
+      scheduleRule: _parseReminderAt(json['schedule_rule']),
       targetDays: json['target_days'] ?? 0,
       streakCount: json['streak_count'] ?? 0,
       preferredPeriod: json['preferred_period'] ?? '',
