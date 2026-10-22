@@ -42,6 +42,12 @@ class _FeishuScreenState extends State<FeishuScreen> {
 
   bool get _cloud => DataModeManager().isCloud;
 
+  /// 所有可能修改外部平台数据的操作共用互斥门禁。
+  /// 避免「同步全部」与单项同步/导入/创建模板同时提交。
+  bool get _busyWithFeishu => _isSaving || _isCreatingTemplate ||
+      _isConnecting || _isSyncingAll || _isSyncing || _isSyncingSessions ||
+      _isSyncingReminders || _isSyncingTags || _isImporting || _isSyncingCalendar;
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +126,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _saveConfig() async {
+    if (_busyWithFeishu) return;
     if (_appIdController.text.trim().isEmpty ||
         _appSecretController.text.trim().isEmpty) {
       _showError('请填写应用标识和应用密钥');
@@ -151,13 +158,14 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _createTemplate() async {
+    if (_busyWithFeishu) return;
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '创建飞书数据模板',
       content: '将在你的飞书空间中创建 8 张表：任务、子任务、清单、习惯、习惯记录、专注、休息记录和标签。',
       confirmText: '创建模板',
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted || _busyWithFeishu) return;
     setState(() => _isCreatingTemplate = true);
     try {
       final result = await _integration.createTemplate();
@@ -177,6 +185,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _connectExisting() async {
+    if (_busyWithFeishu) return;
     final url = _tableUrlController.text.trim();
     if (url.isEmpty) {
       _showError('请先填写飞书多维表格链接');
@@ -202,6 +211,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _syncAll() async {
+    if (_busyWithFeishu || !_isConfigured) return;
     setState(() => _isSyncingAll = true);
     try {
       final result = await _integration.syncAll();
@@ -211,11 +221,22 @@ class _FeishuScreenState extends State<FeishuScreen> {
       final summary = results.entries
           .map((entry) => '${entry.key} ${entry.value} 条')
           .join(' · ');
-      _showSuccess(
-        errors.isEmpty
-            ? (summary.isEmpty ? '同步完成' : '同步完成：$summary')
-            : '同步完成，但有 ${errors.length} 个数据表失败',
-      );
+      if (errors.isNotEmpty) {
+        final detail = errors.take(4).map((item) {
+          if (item is Map) {
+            final group = item['type'] ?? item['table'] ?? item['name'];
+            final message = item['error'] ?? item['message'] ?? '同步未完成';
+            return group == null ? '$message' : '$group：$message';
+          }
+          return '$item';
+        }).join('；');
+        _showWarning('部分同步失败（${errors.length} 项）'
+            '${summary.isEmpty ? '' : '，已成功：$summary'}。'
+            '${detail.isEmpty ? '' : '失败详情：$detail。'}'
+            '请核对飞书表格后再重试失败范围。');
+      } else {
+        _showSuccess(summary.isEmpty ? '同步完成' : '同步完成：$summary');
+      }
     } catch (error) {
       if (mounted) _showError('同步全部失败：$error');
     } finally {
@@ -270,6 +291,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
     required String fallback,
     required String failure,
   }) async {
+    if (_busyWithFeishu || !_isConfigured) return;
     setState(start);
     try {
       final result = await action();
@@ -282,6 +304,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _syncToCalendar() async {
+    if (_busyWithFeishu || !_isConfigured) return;
     if (_selectedCalendarId == null) {
       _showError('请先选择一个飞书日历');
       return;
@@ -299,16 +322,16 @@ class _FeishuScreenState extends State<FeishuScreen> {
     }
   }
 
-  void _showError(String message) => _message(message, error: true);
+  void _showError(String message) => _message(message, variant: FxNoticeVariant.destructive);
+  void _showWarning(String message) => _message(message, variant: FxNoticeVariant.warning);
   void _showSuccess(String message) => _message(message);
 
-  void _message(String message, {bool error = false}) {
+  void _message(String message, {FxNoticeVariant variant = FxNoticeVariant.normal}) {
     if (!mounted) return;
-    final theme = Theme.of(context);
     FxNotice.showContent(
       context,
       Text(message),
-      variant: error ? FxNoticeVariant.destructive : FxNoticeVariant.normal,
+      variant: variant,
     );
   }
 
