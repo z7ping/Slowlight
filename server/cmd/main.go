@@ -21,7 +21,8 @@ func main() {
 		log.Fatal("数据库连接失败:", err)
 	}
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.LoggerWithFormatter(requestLogFormatter), gin.Recovery())
 	corsOrigins := getCorsOrigins()
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")

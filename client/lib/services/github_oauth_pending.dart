@@ -14,6 +14,7 @@ class GitHubOAuthPending {
     this.flow = 'browser',
     this.userCode = '',
     this.verificationUri = '',
+    this.authorizationUrl = '',
     this.linkExisting = false,
     this.targetUserId = 0,
   });
@@ -28,6 +29,7 @@ class GitHubOAuthPending {
   final String flow;
   final String userCode;
   final String verificationUri;
+  final String authorizationUrl;
   final bool linkExisting;
   final int targetUserId;
 
@@ -51,6 +53,7 @@ class GitHubOAuthPending {
         'flow': flow,
         'user_code': userCode,
         'verification_uri': verificationUri,
+        'authorization_url': authorizationUrl,
         'link_existing': linkExisting,
         'target_user_id': targetUserId,
       };
@@ -61,8 +64,12 @@ class GitHubOAuthPending {
     final pollToken = data['poll_token'];
     final expiresAt = data['expires_at'];
     final endpoint = data['endpoint'];
-    if (sessionId is! String || pollToken is! String ||
-        expiresAt is! int || endpoint is! String) return null;
+    if (sessionId is! String ||
+        pollToken is! String ||
+        expiresAt is! int ||
+        endpoint is! String) {
+      return null;
+    }
     final pending = GitHubOAuthPending(
       sessionId: sessionId,
       pollToken: pollToken,
@@ -73,10 +80,12 @@ class GitHubOAuthPending {
       verificationUri: data['verification_uri'] is String
           ? data['verification_uri'] as String
           : '',
+      authorizationUrl: data['authorization_url'] is String
+          ? data['authorization_url'] as String
+          : '',
       linkExisting: data['link_existing'] == true,
-      targetUserId: data['target_user_id'] is int
-          ? data['target_user_id'] as int
-          : 0,
+      targetUserId:
+          data['target_user_id'] is int ? data['target_user_id'] as int : 0,
     );
     return pending.isValid ? pending : null;
   }

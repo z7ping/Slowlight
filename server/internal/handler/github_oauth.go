@@ -38,7 +38,8 @@ func (e *githubOAuthError) Error() string { return e.Code }
 func githubOAuthMessage(code string) string {
     switch code {
     case "access_denied": return "已取消 GitHub 授权，可重新发起登录"
-    case "github_unavailable", "github_profile_unavailable": return "GitHub 服务暂时不可用，请稍后重新授权"
+    case "github_unavailable": return "云端暂时无法完成 GitHub 授权码核验，请重新授权；持续失败需检查云端到 GitHub 的连接"
+    case "github_profile_unavailable": return "云端暂时无法获取 GitHub 身份，请稍后重新授权"
     case "oauth_config_invalid": return "GitHub 授权配置异常，请联系管理员"
     case "github_token_invalid": return "GitHub 授权码已失效，请重新授权"
     case "oauth_account_conflict": return "该 GitHub 账号已绑定其他用户"
@@ -352,10 +353,11 @@ func (h *GitHubOAuthHandler) exchangeToken(ctx context.Context, id, secret, redi
     req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
     req.Header.Set("Accept", "application/json")
     // 授权码一次性使用；请求可能已经送达时，不自动重发。
+    req, recordNetworkError := traceGitHubTokenRequest(req)
     started := time.Now()
     resp, err := h.Client.Do(req)
     if err != nil {
-        log.Printf("github oauth provider session=%v stage=token network_error=true duration_ms=%d", ctx.Value(oauthRequestSessionKey{}), time.Since(started).Milliseconds())
+        recordNetworkError(err, time.Since(started))
         return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"}
     }
     log.Printf("github oauth provider session=%v stage=token http_status=%d duration_ms=%d",

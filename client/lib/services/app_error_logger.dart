@@ -39,14 +39,16 @@ class AppErrorLogger {
       try {
         final directory = await _directoryProvider();
         await directory.create(recursive: true);
-        final file = File('${directory.path}${Platform.pathSeparator}$_logFileName');
+        final file =
+            File('${directory.path}${Platform.pathSeparator}$_logFileName');
         await _rotateIfNeeded(file);
         final entry = StringBuffer()
           ..writeln('${_now().toUtc().toIso8601String()} [${_redact(source)}]')
           ..writeln(_redact(error.toString()));
         if (stackTrace != null) entry.writeln(_redact(stackTrace.toString()));
         entry.writeln();
-        await file.writeAsString(entry.toString(), mode: FileMode.append, flush: true);
+        await file.writeAsString(entry.toString(),
+            mode: FileMode.append, flush: true);
         return file;
       } catch (_) {
         return null;
@@ -58,12 +60,14 @@ class AppErrorLogger {
 
   static String _redact(String input) {
     var sanitized = input.replaceAll(
-      RegExp(r'(?i)Bearer\s+[A-Za-z0-9._~+/=-]+'),
+      RegExp(r'Bearer\s+[A-Za-z0-9._~+/=-]+', caseSensitive: false),
       'Bearer [REDACTED]',
     );
     // 常见凭据键值/URL 参数与 JWT；不保留敏感授权信息。
     sanitized = sanitized.replaceAll(
-      RegExp(r'''(?i)(password|access_token|refresh_token|poll_token|api_key|client_secret|authorization|code_verifier|jwt|token)(\s*["'=:\s]+)([^\s&,"'}]+)'''),
+      RegExp(
+          r'''(password|access_token|refresh_token|poll_token|api_key|client_secret|authorization|code_verifier|session_id|state|code|jwt|token)(\s*["'=:\s]+)([^\s&,"'}]+)''',
+          caseSensitive: false),
       r'$1$2[REDACTED]',
     );
     sanitized = sanitized.replaceAll(
@@ -147,7 +151,8 @@ class AppErrorLogger {
     if (Platform.isWindows) {
       final base = environment['LOCALAPPDATA'];
       if (base != null && base.isNotEmpty) {
-        return Directory('$base${Platform.pathSeparator}$_appDirectoryName${Platform.pathSeparator}logs');
+        return Directory(
+            '$base${Platform.pathSeparator}$_appDirectoryName${Platform.pathSeparator}logs');
       }
     }
     if (Platform.isMacOS) {
@@ -162,7 +167,8 @@ class AppErrorLogger {
     if (Platform.isLinux) {
       final base = environment['XDG_DATA_HOME'];
       if (base != null && base.isNotEmpty) {
-        return Directory('$base${Platform.pathSeparator}$_appDirectoryName${Platform.pathSeparator}logs');
+        return Directory(
+            '$base${Platform.pathSeparator}$_appDirectoryName${Platform.pathSeparator}logs');
       }
       final home = environment['HOME'];
       if (home != null && home.isNotEmpty) {

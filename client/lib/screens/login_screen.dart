@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../brand.dart';
 import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
+import '../services/app_error_logger.dart';
 import '../services/data_mode_manager.dart';
 import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
@@ -27,6 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
   bool _githubAuthorizing = false;
+  bool _githubFinishing = false;
+  int _githubAttempt = 0;
+  String? _githubError;
+  bool _githubCanResume = false;
   String _githubStatus = "等待 GitHub 完成授权…";
   bool _deviceFlowEnabled = false;
   String? _githubDeviceCode;
@@ -54,6 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _githubAttempt++;
     _usernameController.dispose();
     _passwordController.dispose();
     _emailController.dispose();
@@ -84,10 +92,9 @@ class _LoginScreenState extends State<LoginScreen> {
           username: _usernameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          nickname:
-              _nicknameController.text.trim().isEmpty
-                  ? null
-                  : _nicknameController.text.trim(),
+          nickname: _nicknameController.text.trim().isEmpty
+              ? null
+              : _nicknameController.text.trim(),
         );
       }
       // 使用密码登录成功后，取消尚未确认的 GitHub 会话，避免下次启动切换账号。
@@ -121,22 +128,26 @@ class _LoginScreenState extends State<LoginScreen> {
     bool resumePending = false,
     bool useDeviceCode = false,
   }) async {
+    if (_isLoading) return;
+    final attempt = ++_githubAttempt;
+    bool isCurrent() => mounted && attempt == _githubAttempt;
     setState(() {
       _isLoading = true;
       _githubAuthorizing = true;
-      _githubStatus = resumePending
-          ? '正在恢复上次 GitHub 授权…'
-          : '等待 GitHub 完成授权…';
+      _githubFinishing = false;
+      _githubStatus = resumePending ? '正在恢复上次 GitHub 授权…' : '等待 GitHub 完成授权…';
       _githubDeviceCode = null;
       _githubVerificationUri = null;
+      _githubError = null;
+      _githubCanResume = false;
     });
     try {
       final completed = await GitHubSignIn.signIn(
-        shouldContinue: () => mounted && _githubAuthorizing,
+        shouldContinue: () => isCurrent() && _githubAuthorizing,
         resumePending: resumePending,
         useDeviceCode: useDeviceCode,
         onDeviceCode: (code, uri) {
-          if (mounted && _githubAuthorizing) {
+          if (isCurrent() && _githubAuthorizing) {
             setState(() {
               _githubDeviceCode = code;
               _githubVerificationUri = uri;
@@ -144,41 +155,63 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         },
         onStatus: (status) {
-          if (mounted && _githubAuthorizing) {
-            setState(() => _githubStatus = status);
+          if (isCurrent() && _githubAuthorizing) {
+            setState(() {
+              _githubStatus = status;
+              _githubFinishing = status == '正在保存登录状态…';
+            });
           }
         },
       );
-      if (!mounted || !completed) return;
+      if (!isCurrent() || !completed) return;
       await DataModeManager().setCloud();
+      if (!isCurrent()) return;
       authStateNotifier.value = !authStateNotifier.value;
       if (mounted) _finish(true, successMessage: 'GitHub 登录成功');
     } catch (e) {
-      if (mounted) {
+      unawaited(
+          AppErrorLogger.instance.write(source: 'github_login', error: e));
+      if (isCurrent()) {
         final message = GitHubSignIn.describeError(e);
-        if (GitHubSignIn.isTransientNetworkFailure(e)) {
-          FxNotice.error(
-            context,
-            '云端连接失败',
-            description: message,
-            duration: const Duration(seconds: 12),
-            action: FxNoticeAction(
-              label: '重新尝试',
-              onPressed: () {
-                if (mounted && !_isLoading) _loginWithGitHub();
-              },
-            ),
-          );
-        } else {
-          FxNotice.errorWithDetails(context, 'GitHub 登录失败', message);
+        var canResume = false;
+        try {
+          canResume = await GitHubSignIn.hasPendingAuthorization();
+        } catch (_) {
+          // 存储读取失败时仍保留可见错误与重新授权入口。
+        }
+        if (isCurrent()) {
+          setState(() {
+            _githubError = message;
+            _githubCanResume = canResume;
+          });
         }
       }
     } finally {
-      if (mounted) {
+      if (isCurrent()) {
         setState(() {
           _isLoading = false;
           _githubAuthorizing = false;
         });
+      }
+    }
+  }
+
+  Future<void> _stopGitHubWaiting() async {
+    if (_githubFinishing) return;
+    final attempt = ++_githubAttempt;
+    setState(() {
+      _githubAuthorizing = false;
+      _isLoading = true;
+      _githubError = null;
+    });
+    try {
+      await GitHubSignIn.cancelPendingAuthorization();
+    } catch (error) {
+      unawaited(
+          AppErrorLogger.instance.write(source: 'github_cancel', error: error));
+    } finally {
+      if (mounted && attempt == _githubAttempt) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -214,9 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (successMessage != null) {
       notice!.show(
         successMessage,
-        description: value
-            ? '已进入云端模式，可在侧边栏查看同步状态'
-            : '当前数据保存在本机',
+        description: value ? '已进入云端模式，可在侧边栏查看同步状态' : '当前数据保存在本机',
         variant: FxNoticeVariant.success,
         duration: const Duration(seconds: 4),
       );
@@ -227,7 +258,8 @@ class _LoginScreenState extends State<LoginScreen> {
     FxNotice.showContent(context, Text(text));
   }
 
-  Widget _buildLoginContents(BuildContext context, {required bool compactHeight}) {
+  Widget _buildLoginContents(BuildContext context,
+      {required bool compactHeight}) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -266,9 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: SlowlightSpacing.md),
         Text(
-          _isLogin
-              ? '登录后，让每一段记录在设备间延续。'
-              : '用一个账号，保存值得回看的日常。',
+          _isLogin ? '登录后，让每一段记录在设备间延续。' : '用一个账号，保存值得回看的日常。',
           style: SlowlightTypography.secondary(context).copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -284,12 +314,38 @@ class _LoginScreenState extends State<LoginScreen> {
         FxButton(
           key: const ValueKey('login.github_action'),
           label: '使用 GitHub 继续',
-          icon: LucideIcons.gitFork,
           expanded: true,
           size: FxButtonSize.lg,
           variant: FxButtonVariant.outline,
-          onPressed: _isLoading ? null : _loginWithGitHub,
+          onPressed: _isLoading
+              ? null
+              : () {
+                  unawaited(_loginWithGitHub());
+                },
         ),
+        if (_githubError != null && !_githubAuthorizing) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          Text(
+            _githubError!,
+            key: const ValueKey('login.github_error'),
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            key: const ValueKey('login.github_retry'),
+            label: _githubCanResume ? '继续检查上次授权' : '重新授权',
+            variant: FxButtonVariant.outline,
+            expanded: true,
+            onPressed: _isLoading
+                ? null
+                : () {
+                    unawaited(
+                        _loginWithGitHub(resumePending: _githubCanResume));
+                  },
+          ),
+        ],
         if (_deviceFlowEnabled && !_githubAuthorizing) ...[
           const SizedBox(height: SlowlightSpacing.md),
           FxButton(
@@ -297,7 +353,8 @@ class _LoginScreenState extends State<LoginScreen> {
             label: '使用验证码登录（备用）',
             variant: FxButtonVariant.ghost,
             expanded: true,
-            onPressed: _isLoading ? null : () => _loginWithGitHub(useDeviceCode: true),
+            onPressed:
+                _isLoading ? null : () => _loginWithGitHub(useDeviceCode: true),
           ),
         ],
         if (_githubAuthorizing) ...[
@@ -314,7 +371,8 @@ class _LoginScreenState extends State<LoginScreen> {
               label: '复制验证码',
               variant: FxButtonVariant.outline,
               onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: _githubDeviceCode!));
+                await Clipboard.setData(
+                    ClipboardData(text: _githubDeviceCode!));
                 if (mounted) _message('验证码已复制');
               },
             ),
@@ -325,7 +383,10 @@ class _LoginScreenState extends State<LoginScreen> {
               variant: FxButtonVariant.outline,
               onPressed: () async {
                 final target = _githubVerificationUri;
-                if (target != null && !await launchUrl(target, mode: LaunchMode.externalApplication) && mounted) {
+                if (target != null &&
+                    !await launchUrl(target,
+                        mode: LaunchMode.externalApplication) &&
+                    mounted) {
                   _message('无法打开 GitHub，请手动访问 github.com/login/device');
                 }
               },
@@ -342,7 +403,6 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: SlowlightSpacing.md),
           if (Theme.of(context).platform == TargetPlatform.windows ||
               Theme.of(context).platform == TargetPlatform.android) ...[
-            const SizedBox(height: SlowlightSpacing.md),
             FxButton(
               key: const ValueKey('login.github_check'),
               label: '检查授权结果',
@@ -363,18 +423,29 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ],
+          if (_githubDeviceCode == null) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            FxButton(
+              key: const ValueKey('login.github_reopen'),
+              label: '返回 GitHub 授权页',
+              variant: FxButtonVariant.outline,
+              expanded: true,
+              onPressed: () async {
+                try {
+                  if (!await GitHubSignIn.reopenAuthorization() && mounted) {
+                    _message('无法重新打开授权页，请停止等待后重新授权');
+                  }
+                } catch (_) {
+                  if (mounted) _message('无法打开浏览器，请检查默认浏览器设置');
+                }
+              },
+            ),
+          ],
           FxButton(
             key: const ValueKey('login.github_cancel'),
-            label: '取消授权等待',
+            label: '停止等待',
             variant: FxButtonVariant.link,
-            onPressed: () async {
-              setState(() => _githubAuthorizing = false);
-              try {
-                await GitHubSignIn.cancelPendingAuthorization();
-              } catch (_) {
-                // 取消当前等待立即生效，不依赖系统存储是否可用。
-              }
-            },
+            onPressed: _githubFinishing ? null : _stopGitHubWaiting,
           ),
         ],
         const SizedBox(height: SlowlightSpacing.xl),
@@ -422,12 +493,9 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: _isLoading
                 ? null
                 : () => setState(
-                    () => _obscurePassword = !_obscurePassword,
-                  ),
-            icon:
-                _obscurePassword
-                    ? LucideIcons.eye
-                    : LucideIcons.eyeOff,
+                      () => _obscurePassword = !_obscurePassword,
+                    ),
+            icon: _obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff,
             iconSize: SlowlightIconSize.sm,
           ),
         ),
@@ -453,7 +521,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: SizedBox(
             width: double.infinity,
             child: FxButton(
-              label: _isLoading ? '处理中…' : _isLogin ? '登录' : '创建账号',
+              label: _isLoading
+                  ? '处理中…'
+                  : _isLogin
+                      ? '登录'
+                      : '创建账号',
               size: FxButtonSize.lg,
               expanded: true,
               onPressed: _isLoading ? null : _submit,
@@ -512,45 +584,55 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, viewport) {
-            final desktop = viewport.maxWidth >= SlowlightBreakpoints.tabletMin;
-            final compactHeight = desktop || viewport.maxHeight < 640;
-            final contents = _buildLoginContents(
-              context,
-              compactHeight: compactHeight,
-            );
-            return SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: viewport.maxHeight),
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: SlowlightSpacing.page,
-                      vertical: compactHeight
-                          ? SlowlightSpacing.xxxl
-                          : SlowlightSpacing.page,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 448),
-                      child: desktop
-                          ? FxCard(
-                              padding: const EdgeInsets.all(
-                                SlowlightSpacing.page,
-                              ),
-                              borderRadius: SlowlightRadius.xl,
-                              child: contents,
-                            )
-                          : contents,
+    return PopScope(
+      canPop: !_githubAuthorizing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _githubAuthorizing && !_githubFinishing) {
+          unawaited(_stopGitHubWaiting());
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, viewport) {
+              final desktop =
+                  viewport.maxWidth >= SlowlightBreakpoints.tabletMin;
+              final compactHeight = desktop || viewport.maxHeight < 640;
+              final contents = _buildLoginContents(
+                context,
+                compactHeight: compactHeight,
+              );
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: viewport.maxHeight),
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: SlowlightSpacing.page,
+                        vertical: compactHeight
+                            ? SlowlightSpacing.xxxl
+                            : SlowlightSpacing.page,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 448),
+                        child: desktop
+                            ? FxCard(
+                                padding: const EdgeInsets.all(
+                                  SlowlightSpacing.page,
+                                ),
+                                borderRadius: SlowlightRadius.xl,
+                                child: contents,
+                              )
+                            : contents,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

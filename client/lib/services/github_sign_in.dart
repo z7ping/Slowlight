@@ -52,6 +52,16 @@ class _OAuthResumeObserver extends WidgetsBindingObserver {
 /// Windows 仍通过默认浏览器授权；两端都通过服务端一次性凭据领取 JWT。
 class GitHubSignIn {
   static _OAuthResumeObserver? _activeObserver;
+  static Uri? _activeAuthorizationUrl;
+
+  /// 只重开当前授权，不创建另一个服务端会话。
+  static Future<bool> reopenAuthorization() async {
+    final url = _activeAuthorizationUrl;
+    if (url == null || url.scheme != 'https' || url.host != 'github.com') {
+      return false;
+    }
+    return openAuthorization(url);
+  }
 
   static bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -72,7 +82,8 @@ class GitHubSignIn {
 
   static Future<bool> deviceFlowAvailable() async {
     try {
-      final response = await ApiService.post('/auth/github/device/status', body: {});
+      final response =
+          await ApiService.post('/auth/github/device/status', body: {});
       return response['enabled'] == true;
     } catch (_) {
       return false;
@@ -80,6 +91,7 @@ class GitHubSignIn {
   }
 
   static Future<void> cancelPendingAuthorization() async {
+    _activeObserver?.wakeUp();
     if (_isAndroid) await GitHubOAuthPending.clear();
   }
 
@@ -100,8 +112,8 @@ class GitHubSignIn {
     Future<bool> Function(Uri, LaunchMode)? launch,
   }) async {
     final target = platform ?? defaultTargetPlatform;
-    final tryLaunch = launch ??
-        (Uri url, LaunchMode mode) => launchUrl(url, mode: mode);
+    final tryLaunch =
+        launch ?? (Uri url, LaunchMode mode) => launchUrl(url, mode: mode);
     if (!kIsWeb && target == TargetPlatform.android) {
       // Android 11+ 的 Custom Tabs 查询能力由 AndroidManifest <queries> 授权。
       bool supportsTabs = false;
@@ -139,18 +151,32 @@ class GitHubSignIn {
   @visibleForTesting
   static String statusForPhase(Object? phase) {
     switch (phase) {
-      case 'authorization': return '等待在 GitHub 网页确认授权…';
-      case 'device': return '等待 GitHub 确认验证码…';
-      case 'callback': return 'GitHub 已返回，正在受理授权…';
-      case 'token': return '正在核验 GitHub 授权码…';
-      case 'profile': return '正在获取 GitHub 身份信息，网络异常时会自动重试…';
-      case 'account': return '正在确认所行映我云端账号…';
-      default: return '正在向云端确认 GitHub 授权结果…';
+      case 'authorization':
+        return '等待在 GitHub 网页确认授权…';
+      case 'device':
+        return '等待 GitHub 确认验证码…';
+      case 'callback':
+        return 'GitHub 已返回，正在受理授权…';
+      case 'token':
+        return '正在核验 GitHub 授权码…';
+      case 'profile':
+        return '正在获取 GitHub 身份信息，网络异常时会自动重试…';
+      case 'account':
+        return '正在确认所行映我云端账号…';
+      default:
+        return '正在向云端确认 GitHub 授权结果…';
     }
   }
 
   static String describeError(Object error) {
-    if (!isTransientNetworkFailure(error)) return error.toString();
+    if (!isTransientNetworkFailure(error)) {
+      if (error is FormatException || error is TypeError) {
+        return '云端授权响应无效，请稍后重试；若持续出现，请在应用诊断中检查服务兼容性。';
+      }
+      return error
+          .toString()
+          .replaceFirst(RegExp(r'^(Bad state: |Exception: )'), '');
+    }
     final host = Uri.parse(ApiService.baseUrl).host;
     return '无法连接云端服务（$host）。请检查网络、DNS 或服务地址后重试。';
   }
@@ -194,24 +220,30 @@ class GitHubSignIn {
     Uri? authUrl;
     if (resumePending) {
       pending = await GitHubOAuthPending.load();
+      if (!shouldContinue()) return false;
       if (pending == null || pending.linkExisting != linkExisting) return false;
       if (linkExisting) {
         final user = await AuthService.getUser();
         if (DataModeManager().isLocal ||
-            user == null || user.id != pending.targetUserId) {
+            user == null ||
+            user.id != pending.targetUserId) {
           // 绝不把旧设备上的授权绑定到当前其他用户。
           await GitHubOAuthPending.clear();
           throw StateError('当前账号已变化，无法恢复 GitHub 绑定');
         }
       }
       onStatus?.call('正在恢复上次 GitHub 授权…');
+      authUrl = Uri.tryParse(pending.authorizationUrl);
       if (pending.flow == 'device') {
-        onDeviceCode?.call(pending.userCode, Uri.parse(pending.verificationUri));
+        onDeviceCode?.call(
+            pending.userCode, Uri.parse(pending.verificationUri));
       }
     } else {
       final start = await ApiService.post(
         useDeviceCode
-            ? (linkExisting ? '/auth/github/device/link/start' : '/auth/github/device/start')
+            ? (linkExisting
+                ? '/auth/github/device/link/start'
+                : '/auth/github/device/start')
             : (linkExisting ? '/auth/github/link/start' : '/auth/github/start'),
         body: useDeviceCode
             ? {}
@@ -225,7 +257,8 @@ class GitHubSignIn {
         userCode = start['user_code'] as String;
         verificationUri = start['verification_uri'] as String;
         final verification = Uri.parse(verificationUri);
-        if (verification.scheme != 'https' || verification.host != 'github.com' ||
+        if (verification.scheme != 'https' ||
+            verification.host != 'github.com' ||
             userCode.isEmpty) {
           throw StateError('GitHub 设备授权信息无效');
         }
@@ -238,6 +271,7 @@ class GitHubSignIn {
       }
       final seconds = start['expires_in'];
       final account = linkExisting ? await AuthService.getUser() : null;
+      if (!shouldContinue()) return false;
       if (linkExisting && (DataModeManager().isLocal || account == null)) {
         throw StateError('必须登录云端账号才能绑定 GitHub');
       }
@@ -251,15 +285,17 @@ class GitHubSignIn {
         flow: useDeviceCode ? 'device' : 'browser',
         userCode: userCode,
         verificationUri: verificationUri,
+        authorizationUrl: authUrl?.toString() ?? '',
         linkExisting: linkExisting,
         targetUserId: account?.id ?? 0,
       );
       if (isAndroid) await GitHubOAuthPending.save(pending);
     }
-    if (pending == null) return false;
+    if (!shouldContinue()) return false;
 
     final resumeObserver = _OAuthResumeObserver();
     _activeObserver = resumeObserver;
+    _activeAuthorizationUrl = authUrl;
     WidgetsBinding.instance.addObserver(resumeObserver);
     try {
       if (!resumePending) {
@@ -304,21 +340,25 @@ class GitHubSignIn {
           continue;
         }
         if (result['status'] == 'complete') {
+          onStatus?.call('正在保存登录状态…');
           await AuthService.completeOAuthLogin(
             result,
             linkingExisting: linkExisting,
           );
           // 确认凭据已安全落盘，再允许服务端消费授权结果。
           // ack 是幂等操作；确认失败不能撤销已成功保存在本机的登录。
-          try {
-            await ApiService.post('/auth/github/poll', body: {
-              'session_id': pending.sessionId,
-              'poll_token': pending.pollToken,
-              'mode': 'ack',
-            });
-          } catch (_) {
-            // 授权会话到期后服务端自动清理，不在客户端丢弃已保存的 JWT。
-          }
+          final confirmedSession = pending;
+          unawaited(() async {
+            try {
+              await ApiService.post('/auth/github/poll', body: {
+                'session_id': confirmedSession.sessionId,
+                'poll_token': confirmedSession.pollToken,
+                'mode': 'ack',
+              });
+            } catch (_) {
+              // 登录已持久化；确认失败不能阻塞成功导航或撤销凭据。
+            }
+          }());
           if (isAndroid) {
             try {
               await GitHubOAuthPending.clear();
@@ -337,6 +377,7 @@ class GitHubSignIn {
       WidgetsBinding.instance.removeObserver(resumeObserver);
       if (identical(_activeObserver, resumeObserver)) {
         _activeObserver = null;
+        _activeAuthorizationUrl = null;
       }
     }
   }
