@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../brand.dart';
@@ -26,11 +28,17 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _githubAuthorizing = false;
   String _githubStatus = "等待 GitHub 完成授权…";
+  bool _deviceFlowEnabled = false;
+  String? _githubDeviceCode;
+  Uri? _githubVerificationUri;
   bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
+    GitHubSignIn.deviceFlowAvailable().then((enabled) {
+      if (mounted) setState(() => _deviceFlowEnabled = enabled);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         if (!mounted || _isLoading) return;
@@ -109,18 +117,32 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _loginWithGitHub({bool resumePending = false}) async {
+  Future<void> _loginWithGitHub({
+    bool resumePending = false,
+    bool useDeviceCode = false,
+  }) async {
     setState(() {
       _isLoading = true;
       _githubAuthorizing = true;
       _githubStatus = resumePending
           ? '正在恢复上次 GitHub 授权…'
           : '等待 GitHub 完成授权…';
+      _githubDeviceCode = null;
+      _githubVerificationUri = null;
     });
     try {
       final completed = await GitHubSignIn.signIn(
         shouldContinue: () => mounted && _githubAuthorizing,
         resumePending: resumePending,
+        useDeviceCode: useDeviceCode,
+        onDeviceCode: (code, uri) {
+          if (mounted && _githubAuthorizing) {
+            setState(() {
+              _githubDeviceCode = code;
+              _githubVerificationUri = uri;
+            });
+          }
+        },
         onStatus: (status) {
           if (mounted && _githubAuthorizing) {
             setState(() => _githubStatus = status);
@@ -268,7 +290,47 @@ class _LoginScreenState extends State<LoginScreen> {
           variant: FxButtonVariant.outline,
           onPressed: _isLoading ? null : _loginWithGitHub,
         ),
+        if (_deviceFlowEnabled && !_githubAuthorizing) ...[
+          const SizedBox(height: SlowlightSpacing.sm),
+          FxButton(
+            key: const ValueKey('login.github_device_action'),
+            label: '使用验证码登录（备用）',
+            variant: FxButtonVariant.ghost,
+            expanded: true,
+            onPressed: _isLoading ? null : () => _loginWithGitHub(useDeviceCode: true),
+          ),
+        ],
         if (_githubAuthorizing) ...[
+          if (_githubDeviceCode != null && _githubVerificationUri != null) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            SelectableText(
+              _githubDeviceCode!,
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.secondary(context),
+            ),
+            const SizedBox(height: SlowlightSpacing.xs),
+            FxButton(
+              key: const ValueKey('login.github_device_copy'),
+              label: '复制验证码',
+              variant: FxButtonVariant.outline,
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: _githubDeviceCode!));
+                if (mounted) _message('验证码已复制');
+              },
+            ),
+            const SizedBox(height: SlowlightSpacing.xs),
+            FxButton(
+              key: const ValueKey('login.github_device_open'),
+              label: '打开 GitHub 验证页面',
+              variant: FxButtonVariant.outline,
+              onPressed: () async {
+                final target = _githubVerificationUri;
+                if (target != null && !await launchUrl(target, mode: LaunchMode.externalApplication) && mounted) {
+                  _message('无法打开 GitHub，请手动访问 github.com/login/device');
+                }
+              },
+            ),
+          ],
           const SizedBox(height: SlowlightSpacing.md),
           Text(
             _githubStatus,
