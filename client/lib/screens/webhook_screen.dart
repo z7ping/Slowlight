@@ -6,6 +6,17 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 
+Set<String> existingWebhookEvents(List<dynamic> records, String target) {
+  final events = <String>{};
+  for (final item in records) {
+    if (item is Map && item['url']?.toString().trim() == target &&
+        item['event'] != null) {
+      events.add(item['event'].toString());
+    }
+  }
+  return events;
+}
+
 class WebhookEventDef {
   final String key;
   final String label;
@@ -92,6 +103,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
   bool _isLoading = true;
   bool _hasLoaded = false;
   bool _loadFailed = false;
+  bool _creating = false;
 
   @override
   void initState() {
@@ -126,32 +138,54 @@ class _WebhookScreenState extends State<WebhookScreen> {
   }
 
   Future<void> _addWebhook() async {
+    if (_creating) return;
     final result = await FxDialog.show<Map<String, dynamic>>(
       context: context,
       title: '添加事件回调',
       width: 560,
       child: const _AddWebhookDialogBody(),
     );
-    if (result == null) return;
-
+    if (result == null || !mounted || _creating) return;
+    setState(() => _creating = true);
+    final url = (result['url'] as String).trim();
     final events = result['events'] as List<String>;
     var created = 0;
+    var skipped = 0;
     try {
-      for (final event in events) {
-        await ApiService.createWebhook(
-          url: result['url'] as String,
-          event: event,
-          name: result['name'] as String? ?? '',
-        );
-        created++;
+      // 逐次按「地址 + 事件」核对服务端已确认记录，
+      // 不用旧列表推断不存在，防止批量部分成功后再次创建重复回调。
+      final existing = await ApiService.getWebhooks();
+      final present = existingWebhookEvents(existing, url);
+      for (final event in events.toSet()) {
+        if (present.contains(event)) {
+          skipped++;
+          continue;
+        }
+        try {
+          await ApiService.createWebhook(
+            url: url, event: event,
+            name: result['name'] as String? ?? '',
+          );
+          created++;
+          present.add(event);
+        } catch (error) {
+          _showMsg(
+            '已确认创建 $created 条、跳过重复 $skipped 条。'
+            '「$event」创建结果未确认：$error。'
+            '请核对最新列表后再添加剩余事件，避免重复回调。',
+          );
+          await _loadWebhooks();
+          return;
+        }
       }
-    } catch (e) {
-      _showMsg('已创建 $created/${events.length} 条，剩余创建失败：$e');
       await _loadWebhooks();
-      return;
+      _showMsg('已创建 $created 条，已有 $skipped 条跳过重复创建');
+    } catch (error) {
+      _showMsg('无法核对已有回调，未继续批量创建：$error');
+      await _loadWebhooks();
+    } finally {
+      if (mounted) setState(() => _creating = false);
     }
-    await _loadWebhooks();
-    _showMsg('创建成功 $created 条');
   }
 
   Future<void> _testWebhook(int id) async {
@@ -195,7 +229,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
               title: '事件回调',
               actionIcon: LucideIcons.plus,
               actionTooltip: '添加事件回调',
-              onAction: _addWebhook,
+              onAction: _creating ? null : _addWebhook,
             ),
             Expanded(
               child: _isLoading
