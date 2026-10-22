@@ -14,10 +14,15 @@ import (
 
 // Callback 的耗时工作独立于浏览器连接执行，状态写入数据库供 Windows/Android 轮询。
 func (h *GitHubOAuthHandler) processOAuthCallback(session model.OAuthLoginSession, code string) {
+    started := time.Now()
+    defer func() {
+        if recover() != nil {
+            h.oauthFailed(session.ID, "worker", "oauth_internal_error", started)
+        }
+    }()
     ctx, cancel := context.WithTimeout(context.Background(), 80*time.Second)
     defer cancel()
 
-    started := time.Now()
     h.oauthStage(session.ID, "token")
     clientID, secret, callback, err := githubConfig()
     if err != nil {
@@ -145,7 +150,19 @@ func (h *GitHubOAuthHandler) oauthFailed(sessionID, stage, code string, started 
 
 func (h *GitHubOAuthHandler) resumeIfRequired(session model.OAuthLoginSession) {
     now := time.Now()
-    if session.RecoveryToken == "" || !session.ExpiresAt.After(now) { return }
+    if !session.ExpiresAt.After(now) { return }
+    if session.Status == "processing" && session.RecoveryToken == "" &&
+        now.Sub(session.UpdatedAt) > 100*time.Second {
+        // 已经发往 GitHub 的一次性 code 不能安全重放。明确标记未知结果，避免无限等待。
+        h.DB.Model(&model.OAuthLoginSession{}).
+            Where("id = ? AND status = ? AND updated_at < ?", session.ID, "processing", now.Add(-100*time.Second)).
+            Updates(map[string]interface{}{
+                "status": "failed", "error_code": "oauth_result_unknown",
+                "error_stage": "token", "code_verifier": "",
+            })
+        return
+    }
+    if session.RecoveryToken == "" { return }
     var query *gorm.DB
     if session.Status == "retryable" && !session.RetryAfter.After(now) {
         query = h.DB.Model(&model.OAuthLoginSession{}).
