@@ -982,6 +982,7 @@ class SyncService extends ChangeNotifier {
         'show_checkin_dialog': _boolInt(item['show_checkin_dialog']),
         'specific_time': item['specific_time'] ?? '',
         'reminder_at': jsonEncode(item['reminder_at'] ?? {}),
+        'schedule_rule': jsonEncode(item['schedule_rule'] ?? {}),
         'created_at': _dateString(item['created_at']),
         'updated_at': _dateString(item['updated_at']),
         'deleted_at': null,
@@ -1201,6 +1202,7 @@ class SyncService extends ChangeNotifier {
       result['generate_task'] = _boolInt(remote['generate_task']);
       result['show_checkin_dialog'] = _boolInt(remote['show_checkin_dialog']);
       result['reminder_at'] = jsonEncode(remote['reminder_at'] ?? {});
+      result['schedule_rule'] = jsonEncode(remote['schedule_rule'] ?? {});
     } else if (table == 'lists') {
       result['is_inbox'] = _boolInt(remote['is_inbox']);
     } else if (table == 'habit_logs') {
@@ -1259,6 +1261,7 @@ class SyncService extends ChangeNotifier {
       'show_checkin_dialog',
       'specific_time',
       'reminder_at',
+      'schedule_rule',
     ],
     'tasks': [
       'list_id',
