@@ -23,20 +23,6 @@ type TaskTag struct {
 	TagID  uint `json:"tag_id" gorm:"primaryKey"`
 }
 
-// SystemTag is the historical per-user observation tag table.
-// Kept for existing rows and foreign-key migration; canonical Tag is separate.
-type SystemTag struct {
-	ID           uint           `json:"id" gorm:"primaryKey"`
-	UserID       uint           `json:"user_id" gorm:"not null;index"`
-	Name         string         `json:"name" gorm:"size:100;not null"`
-	Icon         string         `json:"icon" gorm:"size:50"`
-	Color        string         `json:"color" gorm:"size:20"`
-	DimensionKey string         `json:"dimension_key" gorm:"size:32;default:''"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
-}
-
 // LegacySystemTagAlias 把旧 system_tags ID 映射到统一 tags ID。
 // 两套 ID 可能数值相同但意义不同，绝不能直接用旧 ID 查询新表。
 type LegacySystemTagAlias struct {
