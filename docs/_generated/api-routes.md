@@ -14,6 +14,10 @@
 | POST | `/api/auth/register` |
 | POST | `/api/auth/login` |
 | GET | `/api/auth/profile` |
+| PATCH | `/api/auth/profile` |
+| GET | `/api/auth/password/status` |
+| POST | `/api/auth/password/setup` |
+| POST | `/api/auth/password/change` |
 | GET | `/api/auth/providers` |
 | GET | `/api/lists` |
 | GET | `/api/lists/stats` |
@@ -117,4 +121,4 @@
 | POST | `/api/caldav/test` |
 | GET | `/api/feishu/config` |
 
-共 110 条路由。
+共 114 条路由。
