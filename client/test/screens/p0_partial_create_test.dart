@@ -151,12 +151,14 @@ void main() {
     ));
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加习惯'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
     expect(habits.creates, 1);
     expect(links.calls, 1);
     expect(find.textContaining('习惯已创建，但标签保存失败'), findsOneWidget);
     await tester.tap(find.text('重试保存标签'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
     expect(habits.creates, 1);
     expect(links.calls, 2);
     await disposeFxTestHost(tester);
