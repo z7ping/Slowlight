@@ -199,4 +199,22 @@ void main() {
     ]);
   });
 
+  test('可靠轮询可安全重试连接重置，旧轮询保护仍保留', () async {
+    var attempts = 0;
+    final result = await GitHubSignIn.pollWithNetworkRetry(
+      request: () async {
+        attempts++;
+        if (attempts == 1) {
+          throw http.ClientException('Connection reset by peer');
+        }
+        return {'status': 'complete'};
+      },
+      shouldContinue: () => true,
+      reliable: true,
+      delay: (_) async {},
+    );
+    expect(result?['status'], 'complete');
+    expect(attempts, 2);
+  });
+
 }

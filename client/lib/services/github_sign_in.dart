@@ -105,7 +105,7 @@ class GitHubSignIn {
   }
 
   /// Android 从浏览器返回时可能短暂无法解析域名。
-  /// 只允许重试确认未送达的请求；轮询成功会消费一次性凭据。
+  /// 旧协议只允许确认未送达时重试；reliable 模式直到 ack 前都可安全重读。
   @visibleForTesting
   static bool isTransientNetworkFailure(Object error) =>
       NetworkRetry.isNetworkFailure(error);
@@ -124,12 +124,13 @@ class GitHubSignIn {
   static Future<Map<String, dynamic>?> pollWithNetworkRetry({
     required Future<Map<String, dynamic>> Function() request,
     required bool Function() shouldContinue,
+    bool reliable = false,
     Future<void> Function(Duration)? delay,
     double Function()? randomUnit,
   }) =>
       NetworkRetry.run<Map<String, dynamic>>(
         request: request,
-        canRetry: isSafeToRetryPoll,
+        canRetry: reliable ? isTransientNetworkFailure : isSafeToRetryPoll,
         shouldContinue: shouldContinue,
         delay: delay,
         randomUnit: randomUnit,
@@ -204,8 +205,10 @@ class GitHubSignIn {
             request: () => ApiService.post('/auth/github/poll', body: {
               'session_id': pending!.sessionId,
               'poll_token': pending.pollToken,
+              'mode': 'reliable',
             }),
             shouldContinue: shouldContinue,
+            reliable: true,
           );
         } catch (error) {
           if (isTransientNetworkFailure(error) && shouldContinue()) {
@@ -226,6 +229,17 @@ class GitHubSignIn {
             result,
             linkingExisting: linkExisting,
           );
+          // 确认凭据已安全落盘，再允许服务端消费授权结果。
+          // ack 是幂等操作；确认失败不能撤销已成功保存在本机的登录。
+          try {
+            await ApiService.post('/auth/github/poll', body: {
+              'session_id': pending.sessionId,
+              'poll_token': pending.pollToken,
+              'mode': 'ack',
+            });
+          } catch (_) {
+            // 授权会话到期后服务端自动清理，不在客户端丢弃已保存的 JWT。
+          }
           if (isAndroid && !linkExisting) {
             try {
               await GitHubOAuthPending.clear();

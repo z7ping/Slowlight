@@ -165,12 +165,15 @@ func (h *GitHubOAuthHandler) start(c *gin.Context, targetUser uint) {
 type oauthPollRequest struct {
 	SessionID string `json:"session_id" binding:"required"`
 	PollToken string `json:"poll_token" binding:"required"`
+    // 空模式保留旧版一次性领取；reliable 模式需显式 ack。
+    Mode string `json:"mode"`
 }
 
 // Poll 使用客户端持有的高熵凭据领取结果，成功后原子性标记 consumed。
 func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 	var req oauthPollRequest
 	if err := c.ShouldBindJSON(&req); err != nil { c.JSON(400, gin.H{"error": "授权会话参数无效"}); return }
+    if req.Mode != "" && req.Mode != "reliable" && req.Mode != "ack" { c.JSON(400, gin.H{"error": "授权会话模式无效"}); return }
 	var session model.OAuthLoginSession
 	if err := h.DB.First(&session, "id = ?", req.SessionID).Error; err != nil {
 		c.JSON(404, gin.H{"error": "授权会话不存在"}); return
@@ -184,6 +187,30 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 	if time.Now().After(session.ExpiresAt) {
 		c.JSON(410, gin.H{"error": "授权已超时，请重试"}); return
 	}
+    if req.Mode == "ack" {
+        if session.Status == "consumed" {
+            c.Header("Cache-Control", "no-store")
+            c.JSON(200, gin.H{"status": "acknowledged"})
+            return
+        }
+        if session.Status != "ready" {
+            c.JSON(409, gin.H{"error": "授权结果尚不可确认"})
+            return
+        }
+        updated := h.DB.Model(&model.OAuthLoginSession{}).
+            Where("id = ? AND status = ? AND expires_at > ?", session.ID, "ready", time.Now()).
+            Update("status", "consumed")
+        if updated.Error != nil { c.JSON(500, gin.H{"error": "确认授权结果失败"}); return }
+        if updated.RowsAffected != 1 {
+            var latest model.OAuthLoginSession
+            if err := h.DB.First(&latest, "id = ?", session.ID).Error; err != nil || latest.Status != "consumed" {
+                c.JSON(409, gin.H{"error": "授权状态已变化"}); return
+            }
+        }
+        c.Header("Cache-Control", "no-store")
+        c.JSON(200, gin.H{"status": "acknowledged"})
+        return
+    }
 	switch session.Status {
 	case "pending", "processing":
 		c.Header("Cache-Control", "no-store")
@@ -199,11 +226,14 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 		}
 		token, err := generateTokenWithMethod(user.ID, "github")
 		if err != nil { c.JSON(500, gin.H{"error": "签发登录凭据失败"}); return }
-		updated := h.DB.Model(&model.OAuthLoginSession{}).
-			Where("id = ? AND status = ? AND expires_at > ?", session.ID, "ready", time.Now()).
-			Update("status", "consumed")
-		if updated.Error != nil { c.JSON(500, gin.H{"error": "授权结果读取失败"}); return }
-		if updated.RowsAffected != 1 { c.JSON(409, gin.H{"error": "授权结果已领取"}); return }
+        if req.Mode != "reliable" {
+            // 旧客户端不传 mode，保持现有的一次性凭据领取行为。
+            updated := h.DB.Model(&model.OAuthLoginSession{}).
+                Where("id = ? AND status = ? AND expires_at > ?", session.ID, "ready", time.Now()).
+                Update("status", "consumed")
+            if updated.Error != nil { c.JSON(500, gin.H{"error": "授权结果读取失败"}); return }
+            if updated.RowsAffected != 1 { c.JSON(409, gin.H{"error": "授权结果已领取"}); return }
+        }
 		c.Header("Cache-Control", "no-store")
 		c.JSON(200, gin.H{"status": "complete", "token": token, "user": user})
 	default:
