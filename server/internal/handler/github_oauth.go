@@ -226,11 +226,14 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 		}
 		token, err := generateTokenWithMethod(user.ID, "github")
 		if err != nil { c.JSON(500, gin.H{"error": "签发登录凭据失败"}); return }
-		updated := h.DB.Model(&model.OAuthLoginSession{}).
-			Where("id = ? AND status = ? AND expires_at > ?", session.ID, "ready", time.Now()).
-			Update("status", "consumed")
-		if updated.Error != nil { c.JSON(500, gin.H{"error": "授权结果读取失败"}); return }
-		if updated.RowsAffected != 1 { c.JSON(409, gin.H{"error": "授权结果已领取"}); return }
+        if req.Mode != "reliable" {
+            // 旧客户端不传 mode，保持现有的一次性凭据领取行为。
+            updated := h.DB.Model(&model.OAuthLoginSession{}).
+                Where("id = ? AND status = ? AND expires_at > ?", session.ID, "ready", time.Now()).
+                Update("status", "consumed")
+            if updated.Error != nil { c.JSON(500, gin.H{"error": "授权结果读取失败"}); return }
+            if updated.RowsAffected != 1 { c.JSON(409, gin.H{"error": "授权结果已领取"}); return }
+        }
 		c.Header("Cache-Control", "no-store")
 		c.JSON(200, gin.H{"status": "complete", "token": token, "user": user})
 	default:
