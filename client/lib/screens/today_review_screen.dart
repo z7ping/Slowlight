@@ -22,11 +22,15 @@ import 'weekly_review_screen.dart';
 class TodayReviewScreen extends StatefulWidget {
   final String initialReviewMode;
   final ReflectionRepository? reflectionRepository;
+  final HabitRepository? habitRepository;
+  final Future<Map<String, dynamic>> Function()? reviewLoader;
 
   const TodayReviewScreen({
     super.key,
     this.initialReviewMode = 'tasks',
     this.reflectionRepository,
+    this.habitRepository,
+    this.reviewLoader,
   });
 
   @override
@@ -93,7 +97,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     try {
       final partialUnavailable = <String>[];
       final values = await Future.wait<dynamic>([
-        ReviewApi.getTodayReview(),
+        (widget.reviewLoader ?? ReviewApi.getTodayReview)(),
         _reflectionRepository.recent(limit: 30).catchError((_) {
           partialUnavailable.add('回应记录');
           return <ReflectionEntry>[];
@@ -121,7 +125,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   Future<List<_TodayHabitFact>> _loadTodayHabitFacts() async {
-    final repository = HabitRepository();
+    final repository = widget.habitRepository ?? HabitRepository();
     final habits = await repository.getAll();
     final now = DateTime.now();
     final dateKey = '${now.year}-${_two(now.month)}-${_two(now.day)}';
