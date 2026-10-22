@@ -29,6 +29,7 @@ class TaskCreateSheet extends StatefulWidget {
   final bool defaultDueToday;
   final VoidCallback? onCreated;
   final TagRepository? tagRepository;
+  final DataService? dataService;
 
   const TaskCreateSheet({
     super.key,
@@ -40,6 +41,7 @@ class TaskCreateSheet extends StatefulWidget {
     this.defaultDueToday = true,
     this.onCreated,
     this.tagRepository,
+    this.dataService,
   });
 
   static bool _useDesktopDialog(BuildContext context) =>
@@ -173,6 +175,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   late final TagRepository _tagsRepository;
+  late final DataService _dataService;
+  Task? _pendingCreatedTask;
   List<Tag> _availableTags = const [];
   final Set<int> _selectedTagIds = {};
   bool _showLists = true;
@@ -200,6 +204,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   void initState() {
     super.initState();
     _tagsRepository = widget.tagRepository ?? TagRepository();
+    _dataService = widget.dataService ?? DataService();
     _dueDate = widget.defaultDueToday ? _today() : null;
     _selectedPriority = _normalizePriority(widget.initialPriority);
     // 旧 system_tag_id 独立透传，不混入 canonical 标签集合。
@@ -217,7 +222,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
   Future<void> _loadLists() async {
     try {
-      final lists = await DataService().getLists();
+      final lists = await _dataService.getLists();
       if (!mounted) return;
       final inbox = _inboxOf(lists);
       setState(() {
@@ -969,7 +974,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   );
 
   Widget _submitButton() => FxButton(
-    label: _saving ? '添加中…' : '添加任务',
+    label: _saving ? '保存中…' : _pendingCreatedTask != null ? '重试保存其余设置' : '添加任务',
     size: widget.desktopDialog ? FxButtonSize.sm : FxButtonSize.md,
     onPressed: _saving ? null : _createTask,
   );
@@ -1062,18 +1067,21 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       final tagIds = _selectedTagIds.toList(growable: false);
       final listId = _selectedListId;
       late Task task;
-      if (listId == null) {
-        task = await DataService().quickAddToInbox(
+      if (listId == null || _pendingCreatedTask != null) {
+        // 无清单时旧接口需先建收集箱任务；若后续附加属性失败，
+        // 下次只能更新已存在的记录，绝不能再发起一次创建。
+        task = _pendingCreatedTask ?? await _dataService.quickAddToInbox(
           title,
           systemTagId: systemTagId,
         );
+        _pendingCreatedTask = task;
         if (_selectedPriority != 'none' || _dueDate != null ||
             description.isNotEmpty || tagIds.isNotEmpty || dueTime != null ||
-            _repeatType != 'none' || _reminderAdvanceMinutes >= 0) {
-          task = await DataService().updateTask(
+            _repeatType != 'none' || _reminderAdvanceMinutes > 0) {
+          task = await _dataService.updateTask(
             localId: task.id,
-            listId: task.listId,
-            title: task.title,
+            listId: listId ?? task.listId,
+            title: title,
             description: description.isEmpty ? null : description,
             priority: _selectedPriority,
             dueDate: _dueDate,
@@ -1095,7 +1103,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           );
         }
       } else {
-        task = await DataService().createTask(
+        task = await _dataService.createTask(
           listId: listId,
           title: title,
           description: description.isEmpty ? null : description,
@@ -1111,6 +1119,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           systemTagId: systemTagId,
         );
       }
+      _pendingCreatedTask = null;
       if (!mounted) return;
       HapticFeedback.lightImpact();
       widget.onCreated?.call();
@@ -1120,7 +1129,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = '记录失败：$e';
+        _error = _pendingCreatedTask == null
+            ? '创建结果未确认：$e。请先查看任务列表确认是否已经生成，避免重复创建。'
+            : '任务已创建，但其余设置尚未保存：$e。重试只会更新原任务，不会重复创建。';
       });
     }
   }
