@@ -178,6 +178,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   late final DataService _dataService;
   Task? _pendingCreatedTask;
   bool _creationResultUnknown = false;
+  bool _parentNotifiedOfCreation = false;
   List<Tag> _availableTags = const [];
   final Set<int> _selectedTagIds = {};
   bool _showLists = true;
@@ -1091,6 +1092,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           systemTagId: systemTagId,
         );
         _pendingCreatedTask = task;
+        if (!_parentNotifiedOfCreation) {
+          _parentNotifiedOfCreation = true;
+          widget.onCreated?.call();
+        }
         if (_selectedPriority != 'none' || _dueDate != null ||
             description.isNotEmpty || tagIds.isNotEmpty || dueTime != null ||
             _repeatType != 'none' || _reminderAdvanceMinutes > 0) {
@@ -1139,7 +1144,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       _creationResultUnknown = false;
       if (!mounted) return;
       HapticFeedback.lightImpact();
-      widget.onCreated?.call();
+      if (!_parentNotifiedOfCreation) widget.onCreated?.call();
       Navigator.pop(context);
       notice.showContent(Text(_createdText(task)));
     } catch (e) {
