@@ -26,6 +26,62 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  // 回归：只验证外框高度不足以发现文字靠上的问题。
+  // 同时覆盖占位符与真实输入文字在单行字段中的中心位置。
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('单行输入内容垂直居中：${platform.name} / ${scale}x', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        await tester.pumpWidget(buildFxTestHost(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: child!,
+          ),
+          home: const Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FxInput(placeholder: '任务标题'),
+                    FxInput(placeholder: '描述（可选）'),
+                    FxInput(placeholder: '带图标', leading: Icon(Icons.search)),
+                    FxInput(placeholder: '禁用输入', enabled: false),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ));
+        await tester.pump();
+
+        final fields = find.byType(FxInput);
+        for (var index = 0; index < 4; index++) {
+          final fieldCenter = tester.getRect(fields.at(index)).center.dy;
+          final editable = find.descendant(
+            of: fields.at(index),
+            matching: find.byType(EditableText),
+          );
+          final textCenter = tester.getRect(editable).center.dy;
+          expect((fieldCenter - textCenter).abs(), lessThanOrEqualTo(2.0),
+              reason: '第 ${index + 1} 个输入框文字应垂直居中');
+        }
+
+        await tester.enterText(find.byType(EditableText).first, '新建任务');
+        await tester.pump();
+        final fieldCenter = tester.getRect(fields.first).center.dy;
+        final textCenter = tester.getRect(find.byType(EditableText).first).center.dy;
+        expect((fieldCenter - textCenter).abs(), lessThanOrEqualTo(2.0));
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
   for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
     for (final dark in [false, true]) {
       for (final scale in [1.0, 1.3, 2.0]) {
