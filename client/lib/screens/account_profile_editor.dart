@@ -216,7 +216,7 @@ class _PasswordFormState extends State<_PasswordForm> {
           enabled: !_saving,
         ),
       ] else ...[
-        Text('登录账号：' + widget.username),
+        Text('登录账号：${widget.username}'),
         const SizedBox(height: 12),
         FxInput(
           label: '当前密码',
