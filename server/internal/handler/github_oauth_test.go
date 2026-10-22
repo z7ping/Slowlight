@@ -18,6 +18,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestDesktopOAuthReturnProvidesSafeWindowsAppLink(t *testing.T) {
+    if !strings.Contains(desktopOAuthReturnHTML, `href="slowlight://oauth-complete"`) {
+        t.Fatal("Windows OAuth 回调必须提供唤醒已安装客户端的操作")
+    }
+    if strings.Contains(desktopOAuthReturnHTML, "<script") {
+        t.Fatal("Windows OAuth 页面应由用户手动点击打开客户端")
+    }
+    if !strings.Contains(desktopOAuthReturnHTML, "客户端完成确认前") {
+        t.Fatal("回跳页面不能把收到授权请求冒充登录成功")
+    }
+    if strings.Contains(desktopOAuthReturnHTML, "poll_token") ||
+        strings.Contains(desktopOAuthReturnHTML, "access_token") {
+        t.Fatal("OAuth 浏览器回跳页面不能携带登录凭据")
+    }
+}
+
 func waitForOAuthReady(t *testing.T, router http.Handler, creds map[string]string) {
     t.Helper()
     poll := map[string]string{
