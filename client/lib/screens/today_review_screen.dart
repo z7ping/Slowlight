@@ -21,8 +21,13 @@ import 'weekly_review_screen.dart';
 /// 回顾页采用已确认的 Android / Windows 响应式信息结构；组件复用 Fx。
 class TodayReviewScreen extends StatefulWidget {
   final String initialReviewMode;
+  final ReflectionRepository? reflectionRepository;
 
-  const TodayReviewScreen({super.key, this.initialReviewMode = 'tasks'});
+  const TodayReviewScreen({
+    super.key,
+    this.initialReviewMode = 'tasks',
+    this.reflectionRepository,
+  });
 
   @override
   State<TodayReviewScreen> createState() => _TodayReviewScreenState();
@@ -41,6 +46,12 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   final Set<String> _expanded = {};
   final Map<String, TextEditingController> _answerControllers = {};
   final TextEditingController _noteController = TextEditingController();
+  bool _savingNote = false;
+  bool _noteResultUnknown = false;
+  final Set<String> _savingAnswers = <String>{};
+  final Set<String> _unknownAnswers = <String>{};
+  ReflectionRepository get _reflectionRepository =>
+      widget.reflectionRepository ?? ReflectionRepository();
 
   @override
   void initState() {
@@ -83,7 +94,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       final partialUnavailable = <String>[];
       final values = await Future.wait<dynamic>([
         ReviewApi.getTodayReview(),
-        ReflectionRepository().recent(limit: 30).catchError((_) {
+        _reflectionRepository.recent(limit: 30).catchError((_) {
           partialUnavailable.add('回应记录');
           return <ReflectionEntry>[];
         }),
@@ -441,21 +452,52 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: FxButton(
-              label: '保存记录',
+              label: _savingNote ? '保存中…' : '保存记录',
               size: FxButtonSize.sm,
-              onPressed: _saveNote,
+              onPressed: _savingNote || _noteResultUnknown ? null : _saveNote,
+              
             ),
           ),
+          if (_noteResultUnknown)
+            _uncertainSaveNotice(
+              '记录的保存结果尚未确认，请先在「我的理解」中核对。',
+              () => setState(() => _noteResultUnknown = false),
+            ),
         ],
       ),
     );
   }
 
+  Widget _uncertainSaveNotice(String message, VoidCallback onChecked) =>
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 6),
+            FxButton(
+              label: '已核对，允许重新保存',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.outline,
+              onPressed: onChecked,
+            ),
+          ],
+        ),
+      );
+
   Future<void> _saveNote() async {
+    if (_savingNote || _noteResultUnknown) return;
     final content = _noteController.text.trim();
     if (content.isEmpty) return;
+    setState(() => _savingNote = true);
     try {
-      final saved = await ReflectionRepository().create(
+      final saved = await _reflectionRepository.create(
         content: content,
         context: const {'source': 'review', 'question_type': 'free_note'},
       );
@@ -463,11 +505,19 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       setState(() {
         _reflections = [saved, ..._reflections].take(30).toList();
         _noteController.clear();
+        _noteResultUnknown = false;
       });
       FxNotice.showContent(context, const Text('记录已保存'));
     } catch (_) {
       if (!mounted) return;
-      FxNotice.showContent(context, const Text('保存记录失败'));
+      setState(() => _noteResultUnknown = true);
+      FxNotice.showContent(
+        context,
+        const Text('保存结果未确认，草稿已保留，请核对后再重试'),
+        variant: FxNoticeVariant.warning,
+      );
+    } finally {
+      if (mounted) setState(() => _savingNote = false);
     }
   }
 
@@ -687,11 +737,18 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: FxButton(
-                              label: '保存回应',
+                              label: _savingAnswers.contains(key) ? '保存中…' : '保存回应',
                               size: FxButtonSize.sm,
-                              onPressed: () => _saveAnswer(question),
+                              onPressed: _savingAnswers.contains(key) ||
+                                      _unknownAnswers.contains(key)
+                                  ? null : () => _saveAnswer(question),
                             ),
                           ),
+                          if (_unknownAnswers.contains(key))
+                            _uncertainSaveNotice(
+                              '回应保存结果未确认，输入内容仍保留。请先在「我的理解」中核对。',
+                              () => setState(() => _unknownAnswers.remove(key)),
+                            ),
                         ],
                       ],
                     ),
@@ -809,13 +866,16 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   Future<void> _saveAnswer(Map<String, dynamic> question) async {
+    final key = _questionKey(question);
+    if (_savingAnswers.contains(key) || _unknownAnswers.contains(key) ||
+        _answered.contains(key)) return;
     final controller = _controllerFor(question);
     final content = controller.text.trim();
     if (content.isEmpty) return;
     final id = question['id']?.toString() ?? '';
-
+    setState(() => _savingAnswers.add(key));
     try {
-      final saved = await ReflectionRepository().create(
+      final saved = await _reflectionRepository.create(
         content: content,
         questionId: id.isEmpty ? null : id,
         context: {
@@ -827,14 +887,22 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       if (!mounted) return;
       setState(() {
         _reflections = [saved, ..._reflections].take(30).toList();
-        _answered.add(_questionKey(question));
-        _expanded.remove(_questionKey(question));
+        _answered.add(key);
+        _expanded.remove(key);
+        _unknownAnswers.remove(key);
         controller.clear();
       });
-      FxNotice.showContent(context, Text('回应已保存'));
+      FxNotice.showContent(context, const Text('回应已保存'));
     } catch (_) {
       if (!mounted) return;
-      FxNotice.showContent(context, Text('保存回应失败'));
+      setState(() => _unknownAnswers.add(key));
+      FxNotice.showContent(
+        context,
+        const Text('回应保存结果未确认，草稿已保留，核对后可重试'),
+        variant: FxNoticeVariant.warning,
+      );
+    } finally {
+      if (mounted) setState(() => _savingAnswers.remove(key));
     }
   }
 
