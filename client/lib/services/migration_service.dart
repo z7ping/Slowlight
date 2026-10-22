@@ -134,6 +134,10 @@ class MigrationService {
       await _applyIdMap(result['id_map']);
       await store.succeed(localID, result);
       return result;
+    } on MigrationCommitRejected catch (error) {
+      await store.fail(localID, error);
+      // HTTP 409 definitively rejected this submission, no success is claimed.
+      throw StateError('迁移已被服务端安全拒绝：$error。请重新扫描。');
     } catch (error) {
       await store.fail(localID, error);
       throw MigrationExecutionException(
