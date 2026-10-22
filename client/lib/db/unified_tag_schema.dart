@@ -65,9 +65,6 @@ abstract final class UnifiedTagSchema {
             .isNotEmpty) {
           continue;
         }
-        final name = row['name']?.toString().trim() ?? '';
-        if (name.isEmpty) continue;
-
         // 管理页可见的默认标签也映射为 canonical 标签供任务选择。
         final name = row['name']?.toString().trim() ?? '';
         if (name.isEmpty) continue;
