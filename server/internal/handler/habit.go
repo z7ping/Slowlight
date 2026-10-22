@@ -85,6 +85,11 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		return
 	}
 
+	scheduleJSON, scheduleErr := validateHabitSchedule(payload["schedule_rule"])
+	if scheduleErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": scheduleErr.Error()})
+		return
+	}
 	systemTagID, _ := habitUintPtr(payload, "system_tag_id")
 	if systemTagID != nil && !h.ownsSystemTag(userID, *systemTagID) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "观察标签不存在"})
@@ -97,7 +102,7 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		Icon:              habitString(payload, "icon", "✅"),
 		Color:             habitString(payload, "color", "#52c41a"),
 		Frequency:         habitString(payload, "frequency", "daily"),
-		ScheduleRule:      habitJSON(payload["schedule_rule"], "{}"),
+		ScheduleRule:      scheduleJSON,
 		TargetDays:        habitInt(payload, "target_days", 0),
 		PreferredPeriod:   habitString(payload, "preferred_period", ""),
 		SystemTagID:       systemTagID,
@@ -178,7 +183,12 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 		updates["system_tag_id"] = tagID
 	}
 	if value, ok := payload["schedule_rule"]; ok {
-		updates["schedule_rule"] = habitJSON(value, "{}")
+		scheduleJSON, scheduleErr := validateHabitSchedule(value)
+		if scheduleErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": scheduleErr.Error()})
+			return
+		}
+		updates["schedule_rule"] = scheduleJSON
 	}
 	if value, ok := payload["reminder_at"]; ok {
 		updates["reminder_at"] = habitJSON(value, "{}")
