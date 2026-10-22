@@ -31,7 +31,12 @@ class GitHubOAuthPending {
       sessionId.isNotEmpty &&
       pollToken.isNotEmpty &&
       endpoint == ApiService.baseUrl &&
-      expiresAt.isAfter(DateTime.now());
+      expiresAt.isAfter(DateTime.now()) &&
+      (flow == 'browser' ||
+          (flow == 'device' &&
+              userCode.isNotEmpty &&
+              Uri.tryParse(verificationUri)?.scheme == 'https' &&
+              Uri.tryParse(verificationUri)?.host == 'github.com'));
 
   Map<String, dynamic> toJson() => {
         'session_id': sessionId,
