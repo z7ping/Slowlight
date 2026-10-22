@@ -173,6 +173,7 @@ type oauthPollRequest struct {
 func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 	var req oauthPollRequest
 	if err := c.ShouldBindJSON(&req); err != nil { c.JSON(400, gin.H{"error": "授权会话参数无效"}); return }
+    if req.Mode != "" && req.Mode != "reliable" && req.Mode != "ack" { c.JSON(400, gin.H{"error": "授权会话模式无效"}); return }
 	var session model.OAuthLoginSession
 	if err := h.DB.First(&session, "id = ?", req.SessionID).Error; err != nil {
 		c.JSON(404, gin.H{"error": "授权会话不存在"}); return
