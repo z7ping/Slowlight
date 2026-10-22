@@ -177,6 +177,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   late final TagRepository _tagsRepository;
   late final DataService _dataService;
   Task? _pendingCreatedTask;
+  bool _creationResultUnknown = false;
   List<Tag> _availableTags = const [];
   final Set<int> _selectedTagIds = {};
   bool _showLists = true;
@@ -415,6 +416,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             color: Theme.of(context).colorScheme.error,
           ),
         ),
+        if (_creationResultUnknown) _unknownResultRecovery(),
       ],
     ],
   );
@@ -934,6 +936,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               context,
             ).copyWith(color: theme.colorScheme.error),
           ),
+          if (_creationResultUnknown) _unknownResultRecovery(),
         ],
       ],
     );
@@ -973,10 +976,23 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     ],
   );
 
+  Widget _unknownResultRecovery() => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: FxButton(
+      label: '我已核对任务列表，仍需重试',
+      variant: FxButtonVariant.outline,
+      size: FxButtonSize.sm,
+      onPressed: () => setState(() {
+        _creationResultUnknown = false;
+        _error = null;
+      }),
+    ),
+  );
+
   Widget _submitButton() => FxButton(
     label: _saving ? '保存中…' : _pendingCreatedTask != null ? '重试保存其余设置' : '添加任务',
     size: widget.desktopDialog ? FxButtonSize.sm : FxButtonSize.md,
-    onPressed: _saving ? null : _createTask,
+    onPressed: _saving || _creationResultUnknown ? null : _createTask,
   );
 
   Widget _editorActions() => FxDialogActions(actions: [_submitButton()]);
@@ -1120,6 +1136,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         );
       }
       _pendingCreatedTask = null;
+      _creationResultUnknown = false;
       if (!mounted) return;
       HapticFeedback.lightImpact();
       widget.onCreated?.call();
@@ -1129,6 +1146,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       if (!mounted) return;
       setState(() {
         _saving = false;
+        _creationResultUnknown = _pendingCreatedTask == null;
         _error = _pendingCreatedTask == null
             ? '创建结果未确认：$e。请先查看任务列表确认是否已经生成，避免重复创建。'
             : '任务已创建，但其余设置尚未保存：$e。重试只会更新原任务，不会重复创建。';
