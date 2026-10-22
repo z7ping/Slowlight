@@ -79,6 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _savingReminder = false;
   bool _switchingMode = false;
   bool _linkingGitHub = false;
+  String _githubLinkingStatus = "正在等待 GitHub 授权…";
   bool _loadingAccount = true;
   bool _checkingGitHub = true;
   int _accountLoadVersion = 0;
@@ -740,7 +741,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (_linkingGitHub) ...[
                   const SizedBox(height: 12),
                   Text(
-                    '正在等待浏览器授权…',
+                    _githubLinkingStatus,
                     style: captionStyle.copyWith(color: subtle),
                   ),
                   const SizedBox(height: 8),
@@ -748,7 +749,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      if (defaultTargetPlatform == TargetPlatform.windows)
+                      if (defaultTargetPlatform == TargetPlatform.windows ||
+                          defaultTargetPlatform == TargetPlatform.android)
                         FxButton(
                           label: '检查授权结果',
                           size: FxButtonSize.sm,
@@ -1767,11 +1769,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _bindGitHub() async {
     if (DataModeManager().isLocal) return;
-    setState(() => _linkingGitHub = true);
+    setState(() {
+      _linkingGitHub = true;
+      _githubLinkingStatus = "正在等待 GitHub 授权…";
+    });
     try {
       final completed = await GitHubSignIn.signIn(
         linkExisting: true,
         shouldContinue: () => mounted && _linkingGitHub,
+        onStatus: (status) {
+          if (mounted && _linkingGitHub) {
+            setState(() => _githubLinkingStatus = status);
+          }
+        },
       );
       if (mounted && completed) {
         // OAuth 回调已完成后仍需刷新本机身份和真实绑定状态。
