@@ -56,6 +56,10 @@ func main() {
 	api.Use(handler.AuthMiddleware())
 	{
 		api.GET("/auth/profile", authHandler.GetProfile)
+		api.PATCH("/auth/profile", authHandler.UpdateProfile)
+		api.GET("/auth/password/status", authHandler.PasswordStatus)
+		api.POST("/auth/password/setup", authHandler.SetupPassword)
+		api.POST("/auth/password/change", authHandler.ChangePassword)
 		api.GET("/auth/providers", authHandler.GetLinkedProviders)
 
 		taskHandler := handler.NewTaskHandler(db)
