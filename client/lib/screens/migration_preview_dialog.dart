@@ -23,10 +23,13 @@ class MigrationPreviewDialog extends StatefulWidget {
 }
 
 class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
-  final _counts = <String, int>{'任务': 0, '习惯': 0, '打卡记录': 0, '专注记录': 0};
+  final _counts = <String, int>{
+    '清单': 0, '标签': 0, '观察标签（旧）': 0, '任务': 0,
+    '子任务': 0, '习惯': 0, '打卡记录': 0, '专注记录': 0,
+  };
 
   bool _loading = true;
-  String _choice = 'local';
+  String? _choice;
   int _conflictCount = 0;
   List<Map<String, dynamic>> _conflicts = const [];
   String? _previewError;
@@ -43,16 +46,16 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     try {
       final db = await LocalDb().database;
       final values = await Future.wait([
-        db.rawQuery(
-          'SELECT COUNT(*) AS count FROM tasks WHERE deleted_at IS NULL',
-        ),
-        db.rawQuery(
-          'SELECT COUNT(*) AS count FROM habits WHERE deleted_at IS NULL',
-        ),
+        db.rawQuery('SELECT COUNT(*) AS count FROM lists WHERE deleted_at IS NULL'),
+        db.rawQuery('SELECT COUNT(*) AS count FROM tags'),
+        db.rawQuery('SELECT COUNT(*) AS count FROM system_tags'),
+        db.rawQuery('SELECT COUNT(*) AS count FROM tasks WHERE deleted_at IS NULL'),
+        db.rawQuery('SELECT COUNT(*) AS count FROM subtasks'),
+        db.rawQuery('SELECT COUNT(*) AS count FROM habits WHERE deleted_at IS NULL'),
         db.rawQuery('SELECT COUNT(*) AS count FROM habit_logs'),
         db.rawQuery('SELECT COUNT(*) AS count FROM work_sessions'),
       ]);
-      const labels = ['任务', '习惯', '打卡记录', '专注记录'];
+      const labels = ['清单', '标签', '观察标签（旧）', '任务', '子任务', '习惯', '打卡记录', '专注记录'];
       for (var i = 0; i < labels.length; i++) {
         _counts[labels[i]] = (values[i].first['count'] as int?) ?? 0;
       }
@@ -62,7 +65,21 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         _lastReport = report?['created_at']?.toString();
         final preview = await MigrationService().preview();
         final summary = Map<String, dynamic>.from(preview['summary'] as Map);
+        // 服务端预览统计缺失时不可回退为另一份本机数量，避免误导。
+        for (final key in const [
+          'lists', 'tags', 'system_tags', 'tasks',
+          'subtasks', 'habits', 'habit_logs', 'sessions',
+        ]) {
+          if (summary[key] is! num) {
+            throw const FormatException('迁移预览统计不完整');
+          }
+        }
+        _counts['清单'] = (summary['lists'] as num?)?.toInt() ?? _counts['清单']!;
+        _counts['标签'] = (summary['tags'] as num?)?.toInt() ?? _counts['标签']!;
+        _counts['观察标签（旧）'] =
+            (summary['system_tags'] as num?)?.toInt() ?? _counts['观察标签（旧）']!;
         _counts['任务'] = (summary['tasks'] as num?)?.toInt() ?? _counts['任务']!;
+        _counts['子任务'] = (summary['subtasks'] as num?)?.toInt() ?? _counts['子任务']!;
         _counts['习惯'] = (summary['habits'] as num?)?.toInt() ?? _counts['习惯']!;
         _counts['打卡记录'] =
             (summary['habit_logs'] as num?)?.toInt() ?? _counts['打卡记录']!;
@@ -74,6 +91,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                 .map((item) => Map<String, dynamic>.from(item))
                 .toList();
         _conflictCount = _conflicts.length;
+        _choice = null; // 新预览不沿用旧的处理策略
       }
     } catch (e) {
       _previewError = e.toString();
@@ -82,7 +100,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   }
 
   int get _currentStep {
-    if (_loading) return 0;
+    if (_loading || _previewError != null) return 0;
     if (!DataModeManager().isCloud) return 1;
     if (_conflictCount > 0) return 1;
     return 2;
@@ -392,38 +410,25 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   Widget _countGrid() => LayoutBuilder(
     builder: (context, constraints) {
-      final largeText =
-          MediaQuery.textScalerOf(
-            context,
-          ).scale(SlowlightTypography.bodySize) >=
+      final largeText = MediaQuery.textScalerOf(context)
+              .scale(SlowlightTypography.bodySize) >=
           SlowlightTypography.bodySize * 1.3;
-      final columns =
-          largeText
-              ? 1
-              : constraints.maxWidth < 520
-              ? 2
-              : 4;
-      return GridView.count(
-        crossAxisCount: columns,
-        mainAxisSpacing: SlowlightSpacing.xs,
-        crossAxisSpacing: SlowlightSpacing.xs,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        childAspectRatio:
-            columns == 1
-                ? 3.4
-                : columns == 2
-                ? 2.45
-                : 1.95,
-        children:
-            _counts.entries
-                .map(
-                  (entry) => FxStatCell(
-                    label: entry.key,
-                    value: _loading ? '—' : '${entry.value}',
-                  ),
-                )
-                .toList(),
+      final columns = largeText ? 1 : constraints.maxWidth < 520 ? 2 : 4;
+      final gap = SlowlightSpacing.xs;
+      final width = (constraints.maxWidth - (columns - 1) * gap) / columns;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
+          for (final entry in _counts.entries)
+            SizedBox(
+              width: width,
+              child: FxStatCell(
+                label: entry.key,
+                value: _loading || _previewError != null ? '—' : '${entry.value}',
+              ),
+            ),
+        ],
       );
     },
   );
@@ -473,113 +478,97 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     );
   }
 
+  String _conflictEntity(String? entity) => switch (entity) {
+    'list' => '清单',
+    'tag' => '标签',
+    'system_tag' => '观察标签（旧）',
+    'habit' => '习惯',
+    _ => '记录',
+  };
+
   Widget _conflictCard() {
     final theme = Theme.of(context);
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 520;
-              final local = _version(
-                theme,
-                '本地版本',
-                _conflictName,
-                Icons.computer_outlined,
-              );
-              final cloud = _version(
-                theme,
-                '云端版本',
-                _conflictName,
-                Icons.cloud_outlined,
-              );
-              if (compact) {
-                return Column(
-                  children: [
-                    local,
-                    const SizedBox(height: SlowlightSpacing.xs),
-                    cloud,
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: local),
-                  const SizedBox(width: SlowlightSpacing.md),
-                  Expanded(child: cloud),
-                ],
-              );
-            },
+          Text(
+            '发现 $_conflictCount 项同名冲突',
+            style: SlowlightTypography.secondary(context)
+                .copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text(
+            '云端存在同名记录，但当前数据不足以判断字段内容是否不同。',
+            style: SlowlightTypography.caption(context)
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: SlowlightSpacing.md),
+          for (var i = 0; i < _conflicts.length; i++) ...[
+            if (i > 0) const SizedBox(height: SlowlightSpacing.xs),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(SlowlightSpacing.md),
+              decoration: BoxDecoration(
+                color: fxSubtleSurface(context),
+                borderRadius: BorderRadius.circular(SlowlightRadius.md),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${i + 1}.', style: SlowlightTypography.caption(context)),
+                  const SizedBox(width: SlowlightSpacing.xs),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_conflictEntity(_conflicts[i]['entity']?.toString())}：${_conflicts[i]['name']?.toString() ?? '未命名'}',
+                          style: SlowlightTypography.secondary(context),
+                        ),
+                        Text(
+                          _conflicts[i]['reason']?.toString() ?? '云端存在同名记录',
+                          style: SlowlightTypography.caption(context)
+                              .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: SlowlightSpacing.md),
+          Text(
+            '对以上全部 $_conflictCount 项应用同一策略',
+            style: SlowlightTypography.secondary(context)
+                .copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: SlowlightSpacing.xs),
           Wrap(
             spacing: SlowlightSpacing.xs,
             runSpacing: SlowlightSpacing.xs,
             children: [
-              _choiceButton('local', '保留本地', Icons.computer_outlined),
               _choiceButton('cloud', '保留云端', Icons.cloud_outlined),
+              _choiceButton('local', '保留本地', Icons.computer_outlined),
               _choiceButton('both', '两份都保留', Icons.copy_outlined),
             ],
           ),
           const SizedBox(height: SlowlightSpacing.xs),
           Text(
-            '冲突策略将在确认迁移后应用；当前不会覆盖任何云端数据。',
-            style: SlowlightTypography.caption(
-              context,
-            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+            switch (_choice) {
+              'cloud' => '复用云端同名记录，关联本地记录按映射迁移。',
+              'local' => '云端原同名记录将改名备份，再导入本地记录。',
+              'both' => '两份都保留；需要确保服务端同名规则允许。',
+              _ => '请明确选择整批处理策略。未选择时不能提交迁移。',
+            },
+            style: SlowlightTypography.caption(context)
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
     );
   }
-
-  String get _conflictName {
-    final conflict = _conflicts.isEmpty ? null : _conflicts.first;
-    final name = conflict?['name']?.toString().trim();
-    final entity = switch (conflict?['entity']) {
-      'list' => '清单',
-      'tag' => '标签',
-      'system_tag' => '标签（旧数据）',
-      'habit' => '习惯',
-      _ => '记录',
-    };
-    return name == null || name.isEmpty ? entity : '$entity：$name';
-  }
-
-  Widget _version(ThemeData theme, String title, String item, IconData icon) =>
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(SlowlightSpacing.md),
-        decoration: BoxDecoration(
-          color: fxSubtleSurface(context).withValues(alpha: .45),
-          borderRadius: BorderRadius.circular(SlowlightRadius.md),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: SlowlightSpacing.md),
-            Text(item),
-            const SizedBox(height: 4),
-            Text(
-              '状态、截止日期等字段存在差异',
-              style: SlowlightTypography.caption(
-                context,
-              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
 
   Widget _choiceButton(String value, String label, IconData icon) => FxButton(
     label: label,
@@ -639,7 +628,9 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
                         : Icons.login_outlined,
                 onPressed:
                     _executing || _loading ||
-                    (DataModeManager().isCloud && _previewError != null)
+                    (DataModeManager().isCloud &&
+                        (_previewError != null ||
+                            (_conflictCount > 0 && _choice == null)))
                         ? null
                         : _continue,
               ),
@@ -680,10 +671,13 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   }
 
   Future<void> _execute() async {
-    if (_executing || _loading || _previewError != null) return;
+    if (_executing || _loading || _previewError != null ||
+        (_conflictCount > 0 && _choice == null)) return;
     setState(() => _executing = true);
     try {
-      final result = await MigrationService().execute(conflictPolicy: _choice);
+      final result = await MigrationService().execute(
+        conflictPolicy: _choice ?? 'reject',
+      );
       if (!mounted) return;
       final created = Map<String, dynamic>.from(result['created'] as Map);
       final report = <String>[
@@ -707,7 +701,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   Future<void> _continue() async {
     if (_executing || _loading) return;
-    if (DataModeManager().isCloud && _previewError != null) return;
+    if (DataModeManager().isCloud &&
+        (_previewError != null || (_conflictCount > 0 && _choice == null))) return;
     if (DataModeManager().isCloud) {
       await _execute();
       return;
