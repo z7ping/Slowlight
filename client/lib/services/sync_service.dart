@@ -560,12 +560,14 @@ class SyncService extends ChangeNotifier {
     final row = await _row(db, 'habits', localId);
     final systemTagId = await _mapSystemTag(db, row['system_tag_id'] as int?);
     final reminderAt = _jsonMap(row['reminder_at']);
+    final scheduleRule = _jsonMap(row['schedule_rule']);
     if (op == 'create') {
       final remote = await ApiService.createHabit(
         name: row['name'] as String,
         icon: row['icon'] as String? ?? '✅',
         color: row['color'] as String? ?? '#52c41a',
         frequency: row['frequency'] as String? ?? 'daily',
+        scheduleRule: scheduleRule,
         targetDays: row['target_days'] as int? ?? 0,
         systemTagId: systemTagId,
         preferredPeriod: row['preferred_period'] as String? ?? '',
@@ -586,6 +588,7 @@ class SyncService extends ChangeNotifier {
       'icon': row['icon'],
       'color': row['color'],
       'frequency': row['frequency'],
+      'schedule_rule': scheduleRule,
       'target_days': row['target_days'],
       'system_tag_id': systemTagId,
       'preferred_period': row['preferred_period'],
