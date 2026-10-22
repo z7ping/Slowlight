@@ -13,7 +13,7 @@ import (
 )
 
 func TestGitHubDeviceFlowOptInAndPolling(t *testing.T) {
-    db := beginTx(t, setupTestDB(t))
+    db := setupTestDB(t)
     t.Setenv("JWT_SECRET", "test-signing-key")
     t.Setenv("CONFIG_ENCRYPTION_KEY", strings.Repeat("test-encryption", 3))
     t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")

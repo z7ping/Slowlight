@@ -291,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: _isLoading ? null : _loginWithGitHub,
         ),
         if (_deviceFlowEnabled && !_githubAuthorizing) ...[
-          const SizedBox(height: SlowlightSpacing.sm),
+          const SizedBox(height: SlowlightSpacing.md),
           FxButton(
             key: const ValueKey('login.github_device_action'),
             label: '使用验证码登录（备用）',

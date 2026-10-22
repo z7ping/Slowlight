@@ -77,7 +77,7 @@ func parseOAuthBody(t *testing.T, w *httptest.ResponseRecorder) map[string]inter
 }
 
 func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
-	db := beginTx(t, setupTestDB(t))
+	db := setupTestDB(t)
 	t.Setenv("JWT_SECRET", "a-long-test-jwt-signing-secret")
 	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
 	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
@@ -223,7 +223,7 @@ func TestGitHubOAuthLoginEndToEnd(t *testing.T) {
 }
 
 func TestGitHubOAuthExplicitAccountLink(t *testing.T) {
-	db := beginTx(t, setupTestDB(t))
+	db := setupTestDB(t)
 	old := createTestUser(t, db)
 	t.Setenv("JWT_SECRET", "long-test-signing-secret")
 	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
@@ -263,7 +263,7 @@ func TestGitHubOAuthExplicitAccountLink(t *testing.T) {
 
 
 func TestGitHubOAuthAndroidReturnDoesNotLeakCredentials(t *testing.T) {
-	db := beginTx(t, setupTestDB(t))
+	db := setupTestDB(t)
 	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "test-client")
 	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret")
     t.Setenv("CONFIG_ENCRYPTION_KEY", strings.Repeat("secure-test-key-", 3))
