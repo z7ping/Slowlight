@@ -345,8 +345,14 @@ class _AuthGateState extends State<AuthGate> {
       }
       // Android 启动时先判断有没有未结束的 GitHub 授权。
       // Local Mode 不丢弃现有本地数据，只暂时展示可取消的登录恢复页。
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        pendingGitHubLogin = await GitHubSignIn.hasPendingAuthorization();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android &&
+          (DataModeManager().isLocal || !hasAccess)) {
+        try {
+          pendingGitHubLogin = await GitHubSignIn.hasPendingAuthorization();
+        } catch (_) {
+          // 系统安全存储异常不应让本地数据或有效账号不可访问。
+          pendingGitHubLogin = false;
+        }
       }
     } catch (_) {
       checkFailed = true;
