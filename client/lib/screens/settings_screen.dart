@@ -370,9 +370,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (local) {
-      return ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820),
-        child: Column(
+      return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             sectionCard(
@@ -435,8 +433,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 14),
             dataModeCard(),
           ],
-        ),
-      );
+        );
     }
 
     final displayName = user == null
@@ -504,9 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 820),
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           sectionCard(
@@ -715,8 +710,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   Future<void> _logoutAccount() async {
@@ -941,26 +935,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _ => const SizedBox.shrink(),
   };
 
-  Widget _detailContent() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(_sectionTitle(_open),
-        style: SlowlightTypography.componentPageTitle(context)),
-      const SizedBox(height: 6),
-      Text(
-        _open == 'account' ? '管理账号、登录方式与身份关联' : _sectionDescription(_open),
-        style: SlowlightTypography.caption(context).copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ),
-      const SizedBox(height: 20),
-      FxSeparator.horizontal(
-        color: Theme.of(context).colorScheme.outlineVariant,
-      ),
-      const SizedBox(height: 20),
-      _sectionContent(_open),
-    ],
-  );
+  // 桌面双栏中左侧分类已经承担当前页标题与导航语义。
+  // 右侧直接进入内容，避免重复标题/说明/分隔线制造空白层。
+  Widget _detailContent() => _sectionContent(_open);
 
   String _dataSummary() {
     if (DataModeManager().isLocal) return '仅本地使用';
@@ -1011,11 +988,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       key: PageStorageKey(
                         detail ? 'settings.detail.$_open' : 'settings.overview',
                       ),
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
                       children: [
                         Center(
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1050),
+                            constraints: const BoxConstraints(maxWidth: 1180),
                             child: twoPane
                                 ? Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1024,7 +1001,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         width: 226,
                                         child: _navigationList(desktop: true),
                                       ),
-                                      const SizedBox(width: 28),
+                                      const SizedBox(width: 24),
                                       Expanded(child: _detailContent()),
                                     ],
                                   )
