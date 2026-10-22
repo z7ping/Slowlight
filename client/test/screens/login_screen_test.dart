@@ -92,8 +92,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('login.local_action')));
       await tester.pump();
       expect(find.byKey(const ValueKey('login.page_local')), findsOneWidget);
-      expect(find.text('不会自动上传或合并到云端。', findRichText: true),
-          findsNothing); // 合并说明在完整文本里，不是独立按钮。
+      expect(find.textContaining('不会自动上传或合并到云端'), findsOneWidget);
       expect(find.byKey(const ValueKey('login.local_confirm')), findsOneWidget);
       await tester.ensureVisible(find.byKey(const ValueKey('login.local_cancel')));
       await tester.tap(find.byKey(const ValueKey('login.local_cancel')));
