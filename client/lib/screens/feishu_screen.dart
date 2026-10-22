@@ -9,14 +9,16 @@ import '../ui/fx.dart';
 part 'feishu_screen_sections.dart';
 
 class FeishuScreen extends StatefulWidget {
-  const FeishuScreen({super.key});
+  final FeishuIntegrationRepository? repository;
+
+  const FeishuScreen({super.key, this.repository});
 
   @override
   State<FeishuScreen> createState() => _FeishuScreenState();
 }
 
 class _FeishuScreenState extends State<FeishuScreen> {
-  final _integration = FeishuIntegrationRepository();
+  late final FeishuIntegrationRepository _integration;
   final _appIdController = TextEditingController();
   final _appSecretController = TextEditingController();
   final _tableUrlController = TextEditingController();
@@ -51,6 +53,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   @override
   void initState() {
     super.initState();
+    _integration = widget.repository ?? FeishuIntegrationRepository();
     DataModeManager().addListener(_onDataModeChanged);
     _loadConfig();
   }
