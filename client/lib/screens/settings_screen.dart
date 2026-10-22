@@ -59,6 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _accountLoadVersion = 0;
   User? _accountUser;
   bool? _githubLinked;
+  String? _lastLoginMethod;
   late String _open;
   late bool _mobileDetail;
   bool _openedAsDeepLink = false;
@@ -156,6 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _checkingGitHub = true;
         _accountUser = null;
         _githubLinked = null;
+        _lastLoginMethod = null;
       });
     }
     if (DataModeManager().isLocal) {
@@ -169,9 +171,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     try {
       final user = await AuthService.getUser();
+      final method = await AuthService.getLastLoginMethod();
       if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
       setState(() {
         _accountUser = user;
+        _lastLoginMethod = method;
         _loadingAccount = false;
       });
       // 无法确认绑定状态时保持「未知」，不能伪装成「未绑定」。
@@ -312,6 +316,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 5),
                       Text(email, maxLines: 2, overflow: TextOverflow.ellipsis,
                           style: style.copyWith(color: subtle)),
+                      if (_lastLoginMethod == 'github') ...[
+                        const SizedBox(height: 4),
+                        Text('最近通过 GitHub 登录 · 绑定状态以云端查询为准',
+                            style: SlowlightTypography.caption(context)
+                                .copyWith(color: subtle)),
+                      ],
                     ],
                   )),
                   if (_loadingAccount)
