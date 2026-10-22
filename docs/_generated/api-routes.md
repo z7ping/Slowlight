@@ -10,6 +10,9 @@
 | POST | `/api/auth/github/start` |
 | GET | `/api/auth/github/callback` |
 | POST | `/api/auth/github/poll` |
+| POST | `/api/auth/github/device/status` |
+| POST | `/api/auth/github/device/start` |
+| POST | `/api/auth/github/device/link/start` |
 | POST | `/api/auth/github/link/start` |
 | POST | `/api/auth/register` |
 | POST | `/api/auth/login` |
@@ -121,4 +124,4 @@
 | POST | `/api/caldav/test` |
 | GET | `/api/feishu/config` |
 
-共 114 条路由。
+共 117 条路由。
