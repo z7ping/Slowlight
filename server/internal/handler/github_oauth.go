@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+    "log"
 	"net/http"
 	"net/url"
 	"os"
@@ -42,6 +43,8 @@ func githubOAuthMessage(code string) string {
     case "github_token_invalid": return "GitHub 授权码已失效，请重新授权"
     case "oauth_account_conflict": return "该 GitHub 账号已绑定其他用户"
     case "oauth_account_save_failed": return "账号信息保存失败，请稍后重新授权"
+    case "oauth_result_unknown": return "授权处理意外中断，授权码无法安全重用，请重新授权"
+    case "oauth_internal_error": return "授权处理暂时异常，请重新授权"
     default: return "GitHub 授权未完成，请重新发起登录"
     }
 }
@@ -316,8 +319,14 @@ func (h *GitHubOAuthHandler) exchangeToken(ctx context.Context, id, secret, redi
     req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
     req.Header.Set("Accept", "application/json")
     // 授权码一次性使用；请求可能已经送达时，不自动重发。
+    started := time.Now()
     resp, err := h.Client.Do(req)
-    if err != nil { return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"} }
+    if err != nil {
+        log.Printf("github oauth provider session=%v stage=token network_error=true duration_ms=%d", ctx.Value(oauthRequestSessionKey{}), time.Since(started).Milliseconds())
+        return "", &githubOAuthError{Stage: "token", Code: "github_unavailable"}
+    }
+    log.Printf("github oauth provider session=%v stage=token http_status=%d duration_ms=%d",
+        ctx.Value(oauthRequestSessionKey{}), resp.StatusCode, time.Since(started).Milliseconds())
     defer resp.Body.Close()
     if resp.StatusCode != http.StatusOK {
         if resp.StatusCode == 429 || resp.StatusCode >= 500 {
@@ -361,8 +370,15 @@ func (h *GitHubOAuthHandler) loadProfile(ctx context.Context, accessToken string
         req.Header.Set("Authorization", "Bearer "+accessToken)
         req.Header.Set("Accept", "application/vnd.github+json")
         req.Header.Set("User-Agent", "Slowlight")
+        started := time.Now()
         resp, err := h.Client.Do(req)
-        if err != nil { continue }
+        if err != nil {
+            log.Printf("github oauth provider session=%v stage=profile attempt=%d network_error=true duration_ms=%d",
+                ctx.Value(oauthRequestSessionKey{}), attempt+1, time.Since(started).Milliseconds())
+            continue
+        }
+        log.Printf("github oauth provider session=%v stage=profile attempt=%d http_status=%d duration_ms=%d",
+            ctx.Value(oauthRequestSessionKey{}), attempt+1, resp.StatusCode, time.Since(started).Milliseconds())
         if resp.StatusCode == http.StatusOK {
             var profile githubProfile
             decodeErr := json.NewDecoder(io.LimitReader(resp.Body, 65536)).Decode(&profile)
