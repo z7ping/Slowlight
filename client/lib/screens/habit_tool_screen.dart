@@ -14,8 +14,12 @@ import '../widgets/habit_editor_dialog.dart';
 
 class HabitToolScreen extends StatefulWidget {
   final HabitRepository? repository;
+  final TagLinksRepository? tagLinksRepository;
+  final Future<HabitEditorValue?> Function(BuildContext, {Habit? habit})? editor;
 
-  const HabitToolScreen({super.key, this.repository});
+  const HabitToolScreen({
+    super.key, this.repository, this.tagLinksRepository, this.editor,
+  });
 
   @override
   State<HabitToolScreen> createState() => _HabitToolScreenState();
@@ -23,12 +27,15 @@ class HabitToolScreen extends StatefulWidget {
 
 class _HabitToolScreenState extends State<HabitToolScreen> {
   late final HabitController _controller;
+  late final TagLinksRepository _tagLinks;
+  bool _editingHabit = false;
   int? _expandedHabitId;
   final Set<int> _pendingHabitActions = <int>{};
 
   @override
   void initState() {
     super.initState();
+    _tagLinks = widget.tagLinksRepository ?? TagLinksRepository();
     _controller = HabitController(repository: widget.repository)
       ..addListener(_onChanged);
     _controller.load();
@@ -50,61 +57,105 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     FxNotice.showContent(context, Text(text));
   }
 
-  Future<void> _createHabit() async {
-    final value = await HabitEditorDialog.show(context);
-    if (value == null) return;
+  /// 习惯本体成功后标签关联可能单独失败（尤其云端模式），不能说
+  /// “创建失败”再让用户重建，否则已有习惯会被重复创建。
+  Future<bool> _saveHabitTags(int habitId, List<int> ids, String action) async {
     try {
-      final created = await _controller.create(
-        name: value.name,
-        icon: value.icon,
-        color: value.color,
-        frequency: value.frequency,
-        targetDays: value.targetDays,
-        systemTagId: value.systemTagId,
-        preferredPeriod: value.preferredPeriod,
-        durationMin: value.durationMin,
-        generateTask: value.generateTask,
-        showCheckinDialog: value.showCheckinDialog,
-        specificTime: value.specificTime,
-        reminderAt: value.reminderAt,
-      );
-      if (value.tagIds != null) {
-        await TagLinksRepository().replaceFor(
-          TagLinkedEntity.habit, created.id, value.tagIds!);
+      await _tagLinks.replaceFor(TagLinkedEntity.habit, habitId, ids);
+      return true;
+    } catch (e) {
+      if (mounted) {
+        FxNotice.showContent(
+          context,
+          Text('习惯已$action，但标签保存失败。原习惯仍保留：$e'),
+          variant: FxNoticeVariant.warning,
+          action: FxNoticeAction(
+            label: '重试保存标签',
+            onPressed: () async {
+              final ok = await _saveHabitTags(habitId, ids, action);
+              if (ok) _message('标签已补充保存');
+            },
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _createHabit() async {
+    if (_editingHabit) return;
+    _editingHabit = true;
+    try {
+      final value = widget.editor == null
+          ? await HabitEditorDialog.show(context)
+          : await widget.editor!(context);
+      if (value == null || !mounted) return;
+      Habit created;
+      try {
+        created = await _controller.create(
+          name: value.name,
+          icon: value.icon,
+          color: value.color,
+          frequency: value.frequency,
+          targetDays: value.targetDays,
+          systemTagId: value.systemTagId,
+          preferredPeriod: value.preferredPeriod,
+          durationMin: value.durationMin,
+          generateTask: value.generateTask,
+          showCheckinDialog: value.showCheckinDialog,
+          specificTime: value.specificTime,
+          reminderAt: value.reminderAt,
+        );
+      } catch (e) {
+        _message('创建结果未确认，请先在习惯列表核对，避免重复创建：$e');
+        return;
+      }
+      if (value.tagIds != null && value.tagIds!.isNotEmpty &&
+          !await _saveHabitTags(created.id, List<int>.from(value.tagIds!), '创建')) {
+        return;
       }
       _message('习惯已创建');
-    } catch (_) {
-      _message('创建习惯失败');
+    } finally {
+      _editingHabit = false;
     }
   }
 
   Future<void> _editHabit(Habit habit) async {
-    final value = await HabitEditorDialog.show(context, habit: habit);
-    if (value == null) return;
+    if (_editingHabit) return;
+    _editingHabit = true;
     try {
-      await _controller.update(
-        habit,
-        name: value.name,
-        icon: value.icon,
-        color: value.color,
-        frequency: value.frequency,
-        targetDays: value.targetDays,
-        systemTagId: value.systemTagId,
-        updateSystemTag: true,
-        preferredPeriod: value.preferredPeriod,
-        durationMin: value.durationMin,
-        generateTask: value.generateTask,
-        showCheckinDialog: value.showCheckinDialog,
-        specificTime: value.specificTime,
-        reminderAt: value.reminderAt,
-      );
-      if (value.tagIds != null) {
-        await TagLinksRepository().replaceFor(
-          TagLinkedEntity.habit, habit.id, value.tagIds!);
+      final value = widget.editor == null
+          ? await HabitEditorDialog.show(context, habit: habit)
+          : await widget.editor!(context, habit: habit);
+      if (value == null || !mounted) return;
+      try {
+        await _controller.update(
+          habit,
+          name: value.name,
+          icon: value.icon,
+          color: value.color,
+          frequency: value.frequency,
+          targetDays: value.targetDays,
+          systemTagId: value.systemTagId,
+          updateSystemTag: true,
+          preferredPeriod: value.preferredPeriod,
+          durationMin: value.durationMin,
+          generateTask: value.generateTask,
+          showCheckinDialog: value.showCheckinDialog,
+          specificTime: value.specificTime,
+          reminderAt: value.reminderAt,
+        );
+      } catch (e) {
+        _message('更新结果未确认，请先查看习惯详情再重试：$e');
+        return;
+      }
+      if (value.tagIds != null &&
+          !await _saveHabitTags(habit.id, List<int>.from(value.tagIds!), '更新')) {
+        return;
       }
       _message('习惯已更新');
-    } catch (_) {
-      _message('更新习惯失败');
+    } finally {
+      _editingHabit = false;
     }
   }
 
