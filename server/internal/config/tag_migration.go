@@ -56,20 +56,7 @@ func backfillLegacyTagLinks(db *gorm.DB) error {
 				return err
 			}
 
-			// Default dimension placeholders are not real user labels until used.
-			if old.IsDefault {
-				var count int64
-				for _, entity := range []struct{ table string }{{"tasks"}, {"habits"}, {"work_sessions"}} {
-					var n int64
-					if err := tx.Table(entity.table).Where("user_id = ? AND system_tag_id = ?", old.UserID, old.ID).Count(&n).Error; err != nil {
-						return err
-					}
-					count += n
-				}
-				if count == 0 && len(refByTag[key]) == 0 {
-					continue
-				}
-			}
+			// 标签管理页显示的默认标签也必须在 canonical 选择器中可用。
 
 			name := strings.TrimSpace(old.Name)
 			if name == "" {
