@@ -59,6 +59,8 @@ class LocalMigrationReportStore {
         {
           'updated_at': DateTime.now().toUtc().toIso8601String(),
           'created': jsonEncode(result['created'] ?? {}),
+          // The full user-content snapshot is only needed until recovery.
+          'snapshot': '{}',
           'status': 'succeeded',
           'error_summary': '',
           'server_report_id': result['report']?['id'],
