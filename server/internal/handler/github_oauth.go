@@ -187,6 +187,30 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 	if time.Now().After(session.ExpiresAt) {
 		c.JSON(410, gin.H{"error": "授权已超时，请重试"}); return
 	}
+    if req.Mode == "ack" {
+        if session.Status == "consumed" {
+            c.Header("Cache-Control", "no-store")
+            c.JSON(200, gin.H{"status": "acknowledged"})
+            return
+        }
+        if session.Status != "ready" {
+            c.JSON(409, gin.H{"error": "授权结果尚不可确认"})
+            return
+        }
+        updated := h.DB.Model(&model.OAuthLoginSession{}).
+            Where("id = ? AND status = ? AND expires_at > ?", session.ID, "ready", time.Now()).
+            Update("status", "consumed")
+        if updated.Error != nil { c.JSON(500, gin.H{"error": "确认授权结果失败"}); return }
+        if updated.RowsAffected != 1 {
+            var latest model.OAuthLoginSession
+            if err := h.DB.First(&latest, "id = ?", session.ID).Error; err != nil || latest.Status != "consumed" {
+                c.JSON(409, gin.H{"error": "授权状态已变化"}); return
+            }
+        }
+        c.Header("Cache-Control", "no-store")
+        c.JSON(200, gin.H{"status": "acknowledged"})
+        return
+    }
 	switch session.Status {
 	case "pending", "processing":
 		c.Header("Cache-Control", "no-store")
