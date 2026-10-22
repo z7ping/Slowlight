@@ -33,6 +33,26 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('迁移预览显示全部八类统计而非只有四类，并移除虚假差异说明', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_host());
+    await tester.tap(find.text('打开'));
+    await tester.pump();
+
+    for (final label in [
+      '清单', '标签', '观察标签（旧）', '任务',
+      '子任务', '习惯', '打卡记录', '专注记录',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.textContaining('状态、截止日期等字段存在差异'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('数据迁移预览窄窗口不产生布局异常', (tester) async {
     tester.view.physicalSize = const Size(460, 760);
     tester.view.devicePixelRatio = 1;
