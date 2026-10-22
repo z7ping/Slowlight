@@ -17,6 +17,7 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
 import 'ai_settings_screen.dart';
+import 'account_profile_editor.dart';
 import 'about_screen.dart';
 import 'diagnostics_screen.dart';
 import 'conflict_screen.dart';
@@ -83,6 +84,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _accountLoadVersion = 0;
   User? _accountUser;
   bool? _githubLinked;
+  bool? _passwordLoginReady;
+  String _loginUsername = '';
   String? _lastLoginMethod;
   late String _open;
   late bool _mobileDetail;
@@ -181,6 +184,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _checkingGitHub = true;
         _accountUser = null;
         _githubLinked = null;
+        _passwordLoginReady = null;
+        _loginUsername = '';
         _lastLoginMethod = null;
       });
     }
@@ -193,30 +198,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       return;
     }
+    bool current() =>
+        mounted && version == _accountLoadVersion && DataModeManager().isCloud;
+
+    // 本机身份先显示；网络故障不应让已有身份突然变成“未登录”。
     try {
-      final user = await AuthService.getUser();
+      final cached = await AuthService.getUser();
       final method = await AuthService.getLastLoginMethod();
-      if (!mounted || version != _accountLoadVersion || DataModeManager().isLocal) return;
+      if (!current()) return;
       setState(() {
-        _accountUser = user;
+        _accountUser = cached;
         _lastLoginMethod = method;
         _loadingAccount = false;
       });
-      // 无法确认绑定状态时保持「未知」，不能伪装成「未绑定」。
-      final linked = await AuthService.isGitHubLinked();
-      if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
-        setState(() {
-          _githubLinked = linked;
-          _checkingGitHub = false;
-        });
-      }
     } catch (_) {
-      if (mounted && version == _accountLoadVersion && DataModeManager().isCloud) {
-        setState(() {
-          _loadingAccount = false;
-          _checkingGitHub = false;
-        });
+      if (!current()) return;
+      setState(() => _loadingAccount = false);
+    }
+
+    // 服务端资料与两种认证方式的状态分别读取；一项失败不覆盖另一项。
+    try {
+      final remote = await AuthService.refreshCloudUser();
+      if (!current()) return;
+      setState(() => _accountUser = remote);
+    } catch (_) {
+      // 缓存仍可展示，不声称是刚从云端确认的资料。
+    }
+    if (!current()) return;
+    setState(() => _loadingAccount = false);
+
+    try {
+      final status = await AuthService.passwordStatus();
+      if (!current()) return;
+      if (status['password_login_enabled'] is! bool) {
+        throw const FormatException('密码登录状态无效');
       }
+      setState(() {
+        _passwordLoginReady = status['password_login_enabled'] as bool;
+        _loginUsername = status['login_username'] as String? ?? '';
+      });
+    } catch (_) {
+      // 未知 != 未设置，不显示会错误认领账号的操作。
+    }
+
+    try {
+      final linked = await AuthService.isGitHubLinked();
+      if (!current()) return;
+      setState(() => _githubLinked = linked);
+    } catch (_) {
+      // 未知 != 未绑定。
+    } finally {
+      if (current()) setState(() => _checkingGitHub = false);
     }
   }
 
@@ -566,7 +598,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           variant: FxButtonVariant.outline,
                           onPressed: _loadAccount,
                         )
-                      : null,
+                      : FxButton(
+                          key: const ValueKey('settings.account.edit_profile'),
+                          label: '修改昵称',
+                          icon: LucideIcons.pencil,
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: () async {
+                            final changed = await editCloudNickname(context, user);
+                            if (changed && mounted) {
+                              authStateNotifier.value = !authStateNotifier.value;
+                            }
+                          },
+                        ),
             ),
           ),
           const SizedBox(height: 14),
@@ -630,6 +674,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 githubMessage(),
+                const SizedBox(height: 16),
+                FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+                const SizedBox(height: 12),
+                responsiveRow(
+                  leading: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    child: Icon(LucideIcons.keyRound, color: subtle, size: 21),
+                  ),
+                  content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text('账号密码', style: SlowlightTypography.body(context)
+                              .copyWith(fontWeight: FontWeight.w600)),
+                          statusChip(_passwordLoginReady == null
+                              ? '状态未确认'
+                              : _passwordLoginReady! ? '已设置' : '未设置',
+                              accent: _passwordLoginReady == true,
+                              warning: _passwordLoginReady == null),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _passwordLoginReady == true
+                            ? '登录账号：${_loginUsername.isEmpty ? user?.username ?? "" : _loginUsername}'
+                            : _passwordLoginReady == false
+                                ? '设置后可使用账号密码登录，数据与 GitHub 共用'
+                                : '无法确认密码登录状态，请重新检查',
+                        style: captionStyle.copyWith(color: subtle),
+                      ),
+                    ],
+                  ),
+                  trailing: _passwordLoginReady == null
+                      ? FxButton(
+                          label: '重新检查',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: _loadAccount,
+                        )
+                      : _passwordLoginReady == false && _githubLinked != true
+                          ? null
+                          : FxButton(
+                              key: const ValueKey('settings.account.manage_password'),
+                              label: _passwordLoginReady! ? '修改密码' : '设置账号密码',
+                              size: FxButtonSize.sm,
+                              variant: FxButtonVariant.outline,
+                              onPressed: _linkingGitHub ? null : () async {
+                                final changed = await manageAccountPassword(
+                                  context,
+                                  alreadySet: _passwordLoginReady!,
+                                  username: _loginUsername,
+                                );
+                                if (changed && mounted) {
+                                  authStateNotifier.value = !authStateNotifier.value;
+                                }
+                              },
+                            ),
+                ),
                 if (_linkingGitHub) ...[
                   const SizedBox(height: 12),
                   Text(

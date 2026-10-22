@@ -68,6 +68,25 @@ class ApiService {
     return data;
   }
 
+  /// 认证资料更新（PATCH）；沿用统一网络日志脱敏与超时。
+  static Future<Map<String, dynamic>> patchAccountProfile(
+    Map<String, dynamic> body,
+  ) async {
+    final response = await HttpUtil.patch(
+      Uri.parse('$baseUrl/auth/profile'),
+      headers: await _authHeaders(),
+      body: json.encode(body),
+    ).timeout(_postTimeout);
+    final data = json.decode(response.body);
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('账号更新响应无效');
+    }
+    if (response.statusCode != 200) {
+      throw StateError(data['error']?.toString() ?? '修改个人信息失败');
+    }
+    return data;
+  }
+
   /// 通用 POST 请求（用于登录/注册）
   static Future<Map<String, dynamic>> post(
     String path, {

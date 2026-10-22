@@ -166,7 +166,7 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 		if err := h.DB.First(&user, session.ResultUserID).Error; err != nil {
 			c.JSON(500, gin.H{"error": "账号读取失败"}); return
 		}
-		token, err := generateToken(user.ID)
+		token, err := generateTokenWithMethod(user.ID, "github")
 		if err != nil { c.JSON(500, gin.H{"error": "签发登录凭据失败"}); return }
 		updated := h.DB.Model(&model.OAuthLoginSession{}).
 			Where("id = ? AND status = ? AND expires_at > ?", session.ID, "ready", time.Now()).
@@ -304,7 +304,9 @@ func (h *GitHubOAuthHandler) resolveUser(p githubProfile, target uint) (model.Us
 			nickname := []rune(strings.TrimSpace(p.Name))
 			if len(nickname) == 0 { nickname = []rune(p.Login) }
 			if len(nickname) > 50 { nickname = nickname[:50] }
+			passwordEnabled := false
 			result = model.User{
+				PasswordLoginEnabled: &passwordEnabled,
 				Username: username,
 				Email: "gh-" + subject + "@oauth.slowlight.invalid",
 				Password: string(hashed),
