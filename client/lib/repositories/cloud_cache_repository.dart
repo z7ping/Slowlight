@@ -467,6 +467,7 @@ class CloudCacheRepository {
     String? date,
     int? durationMin,
     String? period,
+    String? occurrenceKey,
   }) async {
     final db = await _db;
     final habitRow = await _rowByPublicId(db, 'habits', publicId);
