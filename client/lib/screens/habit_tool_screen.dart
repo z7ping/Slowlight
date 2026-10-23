@@ -98,6 +98,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           icon: value.icon,
           color: value.color,
           frequency: value.frequency,
+          recordType: value.recordType,
+          recordUnit: value.recordUnit,
+          recordTimeLabel: value.recordTimeLabel,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           preferredPeriod: value.preferredPeriod,
@@ -136,6 +139,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           icon: value.icon,
           color: value.color,
           frequency: value.frequency,
+          recordType: value.recordType,
+          recordUnit: value.recordUnit,
+          recordTimeLabel: value.recordTimeLabel,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           updateSystemTag: true,
@@ -195,19 +201,25 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       return;
     }
     int? durationMin;
+    int? countValue;
+    String? occurredAt;
     String? period;
     var note = '';
-    if (habit.showCheckinDialog) {
+    if (habit.showCheckinDialog || habit.recordType == 'count' || habit.recordTimeLabel.isNotEmpty) {
       final value = await HabitCheckinDialog.show(context, habit: habit);
       if (value == null) return;
       durationMin = value['duration_min'] as int?;
       period = value['period']?.toString();
       note = value['note']?.toString() ?? '';
+      countValue = value['count_value'] as int?;
+      occurredAt = value['occurred_at']?.toString();
     }
     try {
       await _controller.checkIn(
         habit,
         durationMin: durationMin,
+        countValue: countValue,
+        occurredAt: occurredAt,
         period: period,
         note: note,
       );
@@ -232,6 +244,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       await _controller.checkIn(
         habit,
         durationMin: value['duration_min'] as int?,
+        countValue: value['count_value'] as int?,
+        occurredAt: value['occurred_at']?.toString(),
         period: value['period']?.toString(),
         note: value['note']?.toString() ?? '',
       );
