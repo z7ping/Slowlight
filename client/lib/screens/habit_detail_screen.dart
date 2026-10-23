@@ -81,6 +81,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   Future<void> _editLog(Map<String, dynamic> log) async {
     final note = TextEditingController(text: log['note'] as String? ?? '');
     final duration = TextEditingController(text: '${log['duration_min'] ?? 0}');
+    final count = TextEditingController(text: '${log['count_value'] ?? 1}');
 
     Widget editor(BuildContext modalContext, {required bool showTitle}) {
       return Column(
@@ -93,11 +94,17 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           ],
           FxInput(controller: note, label: '备注', placeholder: '记录这次打卡'),
           const SizedBox(height: 12),
-          FxInput(
-            controller: duration,
-            label: '时长（分钟）',
-            keyboardType: TextInputType.number,
-          ),
+          if (widget.habit.recordType == 'count')
+            FxInput(controller: count,
+              label: '本次数量（${widget.habit.recordUnit}）',
+              keyboardType: TextInputType.number)
+          else if (widget.habit.recordType == 'duration' ||
+              widget.habit.recordType == 'legacy')
+            FxInput(
+              controller: duration,
+              label: '时长（分钟）',
+              keyboardType: TextInputType.number,
+            ),
           const SizedBox(height: 18),
           Row(
             children: [
@@ -112,11 +119,28 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               Expanded(
                 child: FxButton(
                   label: '保存',
-                  onPressed:
-                      () => Navigator.pop(modalContext, {
-                        'note': note.text,
-                        'duration_min': int.tryParse(duration.text) ?? 0,
-                      }),
+                  onPressed: () {
+                    final amount = int.tryParse(count.text);
+                    final minutes = int.tryParse(duration.text);
+                    if ((widget.habit.recordType == 'count' &&
+                            (amount == null || amount <= 0)) ||
+                        ((widget.habit.recordType == 'duration' ||
+                            widget.habit.recordType == 'legacy') &&
+                            (minutes == null || minutes < 0))) {
+                      FxNotice.showContent(modalContext,
+                        const Text('请填写有效的正数数量或非负时长'),
+                        variant: FxNoticeVariant.destructive);
+                      return;
+                    }
+                    Navigator.pop(modalContext, {
+                      'note': note.text,
+                      if (widget.habit.recordType == 'count')
+                        'count_value': amount,
+                      if (widget.habit.recordType == 'duration' ||
+                          widget.habit.recordType == 'legacy')
+                        'duration_min': minutes,
+                    });
+                  },
                 ),
               ),
             ],
@@ -149,6 +173,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
             );
     note.dispose();
     duration.dispose();
+    count.dispose();
     if (result == null || !mounted) return;
     try {
       await ApiService.updateHabitLog(
