@@ -97,7 +97,7 @@ class HabitOccurrence {
         }
         if(slot==null)throw StateError('当前不在执行时段');
       }
-      return HabitOccurrence(slotKey(slot),now);
+      return HabitOccurrence(slotKey(slot!),now);
     }else {
       final delta=civilDiff(today,anchor);
       bool hit=false;
