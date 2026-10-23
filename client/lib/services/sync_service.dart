@@ -557,6 +557,11 @@ class SyncService extends ChangeNotifier {
       }
       return;
     }
+    if (op == 'uncheck_today') {
+      if (queuedServerId == null || queuedServerId <= 0) return;
+      await ApiService.uncheckInHabit(queuedServerId).timeout(const Duration(seconds: 10));
+      return;
+    }
     final row = await _row(db, 'habits', localId);
     final systemTagId = await _mapSystemTag(db, row['system_tag_id'] as int?);
     final reminderAt = _jsonMap(row['reminder_at']);
