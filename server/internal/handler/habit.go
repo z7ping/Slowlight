@@ -391,43 +391,46 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		OccurredAt:  occurredAt,
 		Period:      period,
 	}
- 	if err := h.DB.Create(&log).Error; err != nil {
-        // 唯一索引抵御两个设备同时重放同一个 client_key。
+    eventAt := now
+    if occurredAt != nil {
+        eventAt = occurredAt.In(loc)
+    } else if checkDate != todayStart.Format("2006-01-02") {
+        eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
+    }
+    // 记录和行为事件必须原子提交，防止重试已存在日志却永远漏掉事件。
+    err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Create(&log).Error; err != nil { return err }
+        habit.StreakCount = habitStreak(tx, habit, loc)
+        if err := tx.Model(&habit).Update("streak_count", habit.StreakCount).Error; err != nil {
+            return err
+        }
+        metadata, _ := json.Marshal(map[string]interface{}{
+            "habit_date": checkDate, "habit_log_id": log.ID,
+        })
+        event := model.BehaviorEvent{
+            UserID: userID, EventType: "habit_checked",
+            EntityType: "habit", EntityID: habit.ID,
+            SystemTagID: habit.SystemTagID, DurationMin: durationMin,
+            OccurredAt: eventAt.UTC(), Metadata: string(metadata),
+        }
+        return tx.Create(&event).Error
+    })
+    if err != nil {
+        // 并发提交同一键时，唯一索引使其中一个请求返回同一真实记录。
         if clientKey != "" {
             var replay model.HabitLog
-            if h.DB.Where("habit_id = ? AND client_key = ?", habit.ID, clientKey).First(&replay).Error == nil {
-                c.JSON(http.StatusOK, gin.H{"message": "记录已存在", "already_checked": true, "log": replay, "streak_count": habit.StreakCount})
+            if h.DB.Where("habit_id = ? AND client_key = ?", habit.ID, clientKey).
+                First(&replay).Error == nil {
+                c.JSON(http.StatusOK, gin.H{
+                    "message": "记录已存在", "already_checked": true,
+                    "log": replay, "streak_count": habit.StreakCount,
+                })
                 return
             }
         }
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "打卡失败"})
-		return
-	}
-
-	habit.StreakCount = habitStreak(h.DB, habit, loc)
-	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
-
-	eventAt := now
-	if occurredAt != nil {
-		eventAt = occurredAt.In(loc)
-	} else if checkDate != todayStart.Format("2006-01-02") {
-		eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
-	}
-	metadata, _ := json.Marshal(map[string]interface{}{"habit_date": checkDate, "habit_log_id": log.ID})
-	event := model.BehaviorEvent{
-		UserID:      userID,
-		EventType:   "habit_checked",
-		EntityType:  "habit",
-		EntityID:    habit.ID,
-		SystemTagID: habit.SystemTagID,
-		DurationMin: durationMin,
-		OccurredAt:  eventAt.UTC(),
-		Metadata:    string(metadata),
-	}
-	if err := h.DB.Create(&event).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "行为事件写入失败"})
-		return
-	}
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "打卡记录未能完整保存"})
+        return
+    }
 
 	triggerWebhooks(h.DB, userID, model.EventHabitChecked, map[string]interface{}{
 		"habit_id":     habit.ID,
