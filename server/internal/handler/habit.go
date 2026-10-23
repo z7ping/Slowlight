@@ -52,7 +52,9 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 		if _, ok := logMap[log.HabitID]; !ok {
 			logMap[log.HabitID] = &logGroup{}
 		}
-		logMap[log.HabitID].days = append(logMap[log.HabitID].days, log.Date)
+		if !habitContainsDay(logMap[log.HabitID].days, log.Date) {
+			logMap[log.HabitID].days = append(logMap[log.HabitID].days, log.Date)
+		}
 	}
 
 	for i := range habits {
@@ -492,10 +494,12 @@ func (h *HabitHandler) UncheckInHabit(c *gin.Context) {
 			Delete(&model.BehaviorEvent{})
 	}
 
-	habit.StreakCount = h.currentHabitStreak(habit.ID, loc)
-	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
+	if habit.ScheduleRule == "" || habit.ScheduleRule == "{}" {
+        habit.StreakCount = h.currentHabitStreak(habit.ID, loc)
+    } else { habit.StreakCount = 0 }
+    h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
 
-	triggerWebhooks(h.DB, userID, "habit.unchecked", map[string]interface{}{
+    triggerWebhooks(h.DB, userID, "habit.unchecked", map[string]interface{}{
 		"habit_id":     habit.ID,
 		"name":         habit.Name,
 		"streak_count": habit.StreakCount,
@@ -525,7 +529,7 @@ func (h *HabitHandler) GetHabitLogs(c *gin.Context) {
 	if month != "" {
 		query = query.Where("date LIKE ?", month+"%")
 	}
-	query.Order("date DESC").Find(&logs)
+	query.Order("date DESC, created_at DESC, id DESC").Find(&logs)
 
 	c.JSON(http.StatusOK, gin.H{
 		"habit": habit,
@@ -715,4 +719,9 @@ func habitJSON(value interface{}, fallback string) string {
 		return fallback
 	}
 	return string(encoded)
+}
+
+func habitContainsDay(days []string, day string) bool {
+  for _, value := range days { if value == day { return true } }
+  return false
 }
