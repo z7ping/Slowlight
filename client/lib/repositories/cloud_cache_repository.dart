@@ -354,6 +354,27 @@ class CloudCacheRepository {
       );
       final days = logs.map((value) => value['date']?.toString() ?? '').toList();
       final today = _dateKey(DateTime.now());
+      final rule = HabitOccurrence.rule(row['schedule_rule'],
+        legacyFrequency:row['frequency']?.toString() ?? 'daily');
+      bool? canCheckIn;
+      int count = 0, target = 0;
+      if (rule != null) {
+        try {
+          final occurrence = HabitOccurrence.calculate(rule, DateTime.now(),
+            requestKey:'event:probe-availability');
+          if (occurrence.periodStart != null) {
+            count = logs.where((log) {
+              final d=log['date']?.toString() ?? '';
+              return d.compareTo(occurrence.periodStart!) >= 0 &&
+                d.compareTo(occurrence.periodEnd!) < 0;
+            }).length;
+            target=occurrence.target;
+            canCheckIn=count<target && (occurrence.sameDayMultiple || !days.contains(today));
+          } else {
+            canCheckIn = !logs.any((log)=>log['occurrence_key']==occurrence.key);
+          }
+        } catch (_) { canCheckIn=false; }
+      }
       result.add({
         'id': publicId,
         'user_id': user?.id ?? 0,
@@ -377,7 +398,10 @@ class CloudCacheRepository {
         'specific_time': row['specific_time'] ?? '',
         'reminder_at': _jsonMap(row['reminder_at']),
         'checked_today': days.contains(today),
-        'checked_days': days,
+        if (canCheckIn != null) 'can_check_in': canCheckIn,
+        'period_count':count,
+        'period_target':target,
+        'checked_days': days.toSet().toList(),
         'created_at': row['created_at'],
       });
     }
