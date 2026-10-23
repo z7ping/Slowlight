@@ -267,7 +267,8 @@ class LocalHabitRepository {
       if (occurred.isAfter(localNow) || _dateStr(occurred.toLocal()) != checkDate) {
         throw ArgumentError('实际发生时间与打卡日期不一致');
       }
-    } else if ((habit['record_time_label'] as String? ?? '').isNotEmpty &&
+    } else if (((habit['record_time_label'] as String? ?? '').isNotEmpty ||
+        habit['allow_multiple_per_day'] == 1) &&
         checkDate == _dateStr(localNow)) {
       occurred = localNow;
     }
