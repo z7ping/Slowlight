@@ -285,6 +285,7 @@ class LocalApiService implements ApiDataSource {
     String? date,
     int? durationMin,
     String? period,
+    String? occurrenceKey,
   }) =>
       _habitRepo.checkIn(
         habitId,
@@ -292,6 +293,7 @@ class LocalApiService implements ApiDataSource {
         date: date,
         durationMin: durationMin,
         period: period,
+        occurrenceKey: occurrenceKey,
       );
 
   @override
