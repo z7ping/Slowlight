@@ -63,6 +63,7 @@ type MigrationHabit struct {
 	Icon              string `json:"icon"`
 	Color             string `json:"color"`
 	Frequency         string `json:"frequency"`
+	ScheduleRule      string `json:"schedule_rule"`
 	TargetDays        int    `json:"target_days"`
 	PreferredPeriod   string `json:"preferred_period"`
 	DurationMin       int    `json:"duration_min"`
@@ -433,7 +434,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 				name, nameErr = h.migrationCopyName(tx, userID, "habits", item.Name)
 				if nameErr != nil { return nameErr }
 			}
-			row := model.Habit{UserID: userID, Name: name, Icon: item.Icon, Color: item.Color, Frequency: item.Frequency, TargetDays: item.TargetDays, PreferredPeriod: item.PreferredPeriod, DurationMin: item.DurationMin, GenerateTask: item.GenerateTask, ShowCheckinDialog: item.ShowCheckinDialog, SpecificTime: item.SpecificTime, ReminderAt: item.ReminderAt}
+			row := model.Habit{UserID: userID, Name: name, Icon: item.Icon, Color: item.Color, Frequency: item.Frequency, ScheduleRule: item.ScheduleRule, TargetDays: item.TargetDays, PreferredPeriod: item.PreferredPeriod, DurationMin: item.DurationMin, GenerateTask: item.GenerateTask, ShowCheckinDialog: item.ShowCheckinDialog, SpecificTime: item.SpecificTime, ReminderAt: item.ReminderAt}
 			if item.SystemTagID != nil && systemTagIDs[*item.SystemTagID] != 0 {
 				mapped := systemTagIDs[*item.SystemTagID]
 				row.SystemTagID = &mapped
@@ -448,8 +449,11 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 				row.Frequency = "daily"
 			}
 			if row.ReminderAt == "" {
-				row.ReminderAt = "{}"
-			}
+                row.ReminderAt = "{}"
+            }
+            schedule, err := validateHabitSchedule(row.ScheduleRule)
+            if err != nil { return err }
+            row.ScheduleRule = schedule
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
