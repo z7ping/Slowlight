@@ -51,6 +51,17 @@ class HabitEditorDialog extends StatefulWidget {
   const HabitEditorDialog({super.key, this.habit});
 
   static Future<HabitEditorValue?> show(BuildContext context, {Habit? habit}) {
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return FxSheet.show<HabitEditorValue>(
+        context: context,
+        useSafeArea: true,
+        padding: EdgeInsets.zero,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .94,
+        ),
+        builder: (_) => HabitEditorDialog(habit: habit),
+      );
+    }
     return FxDialog.raw<HabitEditorValue>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: .45),
@@ -329,20 +340,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final mobile = MediaQuery.sizeOf(context).width < 600;
-    return FxDialogSurface(
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: mobile ? 12 : 24,
-        vertical: 24,
-      ),
-      backgroundColor: fxSurface(context),
-      surfaceTintColor: Colors.transparent,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(SlowlightRadius.xl),
-        side: BorderSide(color: fxBorder(context)),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 720),
+    final content = ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: mobile ? 600 : 720,
+          maxHeight: mobile ? MediaQuery.sizeOf(context).height * .94 : 720,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -571,10 +573,20 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             ),
           ],
         ),
+      );
+    if (mobile) return content;
+    return FxDialogSurface(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      backgroundColor: fxSurface(context),
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(SlowlightRadius.xl),
+        side: BorderSide(color: fxBorder(context)),
       ),
+      child: content,
     );
   }
-
 
   Widget _buildScheduleFields() {
     final rule = _currentRule();
