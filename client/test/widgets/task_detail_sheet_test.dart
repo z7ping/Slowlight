@@ -58,7 +58,7 @@ void main() {
     expect(find.text('归属维度（可选）'), findsNothing);
 
     final chips = tester.widgetList<FxChoiceChip>(find.byType(FxChoiceChip));
-    expect(chips.any((chip) => chip.label == '无' && chip.selected), isTrue);
+    expect(chips.any((chip) => chip.label == '不重要 · 不紧急' && chip.selected), isTrue);
     expect(chips.any((chip) => chip.label == '高'), isTrue);
     expect(chips.any((chip) => chip.label == '中'), isTrue);
     expect(chips.any((chip) => chip.label == '低'), isTrue);

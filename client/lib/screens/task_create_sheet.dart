@@ -466,7 +466,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       icon: LucideIcons.flag,
       category: '优先级',
       label: _selectedPriority == 'none'
-          ? '无优先级' : _priorityLabel(_selectedPriority),
+          ? '不重要 · 不紧急' : _priorityLabel(_selectedPriority),
       showLabel: _selectedPriority != 'none',
       color: AppTheme.priorityColor(_selectedPriority),
       onTap: _saving ? null : () => _openMobilePage(_MobileTaskPage.priority),
@@ -543,7 +543,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       _QuickOption<Object>(value: 0, label: '不安排日期', icon: LucideIcons.calendarX),
     ],
     _MobileTaskPage.priority => const [
-      _QuickOption<Object>(value: 'none', label: '无优先级', icon: LucideIcons.flag),
+      _QuickOption<Object>(value: 'none', label: '不重要 · 不紧急', icon: LucideIcons.flag),
       _QuickOption<Object>(
         value: 'urgent_important', label: '高', icon: LucideIcons.flag,
         iconColor: AppTheme.priorityUrgentImportant,
@@ -888,7 +888,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             _QuickChip(
               icon: LucideIcons.flag,
               text: _selectedPriority == 'none'
-                  ? '无优先级'
+                  ? '不重要 · 不紧急'
                   : '优先级：${_priorityLabel(_selectedPriority)}',
               selected: _selectedPriority != 'none',
               onTap: () {
@@ -1227,7 +1227,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     'urgent_important' => '高',
     'important' => '中',
     'urgent' => '低',
-    _ => '无',
+    _ => '不重要 · 不紧急',
   };
 
   String _nextPriority(String value) => switch (value) {

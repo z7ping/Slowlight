@@ -97,25 +97,43 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       );
     }
     final desktop = ResponsiveLayout.isDesktopOrWider(context);
-    final cells = [
-      _quadrant(
-        '重要 · 紧急',
-        'urgent_important',
-        AppTheme.priorityUrgentImportant,
-        desktop,
-      ),
-      _quadrant('重要 · 不紧急', 'important', AppTheme.priorityImportant, desktop),
-      _quadrant('不重要 · 紧急', 'urgent', AppTheme.priorityUrgent, desktop),
-      _quadrant(
-        '未设优先级',
-        'none',
-        Theme.of(context).colorScheme.outlineVariant,
-        desktop,
-      ),
-    ];
-
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 窄屏仍沿用 Windows 的 2×2 四格；文字放大导致内容不可读时降一列。
+        final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+        final mobileGrid = !desktop &&
+            constraints.maxWidth >= 320 &&
+            !(textScale >= 1.3 && constraints.maxWidth < 430);
+        final cells = [
+          _quadrant(
+            '重要 · 紧急',
+            'urgent_important',
+            AppTheme.priorityUrgentImportant,
+            desktop,
+            compactMobileGrid: mobileGrid,
+          ),
+          _quadrant(
+            '重要 · 不紧急',
+            'important',
+            AppTheme.priorityImportant,
+            desktop,
+            compactMobileGrid: mobileGrid,
+          ),
+          _quadrant(
+            '不重要 · 紧急',
+            'urgent',
+            AppTheme.priorityUrgent,
+            desktop,
+            compactMobileGrid: mobileGrid,
+          ),
+          _quadrant(
+            '不重要 · 不紧急',
+            'none',
+            Theme.of(context).colorScheme.outlineVariant,
+            desktop,
+            compactMobileGrid: mobileGrid,
+          ),
+        ];
         if (desktop && constraints.hasBoundedHeight) {
           const padding = 20.0;
           const gap = 12.0;
@@ -129,6 +147,24 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               crossAxisSpacing: gap,
               mainAxisSpacing: gap,
               childAspectRatio: cellWidth / cellHeight,
+              children: cells,
+            ),
+          );
+        }
+        if (mobileGrid) {
+          const padding = 12.0;
+          const gap = 12.0;
+          final cardHeight = textScale > 1.1 ? 324.0 : 300.0;
+          final width = (constraints.maxWidth - 2 * padding - gap) / 2;
+          return FxRefresh(
+            onRefresh: _load,
+            child: GridView.count(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(padding),
+              crossAxisCount: 2,
+              crossAxisSpacing: gap,
+              mainAxisSpacing: gap,
+              childAspectRatio: width / cardHeight,
               children: cells,
             ),
           );
@@ -147,7 +183,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
-  Widget _quadrant(String title, String priority, Color color, bool desktop) {
+  Widget _quadrant(
+    String title,
+    String priority,
+    Color color,
+    bool desktop, {
+    bool compactMobileGrid = false,
+  }) {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
@@ -162,7 +204,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
 
     Widget card = FxCard(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compactMobileGrid ? 12 : 16),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(
@@ -177,45 +219,38 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: SlowlightTypography.cardTitle(
-                          context,
-                        ).copyWith(fontWeight: FontWeight.w700),
+                child: desktop
+                    ? Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: SlowlightTypography.cardTitle(context)
+                                  .copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _quadrantCount(items.length),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            softWrap: true,
+                            style: SlowlightTypography.cardTitle(context)
+                                .copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 4),
+                          _quadrantCount(items.length),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      constraints: const BoxConstraints(
-                        minWidth: 22,
-                        minHeight: 22,
-                      ),
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: fxSubtleSurface(context),
-                        borderRadius: BorderRadius.circular(
-                          SlowlightRadius.pill,
-                        ),
-                      ),
-                      child: Text(
-                        '${items.length}',
-                        style: SlowlightTypography.caption(context).copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               FxIconButton(
                 tooltip: '在$title添加任务',
                 onPressed: () => _addTask(priority),
@@ -225,15 +260,30 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           ),
           const SizedBox(height: 12),
           if (items.isEmpty)
-            desktop
+            desktop || compactMobileGrid
                 ? Expanded(child: emptyState)
                 : SizedBox(height: 96, child: emptyState)
           else
-            ...items.take(5).map(
+            ...items.take(desktop ? 5 : 2).map(
                   (task) => desktop
                       ? _draggableTask(task, color)
-                      : _taskLine(task, color, desktop: false),
+                      : _taskLine(
+                          task,
+                          color,
+                          desktop: false,
+                          compact: compactMobileGrid,
+                        ),
                 ),
+          if (!desktop && items.length > 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: FxButton(
+                label: compactMobileGrid ? '查看全部' : '查看全部（${items.length}）',
+                size: FxButtonSize.sm,
+                variant: FxButtonVariant.ghost,
+                onPressed: () => _showAllTasks(title, items),
+              ),
+            ),
         ],
       ),
     );
@@ -264,6 +314,77 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       },
       builder: (context, candidateData, rejectedData) => card,
     );
+  }
+
+  Widget _quadrantCount(int count) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: fxSubtleSurface(context),
+        borderRadius: BorderRadius.circular(SlowlightRadius.pill),
+      ),
+      child: Text(
+        '$count',
+        style: SlowlightTypography.caption(context).copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAllTasks(String title, List<Task> items) async {
+    final selection = await FxSheet.show<({Task task, bool move})>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$title · ${items.length} 项任务',
+              style: SlowlightTypography.sectionTitle(sheetContext),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: math.min(
+                MediaQuery.sizeOf(sheetContext).height * .6,
+                math.max(64.0, items.length * 64.0),
+              ),
+              child: ListView.builder(
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final task = items[index];
+                  void open() => Navigator.of(sheetContext)
+                      .pop((task: task, move: false));
+                  void move() => Navigator.of(sheetContext)
+                      .pop((task: task, move: true));
+                  return _taskLine(
+                    task,
+                    AppTheme.priorityColor(task.priority),
+                    desktop: false,
+                    onTap: open,
+                    onMove: move,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || selection == null) return;
+    if (selection.move) {
+      await _showMoveSheet(selection.task);
+    } else {
+      _openTask(selection.task);
+    }
   }
 
   Widget _draggableTask(Task task, Color color) {
@@ -315,19 +436,26 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
-  Widget _taskLine(Task task, Color color, {required bool desktop}) {
+  Widget _taskLine(
+    Task task,
+    Color color, {
+    required bool desktop,
+    bool compact = false,
+    VoidCallback? onTap,
+    VoidCallback? onMove,
+  }) {
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       // 安卓点击任务与其他任务列表一致：打开详情。
       // 移动象限使用右侧明确的“更多”操作，不隐藏在长按手势里。
-      onTap: () => _openTask(task),
-      onLongPress: desktop ? null : () => _showMoveSheet(task),
+      onTap: onTap ?? () => _openTask(task),
+      onLongPress: desktop ? null : (onMove ?? () => _showMoveSheet(task)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(
           minHeight: SlowlightControlSize.minTouchTarget,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+          padding: EdgeInsets.symmetric(vertical: compact ? 2 : 7, horizontal: 2),
           child: Row(
             children: [
               Text(
@@ -341,10 +469,11 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               Expanded(
                 child: Text(
                   task.title,
-                  maxLines: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(SlowlightTypography.secondarySize) >=
-                          SlowlightTypography.secondarySize * 1.3
+                  maxLines: compact ||
+                          MediaQuery.textScalerOf(context).scale(
+                                SlowlightTypography.secondarySize,
+                              ) >=
+                              SlowlightTypography.secondarySize * 1.3
                       ? 2
                       : 1,
                   overflow: TextOverflow.ellipsis,
@@ -356,7 +485,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                   icon: LucideIcons.ellipsis,
                   tooltip: '移动到其他象限',
                   iconSize: SlowlightIconSize.md,
-                  onPressed: () => _showMoveSheet(task),
+                  onPressed: onMove ?? () => _showMoveSheet(task),
                 ),
             ],
           ),
@@ -405,7 +534,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             _moveOption('重要 · 紧急', 'urgent_important', task.priority),
             _moveOption('重要 · 不紧急', 'important', task.priority),
             _moveOption('不重要 · 紧急', 'urgent', task.priority),
-            _moveOption('未设优先级', 'none', task.priority),
+            _moveOption('不重要 · 不紧急', 'none', task.priority),
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,

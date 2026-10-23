@@ -313,7 +313,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            _priorityChip('none', '无'),
+            _priorityChip('none', '不重要 · 不紧急'),
             _priorityChip('urgent_important', '高'),
             _priorityChip('important', '中'),
             _priorityChip('urgent', '低'),
