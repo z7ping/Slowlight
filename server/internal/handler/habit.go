@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+    "fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -105,6 +106,10 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		RecordType:        recordType,
 		RecordUnit:        habitString(payload, "record_unit", "次"),
 		RecordTimeLabel:   habitString(payload, "record_time_label", ""),
+        AllowMultiplePerDay: habitBool(payload, "allow_multiple_per_day", false),
+        GoalPeriod: habitString(payload, "goal_period", "none"),
+        GoalMetric: habitString(payload, "goal_metric", "events"),
+        GoalValue: habitInt(payload, "goal_value", 0),
 		TargetDays:        habitInt(payload, "target_days", 0),
 		PreferredPeriod:   habitString(payload, "preferred_period", ""),
 		SystemTagID:       systemTagID,
@@ -114,6 +119,10 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		ShowCheckinDialog: habitBool(payload, "show_checkin_dialog", false),
 		ReminderAt:        habitJSON(payload["reminder_at"], "{}"),
 	}
+	if err := validateHabitGoal(habit.GoalPeriod, habit.GoalMetric, habit.GoalValue); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 	if err := h.DB.Create(&habit).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -138,7 +147,7 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 	}
 
 	updates := map[string]interface{}{}
-	for _, key := range []string{"name", "icon", "color", "frequency", "preferred_period", "specific_time", "record_type", "record_unit", "record_time_label"} {
+	for _, key := range []string{"name", "icon", "color", "frequency", "preferred_period", "specific_time", "record_type", "record_unit", "record_time_label", "goal_period", "goal_metric"} {
 		if value, ok := payload[key]; ok {
 			text, ok := value.(string)
 			if !ok {
@@ -156,7 +165,7 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 			updates[key] = text
 		}
 	}
-	for _, key := range []string{"target_days", "duration_min"} {
+	for _, key := range []string{"target_days", "duration_min", "goal_value"} {
 		if value, ok := payload[key]; ok {
 			number, ok := habitNumber(value)
 			if !ok {
@@ -166,7 +175,7 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 			updates[key] = number
 		}
 	}
-	for _, key := range []string{"generate_task", "show_checkin_dialog"} {
+	for _, key := range []string{"generate_task", "show_checkin_dialog", "allow_multiple_per_day"} {
 		if value, ok := payload[key]; ok {
 			flag, ok := value.(bool)
 			if !ok {
@@ -192,6 +201,14 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 		updates["reminder_at"] = habitJSON(value, "{}")
 	}
 
+    goalPeriod, goalMetric, goalValue := habit.GoalPeriod, habit.GoalMetric, habit.GoalValue
+    if v, ok := updates["goal_period"].(string); ok { goalPeriod = v }
+    if v, ok := updates["goal_metric"].(string); ok { goalMetric = v }
+    if v, ok := updates["goal_value"].(int); ok { goalValue = v }
+    if err := validateHabitGoal(goalPeriod, goalMetric, goalValue); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 	if len(updates) > 0 {
 		if err := h.DB.Model(&habit).Updates(updates).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "更新习惯失败"})
@@ -215,6 +232,25 @@ func (h *HabitHandler) DeleteHabit(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+}
+
+// GoalValue=0 保留旧习惯的按日单次状态，不擅自重算历史。
+func validateHabitGoal(period, metric string, value int) error {
+    if period == "" { period = "none" }
+    if period != "none" && period != "day" && period != "week" && period != "month" {
+        return fmt.Errorf("目标周期无效")
+    }
+    if metric == "" { metric = "events" }
+    if metric != "events" && metric != "count" && metric != "duration" {
+        return fmt.Errorf("累计口径无效")
+    }
+    if value < 0 || value > 100000 {
+        return fmt.Errorf("目标值应为 0～100000")
+    }
+    if value > 0 && period == "none" {
+        return fmt.Errorf("设置目标值时必须选择目标周期")
+    }
+    return nil
 }
 
 // CheckInHabit 打卡。date 是用户日历日期；不传时使用用户时区的今天。
@@ -271,8 +307,26 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	}
 	checkDate := checkDay.Format("2006-01-02")
 
+
+    clientKey := habitString(payload, "client_key", "")
+    if len(clientKey) > 64 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "记录标识过长"})
+        return
+    }
+    if habit.AllowMultiplePerDay && len(clientKey) < 16 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "多次记录需要稳定的记录标识"})
+        return
+    }
+    if clientKey != "" {
+        var replay model.HabitLog
+        if h.DB.Where("habit_id = ? AND client_key = ?", habit.ID, clientKey).First(&replay).Error == nil {
+            c.JSON(http.StatusOK, gin.H{"message": "记录已存在", "already_checked": true, "log": replay, "streak_count": habit.StreakCount})
+            return
+        }
+    }
+
 	var existingLog model.HabitLog
-	if h.DB.Where("habit_id = ? AND date = ?", id, checkDate).First(&existingLog).RowsAffected > 0 {
+	if !habit.AllowMultiplePerDay && h.DB.Where("habit_id = ? AND date = ?", id, checkDate).First(&existingLog).RowsAffected > 0 {
 		c.JSON(http.StatusOK, gin.H{
 			"message":         "该日期已打卡",
 			"already_checked": true,
@@ -324,7 +378,10 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	}
 	note := habitString(payload, "note", "")
 
+    var clientKeyPtr *string
+    if clientKey != "" { clientKeyPtr = &clientKey }
 	log := model.HabitLog{
+        ClientKey: clientKeyPtr,
 		HabitID:     habit.ID,
 		Date:        checkDate,
 		Note:        note,
@@ -333,7 +390,15 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		OccurredAt:  occurredAt,
 		Period:      period,
 	}
-	if err := h.DB.Create(&log).Error; err != nil {
+ 	if err := h.DB.Create(&log).Error; err != nil {
+        // 唯一索引抵御两个设备同时重放同一个 client_key。
+        if clientKey != "" {
+            var replay model.HabitLog
+            if h.DB.Where("habit_id = ? AND client_key = ?", habit.ID, clientKey).First(&replay).Error == nil {
+                c.JSON(http.StatusOK, gin.H{"message": "记录已存在", "already_checked": true, "log": replay, "streak_count": habit.StreakCount})
+                return
+            }
+        }
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "打卡失败"})
 		return
 	}
@@ -347,7 +412,7 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	} else if checkDate != todayStart.Format("2006-01-02") {
 		eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
 	}
-	metadata, _ := json.Marshal(map[string]string{"habit_date": checkDate})
+	metadata, _ := json.Marshal(map[string]interface{}{"habit_date": checkDate, "habit_log_id": log.ID})
 	event := model.BehaviorEvent{
 		UserID:      userID,
 		EventType:   "habit_checked",
