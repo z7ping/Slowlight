@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/habit.dart';
+import 'dart:math';
+import '../models/habit_occurrence.dart';
 import '../models/habit_log.dart';
 import '../repositories/habit_repository.dart';
 
@@ -45,7 +47,13 @@ class HabitController extends ChangeNotifier {
     String? date,
     int? durationMin,
     String? period,
+    String? occurrenceKey,
   }) async {
+    final eventKey = habit.scheduleRule.isNotEmpty &&
+        HabitOccurrence.rule(habit.scheduleRule)?.sameDayMultiple == true
+        ? 'event:' + DateTime.now().toUtc().microsecondsSinceEpoch.toString() +
+            '-' + Random.secure().nextInt(0x7fffffff).toRadixString(16)
+        : null;
     final result = await _repository.checkIn(
       habit.id,
       note: note,
