@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"slowlight/internal/model"
 )
@@ -350,40 +351,79 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		DurationMin: durationMin,
 		Period:      period,
 	}
-	if err := h.DB.Create(&log).Error; err != nil {
-		// DB unique index is the final arbiter when duplicate requests race.
-		if rule != nil && h.DB.Where("habit_id = ? AND occurrence_key = ?", habit.ID, policy.Key).
-			First(&existingLog).RowsAffected > 0 {
+	// Lock the habit row so simultaneous devices cannot exceed a period target.
+	// Create log + evidence in one transaction: never show a successful
+	// check-in whose BehaviorEvent was not committed (or vice versa).
+	var duplicate bool
+	var full bool
+	writeErr := h.DB.Transaction(func(tx *gorm.DB) error {
+		var locked model.Habit
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND user_id = ?", habit.ID, userID).First(&locked).Error; err != nil { return err }
+		query := tx.Model(&model.HabitLog{}).Where("habit_id = ?", habit.ID)
+		if rule == nil {
+			query = query.Where("date = ?", checkDate)
+		} else {
+			query = query.Where("occurrence_key = ?", policy.Key)
+		}
+		var count int64
+		if err := query.Count(&count).Error; err != nil { return err }
+		if count > 0 {
+			duplicate = true
+			return nil
+		}
+		if rule != nil && rule.Kind == "goal" {
+			var periodCount int64
+			if err := tx.Model(&model.HabitLog{}).
+				Where("habit_id = ? AND date >= ? AND date < ?", habit.ID, policy.PeriodStart, policy.PeriodEnd).
+				Count(&periodCount).Error; err != nil { return err }
+			if periodCount >= int64(policy.Target) { full = true; return nil }
+			if !policy.SameDayMultiple {
+				var dayCount int64
+				if err := tx.Model(&model.HabitLog{}).Where("habit_id = ? AND date = ?", habit.ID, checkDate).
+					Count(&dayCount).Error; err != nil { return err }
+				if dayCount > 0 { duplicate = true; return nil }
+			}
+		}
+		if err := tx.Create(&log).Error; err != nil { return err }
+		eventAt := now
+		if checkDate != todayStart.Format("2006-01-02") {
+			eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
+		}
+		metadata, _ := json.Marshal(map[string]interface{}{"habit_date": checkDate, "habit_log_id": log.ID})
+		event := model.BehaviorEvent{
+			UserID: userID, EventType: "habit_checked", EntityType: "habit",
+			EntityID: habit.ID, SystemTagID: habit.SystemTagID, DurationMin: durationMin,
+			OccurredAt: eventAt.UTC(), Metadata: string(metadata),
+		}
+		if err := tx.Create(&event).Error; err != nil { return err }
+		return nil
+	})
+	if full {
+		c.JSON(http.StatusConflict, gin.H{"error": "本周期已完成目标次数"})
+		return
+	}
+	if duplicate || writeErr != nil {
+		query := h.DB.Where("habit_id = ?", habit.ID)
+		if rule == nil { query = query.Where("date = ?", checkDate) } else {
+			query = query.Where("occurrence_key = ?", policy.Key)
+		}
+		if query.First(&existingLog).RowsAffected > 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "该时段已打卡", "already_checked": true,
 				"log": existingLog, "streak_count": habit.StreakCount})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "打卡失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "打卡写入未完成"})
 		return
 	}
 
-	habit.StreakCount = h.currentHabitStreak(habit.ID, loc)
+	if rule == nil {
+		habit.StreakCount = h.currentHabitStreak(habit.ID, loc)
+	} else {
+		// A weekly/monthly/hourly schedule has no meaningful "consecutive days".
+		habit.StreakCount = 0
+	}
 	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
-
-	eventAt := now
-	if checkDate != todayStart.Format("2006-01-02") {
-		eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
-	}
-	metadata, _ := json.Marshal(map[string]interface{}{"habit_date": checkDate, "habit_log_id": log.ID})
-	event := model.BehaviorEvent{
-		UserID:      userID,
-		EventType:   "habit_checked",
-		EntityType:  "habit",
-		EntityID:    habit.ID,
-		SystemTagID: habit.SystemTagID,
-		DurationMin: durationMin,
-		OccurredAt:  eventAt.UTC(),
-		Metadata:    string(metadata),
-	}
-	if err := h.DB.Create(&event).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "行为事件写入失败"})
-		return
-	}
 
 	triggerWebhooks(h.DB, userID, model.EventHabitChecked, map[string]interface{}{
 		"habit_id":     habit.ID,
