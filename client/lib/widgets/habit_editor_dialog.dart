@@ -299,6 +299,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       error = rule.validationError;
     } else if (_reminderMode == 'daily' && _reminder == null) {
       error = '请设置每天提醒的时间';
+    } else if (_reminderMode == 'schedule') {
+      error = '按计划提醒尚未接入通知调度，请选择关闭或每天定时';
     }
     if (error != null) {
       setState(() => _validationError = error);
@@ -392,7 +394,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     ],
                     FxInput(
                       controller: _name,
-                      autofocus: widget.habit == null,
+                      autofocus: !mobile && widget.habit == null,
                       onChanged: (_) => setState(() {}),
                       label: '习惯名称',
                       placeholder: '例如：每天阅读 20 分钟',
@@ -505,24 +507,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    FxResponsiveFormGrid(
-                      minColumnWidth: 260,
-                      children: [
-                        _timeField(
-                          title: '计划执行时间',
-                          value: _specificTime,
-                          onChanged:
-                              (value) => setState(() => _specificTime = value),
-                        ),
-                        _timeField(
-                          title: '提醒时间',
-                          value: _reminder,
-                          onChanged:
-                              (value) => setState(() => _reminder = value),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
+
                     FxResponsiveFormGrid(
                       minColumnWidth: 300,
                       children: [
@@ -744,8 +729,32 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           ],
         ),
         const SizedBox(height: 12),
-        FxInput(controller: _anchorDate, label: '起算日期（YYYY-MM-DD）',
-          keyboardType: TextInputType.datetime, onChanged: (_) => setState(() {})),
+        FxFormField(
+          label: '起算日期',
+          child: Row(children: [
+            Expanded(child: FxInput(controller: _anchorDate,
+              placeholder: 'YYYY-MM-DD', keyboardType: TextInputType.datetime,
+              onChanged: (_) => setState(() {}))),
+            FxIconButton(
+              tooltip: '选择起算日期',
+              icon: Icons.calendar_today,
+              onPressed: () async {
+                final value = await showFxDatePicker(
+                  context: context,
+                  initialDate: _currentRule().anchor ?? DateTime.now(),
+                );
+                if (value != null && mounted) setState(() =>
+                    _anchorDate.text = HabitScheduleRule.dayKey(value));
+              },
+            ),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        _timeField(
+          title: '起算／执行时间',
+          value: _specificTime,
+          onChanged: (v) => setState(() => _specificTime = v),
+        ),
         const SizedBox(height: 12),
         FxFormField(
           label: '提醒方式（与频率独立）',
@@ -764,6 +773,20 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             }),
           ),
         ),
+        if (_reminderMode == 'daily') ...[
+          const SizedBox(height: 12),
+          _timeField(
+            title: '每天提醒时间',
+            value: _reminder,
+            onChanged: (v) => setState(() => _reminder = v),
+          ),
+        ],
+        if (_reminderMode == 'schedule')
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('按计划通知仍待接入提醒调度，暂不支持保存此提醒方式。',
+              style: SlowlightTypography.secondary(context)),
+          ),
       ],
     );
   }
