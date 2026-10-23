@@ -84,6 +84,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   List<Tag> _selectedTags = const [];
   late String _icon;
   late String _color;
+  bool _detailsOpen = false;
   late String _frequency;
   late String _mode;
   late String _unit;
@@ -399,6 +400,14 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     const SizedBox(height: 14),
                     _buildScheduleFields(),
                     const SizedBox(height: 14),
+                    if (mobile)
+                      FxButton(
+                        label: _detailsOpen ? '收起其他设置' : '展开其他设置',
+                        variant: FxButtonVariant.outline,
+                        onPressed: () => setState(() => _detailsOpen = !_detailsOpen),
+                      ),
+                    if (!mobile || _detailsOpen) ...[
+                    const SizedBox(height: 14),
                     FxResponsiveFormGrid(
                       minColumnWidth: 260,
                       children: [
@@ -533,6 +542,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                         ),
                       ],
                     ),
+                    ],
                   ],
                 ),
               ),
