@@ -6,6 +6,7 @@ import '../models/subtask.dart';
 import '../models/todo_list.dart';
 import '../models/task.dart';
 import '../models/tag.dart';
+import '../utils/habit_record_key.dart';
 import 'auth_service.dart';
 import 'data_mode_manager.dart';
 import 'local_api_service.dart';
@@ -600,16 +601,17 @@ class ApiService {
       String? occurredAt,
       String? clientKey,
       String? period}) async {
+    final effectiveKey = clientKey ?? createHabitRecordKey();
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: clientKey);
+          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: effectiveKey);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
       'duration_min': durationMin ?? 0,
       if (countValue != null) 'count_value': countValue,
       if (occurredAt != null) 'occurred_at': occurredAt,
-      if (clientKey != null) 'client_key': clientKey,
+      'client_key': effectiveKey,
       'period': period ?? ''
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
