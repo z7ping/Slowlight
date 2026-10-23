@@ -123,6 +123,9 @@ class LocalHabitRepository {
     String color = '#52c41a',
     String frequency = 'daily',
     Map<String, dynamic>? scheduleRule,
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -140,6 +143,9 @@ class LocalHabitRepository {
       'color': color,
       'frequency': frequency,
       'schedule_rule': _encodeJson(scheduleRule ?? const {}),
+      'record_type': recordType,
+      'record_unit': recordUnit,
+      'record_time_label': recordTimeLabel,
       'target_days': targetDays,
       'system_tag_id': systemTagId,
       'preferred_period': preferredPeriod,
@@ -163,6 +169,9 @@ class LocalHabitRepository {
     String? color,
     String? frequency,
     Map<String, dynamic>? scheduleRule,
+    String? recordType,
+    String? recordUnit,
+    String? recordTimeLabel,
     int? targetDays,
     int? systemTagId,
     bool setSystemTag = false,
@@ -180,6 +189,9 @@ class LocalHabitRepository {
     if (color != null) updates['color'] = color;
     if (frequency != null) updates['frequency'] = frequency;
     if (scheduleRule != null) updates['schedule_rule'] = _encodeJson(scheduleRule);
+    if (recordType != null) updates['record_type'] = recordType;
+    if (recordUnit != null) updates['record_unit'] = recordUnit;
+    if (recordTimeLabel != null) updates['record_time_label'] = recordTimeLabel;
     if (targetDays != null) updates['target_days'] = targetDays;
     if (setSystemTag) updates['system_tag_id'] = systemTagId;
     if (preferredPeriod != null) updates['preferred_period'] = preferredPeriod;
@@ -214,6 +226,8 @@ class LocalHabitRepository {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    int? countValue,
+    String? occurredAt,
   }) async {
     final db = await _db.database;
     final now = DateTime.now();
@@ -259,13 +273,17 @@ class LocalHabitRepository {
       }
       final at = date == null ? now :
           DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
-      final actualPeriod = period?.isNotEmpty == true
-          ? period! : habit['preferred_period']?.toString() ?? '';
-      final actualDuration = durationMin ?? habit['duration_min'] as int? ?? 0;
+      final type = habit['record_type']?.toString() ?? 'legacy';
+      if (type == 'count' && (countValue == null || countValue <= 0)) throw StateError('次数必须大于零');
+      final actualPeriod = type == 'legacy' || type == 'duration' ? (period?.isNotEmpty == true
+          ? period! : habit['preferred_period']?.toString() ?? '') : '';
+      final actualDuration = type == 'legacy' || type == 'duration' ? (durationMin ?? habit['duration_min'] as int? ?? 0) : 0;
+      if (actualDuration < 0) throw StateError('时长不能为负数');
       final createdAt = _nowUtc();
       final id = await tx.insert('habit_logs', {
         'habit_id':habitId, 'date':day, 'occurrence_key':event?.key,
-        'occurred_at':at.toUtc().toIso8601String(), 'period':actualPeriod,
+        'occurred_at':occurredAt ?? at.toUtc().toIso8601String(), 'count_value':countValue,
+        'period':actualPeriod,
         'duration_min':actualDuration,'note':note,'created_at':createdAt,
       });
       final streak = rule == null
@@ -275,7 +293,8 @@ class LocalHabitRepository {
         where:'id = ?',whereArgs:[habitId]);
       return {'message':'打卡成功','log':{
         'id':id,'habit_id':habitId,'date':day,'occurrence_key':event?.key,
-        'occurred_at':at.toUtc().toIso8601String(),
+        'occurred_at':occurredAt ?? at.toUtc().toIso8601String(),
+        'count_value':countValue,
         'period':actualPeriod,'duration_min':actualDuration,
         'note':note,'created_at':createdAt,
       },'streak_count':streak};
@@ -339,7 +358,7 @@ class LocalHabitRepository {
   ) async {
     final db = await _db.database;
     final allowed = <String, dynamic>{};
-    for (final key in ['note', 'duration_min', 'period']) {
+    for (final key in ['note', 'duration_min', 'count_value', 'occurred_at', 'period']) {
       if (data.containsKey(key)) allowed[key] = data[key];
     }
     if (allowed.isEmpty) throw Exception('没有可更新字段');
