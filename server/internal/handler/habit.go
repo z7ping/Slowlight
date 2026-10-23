@@ -401,7 +401,7 @@ func (h *HabitHandler) UncheckInHabit(c *gin.Context) {
 	}
 
 	var log model.HabitLog
-	if err := h.DB.Where("habit_id = ? AND date = ?", id, today).First(&log).Error; err != nil {
+	if err := h.DB.Where("habit_id = ? AND date = ?", id, today).Order("created_at DESC, id DESC").First(&log).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "今日未打卡，无法取消"})
 		return
 	}
@@ -410,10 +410,27 @@ func (h *HabitHandler) UncheckInHabit(c *gin.Context) {
 		return
 	}
 
-	h.DB.Where(
-		"user_id = ? AND event_type = ? AND entity_type = ? AND entity_id = ? AND occurred_at >= ? AND occurred_at < ?",
-		userID, "habit_checked", "habit", habit.ID, startLocal.UTC(), endLocal.UTC(),
-	).Delete(&model.BehaviorEvent{})
+	// Prefer exact event-to-log linkage. Older events have no log ID, so
+	// keep the legacy date-based fallback only for legacy habits.
+	var matchedEvents []model.BehaviorEvent
+	h.DB.Where("user_id = ? AND event_type = ? AND entity_type = ? AND entity_id = ?",
+		userID, "habit_checked", "habit", habit.ID).Find(&matchedEvents)
+	var matched bool
+	for _, event := range matchedEvents {
+		var meta map[string]interface{}
+		if json.Unmarshal([]byte(event.Metadata), &meta) == nil {
+			if value, ok := meta["habit_log_id"].(float64); ok && uint(value) == log.ID {
+				h.DB.Delete(&event)
+				matched = true
+				break
+			}
+		}
+	}
+	if !matched && (habit.ScheduleRule == "" || habit.ScheduleRule == "{}") {
+		h.DB.Where("user_id = ? AND event_type = ? AND entity_type = ? AND entity_id = ? AND occurred_at >= ? AND occurred_at < ?",
+			userID, "habit_checked", "habit", habit.ID, startLocal.UTC(), endLocal.UTC()).
+			Delete(&model.BehaviorEvent{})
+	}
 
 	habit.StreakCount = h.currentHabitStreak(habit.ID, loc)
 	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
