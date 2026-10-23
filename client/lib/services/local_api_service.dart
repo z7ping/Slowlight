@@ -229,6 +229,9 @@ class LocalApiService implements ApiDataSource {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -243,6 +246,9 @@ class LocalApiService implements ApiDataSource {
         icon: icon,
         color: color,
         frequency: frequency,
+        recordType: recordType,
+        recordUnit: recordUnit,
+        recordTimeLabel: recordTimeLabel,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -261,6 +267,9 @@ class LocalApiService implements ApiDataSource {
       icon: data['icon'] as String?,
       color: data['color'] as String?,
       frequency: data['frequency'] as String?,
+      recordType: data['record_type'] as String?,
+      recordUnit: data['record_unit'] as String?,
+      recordTimeLabel: data['record_time_label'] as String?,
       targetDays: data['target_days'] as int?,
       systemTagId: data['system_tag_id'] as int?,
       setSystemTag: data.containsKey('system_tag_id'),
@@ -281,6 +290,8 @@ class LocalApiService implements ApiDataSource {
     String note = '',
     String? date,
     int? durationMin,
+    int? countValue,
+    String? occurredAt,
     String? period,
   }) =>
       _habitRepo.checkIn(
@@ -288,6 +299,8 @@ class LocalApiService implements ApiDataSource {
         note: note,
         date: date,
         durationMin: durationMin,
+        countValue: countValue,
+        occurredAt: occurredAt,
         period: period,
       );
 
