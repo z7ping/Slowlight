@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_notifier/local_notifier.dart';
@@ -5,6 +7,8 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../brand.dart';
+import '../models/habit_schedule_rule.dart';
+import '../repositories/habit_repository.dart';
 import 'api_service.dart';
 import 'data_service.dart';
 
@@ -18,6 +22,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  final Map<int, Timer> _desktopPending = <int, Timer>{};
 
   /// 是否是桌面端（Windows/macOS/Linux，排除 Web）
   bool get _isDesktop => !kIsWeb && {
@@ -186,13 +191,12 @@ class NotificationService {
     String? payload,
   }) async {
     if (_isDesktop) {
-      // 桌面端：用 Future.delayed 模拟定时（local_notifier 不支持 zonedSchedule）
+      // Cancel old desktop reminder when the same ID is rescheduled.
+      _desktopPending.remove(id)?.cancel();
       final delay = scheduledTime.difference(DateTime.now());
-      if (delay.isNegative) {
-        await showNotification(id: id, title: title, body: body, payload: payload);
-        return;
-      }
-      Future.delayed(delay, () {
+      if (delay.isNegative) return;
+      _desktopPending[id] = Timer(delay, () {
+        _desktopPending.remove(id);
         showNotification(id: id, title: title, body: body, payload: payload);
       });
     } else {
@@ -239,6 +243,7 @@ class NotificationService {
 
   /// 取消指定通知
   Future<void> cancel(int id) async {
+    _desktopPending.remove(id)?.cancel();
     if (!_isDesktop) {
       await _plugin.cancel(id);
       await _plugin.cancel(id + 100000);
@@ -248,8 +253,50 @@ class NotificationService {
 
   /// 取消所有通知
   Future<void> cancelAll() async {
+    for (final timer in _desktopPending.values) { timer.cancel(); }
+    _desktopPending.clear();
     if (!_isDesktop) {
       await _plugin.cancelAll();
+    }
+  }
+
+  int _habitNotificationId(int habitId, int index) =>
+      1100000000 + (habitId.abs() % 1000000) * 16 + index;
+
+  Future<void> cancelHabitReminders(int habitId) async {
+    for (var i=0;i<8;i++) { await cancel(_habitNotificationId(habitId,i)); }
+  }
+
+  /// Reminders are independent of logs. Android schedules OS notifications,
+  /// Windows uses cancellable in-process timers.
+  Future<void> scheduleHabitReminders() async {
+    await init();
+    final habits = await HabitRepository().getAll();
+    final now = DateTime.now();
+    for (final habit in habits) {
+      await cancelHabitReminders(habit.id);
+      if (habit.scheduleRule.isEmpty) continue; // Legacy remains unchanged.
+      final rule = HabitScheduleRule.fromJson(habit.scheduleRule, legacyFrequency:habit.frequency);
+      if (rule.validationError != null || rule.reminderMode=='off') continue;
+      final planned=<DateTime>[];
+      if (rule.reminderMode=='daily') {
+        final p=HabitScheduleRule.minute(rule.reminderTime);
+        for (var day=0;day<9&&planned.length<8;day++) {
+          final at=DateTime(now.year,now.month,now.day+day,p~/60,p%60);
+          if(at.isAfter(now))planned.add(at);
+        }
+      } else if (rule.reminderMode=='schedule') {
+        planned.addAll(rule.nextAfter(now, count:8));
+      }
+      for(var i=0;i<planned.length;i++) {
+        await scheduleNotification(
+          id:_habitNotificationId(habit.id,i),
+          title:'习惯提醒',
+          body:habit.name,
+          scheduledTime:planned[i],
+          payload:'habit_'+habit.id.toString(),
+        );
+      }
     }
   }
 
@@ -280,6 +327,11 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('[Notification] reminder scheduling failed: ${e.runtimeType}');
+    }
+    try {
+      await scheduleHabitReminders();
+    } catch (e) {
+      debugPrint('[Notification] habit reminder scheduling failed: ${e.runtimeType}');
     }
   }
 }
