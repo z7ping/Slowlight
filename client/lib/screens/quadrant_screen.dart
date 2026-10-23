@@ -204,7 +204,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
 
     Widget card = FxCard(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compactMobileGrid ? 12 : 16),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(
@@ -452,7 +452,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           minHeight: SlowlightControlSize.minTouchTarget,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+          padding: EdgeInsets.symmetric(vertical: compact ? 2 : 7, horizontal: 2),
           child: Row(
             children: [
               Text(
