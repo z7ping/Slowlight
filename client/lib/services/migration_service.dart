@@ -320,6 +320,8 @@ class MigrationService {
         'habit_id': row['habit_id'],
         'task_id': row['task_id'],
         'date': row['date'],
+        'occurrence_key': row['occurrence_key'],
+        'occurred_at': row['occurred_at'],
         'period': row['period'],
         'duration_min': row['duration_min'],
         'note': row['note'],
