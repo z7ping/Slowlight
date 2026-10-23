@@ -194,6 +194,7 @@ class CloudCacheDb {
         count_value INTEGER,
         occurred_at TEXT,
         client_key TEXT,
+        deleted_at TEXT,
         note TEXT DEFAULT '',
         task_id INTEGER,
         created_at TEXT NOT NULL,
@@ -286,6 +287,9 @@ class CloudCacheDb {
         .map((row) => row['name'].toString()).toSet();
     if (!logColumns.contains('client_key')) {
       await db.execute('ALTER TABLE habit_logs ADD COLUMN client_key TEXT');
+    }
+    if (!logColumns.contains('deleted_at')) {
+      await db.execute('ALTER TABLE habit_logs ADD COLUMN deleted_at TEXT');
     }
     await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS '
         'idx_habit_logs_client_key ON habit_logs(client_key) '
