@@ -489,18 +489,22 @@ class CloudCacheRepository {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) async {
     final db = await _db;
     final habitRow = await _rowByPublicId(db, 'habits', publicId);
     final habitLocalId = habitRow['id'] as int;
     final day = date ?? _dateKey(DateTime.now())!;
-    final existing = await db.query(
-      'habit_logs',
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitLocalId, day],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) {
+    final effectiveKey = clientKey ?? createHabitRecordKey();
+    final replay = await db.query('habit_logs',
+      where: 'client_key = ?', whereArgs: [effectiveKey], limit: 1);
+    if (replay.isNotEmpty) {
+      return {'log': await _habitLogMap(db, replay.first), 'already_checked': true};
+    }
+    final existing = await db.query('habit_logs',
+      where: 'habit_id = ? AND date = ? AND deleted_at IS NULL',
+      whereArgs: [habitLocalId, day], limit: 1);
+    if ((habitRow['allow_multiple_per_day'] as int? ?? 0) != 1 && existing.isNotEmpty) {
       return {'log': await _habitLogMap(db, existing.first)};
     }
     final now = _now();
@@ -511,6 +515,7 @@ class CloudCacheRepository {
       'duration_min': durationMin ?? 0,
       'count_value': countValue,
       'occurred_at': occurredAt,
+      'client_key': effectiveKey,
       'note': note,
       'created_at': now,
       'sync_status': 'pending',
