@@ -109,12 +109,12 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   TimeOfDay? _reminder;
 
   static const _templates = <Map<String, String>>[
-    {'name': '早起', 'icon': '🌅', 'color': '#fa8c16'},
-    {'name': '喝水', 'icon': '💧', 'color': '#13c2c2'},
-    {'name': '运动', 'icon': '💪', 'color': '#52c41a'},
-    {'name': '阅读', 'icon': '📚', 'color': '#1890ff'},
-    {'name': '冥想', 'icon': '🧘', 'color': '#722ed1'},
-    {'name': '早睡', 'icon': '💤', 'color': '#2f54eb'},
+    {'name':'喝水','icon':'💧','color':'#13c2c2','mode':'interval','unit':'hour','every':'2'},
+    {'name':'运动','icon':'💪','color':'#52c41a','mode':'interval','unit':'day','every':'3'},
+    {'name':'双周复盘','icon':'📝','color':'#722ed1','mode':'interval','unit':'week','every':'2'},
+    {'name':'季度整理','icon':'📦','color':'#fa8c16','mode':'interval','unit':'month','every':'3'},
+    {'name':'每周三次','icon':'🏃','color':'#52c41a','mode':'goal','unit':'week','every':'1','target':'3'},
+    {'name':'周一三五','icon':'📚','color':'#1890ff','mode':'specific','unit':'week','every':'1'},
   ];
 
   static const _icons = [
@@ -127,6 +127,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     '🍎',
     '💤',
     '📝',
+    '📦',
     '🎯',
     '✍️',
     '🌍',
@@ -256,18 +257,17 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
 
   void _applyTemplate(Map<String, String> template) {
     setState(() {
-      _name.text = template['name'] ?? '';
-      _icon = template['icon'] ?? '✅';
-      _color = template['color'] ?? '#52c41a';
-      _frequency = 'daily';
-      _mode = 'interval';
-      _unit = 'day';
-      _every.text = '1';
-      if (_name.text == '喝水') { _unit = 'hour'; _every.text = '2'; }
-      if (_name.text == '运动') { _unit = 'day'; _every.text = '3'; }
-      _modeUnits['interval'] = _unit;
-      _modeEvery['interval'] = _every.text;
-
+      _name.text=template['name'] ?? '';
+      _icon=template['icon'] ?? '✅';
+      _color=template['color'] ?? '#52c41a';
+      _mode=template['mode'] ?? 'interval';
+      _unit=template['unit'] ?? 'day';
+      _every.text=template['every'] ?? '1';
+      _targetCount.text=template['target'] ?? '3';
+      if(_mode=='specific')_weekdays=[1,3,5];
+      _modeUnits[_mode]=_unit;
+      _modeEvery[_mode]=_every.text;
+      if(_mode=='goal'&&_reminderMode=='schedule')_reminderMode='off';
     });
   }
 
