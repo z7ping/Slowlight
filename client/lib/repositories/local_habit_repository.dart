@@ -337,13 +337,26 @@ class LocalHabitRepository {
   ) async {
     final db = await _db.database;
     final allowed = <String, dynamic>{};
-    for (final key in ['note', 'duration_min', 'period']) {
+    for (final key in ['note', 'duration_min', 'count_value', 'occurred_at', 'period']) {
       if (data.containsKey(key)) allowed[key] = data[key];
     }
     if (allowed.isEmpty) throw Exception('没有可更新字段');
     if (allowed['duration_min'] is int &&
         (allowed['duration_min'] as int) < 0) {
       throw Exception('duration_min 不能为负数');
+    }
+    if (allowed['count_value'] is int && (allowed['count_value'] as int) <= 0) {
+      throw ArgumentError('count_value 必须大于 0');
+    }
+    if (allowed['occurred_at'] is String && (allowed['occurred_at'] as String).isNotEmpty) {
+      final occurred = DateTime.parse(allowed['occurred_at'] as String);
+      final rows = await db.query('habit_logs', columns: ['date'],
+        where: 'id = ? AND habit_id = ?', whereArgs: [logId, habitId], limit: 1);
+      if (rows.isEmpty || occurred.isAfter(DateTime.now()) ||
+          _dateStr(occurred.toLocal()) != rows.first['date']) {
+        throw ArgumentError('实际发生时间不合法');
+      }
+      allowed['occurred_at'] = occurred.toUtc().toIso8601String();
     }
     final count = await db.update('habit_logs', allowed,
         where: 'id = ? AND habit_id = ?', whereArgs: [logId, habitId]);
