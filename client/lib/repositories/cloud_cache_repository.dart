@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
+import '../models/habit_occurrence.dart';
 import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -470,40 +471,52 @@ class CloudCacheRepository {
     String? occurrenceKey,
   }) async {
     final db = await _db;
-    final habitRow = await _rowByPublicId(db, 'habits', publicId);
-    final habitLocalId = habitRow['id'] as int;
-    final day = date ?? _dateKey(DateTime.now())!;
-    final existing = await db.query(
-      'habit_logs',
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitLocalId, day],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) {
-      return {'log': await _habitLogMap(db, existing.first)};
+    final habit = await _rowByPublicId(db, 'habits', publicId);
+    final hid = habit['id'] as int;
+    final now = DateTime.now();
+    final day = date ?? _dateKey(now)!;
+    final rule = HabitOccurrence.rule(habit['schedule_rule'],
+      legacyFrequency:habit['frequency']?.toString() ?? 'daily');
+    final event = rule == null ? null : HabitOccurrence.calculate(
+      rule,now,date:day,requestKey:occurrenceKey);
+    if (date != null && DateTime.tryParse(date)?.isAfter(DateTime(now.year,now.month,now.day)) == true) {
+      throw StateError('不能记录未来日期');
     }
-    final now = _now();
-    final logLocalId = await db.insert('habit_logs', {
-      'habit_id': habitLocalId,
-      'date': day,
-      'period': period ?? '',
-      'duration_min': durationMin ?? 0,
-      'note': note,
-      'created_at': now,
-      'sync_status': 'pending',
-      'last_modified': now,
+    final result=await db.transaction((tx) async {
+      final existing=await tx.query('habit_logs',
+        where: rule==null?'habit_id = ? AND date = ?':'habit_id = ? AND occurrence_key = ?',
+        whereArgs:[hid,rule==null?day:event!.key],limit:1);
+      if (existing.isNotEmpty) return <String,dynamic>{
+        'log_id':null,'result':{'log':existing.first,'already_checked':true}};
+      if (event?.periodStart != null) {
+        final rows=await tx.rawQuery('SELECT COUNT(*) AS n FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
+          [hid,event!.periodStart,event.periodEnd]);
+        if((rows.first['n'] as int? ?? 0)>=event.target)throw StateError('本周期已完成目标次数');
+        if(!event.sameDayMultiple){
+          final old=await tx.query('habit_logs',where:'habit_id = ? AND date = ?',whereArgs:[hid,day],limit:1);
+          if(old.isNotEmpty)return <String,dynamic>{'log_id':null,'result':{'log':old.first,'already_checked':true}};
+        }
+      }
+      final stamp=_now();
+      final at=date==null?now:DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
+      final id=await tx.insert('habit_logs',{
+        'habit_id':hid,'date':day,'occurrence_key':event?.key,
+        'occurred_at':at.toUtc().toIso8601String(),
+        'period':period ?? '', 'duration_min':durationMin ?? 0,
+        'note':note,'created_at':stamp,'sync_status':'pending','last_modified':stamp,
+      });
+      return <String,dynamic>{'log_id':id};
     });
-    await SyncService().enqueue(
-      entityType: 'habit_logs',
-      entityLocalId: logLocalId,
-      operation: 'create',
-    );
-    final log = (await db.query(
-      'habit_logs',
-      where: 'id = ?',
-      whereArgs: [logLocalId],
-    )).single;
-    return {'log': await _habitLogMap(db, log), 'checked': true};
+    final id=result['log_id'] as int?;
+    if(id==null){
+      final row=Map<String,Object?>.from(result['result'] as Map)['log'] as Map;
+      return {'log':await _habitLogMap(db,Map<String,Object?>.from(row)),
+        'already_checked':true};
+    }
+    await SyncService().enqueue(entityType:'habit_logs',
+      entityLocalId:id,operation:'create');
+    final row=(await db.query('habit_logs',where:'id = ?',whereArgs:[id])).single;
+    return {'log':await _habitLogMap(db,row),'checked':true};
   }
 
   Future<Map<String, dynamic>> getHabitLogs(int publicId, {String? month}) async {
@@ -670,6 +683,8 @@ class CloudCacheRepository {
         'habit_id':
             await _publicForeignId(db, 'habits', row['habit_id'] as int?),
         'date': row['date'],
+        'occurrence_key': row['occurrence_key'],
+        'occurred_at': row['occurred_at'],
         'period': row['period'] ?? '',
         'duration_min': row['duration_min'] ?? 0,
         'note': row['note'] ?? '',
