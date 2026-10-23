@@ -17,6 +17,9 @@ class HabitEditorValue {
   final String color;
   final String frequency;
   final Map<String, dynamic> scheduleRule;
+  final String recordType;
+  final String recordUnit;
+  final String recordTimeLabel;
   final int targetDays;
   final int? systemTagId;
   final List<int>? tagIds;
@@ -33,6 +36,9 @@ class HabitEditorValue {
     required this.color,
     required this.frequency,
     this.scheduleRule = const {},
+    this.recordType = 'legacy',
+    this.recordUnit = '次',
+    this.recordTimeLabel = '',
     required this.targetDays,
     required this.systemTagId,
     this.tagIds,
@@ -77,6 +83,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late final TextEditingController _name;
   late final TextEditingController _targetDays;
   late final TextEditingController _duration;
+  late final TextEditingController _recordUnit;
+  late final TextEditingController _recordTimeLabel;
+  late String _recordType;
   List<ObservationTag> _tags = const [];
   bool _loadingTags = true;
   String? _validationError;
@@ -158,6 +167,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _icon = habit?.icon ?? '✅';
     _color = habit?.color ?? '#52c41a';
     _frequency = habit?.frequency ?? 'daily';
+    _recordType = habit?.recordType ?? 'check';
+    _recordUnit = TextEditingController(text: habit?.recordUnit ?? '次');
+    _recordTimeLabel = TextEditingController(text: habit?.recordTimeLabel ?? '');
     final rule = HabitScheduleRule.fromJson(
       habit?.scheduleRule ?? const {}, legacyFrequency: _frequency,
     );
@@ -213,6 +225,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _name.dispose();
     _targetDays.dispose();
     _duration.dispose();
+    _recordUnit.dispose();
+    _recordTimeLabel.dispose();
     _every.dispose();
     _targetCount.dispose();
     _anchorDate.dispose();
@@ -258,6 +272,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   void _applyTemplate(Map<String, String> template) {
     setState(() {
       _name.text=template['name'] ?? '';
+      _recordType=template['record_type'] ?? 'check';
+      _recordTimeLabel.text=template['record_time_label'] ?? '';
       _icon=template['icon'] ?? '✅';
       _color=template['color'] ?? '#52c41a';
       _mode=template['mode'] ?? 'interval';
@@ -292,6 +308,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     final rule = _currentRule();
     final targetText = _targetDays.text.trim();
     final durationText = _duration.text.trim();
+    final recordUnit = _recordUnit.text.trim();
+    final recordTimeLabel = _recordTimeLabel.text.trim();
     final target = targetText.isEmpty ? 0 : int.tryParse(targetText);
     final duration = durationText.isEmpty ? 0 : int.tryParse(durationText);
     String? error;
@@ -299,6 +317,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       error = '请填写习惯名称';
     } else if (target == null || target < 0) {
       error = '目标天数必须是 0 或正整数';
+    } else if (recordUnit.isEmpty || recordUnit.length > 20) {
+      error = '计数单位应为 1～20 字';
+    } else if (recordTimeLabel.length > 40) {
+      error = '实际时间名称不能超过 40 字';
     } else if (duration == null || duration < 0) {
       error = '预期时长必须是 0 或正整数';
     } else if (rule.validationError != null) {
@@ -321,6 +343,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             ? const {'day': 'daily', 'week': 'weekly', 'month': 'monthly', 'year': 'yearly'}[_unit] ?? 'custom'
             : 'custom',
         scheduleRule: rule.toJson(),
+        recordType: _recordType,
+        recordUnit: recordUnit,
+        recordTimeLabel: recordTimeLabel,
         targetDays: target!,
         systemTagId: _systemTagId,
         tagIds: _canonicalTagsReady
@@ -406,6 +431,34 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     const SizedBox(height: 14),
                     _buildScheduleFields(),
                     const SizedBox(height: 14),
+                    FxFormField(
+                      label: '记录类型',
+                      child: FxSegmented(
+                        labels: _recordType == 'legacy'
+                          ? const ['旧版', '打卡', '计时', '计数'] :
+                            const ['打卡', '计时', '计数'],
+                        selectedIndex: (_recordType == 'legacy'
+                            ? const ['legacy','check','duration','count'] :
+                              const ['check','duration','count']).indexOf(_recordType),
+                        onChanged: (index) => setState(() {
+                          _recordType = (_recordType == 'legacy'
+                              ? const ['legacy','check','duration','count'] :
+                                const ['check','duration','count'])[index];
+                        }),
+                        backgroundColor: fxSubtleSurface(context),
+                        selectedColor: fxSurface(context),
+                      ),
+                    ),
+                    if (_recordType == 'count') ...[
+                      const SizedBox(height: 12),
+                      FxInput(controller:_recordUnit,label:'计数单位',placeholder:'例如：次、杯、页'),
+                    ],
+                    const SizedBox(height: 12),
+                    FxInput(controller:_recordTimeLabel,
+                      label:'记录实际时间（选填）',
+                      placeholder:'如起床时间；留空则不询问具体时间'),
+
+                    const SizedBox(height: 14),
                     if (mobile)
                       FxButton(
                         label: _detailsOpen ? '收起其他设置' : '展开其他设置',
@@ -455,6 +508,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           label: '目标天数',
                           placeholder: '0 表示不设目标',
                         ),
+                        if (_recordType == 'legacy' || _recordType == 'duration')
                         FxInput(
                           controller: _duration,
                           keyboardType: TextInputType.number,
@@ -517,7 +571,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       children: [
                         FxSwitch(
                           label: '打卡时记录详情',
-                          description: '可填写时长、时段和备注',
+                          description: '按记录类型填写详情；计数型始终填写实际次数',
                           value: _showCheckinDialog,
                           onChanged:
                               (value) =>
