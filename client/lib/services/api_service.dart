@@ -578,10 +578,11 @@ class ApiService {
       {String note = '',
       String? date,
       int? durationMin,
-      String? period}) async {
+      String? period,
+      String? occurrenceKey}) async {
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, period: period);
+          note: note, date: date, durationMin: durationMin, period: period, occurrenceKey: occurrenceKey);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
