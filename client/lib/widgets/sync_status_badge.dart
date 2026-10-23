@@ -54,7 +54,7 @@ class SyncStatusBadge extends StatelessWidget {
                       return const SizedBox.shrink();
                     }
                     return FxGestureDetector(
-                  onTap: () => _showDetail(context, sync, pending),
+                  onTap: () => _showDetail(context, sync),
                   child: _statusPill(
                     context,
                     icon:
@@ -143,7 +143,7 @@ class SyncStatusBadge extends StatelessWidget {
   }
 
 
-  void _showDetail(BuildContext context, SyncService sync, int pending) {
+  void _showDetail(BuildContext context, SyncService sync) {
     final notice = FxNotice.capture(context);
     Widget content(BuildContext ctx) => _SyncStatusDetails(
       sync: sync,
