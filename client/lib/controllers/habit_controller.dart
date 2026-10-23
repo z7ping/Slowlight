@@ -60,6 +60,7 @@ class HabitController extends ChangeNotifier {
       date: date,
       durationMin: durationMin,
       period: period,
+      occurrenceKey: occurrenceKey ?? eventKey,
     );
     await load();
     if (_logs.containsKey(habit.id)) await loadLogs(habit.id);
