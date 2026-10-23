@@ -126,7 +126,9 @@ abstract class ApiDataSource {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   });
+  Future<void> deleteHabitLog(int habitId, int logId);
   Future<Map<String, dynamic>> uncheckInHabit(int habitId);
   Future<Map<String, dynamic>> getHabitLogs(int habitId, {String? month});
   Future<void> deleteHabit(int habitId);
