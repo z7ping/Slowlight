@@ -219,10 +219,12 @@ class LocalHabitRepository {
       };
     }
 
-    final actualPeriod = period?.isNotEmpty == true
-        ? period!
-        : (habit['preferred_period'] as String? ?? '');
     final recordType = habit['record_type'] as String? ?? 'legacy';
+    final actualPeriod = recordType == 'legacy' || recordType == 'duration'
+        ? (period?.isNotEmpty == true
+            ? period!
+            : (habit['preferred_period'] as String? ?? ''))
+        : '';
     final actualDuration = recordType == 'legacy' || recordType == 'duration'
         ? (durationMin ?? (habit['duration_min'] as int? ?? 0)) : 0;
     if (actualDuration < 0) throw ArgumentError('时长不能为负数');
