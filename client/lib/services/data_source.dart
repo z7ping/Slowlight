@@ -118,6 +118,7 @@ abstract class ApiDataSource {
     String? date,
     int? durationMin,
     String? period,
+    String? occurrenceKey,
   });
   Future<Map<String, dynamic>> uncheckInHabit(int habitId);
   Future<Map<String, dynamic>> getHabitLogs(int habitId, {String? month});
