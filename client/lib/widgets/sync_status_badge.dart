@@ -361,26 +361,28 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                       ),
                       if (hasRaw) ...[
                         const SizedBox(height: SlowlightSpacing.md),
-                        Row(
-                          children: [
-                            FxButton(
-                              label: _expanded ? '收起技术详情' : '查看技术详情',
-                              icon: _expanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              size: FxButtonSize.sm,
-                              variant: FxButtonVariant.ghost,
-                              onPressed: () =>
-                                  setState(() => _expanded = !_expanded),
-                            ),
-                            const Spacer(),
+                        FxActionBar(
+                          stackBelow: 280,
+                          leading: FxButton(
+                            label: _expanded ? '收起技术详情' : '查看技术详情',
+                            icon: _expanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: FxButtonSize.sm,
+                            variant: FxButtonVariant.ghost,
+                            onPressed: () =>
+                                setState(() => _expanded = !_expanded),
+                          ),
+                          actions: [
                             FxButton(
                               label: '复制错误',
                               icon: Icons.copy_outlined,
                               size: FxButtonSize.sm,
                               variant: FxButtonVariant.ghost,
                               onPressed: () async {
-                                await Clipboard.setData(ClipboardData(text: raw!));
+                                await Clipboard.setData(
+                                  ClipboardData(text: raw!),
+                                );
                                 widget.notice.show('错误详情已复制');
                               },
                             ),
@@ -445,7 +447,8 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           icon: busy ? Icons.hourglass_top : Icons.sync,
                           onPressed: busy ? null : _retry,
                         );
-                        if (constraints.maxWidth < 360) {
+                        if (constraints.maxWidth < 360 ||
+                            MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
