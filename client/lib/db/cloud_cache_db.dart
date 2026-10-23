@@ -158,6 +158,9 @@ class CloudCacheDb {
         color TEXT DEFAULT '#52c41a',
         frequency TEXT DEFAULT 'daily',
         schedule_rule TEXT NOT NULL DEFAULT '{}',
+        record_type TEXT NOT NULL DEFAULT 'legacy',
+        record_unit TEXT NOT NULL DEFAULT '次',
+        record_time_label TEXT NOT NULL DEFAULT '',
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -185,6 +188,7 @@ class CloudCacheDb {
         date TEXT NOT NULL,
         occurrence_key TEXT,
         occurred_at TEXT,
+        count_value INTEGER,
         period TEXT DEFAULT '',
         duration_min INTEGER DEFAULT 0,
         note TEXT DEFAULT '',
@@ -246,10 +250,21 @@ class CloudCacheDb {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 6) {
+      final habitColumns = await db.rawQuery("PRAGMA table_info(habits)");
+      for (final entry in <String, String>{
+        'record_type': "TEXT NOT NULL DEFAULT 'legacy'",
+        'record_unit': "TEXT NOT NULL DEFAULT '次'",
+        'record_time_label': "TEXT NOT NULL DEFAULT ''",
+      }.entries) {
+        if (!habitColumns.any((c) => c['name'] == entry.key)) {
+          await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
+        }
+      }
       final columns = await db.rawQuery("PRAGMA table_info(habit_logs)");
       final names = columns.map((c) => c["name"]).toSet();
       if (!names.contains("occurrence_key")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurrence_key TEXT");
       if (!names.contains("occurred_at")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurred_at TEXT");
+      if (!names.contains("count_value")) await db.execute("ALTER TABLE habit_logs ADD COLUMN count_value INTEGER");
       await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_habit_occurrence ON habit_logs(habit_id, occurrence_key)");
     }
     if (oldVersion < 5) {
