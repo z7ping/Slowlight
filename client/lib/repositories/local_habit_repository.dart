@@ -410,6 +410,9 @@ class LocalHabitRepository {
     final count = await db.update('habit_logs', allowed,
         where: 'id = ? AND habit_id = ?', whereArgs: [logId, habitId]);
     if (count == 0) throw Exception('打卡记录不存在');
+    final streak = await _calculateCurrentStreak(db, habitId, DateTime.now());
+    await db.update('habits', {'streak_count': streak},
+      where: 'id = ?', whereArgs: [habitId]);
     final rows = await db.query('habit_logs',
         where: 'id = ?', whereArgs: [logId], limit: 1);
     return rows.first;
