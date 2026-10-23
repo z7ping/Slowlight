@@ -1114,6 +1114,27 @@ class SyncService extends ChangeNotifier {
       whereArgs: [serverId],
       limit: 1,
     );
+    // A pending offline log can already exist on the server after an
+    // uncertain network result. Match its stable occurrence before INSERT.
+    if (table == 'habit_logs' && rows.isEmpty &&
+        values['occurrence_key'] != null && values['habit_id'] != null) {
+      final match = await db.query('habit_logs',
+        where: 'habit_id = ? AND occurrence_key = ?',
+        whereArgs: [values['habit_id'], values['occurrence_key']], limit: 1);
+      if (match.isNotEmpty) {
+        final local = match.first;
+        final status = local['sync_status']?.toString() ?? 'synced';
+        if (status == 'pending' || status == 'conflict') {
+          await db.update('habit_logs', {
+            'server_id':serverId, 'sync_status':'conflict',
+          }, where:'id = ?',whereArgs:[local['id']]);
+          return local['id'] as int;
+        }
+        await db.update('habit_logs', {...values,'server_id':serverId},
+          where:'id = ?',whereArgs:[local['id']]);
+        return local['id'] as int;
+      }
+    }
     if (rows.isNotEmpty) {
       final local = rows.first;
       final status = local['sync_status'] as String? ?? 'synced';
