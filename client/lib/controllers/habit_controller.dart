@@ -48,6 +48,8 @@ class HabitController extends ChangeNotifier {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    int? countValue,
+    String? occurredAt,
   }) async {
     final eventKey = habit.scheduleRule.isNotEmpty &&
         HabitOccurrence.rule(habit.scheduleRule)?.sameDayMultiple == true
@@ -61,6 +63,8 @@ class HabitController extends ChangeNotifier {
       durationMin: durationMin,
       period: period,
       occurrenceKey: occurrenceKey ?? eventKey,
+      countValue: countValue,
+      occurredAt: occurredAt,
     );
     await load();
     if (_logs.containsKey(habit.id)) await loadLogs(habit.id);
@@ -80,6 +84,9 @@ class HabitController extends ChangeNotifier {
     String color = '#52c41a',
     String frequency = 'daily',
     Map<String, dynamic>? scheduleRule,
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -95,6 +102,9 @@ class HabitController extends ChangeNotifier {
       color: color,
       frequency: frequency,
       scheduleRule: scheduleRule,
+      recordType: recordType,
+      recordUnit: recordUnit,
+      recordTimeLabel: recordTimeLabel,
       targetDays: targetDays,
       systemTagId: systemTagId,
       preferredPeriod: preferredPeriod,
@@ -115,6 +125,9 @@ class HabitController extends ChangeNotifier {
     String? color,
     String? frequency,
     Map<String, dynamic>? scheduleRule,
+    String? recordType,
+    String? recordUnit,
+    String? recordTimeLabel,
     int? targetDays,
     int? systemTagId,
     bool updateSystemTag = false,
