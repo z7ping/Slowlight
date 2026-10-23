@@ -43,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -183,6 +183,8 @@ class CloudCacheDb {
         server_id INTEGER,
         habit_id INTEGER NOT NULL,
         date TEXT NOT NULL,
+        occurrence_key TEXT,
+        occurred_at TEXT,
         period TEXT DEFAULT '',
         duration_min INTEGER DEFAULT 0,
         note TEXT DEFAULT '',
@@ -223,6 +225,7 @@ class CloudCacheDb {
         'CREATE INDEX idx_cloud_habits_sync_status ON habits(sync_status)');
     await db.execute(
         'CREATE INDEX idx_cloud_habit_logs_habit_id ON habit_logs(habit_id)');
+    await db.execute('CREATE UNIQUE INDEX idx_cloud_habit_occurrence ON habit_logs(habit_id, occurrence_key)');
     await db.execute(
         'CREATE INDEX idx_cloud_sync_queue_entity ON sync_queue(entity_type, entity_local_id)');
     await db.execute(
@@ -242,6 +245,13 @@ class CloudCacheDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 6) {
+      final columns = await db.rawQuery("PRAGMA table_info(habit_logs)");
+      final names = columns.map((c) => c["name"]).toSet();
+      if (!names.contains("occurrence_key")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurrence_key TEXT");
+      if (!names.contains("occurred_at")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurred_at TEXT");
+      await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_habit_occurrence ON habit_logs(habit_id, occurrence_key)");
+    }
     if (oldVersion < 5) {
       final columns = await db.rawQuery('PRAGMA table_info(habits)');
       if (!columns.any((column) => column['name'] == 'schedule_rule')) {
