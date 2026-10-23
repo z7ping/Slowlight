@@ -101,6 +101,7 @@ class HabitRepository {
     String? date,
     int? durationMin,
     String? period,
+    String? occurrenceKey,
   }) =>
       _dataSource.checkInHabit(
         habitId,
@@ -108,6 +109,7 @@ class HabitRepository {
         date: date,
         durationMin: durationMin,
         period: period,
+        occurrenceKey: occurrenceKey,
       );
 
   Future<Map<String, dynamic>> uncheckIn(int habitId) =>
