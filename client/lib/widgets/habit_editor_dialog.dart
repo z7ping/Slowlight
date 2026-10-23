@@ -174,8 +174,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
 
     _systemTagId = habit?.systemTagId;
     _preferredPeriod = habit?.preferredPeriod ?? '';
-    _specificTime = habit?.scheduleRule.isNotEmpty == true
-        ? _parseTime(rule.anchorTime) : _parseTime(habit?.specificTime ?? '');
+    _specificTime = habit?.scheduleRule.isNotEmpty == true || habit == null
+        ? _parseTime(rule.anchorTime) : _parseTime(habit.specificTime);
     _generateTask = habit?.generateTask ?? false;
     _showCheckinDialog = habit?.showCheckinDialog ?? false;
 
@@ -584,7 +584,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   Widget _buildScheduleFields() {
     final rule = _currentRule();
     final theme = Theme.of(context);
-    final preview = rule.preview();
+    final preview = rule.nextAfter(DateTime.now().subtract(const Duration(minutes: 1)), count: 4);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
