@@ -315,9 +315,12 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		utc := time.Now().UTC()
 		occurredAt = &utc
 	}
-	period := habitString(payload, "period", "")
-	if period == "" {
-		period = habit.PreferredPeriod
+	period := ""
+	if habit.RecordType == "legacy" || habit.RecordType == "duration" {
+		period = habitString(payload, "period", "")
+		if period == "" {
+			period = habit.PreferredPeriod
+		}
 	}
 	note := habitString(payload, "note", "")
 
