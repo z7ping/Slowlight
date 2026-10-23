@@ -444,7 +444,7 @@ void main() {
     expect(row('高').iconColor, AppTheme.priorityUrgentImportant);
     expect(row('中').iconColor, AppTheme.priorityImportant);
     expect(row('低').iconColor, AppTheme.priorityUrgent);
-    expect(row('无优先级').iconColor, isNull);
+    expect(row('不重要 · 不紧急').iconColor, isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -566,7 +566,7 @@ void main() {
     expect(actionsRect.right, lessThan(inputRect.right));
     expect(actionsRect.bottom, lessThan(inputRect.bottom));
 
-    // 日期展示文字与语义蓝色，未设置优先级仍是灰色图标。
+    // 日期展示文字与语义蓝色，第四象限仍是灰色图标。
     final dateChip = tester.widget<FxChip>(
       find.byKey(const ValueKey('task-property-date')),
     );
@@ -575,7 +575,7 @@ void main() {
     );
     expect(dateChip.label, '今天');
     expect(dateChip.foregroundColor, AppTheme.info);
-    expect(priorityButton.tooltip, '优先级：无优先级');
+    expect(priorityButton.tooltip, '优先级：不重要 · 不紧急');
 
     final editable = find.byType(EditableText).first;
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
@@ -706,7 +706,7 @@ void main() {
   });
 
   group('TaskCreateSheet', () {
-    test('快速创建默认使用无优先级并安排到今天', () {
+    test('快速创建默认使用第四象限并安排到今天', () {
       const sheet = TaskCreateSheet(quickMode: true);
 
       expect(sheet.initialPriority, 'none');
