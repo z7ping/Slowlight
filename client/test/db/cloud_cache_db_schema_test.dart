@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:slowlight/db/cloud_cache_db.dart';
+import 'package:slowlight/db/local_db.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 
 import '../helpers/isolated_test_db.dart';
@@ -28,13 +29,17 @@ void main() {
       }),
     });
     await CloudCacheDb().close();
+    await LocalDb().close();
     await databaseFactory.deleteDatabase(databasePath);
+    await databaseFactory.deleteDatabase(LocalDb.debugDatabasePathOverride!);
     await DataModeManager().setCloud();
   });
 
   tearDown(() async {
     await CloudCacheDb().close();
+    await LocalDb().close();
     await databaseFactory.deleteDatabase(databasePath);
+    await databaseFactory.deleteDatabase(LocalDb.debugDatabasePathOverride!);
     await DataModeManager().setLocal();
   });
 
@@ -54,6 +59,21 @@ void main() {
       'occurred_at',
     ]));
   }
+
+  test('Cloud Cache 习惯与打卡字段覆盖 LocalDb 同名字段，防止再次漂移', () async {
+    final cloudDb = await CloudCacheDb().database;
+    final localDb = await LocalDb().database;
+    for (final table in ['habits', 'habit_logs']) {
+      final localColumns = await columns(localDb, table);
+      final cloudColumns = await columns(cloudDb, table);
+      expect(
+        cloudColumns.containsAll(localColumns),
+        isTrue,
+        reason: table + ' 的 Cloud Cache 缺少本地记录字段：' +
+            localColumns.difference(cloudColumns).toString(),
+      );
+    }
+  });
 
   test('新 Cloud Cache 具备习惯记录类型及打卡计数/发生时间列', () async {
     final db = await CloudCacheDb().database;
