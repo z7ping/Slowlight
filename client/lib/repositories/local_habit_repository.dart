@@ -290,16 +290,15 @@ class LocalHabitRepository {
       'habit_logs',
       where: 'habit_id = ? AND date = ?',
       whereArgs: [habitId, todayStr],
+      orderBy: 'created_at DESC, id DESC',
       limit: 1,
     );
     if (existing.isEmpty) throw Exception('今日未打卡，无法取消');
 
-    await db.delete(
-      'habit_logs',
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitId, todayStr],
-    );
-    final streak = await _calculateCurrentStreak(db, habitId, localNow);
+    await db.delete('habit_logs',where:'id = ?',whereArgs:[existing.first['id']]);
+    final habit = await getById(habitId);
+    final rule = HabitOccurrence.rule(habit?['schedule_rule']);
+    final streak = rule == null ? await _calculateCurrentStreak(db, habitId, localNow) : 0;
     await db.update(
       'habits',
       {'streak_count': streak, 'updated_at': _nowUtc()},
