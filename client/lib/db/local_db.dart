@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 17,
+        version: 18,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -178,6 +178,8 @@ class LocalDb {
         server_id INTEGER,
         habit_id INTEGER NOT NULL,
         date TEXT NOT NULL,
+        occurrence_key TEXT,
+        occurred_at TEXT,
         period TEXT DEFAULT '',
         duration_min INTEGER DEFAULT 0,
         note TEXT DEFAULT '',
@@ -192,6 +194,7 @@ class LocalDb {
     await db.execute('CREATE INDEX idx_subtasks_task_id ON subtasks(task_id)');
     await db.execute('CREATE INDEX idx_habit_logs_habit_id ON habit_logs(habit_id)');
     await db.execute('CREATE INDEX idx_habit_logs_date ON habit_logs(date)');
+    await db.execute('CREATE UNIQUE INDEX idx_habit_occurrence ON habit_logs(habit_id, occurrence_key)');
 
     await db.execute('''
       CREATE TABLE reminder_sessions (
@@ -271,6 +274,13 @@ class LocalDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 18) {
+      final columns = await db.rawQuery("PRAGMA table_info(habit_logs)");
+      final names = columns.map((c) => c["name"]).toSet();
+      if (!names.contains("occurrence_key")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurrence_key TEXT");
+      if (!names.contains("occurred_at")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurred_at TEXT");
+      await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_habit_occurrence ON habit_logs(habit_id, occurrence_key)");
+    }
     if (oldVersion < 17) {
       final columns = await db.rawQuery('PRAGMA table_info(habits)');
       if (!columns.any((column) => column['name'] == 'schedule_rule')) {
