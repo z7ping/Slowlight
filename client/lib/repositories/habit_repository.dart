@@ -139,7 +139,6 @@ class HabitRepository {
         occurredAt: occurredAt,
         period: period,
         clientKey: clientKey ?? createHabitRecordKey(),
-      clientKey: clientKey,
       );
 
   Future<void> deleteLog(int habitId, int logId) =>
@@ -215,6 +214,7 @@ class HabitRepository {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) =>
       checkIn(
         habitId,
@@ -225,7 +225,6 @@ class HabitRepository {
         occurredAt: occurredAt,
         period: period,
         clientKey: clientKey,
-      clientKey: clientKey,
       );
 
   @Deprecated('Use uncheckIn().')
