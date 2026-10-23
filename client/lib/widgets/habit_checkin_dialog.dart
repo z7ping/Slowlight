@@ -9,12 +9,14 @@ import '../ui/fx.dart';
 /// 显示字段只由 Habit 的 recordType/recordTimeLabel 决定，与名称无关。
 class HabitCheckinDialog extends StatefulWidget {
   final Habit habit;
+  final DateTime? recordDate;
 
-  const HabitCheckinDialog({super.key, required this.habit});
+  const HabitCheckinDialog({super.key, required this.habit, this.recordDate});
 
   static Future<Map<String, dynamic>?> show(
     BuildContext context, {
     required Habit habit,
+    DateTime? recordDate,
   }) {
     final platform = Theme.of(context).platform;
     if (platform == TargetPlatform.android || platform == TargetPlatform.iOS) {
@@ -27,7 +29,7 @@ class HabitCheckinDialog extends StatefulWidget {
             top: Radius.circular(SlowlightRadius.sheet),
           ),
         ),
-        builder: (_) => HabitCheckinDialog(habit: habit),
+        builder: (_) => HabitCheckinDialog(habit: habit, recordDate: recordDate),
       );
     }
     return FxDialog.raw<Map<String, dynamic>>(
@@ -38,7 +40,7 @@ class HabitCheckinDialog extends StatefulWidget {
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: HabitCheckinDialog(habit: habit),
+          child: HabitCheckinDialog(habit: habit, recordDate: recordDate),
         ),
       ),
     );
@@ -229,8 +231,9 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     String? occurredAt;
     if (widget.habit.recordTimeLabel.isNotEmpty) {
       final now = DateTime.now();
+      final day = widget.recordDate ?? now;
       final chosen = DateTime(
-        now.year, now.month, now.day,
+        day.year, day.month, day.day,
         _occurredTime.hour, _occurredTime.minute,
       );
       if (chosen.isAfter(now)) {
