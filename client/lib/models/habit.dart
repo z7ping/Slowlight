@@ -7,6 +7,11 @@ class Habit {
   final String icon;
   final String color;
   final String frequency;
+  /// 旧数据保持原有时长/时段语义；新习惯默认为 check。
+  final String recordType;
+  final String recordUnit;
+  /// 非空时在打卡弹层采集真实发生时间，文案由用户配置。
+  final String recordTimeLabel;
   final int targetDays;
   final int streakCount;
   final String preferredPeriod;
@@ -27,6 +32,9 @@ class Habit {
     this.icon = '✅',
     this.color = '#52c41a',
     this.frequency = 'daily',
+    this.recordType = 'legacy',
+    this.recordUnit = '次',
+    this.recordTimeLabel = '',
     this.targetDays = 0,
     this.streakCount = 0,
     this.preferredPeriod = '',
@@ -49,6 +57,9 @@ class Habit {
       icon: json['icon'] ?? '✅',
       color: json['color'] ?? '#52c41a',
       frequency: json['frequency'] ?? 'daily',
+      recordType: json['record_type'] as String? ?? 'legacy',
+      recordUnit: json['record_unit'] as String? ?? '次',
+      recordTimeLabel: json['record_time_label'] as String? ?? '',
       targetDays: json['target_days'] ?? 0,
       streakCount: json['streak_count'] ?? 0,
       preferredPeriod: json['preferred_period'] ?? '',

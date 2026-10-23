@@ -96,6 +96,9 @@ class LocalHabitRepository {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -112,6 +115,9 @@ class LocalHabitRepository {
       'icon': icon,
       'color': color,
       'frequency': frequency,
+      'record_type': recordType,
+      'record_unit': recordUnit,
+      'record_time_label': recordTimeLabel,
       'target_days': targetDays,
       'system_tag_id': systemTagId,
       'preferred_period': preferredPeriod,
@@ -134,6 +140,9 @@ class LocalHabitRepository {
     String? icon,
     String? color,
     String? frequency,
+    String? recordType,
+    String? recordUnit,
+    String? recordTimeLabel,
     int? targetDays,
     int? systemTagId,
     bool setSystemTag = false,
@@ -150,6 +159,9 @@ class LocalHabitRepository {
     if (icon != null) updates['icon'] = icon;
     if (color != null) updates['color'] = color;
     if (frequency != null) updates['frequency'] = frequency;
+    if (recordType != null) updates['record_type'] = recordType;
+    if (recordUnit != null) updates['record_unit'] = recordUnit;
+    if (recordTimeLabel != null) updates['record_time_label'] = recordTimeLabel;
     if (targetDays != null) updates['target_days'] = targetDays;
     if (setSystemTag) updates['system_tag_id'] = systemTagId;
     if (preferredPeriod != null) updates['preferred_period'] = preferredPeriod;
@@ -182,6 +194,8 @@ class LocalHabitRepository {
     String note = '',
     String? date,
     int? durationMin,
+    int? countValue,
+    String? occurredAt,
     String? period,
   }) async {
     final db = await _db.database;
@@ -205,10 +219,30 @@ class LocalHabitRepository {
       };
     }
 
-    final actualPeriod = period?.isNotEmpty == true
-        ? period!
-        : (habit['preferred_period'] as String? ?? '');
-    final actualDuration = durationMin ?? (habit['duration_min'] as int? ?? 0);
+    final recordType = habit['record_type'] as String? ?? 'legacy';
+    final actualPeriod = recordType == 'legacy' || recordType == 'duration'
+        ? (period?.isNotEmpty == true
+            ? period!
+            : (habit['preferred_period'] as String? ?? ''))
+        : '';
+    final actualDuration = recordType == 'legacy' || recordType == 'duration'
+        ? (durationMin ?? (habit['duration_min'] as int? ?? 0)) : 0;
+    if (actualDuration < 0) throw ArgumentError('时长不能为负数');
+    if (recordType == 'count' && (countValue == null || countValue <= 0)) {
+      throw ArgumentError('完成次数必须大于 0');
+    }
+    DateTime? occurred;
+    if (occurredAt != null && occurredAt.isNotEmpty) {
+      occurred = DateTime.parse(occurredAt);
+      if (occurred.isAfter(localNow) || _dateStr(occurred.toLocal()) != checkDate) {
+        throw ArgumentError('实际发生时间与打卡日期不一致');
+      }
+    } else if ((habit['record_time_label'] as String? ?? '').isNotEmpty &&
+        checkDate == _dateStr(localNow)) {
+      occurred = localNow;
+    }
+    final actualOccurredAt = occurred?.toUtc().toIso8601String();
+    final actualCount = recordType == 'count' ? countValue : null;
     final createdAt = _nowUtc();
 
     final logId = await db.insert('habit_logs', {
@@ -216,6 +250,8 @@ class LocalHabitRepository {
       'date': checkDate,
       'period': actualPeriod,
       'duration_min': actualDuration,
+      'count_value': actualCount,
+      'occurred_at': actualOccurredAt,
       'note': note,
       'created_at': createdAt,
     });
@@ -236,6 +272,8 @@ class LocalHabitRepository {
         'date': checkDate,
         'period': actualPeriod,
         'duration_min': actualDuration,
+        'count_value': actualCount,
+        'occurred_at': actualOccurredAt,
         'note': note,
         'created_at': createdAt,
       },
@@ -301,13 +339,26 @@ class LocalHabitRepository {
   ) async {
     final db = await _db.database;
     final allowed = <String, dynamic>{};
-    for (final key in ['note', 'duration_min', 'period']) {
+    for (final key in ['note', 'duration_min', 'count_value', 'occurred_at', 'period']) {
       if (data.containsKey(key)) allowed[key] = data[key];
     }
     if (allowed.isEmpty) throw Exception('没有可更新字段');
     if (allowed['duration_min'] is int &&
         (allowed['duration_min'] as int) < 0) {
       throw Exception('duration_min 不能为负数');
+    }
+    if (allowed['count_value'] is int && (allowed['count_value'] as int) <= 0) {
+      throw ArgumentError('count_value 必须大于 0');
+    }
+    if (allowed['occurred_at'] is String && (allowed['occurred_at'] as String).isNotEmpty) {
+      final occurred = DateTime.parse(allowed['occurred_at'] as String);
+      final rows = await db.query('habit_logs', columns: ['date'],
+        where: 'id = ? AND habit_id = ?', whereArgs: [logId, habitId], limit: 1);
+      if (rows.isEmpty || occurred.isAfter(DateTime.now()) ||
+          _dateStr(occurred.toLocal()) != rows.first['date']) {
+        throw ArgumentError('实际发生时间不合法');
+      }
+      allowed['occurred_at'] = occurred.toUtc().toIso8601String();
     }
     final count = await db.update('habit_logs', allowed,
         where: 'id = ? AND habit_id = ?', whereArgs: [logId, habitId]);

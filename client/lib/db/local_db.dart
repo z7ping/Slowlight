@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 16,
+        version: 17,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 16,
+      version: 17,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -156,6 +156,9 @@ class LocalDb {
         icon TEXT DEFAULT '✅',
         color TEXT DEFAULT '#52c41a',
         frequency TEXT DEFAULT 'daily',
+        record_type TEXT NOT NULL DEFAULT 'legacy',
+        record_unit TEXT NOT NULL DEFAULT '次',
+        record_time_label TEXT NOT NULL DEFAULT '',
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -179,6 +182,8 @@ class LocalDb {
         date TEXT NOT NULL,
         period TEXT DEFAULT '',
         duration_min INTEGER DEFAULT 0,
+        count_value INTEGER,
+        occurred_at TEXT,
         note TEXT DEFAULT '',
         task_id INTEGER,
         created_at TEXT NOT NULL,
@@ -507,6 +512,31 @@ class LocalDb {
       }
       if (!names.contains('revision')) {
         await db.execute('ALTER TABLE work_sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+      }
+    }
+    if (oldVersion < 17) {
+      await _upgradeHabitRecordTypes(db);
+    }
+  }
+
+  Future<void> _upgradeHabitRecordTypes(Database db) async {
+    for (final entry in <String, String>{
+      'record_type': "TEXT NOT NULL DEFAULT 'legacy'",
+      'record_unit': "TEXT NOT NULL DEFAULT '次'",
+      'record_time_label': "TEXT NOT NULL DEFAULT ''",
+    }.entries) {
+      final columns = await db.rawQuery('PRAGMA table_info(habits)');
+      if (!columns.any((column) => column['name'] == entry.key)) {
+        await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
+      }
+    }
+    for (final entry in <String, String>{
+      'count_value': 'INTEGER',
+      'occurred_at': 'TEXT',
+    }.entries) {
+      final columns = await db.rawQuery('PRAGMA table_info(habit_logs)');
+      if (!columns.any((column) => column['name'] == entry.key)) {
+        await db.execute('ALTER TABLE habit_logs ADD COLUMN ${entry.key} ${entry.value}');
       }
     }
   }

@@ -4,29 +4,45 @@ import 'package:flutter/services.dart';
 import '../models/habit.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../ui/widgets/fx_cursor.dart';
-import '../ui/widgets/fx_input.dart';
 
+/// 同一份记录表单：Android 底部弹层，Windows 居中对话框。
+/// 显示字段只由 Habit 的 recordType/recordTimeLabel 决定，与名称无关。
 class HabitCheckinDialog extends StatefulWidget {
   final Habit habit;
+  final DateTime? recordDate;
 
-  const HabitCheckinDialog({super.key, required this.habit});
+  const HabitCheckinDialog({super.key, required this.habit, this.recordDate});
 
   static Future<Map<String, dynamic>?> show(
     BuildContext context, {
     required Habit habit,
+    DateTime? recordDate,
   }) {
-    return FxSheet.show(
+    final platform = Theme.of(context).platform;
+    if (platform == TargetPlatform.android || platform == TargetPlatform.iOS) {
+      return FxSheet.show<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(SlowlightRadius.sheet),
+          ),
+        ),
+        builder: (_) => HabitCheckinDialog(habit: habit, recordDate: recordDate),
+      );
+    }
+    return FxDialog.raw<Map<String, dynamic>>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: false,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(SlowlightRadius.sheet),
+      builder: (_) => FxDialogSurface(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SlowlightRadius.xl),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: HabitCheckinDialog(habit: habit, recordDate: recordDate),
         ),
       ),
-      builder: (_) => HabitCheckinDialog(habit: habit),
     );
   }
 
@@ -37,252 +53,207 @@ class HabitCheckinDialog extends StatefulWidget {
 class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
   late int _durationMin;
   late String _period;
-  final _noteController = TextEditingController();
+  late TimeOfDay _occurredTime;
+  final _note = TextEditingController();
+  final _count = TextEditingController(text: '1');
+  String? _error;
 
-  static const _periods = [
-    {'value': '', 'label': '不限'},
-    {'value': 'morning', 'label': '☀️ 早晨'},
-    {'value': 'afternoon', 'label': '下午'},
-    {'value': 'evening', 'label': '傍晚'},
-    {'value': 'night', 'label': '🌙 晚间'},
+  static const _periods = <(String, String)>[
+    ('', '不限'),
+    ('morning', '早晨'),
+    ('afternoon', '下午'),
+    ('evening', '傍晚'),
+    ('night', '晚间'),
   ];
-
   static const _durations = [5, 10, 15, 20, 30, 45, 60, 90, 120];
+
+  bool get _usesDuration =>
+      widget.habit.recordType == 'duration' || widget.habit.recordType == 'legacy';
+  bool get _usesPeriod =>
+      widget.habit.recordType == 'duration' || widget.habit.recordType == 'legacy';
 
   @override
   void initState() {
     super.initState();
     _durationMin = widget.habit.durationMin > 0 ? widget.habit.durationMin : 30;
     _period = widget.habit.preferredPeriod;
+    _occurredTime = TimeOfDay.fromDateTime(DateTime.now());
   }
 
   @override
   void dispose() {
-    _noteController.dispose();
+    _note.dispose();
+    _count.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mobile = MediaQuery.sizeOf(context).width < 600;
+    final mobile = theme.platform == TargetPlatform.android ||
+        theme.platform == TargetPlatform.iOS;
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
-        child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+        padding: EdgeInsets.fromLTRB(mobile ? 16 : 20, 16, mobile ? 16 : 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+                Text(widget.habit.icon,
+                    style: const TextStyle(fontSize: SlowlightTypography.pageTitleSize)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(widget.habit.name,
+                      style: SlowlightTypography.cardTitle(context)),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Text(
-                      widget.habit.icon,
-                      style: const TextStyle(fontSize: SlowlightTypography.pageTitleSize),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.habit.name,
-                        style: SlowlightTypography.secondary(context).copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (mobile)
-                      Text(
-                        '下滑关闭',
-                        style: TextStyle(
-                          fontSize: SlowlightTypography.captionSize,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
+                FxIconButton(
+                  tooltip: '关闭',
+                  icon: Icons.close,
+                  onPressed: () => Navigator.pop(context),
                 ),
-                const SizedBox(height: 14),
-                _label('实际时长'),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _durations.map((duration) {
-                    return _PickChip(
-                      label: '$duration',
-                      suffix: mobile ? '分' : '分钟',
-                      selected: _durationMin == duration,
-                      onTap: () => setState(() => _durationMin = duration),
-                    );
-                  }).toList(growable: false),
-                ),
-                const SizedBox(height: 12),
-                _label('时间段'),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _periods.map((period) {
-                    final value = period['value'] as String;
-                    return _PickChip(
-                      label: period['label'] as String,
-                      selected: _period == value,
-                      onTap: () => setState(() => _period = value),
-                    );
-                  }).toList(growable: false),
-                ),
-                const SizedBox(height: 12),
-                FxInput(
-                  controller: _noteController,
-                  maxLines: 2,
-                  placeholder: mobile ? '备注…' : '记录一下感受或收获...',
-                ),
-                const SizedBox(height: 12),
-                if (mobile)
-                  SizedBox(
-                    key: const ValueKey('habit-checkin-primary-action'),
-                    width: double.infinity,
-                    child: FxButton(
-                      label: '记录打卡',
-                      expanded: true,
-                      size: FxButtonSize.lg,
-                      onPressed: _submit,
-                    ),
-                  )
-                else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          expanded: true,
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: FxButton(
-                          label: '记录打卡',
-                          expanded: true,
-                          onPressed: _submit,
-                        ),
-                      ),
-                    ],
-                  ),
-                if (mobile) ...[
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      '键盘弹出时会自动避让',
-                      style: TextStyle(
-                        fontSize: SlowlightTypography.captionSize,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
-          ),
-      ),
-    );
-  }
-
-  void _submit() {
-    HapticFeedback.lightImpact();
-    Navigator.pop(context, {
-      'duration_min': _durationMin,
-      'period': _period,
-      'note': _noteController.text.trim(),
-    });
-  }
-
-  Widget _label(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: SlowlightTypography.captionSize,
-        fontWeight: FontWeight.w600,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-    );
-  }
-}
-
-class _PickChip extends StatelessWidget {
-  final String label;
-  final String? suffix;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _PickChip({
-    required this.label,
-    this.suffix,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = activePalette.accent;
-    return FxGestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        constraints: const BoxConstraints(minHeight: 40),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: .12)
-              : theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? accent : theme.colorScheme.outlineVariant,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: SlowlightTypography.buttonSize,
-                fontWeight: FontWeight.w600,
-                color: selected ? accent : theme.colorScheme.onSurface,
+            const SizedBox(height: 16),
+            if (_usesDuration) ...[
+              _label('实际时长（分钟）'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _durations.map((value) => FxChoiceChip(
+                  label: '$value 分钟',
+                  selected: _durationMin == value,
+                  onTap: () => setState(() {
+                    _durationMin = value;
+                    _error = null;
+                  }),
+                )).toList(),
               ),
-            ),
-            if (suffix != null) ...[
-              const SizedBox(width: 3),
-              Text(
-                suffix!,
-                style: TextStyle(
-                  fontSize: SlowlightTypography.captionSize,
-                  color: selected ? accent : theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+              const SizedBox(height: 14),
             ],
+            if (widget.habit.recordType == 'count') ...[
+              FxInput(
+                controller: _count,
+                label: '完成次数（${widget.habit.recordUnit}）',
+                keyboardType: TextInputType.number,
+                errorText: _error,
+                onChanged: (_) => setState(() => _error = null),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (widget.habit.recordTimeLabel.isNotEmpty) ...[
+              _label(widget.habit.recordTimeLabel),
+              const SizedBox(height: 8),
+              FxButton(
+                label: '${_occurredTime.hour.toString().padLeft(2, '0')}:${_occurredTime.minute.toString().padLeft(2, '0')}',
+                variant: FxButtonVariant.outline,
+                onPressed: () async {
+                  final picked = await showFxTimePicker(
+                    context: context,
+                    initialTime: _occurredTime,
+                  );
+                  if (picked != null && mounted) {
+                    setState(() {
+                      _occurredTime = picked;
+                      _error = null;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (_usesPeriod) ...[
+              _label('时间段'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _periods.map((item) => FxChoiceChip(
+                  label: item.$2,
+                  selected: _period == item.$1,
+                  onTap: () => setState(() => _period = item.$1),
+                )).toList(),
+              ),
+              const SizedBox(height: 14),
+            ],
+            FxInput(
+              controller: _note,
+              label: '备注（选填）',
+              maxLines: 2,
+              placeholder: '记录今天的感受……',
+            ),
+            if (_error != null && widget.habit.recordType != 'count') ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+            ],
+            const SizedBox(height: 18),
+            if (mobile)
+              SizedBox(
+                width: double.infinity,
+                child: FxButton(
+                  label: '确认打卡',
+                  expanded: true,
+                  size: FxButtonSize.lg,
+                  onPressed: _submit,
+                ),
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FxButton(
+                    label: '取消',
+                    variant: FxButtonVariant.outline,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: 10),
+                  FxButton(label: '确认打卡', onPressed: _submit),
+                ],
+              ),
           ],
         ),
       ),
     );
   }
+
+  void _submit() {
+    int? countValue;
+    if (widget.habit.recordType == 'count') {
+      countValue = int.tryParse(_count.text.trim());
+      if (countValue == null || countValue <= 0) {
+        setState(() => _error = '请填写大于 0 的实际次数');
+        return;
+      }
+    }
+    String? occurredAt;
+    if (widget.habit.recordTimeLabel.isNotEmpty) {
+      final now = DateTime.now();
+      final day = widget.recordDate ?? now;
+      final chosen = DateTime(
+        day.year, day.month, day.day,
+        _occurredTime.hour, _occurredTime.minute,
+      );
+      if (chosen.isAfter(now)) {
+        setState(() => _error = '实际时间不能晚于当前时间');
+        return;
+      }
+      occurredAt = chosen.toUtc().toIso8601String();
+    }
+    HapticFeedback.lightImpact();
+    Navigator.pop(context, {
+      if (_usesDuration) 'duration_min': _durationMin,
+      if (_usesPeriod) 'period': _period,
+      if (countValue != null) 'count_value': countValue,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      'note': _note.text.trim(),
+    });
+  }
+
+  Widget _label(String title) => Text(
+    title,
+    style: SlowlightTypography.fieldLabel(context),
+  );
 }

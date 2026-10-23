@@ -47,6 +47,9 @@ class FakeHabitDataSource implements ApiDataSource {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -63,6 +66,9 @@ class FakeHabitDataSource implements ApiDataSource {
       'icon': icon,
       'color': color,
       'frequency': frequency,
+      'record_type': recordType,
+      'record_unit': recordUnit,
+      'record_time_label': recordTimeLabel,
       'target_days': targetDays,
       'streak_count': 0,
       'preferred_period': preferredPeriod,
@@ -123,6 +129,7 @@ void main() {
       },
     );
 
+    expect(created.recordType, 'check');
     expect(created.preferredPeriod, 'evening');
     expect(created.specificTime, '19:30');
     expect(source.lastCreate?['reminder_at']['enabled'], isTrue);

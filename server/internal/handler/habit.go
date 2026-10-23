@@ -85,6 +85,11 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		return
 	}
 
+	recordType := habitString(payload, "record_type", "legacy")
+	if !validHabitRecordType(recordType) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的记录类型"})
+		return
+	}
 	systemTagID, _ := habitUintPtr(payload, "system_tag_id")
 	if systemTagID != nil && !h.ownsSystemTag(userID, *systemTagID) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "观察标签不存在"})
@@ -97,6 +102,9 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		Icon:              habitString(payload, "icon", "✅"),
 		Color:             habitString(payload, "color", "#52c41a"),
 		Frequency:         habitString(payload, "frequency", "daily"),
+		RecordType:        recordType,
+		RecordUnit:        habitString(payload, "record_unit", "次"),
+		RecordTimeLabel:   habitString(payload, "record_time_label", ""),
 		TargetDays:        habitInt(payload, "target_days", 0),
 		PreferredPeriod:   habitString(payload, "preferred_period", ""),
 		SystemTagID:       systemTagID,
@@ -130,7 +138,7 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 	}
 
 	updates := map[string]interface{}{}
-	for _, key := range []string{"name", "icon", "color", "frequency", "preferred_period", "specific_time"} {
+	for _, key := range []string{"name", "icon", "color", "frequency", "preferred_period", "specific_time", "record_type", "record_unit", "record_time_label"} {
 		if value, ok := payload[key]; ok {
 			text, ok := value.(string)
 			if !ok {
@@ -139,6 +147,10 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 			}
 			if key == "name" && strings.TrimSpace(text) == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "习惯名称不能为空"})
+				return
+			}
+			if key == "record_type" && !validHabitRecordType(text) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "无效的记录类型"})
 				return
 			}
 			updates[key] = text
@@ -206,6 +218,14 @@ func (h *HabitHandler) DeleteHabit(c *gin.Context) {
 }
 
 // CheckInHabit 打卡。date 是用户日历日期；不传时使用用户时区的今天。
+func validHabitRecordType(value string) bool {
+	switch value {
+	case "legacy", "check", "duration", "count":
+		return true
+	}
+	return false
+}
+
 func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	userID := c.GetUint("userID")
 	id := c.Param("id")
@@ -262,13 +282,45 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		return
 	}
 
-	durationMin := habitInt(payload, "duration_min", 0)
-	if durationMin == 0 {
-		durationMin = habit.DurationMin
+	durationMin := 0
+	var countValue *int
+	switch habit.RecordType {
+	case "legacy", "duration":
+		durationMin = habitInt(payload, "duration_min", 0)
+		if durationMin == 0 {
+			durationMin = habit.DurationMin
+		}
+	case "count":
+		value := habitInt(payload, "count_value", 0)
+		if value <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "完成次数必须大于 0"})
+			return
+		}
+		countValue = &value
 	}
-	period := habitString(payload, "period", "")
-	if period == "" {
-		period = habit.PreferredPeriod
+	if durationMin < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "时长不能为负数"})
+		return
+	}
+	var occurredAt *time.Time
+	if raw := habitString(payload, "occurred_at", ""); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil || parsed.After(time.Now()) || parsed.In(loc).Format("2006-01-02") != checkDate {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "实际发生时间无效或与打卡日期不一致"})
+			return
+		}
+		utc := parsed.UTC()
+		occurredAt = &utc
+	} else if habit.RecordTimeLabel != "" && checkDate == todayStart.Format("2006-01-02") {
+		utc := time.Now().UTC()
+		occurredAt = &utc
+	}
+	period := ""
+	if habit.RecordType == "legacy" || habit.RecordType == "duration" {
+		period = habitString(payload, "period", "")
+		if period == "" {
+			period = habit.PreferredPeriod
+		}
 	}
 	note := habitString(payload, "note", "")
 
@@ -277,6 +329,8 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		Date:        checkDate,
 		Note:        note,
 		DurationMin: durationMin,
+		CountValue:  countValue,
+		OccurredAt:  occurredAt,
 		Period:      period,
 	}
 	if err := h.DB.Create(&log).Error; err != nil {
@@ -288,7 +342,9 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
 
 	eventAt := now
-	if checkDate != todayStart.Format("2006-01-02") {
+	if occurredAt != nil {
+		eventAt = occurredAt.In(loc)
+	} else if checkDate != todayStart.Format("2006-01-02") {
 		eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
 	}
 	metadata, _ := json.Marshal(map[string]string{"habit_date": checkDate})
@@ -416,6 +472,8 @@ func (h *HabitHandler) UpdateHabitLog(c *gin.Context) {
 	var payload struct {
 		Note        *string `json:"note"`
 		DurationMin *int    `json:"duration_min"`
+		CountValue  *int    `json:"count_value"`
+		OccurredAt  *string `json:"occurred_at"`
 		Period      *string `json:"period"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -432,6 +490,27 @@ func (h *HabitHandler) UpdateHabitLog(c *gin.Context) {
 			return
 		}
 		updates["duration_min"] = *payload.DurationMin
+	}
+	if payload.CountValue != nil {
+		if *payload.CountValue <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "count_value 必须大于 0"})
+			return
+		}
+		updates["count_value"] = *payload.CountValue
+	}
+	if payload.OccurredAt != nil {
+		if *payload.OccurredAt == "" {
+			updates["occurred_at"] = nil
+		} else {
+			var user model.User
+			h.DB.Select("timezone").First(&user, userID)
+			parsed, err := time.Parse(time.RFC3339, *payload.OccurredAt)
+			if err != nil || parsed.After(time.Now()) || parsed.In(model.UserLocation(user.Timezone)).Format("2006-01-02") != log.Date {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "实际发生时间不合法"})
+				return
+			}
+			updates["occurred_at"] = parsed.UTC()
+		}
 	}
 	if payload.Period != nil {
 		updates["period"] = *payload.Period
