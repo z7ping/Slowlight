@@ -278,7 +278,8 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: FxButton(
-                label: '查看全部（${items.length}）',
+                label: compactMobileGrid ? '查看全部' : '查看全部（${items.length}）',
+                size: FxButtonSize.sm,
                 variant: FxButtonVariant.ghost,
                 onPressed: () => _showAllTasks(title, items),
               ),
