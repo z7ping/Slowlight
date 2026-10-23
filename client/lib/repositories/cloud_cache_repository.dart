@@ -383,6 +383,9 @@ class CloudCacheRepository {
         'color': row['color'] ?? '#52c41a',
         'frequency': row['frequency'] ?? 'daily',
         'schedule_rule': _jsonMap(row['schedule_rule']),
+        'record_type': row['record_type'] ?? 'legacy',
+        'record_unit': row['record_unit'] ?? '次',
+        'record_time_label': row['record_time_label'] ?? '',
         'target_days': row['target_days'] ?? 0,
         'streak_count': row['streak_count'] ?? 0,
         'preferred_period': row['preferred_period'] ?? '',
@@ -414,6 +417,9 @@ class CloudCacheRepository {
     String color = '#52c41a',
     String frequency = 'daily',
     Map<String, dynamic>? scheduleRule,
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -434,6 +440,9 @@ class CloudCacheRepository {
       'color': color,
       'frequency': frequency,
       'schedule_rule': jsonEncode(scheduleRule ?? const <String, dynamic>{}),
+      'record_type': recordType,
+      'record_unit': recordUnit,
+      'record_time_label': recordTimeLabel,
       'target_days': targetDays,
       'system_tag_id': systemTagLocalId,
       'preferred_period': preferredPeriod,
@@ -493,6 +502,8 @@ class CloudCacheRepository {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    int? countValue,
+    String? occurredAt,
   }) async {
     final db = await _db;
     final habit = await _rowByPublicId(db, 'habits', publicId);
@@ -525,7 +536,8 @@ class CloudCacheRepository {
       final at=date==null?now:DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
       final id=await tx.insert('habit_logs',{
         'habit_id':hid,'date':day,'occurrence_key':event?.key,
-        'occurred_at':at.toUtc().toIso8601String(),
+        'occurred_at':(occurredAt ?? at.toUtc().toIso8601String()),
+        'count_value':countValue,
         'period':period ?? '', 'duration_min':durationMin ?? 0,
         'note':note,'created_at':stamp,'sync_status':'pending','last_modified':stamp,
       });
@@ -711,6 +723,7 @@ class CloudCacheRepository {
         'date': row['date'],
         'occurrence_key': row['occurrence_key'],
         'occurred_at': row['occurred_at'],
+        'count_value': row['count_value'],
         'period': row['period'] ?? '',
         'duration_min': row['duration_min'] ?? 0,
         'note': row['note'] ?? '',
