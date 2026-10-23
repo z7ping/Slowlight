@@ -514,7 +514,8 @@ class CloudCacheRepository {
       'period': period ?? '',
       'duration_min': durationMin ?? 0,
       'count_value': countValue,
-      'occurred_at': occurredAt,
+      'occurred_at': occurredAt ?? ((habitRow['allow_multiple_per_day'] as int? ?? 0) == 1 &&
+          day == _dateKey(DateTime.now()) ? now : null),
       'client_key': effectiveKey,
       'note': note,
       'created_at': now,
