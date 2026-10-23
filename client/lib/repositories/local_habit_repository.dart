@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../db/local_db.dart';
 import '../models/habit_occurrence.dart';
+import '../models/habit_schedule_rule.dart';
 
 /// 本地习惯仓储（SQLite 内部实现）。
 /// HabitLog.date 是日历日期；created_at/updated_at 等 instant 统一存 UTC。
