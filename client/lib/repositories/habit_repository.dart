@@ -28,6 +28,9 @@ class HabitRepository {
     String color = '#52c41a',
     String frequency = 'daily',
     Map<String, dynamic>? scheduleRule,
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -43,6 +46,9 @@ class HabitRepository {
       color: color,
       frequency: frequency,
       scheduleRule: scheduleRule,
+      recordType: recordType,
+      recordUnit: recordUnit,
+      recordTimeLabel: recordTimeLabel,
       targetDays: targetDays,
       systemTagId: systemTagId,
       preferredPeriod: preferredPeriod,
@@ -62,6 +68,9 @@ class HabitRepository {
     String? color,
     String? frequency,
     Map<String, dynamic>? scheduleRule,
+    String? recordType,
+    String? recordUnit,
+    String? recordTimeLabel,
     int? targetDays,
     int? systemTagId,
     bool updateSystemTag = false,
@@ -78,6 +87,9 @@ class HabitRepository {
       'color': color ?? habit.color,
       'frequency': frequency ?? habit.frequency,
       'schedule_rule': scheduleRule ?? habit.scheduleRule,
+      'record_type': recordType ?? habit.recordType,
+      'record_unit': recordUnit ?? habit.recordUnit,
+      'record_time_label': recordTimeLabel ?? habit.recordTimeLabel,
       'target_days': targetDays ?? habit.targetDays,
       'system_tag_id': updateSystemTag ? systemTagId : habit.systemTagId,
       'preferred_period': preferredPeriod ?? habit.preferredPeriod,
@@ -102,6 +114,8 @@ class HabitRepository {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    int? countValue,
+    String? occurredAt,
   }) =>
       _dataSource.checkInHabit(
         habitId,
@@ -110,6 +124,8 @@ class HabitRepository {
         durationMin: durationMin,
         period: period,
         occurrenceKey: occurrenceKey,
+        countValue: countValue,
+        occurredAt: occurredAt,
       );
 
   Future<Map<String, dynamic>> uncheckIn(int habitId) =>
