@@ -99,6 +99,10 @@ class LocalHabitRepository {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -118,6 +122,10 @@ class LocalHabitRepository {
       'record_type': recordType,
       'record_unit': recordUnit,
       'record_time_label': recordTimeLabel,
+      'allow_multiple_per_day': allowMultiplePerDay ? 1 : 0,
+      'goal_period': goalPeriod,
+      'goal_metric': goalMetric,
+      'goal_value': goalValue,
       'target_days': targetDays,
       'system_tag_id': systemTagId,
       'preferred_period': preferredPeriod,
@@ -143,6 +151,10 @@ class LocalHabitRepository {
     String? recordType,
     String? recordUnit,
     String? recordTimeLabel,
+    bool? allowMultiplePerDay,
+    String? goalPeriod,
+    String? goalMetric,
+    int? goalValue,
     int? targetDays,
     int? systemTagId,
     bool setSystemTag = false,
@@ -162,6 +174,10 @@ class LocalHabitRepository {
     if (recordType != null) updates['record_type'] = recordType;
     if (recordUnit != null) updates['record_unit'] = recordUnit;
     if (recordTimeLabel != null) updates['record_time_label'] = recordTimeLabel;
+    if (allowMultiplePerDay != null) updates['allow_multiple_per_day'] = allowMultiplePerDay ? 1 : 0;
+    if (goalPeriod != null) updates['goal_period'] = goalPeriod;
+    if (goalMetric != null) updates['goal_metric'] = goalMetric;
+    if (goalValue != null) updates['goal_value'] = goalValue;
     if (targetDays != null) updates['target_days'] = targetDays;
     if (setSystemTag) updates['system_tag_id'] = systemTagId;
     if (preferredPeriod != null) updates['preferred_period'] = preferredPeriod;
