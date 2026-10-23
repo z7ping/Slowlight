@@ -507,8 +507,6 @@ class CloudApiService implements ApiDataSource {
           durationMin: durationMin,
           period: period,
           occurrenceKey: occurrenceKey,
-        countValue: countValue,
-        occurredAt: occurredAt,
           countValue: countValue,
           occurredAt: occurredAt,
         );
@@ -521,6 +519,8 @@ class CloudApiService implements ApiDataSource {
         durationMin: durationMin,
         period: period,
         occurrenceKey: occurrenceKey,
+        countValue: countValue,
+        occurredAt: occurredAt,
       ),
       cached,
     );
