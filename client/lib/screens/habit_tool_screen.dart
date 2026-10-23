@@ -179,6 +179,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           color: value.color,
           frequency: value.frequency,
           scheduleRule: value.scheduleRule,
+          recordType: value.recordType,
+          recordUnit: value.recordUnit,
+          recordTimeLabel: value.recordTimeLabel,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           updateSystemTag: true,
@@ -337,6 +340,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         habit,
         date: key,
         durationMin: detail['duration_min'] as int?,
+        countValue: detail['count_value'] as int?,
+        occurredAt: detail['occurred_at']?.toString(),
         period: detail['period']?.toString(),
         note: detail['note']?.toString() ?? '',
       );
@@ -374,6 +379,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         habit,
         date: '${date.year}-${_two(date.month)}-${_two(date.day)}',
         durationMin: detail['duration_min'] as int?,
+        countValue: detail['count_value'] as int?,
+        occurredAt: detail['occurred_at']?.toString(),
         period: detail['period']?.toString(),
         note: detail['note']?.toString() ?? '',
       );
