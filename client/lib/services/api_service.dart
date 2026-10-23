@@ -599,13 +599,10 @@ class ApiService {
     if (response.statusCode == 200) {
       return json.decode(response.body);
     }
-    // 返回服务器的具体错误信息
-    try {
-      final err = json.decode(response.body);
-      throw Exception(err['error'] ?? '打卡失败(${response.statusCode})');
-    } catch (e) {
-      throw Exception('打卡失败(${response.statusCode})');
-    }
+    // Keep server validation failures such as period completion actionable.
+    final error = json.decode(response.body);
+    throw StateError(error is Map && error['error'] != null
+        ? error['error'].toString() : '打卡失败(${response.statusCode})');
   }
 
   // 取消打卡
