@@ -282,13 +282,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         )) {
       return;
     }
-    final detail = await HabitCheckinDialog.show(context, habit: habit);
+    final detail = await HabitCheckinDialog.show(context, habit: habit, recordDate: day);
     if (detail == null) return;
     try {
       await _controller.checkIn(
         habit,
         date: key,
         durationMin: detail['duration_min'] as int?,
+        countValue: detail['count_value'] as int?,
+        occurredAt: detail['occurred_at']?.toString(),
         period: detail['period']?.toString(),
         note: detail['note']?.toString() ?? '',
       );
@@ -319,13 +321,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       title: '选择补卡日期',
     );
     if (date == null) return;
-    final detail = await HabitCheckinDialog.show(context, habit: habit);
+    final detail = await HabitCheckinDialog.show(context, habit: habit, recordDate: date);
     if (detail == null) return;
     try {
       await _controller.checkIn(
         habit,
         date: '${date.year}-${_two(date.month)}-${_two(date.day)}',
         durationMin: detail['duration_min'] as int?,
+        countValue: detail['count_value'] as int?,
+        occurredAt: detail['occurred_at']?.toString(),
         period: detail['period']?.toString(),
         note: detail['note']?.toString() ?? '',
       );
