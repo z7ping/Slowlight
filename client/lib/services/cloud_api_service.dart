@@ -507,6 +507,7 @@ class CloudApiService implements ApiDataSource {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) {
     Future<Map<String, dynamic>> cached() => _cache.checkInHabit(
           habitId,
@@ -516,6 +517,9 @@ class CloudApiService implements ApiDataSource {
           countValue: countValue,
           occurredAt: occurredAt,
           period: period,
+        clientKey: clientKey,
+          clientKey: clientKey,
+      clientKey: clientKey,
         );
     if (habitId < 0) return cached();
     return _writeThrough(
@@ -527,9 +531,22 @@ class CloudApiService implements ApiDataSource {
         countValue: countValue,
         occurredAt: occurredAt,
         period: period,
+        clientKey: clientKey,
+      clientKey: clientKey,
       ),
       cached,
     );
+  }
+
+  @override
+  Future<void> deleteHabitLog(int habitId, int logId) async {
+    if (habitId < 0 || logId < 0) {
+      await _cache.deleteHabitLog(habitId, logId);
+      return;
+    }
+    // 请求结果未知时不本地重复删除，用户可重新加载确认。
+    await ApiService.deleteHabitLog(habitId, logId);
+    _refreshCacheSoon();
   }
 
   /// 服务端取消打卡当前只能表达“今天”。跨日离线同步会丢失目标日期，
