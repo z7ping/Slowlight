@@ -403,7 +403,7 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		return
 	}
 
-	habit.StreakCount = h.currentHabitStreak(habit.ID, loc)
+	habit.StreakCount = habitStreak(h.DB, habit, loc)
 	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
 
 	eventAt := now
@@ -482,7 +482,7 @@ func (h *HabitHandler) UncheckInHabit(c *gin.Context) {
 		userID, "habit_checked", "habit", habit.ID, startLocal.UTC(), endLocal.UTC(),
 	).Delete(&model.BehaviorEvent{})
 
-	habit.StreakCount = h.currentHabitStreak(habit.ID, loc)
+	habit.StreakCount = habitStreak(h.DB, habit, loc)
 	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
 
 	triggerWebhooks(h.DB, userID, "habit.unchecked", map[string]interface{}{
@@ -655,30 +655,43 @@ func (h *HabitHandler) GetHabitStreak(c *gin.Context) {
 	})
 }
 
-func (h *HabitHandler) currentHabitStreak(habitID uint, loc *time.Location) int {
-	now := time.Now().In(loc)
-	cursor := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	var count int64
-	h.DB.Model(&model.HabitLog{}).
-		Where("habit_id = ? AND date = ?", habitID, cursor.Format("2006-01-02")).
-		Count(&count)
-	if count == 0 {
-		cursor = cursor.AddDate(0, 0, -1)
-	}
+func habitProgress(logs []model.HabitLog, metric string) int {
+    total := 0
+    for _, log := range logs {
+        switch metric {
+        case "count":
+            if log.CountValue != nil { total += *log.CountValue }
+        case "duration":
+            total += log.DurationMin
+        default:
+            total++
+        }
+    }
+    return total
+}
 
-	streak := 0
-	for {
-		count = 0
-		h.DB.Model(&model.HabitLog{}).
-			Where("habit_id = ? AND date = ?", habitID, cursor.Format("2006-01-02")).
-			Count(&count)
-		if count == 0 {
-			break
-		}
-		streak++
-		cursor = cursor.AddDate(0, 0, -1)
-	}
-	return streak
+// 周期目标不把「有记录」冒充「已达标」，日连续只统计达标日。
+func habitStreak(db *gorm.DB, habit model.Habit, loc *time.Location) int {
+    now := time.Now().In(loc)
+    cursor := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+    isMet := func(day time.Time) bool {
+        var logs []model.HabitLog
+        if err := db.Where("habit_id = ? AND date = ?", habit.ID, day.Format("2006-01-02")).Find(&logs).Error; err != nil {
+            return false
+        }
+        if habit.GoalPeriod == "day" && habit.GoalValue > 0 {
+            return habitProgress(logs, habit.GoalMetric) >= habit.GoalValue
+        }
+        return len(logs) > 0
+    }
+    if !isMet(cursor) { cursor = cursor.AddDate(0, 0, -1) }
+    count := 0
+    for isMet(cursor) {
+        count++
+        cursor = cursor.AddDate(0, 0, -1)
+        if count >= 36500 { break }
+    }
+    return count
 }
 
 func (h *HabitHandler) ownsSystemTag(userID uint, tagID uint) bool {
