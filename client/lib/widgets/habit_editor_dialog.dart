@@ -18,6 +18,10 @@ class HabitEditorValue {
   final String recordType;
   final String recordUnit;
   final String recordTimeLabel;
+  final bool allowMultiplePerDay;
+  final String goalPeriod;
+  final String goalMetric;
+  final int goalValue;
   final int targetDays;
   final int? systemTagId;
   final List<int>? tagIds;
@@ -36,6 +40,10 @@ class HabitEditorValue {
     this.recordType = 'legacy',
     this.recordUnit = '次',
     this.recordTimeLabel = '',
+    this.allowMultiplePerDay = false,
+    this.goalPeriod = 'none',
+    this.goalMetric = 'events',
+    this.goalValue = 0,
     required this.targetDays,
     required this.systemTagId,
     this.tagIds,
@@ -71,6 +79,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late final TextEditingController _duration;
   late final TextEditingController _recordUnit;
   late final TextEditingController _recordTimeLabel;
+  late final TextEditingController _goalValue;
+  late bool _allowMultiplePerDay;
+  late String _goalPeriod;
+  late String _goalMetric;
   List<ObservationTag> _tags = const [];
   bool _loadingTags = true;
   String? _validationError;
@@ -139,6 +151,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _recordType = habit?.recordType ?? 'check';
     _recordUnit = TextEditingController(text: habit?.recordUnit ?? '次');
     _recordTimeLabel = TextEditingController(text: habit?.recordTimeLabel ?? '');
+    _allowMultiplePerDay = habit?.allowMultiplePerDay ?? false;
+    _goalPeriod = habit?.goalPeriod ?? 'none';
+    _goalMetric = habit?.goalMetric ?? 'events';
+    _goalValue = TextEditingController(text: (habit?.goalValue ?? 0).toString());
     _systemTagId = habit?.systemTagId;
     _preferredPeriod = habit?.preferredPeriod ?? '';
     _specificTime = _parseTime(habit?.specificTime ?? '');
@@ -169,6 +185,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _duration.dispose();
     _recordUnit.dispose();
     _recordTimeLabel.dispose();
+    _goalValue.dispose();
     super.dispose();
   }
 
@@ -227,6 +244,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     final duration = durationText.isEmpty ? 0 : int.tryParse(durationText);
     final recordUnit = _recordUnit.text.trim();
     final recordTimeLabel = _recordTimeLabel.text.trim();
+    final goalValue = int.tryParse(_goalValue.text.trim());
     String? error;
     if (name.isEmpty) {
       error = '请填写习惯名称';
@@ -238,6 +256,14 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       error = '实际时间字段名称不能超过 40 字';
     } else if (duration == null || duration < 0) {
       error = '预期时长必须是 0 或正整数';
+    } else if (goalValue == null || goalValue < 0 || goalValue > 100000) {
+      error = '周期目标必须是 0～100000';
+    } else if (goalValue > 0 && _goalPeriod == 'none') {
+      error = '请为目标选择统计周期';
+    } else if (goalValue > 0 &&
+        ((_goalMetric == 'count' && _recordType != 'count') ||
+         (_goalMetric == 'duration' && _recordType != 'duration' && _recordType != 'legacy'))) {
+      error = '累计方式与记录类型不匹配';
     }
     if (error != null) {
       setState(() => _validationError = error);
@@ -254,6 +280,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         recordType: _recordType,
         recordUnit: recordUnit,
         recordTimeLabel: recordTimeLabel,
+        allowMultiplePerDay: _allowMultiplePerDay,
+        goalPeriod: _goalPeriod,
+        goalMetric: _goalMetric,
+        goalValue: goalValue!,
         targetDays: target!,
         systemTagId: _systemTagId,
         tagIds: _canonicalTagsReady
@@ -426,6 +456,41 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                       controller: _recordTimeLabel,
                       label: '记录实际时间（选填）',
                       placeholder: '如起床时间；留空则不询问具体时间',
+                    ),
+                    const SizedBox(height: 14),
+                    FxSwitch(
+                      label: '允许一天多次记录',
+                      description: '每次新增独立记录，支持逐条撤销',
+                      value: _allowMultiplePerDay,
+                      onChanged: (value) => setState(() => _allowMultiplePerDay = value),
+                    ),
+                    const SizedBox(height: 12),
+                    FxResponsiveFormGrid(
+                      minColumnWidth: 180,
+                      children: [
+                        FxSelect<String>(
+                          value: _goalPeriod,
+                          options: const [
+                            FxSelectOption(value: 'none', label: '不设周期目标'),
+                            FxSelectOption(value: 'day', label: '每天累计'),
+                            FxSelectOption(value: 'week', label: '每周累计'),
+                            FxSelectOption(value: 'month', label: '每月累计'),
+                          ],
+                          onChanged: (value) => setState(() => _goalPeriod = value ?? 'none'),
+                        ),
+                        FxSelect<String>(
+                          value: _goalMetric,
+                          options: const [
+                            FxSelectOption(value: 'events', label: '记录次数'),
+                            FxSelectOption(value: 'count', label: '累计数量'),
+                            FxSelectOption(value: 'duration', label: '累计分钟'),
+                          ],
+                          onChanged: (value) => setState(() => _goalMetric = value ?? 'events'),
+                        ),
+                        FxInput(controller: _goalValue,
+                          keyboardType: TextInputType.number,
+                          label: '周期目标数值', placeholder: '0 表示不设目标'),
+                      ],
                     ),
                     const SizedBox(height: 14),
                     FxResponsiveFormGrid(
