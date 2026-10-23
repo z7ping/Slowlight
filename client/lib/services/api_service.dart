@@ -473,6 +473,9 @@ class ApiService {
     String color = '#52c41a',
     String frequency = 'daily',
     Map<String, dynamic>? scheduleRule,
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -489,6 +492,9 @@ class ApiService {
         color: color,
         frequency: frequency,
         scheduleRule: scheduleRule,
+        recordType: recordType,
+        recordUnit: recordUnit,
+        recordTimeLabel: recordTimeLabel,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -505,6 +511,9 @@ class ApiService {
       'color': color,
       'frequency': frequency,
       'schedule_rule': scheduleRule ?? const <String, dynamic>{},
+      'record_type': recordType,
+      'record_unit': recordUnit,
+      'record_time_label': recordTimeLabel,
       'target_days': targetDays,
       'preferred_period': preferredPeriod,
       'duration_min': durationMin,
@@ -579,10 +588,13 @@ class ApiService {
       String? date,
       int? durationMin,
       String? period,
-      String? occurrenceKey}) async {
+      String? occurrenceKey,
+      int? countValue,
+      String? occurredAt}) async {
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, period: period, occurrenceKey: occurrenceKey);
+          note: note, date: date, durationMin: durationMin, period: period, occurrenceKey: occurrenceKey,
+          countValue: countValue, occurredAt: occurredAt);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
@@ -591,6 +603,8 @@ class ApiService {
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
     if (occurrenceKey != null) body['occurrence_key'] = occurrenceKey;
+    if (countValue != null) body['count_value'] = countValue;
+    if (occurredAt != null) body['occurred_at'] = occurredAt;
     final response = await HttpUtil.post(
       Uri.parse('$baseUrl/habits/$habitId/checkin'),
       headers: headers,
