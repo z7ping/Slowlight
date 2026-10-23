@@ -472,6 +472,9 @@ class ApiService {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -487,6 +490,9 @@ class ApiService {
         icon: icon,
         color: color,
         frequency: frequency,
+        recordType: recordType,
+        recordUnit: recordUnit,
+        recordTimeLabel: recordTimeLabel,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -502,6 +508,9 @@ class ApiService {
       'icon': icon,
       'color': color,
       'frequency': frequency,
+      'record_type': recordType,
+      'record_unit': recordUnit,
+      'record_time_label': recordTimeLabel,
       'target_days': targetDays,
       'preferred_period': preferredPeriod,
       'duration_min': durationMin,
@@ -575,14 +584,18 @@ class ApiService {
       {String note = '',
       String? date,
       int? durationMin,
+      int? countValue,
+      String? occurredAt,
       String? period}) async {
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, period: period);
+          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
       'duration_min': durationMin ?? 0,
+      if (countValue != null) 'count_value': countValue,
+      if (occurredAt != null) 'occurred_at': occurredAt,
       'period': period ?? ''
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
