@@ -64,6 +64,26 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 				}
 			}
 		}
+		if rule, err := habitRuleFromJSON(habits[i].ScheduleRule); err == nil && rule != nil {
+			can := false
+			policy, ruleErr := habitRuleOccurrence(rule, now, today, "event:probe-availability")
+			if ruleErr == nil {
+				if rule.Kind == "goal" {
+					var count int64
+					h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND date >= ? AND date < ?",
+						habits[i].ID, policy.PeriodStart, policy.PeriodEnd).Count(&count)
+					habits[i].PeriodCount = int(count)
+					habits[i].PeriodTarget = policy.Target
+					can = count < int64(policy.Target) && (policy.SameDayMultiple || !habits[i].CheckedToday)
+				} else {
+					var count int64
+					h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND occurrence_key = ?",
+						habits[i].ID, policy.Key).Count(&count)
+					can = count == 0
+				}
+			}
+			habits[i].CanCheckIn = &can
+		}
 	}
 
 	c.JSON(http.StatusOK, habits)
