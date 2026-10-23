@@ -75,7 +75,31 @@ class LocalHabitRepository {
         whereArgs: [hid, weekStartStr, todayStr],
       );
       mutable['checked_days'] =
-          weekRows.map((row) => row['date'] as String).toList();
+          weekRows.map((row) => row['date'] as String).toSet().toList();
+      final rule = HabitOccurrence.rule(mutable['schedule_rule'],
+        legacyFrequency: mutable['frequency']?.toString() ?? 'daily');
+      if (rule != null) {
+        try {
+          final occurrence = HabitOccurrence.calculate(rule, now,
+            requestKey: 'event:probe-availability');
+          if (occurrence.periodStart != null) {
+            final countRows = await db.rawQuery(
+              'SELECT COUNT(*) AS total FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
+              [hid, occurrence.periodStart, occurrence.periodEnd],
+            );
+            final count = countRows.first['total'] as int? ?? 0;
+            mutable['period_count'] = count;
+            mutable['period_target'] = occurrence.target;
+            mutable['can_check_in'] = count < occurrence.target &&
+              (occurrence.sameDayMultiple || todayRows.isEmpty);
+          } else {
+            final prior = await db.query('habit_logs',
+              where:'habit_id = ? AND occurrence_key = ?',
+              whereArgs:[hid, occurrence.key],limit:1);
+            mutable['can_check_in'] = prior.isEmpty;
+          }
+        } catch (_) { mutable['can_check_in'] = false; }
+      }
       enriched.add(mutable);
     }
     return enriched;
