@@ -106,6 +106,10 @@ type Habit struct {
 	RecordUnit      string         `json:"record_unit" gorm:"size:20;not null;default:'次'"`
 	RecordTimeLabel string         `json:"record_time_label" gorm:"size:40;not null;default:''"`
 	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // daily/weekly/monthly
+	AllowMultiplePerDay bool           `json:"allow_multiple_per_day" gorm:"not null;default:false"`
+	GoalPeriod      string         `json:"goal_period" gorm:"size:10;not null;default:'none'"`
+	GoalMetric      string         `json:"goal_metric" gorm:"size:12;not null;default:'events'"`
+	GoalValue       int            `json:"goal_value" gorm:"not null;default:0"`
 	TargetDays      int            `json:"target_days" gorm:"default:0"`            // 0 = 无限制
 	StreakCount     int            `json:"streak_count" gorm:"default:0"`           // 连续打卡天数
 	PreferredPeriod string         `json:"preferred_period" gorm:"size:20;default:''"` // morning/afternoon/evening/night
@@ -126,6 +130,7 @@ type Habit struct {
 type HabitLog struct {
 	ID           uint           `json:"id" gorm:"primaryKey"`
 	HabitID      uint           `json:"habit_id" gorm:"not null;index"`
+	ClientKey    *string        `json:"client_key,omitempty" gorm:"size:64;uniqueIndex:idx_habitlog_client_key"`
 	Date         string         `json:"date" gorm:"size:10;not null"`          // YYYY-MM-DD
 	Period       string         `json:"period" gorm:"size:20;default:''"`      // morning/afternoon/evening/night
 	CountValue   *int           `json:"count_value" gorm:"default:null"`
