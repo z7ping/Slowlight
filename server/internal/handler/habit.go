@@ -464,6 +464,10 @@ func (h *HabitHandler) UncheckInHabit(c *gin.Context) {
 	}
 
 	var log model.HabitLog
+	if habit.AllowMultiplePerDay {
+        c.JSON(http.StatusConflict, gin.H{"error": "此习惯支持多次记录，请从记录明细逐条撤销"})
+        return
+    }
 	if err := h.DB.Where("habit_id = ? AND date = ?", id, today).First(&log).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "今日未打卡，无法取消"})
 		return
@@ -494,6 +498,49 @@ func (h *HabitHandler) UncheckInHabit(c *gin.Context) {
 	})
 }
 
+// DeleteHabitLog 按记录 ID 精确撤销；不得删除同一天的其他真实记录。
+func (h *HabitHandler) DeleteHabitLog(c *gin.Context) {
+    userID := c.GetUint("userID")
+    var habit model.Habit
+    if err := h.DB.Where("id = ? AND user_id = ?", c.Param("id"), userID).First(&habit).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "习惯不存在"})
+        return
+    }
+    var log model.HabitLog
+    if err := h.DB.Where("id = ? AND habit_id = ?", c.Param("logId"), habit.ID).First(&log).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "打卡记录不存在"})
+        return
+    }
+    err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Delete(&log).Error; err != nil { return err }
+        var events []model.BehaviorEvent
+        if err := tx.Where("user_id = ? AND event_type = ? AND entity_type = ? AND entity_id = ?",
+            userID, "habit_checked", "habit", habit.ID).Find(&events).Error; err != nil { return err }
+        var remaining int64
+        if err := tx.Model(&model.HabitLog{}).Where("habit_id = ? AND date = ?", habit.ID, log.Date).Count(&remaining).Error; err != nil { return err }
+        for _, event := range events {
+            var meta struct {
+                HabitDate string `json:"habit_date"`
+                HabitLogID uint `json:"habit_log_id"`
+            }
+            if json.Unmarshal([]byte(event.Metadata), &meta) != nil { continue }
+            // 旧单条日志没有关联 log_id；只有整日已无记录才清理对应旧事件。
+            if meta.HabitLogID == log.ID || (meta.HabitLogID == 0 && remaining == 0 && meta.HabitDate == log.Date) {
+                if err := tx.Delete(&event).Error; err != nil { return err }
+            }
+        }
+        var tz model.User
+        tx.Select("timezone").First(&tz, userID)
+        streak := habitStreak(tx, habit, model.UserLocation(tz.Timezone))
+        return tx.Model(&habit).Update("streak_count", streak).Error
+    })
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "撤销记录失败"})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "记录已撤销"})
+}
+
 // GetHabitLogs 获取习惯的打卡记录
 func (h *HabitHandler) GetHabitLogs(c *gin.Context) {
 	userID := c.GetUint("userID")
@@ -511,7 +558,7 @@ func (h *HabitHandler) GetHabitLogs(c *gin.Context) {
 	if month != "" {
 		query = query.Where("date LIKE ?", month+"%")
 	}
-	query.Order("date DESC").Find(&logs)
+	query.Order("date DESC, created_at DESC, id DESC").Find(&logs)
 
 	c.JSON(http.StatusOK, gin.H{
 		"habit": habit,
