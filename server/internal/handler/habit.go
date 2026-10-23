@@ -339,8 +339,9 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
 
 	eventAt := now
-	if occurredAt != nil { eventAt = occurredAt.In(loc) }
-	if checkDate != todayStart.Format("2006-01-02") {
+	if occurredAt != nil {
+		eventAt = occurredAt.In(loc)
+	} else if checkDate != todayStart.Format("2006-01-02") {
 		eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
 	}
 	metadata, _ := json.Marshal(map[string]string{"habit_date": checkDate})
