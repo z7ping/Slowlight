@@ -22,6 +22,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  bool _androidNotificationDenied = false;
   final Map<int, Timer> _desktopPending = <int, Timer>{};
 
   /// 是否是桌面端（Windows/macOS/Linux，排除 Web）
@@ -77,9 +78,10 @@ class NotificationService {
       // 请求普通通知权限（Android 13+）。精确闹钟属于独立特殊权限，
       // 不在启动时强行跳转系统设置；调度时若未授权则自动降级为非精确提醒。
       if (defaultTargetPlatform == TargetPlatform.android) {
-        await _plugin
+        final granted = await _plugin
             .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
             ?.requestNotificationsPermission();
+        _androidNotificationDenied = granted == false;
       }
     }
 
@@ -276,6 +278,11 @@ class NotificationService {
   Future<void> scheduleHabitReminders() async {
     await init();
     final habits = await HabitRepository().getAll();
+    if (_androidNotificationDenied && habits.any((h) =>
+        h.scheduleRule['reminder_mode'] == 'daily' ||
+        h.scheduleRule['reminder_mode'] == 'schedule')) {
+      throw StateError('系统通知权限未开启，请在 Android 设置中允许应用发送提醒');
+    }
     final now = DateTime.now();
     for (final habit in habits) {
       await cancelHabitReminders(habit.id);
