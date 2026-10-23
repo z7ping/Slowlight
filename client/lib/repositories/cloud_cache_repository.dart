@@ -583,6 +583,8 @@ class CloudCacheRepository {
       'habit_logs',
       where: 'habit_id = ? AND date = ?',
       whereArgs: [habitLocalId, day],
+      orderBy: 'created_at DESC, id DESC',
+      limit: 1,
     );
     for (final row in rows) {
       final localLogId = row['id'] as int;
