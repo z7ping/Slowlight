@@ -278,7 +278,7 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 			habit.CreatedAt.In(loc).Year(), habit.CreatedAt.In(loc).Month(), habit.CreatedAt.In(loc).Day(),
 			0, 0, 0, 0, loc,
 		)
-		if parsed.Before(createdDay) {
+		if parsed.Before(createdDay) && (habit.ScheduleRule == "" || habit.ScheduleRule == "{}") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "打卡日期早于习惯创建日期"})
 			return
 		}
