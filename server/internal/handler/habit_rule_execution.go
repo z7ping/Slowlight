@@ -81,7 +81,7 @@ func habitRuleOccurrence(rule *habitRuleExecution, now time.Time, checkDate stri
     base:=start
     var next time.Time
     if rule.Unit=="week" {
-      base=start.AddDate(0,0,-(int(start.Weekday())+6)%7)
+      base=start.AddDate(0,0,-((int(start.Weekday())+6)%7))
       weeks:=habitCivilDiff(day,base)/7
       group:=(weeks/every)*every
       base=base.AddDate(0,0,group*7)
@@ -108,14 +108,14 @@ func habitRuleOccurrence(rule *habitRuleExecution, now time.Time, checkDate stri
   }
   if rule.Kind=="specific"{
     if rule.Unit=="week"{
-      startMonday:=start.AddDate(0,0,-(int(start.Weekday())+6)%7)
+      startMonday:=start.AddDate(0,0,-((int(start.Weekday())+6)%7))
       weeks:=habitCivilDiff(day,startMonday)/7
       if weeks%every!=0 || !habitContains(rule.Weekdays,(int(day.Weekday())+6)%7+1) {
         return out,fmt.Errorf("该日期不在预定记录日内")
       }
     }else{
       months:=habitMonthDiff(day,start)
-      last:=day.AddDate(0,1,-day.Day()).Day()
+      last:=time.Date(day.Year(),day.Month()+1,0,0,0,0,0,day.Location()).Day()
       if months%every!=0 || !(habitContains(rule.MonthDays,day.Day()) || rule.LastDay&&day.Day()==last){
         return out,fmt.Errorf("该日期不在预定记录日内")
       }
