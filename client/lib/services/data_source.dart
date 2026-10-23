@@ -101,6 +101,9 @@ abstract class ApiDataSource {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -116,6 +119,8 @@ abstract class ApiDataSource {
     String note = '',
     String? date,
     int? durationMin,
+    int? countValue,
+    String? occurredAt,
     String? period,
   });
   Future<Map<String, dynamic>> uncheckInHabit(int habitId);
