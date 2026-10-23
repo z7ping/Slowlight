@@ -3,6 +3,8 @@ class HabitLog {
   final int id;
   final int habitId;
   final String date;
+  final String? occurrenceKey;
+  final DateTime? occurredAt;
   final String period;
   final int durationMin;
   final String note;
@@ -12,6 +14,8 @@ class HabitLog {
     required this.id,
     required this.habitId,
     required this.date,
+    this.occurrenceKey,
+    this.occurredAt,
     required this.period,
     required this.durationMin,
     required this.note,
@@ -23,6 +27,8 @@ class HabitLog {
       id: json['id'] as int? ?? 0,
       habitId: json['habit_id'] as int? ?? 0,
       date: json['date'] as String? ?? '',
+      occurrenceKey: json['occurrence_key'] as String?,
+      occurredAt: json['occurred_at'] == null ? null : DateTime.tryParse(json['occurred_at'].toString())?.toLocal(),
       period: json['period'] as String? ?? '',
       durationMin: json['duration_min'] as int? ?? 0,
       note: json['note'] as String? ?? '',
