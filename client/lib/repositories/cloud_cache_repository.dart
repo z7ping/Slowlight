@@ -539,15 +539,43 @@ class CloudCacheRepository {
     final habitLocalId = await _localId(db, 'habits', publicId);
     final rows = await db.query(
       'habit_logs',
-      where: month == null ? 'habit_id = ?' : 'habit_id = ? AND date LIKE ?',
+      where: month == null ? 'habit_id = ? AND deleted_at IS NULL'
+          : 'habit_id = ? AND date LIKE ? AND deleted_at IS NULL',
       whereArgs: month == null ? [habitLocalId] : [habitLocalId, '$month%'],
-      orderBy: 'date DESC',
+      orderBy: 'date DESC, created_at DESC, id DESC',
     );
     final logs = <Map<String, dynamic>>[];
     for (final row in rows) {
       logs.add(await _habitLogMap(db, row));
     }
     return {'logs': logs};
+  }
+
+  Future<void> deleteHabitLog(int habitPublicId, int logPublicId) async {
+    final db = await _db;
+    final habit = await _rowByPublicId(db, 'habits', habitPublicId);
+    final log = await _rowByPublicId(db, 'habit_logs', logPublicId);
+    final localId = log['id'] as int;
+    if (log['habit_id'] != habit['id']) {
+      throw StateError('记录不属于该习惯');
+    }
+    final serverLogId = log['server_id'] as int?;
+    if (serverLogId == null) {
+      await db.transaction((txn) async {
+        await txn.delete('sync_queue',
+            where: 'entity_type = ? AND entity_local_id = ?',
+            whereArgs: ['habit_logs', localId]);
+        await txn.delete('habit_logs', where: 'id = ?', whereArgs: [localId]);
+      });
+    } else {
+      final now = _now();
+      await db.update('habit_logs', {
+        'deleted_at': now, 'last_modified': now, 'sync_status': 'pending',
+      }, where: 'id = ?', whereArgs: [localId]);
+      await SyncService().enqueue(entityType: 'habit_logs',
+          entityLocalId: localId, entityServerId: serverLogId,
+          operation: 'delete');
+    }
   }
 
   Future<void> deleteHabit(int publicId) async {
@@ -575,6 +603,9 @@ class CloudCacheRepository {
       where: 'habit_id = ? AND date = ?',
       whereArgs: [habitLocalId, day],
     );
+    if ((habitRow['allow_multiple_per_day'] as int? ?? 0) == 1) {
+      throw StateError('此习惯支持多次记录，请在明细中逐条撤销');
+    }
     for (final row in rows) {
       final localLogId = row['id'] as int;
       final serverLogId = row['server_id'] as int?;
@@ -702,6 +733,7 @@ class CloudCacheRepository {
         'duration_min': row['duration_min'] ?? 0,
         'count_value': row['count_value'],
         'occurred_at': row['occurred_at'],
+        'client_key': row['client_key'],
         'note': row['note'] ?? '',
         'task_id': await _publicForeignId(db, 'tasks', row['task_id'] as int?),
         'created_at': row['created_at'],
