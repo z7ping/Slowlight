@@ -102,6 +102,9 @@ type Habit struct {
 	Name            string         `json:"name" gorm:"size:100;not null"`
 	Icon            string         `json:"icon" gorm:"size:50;default:'✅'"`
 	Color           string         `json:"color" gorm:"size:20;default:'#52c41a'"`
+	RecordType      string         `json:"record_type" gorm:"size:20;not null;default:'legacy'"` // legacy/check/duration/count
+	RecordUnit      string         `json:"record_unit" gorm:"size:20;not null;default:'次'"`
+	RecordTimeLabel string         `json:"record_time_label" gorm:"size:40;not null;default:''"`
 	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // daily/weekly/monthly
 	TargetDays      int            `json:"target_days" gorm:"default:0"`            // 0 = 无限制
 	StreakCount     int            `json:"streak_count" gorm:"default:0"`           // 连续打卡天数
@@ -125,6 +128,8 @@ type HabitLog struct {
 	HabitID      uint           `json:"habit_id" gorm:"not null;index"`
 	Date         string         `json:"date" gorm:"size:10;not null"`          // YYYY-MM-DD
 	Period       string         `json:"period" gorm:"size:20;default:''"`      // morning/afternoon/evening/night
+	CountValue   *int           `json:"count_value" gorm:"default:null"`
+	OccurredAt   *time.Time     `json:"occurred_at" gorm:"default:null"`
 	DurationMin  int            `json:"duration_min" gorm:"default:0"`         // 实际时长
 	Note         string         `json:"note" gorm:"size:500;default:''"`
 	TaskID       *uint          `json:"task_id" gorm:"index"`                  // 关联任务 ID（可选）
