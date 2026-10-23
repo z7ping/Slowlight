@@ -277,25 +277,26 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     final largeText =
         MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
         SlowlightTypography.bodySize * 1.5;
-    final cards = [
-      _StatCard(
-        emoji: '🔥',
-        value: '${habit.streakCount}',
-        label: '连续',
-        color: habitColor,
-      ),
-      _StatCard(
-        emoji: '✅',
-        value: '$_totalCheckIns',
-        label: '总计',
-        color: habitColor,
-      ),
-      _StatCard(
-        emoji: '📊',
-        value: '${(_completionRate * 100).toStringAsFixed(0)}%',
-        label: '完成率',
-        color: habitColor,
-      ),
+    final isV3 = habit.scheduleRule.isNotEmpty;
+    final uniqueDays = _logs.map(habitLogCalendarDay).toSet().length;
+    final cards = isV3 ? [
+      _StatCard(emoji: '▦',value: habit.periodTarget > 0
+          ? habit.periodCount.toString()+'/'+habit.periodTarget.toString()
+          : habit.frequencyText,
+        label: habit.periodTarget > 0 ? '本周期进度' : '计划频率',
+        color: habitColor),
+      _StatCard(emoji: '✅',value: _totalCheckIns.toString(),
+        label: '本月记录次数',color: habitColor),
+      _StatCard(emoji: '📅',value: uniqueDays.toString(),
+        label: '本月记录日期',color: habitColor),
+    ] : [
+      _StatCard(emoji: '🔥',value: habit.streakCount.toString(),
+        label: '连续',color: habitColor),
+      _StatCard(emoji: '✅',value: _totalCheckIns.toString(),
+        label: '本月记录',color: habitColor),
+      _StatCard(emoji: '📊',
+        value: (_completionRate * 100).toStringAsFixed(0)+'%',
+        label: '完成率',color: habitColor),
     ];
     if (largeText) {
       return Column(
@@ -321,7 +322,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   }
 
   Widget _logRow(Map<String, dynamic> log, Color habitColor) {
-    final checkedAt = DateTime.parse(log['created_at'] as String).toLocal();
+    final checkedAt = DateTime.parse((log['occurred_at'] ?? log['created_at']) as String).toLocal();
     final logDate = habitLogCalendarDay(log);
     final note = log['note'] as String? ?? '';
     final dMin = log['duration_min'] as int? ?? 0;
