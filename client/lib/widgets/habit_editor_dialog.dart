@@ -299,8 +299,6 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       error = rule.validationError;
     } else if (_reminderMode == 'daily' && _reminder == null) {
       error = '请设置每天提醒的时间';
-    } else if (_reminderMode == 'schedule') {
-      error = '按计划提醒尚未接入通知调度，请选择关闭或每天定时';
     }
     if (error != null) {
       setState(() => _validationError = error);
@@ -791,12 +789,6 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             onChanged: (v) => setState(() => _reminder = v),
           ),
         ],
-        if (_reminderMode == 'schedule')
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text('按计划通知仍待接入提醒调度，暂不支持保存此提醒方式。',
-              style: SlowlightTypography.secondary(context)),
-          ),
       ],
     );
   }
