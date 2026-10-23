@@ -74,9 +74,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('查看全部（3）'), findsOneWidget);
+    expect(find.text('查看全部'), findsOneWidget);
     expect(find.text('第三条'), findsNothing);
-    await tester.tap(find.text('查看全部（3）'));
+    await tester.tap(find.text('查看全部'));
     await tester.pumpAndSettle();
     expect(find.text('第三条'), findsOneWidget);
     expect(tester.takeException(), isNull);
