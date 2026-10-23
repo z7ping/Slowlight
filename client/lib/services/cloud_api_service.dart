@@ -423,6 +423,9 @@ class CloudApiService implements ApiDataSource {
     String color = '#52c41a',
     String frequency = 'daily',
     Map<String, dynamic>? scheduleRule,
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -438,6 +441,9 @@ class CloudApiService implements ApiDataSource {
           color: color,
           frequency: frequency,
           scheduleRule: scheduleRule,
+          recordType: recordType,
+          recordUnit: recordUnit,
+          recordTimeLabel: recordTimeLabel,
           targetDays: targetDays,
           systemTagId: systemTagId,
           preferredPeriod: preferredPeriod,
@@ -455,6 +461,9 @@ class CloudApiService implements ApiDataSource {
         color: color,
         frequency: frequency,
         scheduleRule: scheduleRule,
+        recordType: recordType,
+        recordUnit: recordUnit,
+        recordTimeLabel: recordTimeLabel,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -488,6 +497,8 @@ class CloudApiService implements ApiDataSource {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    int? countValue,
+    String? occurredAt,
   }) {
     Future<Map<String, dynamic>> cached() => _cache.checkInHabit(
           habitId,
@@ -496,6 +507,10 @@ class CloudApiService implements ApiDataSource {
           durationMin: durationMin,
           period: period,
           occurrenceKey: occurrenceKey,
+        countValue: countValue,
+        occurredAt: occurredAt,
+          countValue: countValue,
+          occurredAt: occurredAt,
         );
     if (habitId < 0) return cached();
     return _writeThrough(
