@@ -573,6 +573,9 @@ class SyncService extends ChangeNotifier {
         color: row['color'] as String? ?? '#52c41a',
         frequency: row['frequency'] as String? ?? 'daily',
         scheduleRule: scheduleRule,
+        recordType: row['record_type'] as String? ?? 'legacy',
+        recordUnit: row['record_unit'] as String? ?? '次',
+        recordTimeLabel: row['record_time_label'] as String? ?? '',
         targetDays: row['target_days'] as int? ?? 0,
         systemTagId: systemTagId,
         preferredPeriod: row['preferred_period'] as String? ?? '',
@@ -594,6 +597,9 @@ class SyncService extends ChangeNotifier {
       'color': row['color'],
       'frequency': row['frequency'],
       'schedule_rule': scheduleRule,
+      'record_type': row['record_type'],
+      'record_unit': row['record_unit'],
+      'record_time_label': row['record_time_label'],
       'target_days': row['target_days'],
       'system_tag_id': systemTagId,
       'preferred_period': row['preferred_period'],
@@ -626,6 +632,8 @@ class SyncService extends ChangeNotifier {
       durationMin: row['duration_min'] as int?,
       period: row['period'] as String?,
       occurrenceKey: row['occurrence_key'] as String?,
+      countValue: row['count_value'] as int?,
+      occurredAt: row['occurred_at'] as String?,
     ).timeout(const Duration(seconds: 10));
     final log = result['log'];
     final remoteId = log is Map ? log['id'] as int? : result['id'] as int?;
@@ -989,6 +997,9 @@ class SyncService extends ChangeNotifier {
         'specific_time': item['specific_time'] ?? '',
         'reminder_at': jsonEncode(item['reminder_at'] ?? {}),
         'schedule_rule': jsonEncode(_jsonMap(item['schedule_rule'])),
+        'record_type': item['record_type'] ?? 'legacy',
+        'record_unit': item['record_unit'] ?? '次',
+        'record_time_label': item['record_time_label'] ?? '',
         'created_at': _dateString(item['created_at']),
         'updated_at': _dateString(item['updated_at']),
         'deleted_at': null,
@@ -1091,6 +1102,7 @@ class SyncService extends ChangeNotifier {
           'date': item['date'] ?? '',
           'occurrence_key': item['occurrence_key'],
           'occurred_at': item['occurred_at'],
+          'count_value': item['count_value'],
           'period': item['period'] ?? '',
           'duration_min': item['duration_min'] ?? 0,
           'note': item['note'] ?? '',
@@ -1291,6 +1303,9 @@ class SyncService extends ChangeNotifier {
       'specific_time',
       'reminder_at',
       'schedule_rule',
+      'record_type',
+      'record_unit',
+      'record_time_label',
     ],
     'tasks': [
       'list_id',
@@ -1324,6 +1339,7 @@ class SyncService extends ChangeNotifier {
       'task_id',
       'occurrence_key',
       'occurred_at',
+      'count_value',
     ],
   };
 
