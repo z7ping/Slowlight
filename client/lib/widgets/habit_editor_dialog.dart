@@ -85,6 +85,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late String _icon;
   late String _color;
   bool _detailsOpen = false;
+  final Map<String, String> _modeUnits = {'interval':'day','specific':'week','goal':'week'};
+  final Map<String, String> _modeEvery = {'interval':'1','specific':'1','goal':'1'};
   late String _frequency;
   late String _mode;
   late String _unit;
@@ -160,6 +162,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     );
     _mode = rule.kind;
     _unit = rule.unit;
+    _modeUnits[_mode] = _unit;
+    _modeEvery[_mode] = rule.every.toString();
     _hourMode = rule.hourMode;
     _reminderMode = rule.reminderMode;
     _monthLast = rule.lastDay;
@@ -261,6 +265,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       _every.text = '1';
       if (_name.text == '喝水') { _unit = 'hour'; _every.text = '2'; }
       if (_name.text == '运动') { _unit = 'day'; _every.text = '3'; }
+      _modeUnits['interval'] = _unit;
+      _modeEvery['interval'] = _every.text;
 
     });
   }
@@ -594,8 +600,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             labels: const ['固定间隔', '指定日期', '周期目标'],
             selectedIndex: const ['interval', 'specific', 'goal'].indexOf(_mode),
             onChanged: (v) => setState(() {
+              _modeUnits[_mode] = _unit;
+              _modeEvery[_mode] = _every.text;
               _mode = const ['interval', 'specific', 'goal'][v];
-              if (_mode != 'interval' && !['week','month'].contains(_unit)) _unit = 'week';
+              _unit = _modeUnits[_mode] ?? 'week';
+              _every.text = _modeEvery[_mode] ?? '1';
               if (_mode == 'goal' && _reminderMode == 'schedule') _reminderMode = 'daily';
             }),
             backgroundColor: fxSubtleSurface(context),
