@@ -41,31 +41,32 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 	var habits []model.Habit
 	h.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&habits)
 
-	var weekLogs []model.HabitLog
-	h.DB.Where("date >= ? AND date <= ?", weekStartStr, today).Find(&weekLogs)
-
-	type logGroup struct {
-		days []string
-	}
-	logMap := make(map[uint]*logGroup)
-	for _, log := range weekLogs {
-		if _, ok := logMap[log.HabitID]; !ok {
-			logMap[log.HabitID] = &logGroup{}
-		}
-		logMap[log.HabitID].days = append(logMap[log.HabitID].days, log.Date)
-	}
-
-	for i := range habits {
-		if g, ok := logMap[habits[i].ID]; ok {
-			habits[i].CheckedDays = g.days
-			for _, d := range g.days {
-				if d == today {
-					habits[i].CheckedToday = true
-					break
-				}
-			}
-		}
-	}
+    monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+    from := weekStartStr
+    monthStartStr := monthStart.Format("2006-01-02")
+    if monthStartStr < from { from = monthStartStr }
+    var windowLogs []model.HabitLog
+    h.DB.Where("date >= ? AND date <= ?", from, today).Find(&windowLogs)
+    byHabit := make(map[uint][]model.HabitLog)
+    for _, log := range windowLogs {
+        byHabit[log.HabitID] = append(byHabit[log.HabitID], log)
+    }
+    for i := range habits {
+        habit := &habits[i]
+        days := make(map[string]bool)
+        var current []model.HabitLog
+        goalFrom := today
+        if habit.GoalPeriod == "week" { goalFrom = weekStartStr }
+        if habit.GoalPeriod == "month" { goalFrom = monthStartStr }
+        for _, log := range byHabit[habit.ID] {
+            if log.Date >= weekStartStr { days[log.Date] = true }
+            if log.Date == today { habit.CheckedToday = true }
+            if log.Date >= goalFrom { current = append(current, log) }
+        }
+        for day := range days { habit.CheckedDays = append(habit.CheckedDays, day) }
+        habit.GoalProgress = habitProgress(current, habit.GoalMetric)
+        habit.GoalMet = habit.GoalValue > 0 && habit.GoalProgress >= habit.GoalValue
+    }
 
 	c.JSON(http.StatusOK, habits)
 }
