@@ -320,13 +320,13 @@ class LocalHabitRepository {
       'habit_logs',
       where: where,
       whereArgs: whereArgs,
-      orderBy: 'date DESC',
+      orderBy: 'date DESC, created_at DESC, id DESC',
     );
     final todayStr = _dateStr(DateTime.now());
     return {
       'logs': logs,
       'stats': {
-        'total_days': logs.length,
+        'total_days': logs.map((l) => l['date']).toSet().length,
         'today_checked': logs.any((log) => log['date'] == todayStr),
       },
     };
