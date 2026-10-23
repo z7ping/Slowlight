@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../controllers/habit_controller.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import '../models/habit_schedule_rule.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/tag_links_repository.dart';
 import '../services/notification_service.dart';
@@ -26,10 +29,11 @@ class HabitToolScreen extends StatefulWidget {
   State<HabitToolScreen> createState() => _HabitToolScreenState();
 }
 
-class _HabitToolScreenState extends State<HabitToolScreen> {
+class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObserver {
   late final HabitController _controller;
   late final TagLinksRepository _tagLinks;
   bool _editingHabit = false;
+  Timer? _nextSlotRefresh;
   int? _expandedHabitId;
   int _filter = 0; // 全部 / 待记录 / 已记录
   final Set<int> _pendingHabitActions = <int>{};
@@ -37,6 +41,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tagLinks = widget.tagLinksRepository ?? TagLinksRepository();
     _controller = HabitController(repository: widget.repository)
       ..addListener(_onChanged);
@@ -45,13 +50,43 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _nextSlotRefresh?.cancel();
     _controller.removeListener(_onChanged);
     _controller.dispose();
     super.dispose();
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _refreshAtNextSlot();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _controller.load();
+      NotificationService().scheduleHabitReminders().catchError((Object _) {});
+    }
+  }
+
+  void _refreshAtNextSlot() {
+    _nextSlotRefresh?.cancel();
+    final now=DateTime.now();
+    DateTime? next;
+    for (final habit in _controller.habits) {
+      if (habit.scheduleRule.isEmpty) continue;
+      final rule=HabitScheduleRule.fromJson(habit.scheduleRule,
+          legacyFrequency:habit.frequency);
+      final times=rule.nextAfter(now,count:1);
+      final candidate=times.isNotEmpty ? times.first :
+          rule.kind=='goal' ? DateTime(now.year,now.month,now.day+1) : null;
+      if(candidate!=null && (next==null || candidate.isBefore(next)))next=candidate;
+    }
+    if(next==null)return;
+    final delay=next.difference(now)+const Duration(seconds:2);
+    _nextSlotRefresh=Timer(delay, () { if(mounted)_controller.load(); });
   }
 
   void _message(String text) {
