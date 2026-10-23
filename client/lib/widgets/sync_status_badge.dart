@@ -149,7 +149,6 @@ class SyncStatusBadge extends StatelessWidget {
       sync: sync,
       notice: notice,
       onConflicts: () {
-        Navigator.of(ctx).pop();
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => const ConflictScreen(),
         ));
@@ -381,7 +380,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                               size: FxButtonSize.sm,
                               variant: FxButtonVariant.ghost,
                               onPressed: () async {
-                                await Clipboard.setData(ClipboardData(text: raw));
+                                await Clipboard.setData(ClipboardData(text: raw!));
                                 widget.notice.show('错误详情已复制');
                               },
                             ),
@@ -399,7 +398,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                             ),
                             child: SelectionArea(
                               child: Text(
-                                raw,
+                                raw!,
                                 softWrap: true,
                                 style: SlowlightTypography.caption(context),
                               ),
@@ -424,7 +423,10 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           label: '解决 $count 个冲突',
                           icon: Icons.warning_amber_outlined,
                           variant: FxButtonVariant.outline,
-                          onPressed: widget.onConflicts,
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            widget.onConflicts();
+                          },
                         ),
                       ),
                     ],
