@@ -541,9 +541,11 @@ class CloudApiService implements ApiDataSource {
       await _cache.deleteHabitLog(habitId, logId);
       return;
     }
-    // 请求结果未知时不本地重复删除，用户可重新加载确认。
-    await ApiService.deleteHabitLog(habitId, logId);
-    _refreshCacheSoon();
+    // 幂等 DELETE 可安全离线补交；仅已确定未到达服务器的连接失败降级。
+    await _writeThroughVoid(
+      () => ApiService.deleteHabitLog(habitId, logId),
+      () => _cache.deleteHabitLog(habitId, logId),
+    );
   }
 
   /// 服务端取消打卡当前只能表达“今天”。跨日离线同步会丢失目标日期，
