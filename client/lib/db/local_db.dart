@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 17,
+        version: 18,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 17,
+      version: 18,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -159,6 +159,10 @@ class LocalDb {
         record_type TEXT NOT NULL DEFAULT 'legacy',
         record_unit TEXT NOT NULL DEFAULT '次',
         record_time_label TEXT NOT NULL DEFAULT '',
+        allow_multiple_per_day INTEGER NOT NULL DEFAULT 0,
+        goal_period TEXT NOT NULL DEFAULT 'none',
+        goal_metric TEXT NOT NULL DEFAULT 'events',
+        goal_value INTEGER NOT NULL DEFAULT 0,
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -184,6 +188,7 @@ class LocalDb {
         duration_min INTEGER DEFAULT 0,
         count_value INTEGER,
         occurred_at TEXT,
+        client_key TEXT,
         note TEXT DEFAULT '',
         task_id INTEGER,
         created_at TEXT NOT NULL,
@@ -196,6 +201,7 @@ class LocalDb {
     await db.execute('CREATE INDEX idx_subtasks_task_id ON subtasks(task_id)');
     await db.execute('CREATE INDEX idx_habit_logs_habit_id ON habit_logs(habit_id)');
     await db.execute('CREATE INDEX idx_habit_logs_date ON habit_logs(date)');
+    await db.execute('CREATE UNIQUE INDEX idx_habit_logs_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
 
     await db.execute('''
       CREATE TABLE reminder_sessions (
@@ -517,6 +523,32 @@ class LocalDb {
     if (oldVersion < 17) {
       await _upgradeHabitRecordTypes(db);
     }
+    if (oldVersion < 18) {
+      await _upgradeMultipleHabitRecords(db);
+    }
+  }
+
+  Future<void> _upgradeMultipleHabitRecords(Database db) async {
+    final habitColumns = (await db.rawQuery('PRAGMA table_info(habits)'))
+        .map((row) => row['name'].toString()).toSet();
+    for (final entry in <String, String>{
+      'allow_multiple_per_day': 'INTEGER NOT NULL DEFAULT 0',
+      'goal_period': "TEXT NOT NULL DEFAULT 'none'",
+      'goal_metric': "TEXT NOT NULL DEFAULT 'events'",
+      'goal_value': 'INTEGER NOT NULL DEFAULT 0',
+    }.entries) {
+      if (!habitColumns.contains(entry.key)) {
+        await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
+      }
+    }
+    final logColumns = (await db.rawQuery('PRAGMA table_info(habit_logs)'))
+        .map((row) => row['name'].toString()).toSet();
+    if (!logColumns.contains('client_key')) {
+      await db.execute('ALTER TABLE habit_logs ADD COLUMN client_key TEXT');
+    }
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS '
+        'idx_habit_logs_client_key ON habit_logs(client_key) '
+        'WHERE client_key IS NOT NULL');
   }
 
   Future<void> _upgradeHabitRecordTypes(Database db) async {
