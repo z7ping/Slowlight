@@ -278,6 +278,7 @@ class MigrationService {
         'icon': row['icon'],
         'color': row['color'],
         'frequency': row['frequency'],
+        'schedule_rule': row['schedule_rule'] ?? '{}',
         'target_days': row['target_days'],
         'preferred_period': row['preferred_period'],
         'duration_min': row['duration_min'],
