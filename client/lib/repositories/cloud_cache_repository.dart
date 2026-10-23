@@ -468,6 +468,11 @@ class CloudCacheRepository {
     if (updates.containsKey('reminder_at')) {
       updates['reminder_at'] = jsonEncode(updates['reminder_at'] ?? const {});
     }
+    for (final key in ['allow_multiple_per_day', 'generate_task', 'show_checkin_dialog']) {
+      if (updates.containsKey(key)) {
+        updates[key] = updates[key] == true || updates[key] == 1 ? 1 : 0;
+      }
+    }
     updates['updated_at'] = _now();
     updates['last_modified'] = _now();
     await db.update('habits', updates, where: 'id = ?', whereArgs: [localId]);
