@@ -135,6 +135,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           color: value.color,
           frequency: value.frequency,
           scheduleRule: value.scheduleRule,
+          recordType: value.recordType,
+          recordUnit: value.recordUnit,
+          recordTimeLabel: value.recordTimeLabel,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           preferredPeriod: value.preferredPeriod,
@@ -246,12 +249,16 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       return;
     }
     int? durationMin;
+    int? countValue;
+    String? occurredAt;
     String? period;
     var note = '';
-    if (habit.showCheckinDialog) {
+    if (habit.showCheckinDialog || habit.recordType == 'count' || habit.recordTimeLabel.isNotEmpty) {
       final value = await HabitCheckinDialog.show(context, habit: habit);
       if (value == null) return;
       durationMin = value['duration_min'] as int?;
+      countValue = value['count_value'] as int?;
+      occurredAt = value['occurred_at']?.toString();
       period = value['period']?.toString();
       note = value['note']?.toString() ?? '';
     }
@@ -259,6 +266,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       await _controller.checkIn(
         habit,
         durationMin: durationMin,
+        countValue: countValue,
+        occurredAt: occurredAt,
         period: period,
         note: note,
       );
@@ -283,6 +292,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       await _controller.checkIn(
         habit,
         durationMin: value['duration_min'] as int?,
+        countValue: value['count_value'] as int?,
+        occurredAt: value['occurred_at']?.toString(),
         period: value['period']?.toString(),
         note: value['note']?.toString() ?? '',
       );
@@ -319,7 +330,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         )) {
       return;
     }
-    final detail = await HabitCheckinDialog.show(context, habit: habit);
+    final detail = await HabitCheckinDialog.show(context, habit: habit, recordDate: day);
     if (detail == null) return;
     try {
       await _controller.checkIn(
@@ -356,7 +367,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       title: '选择补卡日期',
     );
     if (date == null) return;
-    final detail = await HabitCheckinDialog.show(context, habit: habit);
+    final detail = await HabitCheckinDialog.show(context, habit: habit, recordDate: date);
     if (detail == null) return;
     try {
       await _controller.checkIn(
