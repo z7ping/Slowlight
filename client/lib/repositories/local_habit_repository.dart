@@ -187,6 +187,7 @@ class LocalHabitRepository {
     String? date,
     int? durationMin,
     String? period,
+    String? occurrenceKey,
   }) async {
     final db = await _db.database;
     final localNow = DateTime.now();
