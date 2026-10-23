@@ -154,7 +154,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         if (mobileGrid) {
           const padding = 12.0;
           const gap = 12.0;
-          const cardHeight = 276.0;
+          final cardHeight = textScale > 1.1 ? 324.0 : 300.0;
           final width = (constraints.maxWidth - 2 * padding - gap) / 2;
           return FxRefresh(
             onRefresh: _load,
@@ -335,8 +335,8 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
-  Future<void> _showAllTasks(String title, List<Task> items) {
-    return FxSheet.show<void>(
+  Future<void> _showAllTasks(String title, List<Task> items) async {
+    final selection = await FxSheet.show<({Task task, bool move})>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
@@ -360,14 +360,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   final task = items[index];
-                  void open() {
-                    Navigator.of(sheetContext).pop();
-                    _openTask(task);
-                  }
-                  void move() {
-                    Navigator.of(sheetContext).pop();
-                    _showMoveSheet(task);
-                  }
+                  void open() => Navigator.of(sheetContext)
+                      .pop((task: task, move: false));
+                  void move() => Navigator.of(sheetContext)
+                      .pop((task: task, move: true));
                   return _taskLine(
                     task,
                     AppTheme.priorityColor(task.priority),
@@ -382,6 +378,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         ),
       ),
     );
+    if (!mounted || selection == null) return;
+    if (selection.move) {
+      await _showMoveSheet(selection.task);
+    } else {
+      _openTask(selection.task);
+    }
   }
 
   Widget _draggableTask(Task task, Color color) {
