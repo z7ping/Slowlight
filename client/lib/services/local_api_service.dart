@@ -230,6 +230,9 @@ class LocalApiService implements ApiDataSource {
     String color = '#52c41a',
     String frequency = 'daily',
     Map<String, dynamic>? scheduleRule,
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -245,6 +248,9 @@ class LocalApiService implements ApiDataSource {
         color: color,
         frequency: frequency,
         scheduleRule: scheduleRule,
+        recordType: recordType,
+        recordUnit: recordUnit,
+        recordTimeLabel: recordTimeLabel,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -264,6 +270,9 @@ class LocalApiService implements ApiDataSource {
       color: data['color'] as String?,
       frequency: data['frequency'] as String?,
       scheduleRule: data['schedule_rule'] is Map ? Map<String, dynamic>.from(data['schedule_rule'] as Map) : null,
+      recordType: data['record_type'] as String?,
+      recordUnit: data['record_unit'] as String?,
+      recordTimeLabel: data['record_time_label'] as String?,
       targetDays: data['target_days'] as int?,
       systemTagId: data['system_tag_id'] as int?,
       setSystemTag: data.containsKey('system_tag_id'),
@@ -286,6 +295,8 @@ class LocalApiService implements ApiDataSource {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    int? countValue,
+    String? occurredAt,
   }) =>
       _habitRepo.checkIn(
         habitId,
@@ -294,6 +305,8 @@ class LocalApiService implements ApiDataSource {
         durationMin: durationMin,
         period: period,
         occurrenceKey: occurrenceKey,
+        countValue: countValue,
+        occurredAt: occurredAt,
       );
 
   @override
