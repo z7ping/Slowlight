@@ -639,8 +639,15 @@ func (h *HabitHandler) UpdateHabitLog(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新打卡记录失败"})
 		return
 	}
-	h.DB.First(&log, log.ID)
-	c.JSON(http.StatusOK, log)
+    h.DB.First(&log, log.ID)
+    var tz model.User
+    h.DB.Select("timezone").First(&tz, userID)
+    habit.StreakCount = habitStreak(h.DB, habit, model.UserLocation(tz.Timezone))
+    if err := h.DB.Model(&habit).Update("streak_count", habit.StreakCount).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "打卡已更新，连续达标统计刷新失败"})
+        return
+    }
+    c.JSON(http.StatusOK, log)
 }
 
 // GetHabitStreak 获取习惯的连续打卡天数
