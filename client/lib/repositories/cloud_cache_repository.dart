@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
+import '../models/habit_goal_progress.dart';
+import '../utils/habit_record_key.dart';
 import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -348,10 +350,11 @@ class CloudCacheRepository {
       final localId = row['id'] as int;
       final logs = await db.query(
         'habit_logs',
-        where: 'habit_id = ?',
+        where: 'habit_id = ? AND deleted_at IS NULL',
         whereArgs: [localId],
       );
-      final days = logs.map((value) => value['date']?.toString() ?? '').toList();
+      final days = logs.map((value) => value['date']?.toString() ?? '').toSet().toList();
+      final progress = HabitGoalProgress.current(Map<String, dynamic>.from(row), logs);
       final today = _dateKey(DateTime.now());
       result.add({
         'id': publicId,
@@ -367,6 +370,8 @@ class CloudCacheRepository {
         'goal_period': row['goal_period'] ?? 'none',
         'goal_metric': row['goal_metric'] ?? 'events',
         'goal_value': row['goal_value'] ?? 0,
+        'goal_progress': progress,
+        'goal_met': HabitGoalProgress.met(Map<String, dynamic>.from(row), progress),
         'target_days': row['target_days'] ?? 0,
         'streak_count': row['streak_count'] ?? 0,
         'preferred_period': row['preferred_period'] ?? '',
