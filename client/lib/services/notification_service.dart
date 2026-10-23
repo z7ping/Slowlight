@@ -195,9 +195,13 @@ class NotificationService {
       _desktopPending.remove(id)?.cancel();
       final delay = scheduledTime.difference(DateTime.now());
       if (delay.isNegative) return;
-      _desktopPending[id] = Timer(delay, () {
+      _desktopPending[id] = Timer(delay, () async {
         _desktopPending.remove(id);
-        showNotification(id: id, title: title, body: body, payload: payload);
+        await showNotification(id: id, title: title, body: body, payload: payload);
+        // Windows remains alive for many days; refill future hourly slots.
+        try { await scheduleHabitReminders(); } catch (e) {
+          debugPrint('[Notification] failed to refill habit reminders: ' + e.runtimeType.toString());
+        }
       });
     } else {
       final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
