@@ -101,7 +101,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
 
   static const _templates = <Map<String, String>>[
     {'name': '早起', 'icon': '🌅', 'color': '#fa8c16', 'record_type': 'check', 'record_time_label': '起床时间'},
-    {'name': '喝水', 'icon': '💧', 'color': '#13c2c2'},
+    {'name': '喝水', 'icon': '💧', 'color': '#13c2c2', 'record_type': 'count', 'record_unit': '杯', 'allow_multiple_per_day': 'true', 'goal_period': 'day', 'goal_metric': 'count', 'goal_value': '8'},
     {'name': '运动', 'icon': '💪', 'color': '#52c41a'},
     {'name': '阅读', 'icon': '📚', 'color': '#1890ff', 'record_type': 'duration'},
     {'name': '冥想', 'icon': '🧘', 'color': '#722ed1'},
@@ -233,6 +233,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       _frequency = 'daily';
       _recordType = template['record_type'] ?? 'check';
       _recordTimeLabel.text = template['record_time_label'] ?? '';
+      _allowMultiplePerDay = template['allow_multiple_per_day'] == 'true';
+      _goalPeriod = template['goal_period'] ?? 'none';
+      _goalMetric = template['goal_metric'] ?? 'events';
+      _goalValue.text = template['goal_value'] ?? '0';
+      _recordUnit.text = template['record_unit'] ?? '次';
     });
   }
 
@@ -468,7 +473,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                     FxResponsiveFormGrid(
                       minColumnWidth: 180,
                       children: [
-                        FxSelect<String>(
+                        FxFormField(
+                          label: '累计周期',
+                          child: FxSelect<String>(
                           value: _goalPeriod,
                           options: const [
                             FxSelectOption(value: 'none', label: '不设周期目标'),
@@ -477,8 +484,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                             FxSelectOption(value: 'month', label: '每月累计'),
                           ],
                           onChanged: (value) => setState(() => _goalPeriod = value ?? 'none'),
+                          ),
                         ),
-                        FxSelect<String>(
+                        FxFormField(
+                          label: '累计方式',
+                          child: FxSelect<String>(
                           value: _goalMetric,
                           options: const [
                             FxSelectOption(value: 'events', label: '记录次数'),
@@ -486,6 +496,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                             FxSelectOption(value: 'duration', label: '累计分钟'),
                           ],
                           onChanged: (value) => setState(() => _goalMetric = value ?? 'events'),
+                          ),
                         ),
                         FxInput(controller: _goalValue,
                           keyboardType: TextInputType.number,
