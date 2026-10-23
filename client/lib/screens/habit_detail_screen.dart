@@ -164,6 +164,23 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     }
   }
 
+  Future<void> _deleteLog(Map<String, dynamic> log) async {
+    final confirmed = await FxDialog.confirm(
+      context: context, title: '撤销这条记录',
+      content: '仅撤销这条记录，不影响当天其他记录。',
+      confirmText: '撤销记录', destructive: true);
+    if (confirmed != true) return;
+    try {
+      await ApiService.deleteHabitLog(widget.habit.id, log['id'] as int);
+      await _loadHabitLogs();
+      if (mounted) FxNotice.showContent(context, const Text('记录已撤销'));
+    } catch (error) {
+      if (mounted) FxNotice.showContent(context,
+        Text('撤销结果未确认，请重新加载核对：$error'),
+        variant: FxNoticeVariant.destructive);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final habit = widget.habit;
@@ -321,7 +338,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   }
 
   Widget _logRow(Map<String, dynamic> log, Color habitColor) {
-    final checkedAt = DateTime.parse(log['created_at'] as String).toLocal();
+    final checkedAt = DateTime.tryParse(log['occurred_at']?.toString() ?? '')?.toLocal();
     final logDate = habitLogCalendarDay(log);
     final note = log['note'] as String? ?? '';
     final dMin = log['duration_min'] as int? ?? 0;
@@ -351,14 +368,18 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      _formatDateTime(logDate, checkedAt),
+                      checkedAt == null ? '${logDate.month}月${logDate.day}日 · 时间未记录'
+                           : _formatDateTime(logDate, checkedAt),
                       style: SlowlightTypography.secondary(context).copyWith(
                         fontWeight: FontWeight.w500,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    if (dMin > 0)
-                      Text(
+                    if (log['count_value'] != null)
+                       Text('${log['count_value']} ${widget.habit.recordUnit}',
+                          style: SlowlightTypography.caption(context)),
+                     if (dMin > 0)
+                       Text(
                         '$dMin 分钟',
                         style: SlowlightTypography.caption(
                           context,
@@ -387,8 +408,12 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               ],
             ),
           ),
-          FxIconButton(
-            tooltip: '编辑记录',
+          if (widget.habit.allowMultiplePerDay)
+             FxIconButton(icon: LucideIcons.trash2,
+                tooltip: '撤销这条记录',
+                onPressed: () => _deleteLog(log)),
+           FxIconButton(
+             tooltip: '编辑记录',
             icon: Icons.edit_outlined,
             iconSize: 18,
             onPressed: () => _editLog(log),
