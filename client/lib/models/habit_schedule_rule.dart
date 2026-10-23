@@ -115,11 +115,11 @@ class HabitScheduleRule {
       }
       return result;
     }
-    final monday=DateTime(start.year,start.month,start.day-start.weekday+1);
+    final monday=DateTime.utc(start.year,start.month,start.day-start.weekday+1);
     for(var i=0;i<3660&&result.length<count;i++){
       final d=DateTime(start.year,start.month,start.day+i,hour,m);
       if(unit=='week'){
-        final weeks=DateTime(d.year,d.month,d.day).difference(monday).inDays~/7;
+        final weeks=DateTime.utc(d.year,d.month,d.day).difference(monday).inDays~/7;
         if(weeks%every==0&&weekdays.contains(d.weekday))result.add(d);
       }else{
         final months=(d.year-start.year)*12+d.month-start.month;
