@@ -19,6 +19,9 @@ class Habit {
   final String specificTime;
   final Map<String, dynamic> reminderAt;
   final bool checkedToday;
+  final bool? canCheckIn;
+  final int periodCount;
+  final int periodTarget;
   final List<String> checkedDays;
   final DateTime createdAt;
 
@@ -40,6 +43,9 @@ class Habit {
     this.specificTime = '',
     this.reminderAt = const {},
     this.checkedToday = false,
+    this.canCheckIn,
+    this.periodCount = 0,
+    this.periodTarget = 0,
     this.checkedDays = const [],
     required this.createdAt,
   });
@@ -63,6 +69,9 @@ class Habit {
       durationMin: json['duration_min'] ?? 0,
       specificTime: json['specific_time'] ?? '',
       reminderAt: _parseReminderAt(json['reminder_at']),
+      canCheckIn: json['can_check_in'] is bool ? json['can_check_in'] as bool : null,
+      periodCount: json['period_count'] as int? ?? 0,
+      periodTarget: json['period_target'] as int? ?? 0,
       checkedToday:
           json['checked_today'] == true || json['checked_today'] == 1,
       checkedDays: (json['checked_days'] as List?)
