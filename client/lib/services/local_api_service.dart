@@ -305,6 +305,7 @@ class LocalApiService implements ApiDataSource {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) =>
       _habitRepo.checkIn(
         habitId,
@@ -314,7 +315,13 @@ class LocalApiService implements ApiDataSource {
         countValue: countValue,
         occurredAt: occurredAt,
         period: period,
+        clientKey: clientKey,
+      clientKey: clientKey,
       );
+
+  @override
+  Future<void> deleteHabitLog(int habitId, int logId) =>
+      _habitRepo.deleteLog(habitId, logId);
 
   @override
   Future<Map<String, dynamic>> uncheckInHabit(int habitId) =>
