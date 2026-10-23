@@ -316,7 +316,6 @@ class LocalApiService implements ApiDataSource {
         occurredAt: occurredAt,
         period: period,
         clientKey: clientKey,
-      clientKey: clientKey,
       );
 
   @override
