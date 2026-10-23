@@ -7,6 +7,7 @@ import '../models/habit.dart';
 import '../models/habit_log.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/tag_links_repository.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/habit_checkin_dialog.dart';
@@ -117,6 +118,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         return;
       }
       _message('习惯已创建');
+      try { await NotificationService().scheduleHabitReminders(); }
+      catch (_) { _message('习惯已保存，但提醒调度暂时失败'); }
     } finally {
       _editingHabit = false;
     }
@@ -157,6 +160,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         return;
       }
       _message('习惯已更新');
+      try { await NotificationService().scheduleHabitReminders(); }
+      catch (_) { _message('习惯已更新，但提醒调度暂时失败'); }
     } finally {
       _editingHabit = false;
     }
@@ -348,6 +353,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       await _controller.delete(habit);
       if (_expandedHabitId == habit.id) _expandedHabitId = null;
       _message('习惯已删除');
+      try { await NotificationService().cancelHabitReminders(habit.id); }
+      catch (_) { _message('习惯已删除，但旧提醒可能尚未清理'); }
     } catch (_) {
       _message('删除习惯失败');
     }
