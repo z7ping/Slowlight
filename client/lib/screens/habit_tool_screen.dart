@@ -180,7 +180,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
   Future<void> _toggleTodayInternal(Habit habit) async {
-    if (habit.checkedToday) {
+    if (!(habit.canCheckIn ?? !habit.checkedToday) && habit.checkedToday) {
       final confirmed = await FxDialog.confirm(
         context: context,
         title: '取消打卡',
@@ -194,6 +194,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       } catch (_) {
         _message('取消打卡失败');
       }
+      return;
+    }
+    if (!(habit.canCheckIn ?? !habit.checkedToday)) {
+      _message('当前没有可记录的计划时点，或本周期已达目标');
       return;
     }
     int? durationMin;
@@ -224,8 +228,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Future<void> _openDetailedCheckinInternal(Habit habit) async {
     HapticFeedback.mediumImpact();
-    if (habit.checkedToday) {
-      _message('今天已记录；当前暂不支持编辑打卡详情');
+    if (!(habit.canCheckIn ?? !habit.checkedToday)) {
+      _message('当前没有可记录的计划时点');
       return;
     }
     final value = await HabitCheckinDialog.show(context, habit: habit);
@@ -364,8 +368,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     }
     final all = _controller.habits;
     final visible = all.where((habit) => switch (_filter) {
-      1 => !habit.checkedToday,
-      2 => habit.checkedToday,
+      1 => habit.canCheckIn ?? !habit.checkedToday,
+      2 => !(habit.canCheckIn ?? !habit.checkedToday),
       _ => true,
     }).toList(growable: false);
     return FxRefresh(
@@ -707,20 +711,23 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     );
   }
 
-  Widget _todayButton(Habit habit) => FxButton(
-        key: ValueKey('habits.today.${habit.id}'),
-        label: habit.checkedToday ? '已记录' : '记录今天',
-        icon: habit.checkedToday
-            ? LucideIcons.circleCheck
-            : LucideIcons.check,
-        size: FxButtonSize.sm,
-        variant: habit.checkedToday
-            ? FxButtonVariant.outline
-            : FxButtonVariant.primary,
-        onPressed: _pendingHabitActions.contains(habit.id)
-            ? null
-            : () => _toggleToday(habit),
-      );
+  Widget _todayButton(Habit habit) {
+    final can = habit.canCheckIn ?? !habit.checkedToday;
+    final goal = habit.periodTarget > 0;
+    final label = can ? (goal ? '记一次' : '记录现在') :
+        (goal && habit.periodCount >= habit.periodTarget ? '本期达标' :
+         habit.checkedToday ? '已记录' : '未到计划时点');
+    return FxButton(
+      key: ValueKey('habits.today.'+habit.id.toString()),
+      label: label,
+      icon: can ? LucideIcons.check : LucideIcons.circleCheck,
+      size: FxButtonSize.sm,
+      variant: can ? FxButtonVariant.primary : FxButtonVariant.outline,
+      onPressed: _pendingHabitActions.contains(habit.id) ||
+          (!can && !habit.checkedToday) ? null : () => _toggleToday(habit),
+    );
+  }
+
 
   Widget _stats(Habit habit) {
     final now = DateTime.now();
@@ -732,11 +739,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         checked.contains('${day.year}-${_two(day.month)}-${_two(day.day)}'))
         .length;
     // 记录事实，不把不同频率的习惯统一当作“完成率”评判。
-    final values = [
-      ('${habit.streakCount}', '当前连续'),
-      ('${habit.checkedDays.length}', '已记录天数'),
-      ('$recentCount / 7', '最近七天'),
-    ];
+    final values = habit.scheduleRule.isNotEmpty
+        ? [
+            (habit.periodTarget > 0
+                ? habit.periodCount.toString()+' / '+habit.periodTarget.toString()
+                : '按计划', habit.periodTarget > 0 ? '本周期记录' : '记录周期'),
+            (habit.checkedDays.toSet().length.toString(), '已记录日期'),
+            (recentCount.toString()+' / 7', '最近七日'),
+          ]
+        : [
+            (habit.streakCount.toString(), '当前连续'),
+            (habit.checkedDays.toSet().length.toString(), '已记录天数'),
+            (recentCount.toString()+' / 7', '最近七天'),
+          ];
     return FxResponsiveFormGrid(
       minColumnWidth: 140,
       maxColumns: 3,
