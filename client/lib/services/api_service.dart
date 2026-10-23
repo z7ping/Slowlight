@@ -589,6 +589,7 @@ class ApiService {
       'period': period ?? ''
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
+    if (occurrenceKey != null) body['occurrence_key'] = occurrenceKey;
     final response = await HttpUtil.post(
       Uri.parse('$baseUrl/habits/$habitId/checkin'),
       headers: headers,
