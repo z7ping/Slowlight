@@ -126,9 +126,9 @@ type Habit struct {
 // HabitLog 打卡记录
 type HabitLog struct {
 	ID           uint           `json:"id" gorm:"primaryKey"`
-	HabitID      uint           `json:"habit_id" gorm:"not null;index;uniqueIndex:idx_habit_occurrence,priority:1"`
+	HabitID      uint           `json:"habit_id" gorm:"not null;index;uniqueIndex:idx_habit_occurrence,priority:1,where:deleted_at IS NULL"`
 	Date         string         `json:"date" gorm:"size:10;not null"`
-	OccurrenceKey *string `json:"occurrence_key,omitempty" gorm:"size:120;uniqueIndex:idx_habit_occurrence,priority:2"`
+	OccurrenceKey *string `json:"occurrence_key,omitempty" gorm:"size:120;uniqueIndex:idx_habit_occurrence,priority:2,where:deleted_at IS NULL"`
 	OccurredAt *time.Time `json:"occurred_at,omitempty"`          // YYYY-MM-DD
 	Period       string         `json:"period" gorm:"size:20;default:''"`      // morning/afternoon/evening/night
 	DurationMin  int            `json:"duration_min" gorm:"default:0"`         // 实际时长
