@@ -365,7 +365,7 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		}
 		utc := parsed.UTC()
 		occurredAt = &utc
-	} else if habit.RecordTimeLabel != "" && checkDate == todayStart.Format("2006-01-02") {
+	} else if (habit.RecordTimeLabel != "" || habit.AllowMultiplePerDay) && checkDate == todayStart.Format("2006-01-02") {
 		utc := time.Now().UTC()
 		occurredAt = &utc
 	}
