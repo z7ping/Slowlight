@@ -43,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -160,6 +160,10 @@ class CloudCacheDb {
         record_type TEXT NOT NULL DEFAULT 'legacy',
         record_unit TEXT NOT NULL DEFAULT '次',
         record_time_label TEXT NOT NULL DEFAULT '',
+        allow_multiple_per_day INTEGER NOT NULL DEFAULT 0,
+        goal_period TEXT NOT NULL DEFAULT 'none',
+        goal_metric TEXT NOT NULL DEFAULT 'events',
+        goal_value INTEGER NOT NULL DEFAULT 0,
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -189,6 +193,7 @@ class CloudCacheDb {
         duration_min INTEGER DEFAULT 0,
         count_value INTEGER,
         occurred_at TEXT,
+        client_key TEXT,
         note TEXT DEFAULT '',
         task_id INTEGER,
         created_at TEXT NOT NULL,
@@ -227,6 +232,7 @@ class CloudCacheDb {
         'CREATE INDEX idx_cloud_habits_sync_status ON habits(sync_status)');
     await db.execute(
         'CREATE INDEX idx_cloud_habit_logs_habit_id ON habit_logs(habit_id)');
+    await db.execute('CREATE UNIQUE INDEX idx_habit_logs_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
     await db.execute(
         'CREATE INDEX idx_cloud_sync_queue_entity ON sync_queue(entity_type, entity_local_id)');
     await db.execute(
@@ -258,6 +264,32 @@ class CloudCacheDb {
     if (oldVersion < 5) {
       await _upgradeHabitRecordTypes(db);
     }
+    if (oldVersion < 6) {
+      await _upgradeMultipleHabitRecords(db);
+    }
+  }
+
+  Future<void> _upgradeMultipleHabitRecords(Database db) async {
+    final habitColumns = (await db.rawQuery('PRAGMA table_info(habits)'))
+        .map((row) => row['name'].toString()).toSet();
+    for (final entry in <String, String>{
+      'allow_multiple_per_day': 'INTEGER NOT NULL DEFAULT 0',
+      'goal_period': "TEXT NOT NULL DEFAULT 'none'",
+      'goal_metric': "TEXT NOT NULL DEFAULT 'events'",
+      'goal_value': 'INTEGER NOT NULL DEFAULT 0',
+    }.entries) {
+      if (!habitColumns.contains(entry.key)) {
+        await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
+      }
+    }
+    final logColumns = (await db.rawQuery('PRAGMA table_info(habit_logs)'))
+        .map((row) => row['name'].toString()).toSet();
+    if (!logColumns.contains('client_key')) {
+      await db.execute('ALTER TABLE habit_logs ADD COLUMN client_key TEXT');
+    }
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS '
+        'idx_habit_logs_client_key ON habit_logs(client_key) '
+        'WHERE client_key IS NOT NULL');
   }
 
   /// 补齐 Cloud Cache 中早于本地记录类型功能的字段。
