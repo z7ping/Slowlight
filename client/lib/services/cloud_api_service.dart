@@ -518,8 +518,6 @@ class CloudApiService implements ApiDataSource {
           occurredAt: occurredAt,
           period: period,
         clientKey: clientKey,
-          clientKey: clientKey,
-      clientKey: clientKey,
         );
     if (habitId < 0) return cached();
     return _writeThrough(
@@ -532,7 +530,6 @@ class CloudApiService implements ApiDataSource {
         occurredAt: occurredAt,
         period: period,
         clientKey: clientKey,
-      clientKey: clientKey,
       ),
       cached,
     );
