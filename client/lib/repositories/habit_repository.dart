@@ -1,5 +1,6 @@
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import '../utils/habit_record_key.dart';
 import '../services/cloud_api_service.dart';
 import '../services/data_mode_manager.dart';
 import '../services/data_source.dart';
@@ -127,6 +128,7 @@ class HabitRepository {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) =>
       _dataSource.checkInHabit(
         habitId,
@@ -136,7 +138,12 @@ class HabitRepository {
         countValue: countValue,
         occurredAt: occurredAt,
         period: period,
+        clientKey: clientKey ?? createHabitRecordKey(),
+      clientKey: clientKey,
       );
+
+  Future<void> deleteLog(int habitId, int logId) =>
+      _dataSource.deleteHabitLog(habitId, logId);
 
   Future<Map<String, dynamic>> uncheckIn(int habitId) =>
       _dataSource.uncheckInHabit(habitId);
@@ -217,6 +224,8 @@ class HabitRepository {
         countValue: countValue,
         occurredAt: occurredAt,
         period: period,
+        clientKey: clientKey,
+      clientKey: clientKey,
       );
 
   @Deprecated('Use uncheckIn().')
