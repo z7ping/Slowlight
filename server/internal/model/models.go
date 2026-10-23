@@ -103,6 +103,9 @@ type Habit struct {
 	Icon            string         `json:"icon" gorm:"size:50;default:'✅'"`
 	Color           string         `json:"color" gorm:"size:20;default:'#52c41a'"`
 	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // legacy daily/weekly/monthly/yearly
+	RecordType      string         `json:"record_type" gorm:"size:20;not null;default:'legacy'"`
+	RecordUnit      string         `json:"record_unit" gorm:"size:20;not null;default:'次'"`
+	RecordTimeLabel string         `json:"record_time_label" gorm:"size:40;not null;default:''"`
 	ScheduleRule    string         `json:"schedule_rule" gorm:"type:text;default:'{}'"` // V3 JSON rule (empty = legacy)
 	TargetDays      int            `json:"target_days" gorm:"default:0"`            // 0 = 无限制
 	StreakCount     int            `json:"streak_count" gorm:"default:0"`           // 连续打卡天数
@@ -128,6 +131,7 @@ type HabitLog struct {
 	ID           uint           `json:"id" gorm:"primaryKey"`
 	HabitID      uint           `json:"habit_id" gorm:"not null;index;uniqueIndex:idx_habit_occurrence,priority:1,where:deleted_at IS NULL"`
 	Date         string         `json:"date" gorm:"size:10;not null"`
+	CountValue *int `json:"count_value" gorm:"default:null"`
 	OccurrenceKey *string `json:"occurrence_key,omitempty" gorm:"size:120;uniqueIndex:idx_habit_occurrence,priority:2,where:deleted_at IS NULL"`
 	OccurredAt *time.Time `json:"occurred_at,omitempty"`          // YYYY-MM-DD
 	Period       string         `json:"period" gorm:"size:20;default:''"`      // morning/afternoon/evening/night
