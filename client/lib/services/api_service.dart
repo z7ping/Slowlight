@@ -598,16 +598,18 @@ class ApiService {
       int? durationMin,
       int? countValue,
       String? occurredAt,
+      String? clientKey,
       String? period}) async {
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period);
+          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: clientKey);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
       'duration_min': durationMin ?? 0,
       if (countValue != null) 'count_value': countValue,
       if (occurredAt != null) 'occurred_at': occurredAt,
+      if (clientKey != null) 'client_key': clientKey,
       'period': period ?? ''
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
@@ -625,6 +627,20 @@ class ApiService {
       throw Exception(err['error'] ?? '打卡失败(${response.statusCode})');
     } catch (e) {
       throw Exception('打卡失败(${response.statusCode})');
+    }
+  }
+
+  static Future<void> deleteHabitLog(int habitId, int logId) async {
+    if (DataModeManager().isOffline) {
+      return _localApi.deleteHabitLog(habitId, logId);
+    }
+    final headers = await _authHeaders();
+    final response = await HttpUtil.delete(
+      Uri.parse('$baseUrl/habits/$habitId/logs/$logId'),
+      headers: headers,
+    ).timeout(_postTimeout);
+    if (response.statusCode != 200 && response.statusCode != 404) {
+      throw Exception('撤销记录失败（${response.statusCode}）');
     }
   }
 
