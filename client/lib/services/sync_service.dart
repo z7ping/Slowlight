@@ -620,6 +620,7 @@ class SyncService extends ChangeNotifier {
       date: row['date'] as String?,
       durationMin: row['duration_min'] as int?,
       period: row['period'] as String?,
+      occurrenceKey: row['occurrence_key'] as String?,
     ).timeout(const Duration(seconds: 10));
     final log = result['log'];
     final remoteId = log is Map ? log['id'] as int? : result['id'] as int?;
@@ -1083,6 +1084,8 @@ class SyncService extends ChangeNotifier {
         await _upsert(db, 'habit_logs', id, {
           'habit_id': localHabitId,
           'date': item['date'] ?? '',
+          'occurrence_key': item['occurrence_key'],
+          'occurred_at': item['occurred_at'],
           'period': item['period'] ?? '',
           'duration_min': item['duration_min'] ?? 0,
           'note': item['note'] ?? '',
@@ -1292,7 +1295,9 @@ class SyncService extends ChangeNotifier {
       'period',
       'duration_min',
       'note',
-      'task_id'
+      'task_id',
+      'occurrence_key',
+      'occurred_at',
     ],
   };
 
