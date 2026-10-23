@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../screens/conflict_screen.dart';
 import '../services/cloud_sync_coordinator.dart';
@@ -53,7 +54,7 @@ class SyncStatusBadge extends StatelessWidget {
                       return const SizedBox.shrink();
                     }
                     return FxGestureDetector(
-                  onTap: () => _showDetail(context, sync, pending),
+                  onTap: () => _showDetail(context, sync),
                   child: _statusPill(
                     context,
                     icon:
@@ -141,111 +142,379 @@ class SyncStatusBadge extends StatelessWidget {
     }
   }
 
-  void _showDetail(BuildContext context, SyncService sync, int pending) {
-    FxSheet.show(
-      context: context,
-      builder:
-          (ctx) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '同步状态',
-                    style: SlowlightTypography.cardTitle(
-                      ctx,
-                    ).copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  _infoRow(ctx, '状态', _getStatusText(sync.status)),
-                  _infoRow(ctx, '待同步', '$pending 项'),
-                  if (sync.lastError != null)
-                    _infoRow(
-                      ctx,
-                      '错误',
-                      sync.lastError!.substring(
-                        0,
-                        sync.lastError!.length.clamp(0, 80),
+
+  void _showDetail(BuildContext context, SyncService sync) {
+    final notice = FxNotice.capture(context);
+    Widget content(BuildContext ctx) => _SyncStatusDetails(
+      sync: sync,
+      notice: notice,
+      onConflicts: () {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const ConflictScreen(),
+        ));
+      },
+    );
+
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      FxSheet.show(
+        context: context,
+        useSafeArea: true,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
+        builder: content,
+      );
+    } else {
+      FxDialog.show(context: context, width: 480, child: content(context));
+    }
+  }
+}
+
+/// 跨平台共享内容，承载方式由既有 FxDialog / FxSheet 负责。
+class _SyncStatusDetails extends StatefulWidget {
+  const _SyncStatusDetails({
+    required this.sync,
+    required this.notice,
+    required this.onConflicts,
+  });
+
+  final SyncService sync;
+  final FxNoticeHandle notice;
+  final VoidCallback onConflicts;
+
+  @override
+  State<_SyncStatusDetails> createState() => _SyncStatusDetailsState();
+}
+
+class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
+  late Future<List<Map<String, dynamic>>> _conflicts;
+  bool _expanded = false;
+  bool _retrying = false;
+  String? _feedback;
+  String? _requestError;
+
+  @override
+  void initState() {
+    super.initState();
+    _conflicts = widget.sync.getAllConflicts();
+  }
+
+  Future<void> _retry() async {
+    if (_retrying) return;
+    setState(() {
+      _retrying = true;
+      _requestError = null;
+      _feedback = null;
+    });
+    try {
+      final completed = await CloudSyncCoordinator().syncNow();
+      final conflicts = await widget.sync.getAllConflicts();
+      if (!mounted) return;
+      final pending = widget.sync.pendingCount +
+          CloudSyncCoordinator().standalonePendingCount.value;
+      if (completed &&
+          widget.sync.status == SyncStatusEnum.idle &&
+          conflicts.isEmpty &&
+          pending == 0) {
+        Navigator.of(context).pop();
+        widget.notice.show('同步已完成', variant: FxNoticeVariant.success);
+        return;
+      }
+      setState(() {
+        _conflicts = Future.value(conflicts);
+        _feedback = widget.sync.status == SyncStatusEnum.error
+            ? '本次同步仍未完成，请查看错误或冲突。'
+            : '同步请求已执行，仍有待处理项或结果尚未确认。';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _requestError = error.toString();
+        _feedback = '同步请求未完成，请查看技术详情。';
+      });
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.sync,
+      builder: (context, _) => ValueListenableBuilder<int>(
+        valueListenable: CloudSyncCoordinator().standalonePendingCount,
+        builder: (context, standalone, _) => FutureBuilder<List<Map<String, dynamic>>>(
+          future: _conflicts,
+          builder: (context, snapshot) {
+            final scheme = Theme.of(context).colorScheme;
+            final status = widget.sync.status;
+            final pending = widget.sync.pendingCount + standalone;
+            final count = snapshot.data?.length ?? 0;
+            final conflictsKnown =
+                snapshot.connectionState == ConnectionState.done &&
+                    !snapshot.hasError;
+            final raw = _requestError ?? widget.sync.lastError;
+            final hasRaw = raw != null && raw.trim().isNotEmpty;
+            final failed = _requestError != null || status == SyncStatusEnum.error;
+            final busy = _retrying || status == SyncStatusEnum.syncing;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(SlowlightSpacing.xs),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(SlowlightSpacing.xl),
+                          decoration: BoxDecoration(
+                            color: (failed ? scheme.error : scheme.primary)
+                                .withValues(alpha: 0.09),
+                            borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+                          ),
+                          child: Icon(
+                            failed ? Icons.error_outline
+                                : busy ? Icons.sync : Icons.cloud_outlined,
+                            size: SlowlightIconSize.xl,
+                            color: failed ? scheme.error : scheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: SlowlightSpacing.xl),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                busy ? '正在同步' :
+                                    failed ? '同步未完成' : '同步状态',
+                                style: SlowlightTypography.sectionTitle(context),
+                              ),
+                              const SizedBox(height: SlowlightSpacing.xs),
+                              Text(
+                                busy ? '正在处理云端与本地数据…'
+                                    : failed ? '同步过程中遇到异常，请检查后重试。'
+                                        : '查看当前云端数据同步情况。',
+                                style: SlowlightTypography.secondary(context)
+                                    .copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        FxIconButton(
+                          icon: Icons.close,
+                          tooltip: '关闭同步状态',
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: SlowlightSpacing.xxxl),
+                    Container(
+                      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+                      ),
+                      child: Column(
+                        children: [
+                          _row(context, '同步结果',
+                              busy ? '同步中' : failed ? '失败' : '待机',
+                              color: failed ? scheme.error : null),
+                          const SizedBox(height: SlowlightSpacing.xl),
+                          _row(context, '待同步数据', '$pending 项'),
+                          if (!conflictsKnown || count > 0) ...[
+                            const SizedBox(height: SlowlightSpacing.xl),
+                            _row(context, '同步冲突',
+                                !conflictsKnown
+                                    ? snapshot.hasError ? '状态待确认' : '核对中…'
+                                    : '$count 项'),
+                          ],
+                        ],
                       ),
                     ),
-                  FutureBuilder<List<Map<String, dynamic>>>(
-                    future: sync.getAllConflicts(),
-                    builder: (ctx, snap) {
-                      final conflicts = snap.data ?? [];
-                      if (conflicts.isEmpty) return const SizedBox.shrink();
-                      return Column(
+                    if (failed || hasRaw) ...[
+                      const SizedBox(height: SlowlightSpacing.xxxl),
+                      Row(
                         children: [
-                          _infoRow(ctx, '冲突', '${conflicts.length} 项'),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FxButton(
-                              label: '解决 ${conflicts.length} 个冲突',
-                              icon: Icons.warning_amber,
-                              variant: FxButtonVariant.outline,
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const ConflictScreen(),
-                                  ),
-                                );
-                              },
+                          Icon(Icons.storage_outlined,
+                              size: SlowlightIconSize.sm,
+                              color: scheme.onSurfaceVariant),
+                          const SizedBox(width: SlowlightSpacing.md),
+                          Expanded(
+                            child: Text(
+                              syncErrorTitle(raw),
+                              style: SlowlightTypography.cardTitle(context),
                             ),
                           ),
                         ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FxButton(
-                      label: '立即同步',
-                      icon: Icons.sync,
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        await CloudSyncCoordinator().syncNow();
-                        if (context.mounted) {
-                          FxNotice.showContent(
-                            context,
-                            Text(SyncService().status == SyncStatusEnum.error
-                                ? '同步未完成，请查看错误与冲突'
-                                : '同步请求已执行，请检查待同步数量'),
+                      ),
+                      const SizedBox(height: SlowlightSpacing.md),
+                      Text(
+                        syncErrorDescription(raw),
+                        style: SlowlightTypography.secondary(context)
+                            .copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                      if (hasRaw) ...[
+                        const SizedBox(height: SlowlightSpacing.md),
+                        FxActionBar(
+                          stackBelow: 280,
+                          leading: FxButton(
+                            label: _expanded ? '收起技术详情' : '查看技术详情',
+                            icon: _expanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: FxButtonSize.sm,
+                            variant: FxButtonVariant.ghost,
+                            onPressed: () =>
+                                setState(() => _expanded = !_expanded),
+                          ),
+                          actions: [
+                            FxButton(
+                              label: '复制错误',
+                              icon: Icons.copy_outlined,
+                              size: FxButtonSize.sm,
+                              variant: FxButtonVariant.ghost,
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                  ClipboardData(text: raw!),
+                                );
+                                widget.notice.show('错误详情已复制');
+                              },
+                            ),
+                          ],
+                        ),
+                        if (_expanded) ...[
+                          const SizedBox(height: SlowlightSpacing.md),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(SlowlightSpacing.xl),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHighest,
+                              borderRadius:
+                                  BorderRadius.circular(SlowlightRadius.md),
+                            ),
+                            child: SelectionArea(
+                              child: Text(
+                                raw!,
+                                softWrap: true,
+                                style: SlowlightTypography.caption(context),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                    if (_feedback != null) ...[
+                      const SizedBox(height: SlowlightSpacing.xl),
+                      Text(
+                        _feedback!,
+                        style: SlowlightTypography.secondary(context)
+                            .copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                    if (conflictsKnown && count > 0) ...[
+                      const SizedBox(height: SlowlightSpacing.xl),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FxButton(
+                          label: '解决 $count 个冲突',
+                          icon: Icons.warning_amber_outlined,
+                          variant: FxButtonVariant.outline,
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            widget.onConflicts();
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: SlowlightSpacing.xxxl),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final dismiss = FxButton(
+                          label: '稍后处理',
+                          expanded: true,
+                          variant: FxButtonVariant.outline,
+                          onPressed: () => Navigator.of(context).pop(),
+                        );
+                        final retry = FxButton(
+                          label: busy ? '同步中…' : '重新同步',
+                          expanded: true,
+                          icon: busy ? Icons.hourglass_top : Icons.sync,
+                          onPressed: busy ? null : _retry,
+                        );
+                        if (constraints.maxWidth < 360 ||
+                            MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              retry,
+                              const SizedBox(height: SlowlightSpacing.md),
+                              dismiss,
+                            ],
                           );
                         }
+                        return Row(
+                          children: [
+                            Expanded(child: dismiss),
+                            const SizedBox(width: SlowlightSpacing.md),
+                            Expanded(flex: 2, child: retry),
+                          ],
+                        );
                       },
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ),
-    );
-  }
-
-  Widget _infoRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 60,
-            child: Text(
-              label,
-              style: SlowlightTypography.caption(
-                context,
-              ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ),
-          Expanded(
-            child: Text(value, style: SlowlightTypography.caption(context)),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
+
+  Widget _row(BuildContext context, String label, String value,
+      {Color? color}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: SlowlightTypography.secondary(context)
+              .copyWith(fontWeight: FontWeight.w600, color: color),
+        ),
+      ],
+    );
+  }
+}
+
+/// 对原始错误仅做有依据的归类；失败信息不臆造成功状态或根因。
+String syncErrorTitle(String? error) =>
+    error?.toLowerCase().contains('sqlite') == true
+        ? '本地数据库异常'
+        : '同步处理异常';
+
+String syncErrorDescription(String? error) {
+  if (error == null || error.trim().isEmpty) {
+    return '失败原因待确认，请稍后重试。';
+  }
+  final code = RegExp(r'sqlite_error:\s*(\d+)', caseSensitive: false)
+      .firstMatch(error);
+  if (code != null) {
+    return 'SQLite 返回错误代码 ' +
+        code.group(1)! +
+        '，请展开技术详情查看原始异常。';
+  }
+  return '本次同步未完成，可展开技术详情查看原始异常。';
 }
