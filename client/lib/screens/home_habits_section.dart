@@ -160,7 +160,8 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                         return;
                       }
                       // 根据设置决定是否弹窗
-                      if (showDialog) {
+                      if (showDialog || habit['record_type'] == 'count' ||
+                          (habit['record_time_label'] as String? ?? '').isNotEmpty) {
                         final result = await HabitCheckinDialog.show(
                           context,
                           habit: Habit.fromJson(habit),
@@ -169,8 +170,10 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                         try {
                           await ApiService.checkInHabit(
                             habitId,
-                            durationMin: result['duration_min'] as int,
-                            period: result['period'] as String,
+                            durationMin: result['duration_min'] as int?,
+                            countValue: result['count_value'] as int?,
+                            occurredAt: result['occurred_at'] as String?,
+                            period: result['period'] as String?,
                             note: result['note'] as String? ?? '',
                           );
                           widget.onRefresh();
@@ -223,8 +226,10 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                       try {
                         await ApiService.checkInHabit(
                           habitId,
-                          durationMin: result['duration_min'] as int,
-                          period: result['period'] as String,
+                          durationMin: result['duration_min'] as int?,
+                            countValue: result['count_value'] as int?,
+                            occurredAt: result['occurred_at'] as String?,
+                          period: result['period'] as String?,
                           note: result['note'] as String? ?? '',
                         );
                         widget.onRefresh();
