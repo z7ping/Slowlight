@@ -496,7 +496,6 @@ class CloudApiService implements ApiDataSource {
           durationMin: durationMin,
           period: period,
           occurrenceKey: occurrenceKey,
-        occurrenceKey: occurrenceKey,
         );
     if (habitId < 0) return cached();
     return _writeThrough(
