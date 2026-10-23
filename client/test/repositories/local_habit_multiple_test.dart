@@ -5,7 +5,9 @@ import 'package:slowlight/repositories/local_habit_repository.dart';
 import '../helpers/isolated_test_db.dart';
 
 void main() {
-  setUpAll(() async => useIsolatedTestDb('local_habit_multi'));
+  setUpAll(() async {
+    await useIsolatedTestDb('local_habit_multi');
+  });
   setUp(() async {
     await LocalDb().close();
     await databaseFactory.deleteDatabase(LocalDb.debugDatabasePathOverride!);
