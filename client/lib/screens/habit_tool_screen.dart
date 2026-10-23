@@ -101,6 +101,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           recordType: value.recordType,
           recordUnit: value.recordUnit,
           recordTimeLabel: value.recordTimeLabel,
+          allowMultiplePerDay: value.allowMultiplePerDay,
+          goalPeriod: value.goalPeriod,
+          goalMetric: value.goalMetric,
+          goalValue: value.goalValue,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           preferredPeriod: value.preferredPeriod,
@@ -142,6 +146,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           recordType: value.recordType,
           recordUnit: value.recordUnit,
           recordTimeLabel: value.recordTimeLabel,
+          allowMultiplePerDay: value.allowMultiplePerDay,
+          goalPeriod: value.goalPeriod,
+          goalMetric: value.goalMetric,
+          goalValue: value.goalValue,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           updateSystemTag: true,
@@ -184,7 +192,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
   Future<void> _toggleTodayInternal(Habit habit) async {
-    if (habit.checkedToday) {
+    if (habit.checkedToday && !habit.allowMultiplePerDay) {
       final confirmed = await FxDialog.confirm(
         context: context,
         title: '取消打卡',
@@ -234,8 +242,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Future<void> _openDetailedCheckinInternal(Habit habit) async {
     HapticFeedback.mediumImpact();
-    if (habit.checkedToday) {
-      _message('今天已记录；当前暂不支持编辑打卡详情');
+    if (habit.checkedToday && !habit.allowMultiplePerDay) {
+      _message('今天已记录；当前请在历史明细中查看');
       return;
     }
     final value = await HabitCheckinDialog.show(context, habit: habit);
@@ -268,7 +276,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
     final active = habit.checkedDays.contains(key);
-    if (active) {
+    if (active && !habit.allowMultiplePerDay) {
       _message('历史打卡是事实记录，不在这里修改');
       return;
     }
@@ -725,12 +733,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Widget _todayButton(Habit habit) => FxButton(
         key: ValueKey('habits.today.${habit.id}'),
-        label: habit.checkedToday ? '已记录' : '记录今天',
-        icon: habit.checkedToday
+        label: habit.allowMultiplePerDay ? '新增记录' : habit.checkedToday ? '已记录' : '记录今天',
+        icon: habit.checkedToday && !habit.allowMultiplePerDay
             ? LucideIcons.circleCheck
             : LucideIcons.check,
         size: FxButtonSize.sm,
-        variant: habit.checkedToday
+        variant: habit.checkedToday && !habit.allowMultiplePerDay
             ? FxButtonVariant.outline
             : FxButtonVariant.primary,
         onPressed: _pendingHabitActions.contains(habit.id)
@@ -926,6 +934,24 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
     );
   }
 
+  Future<void> _removeLog(Habit habit, HabitLog log) =>
+      _runHabitAction(habit, () async {
+        final confirmed = await FxDialog.confirm(
+          context: context,
+          title: '撤销这条记录',
+          content: '只撤销所选记录，保留当天其他记录。确定吗？',
+          confirmText: '撤销记录',
+          destructive: true,
+        );
+        if (confirmed != true) return;
+        try {
+          await _controller.deleteLog(habit, log.id);
+          _message('记录已撤销');
+        } catch (error) {
+          _message('撤销结果未确认，请重新加载核对：$error');
+        }
+      });
+
   Widget _logs(Habit habit, Color color) {
     if (_controller.isLoadingLogs(habit.id)) {
       return const SizedBox(
@@ -954,10 +980,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Widget _logRow(Habit habit, HabitLog log, Color color, bool last) {
     final theme = Theme.of(context);
-    final time = '${_two(log.createdAt.hour)}:${_two(log.createdAt.minute)}';
+    final occurred = log.occurredAt;
+    final time = occurred == null ? '时间未记录' : '${_two(occurred.hour)}:${_two(occurred.minute)}';
     final parts = <String>[
       '${log.date.substring(5)} $time',
       if (log.durationMin > 0) '${log.durationMin} 分钟',
+      if (log.countValue != null) '${log.countValue} ${habit.recordUnit}',
       if (log.period.isNotEmpty) _periodText(log.period),
     ];
     final today = DateTime.now();
@@ -1001,9 +1029,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                         context,
                       ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
-                    if (canCancel)
+                    if (canCancel || habit.allowMultiplePerDay)
                       FxInkWell(
-                        onTap: () => _toggleToday(habit),
+                        onTap: () => habit.allowMultiplePerDay
+                            ? _removeLog(habit, log)
+                            : _toggleToday(habit),
                         child: Text(
                           '取消',
                           style: SlowlightTypography.caption(
@@ -1027,6 +1057,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   String _habitMeta(Habit habit) {
     final parts = <String>[habit.frequencyText];
+    if (habit.goalValue > 0) {
+      final unit = habit.goalMetric == 'duration' ? '分钟'
+          : habit.goalMetric == 'count' ? habit.recordUnit : '次';
+      final period = habit.goalPeriod == 'day' ? '今日'
+          : habit.goalPeriod == 'week' ? '本周' : '本月';
+      parts.add('$period ${habit.goalProgress} / ${habit.goalValue} $unit${habit.goalMet ? ' · 已达标' : ''}');
+    }
     if (habit.preferredPeriod.isNotEmpty) {
       parts.add(_periodText(habit.preferredPeriod));
     }
