@@ -360,8 +360,11 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	var full bool
 	writeErr := h.DB.Transaction(func(tx *gorm.DB) error {
 		var locked model.Habit
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("id = ? AND user_id = ?", habit.ID, userID).First(&locked).Error; err != nil { return err }
+		lockedQuery := tx.Where("id = ? AND user_id = ?", habit.ID, userID)
+        if tx.Dialector.Name() != "sqlite" {
+            lockedQuery = lockedQuery.Clauses(clause.Locking{Strength: "UPDATE"})
+        }
+        if err := lockedQuery.First(&locked).Error; err != nil { return err }
 		query := tx.Model(&model.HabitLog{}).Where("habit_id = ?", habit.ID)
 		if rule == nil {
 			query = query.Where("date = ?", checkDate)
