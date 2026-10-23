@@ -469,6 +469,8 @@ func (h *HabitHandler) UpdateHabitLog(c *gin.Context) {
 	var payload struct {
 		Note        *string `json:"note"`
 		DurationMin *int    `json:"duration_min"`
+		CountValue  *int    `json:"count_value"`
+		OccurredAt  *string `json:"occurred_at"`
 		Period      *string `json:"period"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -485,6 +487,27 @@ func (h *HabitHandler) UpdateHabitLog(c *gin.Context) {
 			return
 		}
 		updates["duration_min"] = *payload.DurationMin
+	}
+	if payload.CountValue != nil {
+		if *payload.CountValue <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "count_value 必须大于 0"})
+			return
+		}
+		updates["count_value"] = *payload.CountValue
+	}
+	if payload.OccurredAt != nil {
+		if *payload.OccurredAt == "" {
+			updates["occurred_at"] = nil
+		} else {
+			var user model.User
+			h.DB.Select("timezone").First(&user, userID)
+			parsed, err := time.Parse(time.RFC3339, *payload.OccurredAt)
+			if err != nil || parsed.After(time.Now()) || parsed.In(model.UserLocation(user.Timezone)).Format("2006-01-02") != log.Date {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "实际发生时间不合法"})
+				return
+			}
+			updates["occurred_at"] = parsed.UTC()
+		}
 	}
 	if payload.Period != nil {
 		updates["period"] = *payload.Period
