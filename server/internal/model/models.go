@@ -116,7 +116,10 @@ type Habit struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
-	CheckedToday    bool           `json:"checked_today" gorm:"-"`                     // 今日是否已打卡（非数据库字段）
+	CheckedToday    bool           `json:"checked_today" gorm:"-"`
+	CanCheckIn     *bool          `json:"can_check_in,omitempty" gorm:"-"`
+	PeriodCount    int            `json:"period_count,omitempty" gorm:"-"`
+	PeriodTarget   int            `json:"period_target,omitempty" gorm:"-"`                     // 今日是否已打卡（非数据库字段）
 	CheckedDays     []string       `json:"checked_days" gorm:"-"`                      // 本周打卡日期（非数据库字段）
 }
 
