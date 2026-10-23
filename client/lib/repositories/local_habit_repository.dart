@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 import '../db/local_db.dart';
+import '../models/habit_goal_progress.dart';
+import '../utils/habit_record_key.dart';
 
 /// 本地习惯仓储（SQLite 内部实现）。
 /// HabitLog.date 是日历日期；created_at/updated_at 等 instant 统一存 UTC。
@@ -19,25 +21,25 @@ class LocalHabitRepository {
     DateTime now,
   ) async {
     var cursor = DateTime(now.year, now.month, now.day);
-    var rows = await db.query(
-      'habit_logs',
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitId, _dateStr(cursor)],
-      limit: 1,
-    );
-    if (rows.isEmpty) cursor = cursor.subtract(const Duration(days: 1));
-
-    var streak = 0;
-    while (true) {
-      rows = await db.query(
-        'habit_logs',
+    final habit = (await db.query('habits',
+      where: 'id = ?', whereArgs: [habitId], limit: 1)).first;
+    Future<bool> met(DateTime date) async {
+      final rows = await db.query('habit_logs',
         where: 'habit_id = ? AND date = ?',
-        whereArgs: [habitId, _dateStr(cursor)],
-        limit: 1,
-      );
-      if (rows.isEmpty) break;
+        whereArgs: [habitId, _dateStr(date)]);
+      if ((habit['goal_period'] == 'day') &&
+          ((habit['goal_value'] as int? ?? 0) > 0)) {
+        return HabitGoalProgress.met(habit,
+          HabitGoalProgress.current(habit, rows, now: date));
+      }
+      return rows.isNotEmpty;
+    }
+    if (!await met(cursor)) cursor = cursor.subtract(const Duration(days: 1));
+    var streak = 0;
+    while (await met(cursor)) {
       streak++;
       cursor = cursor.subtract(const Duration(days: 1));
+      if (streak >= 36500) break;
     }
     return streak;
   }
@@ -73,7 +75,14 @@ class LocalHabitRepository {
         whereArgs: [hid, weekStartStr, todayStr],
       );
       mutable['checked_days'] =
-          weekRows.map((row) => row['date'] as String).toList();
+          weekRows.map((row) => row['date'] as String).toSet().toList();
+      final monthStart = _dateStr(DateTime(now.year, now.month, 1));
+      final goalLogs = await db.query('habit_logs',
+          where: 'habit_id = ? AND date >= ? AND date <= ?',
+          whereArgs: [hid, monthStart.compareTo(weekStartStr) < 0 ? monthStart : weekStartStr, todayStr]);
+      final progress = HabitGoalProgress.current(mutable, goalLogs, now: now);
+      mutable['goal_progress'] = progress;
+      mutable['goal_met'] = HabitGoalProgress.met(mutable, progress);
       enriched.add(mutable);
     }
     return enriched;
@@ -213,6 +222,7 @@ class LocalHabitRepository {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) async {
     final db = await _db.database;
     final localNow = DateTime.now();
@@ -220,13 +230,17 @@ class LocalHabitRepository {
     final habit = await getById(habitId);
     if (habit == null) throw Exception('习惯不存在');
 
+    final effectiveKey = clientKey ?? createHabitRecordKey();
+    final replay = await db.query('habit_logs',
+        where: 'client_key = ?', whereArgs: [effectiveKey], limit: 1);
+    if (replay.isNotEmpty) return {'log': replay.first, 'already_checked': true};
     final existing = await db.query(
       'habit_logs',
       where: 'habit_id = ? AND date = ?',
       whereArgs: [habitId, checkDate],
       limit: 1,
     );
-    if (existing.isNotEmpty) {
+    if (habit['allow_multiple_per_day'] != 1 && existing.isNotEmpty) {
       return {
         'message': '该日期已打卡',
         'already_checked': true,
@@ -268,6 +282,7 @@ class LocalHabitRepository {
       'duration_min': actualDuration,
       'count_value': actualCount,
       'occurred_at': actualOccurredAt,
+      'client_key': effectiveKey,
       'note': note,
       'created_at': createdAt,
     });
@@ -290,6 +305,7 @@ class LocalHabitRepository {
         'duration_min': actualDuration,
         'count_value': actualCount,
         'occurred_at': actualOccurredAt,
+        'client_key': effectiveKey,
         'note': note,
         'created_at': createdAt,
       },
@@ -309,6 +325,9 @@ class LocalHabitRepository {
     );
     if (existing.isEmpty) throw Exception('今日未打卡，无法取消');
 
+    if ((await getById(habitId))?['allow_multiple_per_day'] == 1) {
+      throw StateError('此习惯允许多次记录，请从详情逐条撤销');
+    }
     await db.delete(
       'habit_logs',
       where: 'habit_id = ? AND date = ?',
@@ -346,6 +365,17 @@ class LocalHabitRepository {
         'today_checked': logs.any((log) => log['date'] == todayStr),
       },
     };
+  }
+
+  Future<void> deleteLog(int habitId, int logId) async {
+    final db = await _db.database;
+    final deleted = await db.delete('habit_logs',
+        where: 'id = ? AND habit_id = ?', whereArgs: [logId, habitId]);
+    if (deleted == 0) throw StateError('打卡记录不存在');
+    final streak = await _calculateCurrentStreak(db, habitId, DateTime.now());
+    await db.update('habits', {
+      'streak_count': streak, 'updated_at': _nowUtc(),
+    }, where: 'id = ?', whereArgs: [habitId]);
   }
 
   Future<Map<String, dynamic>> updateLog(
