@@ -120,6 +120,10 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                 final todayStr =
                     '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
                 final checkedToday = habit['checked_today'] == true;
+                final allowMultiple = habit['allow_multiple_per_day'] == true ||
+                    habit['allow_multiple_per_day'] == 1;
+                final goal = habit['goal_value'] as int? ?? 0;
+                final progress = habit['goal_progress'] as int? ?? 0;
                 final streak = habit['streak_count'] ?? 0;
                 final showDialog =
                     habit['show_checkin_dialog'] == true ||
@@ -129,7 +133,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   child: FxInkWell(
                     onTap: () async {
-                      if (checkedToday) {
+                      if (checkedToday && !allowMultiple) {
                         final confirm = await FxDialog.confirm(
                           context: context,
                           title: '取消打卡',
@@ -160,7 +164,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                         return;
                       }
                       // 根据设置决定是否弹窗
-                      if (showDialog || habit['record_type'] == 'count' ||
+                      if (allowMultiple || showDialog || habit['record_type'] == 'count' ||
                           (habit['record_time_label'] as String? ?? '').isNotEmpty) {
                         final result = await HabitCheckinDialog.show(
                           context,
@@ -248,7 +252,7 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                     },
                     borderRadius: BorderRadius.circular(8),
                     child: AnimatedOpacity(
-                      opacity: checkedToday ? 0.75 : 1.0,
+                      opacity: checkedToday && !allowMultiple ? 0.75 : 1.0,
                       duration: const Duration(milliseconds: 300),
                       child: Container(
                         decoration: BoxDecoration(
@@ -296,6 +300,14 @@ class _HomeHabitsSectionState extends State<HomeHabitsSection> {
                                 ),
                               ),
                             ),
+                            if (goal > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Text(
+                                  '$progress / $goal',
+                                  style: SlowlightTypography.caption(context),
+                                ),
+                              ),
                             if (streak > 0)
                               Padding(
                                 padding: const EdgeInsets.only(right: 4),

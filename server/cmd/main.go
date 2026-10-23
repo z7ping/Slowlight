@@ -135,6 +135,7 @@ func main() {
 		api.DELETE("/habits/:id/checkin", habitHandler.UncheckInHabit)
 		api.GET("/habits/:id/logs", habitHandler.GetHabitLogs)
 		api.PUT("/habits/:id/logs/:logId", habitHandler.UpdateHabitLog)
+        api.DELETE("/habits/:id/logs/:logId", habitHandler.DeleteHabitLog)
 		api.GET("/habits/:id/streak", habitHandler.GetHabitStreak)
 
 		systemTagHandler := handler.NewSystemTagHandler(db)

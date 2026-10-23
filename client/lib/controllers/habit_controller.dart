@@ -47,6 +47,7 @@ class HabitController extends ChangeNotifier {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) async {
     final result = await _repository.checkIn(
       habit.id,
@@ -56,10 +57,17 @@ class HabitController extends ChangeNotifier {
       countValue: countValue,
       occurredAt: occurredAt,
       period: period,
+      clientKey: clientKey,
     );
     await load();
     if (_logs.containsKey(habit.id)) await loadLogs(habit.id);
     return result;
+  }
+
+  Future<void> deleteLog(Habit habit, int logId) async {
+    await _repository.deleteLog(habit.id, logId);
+    await load();
+    if (_logs.containsKey(habit.id)) await loadLogs(habit.id);
   }
 
   Future<Map<String, dynamic>> uncheckIn(Habit habit) async {
@@ -77,6 +85,10 @@ class HabitController extends ChangeNotifier {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -94,6 +106,10 @@ class HabitController extends ChangeNotifier {
       recordType: recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,
+      allowMultiplePerDay: allowMultiplePerDay,
+      goalPeriod: goalPeriod,
+      goalMetric: goalMetric,
+      goalValue: goalValue,
       targetDays: targetDays,
       systemTagId: systemTagId,
       preferredPeriod: preferredPeriod,
@@ -116,6 +132,10 @@ class HabitController extends ChangeNotifier {
     String? recordType,
     String? recordUnit,
     String? recordTimeLabel,
+    bool? allowMultiplePerDay,
+    String? goalPeriod,
+    String? goalMetric,
+    int? goalValue,
     int? targetDays,
     int? systemTagId,
     bool updateSystemTag = false,
@@ -135,6 +155,10 @@ class HabitController extends ChangeNotifier {
       recordType: recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,
+      allowMultiplePerDay: allowMultiplePerDay,
+      goalPeriod: goalPeriod,
+      goalMetric: goalMetric,
+      goalValue: goalValue,
       targetDays: targetDays,
       systemTagId: systemTagId,
       updateSystemTag: updateSystemTag,

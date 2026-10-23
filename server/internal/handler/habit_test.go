@@ -31,6 +31,7 @@ func newHabitRouter(h *HabitHandler, userID uint) *gin.Engine {
 	r.POST("/habits/:id/checkin", h.CheckInHabit)
 	r.DELETE("/habits/:id/checkin", h.UncheckInHabit)
 	r.GET("/habits/:id/logs", h.GetHabitLogs)
+	r.DELETE("/habits/:id/logs/:logId", h.DeleteHabitLog)
 	r.GET("/habits/:id/streak", h.GetHabitStreak)
 	return r
 }

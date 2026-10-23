@@ -232,6 +232,10 @@ class LocalApiService implements ApiDataSource {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -249,6 +253,10 @@ class LocalApiService implements ApiDataSource {
         recordType: recordType,
         recordUnit: recordUnit,
         recordTimeLabel: recordTimeLabel,
+      allowMultiplePerDay: allowMultiplePerDay,
+      goalPeriod: goalPeriod,
+      goalMetric: goalMetric,
+      goalValue: goalValue,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -270,6 +278,10 @@ class LocalApiService implements ApiDataSource {
       recordType: data['record_type'] as String?,
       recordUnit: data['record_unit'] as String?,
       recordTimeLabel: data['record_time_label'] as String?,
+      allowMultiplePerDay: data['allow_multiple_per_day'] as bool?,
+      goalPeriod: data['goal_period'] as String?,
+      goalMetric: data['goal_metric'] as String?,
+      goalValue: data['goal_value'] as int?,
       targetDays: data['target_days'] as int?,
       systemTagId: data['system_tag_id'] as int?,
       setSystemTag: data.containsKey('system_tag_id'),
@@ -293,6 +305,7 @@ class LocalApiService implements ApiDataSource {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) =>
       _habitRepo.checkIn(
         habitId,
@@ -302,7 +315,12 @@ class LocalApiService implements ApiDataSource {
         countValue: countValue,
         occurredAt: occurredAt,
         period: period,
+        clientKey: clientKey,
       );
+
+  @override
+  Future<void> deleteHabitLog(int habitId, int logId) =>
+      _habitRepo.deleteLog(habitId, logId);
 
   @override
   Future<Map<String, dynamic>> uncheckInHabit(int habitId) =>

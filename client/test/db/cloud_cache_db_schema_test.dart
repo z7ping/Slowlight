@@ -53,10 +53,11 @@ void main() {
       'record_type',
       'record_unit',
       'record_time_label',
+      'allow_multiple_per_day', 'goal_period', 'goal_metric', 'goal_value',
     ]));
     expect(await columns(db, 'habit_logs'), containsAll([
       'count_value',
-      'occurred_at',
+      'occurred_at', 'client_key',
     ]));
   }
 
@@ -103,7 +104,7 @@ void main() {
     expect((await db.query('habit_logs')).single['count_value'], 2);
   });
 
-  test('v4 Cloud Cache 原地升级 v5，保留旧习惯、打卡与待同步队列', () async {
+  test('v4 Cloud Cache 原地升级 v6，保留旧习惯、打卡与待同步队列', () async {
     const now = '2026-10-23T02:43:18.835056Z';
     final oldDb = await openDatabase(
       databasePath,
@@ -154,7 +155,7 @@ void main() {
 
     final upgraded = await CloudCacheDb().database;
     await expectRecordColumns(upgraded);
-    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 5);
+    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 6);
     final oldHabit = (await upgraded.query('habits', where: 'id = 7')).single;
     expect(oldHabit['server_id'], 27);
     expect(oldHabit['name'], '喝水');
@@ -205,6 +206,6 @@ void main() {
     await oldDb.close();
     final upgraded = await CloudCacheDb().database;
     await expectRecordColumns(upgraded);
-    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 5);
+    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 6);
   });
 }

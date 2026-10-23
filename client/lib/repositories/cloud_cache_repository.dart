@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
+import '../models/habit_goal_progress.dart';
+import '../utils/habit_record_key.dart';
 import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -348,10 +350,11 @@ class CloudCacheRepository {
       final localId = row['id'] as int;
       final logs = await db.query(
         'habit_logs',
-        where: 'habit_id = ?',
+        where: 'habit_id = ? AND deleted_at IS NULL',
         whereArgs: [localId],
       );
-      final days = logs.map((value) => value['date']?.toString() ?? '').toList();
+      final days = logs.map((value) => value['date']?.toString() ?? '').toSet().toList();
+      final progress = HabitGoalProgress.current(Map<String, dynamic>.from(row), logs);
       final today = _dateKey(DateTime.now());
       result.add({
         'id': publicId,
@@ -363,6 +366,12 @@ class CloudCacheRepository {
         'record_type': row['record_type'] ?? 'legacy',
         'record_unit': row['record_unit'] ?? '次',
         'record_time_label': row['record_time_label'] ?? '',
+        'allow_multiple_per_day': (row['allow_multiple_per_day'] as int? ?? 0) == 1,
+        'goal_period': row['goal_period'] ?? 'none',
+        'goal_metric': row['goal_metric'] ?? 'events',
+        'goal_value': row['goal_value'] ?? 0,
+        'goal_progress': progress,
+        'goal_met': HabitGoalProgress.met(Map<String, dynamic>.from(row), progress),
         'target_days': row['target_days'] ?? 0,
         'streak_count': row['streak_count'] ?? 0,
         'preferred_period': row['preferred_period'] ?? '',
@@ -393,6 +402,10 @@ class CloudCacheRepository {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -415,6 +428,10 @@ class CloudCacheRepository {
       'record_type': recordType,
       'record_unit': recordUnit,
       'record_time_label': recordTimeLabel,
+      'allow_multiple_per_day': allowMultiplePerDay ? 1 : 0,
+      'goal_period': goalPeriod,
+      'goal_metric': goalMetric,
+      'goal_value': goalValue,
       'target_days': targetDays,
       'system_tag_id': systemTagLocalId,
       'preferred_period': preferredPeriod,
@@ -451,6 +468,11 @@ class CloudCacheRepository {
     if (updates.containsKey('reminder_at')) {
       updates['reminder_at'] = jsonEncode(updates['reminder_at'] ?? const {});
     }
+    for (final key in ['allow_multiple_per_day', 'generate_task', 'show_checkin_dialog']) {
+      if (updates.containsKey(key)) {
+        updates[key] = updates[key] == true || updates[key] == 1 ? 1 : 0;
+      }
+    }
     updates['updated_at'] = _now();
     updates['last_modified'] = _now();
     await db.update('habits', updates, where: 'id = ?', whereArgs: [localId]);
@@ -472,18 +494,22 @@ class CloudCacheRepository {
     int? countValue,
     String? occurredAt,
     String? period,
+    String? clientKey,
   }) async {
     final db = await _db;
     final habitRow = await _rowByPublicId(db, 'habits', publicId);
     final habitLocalId = habitRow['id'] as int;
     final day = date ?? _dateKey(DateTime.now())!;
-    final existing = await db.query(
-      'habit_logs',
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitLocalId, day],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) {
+    final effectiveKey = clientKey ?? createHabitRecordKey();
+    final replay = await db.query('habit_logs',
+      where: 'client_key = ?', whereArgs: [effectiveKey], limit: 1);
+    if (replay.isNotEmpty) {
+      return {'log': await _habitLogMap(db, replay.first), 'already_checked': true};
+    }
+    final existing = await db.query('habit_logs',
+      where: 'habit_id = ? AND date = ? AND deleted_at IS NULL',
+      whereArgs: [habitLocalId, day], limit: 1);
+    if ((habitRow['allow_multiple_per_day'] as int? ?? 0) != 1 && existing.isNotEmpty) {
       return {'log': await _habitLogMap(db, existing.first)};
     }
     final now = _now();
@@ -493,7 +519,9 @@ class CloudCacheRepository {
       'period': period ?? '',
       'duration_min': durationMin ?? 0,
       'count_value': countValue,
-      'occurred_at': occurredAt,
+      'occurred_at': occurredAt ?? ((habitRow['allow_multiple_per_day'] as int? ?? 0) == 1 &&
+          day == _dateKey(DateTime.now()) ? now : null),
+      'client_key': effectiveKey,
       'note': note,
       'created_at': now,
       'sync_status': 'pending',
@@ -517,15 +545,43 @@ class CloudCacheRepository {
     final habitLocalId = await _localId(db, 'habits', publicId);
     final rows = await db.query(
       'habit_logs',
-      where: month == null ? 'habit_id = ?' : 'habit_id = ? AND date LIKE ?',
+      where: month == null ? 'habit_id = ? AND deleted_at IS NULL'
+          : 'habit_id = ? AND date LIKE ? AND deleted_at IS NULL',
       whereArgs: month == null ? [habitLocalId] : [habitLocalId, '$month%'],
-      orderBy: 'date DESC',
+      orderBy: 'date DESC, created_at DESC, id DESC',
     );
     final logs = <Map<String, dynamic>>[];
     for (final row in rows) {
       logs.add(await _habitLogMap(db, row));
     }
     return {'logs': logs};
+  }
+
+  Future<void> deleteHabitLog(int habitPublicId, int logPublicId) async {
+    final db = await _db;
+    final habit = await _rowByPublicId(db, 'habits', habitPublicId);
+    final log = await _rowByPublicId(db, 'habit_logs', logPublicId);
+    final localId = log['id'] as int;
+    if (log['habit_id'] != habit['id']) {
+      throw StateError('记录不属于该习惯');
+    }
+    final serverLogId = log['server_id'] as int?;
+    if (serverLogId == null) {
+      await db.transaction((txn) async {
+        await txn.delete('sync_queue',
+            where: 'entity_type = ? AND entity_local_id = ?',
+            whereArgs: ['habit_logs', localId]);
+        await txn.delete('habit_logs', where: 'id = ?', whereArgs: [localId]);
+      });
+    } else {
+      final now = _now();
+      await db.update('habit_logs', {
+        'deleted_at': now, 'last_modified': now, 'sync_status': 'pending',
+      }, where: 'id = ?', whereArgs: [localId]);
+      await SyncService().enqueue(entityType: 'habit_logs',
+          entityLocalId: localId, entityServerId: serverLogId,
+          operation: 'delete');
+    }
   }
 
   Future<void> deleteHabit(int publicId) async {
@@ -553,6 +609,9 @@ class CloudCacheRepository {
       where: 'habit_id = ? AND date = ?',
       whereArgs: [habitLocalId, day],
     );
+    if ((habitRow['allow_multiple_per_day'] as int? ?? 0) == 1) {
+      throw StateError('此习惯支持多次记录，请在明细中逐条撤销');
+    }
     for (final row in rows) {
       final localLogId = row['id'] as int;
       final serverLogId = row['server_id'] as int?;
@@ -680,6 +739,7 @@ class CloudCacheRepository {
         'duration_min': row['duration_min'] ?? 0,
         'count_value': row['count_value'],
         'occurred_at': row['occurred_at'],
+        'client_key': row['client_key'],
         'note': row['note'] ?? '',
         'task_id': await _publicForeignId(db, 'tasks', row['task_id'] as int?),
         'created_at': row['created_at'],
