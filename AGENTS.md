@@ -63,6 +63,9 @@ go build -o slowlight ./cmd
 
 UI 规则：
 
+- 涉及 UI 时先读根目录 `DESIGN.md`；有内部设计库时再读 `product-internal/slowlight/DESIGN.md` 并定位本次页面对应专题。`DESIGN.md` 是显式读取入口，不假定由 Codex 自动载入。
+- 用户可见变更收口前运行 `python scripts/design/check.py`（复用现有 Fx/Token/几何契约）；无关后端或纯文案改动不机械运行 UI 测试。契约通过与整页视觉/设备验收必须分开记录。
+
 - 页面优先使用 `client/lib/ui/fx.dart` 暴露的 Fx 组件；Screen / Feature Widget 不应绕过已有 Fx 视觉能力直接建立另一套 Material / shadcn_ui 实现。
 - `shadcn_ui` 是主要视觉底座；Fx 负责统一接口、状态、响应式与必要的平台适配，不因迁移重新设计既有高保真。
 - Fx 内部优先使用 shadcn_ui；Material 视觉控件仅允许作为有明确能力原因的平台适配例外，并保持 Slowlight 已确认视觉。
