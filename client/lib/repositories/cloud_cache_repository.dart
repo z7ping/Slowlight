@@ -550,7 +550,7 @@ class CloudCacheRepository {
       'habit_logs',
       where: month == null ? 'habit_id = ?' : 'habit_id = ? AND date LIKE ?',
       whereArgs: month == null ? [habitLocalId] : [habitLocalId, '$month%'],
-      orderBy: 'date DESC',
+      orderBy: 'date DESC, created_at DESC, id DESC',
     );
     final logs = <Map<String, dynamic>>[];
     for (final row in rows) {
