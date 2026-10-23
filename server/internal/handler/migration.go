@@ -103,6 +103,8 @@ type MigrationLog struct {
 	HabitID     uint   `json:"habit_id"`
 	TaskID      *uint  `json:"task_id"`
 	Date        string `json:"date"`
+	OccurrenceKey *string `json:"occurrence_key"`
+	OccurredAt *time.Time `json:"occurred_at"`
 	Period      string `json:"period"`
 	DurationMin int    `json:"duration_min"`
 	Note        string `json:"note"`
@@ -525,7 +527,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 					taskID = &mapped
 				}
 			}
-			row := model.HabitLog{HabitID: habitID, TaskID: taskID, Date: item.Date, Period: item.Period, DurationMin: item.DurationMin, Note: item.Note}
+			row := model.HabitLog{HabitID: habitID, TaskID: taskID, Date: item.Date, OccurrenceKey: item.OccurrenceKey, OccurredAt: item.OccurredAt, Period: item.Period, DurationMin: item.DurationMin, Note: item.Note}
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
