@@ -179,21 +179,26 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   Future<void> _toggleToday(Habit habit) =>
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
+  Future<void> _undoLatestToday(Habit habit) async {
+    if (!habit.checkedToday) return;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '撤销最近一次记录',
+      content: habit.scheduleRule.isNotEmpty
+          ? '仅撤销今天最新一条「'+habit.name+'」记录，其他时段记录保留。'
+          : '确定取消今天「'+habit.name+'」的打卡？',
+      confirmText: '撤销记录',
+    );
+    if (confirmed != true) return;
+    try {
+      await _controller.uncheckIn(habit);
+      _message('最近一次记录已撤销');
+    } catch (_) { _message('撤销记录失败'); }
+  }
+
   Future<void> _toggleTodayInternal(Habit habit) async {
     if (!(habit.canCheckIn ?? !habit.checkedToday) && habit.checkedToday) {
-      final confirmed = await FxDialog.confirm(
-        context: context,
-        title: '取消打卡',
-        content: '确定取消今天「${habit.name}」的打卡？连续天数将重新计算。',
-        confirmText: '取消打卡',
-      );
-      if (confirmed != true) return;
-      try {
-        await _controller.uncheckIn(habit);
-        _message('已取消今天的打卡');
-      } catch (_) {
-        _message('取消打卡失败');
-      }
+      await _undoLatestToday(habit);
       return;
     }
     if (!(habit.canCheckIn ?? !habit.checkedToday)) {
@@ -953,7 +958,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   Widget _logRow(Habit habit, HabitLog log, Color color, bool last) {
     final theme = Theme.of(context);
-    final time = '${_two(log.createdAt.hour)}:${_two(log.createdAt.minute)}';
+    final recordedAt = log.occurredAt ?? log.createdAt;
+    final time = '${_two(recordedAt.hour)}:${_two(recordedAt.minute)}';
     final parts = <String>[
       '${log.date.substring(5)} $time',
       if (log.durationMin > 0) '${log.durationMin} 分钟',
@@ -1002,9 +1008,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
                     ),
                     if (canCancel)
                       FxInkWell(
-                        onTap: () => _toggleToday(habit),
+                        onTap: () => _runHabitAction(habit, () => _undoLatestToday(habit)),
                         child: Text(
-                          '取消',
+                          '撤销最近一次',
                           style: SlowlightTypography.caption(
                             context,
                           ).copyWith(color: theme.colorScheme.error),
