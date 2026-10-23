@@ -587,8 +587,6 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     final rule = _currentRule();
     final theme = Theme.of(context);
     final preview = rule.preview();
-    const units = ['hour', 'day', 'week', 'month', 'year'];
-    const unitLabels = ['小时', '天', '周', '月', '年'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -623,16 +621,28 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                 const SizedBox(height: 8),
                 FxFormField(
                   label: '周期单位',
-                  child: FxSegmented(
-                    labels: _mode == 'interval' ? unitLabels : const ['周', '月'],
-                    selectedIndex: _mode == 'interval'
-                        ? units.indexOf(_unit).clamp(0, units.length - 1).toInt()
-                        : (_unit == 'month' ? 1 : 0),
-                    onChanged: (i) => setState(() =>
-                        _unit = _mode == 'interval' ? units[i] : const ['week','month'][i]),
-                    backgroundColor: fxSubtleSurface(context),
-                    selectedColor: fxSurface(context),
-                  ),
+                  child: _mode == 'interval'
+                      ? FxSelect<String>(
+                          value: _unit,
+                          options: const [
+                            FxSelectOption(value: 'hour', label: '小时'),
+                            FxSelectOption(value: 'day', label: '天'),
+                            FxSelectOption(value: 'week', label: '周'),
+                            FxSelectOption(value: 'month', label: '月'),
+                            FxSelectOption(value: 'year', label: '年（旧习惯兼容）'),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() => _unit = v);
+                          },
+                        )
+                      : FxSegmented(
+                          labels: const ['周', '月'],
+                          selectedIndex: _unit == 'month' ? 1 : 0,
+                          onChanged: (i) => setState(() =>
+                              _unit = const ['week', 'month'][i]),
+                          backgroundColor: fxSubtleSurface(context),
+                          selectedColor: fxSurface(context),
+                        ),
                 ),
                 if (_mode == 'interval' && _unit == 'hour') ...[
                   const SizedBox(height: 12),
