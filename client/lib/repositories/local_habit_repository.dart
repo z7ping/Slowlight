@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 import '../db/local_db.dart';
+import '../models/habit_occurrence.dart';
 
 /// 本地习惯仓储（SQLite 内部实现）。
 /// HabitLog.date 是日历日期；created_at/updated_at 等 instant 统一存 UTC。
@@ -190,62 +191,70 @@ class LocalHabitRepository {
     String? occurrenceKey,
   }) async {
     final db = await _db.database;
-    final localNow = DateTime.now();
-    final checkDate = date ?? _dateStr(localNow);
+    final now = DateTime.now();
+    final day = date ?? _dateStr(now);
     final habit = await getById(habitId);
-    if (habit == null) throw Exception('习惯不存在');
-
-    final existing = await db.query(
-      'habit_logs',
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitId, checkDate],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) {
-      return {
-        'message': '该日期已打卡',
-        'already_checked': true,
-        'log': existing.first,
-        'streak_count': habit['streak_count'] as int? ?? 0,
-      };
+    if (habit == null) throw StateError('习惯不存在');
+    final rule = HabitOccurrence.rule(habit['schedule_rule'],
+        legacyFrequency: habit['frequency']?.toString() ?? 'daily');
+    if (date != null && DateTime.tryParse(date)?.isAfter(DateTime(now.year, now.month, now.day)) == true) {
+      throw StateError('不能记录未来日期');
     }
-
-    final actualPeriod = period?.isNotEmpty == true
-        ? period!
-        : (habit['preferred_period'] as String? ?? '');
-    final actualDuration = durationMin ?? (habit['duration_min'] as int? ?? 0);
-    final createdAt = _nowUtc();
-
-    final logId = await db.insert('habit_logs', {
-      'habit_id': habitId,
-      'date': checkDate,
-      'period': actualPeriod,
-      'duration_min': actualDuration,
-      'note': note,
-      'created_at': createdAt,
+    if (rule != null && date != null) {
+      final created = DateTime.tryParse(habit['created_at']?.toString() ?? '')?.toLocal();
+      if (created != null &&
+          DateTime.parse(day).isBefore(DateTime(created.year,created.month,created.day))) {
+        throw StateError('打卡日期早于习惯创建日期');
+      }
+    }
+    final event = rule == null ? null : HabitOccurrence.calculate(
+        rule, now, date: day, requestKey: occurrenceKey);
+    return db.transaction((tx) async {
+      final existing = await tx.query('habit_logs',
+        where: rule == null ? 'habit_id = ? AND date = ?' :
+            'habit_id = ? AND occurrence_key = ?',
+        whereArgs: [habitId, rule == null ? day : event!.key],
+        limit: 1);
+      if (existing.isNotEmpty) {
+        return {'message': '该时段已记录', 'already_checked': true,
+          'log': existing.first, 'streak_count': habit['streak_count'] ?? 0};
+      }
+      if (event?.periodStart != null) {
+        final counts = await tx.rawQuery(
+          'SELECT COUNT(*) AS total FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
+          [habitId, event!.periodStart, event.periodEnd]);
+        final count = counts.first['total'] as int? ?? 0;
+        if (count >= event.target) throw StateError('本周期已完成目标次数');
+        if (!event.sameDayMultiple) {
+          final sameDay = await tx.query('habit_logs',
+            where: 'habit_id = ? AND date = ?',whereArgs:[habitId,day],limit:1);
+          if (sameDay.isNotEmpty) return {'message':'该日已记录',
+            'already_checked':true,'log':sameDay.first};
+        }
+      }
+      final at = date == null ? now :
+          DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
+      final actualPeriod = period?.isNotEmpty == true
+          ? period! : habit['preferred_period']?.toString() ?? '';
+      final actualDuration = durationMin ?? habit['duration_min'] as int? ?? 0;
+      final createdAt = _nowUtc();
+      final id = await tx.insert('habit_logs', {
+        'habit_id':habitId, 'date':day, 'occurrence_key':event?.key,
+        'occurred_at':at.toUtc().toIso8601String(), 'period':actualPeriod,
+        'duration_min':actualDuration,'note':note,'created_at':createdAt,
+      });
+      final streak = rule == null
+          ? await _calculateCurrentStreak(tx,habitId,now) : 0;
+      await tx.update('habits',
+        {'streak_count':streak,'updated_at':_nowUtc()},
+        where:'id = ?',whereArgs:[habitId]);
+      return {'message':'打卡成功','log':{
+        'id':id,'habit_id':habitId,'date':day,'occurrence_key':event?.key,
+        'occurred_at':at.toUtc().toIso8601String(),
+        'period':actualPeriod,'duration_min':actualDuration,
+        'note':note,'created_at':createdAt,
+      },'streak_count':streak};
     });
-
-    final streakCount = await _calculateCurrentStreak(db, habitId, localNow);
-    await db.update(
-      'habits',
-      {'streak_count': streakCount, 'updated_at': _nowUtc()},
-      where: 'id = ?',
-      whereArgs: [habitId],
-    );
-
-    return {
-      'message': '打卡成功',
-      'log': {
-        'id': logId,
-        'habit_id': habitId,
-        'date': checkDate,
-        'period': actualPeriod,
-        'duration_min': actualDuration,
-        'note': note,
-        'created_at': createdAt,
-      },
-      'streak_count': streakCount,
-    };
   }
 
   Future<Map<String, dynamic>> uncheckIn(int habitId) async {
