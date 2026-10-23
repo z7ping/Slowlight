@@ -43,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -157,6 +157,9 @@ class CloudCacheDb {
         icon TEXT DEFAULT '✅',
         color TEXT DEFAULT '#52c41a',
         frequency TEXT DEFAULT 'daily',
+        record_type TEXT NOT NULL DEFAULT 'legacy',
+        record_unit TEXT NOT NULL DEFAULT '次',
+        record_time_label TEXT NOT NULL DEFAULT '',
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -184,6 +187,8 @@ class CloudCacheDb {
         date TEXT NOT NULL,
         period TEXT DEFAULT '',
         duration_min INTEGER DEFAULT 0,
+        count_value INTEGER,
+        occurred_at TEXT,
         note TEXT DEFAULT '',
         task_id INTEGER,
         created_at TEXT NOT NULL,
@@ -249,6 +254,46 @@ class CloudCacheDb {
     }
     if (oldVersion < 4) {
       await UnifiedTagSchema.ensureTables(db);
+    }
+    if (oldVersion < 5) {
+      await _upgradeHabitRecordTypes(db);
+    }
+  }
+
+  /// 补齐 Cloud Cache 中早于本地记录类型功能的字段。
+  /// 只追加列，保留现有习惯、打卡记录、同步队列以及账号隔离。
+  Future<void> _upgradeHabitRecordTypes(Database db) async {
+    final habitColumns = await db.rawQuery('PRAGMA table_info(habits)');
+    final habitNames = habitColumns.map((column) => column['name']).toSet();
+    for (final entry in <String, String>{
+      'record_type': "TEXT NOT NULL DEFAULT 'legacy'",
+      'record_unit': "TEXT NOT NULL DEFAULT '次'",
+      'record_time_label': "TEXT NOT NULL DEFAULT ''",
+    }.entries) {
+      if (!habitNames.contains(entry.key)) {
+        await db.execute(
+          'ALTER TABLE habits ADD COLUMN ' +
+              entry.key +
+              ' ' +
+              entry.value,
+        );
+      }
+    }
+
+    final logColumns = await db.rawQuery('PRAGMA table_info(habit_logs)');
+    final logNames = logColumns.map((column) => column['name']).toSet();
+    for (final entry in <String, String>{
+      'count_value': 'INTEGER',
+      'occurred_at': 'TEXT',
+    }.entries) {
+      if (!logNames.contains(entry.key)) {
+        await db.execute(
+          'ALTER TABLE habit_logs ADD COLUMN ' +
+              entry.key +
+              ' ' +
+              entry.value,
+        );
+      }
     }
   }
 
