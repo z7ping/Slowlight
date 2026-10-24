@@ -1633,7 +1633,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _settingLine(
           '长休息提醒',
           _reminder.isLoaded
-              ? '小憩满 ${_reminder.microRestsBeforeLong} 次后进入 ${_reminder.longRestMinutes} 分钟长休息'
+              ? '完成 ${_reminder.microRestsBeforeLong} 次小憩后，下一轮工作结束进入 ${_reminder.longRestMinutes} 分钟长休息'
               : _reminder.loadFailed ? '读取提醒配置失败，可重试' : '读取提醒配置中…',
           trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '已配置' : '读取中…', accent: _reminder.isLoaded),
         ),
