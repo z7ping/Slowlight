@@ -98,12 +98,15 @@ void main() {
     const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature';
     await logger.write(
       source: 'auth',
-      error: 'Bearer $secret password=$secret poll_token=$secret $jwt',
+      error: 'Bearer $secret password=$secret poll_token=$secret '
+          'state=$secret {"state":"$secret"} $jwt',
     );
     final text = await logger.readText();
     expect(text, isNot(contains(secret)));
     expect(text, isNot(contains(jwt)));
     expect(text, contains('[REDACTED]'));
+    expect(text, contains('password=[REDACTED]'));
+    expect(text, isNot(contains(r'$1')));
   });
 
   test('recent log preview is bounded but source file remains intact', () async {

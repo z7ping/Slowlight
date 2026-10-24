@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -27,7 +29,12 @@ class DashboardBody extends StatefulWidget {
   final VoidCallback? onQuickAdd;
   final VoidCallback? onWriteObservation;
   final VoidCallback? onStartFocus;
-  final VoidCallback? onRefresh;
+  final FutureOr<void> Function()? onRefresh;
+  final bool tasksLoading;
+  final bool habitsLoading;
+  final bool tasksError;
+  final bool habitsError;
+  final bool listsError;
   final ValueChanged<Insight>? onInsightAction;
   final int refreshTick;
   final Future<Map<String, dynamic>> Function()? dimensionLoader;
@@ -49,6 +56,11 @@ class DashboardBody extends StatefulWidget {
     this.onWriteObservation,
     this.onStartFocus,
     this.onRefresh,
+    this.tasksLoading = false,
+    this.habitsLoading = false,
+    this.tasksError = false,
+    this.habitsError = false,
+    this.listsError = false,
     this.onInsightAction,
     this.refreshTick = 0,
     this.dimensionLoader,
@@ -89,20 +101,22 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Future<void> _load() async {
     final version = ++_loadVersion;
-    if (mounted) setState(() {
-      _dimensionLoading = true;
-      _reviewLoading = true;
-      _dimensionLoadFailed = false;
-      _reviewLoadFailed = false;
-      _timelineLoading = true;
-      _timelineLoadFailed = false;
-    });
+    if (mounted)
+      setState(() {
+        _dimensionLoading = true;
+        _reviewLoading = true;
+        _dimensionLoadFailed = false;
+        _reviewLoadFailed = false;
+        _timelineLoading = true;
+        _timelineLoadFailed = false;
+      });
 
     // 独立完成/报错：任意一个辅助接口迟迟未返回，也不能阻塞另一个区域。
     Future<void> loadDimensions() async {
       List<Map<String, dynamic>>? parsed;
       try {
-        final data = await (widget.dimensionLoader ?? AnalyticsApi.getDimensionSummary)();
+        final data = await (widget.dimensionLoader ??
+            AnalyticsApi.getDimensionSummary)();
         parsed = (data['dimensions'] as List? ?? const [])
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
@@ -185,7 +199,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     return FxRefresh(
       onRefresh: () async {
         await _load();
-        widget.onRefresh?.call();
+        await widget.onRefresh?.call();
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -197,6 +211,14 @@ class _DashboardBodyState extends State<DashboardBody> {
         ),
         children: [
           _header(desktop),
+          if (widget.listsError) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            const Text('清单读取失败；已加载的任务、习惯和工具仍可使用。'),
+            FxButton(
+                label: '重试加载',
+                variant: FxButtonVariant.outline,
+                onPressed: widget.onRefresh),
+          ],
           SizedBox(height: desktop ? 18 : 12),
           desktop ? _desktop() : _mobile(),
         ],
@@ -258,59 +280,59 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   // 主工作台：事实优先、行动就近，所有数据使用现有 Review/Analytics 边界。
   Widget _desktop() => Column(
-    children: [
-      _overviewCard(),
-      const SizedBox(height: 16),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              children: [
-                _timelineCard(),
-                if (_shouldShowQuestion) ...[
-                  const SizedBox(height: 14),
-                  _questionCard(),
-                ],
-              ],
-            ),
+          _overviewCard(),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 5,
+                child: Column(
+                  children: [
+                    _timelineCard(),
+                    if (_shouldShowQuestion) ...[
+                      const SizedBox(height: 14),
+                      _questionCard(),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 4,
+                child: Column(
+                  children: [
+                    _taskCard(maxItems: 4, mobile: false),
+                    const SizedBox(height: 14),
+                    _habitCard(maxItems: 4, mobile: false),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 4,
-            child: Column(
-              children: [
-                _taskCard(maxItems: 4, mobile: false),
-                const SizedBox(height: 14),
-                _habitCard(maxItems: 4, mobile: false),
-              ],
-            ),
-          ),
+          const SizedBox(height: 14),
+          _dimensionCard(),
         ],
-      ),
-      const SizedBox(height: 14),
-      _dimensionCard(),
-    ],
-  );
+      );
 
   Widget _mobile() => Column(
-    children: [
-      _overviewCard(),
-      const SizedBox(height: 12),
-      _taskCard(maxItems: 3, mobile: true),
-      const SizedBox(height: 12),
-      _timelineCard(),
-      const SizedBox(height: 12),
-      _habitCard(maxItems: 3, mobile: true),
-      if (_shouldShowQuestion) ...[
-        const SizedBox(height: 12),
-        _questionCard(),
-      ],
-      const SizedBox(height: 12),
-      _dimensionCard(),
-    ],
-  );
+        children: [
+          _overviewCard(),
+          const SizedBox(height: 12),
+          _taskCard(maxItems: 3, mobile: true),
+          const SizedBox(height: 12),
+          _timelineCard(),
+          const SizedBox(height: 12),
+          _habitCard(maxItems: 3, mobile: true),
+          if (_shouldShowQuestion) ...[
+            const SizedBox(height: 12),
+            _questionCard(),
+          ],
+          const SizedBox(height: 12),
+          _dimensionCard(),
+        ],
+      );
 
   Widget _overviewCard() {
     final theme = Theme.of(context);
@@ -356,8 +378,8 @@ class _DashboardBodyState extends State<DashboardBody> {
                               .copyWith(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 3),
                       Text(counts[i].$1,
-                          style: SlowlightTypography.caption(context)
-                              .copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                          style: SlowlightTypography.caption(context).copyWith(
+                              color: theme.colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -390,7 +412,9 @@ class _DashboardBodyState extends State<DashboardBody> {
             title: '今天的轨迹',
             trailing: _timelineLoadFailed
                 ? '读取失败'
-                : _timelineLoading ? '读取中' : '${_timeline.length} 条记录',
+                : _timelineLoading
+                    ? '读取中'
+                    : '${_timeline.length} 条记录',
             trailingWidget: widget.onViewReview == null
                 ? null
                 : FxButton(
@@ -412,7 +436,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('今天还没有行为记录。',
-                    style: SlowlightTypography.secondary(context)),
+                      style: SlowlightTypography.secondary(context)),
                   if (widget.onWriteObservation != null) ...[
                     const SizedBox(height: 4),
                     FxButton(
@@ -508,8 +532,8 @@ class _DashboardBodyState extends State<DashboardBody> {
             _empty('正在读取四维统计…')
           else if (_dimensions.isEmpty)
             _empty('还没有四维行为记录')
-          else if (_dimensions.every((item) =>
-              (item['active_days'] as List? ?? const []).isEmpty))
+          else if (_dimensions.every(
+              (item) => (item['active_days'] as List? ?? const []).isEmpty))
             _empty('最近 7 天还没有归属四维的行为足迹')
           else
             LayoutBuilder(
@@ -546,7 +570,8 @@ class _DashboardBodyState extends State<DashboardBody> {
     final theme = Theme.of(context);
     final color = _parseColor(item['color']?.toString());
     final active = _activeDays(item);
-    final activeCount = _lastSevenDays().where((day) => active.contains(_dateKey(day))).length;
+    final activeCount =
+        _lastSevenDays().where((day) => active.contains(_dateKey(day))).length;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -589,10 +614,9 @@ class _DashboardBodyState extends State<DashboardBody> {
                 margin: const EdgeInsets.only(left: 3),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color:
-                      active.contains(_dateKey(day))
-                          ? color
-                          : fxSubtleSurface(context),
+                  color: active.contains(_dateKey(day))
+                      ? color
+                      : fxSubtleSurface(context),
                 ),
               ),
             ),
@@ -610,18 +634,24 @@ class _DashboardBodyState extends State<DashboardBody> {
         children: [
           FxSectionHeader(
             title: '今日任务',
-            trailing: '$completed/${widget.tasks.length} 完成',
-            trailingWidget:
-                widget.onViewAllTasks == null
-                    ? null
-                    : FxButton(
-                      label: '查看全部',
-                      variant: FxButtonVariant.ghost,
-                      size: FxButtonSize.sm,
-                      onPressed: widget.onViewAllTasks,
-                    ),
+            trailing: widget.tasksLoading
+                ? '读取中'
+                : widget.tasksError
+                    ? (visible.isEmpty ? '数量未知' : '上次数据')
+                    : '$completed/${widget.tasks.length} 完成',
+            trailingWidget: widget.onViewAllTasks == null
+                ? null
+                : FxButton(
+                    label: '查看全部',
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: widget.onViewAllTasks,
+                  ),
           ),
-          if (visible.isEmpty)
+          if (widget.tasksLoading || widget.tasksError)
+            _coreStatus('任务', widget.tasksLoading, widget.tasksError,
+                visible.isNotEmpty),
+          if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
             _emptyWithNext(
               '今天暂时没有任务',
               '先写下一件想做的事',
@@ -645,7 +675,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     final meta = _taskMeta(task);
     final largeText =
         MediaQuery.textScalerOf(context).scale(SlowlightTypography.bodySize) >=
-        SlowlightTypography.bodySize * 1.3;
+            SlowlightTypography.bodySize * 1.3;
     final row = FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => widget.onTaskTap?.call(task),
@@ -670,13 +700,12 @@ class _DashboardBodyState extends State<DashboardBody> {
             ],
             FxInkWell(
               borderRadius: BorderRadius.circular(999),
-              onTap:
-                  widget.onTaskToggle == null
-                      ? null
-                      : () {
-                        if (mobile) HapticFeedback.lightImpact();
-                        widget.onTaskToggle?.call(task);
-                      },
+              onTap: widget.onTaskToggle == null
+                  ? null
+                  : () {
+                      if (mobile) HapticFeedback.lightImpact();
+                      widget.onTaskToggle?.call(task);
+                    },
               child: SizedBox(
                 width: 44,
                 height: 44,
@@ -686,26 +715,23 @@ class _DashboardBodyState extends State<DashboardBody> {
                     height: 18,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(6),
-                      color:
-                          task.isCompleted
-                              ? AppTheme.success
-                              : Colors.transparent,
+                      color: task.isCompleted
+                          ? AppTheme.success
+                          : Colors.transparent,
                       border: Border.all(
-                        color:
-                            task.isCompleted
-                                ? AppTheme.success
-                                : theme.colorScheme.outline,
+                        color: task.isCompleted
+                            ? AppTheme.success
+                            : theme.colorScheme.outline,
                         width: 1.5,
                       ),
                     ),
-                    child:
-                        task.isCompleted
-                            ? const Icon(
-                              Icons.check,
-                              size: 11,
-                              color: Colors.white,
-                            )
-                            : null,
+                    child: task.isCompleted
+                        ? const Icon(
+                            Icons.check,
+                            size: 11,
+                            color: Colors.white,
+                          )
+                        : null,
                   ),
                 ),
               ),
@@ -722,10 +748,9 @@ class _DashboardBodyState extends State<DashboardBody> {
                       fontWeight: FontWeight.w500,
                       decoration:
                           task.isCompleted ? TextDecoration.lineThrough : null,
-                      color:
-                          task.isCompleted
-                              ? theme.colorScheme.onSurfaceVariant
-                              : theme.colorScheme.onSurface,
+                      color: task.isCompleted
+                          ? theme.colorScheme.onSurfaceVariant
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
                   if (meta.isNotEmpty)
@@ -778,20 +803,26 @@ class _DashboardBodyState extends State<DashboardBody> {
         children: [
           FxSectionHeader(
             title: '习惯',
-            trailing: widget.habits.isEmpty
-                ? '暂无习惯'
-                : '$checked/${widget.habits.length} 已打卡',
-            trailingWidget:
-                widget.onViewAllHabits == null
-                    ? null
-                    : FxButton(
-                      label: '查看全部',
-                      variant: FxButtonVariant.ghost,
-                      size: FxButtonSize.sm,
-                      onPressed: widget.onViewAllHabits,
-                    ),
+            trailing: widget.habitsLoading
+                ? '读取中'
+                : widget.habitsError
+                    ? (visible.isEmpty ? '数量未知' : '上次数据')
+                    : widget.habits.isEmpty
+                        ? '暂无习惯'
+                        : '$checked/${widget.habits.length} 已打卡',
+            trailingWidget: widget.onViewAllHabits == null
+                ? null
+                : FxButton(
+                    label: '查看全部',
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: widget.onViewAllHabits,
+                  ),
           ),
-          if (visible.isEmpty)
+          if (widget.habitsLoading || widget.habitsError)
+            _coreStatus('习惯', widget.habitsLoading, widget.habitsError,
+                visible.isNotEmpty),
+          if (visible.isEmpty && !widget.habitsLoading && !widget.habitsError)
             _emptyWithNext(
               '还没有习惯记录',
               '去创建第一个习惯',
@@ -811,25 +842,40 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
+  Widget _coreStatus(String name, bool loading, bool error, bool hasData) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (loading)
+          const FxCircularProgress()
+        else ...[
+          Text(hasData ? '${name}刷新失败，以下为上次数据。' : '${name}暂时无法加载，当前数量未知。'),
+          FxButton(
+              label: '重新加载$name',
+              variant: FxButtonVariant.outline,
+              onPressed: widget.onRefresh),
+        ],
+      ]),
+    );
+  }
+
   Widget _habitRow(Habit habit, bool mobile) {
     final theme = Theme.of(context);
     final color = _parseColor(habit.color);
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      onTap:
-          widget.onHabitToggle == null
-              ? null
-              : () {
-                if (mobile) HapticFeedback.lightImpact();
-                widget.onHabitToggle?.call(habit);
-              },
-      onLongPress:
-          !mobile || widget.onHabitLongPress == null
-              ? null
-              : () {
-                HapticFeedback.mediumImpact();
-                widget.onHabitLongPress?.call(habit);
-              },
+      onTap: widget.onHabitToggle == null
+          ? null
+          : () {
+              if (mobile) HapticFeedback.lightImpact();
+              widget.onHabitToggle?.call(habit);
+            },
+      onLongPress: !mobile || widget.onHabitLongPress == null
+          ? null
+          : () {
+              HapticFeedback.mediumImpact();
+              widget.onHabitLongPress?.call(habit);
+            },
       child: Container(
         constraints: const BoxConstraints(minHeight: 56),
         decoration: BoxDecoration(
@@ -845,7 +891,9 @@ class _DashboardBodyState extends State<DashboardBody> {
                 color: color.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(SlowlightRadius.md),
               ),
-              child: Text(habit.icon, style: const TextStyle(fontSize: SlowlightTypography.bodySize)),
+              child: Text(habit.icon,
+                  style:
+                      const TextStyle(fontSize: SlowlightTypography.bodySize)),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -874,20 +922,18 @@ class _DashboardBodyState extends State<DashboardBody> {
                 shape: BoxShape.circle,
                 color: habit.checkedToday ? color : Colors.transparent,
                 border: Border.all(
-                  color:
-                      habit.checkedToday
-                          ? color
-                          : theme.colorScheme.outlineVariant,
+                  color: habit.checkedToday
+                      ? color
+                      : theme.colorScheme.outlineVariant,
                   width: 1.5,
                 ),
               ),
               child: Icon(
                 Icons.check,
                 size: 13,
-                color:
-                    habit.checkedToday
-                        ? Colors.white
-                        : theme.colorScheme.outline,
+                color: habit.checkedToday
+                    ? Colors.white
+                    : theme.colorScheme.outline,
               ),
             ),
             const SizedBox(width: 9),
@@ -898,18 +944,18 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _partialUnavailable(String message) => Row(
-    children: [
-      Expanded(
-        child: Text(message, style: SlowlightTypography.secondary(context)),
-      ),
-      FxButton(
-        label: '重试',
-        size: FxButtonSize.sm,
-        variant: FxButtonVariant.ghost,
-        onPressed: _load,
-      ),
-    ],
-  );
+        children: [
+          Expanded(
+            child: Text(message, style: SlowlightTypography.secondary(context)),
+          ),
+          FxButton(
+            label: '重试',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.ghost,
+            onPressed: _load,
+          ),
+        ],
+      );
 
   bool get _shouldShowQuestion =>
       _reviewLoading ||
@@ -941,14 +987,17 @@ class _DashboardBodyState extends State<DashboardBody> {
             const SizedBox(height: 8),
             if (_reviewLoadFailed)
               _partialUnavailable('今日提问暂时无法读取')
-            else Text(
-              insight?.content ?? (_reviewLoading ? '正在读取今日提问…' : '今天暂时没有特别需要关注的变化。'),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: SlowlightTypography.secondary(context).copyWith(
-                fontWeight: insight == null ? FontWeight.w400 : FontWeight.w600,
+            else
+              Text(
+                insight?.content ??
+                    (_reviewLoading ? '正在读取今日提问…' : '今天暂时没有特别需要关注的变化。'),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  fontWeight:
+                      insight == null ? FontWeight.w400 : FontWeight.w600,
+                ),
               ),
-            ),
             if (insight != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -987,34 +1036,36 @@ class _DashboardBodyState extends State<DashboardBody> {
     String action,
     VoidCallback? onNext, {
     bool compact = false,
-  }) => Padding(
-    padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: SlowlightTypography.secondary(context).copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        )),
-        if (onNext != null)
-          FxButton(
-            label: action,
-            variant: FxButtonVariant.link,
-            size: FxButtonSize.sm,
-            onPressed: onNext,
-          ),
-      ],
-    ),
-  );
+  }) =>
+      Padding(
+        padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: SlowlightTypography.secondary(context).copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                )),
+            if (onNext != null)
+              FxButton(
+                label: action,
+                variant: FxButtonVariant.link,
+                size: FxButtonSize.sm,
+                onPressed: onNext,
+              ),
+          ],
+        ),
+      );
 
   Widget _empty(String text, {bool compact = false}) => Padding(
-    padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
-    child: Text(
-      text,
-      style: SlowlightTypography.secondary(
-        context,
-      ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-    ),
-  );
+        padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
+        child: Text(
+          text,
+          style: SlowlightTypography.secondary(
+            context,
+          ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+      );
 
   Set<String> _activeDays(Map<String, dynamic> item) =>
       (item['active_days'] as List?)
@@ -1061,8 +1112,6 @@ class _DashboardBodyState extends State<DashboardBody> {
       return AppTheme.info;
     }
   }
-
-
 }
 
 class _MobileTaskSwipeRow extends StatefulWidget {
@@ -1180,4 +1229,3 @@ class _SwipeAction extends StatelessWidget {
     );
   }
 }
-

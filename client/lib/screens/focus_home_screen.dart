@@ -23,7 +23,7 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
 import '../widgets/dashboard/dashboard.dart';
-import '../widgets/habit_checkin_dialog.dart';
+import '../widgets/habit_checkin_flow.dart';
 import '../widgets/reflection_composer.dart';
 import '../widgets/sync_status_badge.dart';
 import '../widgets/task_detail_sheet.dart';
@@ -58,9 +58,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   List<TodoList> _lists = const [];
   List<Task> _tasks = const [];
   List<Habit> _habits = const [];
-  bool _loading = true;
-  bool _hasLoadedCoreData = false;
-  bool _initialLoadFailed = false;
+  final Set<String> _coreLoading = {'清单', '任务', '习惯'};
+  final Set<String> _coreErrors = {};
+  final Set<int> _pendingHabitActions = {};
+  int _loadVersion = 0;
+  GlobalKey _workspaceKey = GlobalKey(debugLabel: '回顾工作区');
+  bool _reviewOpened = false;
   bool _organizeToolsExpanded = false;
   late Future<Map<String, String>> _accountFuture;
   bool _shortcutModifierPressed = false;
@@ -78,8 +81,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   void initState() {
     super.initState();
     _accountFuture = _loadAccountDisplay();
-    authStateNotifier.addListener(_refreshAccount);
-    DataModeManager().addListener(_refreshAccount);
+    authStateNotifier.addListener(_resetWorkspace);
+    DataModeManager().addListener(_resetWorkspace);
     _reload();
     NotificationService().checkAndScheduleReminders();
     TrayService().loadAfterLogin();
@@ -88,16 +91,15 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
   @override
   void dispose() {
-    authStateNotifier.removeListener(_refreshAccount);
-    DataModeManager().removeListener(_refreshAccount);
+    authStateNotifier.removeListener(_resetWorkspace);
+    DataModeManager().removeListener(_resetWorkspace);
     _shortcutFocusNode.dispose();
     super.dispose();
   }
 
   bool _handleKeyboardShortcut(KeyEvent event) {
     final key = event.logicalKey;
-    final isModifier =
-        key == LogicalKeyboardKey.controlLeft ||
+    final isModifier = key == LogicalKeyboardKey.controlLeft ||
         key == LogicalKeyboardKey.controlRight ||
         key == LogicalKeyboardKey.metaLeft ||
         key == LogicalKeyboardKey.metaRight;
@@ -108,8 +110,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     }
     if (event is! KeyDownEvent || key != LogicalKeyboardKey.keyK) return false;
     final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final modifierPressed =
-        _shortcutModifierPressed ||
+    final modifierPressed = _shortcutModifierPressed ||
         pressed.contains(LogicalKeyboardKey.controlLeft) ||
         pressed.contains(LogicalKeyboardKey.controlRight) ||
         pressed.contains(LogicalKeyboardKey.metaLeft) ||
@@ -120,31 +121,35 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   }
 
   Future<void> _reload() async {
-    try {
-      final results = await Future.wait<dynamic>([
-        DataService().getLists(),
-        DataService().getTodayTasks(),
-        HabitRepository().getAll(),
-      ]);
-      if (!mounted) return;
+    final version = ++_loadVersion;
+    if (mounted)
       setState(() {
-        _lists = results[0] as List<TodoList>;
-        _tasks = results[1] as List<Task>;
-        _habits = results[2] as List<Habit>;
-        _loading = false;
-        _hasLoadedCoreData = true;
-        _initialLoadFailed = false;
-        _dashboardRefreshTick++;
+        _coreLoading.addAll(['清单', '任务', '习惯']);
+        _coreErrors.clear();
       });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        // Do not display an empty Today view as if the user had no records.
-        _initialLoadFailed = !_hasLoadedCoreData;
-      });
-      if (_hasLoadedCoreData) _message('数据刷新失败，仍显示上次加载的内容');
+    Future<void> load<T>(
+        String name, Future<T> Function() read, void Function(T) apply) async {
+      try {
+        final value = await read();
+        if (!mounted || version != _loadVersion) return;
+        setState(() => apply(value));
+      } catch (_) {
+        if (!mounted || version != _loadVersion) return;
+        setState(() => _coreErrors.add(name));
+      } finally {
+        if (mounted && version == _loadVersion) {
+          setState(() => _coreLoading.remove(name));
+        }
+      }
     }
+
+    await Future.wait([
+      load('清单', DataService().getLists, (value) => _lists = value),
+      load('任务', DataService().getTodayTasks, (value) => _tasks = value),
+      load('习惯', HabitRepository().getAll, (value) => _habits = value),
+    ]);
+    if (mounted && version == _loadVersion)
+      setState(() => _dashboardRefreshTick++);
   }
 
   Future<void> _openPendingTask() async {
@@ -173,15 +178,16 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   void _openPrimary(HomePrimarySection section) {
     setState(() {
       _navigation = _navigation.openPrimary(section);
+      if (section == HomePrimarySection.review) _reviewOpened = true;
       _organizeToolsExpanded = false;
     });
     if (section == HomePrimarySection.today) _reload();
   }
 
   bool _isOrganizeTool(HomeToolSection tool) => switch (tool) {
-    HomeToolSection.lists || HomeToolSection.observationTags => true,
-    _ => false,
-  };
+        HomeToolSection.lists || HomeToolSection.observationTags => true,
+        _ => false,
+      };
 
   bool get _isReviewContext =>
       _navigation.primary == HomePrimarySection.review &&
@@ -261,63 +267,49 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     }
   }
 
-  Future<void> _toggleHabit(Habit habit) async {
-    final repository = HabitRepository();
-    try {
-      if (habit.checkedToday) {
-        final confirmed = await FxDialog.confirm(
-          context: context,
-          title: '取消打卡',
-          content: '确定取消今天「${habit.name}」的打卡？连续天数将重新计算。',
-          confirmText: '取消打卡',
-        );
-        if (confirmed != true) return;
-        await repository.uncheckIn(habit.id);
-        _message('已取消「${habit.name}」今天的记录');
-        await _reload();
-        return;
-      }
-      int? durationMin;
-      String? period;
-      String note = '';
-      if (habit.showCheckinDialog) {
-        final detail = await HabitCheckinDialog.show(context, habit: habit);
-        if (detail == null) return;
-        durationMin = detail['duration_min'] as int?;
-        period = detail['period']?.toString();
-        note = detail['note']?.toString() ?? '';
-      }
-      await repository.checkIn(
-        habit.id,
-        durationMin: durationMin,
-        period: period,
-        note: note,
-      );
-      _message('已记录「${habit.name}」');
-      await _reload();
-    } catch (_) {
-      _message('习惯状态更新失败');
-    }
-  }
+  Future<void> _toggleHabit(Habit habit) =>
+      _runHabitAction(habit, detailed: false);
 
-  Future<void> _openDetailedHabitCheckin(Habit habit) async {
-    if (habit.checkedToday) {
-      _message('今天已记录；当前暂不支持编辑打卡详情');
-      return;
-    }
-    final detail = await HabitCheckinDialog.show(context, habit: habit);
-    if (detail == null) return;
+  Future<void> _openDetailedHabitCheckin(Habit habit) =>
+      _runHabitAction(habit, detailed: true);
+
+  Future<void> _runHabitAction(Habit habit, {required bool detailed}) async {
+    if (!_pendingHabitActions.add(habit.id)) return;
     try {
-      await HabitRepository().checkIn(
-        habit.id,
-        durationMin: detail['duration_min'] as int?,
-        period: detail['period']?.toString(),
-        note: detail['note']?.toString() ?? '',
-      );
-      _message('已记录「${habit.name}」');
+      if (habit.checkedToday && !habit.allowMultiplePerDay) {
+        if (detailed) {
+          _message('今天已记录；请在习惯详情中查看');
+          return;
+        }
+        final confirmed = await FxDialog.confirm(
+            context: context,
+            title: '取消打卡',
+            content: '确定取消今天「${habit.name}」的打卡？连续天数将重新计算。',
+            confirmText: '取消打卡');
+        if (confirmed != true) return;
+        await HabitRepository().uncheckIn(habit.id);
+        _message('已取消「${habit.name}」今天的记录');
+      } else {
+        final saved = await recordHabit(context,
+            habit: habit, detailed: detailed, submit: (value) async {
+          await HabitRepository().checkIn(
+            habit.id,
+            durationMin: value['duration_min'] as int?,
+            countValue: value['count_value'] as int?,
+            occurredAt: value['occurred_at'] as String?,
+            period: value['period'] as String?,
+            note: value['note'] as String? ?? '',
+            clientKey: value['client_key'] as String?,
+          );
+        });
+        if (!saved) return;
+        _message('已记录「${habit.name}」');
+      }
       await _reload();
-    } catch (e) {
-      _message(e.toString().contains('已打卡') ? '今天已经记录过' : '习惯状态更新失败');
+    } catch (error) {
+      _message('操作结果未确认，请重新加载核对：$error');
+    } finally {
+      _pendingHabitActions.remove(habit.id);
     }
   }
 
@@ -370,24 +362,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final desktop = ResponsiveLayout.isDesktopOrWider(context);
-    final content = _loading
-        ? const Center(child: FxCircularProgress())
-        : _initialLoadFailed
-            ? Center(
-                child: SingleChildScrollView(
-                  child: FxEmptyState(
-                    key: const ValueKey('home-core-load-error'),
-                    icon: LucideIcons.triangleAlert,
-                    title: '暂时无法加载记录',
-                    subtitle: '清单、任务或习惯数据读取失败，请检查服务连接后重试。',
-                    action: FxButton(
-                      label: '重新加载',
-                      onPressed: _reload,
-                    ),
-                  ),
-                ),
-              )
-            : _buildContent();
+    final content = _buildWorkspace();
 
     if (desktop) {
       return _shortcutRegion(
@@ -436,20 +411,19 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            leading:
-                _navigation.isTool
-                    ? FxIconButton(
-                      icon: LucideIcons.chevronLeft,
-                      iconSize: 20,
-                      tooltip: '返回',
-                      onPressed: _closeTool,
-                    )
-                    : FxIconButton(
-                      icon: LucideIcons.menu,
-                      iconSize: 20,
-                      tooltip: '工具',
-                      onPressed: _openMobileTools,
-                    ),
+            leading: _navigation.isTool
+                ? FxIconButton(
+                    icon: LucideIcons.chevronLeft,
+                    iconSize: 20,
+                    tooltip: '返回',
+                    onPressed: _closeTool,
+                  )
+                : FxIconButton(
+                    icon: LucideIcons.menu,
+                    iconSize: 20,
+                    tooltip: '工具',
+                    onPressed: _openMobileTools,
+                  ),
             actions: [
               if (_navigation.isToday) ...[
                 FxIconButton(
@@ -470,7 +444,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
               ),
             ),
           ),
-          body: _navigation.isToday ? _mobileTodayBody(content) : content,
+          body: _mobileTodayBody(content),
           bottomNavigationBar:
               _navigation.isTool ? null : _mobileBottomNavigation(),
         ),
@@ -483,11 +457,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       key: const ValueKey('global-search-shortcuts'),
       focusNode: _shortcutFocusNode,
       autofocus: true,
-      onKeyEvent:
-          (_, event) =>
-              _handleKeyboardShortcut(event)
-                  ? KeyEventResult.handled
-                  : KeyEventResult.ignored,
+      onKeyEvent: (_, event) => _handleKeyboardShortcut(event)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored,
       child: child,
     );
   }
@@ -584,20 +556,24 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
         return Stack(
           children: [
             Positioned.fill(child: content),
-            Positioned(
-              left: left,
-              top: top,
-              child: _mobileQuickAddButton(
-                onPanUpdate: (details) {
-                  setState(() {
-                    _fabPosition = Offset(
-                      (left + details.delta.dx).clamp(0.0, maxLeft).toDouble(),
-                      (top + details.delta.dy).clamp(0.0, maxTop).toDouble(),
-                    );
-                  });
-                },
+            if (_navigation.isToday)
+              Positioned(
+                left: left,
+                top: top,
+                child: _mobileQuickAddButton(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      final current = _fabPosition ?? Offset(left, top);
+                      _fabPosition = Offset(
+                        (current.dx + details.delta.dx)
+                            .clamp(0.0, maxLeft)
+                            .toDouble(),
+                        (current.dy + details.delta.dy).clamp(0.0, maxTop).toDouble(),
+                      );
+                    });
+                  },
+                ),
               ),
-            ),
           ],
         );
       },
@@ -630,12 +606,28 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     );
   }
 
+  Widget _buildWorkspace() {
+    final showingReview = _navigation.tool == null &&
+        _navigation.primary == HomePrimarySection.review;
+    // 首次进入回顾才加载；离开时保留输入、未知结果和进行中的保存。
+    // 账号/数据模式切换会整体换 key，避免跨账号复用草稿。
+    return IndexedStack(
+      key: _workspaceKey,
+      index: showingReview ? 1 : 0,
+      children: [
+        showingReview ? const SizedBox.shrink() : _buildContent(),
+        _reviewOpened ? const TodayReviewScreen() : const SizedBox.shrink(),
+      ],
+    );
+  }
+
   Widget _buildContent() {
     final tool = _navigation.tool;
     if (tool != null) {
       return switch (tool) {
         HomeToolSection.tasks => const TaskToolScreen(),
-        HomeToolSection.habits => const HabitToolScreen(),
+        HomeToolSection.habits =>
+          const HabitToolScreen(titleProvidedByShell: true),
         HomeToolSection.quadrant => const QuadrantScreen(),
         HomeToolSection.calendar => const CalendarScreen(),
         HomeToolSection.lists => const ListManageScreen(),
@@ -647,21 +639,26 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     }
     return switch (_navigation.primary) {
       HomePrimarySection.today => DashboardBody(
-        tasks: _tasks,
-        habits: _habits,
-        refreshTick: _dashboardRefreshTick,
-        onTaskTap: _openTask,
-        onTaskToggle: _toggleTask,
-        onHabitToggle: _toggleHabit,
-        onHabitLongPress: _openDetailedHabitCheckin,
-        onViewAllTasks: () => _openTool(HomeToolSection.tasks),
-        onViewAllHabits: () => _openTool(HomeToolSection.habits),
-        onViewReview: () => _openPrimary(HomePrimarySection.review),
-        onQuickAdd: _quickAdd,
-        onWriteObservation: _writeObservation,
-        onStartFocus: _startFocus,
-        onRefresh: _reload,
-      ),
+          tasks: _tasks,
+          tasksLoading: _coreLoading.contains('任务'),
+          habitsLoading: _coreLoading.contains('习惯'),
+          tasksError: _coreErrors.contains('任务'),
+          habitsError: _coreErrors.contains('习惯'),
+          listsError: _coreErrors.contains('清单'),
+          habits: _habits,
+          refreshTick: _dashboardRefreshTick,
+          onTaskTap: _openTask,
+          onTaskToggle: _toggleTask,
+          onHabitToggle: _toggleHabit,
+          onHabitLongPress: _openDetailedHabitCheckin,
+          onViewAllTasks: () => _openTool(HomeToolSection.tasks),
+          onViewAllHabits: () => _openTool(HomeToolSection.habits),
+          onViewReview: () => _openPrimary(HomePrimarySection.review),
+          onQuickAdd: _quickAdd,
+          onWriteObservation: _writeObservation,
+          onStartFocus: _startFocus,
+          onRefresh: _reload,
+        ),
       HomePrimarySection.review => const TodayReviewScreen(),
     };
   }
@@ -687,7 +684,21 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   }
 
   void _refreshAccount() {
-    if (mounted) setState(() => _accountFuture = _loadAccountDisplay());
+    if (mounted) setState(() { _accountFuture = _loadAccountDisplay(); });
+  }
+
+  void _resetWorkspace() {
+    if (!mounted) return;
+    setState(() {
+      _accountFuture = _loadAccountDisplay();
+      _workspaceKey = GlobalKey(debugLabel: '回顾工作区');
+      _reviewOpened = _navigation.tool == null &&
+          _navigation.primary == HomePrimarySection.review;
+      _lists = const [];
+      _tasks = const [];
+      _habits = const [];
+    });
+    _reload();
   }
 
   Widget _accountEntry(void Function(Widget) openPage) {
@@ -699,7 +710,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
             (snapshot.hasError ? {'name': '账号状态暂不可用', 'status': '点击查看'} : null);
         return FxInkWell(
           key: const ValueKey('home.account_entry'),
-          onTap: () => openPage(const SettingsScreen(initialSection: 'account')),
+          onTap: () =>
+              openPage(const SettingsScreen(initialSection: 'account')),
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 52),
@@ -917,9 +929,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     final theme = Theme.of(context);
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      onTap:
-          () =>
-              setState(() => _organizeToolsExpanded = !_organizeToolsExpanded),
+      onTap: () =>
+          setState(() => _organizeToolsExpanded = !_organizeToolsExpanded),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
@@ -1037,7 +1048,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
       leading: Icon(icon, size: 18),
-      title: Text(label, style: const TextStyle(fontSize: SlowlightTypography.secondarySize)),
+      title: Text(label,
+          style: const TextStyle(fontSize: SlowlightTypography.secondarySize)),
       selected: selected,
       selectedColor: accent,
       selectedTileColor: accent.withValues(alpha: .12),

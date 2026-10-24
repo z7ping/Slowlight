@@ -32,8 +32,8 @@ import 'reminder_screen.dart';
 /// GitHub OAuth 创建用户时服务端采用内部邮箱占位符，并非用户邮箱。
 Widget githubBrandMark(BuildContext context, {double size = 44}) {
   final dark = Theme.of(context).brightness == Brightness.dark;
-  final background = dark ? Colors.white : const Color(0xFF181717);
-  final foreground = dark ? const Color(0xFF181717) : Colors.white;
+  final background = dark ? Colors.white : SlowlightSemanticColor.github;
+  final foreground = dark ? SlowlightSemanticColor.github : Colors.white;
   return Container(
     width: size,
     height: size,

@@ -1,12 +1,49 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final variant in FxIconButtonVariant.values) {
+      testWidgets('${platform.name} $variant 图标按钮焦点不改变尺寸且可键盘触发', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        var count = 0;
+        await tester.pumpWidget(buildFxTestHost(
+          home: Scaffold(body: Center(child: FxIconButton(
+            icon: Icons.refresh, variant: variant,
+            onPressed: () { count++; },
+          ))),
+        ));
+        final button = find.byType(FxIconButton);
+        final size = tester.getSize(button);
+        expect(size, Size.square(platform == TargetPlatform.android ? 44 : 30));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        final focusColor = Theme.of(tester.element(button)).colorScheme.primary;
+        final decorations = tester.widgetList<DecoratedBox>(find.descendant(
+          of: button, matching: find.byType(DecoratedBox),
+        ));
+        expect(decorations.any((box) {
+          final decoration = box.decoration;
+          return decoration is BoxDecoration && decoration.border is Border &&
+              (decoration.border! as Border).top.color == focusColor;
+        }), isTrue, reason: '键盘焦点必须有可见描边');
+        expect(tester.getSize(button), size);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(count, 1);
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
   testWidgets('FxButton 异步提交执行中忽略连续点击，完成后可再次点击', (tester) async {
     final pending = Completer<void>();
     var count = 0;

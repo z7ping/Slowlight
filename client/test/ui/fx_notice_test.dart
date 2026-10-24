@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -20,6 +20,7 @@ void main() {
   });
 
   testWidgets('Android 长错误仅使用 Sonner，不再打开二次详情弹窗', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(bottom: 32);
@@ -51,14 +52,16 @@ void main() {
     );
 
     await tester.tap(find.text('触发失败'));
+    // 首帧创建通知并启动入场动画，再推进动画时间。
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('登录失败'), findsOneWidget);
     expect(find.text(details), findsNothing);
     expect(find.text('查看详情'), findsNothing);
     expect(find.text('操作未完成，请稍后重试或到应用诊断查看记录'), findsOneWidget);
-    expect(find.byType(ShadDialog), findsNothing);
-    final toast = find.byType(ShadToast).last;
+    expect(fxDialogSurfaceFinder(), findsNothing);
+    final toast = fxToastFinder().last;
     expect(tester.getRect(toast).bottom, lessThanOrEqualTo(768));
     expect(tester.takeException(), isNull);
 
@@ -95,6 +98,7 @@ void main() {
     );
 
     await tester.tap(find.text('模拟 GitHub 登录完成'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('首页'), findsOneWidget);
     expect(find.text('GitHub 登录成功'), findsOneWidget);
@@ -138,6 +142,7 @@ void main() {
     await tester.tap(find.text('从设置打开登录'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('模拟登录完成'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('从设置打开登录'), findsOneWidget);
     expect(find.text('登录成功'), findsOneWidget);

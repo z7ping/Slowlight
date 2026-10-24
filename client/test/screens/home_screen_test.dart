@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('home_screen');
+    SharedPreferences.setMockInitialValues({'data_mode': 'local'});
+    FlutterSecureStorage.setMockInitialValues({});
+    await DataModeManager().setLocal();
+  });
   Future<void> pumpAt(
     WidgetTester tester, {
     required Size size,

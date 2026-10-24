@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -82,7 +83,8 @@ class _FxButtonState extends State<FxButton> {
   static const double _compactIconGap = 6;
 
   Widget _buildChild(BuildContext context) {
-    final text = Text(widget.label, style: _textMetrics(context));
+    final text = Text(widget.label,
+        style: _textMetrics(context), textAlign: TextAlign.center);
     if (widget.icon != null) {
       return Row(
         mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
@@ -96,11 +98,9 @@ class _FxButtonState extends State<FxButton> {
             color: widget.foregroundColor,
           ),
           SizedBox(
-            width: _isCompactAction
-                ? _compactIconGap
-                : SlowlightSpacing.md,
+            width: _isCompactAction ? _compactIconGap : SlowlightSpacing.md,
           ),
-          text,
+          if (widget.expanded) Flexible(child: text) else text,
         ],
       );
     }
@@ -120,6 +120,50 @@ class _FxButtonState extends State<FxButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.expanded) return _buildButton(context);
+    return LayoutBuilder(builder: (context, constraints) {
+      if (!constraints.hasBoundedWidth) return _buildButton(context);
+      // 复用 ShadButton 的 expands 能力约束内容；大字号长文案允许换行，
+      // 按实际文字高度增长，不缩字或裁掉关键动作。
+      final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+      final padding = switch (widget.size) {
+        FxButtonSize.sm => mobile ? 14.0 : 10.0,
+        FxButtonSize.md => mobile ? 16.0 : 14.0,
+        FxButtonSize.lg => mobile ? 20.0 : 18.0,
+      };
+      final iconWidth = widget.icon == null
+          ? 0.0
+          : (_isCompactAction
+              ? SlowlightIconSize.compactAction + _compactIconGap
+              : SlowlightIconSize.sm + SlowlightSpacing.md);
+      final painter = TextPainter(
+        text: TextSpan(text: widget.label, style: _textMetrics(context)),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(
+          maxWidth: math.max(
+              1.0, constraints.maxWidth - padding * 2 - iconWidth - 8));
+      final minHeight = mobile
+          ? (widget.size == FxButtonSize.lg
+              ? 48.0
+              : SlowlightControlSize.minTouchTarget)
+          : switch (widget.size) {
+              FxButtonSize.sm => SlowlightControlSize.buttonSm,
+              FxButtonSize.md => SlowlightControlSize.button,
+              FxButtonSize.lg => SlowlightControlSize.buttonLg,
+            };
+      final verticalSpace = switch (widget.size) {
+        FxButtonSize.sm => SlowlightSpacing.md,
+        FxButtonSize.md => SlowlightSpacing.xl,
+        FxButtonSize.lg => SlowlightSpacing.xxxl,
+      };
+      final height = math.max(minHeight, painter.height + verticalSpace);
+      painter.dispose();
+      return _buildButton(context, height: height);
+    });
+  }
+
+  Widget _buildButton(BuildContext context, {double? height}) {
     final child = _buildChild(context);
     final Widget button;
     switch (widget.variant) {
@@ -127,6 +171,8 @@ class _FxButtonState extends State<FxButton> {
         button = ShadButton(
           onPressed: _effectiveAction,
           size: _shadSize,
+          expands: widget.expanded,
+          height: height,
           child: child,
         );
         break;
@@ -134,6 +180,8 @@ class _FxButtonState extends State<FxButton> {
         button = ShadButton.secondary(
           onPressed: _effectiveAction,
           size: _shadSize,
+          expands: widget.expanded,
+          height: height,
           child: child,
         );
         break;
@@ -141,6 +189,8 @@ class _FxButtonState extends State<FxButton> {
         button = ShadButton.outline(
           onPressed: _effectiveAction,
           size: _shadSize,
+          expands: widget.expanded,
+          height: height,
           child: child,
         );
         break;
@@ -148,6 +198,8 @@ class _FxButtonState extends State<FxButton> {
         button = ShadButton.ghost(
           onPressed: _effectiveAction,
           size: _shadSize,
+          expands: widget.expanded,
+          height: height,
           child: child,
         );
         break;
@@ -155,6 +207,8 @@ class _FxButtonState extends State<FxButton> {
         button = ShadButton.destructive(
           onPressed: _effectiveAction,
           size: _shadSize,
+          expands: widget.expanded,
+          height: height,
           child: child,
         );
         break;
@@ -162,6 +216,8 @@ class _FxButtonState extends State<FxButton> {
         button = ShadButton.link(
           onPressed: _effectiveAction,
           size: _shadSize,
+          expands: widget.expanded,
+          height: height,
           child: child,
         );
         break;

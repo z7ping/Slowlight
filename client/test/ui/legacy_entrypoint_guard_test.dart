@@ -1,6 +1,14 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:slowlight/models/task.dart';
+import 'package:slowlight/models/todo_list.dart';
+import 'package:slowlight/screens/task_tool_screen.dart';
+import 'package:slowlight/widgets/task_detail_sheet.dart';
+
+import '../support/fx_test_host.dart';
 
 void main() {
   test('旧首页、侧栏与维度字段不得悄悄重返正式业务调用链', () async {
@@ -28,9 +36,34 @@ void main() {
     );
   });
 
-  test('任务工具页仍使用活动的桌面详情面板，不误删现役实现', () async {
-    final source = await File('lib/screens/task_tool_screen.dart').readAsString();
-    expect(source.contains("import 'home_task_detail_panel.dart';"), isTrue);
-    expect(source.contains('HomeTaskDetailPanel('), isTrue);
+  testWidgets('桌面选择任务后在原工作区查看详情，关闭后保留列表', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final task = Task(
+      id: 1, listId: 1, title: '待查看的任务', priority: 'none',
+      isCompleted: false, createdAt: DateTime(2026, 10, 24),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataLoader: () async => <dynamic>[
+        <Task>[task], <Task>[task], <Task>[], <TodoList>[],
+      ])),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(task.title).first);
+    // 详情立即可用；标签的独立异步加载不应成为选中任务的等待条件。
+    await tester.pump();
+    final detail = find.byType(TaskDetailSheet);
+    expect(detail, findsOneWidget);
+    expect(tester.widget<TaskDetailSheet>(detail).sidePanel, isTrue);
+    expect(find.ancestor(of: detail, matching: find.byType(TaskToolScreen)),
+        findsOneWidget);
+    tester.widget<TaskDetailSheet>(detail).onClose!();
+    await tester.pumpAndSettle();
+    expect(detail, findsNothing);
+    expect(find.text(task.title), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 }

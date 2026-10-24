@@ -74,6 +74,7 @@ class TaskCreateSheet extends StatefulWidget {
       await FxDialog.show<void>(
         context: context,
         title: '添加任务',
+        showCloseButton: false,
         width: 520,
         child: editor,
       );
@@ -87,6 +88,7 @@ class TaskCreateSheet extends StatefulWidget {
       isScrollControlled: true,
       draggable: true,
       showDragHandle: false,
+      showCloseButton: false,
       // ShadSheet 的默认内边距与表单自身边距叠加会使移动端内容过窄。
       // 快捷表单由自身统一控制间距，其他 Sheet 不受影响。
       padding: EdgeInsets.zero,
@@ -325,7 +327,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     controller: _titleController,
     // 快捷记录默认聚焦标题，移动端同时弹出键盘。
     autofocus: widget.desktopDialog || _mobileAutofocus,
-    onPressedOutside: (_) => FocusScope.of(context).unfocus(),
+    // 选项明确切换页面时再收键盘；拖动表单留白不应让标题失焦。
+    onPressedOutside: (_) {},
     enabled: !_saving,
     keyboardType: multiline ? TextInputType.multiline : null,
     textInputAction:
@@ -721,8 +724,11 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                     onPressed: _backMobilePage,
                   )
                 else
-                  // FxSheet 负责唯一的关闭入口。
-                  const SizedBox(width: 32),
+                  FxIconButton(
+                    icon: LucideIcons.x,
+                    tooltip: '取消添加任务',
+                    onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                  ),
               ]),
               const FxSeparator.horizontal(height: 12),
               if (showSearch) ...[
@@ -997,10 +1003,27 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     onPressed: _saving || _creationResultUnknown ? null : _createTask,
   );
 
-  Widget _editorActions() => FxDialogActions(actions: [_submitButton()]);
+  Widget _editorActions() => FxDialogActions(actions: [
+    FxButton(
+      label: '取消',
+      variant: FxButtonVariant.ghost,
+      onPressed: _saving ? null : () => Navigator.of(context).pop(),
+    ),
+    _submitButton(),
+  ]);
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_saving && _mobilePage == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_saving && _mobilePage != null) _backMobilePage();
+      },
+      child: _buildEditor(context),
+    );
+  }
+
+  Widget _buildEditor(BuildContext context) {
     if (widget.desktopDialog) {
       return ConstrainedBox(
         constraints: BoxConstraints(
@@ -1032,11 +1055,18 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      '添加任务',
-                      style: SlowlightTypography.cardTitle(context)
-                          .copyWith(fontWeight: FontWeight.w700),
-                    ),
+                    Row(children: [
+                      Expanded(child: Text(
+                        '添加任务',
+                        style: SlowlightTypography.cardTitle(context)
+                            .copyWith(fontWeight: FontWeight.w700),
+                      )),
+                      FxIconButton(
+                        icon: LucideIcons.x,
+                        tooltip: '取消添加任务',
+                        onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                      ),
+                    ]),
                     const SizedBox(height: 12),
                     Flexible(
                       child: SingleChildScrollView(

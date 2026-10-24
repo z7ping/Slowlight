@@ -336,11 +336,14 @@ func TestGitHubOAuthAndroidReturnDoesNotLeakCredentials(t *testing.T) {
 	}
 }
 
-func TestGitHubOAuthDesktopReturnPageDoesNotUseDeepLink(t *testing.T) {
-	if strings.Contains(desktopOAuthReturnHTML, "slowlight://") {
-		t.Fatal("Windows 不应出现未经安装器注册的 Android deep link")
+func TestGitHubOAuthDesktopReturnPageRequiresClientConfirmation(t *testing.T) {
+	// Windows 安装器已注册 slowlight 协议；回调页只提供手动唤起，
+	// 仍由原客户端会话确认结果，不能把浏览器回调冒充登录成功。
+	if !strings.Contains(desktopOAuthReturnHTML, `href="slowlight://oauth-complete"`) ||
+		strings.Contains(desktopOAuthReturnHTML, "window.location.replace") {
+		t.Fatal("Windows 回调应提供手动返回入口而不自动跳转")
 	}
-	if !strings.Contains(desktopOAuthReturnHTML, "等待 Windows 客户端确认登录") ||
+	if !strings.Contains(desktopOAuthReturnHTML, "客户端完成确认前") ||
 		!strings.Contains(desktopOAuthReturnHTML, "检查授权结果") {
 		t.Fatal("桌面回调页面必须区分 GitHub 授权与客户端登录确认")
 	}

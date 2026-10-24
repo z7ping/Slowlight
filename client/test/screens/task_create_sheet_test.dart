@@ -4,7 +4,7 @@ import 'package:slowlight/services/data_source.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -27,6 +27,7 @@ class _CanonicalTagSource implements ApiDataSource {
 }
 
 void main() {
+  setUpAll(() async { await initializeDateFormatting('zh_CN'); });
   testWidgets('Android 平板宽度超过 600dp 仍进入完整任务页面而非桌面弹窗', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -77,6 +78,7 @@ void main() {
 
     await tester.enterText(find.byType(EditableText).first, '季度复盘');
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('更多设置'), findsOneWidget);
@@ -89,11 +91,13 @@ void main() {
     expect(find.text('添加任务'), findsOneWidget);
 
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(TaskScheduleFields), findsNothing);
     expect(find.text('季度复盘'), findsOneWidget);
 
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(TaskScheduleFields), findsOneWidget);
     expect(find.text('季度复盘'), findsOneWidget);
@@ -401,7 +405,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('task-property-date')));
     await tester.pumpAndSettle();
     expect(find.byType(TaskCreateSheet), findsOneWidget);
-    expect(find.byType(ShadSheet), findsOneWidget);
+    expect(fxSheetSurfaceFinder(), findsOneWidget);
     expect(find.text('安排日期'), findsOneWidget);
     expect(find.byKey(const ValueKey('task-picker-back')), findsOneWidget);
     await tester.tap(find.text('选择其他日期'));
@@ -409,11 +413,11 @@ void main() {
     expect(find.text('选择日期'), findsOneWidget);
     expect(find.byType(FxCalendar<Object>), findsOneWidget);
     expect(find.byType(TaskCreateSheet), findsOneWidget);
-    expect(find.byType(ShadSheet), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
+    expect(fxSheetSurfaceFinder(), findsOneWidget);
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('安排日期'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('添加任务'), findsWidgets);
     expect(find.byKey(const ValueKey('task-property-date')), findsOneWidget);
@@ -639,6 +643,7 @@ void main() {
     ));
     await tester.pump();
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(TaskScheduleFields), findsOneWidget);

@@ -5,7 +5,6 @@ import '../main.dart' show authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/data_mode_manager.dart';
 import '../services/migration_service.dart';
-import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'login_screen.dart';
 
@@ -41,12 +40,24 @@ enum _MigrationStep { inspect, conflicts, confirm, result }
 
 class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   static const _keys = [
-    'lists', 'tags', 'system_tags', 'tasks',
-    'subtasks', 'habits', 'habit_logs', 'sessions',
+    'lists',
+    'tags',
+    'system_tags',
+    'tasks',
+    'subtasks',
+    'habits',
+    'habit_logs',
+    'sessions',
   ];
   static const _labels = [
-    '清单', '标签', '观察标签（旧）', '任务',
-    '子任务', '习惯', '打卡记录', '专注记录',
+    '清单',
+    '标签',
+    '观察标签（旧）',
+    '任务',
+    '子任务',
+    '习惯',
+    '打卡记录',
+    '专注记录',
   ];
   static const _policies = [
     ('cloud', '保留云端', '复用云端同名实体，关联数据按映射迁移'),
@@ -146,29 +157,39 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
 
   List<Map<String, dynamic>> get _conflicts => _plan?.conflicts ?? const [];
   int get _total => _counts.values.fold<int>(0, (s, n) => s + n);
-  bool get _ready => _plan != null && !_loading && _previewError == null &&
-      _total > 0 && _conflicts.every((c) => _choices.containsKey(_key(c)));
+  bool get _ready =>
+      _plan != null &&
+      !_loading &&
+      _previewError == null &&
+      _total > 0 &&
+      _conflicts.every((c) => _choices.containsKey(_key(c)));
   String _key(Map<String, dynamic> c) => '${c['entity']}:${c['local_id']}';
   String _entity(Object? entity) => switch (entity) {
-    'list' => '清单', 'tag' => '标签', 'system_tag' => '观察标签（旧）',
-    'habit' => '习惯', _ => '记录'
-  };
+        'list' => '清单',
+        'tag' => '标签',
+        'system_tag' => '观察标签（旧）',
+        'habit' => '习惯',
+        _ => '记录'
+      };
   String _policyLabel(String? value) => switch (value) {
-    'cloud' => '保留云端', 'local' => '保留本地',
-    'both' => '两份都保留', _ => '待处理',
-  };
+        'cloud' => '保留云端',
+        'local' => '保留本地',
+        'both' => '两份都保留',
+        _ => '待处理',
+      };
 
-  Widget _button(String label, {required VoidCallback? onPressed,
-      bool primary = false}) => FxButton(
-    label: label,
-    variant: primary ? FxButtonVariant.primary : FxButtonVariant.outline,
-    onPressed: onPressed,
-  );
+  Widget _button(String label,
+          {required VoidCallback? onPressed, bool primary = false}) =>
+      FxButton(
+        label: label,
+        variant: primary ? FxButtonVariant.primary : FxButtonVariant.outline,
+        onPressed: onPressed,
+      );
 
   Future<void> _signIn() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) =>
-        const LoginScreen(preserveDataMode: true)),
+      MaterialPageRoute(
+          builder: (_) => const LoginScreen(preserveDataMode: true)),
     );
     if (mounted) await _load();
   }
@@ -177,8 +198,9 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     if (_loading || _executing) return;
     setState(() {
       if (_step == _MigrationStep.inspect && _plan != null && _total > 0) {
-        _step = _conflicts.isEmpty ? _MigrationStep.confirm :
-            _MigrationStep.conflicts;
+        _step = _conflicts.isEmpty
+            ? _MigrationStep.confirm
+            : _MigrationStep.conflicts;
       } else if (_step == _MigrationStep.conflicts && _ready) {
         _step = _MigrationStep.confirm;
       }
@@ -191,7 +213,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
       _step = switch (_step) {
         _MigrationStep.conflicts => _MigrationStep.inspect,
         _MigrationStep.confirm => _conflicts.isEmpty
-          ? _MigrationStep.inspect : _MigrationStep.conflicts,
+            ? _MigrationStep.inspect
+            : _MigrationStep.conflicts,
         _ => _step,
       };
     });
@@ -200,7 +223,9 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   Future<void> _submit() async {
     if (!_ready || _executing || _step != _MigrationStep.confirm) return;
     final confirmed = await FxDialog.confirm(
-      context: context, title: '确认开始迁移？', confirmText: '开始迁移',
+      context: context,
+      title: '确认开始迁移？',
+      confirmText: '开始迁移',
       content: '按每一项已确认的策略提交；本地原始数据不删除。'
           '提交和本机映射核验完成之前不会切换当前数据源。',
     );
@@ -208,7 +233,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     setState(() => _executing = true);
     try {
       final result = await _service.executePlan(
-        _plan!, Map<String, String>.from(_choices));
+          _plan!, Map<String, String>.from(_choices));
       if (!mounted) return;
       setState(() {
         _result = result;
@@ -249,9 +274,11 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
       });
     } catch (error) {
       if (mounted) {
-        FxNotice.showContent(context, Text(
-          '尚不能证明迁移完成；不会再次导入。$error',
-        ));
+        FxNotice.showContent(
+            context,
+            Text(
+              '尚不能证明迁移完成；不会再次导入。$error',
+            ));
       }
     } finally {
       if (mounted) setState(() => _reconciling = false);
@@ -264,7 +291,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     try {
       await DataModeManager().setCloud();
       authStateNotifier.value = !authStateNotifier.value;
-      if (mounted) Navigator.of(context, rootNavigator: !widget.fullScreen).pop();
+      if (mounted)
+        Navigator.of(context, rootNavigator: !widget.fullScreen).pop();
     } catch (error) {
       if (mounted) FxNotice.showContent(context, Text('切换云端失败：$error'));
     } finally {
@@ -281,40 +309,43 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: SlowlightSpacing.xl, vertical: SlowlightSpacing.md),
+          horizontal: SlowlightSpacing.xl, vertical: SlowlightSpacing.md),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: Text(widget.fullScreen ? '数据迁移' :
-              '迁移本地数据到云端',
-              style: SlowlightTypography.pageTitle(context))),
+          Expanded(
+              child: Text(widget.fullScreen ? '数据迁移' : '迁移本地数据到云端',
+                  style: SlowlightTypography.pageTitle(context))),
           if (!_executing)
-            IconButton(
-              tooltip: '关闭迁移', icon: const Icon(Icons.close, size: 20),
-              onPressed: _close),
+            FxIconButton(tooltip: '关闭迁移', icon: Icons.close, onPressed: _close),
         ]),
         Text('本地数据始终保留；预览阶段不会写入或删除数据。',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant)),
+            style: SlowlightTypography.caption(context)
+                .copyWith(color: theme.colorScheme.onSurfaceVariant)),
         const SizedBox(height: SlowlightSpacing.md),
         Row(children: [
           for (var i = 0; i < _MigrationStep.values.length; i++)
-            Expanded(child: Column(children: [
+            Expanded(
+                child: Column(children: [
               Container(
                 height: widget.fullScreen ? 4 : 23,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: i <= _step.index
-                    ? theme.colorScheme.primary : fxSubtleSurface(context),
-                  borderRadius: BorderRadius.circular(SlowlightRadius.sm)),
-                child: widget.fullScreen ? null : Text('${i+1}',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: i <= _step.index ? theme.colorScheme.onPrimary :
-                        theme.colorScheme.onSurfaceVariant)),
+                    color: i <= _step.index
+                        ? theme.colorScheme.primary
+                        : fxSubtleSurface(context),
+                    borderRadius: BorderRadius.circular(SlowlightRadius.sm)),
+                child: widget.fullScreen
+                    ? null
+                    : Text('${i + 1}',
+                        style: SlowlightTypography.caption(context).copyWith(
+                            color: i <= _step.index
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSurfaceVariant)),
               ),
               const SizedBox(height: 4),
               Text(const ['检查数据', '处理冲突', '最终确认', '迁移结果'][i],
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.caption(context)),
+                  textAlign: TextAlign.center,
+                  style: SlowlightTypography.caption(context)),
             ])),
         ]),
       ]),
@@ -322,75 +353,84 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
   }
 
   Widget _stats() => LayoutBuilder(builder: (context, size) {
-    final scale = MediaQuery.textScalerOf(context)
-        .scale(SlowlightTypography.bodySize);
-    final columns = scale >= SlowlightTypography.bodySize * 1.3
-        ? (widget.fullScreen ? 1 : 2)
-        : widget.fullScreen || size.maxWidth < 560 ? 2 : 4;
-    const gap = SlowlightSpacing.xs;
-    final cellWidth = (size.maxWidth - (columns - 1) * gap) / columns;
-    return Wrap(spacing: gap, runSpacing: gap, children: [
-      for (var i = 0; i < _keys.length; i++)
-        SizedBox(width: cellWidth,
-          child: Container(
-            padding: const EdgeInsets.all(SlowlightSpacing.md),
-            decoration: BoxDecoration(
-              border: Border.all(color: fxBorder(context)),
-              borderRadius: BorderRadius.circular(SlowlightRadius.md)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_loading || _previewError != null ? '—' :
-                    '${_counts[_keys[i]] ?? 0}',
-                  style: SlowlightTypography.statValue(context)),
-                Text(_labels[i],
-                  style: SlowlightTypography.caption(context)),
-              ]),
-          )),
-    ]);
-  });
+        final scale = MediaQuery.textScalerOf(context)
+            .scale(SlowlightTypography.bodySize);
+        final columns = scale >= SlowlightTypography.bodySize * 1.3
+            ? (widget.fullScreen ? 1 : 2)
+            : widget.fullScreen || size.maxWidth < 560
+                ? 2
+                : 4;
+        const gap = SlowlightSpacing.xs;
+        final cellWidth = (size.maxWidth - (columns - 1) * gap) / columns;
+        return Wrap(spacing: gap, runSpacing: gap, children: [
+          for (var i = 0; i < _keys.length; i++)
+            SizedBox(
+                width: cellWidth,
+                child: Container(
+                  padding: const EdgeInsets.all(SlowlightSpacing.md),
+                  decoration: BoxDecoration(
+                      border: Border.all(color: fxBorder(context)),
+                      borderRadius: BorderRadius.circular(SlowlightRadius.md)),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            _loading || _previewError != null
+                                ? '—'
+                                : '${_counts[_keys[i]] ?? 0}',
+                            style: SlowlightTypography.statValue(context)),
+                        Text(_labels[i],
+                            style: SlowlightTypography.caption(context)),
+                      ]),
+                )),
+        ]);
+      });
 
   Widget _inspection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('本机数据概览',
-          style: SlowlightTypography.cardTitle(context)),
-      const SizedBox(height: SlowlightSpacing.xs),
-      _stats(),
-      const SizedBox(height: SlowlightSpacing.md),
-      if (_loading) const Center(child: CircularProgressIndicator())
-      else if (_previewError != null) ...[
-        Text('迁移预览失败：$_previewError'),
-        const SizedBox(height: SlowlightSpacing.xs),
-        _button('重新检查', onPressed: _load),
-      ] else if (_authRequired) ...[
-        const Text('请登录云端并预览；登录不会改变当前本机数据源。'),
-        _button('登录云端并预览', onPressed: _signIn, primary: true),
-      ] else if (_total == 0)
-        const Text('本机没有可迁移数据，无需执行迁移。')
-      else ...[
-        Text(_conflicts.isEmpty
-          ? '云端比对完成，没有同名冲突'
-          : '云端比对完成，发现 ${_conflicts.length} 项同名冲突'),
-        const SizedBox(height: SlowlightSpacing.xs),
-        const Text('同名并不代表字段内容不同；只展示可信的冲突事实。'),
-      ],
-    ],
-  );
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('本机数据概览', style: SlowlightTypography.cardTitle(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+          _stats(),
+          const SizedBox(height: SlowlightSpacing.md),
+          if (_loading)
+            const Center(child: FxCircularProgress())
+          else if (_previewError != null) ...[
+            Text('迁移预览失败：$_previewError'),
+            const SizedBox(height: SlowlightSpacing.xs),
+            _button('重新检查', onPressed: _load),
+          ] else if (_authRequired) ...[
+            const Text('请登录云端并预览；登录不会改变当前本机数据源。'),
+            _button('登录云端并预览', onPressed: _signIn, primary: true),
+          ] else if (_total == 0)
+            const Text('本机没有可迁移数据，无需执行迁移。')
+          else ...[
+            Text(_conflicts.isEmpty
+                ? '云端比对完成，没有同名冲突'
+                : '云端比对完成，发现 ${_conflicts.length} 项同名冲突'),
+            const SizedBox(height: SlowlightSpacing.xs),
+            const Text('同名并不代表字段内容不同；只展示可信的冲突事实。'),
+          ],
+        ],
+      );
 
   Widget _conflictRow(int i) {
     final c = _conflicts[i];
-    return Material(
+    return Container(
       color: _focused == i ? fxSubtleSurface(context) : Colors.transparent,
-      child: InkWell(
+      child: FxInkWell(
         key: ValueKey('migration.conflict.$i'),
         onTap: () => setState(() => _focused = i),
         child: Padding(
           padding: const EdgeInsets.all(SlowlightSpacing.md),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${_entity(c['entity'])}：${c['name'] ?? '未命名'}',
-              maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: SlowlightTypography.secondary(context)),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: SlowlightTypography.secondary(context)),
             Text(_policyLabel(_choices[_key(c)]),
-              style: SlowlightTypography.caption(context)),
+                style: SlowlightTypography.caption(context)),
           ]),
         ),
       ),
@@ -403,25 +443,26 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     return Container(
       padding: const EdgeInsets.all(SlowlightSpacing.md),
       decoration: BoxDecoration(
-        border: Border.all(color: fxBorder(context)),
-        borderRadius: BorderRadius.circular(SlowlightRadius.lg)),
+          border: Border.all(color: fxBorder(context)),
+          borderRadius: BorderRadius.circular(SlowlightRadius.lg)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${_entity(conflict['entity'])}：${conflict['name'] ?? '未命名'}',
-          style: SlowlightTypography.cardTitle(context)),
+            style: SlowlightTypography.cardTitle(context)),
         const SizedBox(height: 4),
         Text(conflict['reason']?.toString() ?? '云端存在同名项',
-          style: SlowlightTypography.caption(context)),
+            style: SlowlightTypography.caption(context)),
         const SizedBox(height: SlowlightSpacing.xs),
         Text('只有同名冲突证据；目前没有可靠的字段级差异。',
-          style: SlowlightTypography.caption(context)),
+            style: SlowlightTypography.caption(context)),
         const SizedBox(height: SlowlightSpacing.md),
         for (final policy in _policies) ...[
-          SizedBox(width: double.infinity,
-            child: _button(
-              '${_choices[key] == policy.$1 ? '✓ ' : ''}${policy.$2}',
-              primary: _choices[key] == policy.$1,
-              onPressed: () => setState(() => _choices[key] = policy.$1),
-            )),
+          SizedBox(
+              width: double.infinity,
+              child: _button(
+                '${_choices[key] == policy.$1 ? '✓ ' : ''}${policy.$2}',
+                primary: _choices[key] == policy.$1,
+                onPressed: () => setState(() => _choices[key] = policy.$1),
+              )),
           Text(policy.$3, style: SlowlightTypography.caption(context)),
           const SizedBox(height: SlowlightSpacing.xs),
         ],
@@ -434,7 +475,8 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     final value = _choices[_key(_conflicts[_focused])];
     if (value == null) return;
     final confirmed = await FxDialog.confirm(
-      context: context, title: '对全部冲突应用相同策略？',
+      context: context,
+      title: '对全部冲突应用相同策略？',
       confirmText: '应用全部',
       content: '将「${_policyLabel(value)}」应用到全部 ${_conflicts.length} 项，'
           '替换先前逐项选择；不会立即迁移数据。',
@@ -454,30 +496,34 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('处理同名冲突', style: SlowlightTypography.cardTitle(context)),
       Text('${_choices.length} / ${_conflicts.length} 项已处理',
-        style: SlowlightTypography.caption(context)),
+          style: SlowlightTypography.caption(context)),
       const SizedBox(height: SlowlightSpacing.md),
       if (narrow) ...[
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          _button('上一项', onPressed: _focused > 0
-            ? () => setState(() => _focused--) : null),
+          _button('上一项',
+              onPressed:
+                  _focused > 0 ? () => setState(() => _focused--) : null),
           Text('${_focused + 1} / ${_conflicts.length}'),
-          _button('下一项', onPressed: _focused + 1 < _conflicts.length
-            ? () => setState(() => _focused++) : null),
+          _button('下一项',
+              onPressed: _focused + 1 < _conflicts.length
+                  ? () => setState(() => _focused++)
+                  : null),
         ]),
         const SizedBox(height: SlowlightSpacing.xs),
         _policyDetail(),
         const SizedBox(height: SlowlightSpacing.xs),
         _button(_showAllMobile ? '收起全部冲突' : '查看全部冲突',
-          onPressed: () => setState(() => _showAllMobile = !_showAllMobile)),
+            onPressed: () => setState(() => _showAllMobile = !_showAllMobile)),
         if (_showAllMobile)
           for (var i = 0; i < _conflicts.length; i++) _conflictRow(i),
       ] else
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Container(
+          Expanded(
+              child: Container(
             constraints: const BoxConstraints(maxHeight: 320),
             decoration: BoxDecoration(
-              border: Border.all(color: fxBorder(context)),
-              borderRadius: BorderRadius.circular(SlowlightRadius.lg)),
+                border: Border.all(color: fxBorder(context)),
+                borderRadius: BorderRadius.circular(SlowlightRadius.lg)),
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: _conflicts.length,
@@ -489,24 +535,27 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         ]),
       const SizedBox(height: SlowlightSpacing.md),
       _button('将当前策略应用到全部',
-        onPressed: _choices.containsKey(_key(_conflicts[_focused]))
-          ? _applyAll : null),
+          onPressed: _choices.containsKey(_key(_conflicts[_focused]))
+              ? _applyAll
+              : null),
     ]);
   }
 
   Widget _confirmation() {
     int count(String policy) =>
-      _choices.values.where((value) => value == policy).length;
+        _choices.values.where((value) => value == policy).length;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('最终迁移确认', style: SlowlightTypography.cardTitle(context)),
       const SizedBox(height: SlowlightSpacing.md),
       for (final policy in const ['cloud', 'local', 'both'])
-        Padding(padding: const EdgeInsets.only(bottom: SlowlightSpacing.xs),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(_policyLabel(policy)),
-              Text('${count(policy)} 项'),
-            ])),
+        Padding(
+            padding: const EdgeInsets.only(bottom: SlowlightSpacing.xs),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_policyLabel(policy)),
+                  Text('${count(policy)} 项'),
+                ])),
       const SizedBox(height: SlowlightSpacing.md),
       Text('待迁移：$_total 条（八类数据合计）'),
       Text('同名冲突：${_conflicts.length} 项，已确认 ${_choices.length} 项'),
@@ -515,7 +564,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
           '本地记录不会删除，失败或结果未知时不切换数据源。'),
       if (_executing) ...[
         const SizedBox(height: SlowlightSpacing.md),
-        const Center(child: CircularProgressIndicator()),
+        const Center(child: FxCircularProgress()),
         const Text('正在执行并核对映射，请勿重复提交。'),
       ],
     ]);
@@ -525,7 +574,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     final created = _result?['created'];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(_outcomeUnknown ? '执行结果未确认' : '迁移已核验完成',
-        style: SlowlightTypography.cardTitle(context)),
+          style: SlowlightTypography.cardTitle(context)),
       const SizedBox(height: SlowlightSpacing.xs),
       Text(_resultMessage ?? ''),
       const SizedBox(height: SlowlightSpacing.md),
@@ -533,7 +582,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         const Text('没有证据证明服务端未提交。不能再次执行新的全量迁移。'),
         const SizedBox(height: SlowlightSpacing.md),
         _button(_reconciling ? '正在核对…' : '查询原始回执并恢复映射',
-          onPressed: _reconciling ? null : _reconcile, primary: true),
+            onPressed: _reconciling ? null : _reconcile, primary: true),
         const SizedBox(height: SlowlightSpacing.xs),
         const Text('找不到回执则维持未确认，不重新导入。'),
       ] else ...[
@@ -544,39 +593,34 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
         const SizedBox(height: SlowlightSpacing.md),
         if (DataModeManager().isLocal)
           _button(_switching ? '正在切换…' : '使用云端数据',
-            onPressed: _switching ? null : _switchCloud, primary: true),
+              onPressed: _switching ? null : _switchCloud, primary: true),
       ],
     ]);
   }
 
   Widget _footer() {
     final canNext = _step == _MigrationStep.inspect
-      ? !_loading && _previewError == null && _plan != null && _total > 0
-      : _step == _MigrationStep.conflicts && _ready;
+        ? !_loading && _previewError == null && _plan != null && _total > 0
+        : _step == _MigrationStep.conflicts && _ready;
     final actions = <Widget>[
-      if (_step == _MigrationStep.conflicts ||
-          _step == _MigrationStep.confirm)
+      if (_step == _MigrationStep.conflicts || _step == _MigrationStep.confirm)
         _button('上一步', onPressed: _executing ? null : _previous),
-      if (_step == _MigrationStep.inspect ||
-          _step == _MigrationStep.conflicts)
+      if (_step == _MigrationStep.inspect || _step == _MigrationStep.conflicts)
         _button('下一步', onPressed: canNext ? _next : null, primary: true),
       if (_step == _MigrationStep.confirm)
         _button(_executing ? '迁移中…' : '开始迁移',
-          onPressed: _ready && !_executing ? _submit : null, primary: true),
+            onPressed: _ready && !_executing ? _submit : null, primary: true),
       if (_step == _MigrationStep.result)
         _button('关闭', onPressed: _reconciling ? null : _close),
     ];
     return Container(
       padding: const EdgeInsets.all(SlowlightSpacing.md),
-      decoration: BoxDecoration(border: Border(
-        top: BorderSide(color: fxBorder(context)))),
+      decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: fxBorder(context)))),
       child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         for (var i = 0; i < actions.length; i++) ...[
           if (i > 0) const SizedBox(width: SlowlightSpacing.xs),
-          if (widget.fullScreen)
-            Expanded(child: actions[i])
-          else
-            actions[i],
+          if (widget.fullScreen) Expanded(child: actions[i]) else actions[i],
         ],
       ]),
     );
@@ -589,9 +633,10 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
       mainAxisSize: widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
       children: [
         _header(),
-        Flexible(child: SingleChildScrollView(
+        Flexible(
+            child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
-            horizontal: SlowlightSpacing.xl, vertical: SlowlightSpacing.md),
+              horizontal: SlowlightSpacing.xl, vertical: SlowlightSpacing.md),
           child: switch (_step) {
             _MigrationStep.inspect => _inspection(),
             _MigrationStep.conflicts => _conflictStep(),
@@ -605,11 +650,11 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
     return PopScope(
       canPop: !_executing && !_reconciling,
       child: widget.fullScreen
-        ? SizedBox.expand(child: body)
-        : ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 840, maxHeight: available > 300 ? available : 300),
-          child: body),
+          ? SizedBox.expand(child: body)
+          : ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: 840, maxHeight: available > 300 ? available : 300),
+              child: body),
     );
   }
 }

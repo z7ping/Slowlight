@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/repositories/feishu_integration_repository.dart';
 import 'package:slowlight/screens/feishu_screen.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 class _SyncFake implements FeishuIntegrationRepository {
   final Completer<Map<String, dynamic>> reply =
@@ -40,9 +42,13 @@ class _SyncFake implements FeishuIntegrationRepository {
 }
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('feishu_sync_feedback');
+    SharedPreferences.setMockInitialValues({});
+  });
   testWidgets('飞书部分成功不提示全部成功，且同步期间阻止重复/交叉提交',
       (tester) async {
-    await DataModeManager().setLocal();
+    await tester.runAsync(() => DataModeManager().setLocal());
     final fake = _SyncFake();
     tester.view.physicalSize = const Size(1280, 950);
     tester.view.devicePixelRatio = 1;

@@ -67,7 +67,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(attempts, 2);
     expect(find.text('打卡记录暂时不可用'), findsNothing);
-    expect(find.textContaining('2026-10-05'), findsWidgets);
+    expect(find.textContaining('10月5日'), findsWidgets);
+    expect(find.textContaining('时间未记录'), findsWidgets);
+    expect(find.textContaining('08:14'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });

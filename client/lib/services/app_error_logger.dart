@@ -64,11 +64,17 @@ class AppErrorLogger {
       'Bearer [REDACTED]',
     );
     // 常见凭据键值/URL 参数与 JWT；不保留敏感授权信息。
-    sanitized = sanitized.replaceAll(
+    sanitized = sanitized.replaceAllMapped(
       RegExp(
-          r'''(password|access_token|refresh_token|poll_token|api_key|client_secret|authorization|code_verifier|session_id|state|code|jwt|token)(\s*["'=:\s]+)([^\s&,"'}]+)''',
+          r'''\b(password|access_token|refresh_token|poll_token|api_key|client_secret|authorization|code_verifier|session_id|code|jwt|token)(\s*["']?\s*[:=]\s*["']?)([^\s&,"'}]+)''',
           caseSensitive: false),
-      r'$1$2[REDACTED]',
+      (match) => '${match[1]}${match[2]}[REDACTED]',
+    );
+    // OAuth state 只匹配参数或带引号的键，避免误伤 “Bad state: ...”。
+    sanitized = sanitized.replaceAllMapped(
+      RegExp(r'''((?:\bstate\s*=|["']state["']\s*:)\s*["']?)([^\s&,"'}]+)''',
+          caseSensitive: false),
+      (match) => '${match[1]}[REDACTED]',
     );
     sanitized = sanitized.replaceAll(
       RegExp(r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'),

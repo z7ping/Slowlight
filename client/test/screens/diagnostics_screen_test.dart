@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' show Scrollable, ScrollableState, Size, ValueKey;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/diagnostics_screen.dart';
 import 'package:slowlight/services/app_error_logger.dart';
@@ -82,12 +83,14 @@ void main() {
     logger.readFails = false;
     await tester.tap(find.byKey(const ValueKey('diagnostics.retry')));
     await tester.pump();
+    await tester.pump();
     expect(find.text('暂无错误记录'), findsOneWidget);
     expect(logger.reads, 2);
     await disposeFxTestHost(tester);
   });
 
   testWidgets('Windows 日志原文固定高度，展开后默认定位最新记录', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -105,7 +108,7 @@ void main() {
       of: viewport,
       matching: find.byType(Scrollable),
     );
-    final scroller = tester.state<ScrollableState>(scrollable);
+    final scroller = tester.state<ScrollableState>(scrollable.first);
     expect(scroller.position.maxScrollExtent, greaterThan(0));
     expect(scroller.position.pixels,
         closeTo(scroller.position.maxScrollExtent, 1));

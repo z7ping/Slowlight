@@ -54,19 +54,41 @@ class _FxIconButtonState extends State<FxIconButton> {
   @override
   Widget build(BuildContext context) {
     final visualSize = SlowlightPlatformDensity.iconButtonVisualSize;
+    const borderWidth = 1.0;
+    final contentSize = visualSize - borderWidth * 2;
+    // Shad 默认次级焦点环会在按钮外再预留 8px，使页头及输入框尾部跳高。
+    // 用同宽的单层边框表达焦点，保留键盘反馈与 Android 触控尺寸。
+    final colors = Theme.of(context).colorScheme;
+    final decoration = ShadDecoration(
+      disableSecondaryBorder: true,
+      border: ShadBorder.all(
+        color: widget.variant == FxIconButtonVariant.outline
+            ? colors.outlineVariant
+            : Colors.transparent,
+        width: borderWidth,
+        radius: BorderRadius.circular(SlowlightRadius.md),
+      ),
+      focusedBorder: ShadBorder.all(
+        color: colors.primary,
+        width: borderWidth,
+        radius: BorderRadius.circular(SlowlightRadius.md),
+      ),
+    );
     final iconWidget = Icon(widget.icon, size: widget.iconSize, color: widget.foregroundColor);
     final Widget button = switch (widget.variant) {
       FxIconButtonVariant.ghost => ShadIconButton.ghost(
-          width: visualSize,
-          height: visualSize,
+          decoration: decoration,
+          width: contentSize,
+          height: contentSize,
           padding: EdgeInsets.zero,
           onPressed: _effectiveAction,
           iconSize: widget.iconSize,
           icon: iconWidget,
         ),
       FxIconButtonVariant.outline => ShadIconButton.outline(
-          width: visualSize,
-          height: visualSize,
+          decoration: decoration,
+          width: contentSize,
+          height: contentSize,
           padding: EdgeInsets.zero,
           onPressed: _effectiveAction,
           iconSize: widget.iconSize,
