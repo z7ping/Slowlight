@@ -162,20 +162,13 @@ class CalendarMonthGrid extends StatelessWidget {
           ),
           padding: EdgeInsets.fromLTRB(compact ? 4 : 7, 5, compact ? 4 : 7, 4),
           decoration: BoxDecoration(
-            border: Border(
-              right: BorderSide(color: theme.colorScheme.outlineVariant),
-              bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-            ),
-            boxShadow:
-                selected
-                    ? [
-                      BoxShadow(
-                        color: activePalette.accent,
-                        spreadRadius: -1,
-                        blurRadius: 0,
-                      ),
-                    ]
-                    : null,
+            // 选中态使用边框，而非无模糊阴影：后者会把整个日期格涂成强调色。
+            border: selected
+                ? Border.all(color: activePalette.accent, width: 1.5)
+                : Border(
+                    right: BorderSide(color: theme.colorScheme.outlineVariant),
+                    bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+                  ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
