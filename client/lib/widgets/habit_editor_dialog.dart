@@ -75,15 +75,37 @@ class HabitEditorDialog extends StatefulWidget {
       Future<void> Function(HabitEditorValue)? onSubmit,
       HabitEditorValue? initialValue,
       ValueChanged<HabitEditorValue>? onUnconfirmed}) {
+    Widget editor(BuildContext _) => HabitEditorDialog(
+          habit: habit,
+          onSubmit: onSubmit,
+          initialValue: initialValue,
+          onUnconfirmed: onUnconfirmed,
+        );
+    final platform = Theme.of(context).platform;
+    if (platform == TargetPlatform.android || platform == TargetPlatform.iOS) {
+      // One sheet surface, preserving the existing explicit cancellation and
+      // in-flight-save protection instead of adding a nested dialog.
+      return FxSheet.show<HabitEditorValue>(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        draggable: false,
+        showCloseButton: false,
+        padding: EdgeInsets.zero,
+        backgroundColor: fxSurface(context),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(SlowlightRadius.sheet),
+          ),
+        ),
+        builder: editor,
+      );
+    }
     return FxDialog.raw<HabitEditorValue>(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (_) => HabitEditorDialog(
-          habit: habit,
-          onSubmit: onSubmit,
-          initialValue: initialValue,
-          onUnconfirmed: onUnconfirmed),
+      builder: editor,
     );
   }
 
@@ -405,26 +427,13 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mobile = MediaQuery.sizeOf(context).width < 600;
-    return PopScope(
-      canPop: !_submitting,
-      child: FxDialogSurface(
-        showCloseButton: false,
-        padding: EdgeInsets.zero,
-        insetPadding: EdgeInsets.symmetric(
-          horizontal: mobile ? 12 : 24,
-          vertical: 24,
-        ),
-        backgroundColor: fxSurface(context),
-        surfaceTintColor: Colors.transparent,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(SlowlightRadius.xl),
-          side: BorderSide(color: fxBorder(context)),
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 720),
-          child: Column(
+    final mobile = theme.platform == TargetPlatform.android ||
+        theme.platform == TargetPlatform.iOS;
+    final editor = ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: mobile ? MediaQuery.sizeOf(context).height * .88 : 720,
+      ),
+      child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
@@ -475,7 +484,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                         ],
                         FxInput(
                           controller: _name,
-                          autofocus: widget.habit == null,
+                          autofocus: widget.habit == null && !mobile,
                           onChanged: (_) => setState(() {}),
                           label: '习惯名称',
                           placeholder: '例如：每天阅读 20 分钟',
@@ -806,8 +815,25 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
               ),
             ],
           ),
-        ),
-      ),
+    );
+    return PopScope(
+      canPop: !_submitting,
+      child: mobile
+          ? SafeArea(top: false, child: editor)
+          : FxDialogSurface(
+              showCloseButton: false,
+              padding: EdgeInsets.zero,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              backgroundColor: fxSurface(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(SlowlightRadius.xl),
+                side: BorderSide(color: fxBorder(context)),
+              ),
+              child: editor,
+            ),
     );
   }
 

@@ -541,8 +541,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
         color: fxSurface(context),
         borderRadius: SlowlightRadius.lg,
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        boxShadow:
-            theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
         expanded: true,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

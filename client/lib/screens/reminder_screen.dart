@@ -231,7 +231,6 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   Widget _todayStats() {
-    final theme = Theme.of(context);
     final workMinutes = _service.todayWorkSeconds ~/ 60;
     final restMinutes = _service.todayRestSeconds ~/ 60;
     final skipRate = (_service.todaySkipRate * 100).round();
@@ -249,8 +248,6 @@ class _ReminderScreenState extends State<ReminderScreen> {
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,8 +296,6 @@ class _ReminderScreenState extends State<ReminderScreen> {
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

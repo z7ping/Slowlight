@@ -179,14 +179,11 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _card(Widget child, {EdgeInsetsGeometry? padding}) {
-    final theme = Theme.of(context);
     return FxCard(
       padding: padding ?? const EdgeInsets.all(16),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
       expanded: true,
       child: child,
     );
