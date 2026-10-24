@@ -135,7 +135,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final monthKey = '${now.year}-${_two(now.month)}';
     final facts = <_TodayHabitFact>[];
 
-    for (final habit in habits) {
+    // Independent habit queries should not block one another.
+    await Future.wait<void>(habits.map((habit) async {
       try {
         final logs = await repository.logs(habit.id, month: monthKey);
         for (final log in logs) {
@@ -146,7 +147,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       } catch (_) {
         unavailable.add('习惯「${habit.name}」明细');
       }
-    }
+    }));
     facts.sort((a, b) => a.log.createdAt.compareTo(b.log.createdAt));
     return facts;
   }

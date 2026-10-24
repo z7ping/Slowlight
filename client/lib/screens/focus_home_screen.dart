@@ -406,10 +406,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
             titleSpacing: 16,
             title: Text(
               _navigation.title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontSize: SlowlightTypography.buttonSize,
-                fontWeight: FontWeight.w700,
-              ),
+              style: SlowlightTypography.componentPageTitle(context),
             ),
             leading: _navigation.isTool
                 ? FxIconButton(
