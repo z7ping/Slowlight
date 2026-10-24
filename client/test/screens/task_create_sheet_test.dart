@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:slowlight/models/task.dart';
+import 'package:slowlight/services/data_service.dart';
 import 'package:slowlight/models/tag.dart';
 import 'package:slowlight/repositories/tag_repository.dart';
 import 'package:slowlight/services/data_source.dart';
@@ -26,8 +29,66 @@ class _CanonicalTagSource implements ApiDataSource {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _PendingTaskData implements DataService {
+  final result = Completer<Task>();
+  int creates = 0;
+
+  @override
+  Future<List<TodoList>> getLists() async => [];
+
+  @override
+  Future<Task> quickAddToInbox(String title, {int? systemTagId}) {
+    creates++;
+    return result.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   setUpAll(() async { await initializeDateFormatting('zh_CN'); });
+  testWidgets('任务提交中返回、遮罩和关闭操作都不能丢失待确认结果', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _PendingTaskData();
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(body: Builder(
+      builder: (context) => FxButton(label: '打开表单', onPressed: () => FxSheet.show<void>(
+        context: context, showCloseButton: false, padding: EdgeInsets.zero,
+        builder: (_) => TaskCreateSheet(
+          quickMode: true, defaultDueToday: false, dataService: data,
+          tagRepository: TagRepository(dataSource: _CanonicalTagSource()),
+        ),
+      )),
+    ))));
+    await tester.tap(find.text('打开表单'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '待确认的任务');
+    await tester.tap(find.widgetWithText(FxButton, '添加任务'));
+    await tester.pump();
+    expect(data.creates, 1);
+    final close = tester.widget<FxIconButton>(find.ancestor(
+      of: fxTooltipFinder('取消添加任务'), matching: find.byType(FxIconButton),
+    ));
+    expect(close.onPressed, isNull);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pump();
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    expect(data.creates, 1);
+    data.result.complete(Task(
+      id: 1, listId: 1, title: '待确认的任务', priority: 'none',
+      isCompleted: false, createdAt: DateTime(2026, 10, 24),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCreateSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
   testWidgets('Android 平板宽度超过 600dp 仍进入完整任务页面而非桌面弹窗', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -564,7 +625,9 @@ void main() {
     );
     final actionsRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
     expect(titleRect.left - sheetRect.left, closeTo(20, 1));
-    expect(titleRect.top - sheetRect.top, closeTo(20, 1));
+    final closeRect = tester.getRect(fxTooltipFinder('取消添加任务'));
+    expect(titleRect.top - sheetRect.top, greaterThanOrEqualTo(20));
+    expect(titleRect.center.dy, closeTo(closeRect.center.dy, 1));
     expect(inputRect.left - sheetRect.left, closeTo(20, 1));
     expect(listRect.left, greaterThan(inputRect.left));
     expect(actionsRect.right, lessThan(inputRect.right));
