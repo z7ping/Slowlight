@@ -35,6 +35,63 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('两次小憩后先完成下一轮工作再进入长休息', (tester) async {
+      final service = ReminderService();
+      await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));
+      service.stopAll();
+      service.updateConfig(
+        workMinutes: 0, // 仅用于测试：下一次计时器触发即结束工作
+        microRestSeconds: 20,
+        longRestMinutes: 5,
+        microRestsBeforeLong: 2,
+        lockScreenMode: 'window',
+        autoLoop: true,
+      );
+
+      Future<void> waitForWork() async {
+        await tester.runAsync(() async {
+          final deadline = DateTime.now().add(const Duration(seconds: 3));
+          while (service.state != 'working' &&
+              DateTime.now().isBefore(deadline)) {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        });
+        await tester.pump();
+        expect(service.state, 'working');
+      }
+
+      try {
+        service.startWork();
+        await tester.pump(const Duration(seconds: 1));
+        expect(service.state, 'micro_rest');
+
+        service.endRest();
+        await waitForWork();
+        expect(service.microRestCount, 1);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(service.state, 'micro_rest');
+
+        service.endRest();
+        await waitForWork();
+        expect(service.microRestCount, 2);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(service.state, 'long_rest');
+      } finally {
+        service.stopAll();
+        service.updateConfig(
+          workMinutes: 25,
+          microRestSeconds: 20,
+          longRestMinutes: 5,
+          microRestsBeforeLong: 2,
+          lockScreenMode: 'fullscreen',
+          autoLoop: true,
+        );
+        await disposeFxTestHost(tester);
+      }
+    });
+
     for (final size in [
       const Size(400, 800),
       const Size(1200, 800),
