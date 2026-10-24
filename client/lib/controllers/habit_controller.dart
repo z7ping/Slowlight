@@ -16,13 +16,27 @@ class HabitController extends ChangeNotifier {
   List<Habit> _habits = const [];
   final Map<int, List<HabitLog>> _logs = {};
   final Set<int> _loadingLogIds = {};
+  final Map<int, String> _logErrors = {};
   bool _loading = false;
   String? _error;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   List<Habit> get habits => _habits;
   bool get loading => _loading;
   String? get error => _error;
   bool isLoadingLogs(int habitId) => _loadingLogIds.contains(habitId);
+  String? logErrorFor(int habitId) => _logErrors[habitId];
   List<HabitLog> logsFor(int habitId) => _logs[habitId] ?? const [];
 
   Future<void> load() async {
@@ -181,12 +195,12 @@ class HabitController extends ChangeNotifier {
   Future<void> loadLogs(int habitId) async {
     if (_loadingLogIds.contains(habitId)) return;
     _loadingLogIds.add(habitId);
+    _logErrors.remove(habitId);
     notifyListeners();
     try {
-      final now = DateTime.now();
-      final month =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}';
-      _logs[habitId] = await _repository.logs(habitId, month: month);
+      _logs[habitId] = await _repository.logs(habitId);
+    } catch (error) {
+      _logErrors[habitId] = error.toString();
     } finally {
       _loadingLogIds.remove(habitId);
       notifyListeners();

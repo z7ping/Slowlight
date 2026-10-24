@@ -100,6 +100,9 @@ void main() {
       () async {
     await resetDatabase();
     final legacy = await openDatabase(dbPath, version: 15, onCreate: (db, _) async {
+      // v15 正式数据库还有习惯表；后续迁移会同时升级这些领域。
+      await db.execute('CREATE TABLE habits (id INTEGER PRIMARY KEY)');
+      await db.execute('CREATE TABLE habit_logs (id INTEGER PRIMARY KEY)');
       await db.execute('''
         CREATE TABLE work_sessions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

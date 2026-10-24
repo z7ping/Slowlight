@@ -33,7 +33,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   Future<List<Map<String, dynamic>>> _load() =>
       _source == 'local' ? _repository.local() : _repository.cloud();
 
-  void _reload() => setState(() => _reports = _load());
+  void _reload() => setState(() { _reports = _load(); });
 
   @override
   Widget build(BuildContext context) {

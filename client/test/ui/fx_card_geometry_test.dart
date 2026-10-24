@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
 
@@ -46,12 +45,9 @@ void main() {
             ('standard', 16.0),
             ('compact', 14.0),
           ]) {
-            final card = find.descendant(
-              of: find.byKey(ValueKey(entry.$1)),
-              matching: find.byType(ShadCard),
-            );
+            final card = find.byKey(ValueKey(entry.$1));
             expect(card, findsOneWidget);
-            final padding = tester.widget<ShadCard>(card).padding;
+            final padding = fxCardSurfacePadding(tester, card);
             expect(padding, EdgeInsets.all(entry.$2));
           }
           expect(tester.takeException(), isNull);

@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/reminder_screen.dart';
 import 'package:slowlight/services/reminder_service.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('reminder_screen');
+    SharedPreferences.setMockInitialValues({});
+    await DataModeManager().setLocal();
+    ReminderService().updateConfig(autoStartOnLaunch: false);
+    await ReminderService().loadAll();
+    expect(ReminderService().isLoaded, isTrue);
+  });
+  tearDownAll(() { ReminderService().dispose(); });
   group('ReminderScreen 稳定契约', () {
     testWidgets('开始工作后服务进入 working 状态', (tester) async {
       final service = ReminderService();

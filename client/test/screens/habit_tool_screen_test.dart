@@ -209,7 +209,15 @@ void main() {
     expect(find.text('请填写习惯名称'), findsOneWidget);
 
     await tester.enterText(find.byType(FxInput).first, '每日阅读');
-    await tester.enterText(find.byType(FxInput).at(1), '错误数字');
+    await tester.ensureVisible(find.text('记录与目标'));
+    await tester.tap(find.text('记录与目标'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    final target = find.byWidgetPredicate((widget) =>
+        widget is FxInput && widget.label == '目标天数');
+    await tester.ensureVisible(target);
+    await tester.enterText(target, '错误数字');
+    await tester.ensureVisible(find.text('创建习惯'));
     await tester.tap(find.text('创建习惯'));
     await tester.pump();
     expect(find.text('目标天数必须是 0 或正整数'), findsOneWidget);

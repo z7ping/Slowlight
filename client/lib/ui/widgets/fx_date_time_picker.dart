@@ -5,6 +5,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../app_theme.dart';
 import '../typography_tokens.dart';
+import '../layout_tokens.dart';
 
 // ═══════════════════════════════════════════
 // FxDatePicker — ShadCN 风格日期选择器
@@ -418,13 +419,21 @@ class FxCalendar<T> extends StatelessWidget {
         ? AppTheme.primaryLight
         : Theme.of(context).colorScheme.onSurface;
 
-    return TableCalendar<T>(
+    // TableCalendar 的日期点击内部使用 InkResponse；Sheet 路由没有 Material
+    // 表面，适配层在这里提供透明承载，不引入另一套日历视觉。
+    return Material(
+      type: MaterialType.transparency,
+      child: TableCalendar<T>(
       firstDay: firstDay,
       lastDay: lastDay,
       focusedDay: focusedDay,
       selectedDayPredicate: selectedDayPredicate ??
           (day) => selectedDay != null ? isSameDay(selectedDay!, day) : false,
       locale: locale,
+      // TableCalendar 默认星期行只有 16dp，系统大字号会裁切中文星期。
+      daysOfWeekHeight: MediaQuery.textScalerOf(context)
+              .scale(SlowlightTypography.buttonSize * 1.5) +
+          SlowlightSpacing.xs,
       startingDayOfWeek: StartingDayOfWeek.monday,
       headerStyle: HeaderStyle(
         titleCentered: true,
@@ -499,6 +508,7 @@ class FxCalendar<T> extends StatelessWidget {
       onPageChanged: onPageChanged,
       calendarBuilders: CalendarBuilders(
         markerBuilder: markerBuilder,
+      ),
       ),
     );
   }

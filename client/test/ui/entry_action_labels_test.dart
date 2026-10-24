@@ -19,7 +19,8 @@ void main() {
     expect(dashboard, contains("label: '添加任务'"));
     expect(dashboard, contains("label: '记录观察'"));
     expect(task, contains("title: '添加任务'"));
-    expect(task, contains("'添加中…' : '添加任务'"));
+    // 保存中与部分成功恢复可以使用各自文案，入口的任务/观察语义保持独立。
+    expect(task, contains(RegExp(r"label:\s*[^\n]*'添加任务'")));
     expect(observation, contains("title: '记录观察'"));
     expect(review, contains("title: '记录观察'"));
     expect(mobile, contains("tooltip: '记录观察'"));

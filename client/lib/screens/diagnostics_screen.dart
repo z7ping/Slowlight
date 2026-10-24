@@ -72,7 +72,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     if (_busy) return;
     final wasFollowing = _followLatest;
     final pending = _logger.readRecent();
-    setState(() => _logs = pending);
+    setState(() { _logs = pending; });
     try {
       await pending;
       if (mounted && _showRawLogs && wasFollowing) _jumpToLatest();

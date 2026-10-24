@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/ai/ai_config_store.dart';
@@ -108,7 +109,13 @@ void main() {
     await tester.pump();
     expect(find.textContaining('保存 AI 配置失败'), findsOneWidget);
     expect(find.textContaining('草稿已保留'), findsOneWidget);
-    expect(find.textContaining('new-secret'), findsNothing);
+    // 密钥仍留在遮蔽的编辑草稿中，不能出现在可见错误或通知里。
+    expect(find.textContaining('new-secret', findRichText: true), findsOneWidget);
+    final secretField = tester.widget<EditableText>(find.byType(EditableText).last);
+    expect(secretField.obscureText, isTrue);
+    expect(secretField.controller.text, 'new-secret');
+    expect(find.textContaining('new-secret', skipOffstage: false)
+        .evaluate().where((element) => element.widget is Text), isEmpty);
     expect(await secrets.read(AiProviderType.deepseek), isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);

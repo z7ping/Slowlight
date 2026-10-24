@@ -21,10 +21,15 @@ void main() {
       await tester.pump();
       final local = find.byKey(const ValueKey('login.local_action'));
       expect(local, findsOneWidget);
-      expect(find.textContaining('页面下方可以不登录直接开始'), findsOneWidget);
+      expect(find.textContaining('记录仅保存在当前设备'), findsOneWidget);
       expect(tester.getTopLeft(local).dy,
           greaterThan(tester.getTopLeft(find.text('欢迎回来')).dy));
-      expect(find.textContaining('迁移需要主动预览并确认'), findsOneWidget);
+      await tester.ensureVisible(local);
+      await tester.tap(local);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('login.local_confirm')), findsOneWidget);
+      expect(find.textContaining('不会自动上传或合并到云端'), findsOneWidget);
+      expect(find.textContaining('迁移云端需要主动预览并确认'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

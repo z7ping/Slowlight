@@ -47,3 +47,36 @@ Finder fxTooltipFinder(String message) => find.byWidgetPredicate(
       (widget) => widget is FxTooltip && widget.message == message,
       description: 'FxTooltip with message "$message"',
     );
+
+// 底座类型只在测试支持层解析；业务测试继续通过 Fx 宿主与语义入口工作。
+Finder fxToastFinder() => find.byType(ShadToast);
+Finder fxDialogSurfaceFinder() => find.byType(ShadDialog);
+Finder fxSheetSurfaceFinder() => find.byType(ShadSheet);
+
+EdgeInsetsGeometry? fxCardSurfacePadding(WidgetTester tester, Finder card) =>
+    tester.widget<ShadCard>(find.descendant(
+      of: card,
+      matching: find.byType(ShadCard),
+    )).padding;
+
+void expectFxInputSurfaceGeometry(
+  WidgetTester tester, {
+  required double minimum,
+  required double verticalPadding,
+}) {
+  final inputs = tester.widgetList<ShadInput>(find.byType(ShadInput));
+  expect(inputs, isNotEmpty);
+  for (final input in inputs) {
+    expect(input.constraints?.minHeight, minimum);
+    expect(input.inputPadding,
+        EdgeInsets.symmetric(vertical: verticalPadding));
+  }
+}
+
+void expectFxSelectSurfacePadding<T>(
+  WidgetTester tester,
+  EdgeInsets padding,
+) {
+  final trigger = tester.widget<ShadSelect<T>>(find.byType(ShadSelect<T>));
+  expect(trigger.padding, padding);
+}

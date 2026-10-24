@@ -25,6 +25,7 @@ void main() {
     await tester.pumpWidget(_host());
     await tester.tap(find.text('打开'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byType(MigrationPreviewDialog), findsOneWidget);
     expect(find.textContaining('预览阶段不会写入或删除数据'), findsOneWidget);
@@ -41,6 +42,7 @@ void main() {
     await tester.pumpWidget(_host());
     await tester.tap(find.text('打开'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     for (final label in [
       '清单', '标签', '观察标签（旧）', '任务',
@@ -61,6 +63,7 @@ void main() {
     await tester.pumpWidget(_host());
     await tester.tap(find.text('打开'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(find.byType(MigrationPreviewDialog), findsOneWidget);
     for (final stage in ['检查数据','处理冲突','最终确认','迁移结果']) {
       expect(find.text(stage), findsOneWidget);
@@ -98,6 +101,7 @@ void main() {
     await tester.pumpWidget(_host());
     await tester.tap(find.text('打开'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.byType(MigrationPreviewDialog), findsOneWidget);
     expect(tester.takeException(), isNull);

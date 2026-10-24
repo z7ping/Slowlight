@@ -35,10 +35,10 @@ void main() {
     LocalBehaviorEventSchema.resetForTest();
   });
 
-  test('LocalDb v15 保留 WorkSession 与历史字段，并增加统一标签关联', () async {
+  test('LocalDb 保留 WorkSession 与历史字段，并增加统一标签关联', () async {
     final db = await LocalDb().database;
 
-    expect(await db.getVersion(), 15);
+    expect(await db.getVersion(), greaterThanOrEqualTo(15));
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='work_sessions'",
     );
