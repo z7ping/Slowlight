@@ -195,11 +195,11 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                   ? _desktopContent()
                   : ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
+                    padding: SlowlightPageInsets.scroll(context, bottom: 72),
                     children: [
                       _taskActionBar(),
                       if (_loadFailed) _refreshErrorNotice(),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: SlowlightSpacing.xxxl),
                       _card(
                         child:
                             _visible.isEmpty
@@ -256,12 +256,15 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
 
   Widget _desktopContent() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+      padding: SlowlightPageInsets.scroll(
+        context,
+        bottom: SlowlightSpacing.page,
+      ),
       child: Column(
         children: [
           _taskActionBar(),
           if (_loadFailed) _refreshErrorNotice(),
-          const SizedBox(height: 14),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           Expanded(
             child:
                 _visible.isEmpty
@@ -284,7 +287,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: SlowlightSpacing.xxxl),
                         Expanded(
                           child: _card(
                             padding: EdgeInsets.zero,
@@ -400,16 +403,15 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             child: Container(
                               color: AppTheme.warning,
                               alignment: Alignment.center,
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(LucideIcons.clock3, size: 14, color: Colors.white),
                                   SizedBox(width: 4),
                                   Text(
                                     '顺延',
-                                    style: TextStyle(
+                                    style: SlowlightTypography.caption(context).copyWith(
                                       color: Colors.white,
-                                      fontSize: SlowlightTypography.captionSize,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -424,16 +426,15 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             child: Container(
                               color: AppTheme.success,
                               alignment: Alignment.center,
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(LucideIcons.check, size: 14, color: Colors.white),
                                   SizedBox(width: 4),
                                   Text(
                                     '完成',
-                                    style: TextStyle(
+                                    style: SlowlightTypography.caption(context).copyWith(
                                       color: Colors.white,
-                                      fontSize: SlowlightTypography.captionSize,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),

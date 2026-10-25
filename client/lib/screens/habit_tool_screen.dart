@@ -374,7 +374,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       onRefresh: _controller.load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 88),
+        padding: SlowlightPageInsets.scroll(context, bottom: 88),
         children: [
           Center(
             child: ConstrainedBox(

@@ -516,8 +516,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 const SizedBox(height: 2),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.captionSize,
+                  style: SlowlightTypography.caption(context).copyWith(
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                     color: color,
                   ),
@@ -937,8 +936,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
               Expanded(
                 child: Text(
                   '组织工具',
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.captionSize,
+                  style: SlowlightTypography.caption(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -986,8 +984,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
               Expanded(
                 child: Text(
                   '搜索',
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.secondarySize,
+                  style: SlowlightTypography.secondary(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -1005,8 +1002,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                   ),
                   child: Text(
                     'Ctrl K',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
+                    style: SlowlightTypography.caption(context).copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -1023,8 +1019,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       padding: const EdgeInsets.fromLTRB(10, 14, 10, 5),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: SlowlightTypography.captionSize,
+        style: SlowlightTypography.caption(context).copyWith(
           fontWeight: FontWeight.w600,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -1046,7 +1041,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 10),
       leading: Icon(icon, size: 18),
       title: Text(label,
-          style: const TextStyle(fontSize: SlowlightTypography.secondarySize)),
+          style: SlowlightTypography.secondary(context)),
       selected: selected,
       selectedColor: accent,
       selectedTileColor: accent.withValues(alpha: .12),

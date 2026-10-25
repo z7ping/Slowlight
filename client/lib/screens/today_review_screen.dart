@@ -165,65 +165,75 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (_viewIndex != 0) {
-                return Row(
-                  children: [
-                    FxButton(
-                      label: '返回回顾',
-                      variant: FxButtonVariant.ghost,
-                      size: FxButtonSize.sm,
-                      onPressed: () => setState(() => _viewIndex = 0),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _viewIndex == 1 ? '完整统计' : '时间分配',
-                        style: SlowlightTypography.cardTitle(context),
+          padding: EdgeInsets.fromLTRB(
+            SlowlightPageInsets.horizontal(context),
+            SlowlightSpacing.xxxl,
+            SlowlightPageInsets.horizontal(context),
+            SlowlightSpacing.xl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (_viewIndex != 0) {
+                    return Row(
+                      children: [
+                        FxButton(
+                          label: '返回回顾',
+                          variant: FxButtonVariant.ghost,
+                          size: FxButtonSize.sm,
+                          onPressed: () => setState(() => _viewIndex = 0),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _viewIndex == 1 ? '完整统计' : '时间分配',
+                            style: SlowlightTypography.cardTitle(context),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  final title = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _periodTitle(),
+                        style: SlowlightTypography.pageTitle(context),
                       ),
-                    ),
-                  ],
-                );
-              }
-              final title = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _periodTitle(),
-                    style: SlowlightTypography.pageTitle(context),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _periodDescription(),
-                    style: SlowlightTypography.secondary(context).copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              );
-              final compact = constraints.maxWidth < 700;
-              final periods = FxSegmented(
-                labels: const ['今天', '本周', '近 30 天'],
-                selectedIndex: _periodIndex,
-                onChanged: (index) => setState(() => _periodIndex = index),
-                expanded: compact,
-              );
-              if (compact) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [title, const SizedBox(height: 12), periods],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: title),
-                  const SizedBox(width: 16),
-                  periods,
-                ],
-              );
-            },
+                      const SizedBox(height: 4),
+                      Text(
+                        _periodDescription(),
+                        style: SlowlightTypography.secondary(context).copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  );
+                  final compact = constraints.maxWidth < 700;
+                  final periods = FxSegmented(
+                    labels: const ['今天', '本周', '近 30 天'],
+                    selectedIndex: _periodIndex,
+                    onChanged: (index) => setState(() => _periodIndex = index),
+                    expanded: compact,
+                  );
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [title, const SizedBox(height: 12), periods],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: title),
+                      const SizedBox(width: 16),
+                      periods,
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
         ),
         Expanded(
@@ -290,7 +300,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        padding: SlowlightPageInsets.scroll(
+          context,
+          top: SlowlightSpacing.xs,
+          bottom: 32,
+        ),
         children: [
           Center(
             child: ConstrainedBox(
