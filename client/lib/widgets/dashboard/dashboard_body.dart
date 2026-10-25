@@ -328,7 +328,6 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Widget _overviewCard() {
     final theme = Theme.of(context);
-    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     final counts = <(String, String)>[
       ('任务完成', _factNumber('task_completed')),
       ('专注分钟', _factNumber('focus_minutes')),
@@ -394,7 +393,6 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _timelineCard() {
-    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     final items = _timelineExpanded ? _timeline : _timeline.take(5).toList();
     return _card(
       Column(
@@ -501,7 +499,6 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   Widget _dimensionCard() {
-    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     return _card(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,7 +953,6 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Widget _questionCard() {
     final theme = Theme.of(context);
-    final mobile = !ResponsiveLayout.isDesktopOrWider(context);
     final visible = _insights
         .where((item) => !_ignored.contains(item.id))
         .take(1)
