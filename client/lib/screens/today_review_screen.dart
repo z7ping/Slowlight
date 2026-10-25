@@ -165,9 +165,17 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
+          padding: EdgeInsets.fromLTRB(
+            SlowlightPageInsets.horizontal(context),
+            SlowlightSpacing.xxxl,
+            SlowlightPageInsets.horizontal(context),
+            SlowlightSpacing.xl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
               if (_viewIndex != 0) {
                 return Row(
                   children: [
@@ -223,7 +231,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                   periods,
                 ],
               );
-            },
+                },
+              ),
+            ),
           ),
         ),
         Expanded(
@@ -290,7 +300,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        padding: SlowlightPageInsets.scroll(
+          context,
+          top: SlowlightSpacing.xs,
+          bottom: 32,
+        ),
         children: [
           Center(
             child: ConstrainedBox(

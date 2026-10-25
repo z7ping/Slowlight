@@ -51,3 +51,23 @@ class ResponsiveLayout {
     return 1;
   }
 }
+
+/// Shared page margins for ordinary windows. Feature geometry stays local.
+abstract final class SlowlightPageInsets {
+  static double horizontal(BuildContext context) =>
+      ResponsiveLayout.isDesktopOrWider(context)
+          ? SlowlightSpacing.page
+          : SlowlightSpacing.xxxl;
+
+  static double top(BuildContext context) =>
+      ResponsiveLayout.isDesktopOrWider(context)
+          ? 20
+          : SlowlightSpacing.xxxl;
+
+  static EdgeInsets scroll(BuildContext context,
+      {required double bottom, double? top}) {
+    final side = horizontal(context);
+    return EdgeInsets.fromLTRB(
+        side, top ?? SlowlightPageInsets.top(context), side, bottom);
+  }
+}

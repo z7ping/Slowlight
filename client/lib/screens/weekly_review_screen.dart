@@ -144,7 +144,11 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       onRefresh: _loadReview,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
+        padding: SlowlightPageInsets.scroll(
+          context,
+          top: widget.embedded ? SlowlightSpacing.xs : null,
+          bottom: 72,
+        ),
         children: [
           Center(
             child: ConstrainedBox(

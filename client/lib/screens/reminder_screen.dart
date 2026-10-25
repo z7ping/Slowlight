@@ -96,7 +96,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
             : (1 - _service.remainingSeconds / total).clamp(0.0, 1.0);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 26, 20, 32),
+      padding: SlowlightPageInsets.scroll(context, bottom: 32),
       children: [
         Center(
           child: ConstrainedBox(
@@ -200,7 +200,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                 ),
                 const SizedBox(height: 16),
                 _todayStats(),
-                const SizedBox(height: 12),
+                const SizedBox(height: SlowlightSpacing.xxxl),
                 _systemRules(),
                 const SizedBox(height: 10),
                 Text(
@@ -244,7 +244,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
       ),
     ];
     return FxCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
@@ -292,7 +292,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
     );
 
     return FxCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),

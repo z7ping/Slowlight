@@ -200,12 +200,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(
-          desktop ? 24 : 16,
-          desktop ? 20 : 14,
-          desktop ? 24 : 16,
-          40,
-        ),
+        padding: SlowlightPageInsets.scroll(context, bottom: 40),
         children: [
           _header(desktop),
           if (widget.listsError) ...[
@@ -216,7 +211,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                 variant: FxButtonVariant.outline,
                 onPressed: widget.onRefresh),
           ],
-          SizedBox(height: desktop ? 18 : 12),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           desktop ? _desktop() : _mobile(),
         ],
       ),
@@ -289,7 +284,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                   children: [
                     _timelineCard(),
                     if (_shouldShowQuestion) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: SlowlightSpacing.xxxl),
                       _questionCard(),
                     ],
                   ],
@@ -301,14 +296,14 @@ class _DashboardBodyState extends State<DashboardBody> {
                 child: Column(
                   children: [
                     _taskCard(maxItems: 4, mobile: false),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: SlowlightSpacing.xxxl),
                     _habitCard(maxItems: 4, mobile: false),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           _dimensionCard(),
         ],
       );
@@ -316,17 +311,17 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _mobile() => Column(
         children: [
           _overviewCard(),
-          const SizedBox(height: 12),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           _taskCard(maxItems: 3, mobile: true),
-          const SizedBox(height: 12),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           _timelineCard(),
-          const SizedBox(height: 12),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           _habitCard(maxItems: 3, mobile: true),
           if (_shouldShowQuestion) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: SlowlightSpacing.xxxl),
             _questionCard(),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: SlowlightSpacing.xxxl),
           _dimensionCard(),
         ],
       );
@@ -389,7 +384,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           ],
         ],
       ),
-      padding: EdgeInsets.all(mobile ? 12 : 16),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
     );
   }
 
@@ -465,7 +460,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           ],
         ],
       ),
-      padding: EdgeInsets.all(mobile ? 12 : 16),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
     );
   }
 
@@ -559,7 +554,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             ),
         ],
       ),
-      padding: EdgeInsets.all(mobile ? 12 : 16),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
     );
   }
 
@@ -658,11 +653,11 @@ class _DashboardBodyState extends State<DashboardBody> {
             ...visible.map((task) => _taskRow(task, mobile)),
         ],
       ),
-      padding: EdgeInsets.fromLTRB(
-        mobile ? 12 : 16,
-        mobile ? 12 : 16,
-        mobile ? 12 : 16,
-        7,
+      padding: const EdgeInsets.fromLTRB(
+        SlowlightSpacing.xxxl,
+        SlowlightSpacing.xxxl,
+        SlowlightSpacing.xxxl,
+        SlowlightSpacing.md,
       ),
     );
   }
@@ -830,11 +825,11 @@ class _DashboardBodyState extends State<DashboardBody> {
             ...visible.map((habit) => _habitRow(habit, mobile)),
         ],
       ),
-      padding: EdgeInsets.fromLTRB(
-        mobile ? 12 : 16,
-        mobile ? 12 : 16,
-        mobile ? 12 : 16,
-        7,
+      padding: const EdgeInsets.fromLTRB(
+        SlowlightSpacing.xxxl,
+        SlowlightSpacing.xxxl,
+        SlowlightSpacing.xxxl,
+        SlowlightSpacing.md,
       ),
     );
   }
@@ -1007,7 +1002,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           ],
         ),
       ),
-      padding: EdgeInsets.all(mobile ? 12 : 16),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
     );
   }
 
