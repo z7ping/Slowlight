@@ -304,7 +304,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             ],
           ),
           const SizedBox(height: SlowlightSpacing.xxxl),
-          _dimensionCard(),
+          _dimensionCard(mobile: false),
         ],
       );
 
@@ -322,7 +322,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             _questionCard(),
           ],
           const SizedBox(height: SlowlightSpacing.xxxl),
-          _dimensionCard(),
+          _dimensionCard(mobile: true),
         ],
       );
 
@@ -498,7 +498,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
-  Widget _dimensionCard() {
+  Widget _dimensionCard({required bool mobile}) {
     return _card(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
