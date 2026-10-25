@@ -781,37 +781,88 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FxButton(
-                      label: '取消',
-                      variant: FxButtonVariant.outline,
-                      onPressed:
-                          _submitting ? null : () => Navigator.pop(context),
-                    ),
-                    if (_resultUnknown)
-                      FxButton(
-                        label: '已核对，允许重新保存',
-                        variant: FxButtonVariant.outline,
-                        onPressed: () => setState(() {
-                          _resultUnknown = false;
-                          _validationError = null;
-                        }),
-                      ),
-                    FxButton(
-                      label: _submitting
-                          ? '保存中…'
-                          : widget.habit == null
-                              ? '创建习惯'
-                              : '保存',
-                      onPressed: _submitting || _resultUnknown ? null : _submit,
-                    ),
-                  ],
+                padding: const EdgeInsets.fromLTRB(
+                  SlowlightSpacing.xxxl,
+                  SlowlightSpacing.xl,
+                  SlowlightSpacing.xxxl,
+                  SlowlightSpacing.xxxl,
                 ),
+                child: mobile
+                    ? Column(
+                        key: const ValueKey('habit-editor-mobile-footer'),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_resultUnknown) ...[
+                            FxButton(
+                              label: '已核对，允许重新保存',
+                              expanded: true,
+                              variant: FxButtonVariant.outline,
+                              onPressed: () => setState(() {
+                                _resultUnknown = false;
+                                _validationError = null;
+                              }),
+                            ),
+                            const SizedBox(height: SlowlightSpacing.md),
+                          ],
+                          Row(
+                            children: [
+                              FxButton(
+                                label: '取消',
+                                variant: FxButtonVariant.outline,
+                                onPressed: _submitting
+                                    ? null
+                                    : () => Navigator.pop(context),
+                              ),
+                              const SizedBox(width: SlowlightSpacing.md),
+                              Expanded(
+                                child: FxButton(
+                                  label: _submitting
+                                      ? '保存中…'
+                                      : widget.habit == null
+                                          ? '创建习惯'
+                                          : '保存',
+                                  expanded: true,
+                                  onPressed: _submitting || _resultUnknown
+                                      ? null
+                                      : _submit,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: SlowlightSpacing.md,
+                        runSpacing: SlowlightSpacing.md,
+                        children: [
+                          FxButton(
+                            label: '取消',
+                            variant: FxButtonVariant.outline,
+                            onPressed: _submitting
+                                ? null
+                                : () => Navigator.pop(context),
+                          ),
+                          if (_resultUnknown)
+                            FxButton(
+                              label: '已核对，允许重新保存',
+                              variant: FxButtonVariant.outline,
+                              onPressed: () => setState(() {
+                                _resultUnknown = false;
+                                _validationError = null;
+                              }),
+                            ),
+                          FxButton(
+                            label: _submitting
+                                ? '保存中…'
+                                : widget.habit == null
+                                    ? '创建习惯'
+                                    : '保存',
+                            onPressed:
+                                _submitting || _resultUnknown ? null : _submit,
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),

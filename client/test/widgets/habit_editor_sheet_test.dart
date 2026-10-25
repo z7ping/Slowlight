@@ -33,6 +33,8 @@ void main() {
     expect(fxDialogSurfaceFinder(), findsNothing);
     expect(find.text('添加习惯'), findsOneWidget);
     expect(find.text('创建习惯'), findsOneWidget);
+    expect(find.byKey(const ValueKey('habit-editor-mobile-footer')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('取消'));
@@ -66,6 +68,8 @@ void main() {
     expect(fxDialogSurfaceFinder(), findsWidgets);
     expect(fxSheetSurfaceFinder(), findsNothing);
     expect(find.text('创建习惯'), findsOneWidget);
+    expect(find.byKey(const ValueKey('habit-editor-mobile-footer')),
+        findsNothing);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('取消'));
