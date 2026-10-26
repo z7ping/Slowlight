@@ -105,7 +105,8 @@ type Habit struct {
 	RecordType      string         `json:"record_type" gorm:"size:20;not null;default:'legacy'"` // legacy/check/duration/count
 	RecordUnit      string         `json:"record_unit" gorm:"size:20;not null;default:'次'"`
 	RecordTimeLabel string         `json:"record_time_label" gorm:"size:40;not null;default:''"`
-	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // daily/weekly/monthly
+	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // legacy daily/weekly/monthly/yearly
+	ScheduleRule    string         `json:"schedule_rule" gorm:"type:text;default:'{}'"` // V3 JSON
 	AllowMultiplePerDay bool           `json:"allow_multiple_per_day" gorm:"not null;default:false"`
 	GoalPeriod      string         `json:"goal_period" gorm:"size:10;not null;default:'none'"`
 	GoalMetric      string         `json:"goal_metric" gorm:"size:12;not null;default:'events'"`
@@ -124,6 +125,9 @@ type Habit struct {
 	DeletedAt       gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 	GoalProgress    int            `json:"goal_progress" gorm:"-"`
 	GoalMet         bool           `json:"goal_met" gorm:"-"`
+	CanCheckIn     *bool          `json:"can_check_in,omitempty" gorm:"-"`
+	PeriodCount    int            `json:"period_count,omitempty" gorm:"-"`
+	PeriodTarget   int            `json:"period_target,omitempty" gorm:"-"`
 	CheckedToday    bool           `json:"checked_today" gorm:"-"`                     // 今日是否已打卡（非数据库字段）
 	CheckedDays     []string       `json:"checked_days" gorm:"-"`                      // 本周打卡日期（非数据库字段）
 }
@@ -131,8 +135,9 @@ type Habit struct {
 // HabitLog 打卡记录
 type HabitLog struct {
 	ID           uint           `json:"id" gorm:"primaryKey"`
-	HabitID      uint           `json:"habit_id" gorm:"not null;index"`
+	HabitID      uint           `json:"habit_id" gorm:"not null;index;uniqueIndex:idx_habit_occurrence,priority:1,where:deleted_at IS NULL"`
 	ClientKey    *string        `json:"client_key,omitempty" gorm:"size:64;uniqueIndex:idx_habitlog_client_key"`
+	OccurrenceKey *string `json:"occurrence_key,omitempty" gorm:"size:120;uniqueIndex:idx_habit_occurrence,priority:2,where:deleted_at IS NULL"`
 	Date         string         `json:"date" gorm:"size:10;not null"`          // YYYY-MM-DD
 	Period       string         `json:"period" gorm:"size:20;default:''"`      // morning/afternoon/evening/night
 	CountValue   *int           `json:"count_value" gorm:"default:null"`

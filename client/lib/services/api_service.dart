@@ -473,6 +473,7 @@ class ApiService {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
@@ -495,6 +496,7 @@ class ApiService {
         icon: icon,
         color: color,
         frequency: frequency,
+        scheduleRule: scheduleRule,
         recordType: recordType,
         recordUnit: recordUnit,
         recordTimeLabel: recordTimeLabel,
@@ -517,6 +519,7 @@ class ApiService {
       'icon': icon,
       'color': color,
       'frequency': frequency,
+      'schedule_rule': scheduleRule ?? const <String, dynamic>{},
       'record_type': recordType,
       'record_unit': recordUnit,
       'record_time_label': recordTimeLabel,
@@ -597,14 +600,15 @@ class ApiService {
       {String note = '',
       String? date,
       int? durationMin,
+      String? period,
+      String? occurrenceKey,
       int? countValue,
       String? occurredAt,
-      String? clientKey,
-      String? period}) async {
+      String? clientKey}) async {
     final effectiveKey = clientKey ?? createHabitRecordKey();
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: effectiveKey);
+          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: effectiveKey, occurrenceKey: occurrenceKey);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
@@ -615,6 +619,9 @@ class ApiService {
       'period': period ?? ''
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
+    if (occurrenceKey != null) body['occurrence_key'] = occurrenceKey;
+    if (countValue != null) body['count_value'] = countValue;
+    if (occurredAt != null) body['occurred_at'] = occurredAt;
     final response = await HttpUtil.post(
       Uri.parse('$baseUrl/habits/$habitId/checkin'),
       headers: headers,
@@ -623,13 +630,10 @@ class ApiService {
     if (response.statusCode == 200) {
       return json.decode(response.body);
     }
-    // 返回服务器的具体错误信息
-    try {
-      final err = json.decode(response.body);
-      throw Exception(err['error'] ?? '打卡失败(${response.statusCode})');
-    } catch (e) {
-      throw Exception('打卡失败(${response.statusCode})');
-    }
+    // Keep server validation failures such as period completion actionable.
+    final error = json.decode(response.body);
+    throw StateError(error is Map && error['error'] != null
+        ? error['error'].toString() : '打卡失败(${response.statusCode})');
   }
 
   static Future<void> deleteHabitLog(int habitId, int logId) async {

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 import '../db/local_db.dart';
+import '../models/habit_occurrence.dart';
+import '../models/habit_schedule_rule.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
 
@@ -83,6 +85,30 @@ class LocalHabitRepository {
       final progress = HabitGoalProgress.current(mutable, goalLogs, now: now);
       mutable['goal_progress'] = progress;
       mutable['goal_met'] = HabitGoalProgress.met(mutable, progress);
+      final rule = HabitOccurrence.rule(mutable['schedule_rule'],
+        legacyFrequency: mutable['frequency']?.toString() ?? 'daily');
+      if (rule != null) {
+        try {
+          final occurrence = HabitOccurrence.calculate(rule, now,
+            requestKey: 'event:probe-availability');
+          if (occurrence.periodStart != null) {
+            final countRows = await db.rawQuery(
+              'SELECT COUNT(*) AS total FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
+              [hid, occurrence.periodStart, occurrence.periodEnd],
+            );
+            final count = countRows.first['total'] as int? ?? 0;
+            mutable['period_count'] = count;
+            mutable['period_target'] = occurrence.target;
+            mutable['can_check_in'] = count < occurrence.target &&
+              (occurrence.sameDayMultiple || todayRows.isEmpty);
+          } else {
+            final prior = await db.query('habit_logs',
+              where:'habit_id = ? AND occurrence_key = ?',
+              whereArgs:[hid, occurrence.key],limit:1);
+            mutable['can_check_in'] = prior.isEmpty;
+          }
+        } catch (_) { mutable['can_check_in'] = false; }
+      }
       enriched.add(mutable);
     }
     return enriched;
@@ -105,6 +131,7 @@ class LocalHabitRepository {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
@@ -128,6 +155,7 @@ class LocalHabitRepository {
       'icon': icon,
       'color': color,
       'frequency': frequency,
+      'schedule_rule': _encodeJson(scheduleRule ?? const {}),
       'record_type': recordType,
       'record_unit': recordUnit,
       'record_time_label': recordTimeLabel,
@@ -157,6 +185,7 @@ class LocalHabitRepository {
     String? icon,
     String? color,
     String? frequency,
+    Map<String, dynamic>? scheduleRule,
     String? recordType,
     String? recordUnit,
     String? recordTimeLabel,
@@ -180,6 +209,7 @@ class LocalHabitRepository {
     if (icon != null) updates['icon'] = icon;
     if (color != null) updates['color'] = color;
     if (frequency != null) updates['frequency'] = frequency;
+    if (scheduleRule != null) updates['schedule_rule'] = _encodeJson(scheduleRule);
     if (recordType != null) updates['record_type'] = recordType;
     if (recordUnit != null) updates['record_unit'] = recordUnit;
     if (recordTimeLabel != null) updates['record_time_label'] = recordTimeLabel;
@@ -214,6 +244,101 @@ class LocalHabitRepository {
     );
   }
 
+  Future<Map<String, dynamic>> _checkInScheduled(
+    int habitId, {
+    String note = '',
+    String? date,
+    int? durationMin,
+    String? period,
+    String? occurrenceKey,
+    int? countValue,
+    String? occurredAt,
+    String? clientKey,
+  }) async {
+    final db = await _db.database;
+    final now = DateTime.now();
+    final day = date ?? _dateStr(now);
+    final habit = await getById(habitId);
+    if (habit == null) throw StateError('习惯不存在');
+    final rule = HabitOccurrence.rule(habit['schedule_rule'],
+        legacyFrequency: habit['frequency']?.toString() ?? 'daily');
+    if (date != null && DateTime.tryParse(date)?.isAfter(DateTime(now.year, now.month, now.day)) == true) {
+      throw StateError('不能记录未来日期');
+    }
+    if (rule != null && date != null) {
+      final created = DateTime.tryParse(habit['created_at']?.toString() ?? '')?.toLocal();
+      if (created != null &&
+          DateTime.parse(day).isBefore(DateTime(created.year,created.month,created.day))) {
+        throw StateError('打卡日期早于习惯创建日期');
+      }
+    }
+    final event = rule == null ? null : HabitOccurrence.calculate(
+        rule, now, date: day, requestKey: occurrenceKey);
+    final effectiveKey = clientKey ?? createHabitRecordKey();
+    if (occurredAt != null && occurredAt.isNotEmpty) {
+      final parsed = DateTime.tryParse(occurredAt);
+      if (parsed == null || parsed.isAfter(now) || _dateStr(parsed.toLocal()) != day) {
+        throw StateError('实际发生时间与记录日期不一致');
+      }
+    }
+    return db.transaction((tx) async {
+      final replay = await tx.query('habit_logs',
+          where: 'client_key = ?', whereArgs: [effectiveKey], limit: 1);
+      if (replay.isNotEmpty) return {'log': replay.first, 'already_checked': true};
+      final existing = await tx.query('habit_logs',
+        where: rule == null ? 'habit_id = ? AND date = ?' :
+            'habit_id = ? AND occurrence_key = ?',
+        whereArgs: [habitId, rule == null ? day : event!.key],
+        limit: 1);
+      if (existing.isNotEmpty) {
+        return {'message': '该时段已记录', 'already_checked': true,
+          'log': existing.first, 'streak_count': habit['streak_count'] ?? 0};
+      }
+      if (event?.periodStart != null) {
+        final counts = await tx.rawQuery(
+          'SELECT COUNT(*) AS total FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
+          [habitId, event!.periodStart, event.periodEnd]);
+        final count = counts.first['total'] as int? ?? 0;
+        if (count >= event.target) throw StateError('本周期已完成目标次数');
+        if (!event.sameDayMultiple) {
+          final sameDay = await tx.query('habit_logs',
+            where: 'habit_id = ? AND date = ?',whereArgs:[habitId,day],limit:1);
+          if (sameDay.isNotEmpty) return {'message':'该日已记录',
+            'already_checked':true,'log':sameDay.first};
+        }
+      }
+      final at = date == null ? now :
+          DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
+      final type = habit['record_type']?.toString() ?? 'legacy';
+      if (type == 'count' && (countValue == null || countValue <= 0)) throw StateError('次数必须大于零');
+      final actualPeriod = type == 'legacy' || type == 'duration' ? (period?.isNotEmpty == true
+          ? period! : habit['preferred_period']?.toString() ?? '') : '';
+      final actualDuration = type == 'legacy' || type == 'duration' ? (durationMin ?? habit['duration_min'] as int? ?? 0) : 0;
+      if (actualDuration < 0) throw StateError('时长不能为负数');
+      final createdAt = _nowUtc();
+      final id = await tx.insert('habit_logs', {
+        'habit_id':habitId, 'date':day, 'occurrence_key':event?.key,
+        'client_key': effectiveKey,
+        'occurred_at':occurredAt ?? at.toUtc().toIso8601String(), 'count_value':countValue,
+        'period':actualPeriod,
+        'duration_min':actualDuration,'note':note,'created_at':createdAt,
+      });
+      final streak = rule == null
+          ? await _calculateCurrentStreak(tx,habitId,now) : 0;
+      await tx.update('habits',
+        {'streak_count':streak,'updated_at':_nowUtc()},
+        where:'id = ?',whereArgs:[habitId]);
+      return {'message':'打卡成功','log':{
+        'id':id,'habit_id':habitId,'date':day,'occurrence_key':event?.key,
+        'client_key': effectiveKey,
+        'occurred_at':occurredAt ?? at.toUtc().toIso8601String(),
+        'count_value':countValue,
+        'period':actualPeriod,'duration_min':actualDuration,
+        'note':note,'created_at':createdAt,
+      },'streak_count':streak};
+    });
+  }
+
   Future<Map<String, dynamic>> checkIn(
     int habitId, {
     String note = '',
@@ -223,7 +348,15 @@ class LocalHabitRepository {
     String? occurredAt,
     String? period,
     String? clientKey,
+    String? occurrenceKey,
   }) async {
+    final scheduledHabit = await getById(habitId);
+    if (scheduledHabit != null && HabitOccurrence.rule(scheduledHabit['schedule_rule'],
+        legacyFrequency: scheduledHabit['frequency']?.toString() ?? 'daily') != null) {
+      return _checkInScheduled(habitId, note: note, date: date, durationMin: durationMin,
+        period: period, occurrenceKey: occurrenceKey, countValue: countValue,
+        occurredAt: occurredAt, clientKey: clientKey);
+    }
     final db = await _db.database;
     final localNow = DateTime.now();
     final checkDate = date ?? _dateStr(localNow);

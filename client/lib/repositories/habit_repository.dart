@@ -28,6 +28,7 @@ class HabitRepository {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
@@ -49,6 +50,7 @@ class HabitRepository {
       icon: icon,
       color: color,
       frequency: frequency,
+      scheduleRule: scheduleRule,
       recordType: recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,
@@ -74,6 +76,7 @@ class HabitRepository {
     String? icon,
     String? color,
     String? frequency,
+    Map<String, dynamic>? scheduleRule,
     String? recordType,
     String? recordUnit,
     String? recordTimeLabel,
@@ -96,6 +99,7 @@ class HabitRepository {
       'icon': icon ?? habit.icon,
       'color': color ?? habit.color,
       'frequency': frequency ?? habit.frequency,
+      'schedule_rule': scheduleRule ?? habit.scheduleRule,
       'record_type': recordType ?? habit.recordType,
       'record_unit': recordUnit ?? habit.recordUnit,
       'record_time_label': recordTimeLabel ?? habit.recordTimeLabel,
@@ -129,6 +133,7 @@ class HabitRepository {
     String? occurredAt,
     String? period,
     String? clientKey,
+    String? occurrenceKey,
   }) =>
       _dataSource.checkInHabit(
         habitId,
@@ -139,6 +144,7 @@ class HabitRepository {
         occurredAt: occurredAt,
         period: period,
         clientKey: clientKey ?? createHabitRecordKey(),
+        occurrenceKey: occurrenceKey,
       );
 
   Future<void> deleteLog(int habitId, int logId) =>

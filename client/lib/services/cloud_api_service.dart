@@ -422,6 +422,7 @@ class CloudApiService implements ApiDataSource {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
@@ -443,6 +444,7 @@ class CloudApiService implements ApiDataSource {
           icon: icon,
           color: color,
           frequency: frequency,
+          scheduleRule: scheduleRule,
           recordType: recordType,
           recordUnit: recordUnit,
           recordTimeLabel: recordTimeLabel,
@@ -466,6 +468,7 @@ class CloudApiService implements ApiDataSource {
         icon: icon,
         color: color,
         frequency: frequency,
+        scheduleRule: scheduleRule,
         recordType: recordType,
         recordUnit: recordUnit,
         recordTimeLabel: recordTimeLabel,
@@ -508,6 +511,7 @@ class CloudApiService implements ApiDataSource {
     String? occurredAt,
     String? period,
     String? clientKey,
+    String? occurrenceKey,
   }) {
     Future<Map<String, dynamic>> cached() => _cache.checkInHabit(
           habitId,
@@ -518,6 +522,7 @@ class CloudApiService implements ApiDataSource {
           occurredAt: occurredAt,
           period: period,
         clientKey: clientKey,
+          occurrenceKey: occurrenceKey,
         );
     if (habitId < 0) return cached();
     return _writeThrough(
@@ -530,6 +535,7 @@ class CloudApiService implements ApiDataSource {
         occurredAt: occurredAt,
         period: period,
         clientKey: clientKey,
+        occurrenceKey: occurrenceKey,
       ),
       cached,
     );

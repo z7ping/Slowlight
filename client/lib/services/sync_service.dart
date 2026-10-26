@@ -561,15 +561,22 @@ class SyncService extends ChangeNotifier {
       }
       return;
     }
+    if (op == 'uncheck_today') {
+      if (queuedServerId == null || queuedServerId <= 0) return;
+      await ApiService.uncheckInHabit(queuedServerId).timeout(const Duration(seconds: 10));
+      return;
+    }
     final row = await _row(db, 'habits', localId);
     final systemTagId = await _mapSystemTag(db, row['system_tag_id'] as int?);
     final reminderAt = _jsonMap(row['reminder_at']);
+    final scheduleRule = _jsonMap(row['schedule_rule']);
     if (op == 'create') {
       final remote = await ApiService.createHabit(
         name: row['name'] as String,
         icon: row['icon'] as String? ?? '✅',
         color: row['color'] as String? ?? '#52c41a',
         frequency: row['frequency'] as String? ?? 'daily',
+        scheduleRule: scheduleRule,
         recordType: row['record_type'] as String? ?? 'legacy',
         recordUnit: row['record_unit'] as String? ?? '次',
         recordTimeLabel: row['record_time_label'] as String? ?? '',
@@ -597,6 +604,7 @@ class SyncService extends ChangeNotifier {
       'icon': row['icon'],
       'color': row['color'],
       'frequency': row['frequency'],
+      'schedule_rule': scheduleRule,
       'record_type': row['record_type'],
       'record_unit': row['record_unit'],
       'record_time_label': row['record_time_label'],
@@ -644,6 +652,7 @@ class SyncService extends ChangeNotifier {
       occurredAt: row['occurred_at'] as String?,
       period: row['period'] as String?,
       clientKey: row['client_key'] as String?,
+      occurrenceKey: row['occurrence_key'] as String?,
     ).timeout(const Duration(seconds: 10));
     final log = result['log'];
     final remoteId = log is Map ? log['id'] as int? : result['id'] as int?;
@@ -1013,6 +1022,10 @@ class SyncService extends ChangeNotifier {
         'show_checkin_dialog': _boolInt(item['show_checkin_dialog']),
         'specific_time': item['specific_time'] ?? '',
         'reminder_at': jsonEncode(item['reminder_at'] ?? {}),
+        'schedule_rule': jsonEncode(_jsonMap(item['schedule_rule'])),
+        'record_type': item['record_type'] ?? 'legacy',
+        'record_unit': item['record_unit'] ?? '次',
+        'record_time_label': item['record_time_label'] ?? '',
         'created_at': _dateString(item['created_at']),
         'updated_at': _dateString(item['updated_at']),
         'deleted_at': null,
@@ -1113,6 +1126,9 @@ class SyncService extends ChangeNotifier {
         await _upsert(db, 'habit_logs', id, {
           'habit_id': localHabitId,
           'date': item['date'] ?? '',
+          'occurrence_key': item['occurrence_key'],
+          'occurred_at': item['occurred_at'],
+          'count_value': item['count_value'],
           'period': item['period'] ?? '',
           'duration_min': item['duration_min'] ?? 0,
           'count_value': item['count_value'],
@@ -1139,6 +1155,27 @@ class SyncService extends ChangeNotifier {
       whereArgs: [serverId],
       limit: 1,
     );
+    // A pending offline log can already exist on the server after an
+    // uncertain network result. Match its stable occurrence before INSERT.
+    if (table == 'habit_logs' && rows.isEmpty &&
+        values['occurrence_key'] != null && values['habit_id'] != null) {
+      final match = await db.query('habit_logs',
+        where: 'habit_id = ? AND occurrence_key = ?',
+        whereArgs: [values['habit_id'], values['occurrence_key']], limit: 1);
+      if (match.isNotEmpty) {
+        final local = match.first;
+        final status = local['sync_status']?.toString() ?? 'synced';
+        if (status == 'pending' || status == 'conflict') {
+          await db.update('habit_logs', {
+            'server_id':serverId, 'sync_status':'conflict',
+          }, where:'id = ?',whereArgs:[local['id']]);
+          return local['id'] as int;
+        }
+        await db.update('habit_logs', {...values,'server_id':serverId},
+          where:'id = ?',whereArgs:[local['id']]);
+        return local['id'] as int;
+      }
+    }
     if (rows.isNotEmpty) {
       final local = rows.first;
       final status = local['sync_status'] as String? ?? 'synced';
@@ -1236,6 +1273,7 @@ class SyncService extends ChangeNotifier {
       result['show_checkin_dialog'] = _boolInt(remote['show_checkin_dialog']);
       result['allow_multiple_per_day'] = _boolInt(remote['allow_multiple_per_day']);
       result['reminder_at'] = jsonEncode(remote['reminder_at'] ?? {});
+      result['schedule_rule'] = jsonEncode(_jsonMap(remote['schedule_rule']));
     } else if (table == 'lists') {
       result['is_inbox'] = _boolInt(remote['is_inbox']);
     } else if (table == 'habit_logs') {
@@ -1298,6 +1336,10 @@ class SyncService extends ChangeNotifier {
       'show_checkin_dialog',
       'specific_time',
       'reminder_at',
+      'schedule_rule',
+      'record_type',
+      'record_unit',
+      'record_time_label',
     ],
     'tasks': [
       'list_id',
@@ -1330,7 +1372,10 @@ class SyncService extends ChangeNotifier {
       'count_value',
       'occurred_at', 'client_key',
       'note',
-      'task_id'
+      'task_id',
+      'occurrence_key',
+      'occurred_at',
+      'count_value',
     ],
   };
 

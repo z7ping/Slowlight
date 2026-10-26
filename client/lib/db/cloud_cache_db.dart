@@ -43,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -157,6 +157,7 @@ class CloudCacheDb {
         icon TEXT DEFAULT '✅',
         color TEXT DEFAULT '#52c41a',
         frequency TEXT DEFAULT 'daily',
+        schedule_rule TEXT NOT NULL DEFAULT '{}',
         record_type TEXT NOT NULL DEFAULT 'legacy',
         record_unit TEXT NOT NULL DEFAULT '次',
         record_time_label TEXT NOT NULL DEFAULT '',
@@ -189,12 +190,12 @@ class CloudCacheDb {
         server_id INTEGER,
         habit_id INTEGER NOT NULL,
         date TEXT NOT NULL,
+        occurrence_key TEXT,
+        client_key TEXT,
+        occurred_at TEXT,
+        count_value INTEGER,
         period TEXT DEFAULT '',
         duration_min INTEGER DEFAULT 0,
-        count_value INTEGER,
-        occurred_at TEXT,
-        client_key TEXT,
-        deleted_at TEXT,
         note TEXT DEFAULT '',
         task_id INTEGER,
         created_at TEXT NOT NULL,
@@ -233,7 +234,8 @@ class CloudCacheDb {
         'CREATE INDEX idx_cloud_habits_sync_status ON habits(sync_status)');
     await db.execute(
         'CREATE INDEX idx_cloud_habit_logs_habit_id ON habit_logs(habit_id)');
-    await db.execute('CREATE UNIQUE INDEX idx_habit_logs_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
+    await db.execute('CREATE UNIQUE INDEX idx_cloud_habit_occurrence ON habit_logs(habit_id, occurrence_key)');
+    await db.execute('CREATE UNIQUE INDEX idx_cloud_habit_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
     await db.execute(
         'CREATE INDEX idx_cloud_sync_queue_entity ON sync_queue(entity_type, entity_local_id)');
     await db.execute(
@@ -253,6 +255,50 @@ class CloudCacheDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 7) {
+      final names = (await db.rawQuery('PRAGMA table_info(habits)'))
+          .map((row) => row['name'].toString()).toSet();
+      for (final entry in <String, String>{
+        'allow_multiple_per_day': 'INTEGER NOT NULL DEFAULT 0',
+        'goal_period': "TEXT NOT NULL DEFAULT 'none'",
+        'goal_metric': "TEXT NOT NULL DEFAULT 'events'",
+        'goal_value': 'INTEGER NOT NULL DEFAULT 0',
+      }.entries) {
+        if (!names.contains(entry.key)) {
+          await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
+        }
+      }
+      final logNames = (await db.rawQuery('PRAGMA table_info(habit_logs)'))
+          .map((row) => row['name'].toString()).toSet();
+      if (!logNames.contains('client_key')) {
+        await db.execute('ALTER TABLE habit_logs ADD COLUMN client_key TEXT');
+      }
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_habit_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
+    }
+    if (oldVersion < 6) {
+      final habitColumns = await db.rawQuery("PRAGMA table_info(habits)");
+      for (final entry in <String, String>{
+        'record_type': "TEXT NOT NULL DEFAULT 'legacy'",
+        'record_unit': "TEXT NOT NULL DEFAULT '次'",
+        'record_time_label': "TEXT NOT NULL DEFAULT ''",
+      }.entries) {
+        if (!habitColumns.any((c) => c['name'] == entry.key)) {
+          await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
+        }
+      }
+      final columns = await db.rawQuery("PRAGMA table_info(habit_logs)");
+      final names = columns.map((c) => c["name"]).toSet();
+      if (!names.contains("occurrence_key")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurrence_key TEXT");
+      if (!names.contains("occurred_at")) await db.execute("ALTER TABLE habit_logs ADD COLUMN occurred_at TEXT");
+      if (!names.contains("count_value")) await db.execute("ALTER TABLE habit_logs ADD COLUMN count_value INTEGER");
+      await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_habit_occurrence ON habit_logs(habit_id, occurrence_key)");
+    }
+    if (oldVersion < 5) {
+      final columns = await db.rawQuery('PRAGMA table_info(habits)');
+      if (!columns.any((column) => column['name'] == 'schedule_rule')) {
+        await db.execute("ALTER TABLE habits ADD COLUMN schedule_rule TEXT NOT NULL DEFAULT '{}'");
+      }
+    }
     if (oldVersion < 2) {
       await _createSyncIntents(db);
     }
@@ -261,75 +307,6 @@ class CloudCacheDb {
     }
     if (oldVersion < 4) {
       await UnifiedTagSchema.ensureTables(db);
-    }
-    if (oldVersion < 5) {
-      await _upgradeHabitRecordTypes(db);
-    }
-    if (oldVersion < 6) {
-      await _upgradeMultipleHabitRecords(db);
-    }
-  }
-
-  Future<void> _upgradeMultipleHabitRecords(Database db) async {
-    final habitColumns = (await db.rawQuery('PRAGMA table_info(habits)'))
-        .map((row) => row['name'].toString()).toSet();
-    for (final entry in <String, String>{
-      'allow_multiple_per_day': 'INTEGER NOT NULL DEFAULT 0',
-      'goal_period': "TEXT NOT NULL DEFAULT 'none'",
-      'goal_metric': "TEXT NOT NULL DEFAULT 'events'",
-      'goal_value': 'INTEGER NOT NULL DEFAULT 0',
-    }.entries) {
-      if (!habitColumns.contains(entry.key)) {
-        await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
-      }
-    }
-    final logColumns = (await db.rawQuery('PRAGMA table_info(habit_logs)'))
-        .map((row) => row['name'].toString()).toSet();
-    if (!logColumns.contains('client_key')) {
-      await db.execute('ALTER TABLE habit_logs ADD COLUMN client_key TEXT');
-    }
-    if (!logColumns.contains('deleted_at')) {
-      await db.execute('ALTER TABLE habit_logs ADD COLUMN deleted_at TEXT');
-    }
-    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS '
-        'idx_habit_logs_client_key ON habit_logs(client_key) '
-        'WHERE client_key IS NOT NULL');
-  }
-
-  /// 补齐 Cloud Cache 中早于本地记录类型功能的字段。
-  /// 只追加列，保留现有习惯、打卡记录、同步队列以及账号隔离。
-  Future<void> _upgradeHabitRecordTypes(Database db) async {
-    final habitColumns = await db.rawQuery('PRAGMA table_info(habits)');
-    final habitNames = habitColumns.map((column) => column['name']).toSet();
-    for (final entry in <String, String>{
-      'record_type': "TEXT NOT NULL DEFAULT 'legacy'",
-      'record_unit': "TEXT NOT NULL DEFAULT '次'",
-      'record_time_label': "TEXT NOT NULL DEFAULT ''",
-    }.entries) {
-      if (!habitNames.contains(entry.key)) {
-        await db.execute(
-          'ALTER TABLE habits ADD COLUMN ' +
-              entry.key +
-              ' ' +
-              entry.value,
-        );
-      }
-    }
-
-    final logColumns = await db.rawQuery('PRAGMA table_info(habit_logs)');
-    final logNames = logColumns.map((column) => column['name']).toSet();
-    for (final entry in <String, String>{
-      'count_value': 'INTEGER',
-      'occurred_at': 'TEXT',
-    }.entries) {
-      if (!logNames.contains(entry.key)) {
-        await db.execute(
-          'ALTER TABLE habit_logs ADD COLUMN ' +
-              entry.key +
-              ' ' +
-              entry.value,
-        );
-      }
     }
   }
 

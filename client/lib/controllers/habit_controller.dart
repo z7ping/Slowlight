@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/habit.dart';
+import 'dart:math';
+import '../models/habit_occurrence.dart';
 import '../models/habit_log.dart';
 import '../repositories/habit_repository.dart';
 
@@ -62,7 +64,13 @@ class HabitController extends ChangeNotifier {
     String? occurredAt,
     String? period,
     String? clientKey,
+    String? occurrenceKey,
   }) async {
+    final eventKey = habit.scheduleRule.isNotEmpty &&
+        HabitOccurrence.rule(habit.scheduleRule)?.sameDayMultiple == true
+        ? 'event:' + DateTime.now().toUtc().microsecondsSinceEpoch.toString() +
+            '-' + Random.secure().nextInt(0x7fffffff).toRadixString(16)
+        : null;
     final result = await _repository.checkIn(
       habit.id,
       note: note,
@@ -72,6 +80,7 @@ class HabitController extends ChangeNotifier {
       occurredAt: occurredAt,
       period: period,
       clientKey: clientKey,
+      occurrenceKey: occurrenceKey ?? eventKey,
     );
     await load();
     if (_logs.containsKey(habit.id)) await loadLogs(habit.id);
@@ -96,6 +105,7 @@ class HabitController extends ChangeNotifier {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
@@ -117,6 +127,7 @@ class HabitController extends ChangeNotifier {
       icon: icon,
       color: color,
       frequency: frequency,
+      scheduleRule: scheduleRule,
       recordType: recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,
@@ -143,6 +154,7 @@ class HabitController extends ChangeNotifier {
     String? icon,
     String? color,
     String? frequency,
+    Map<String, dynamic>? scheduleRule,
     String? recordType,
     String? recordUnit,
     String? recordTimeLabel,
@@ -166,6 +178,7 @@ class HabitController extends ChangeNotifier {
       icon: icon,
       color: color,
       frequency: frequency,
+      scheduleRule: scheduleRule,
       recordType: recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,

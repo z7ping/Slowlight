@@ -63,6 +63,10 @@ type MigrationHabit struct {
 	Icon              string `json:"icon"`
 	Color             string `json:"color"`
 	Frequency         string `json:"frequency"`
+	RecordType string `json:"record_type"`
+	RecordUnit string `json:"record_unit"`
+	RecordTimeLabel string `json:"record_time_label"`
+	ScheduleRule      string `json:"schedule_rule"`
 	TargetDays        int    `json:"target_days"`
 	PreferredPeriod   string `json:"preferred_period"`
 	DurationMin       int    `json:"duration_min"`
@@ -102,6 +106,9 @@ type MigrationLog struct {
 	HabitID     uint   `json:"habit_id"`
 	TaskID      *uint  `json:"task_id"`
 	Date        string `json:"date"`
+	OccurrenceKey *string `json:"occurrence_key"`
+	OccurredAt *time.Time `json:"occurred_at"`
+	CountValue *int `json:"count_value"`
 	Period      string `json:"period"`
 	DurationMin int    `json:"duration_min"`
 	Note        string `json:"note"`
@@ -433,7 +440,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 				name, nameErr = h.migrationCopyName(tx, userID, "habits", item.Name)
 				if nameErr != nil { return nameErr }
 			}
-			row := model.Habit{UserID: userID, Name: name, Icon: item.Icon, Color: item.Color, Frequency: item.Frequency, TargetDays: item.TargetDays, PreferredPeriod: item.PreferredPeriod, DurationMin: item.DurationMin, GenerateTask: item.GenerateTask, ShowCheckinDialog: item.ShowCheckinDialog, SpecificTime: item.SpecificTime, ReminderAt: item.ReminderAt}
+			row := model.Habit{UserID: userID, Name: name, Icon: item.Icon, Color: item.Color, Frequency: item.Frequency, ScheduleRule: item.ScheduleRule, RecordType: item.RecordType, RecordUnit: item.RecordUnit, RecordTimeLabel: item.RecordTimeLabel, TargetDays: item.TargetDays, PreferredPeriod: item.PreferredPeriod, DurationMin: item.DurationMin, GenerateTask: item.GenerateTask, ShowCheckinDialog: item.ShowCheckinDialog, SpecificTime: item.SpecificTime, ReminderAt: item.ReminderAt}
 			if item.SystemTagID != nil && systemTagIDs[*item.SystemTagID] != 0 {
 				mapped := systemTagIDs[*item.SystemTagID]
 				row.SystemTagID = &mapped
@@ -448,8 +455,11 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 				row.Frequency = "daily"
 			}
 			if row.ReminderAt == "" {
-				row.ReminderAt = "{}"
-			}
+                row.ReminderAt = "{}"
+            }
+            schedule, err := validateHabitSchedule(row.ScheduleRule)
+            if err != nil { return err }
+            row.ScheduleRule = schedule
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
@@ -521,7 +531,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 					taskID = &mapped
 				}
 			}
-			row := model.HabitLog{HabitID: habitID, TaskID: taskID, Date: item.Date, Period: item.Period, DurationMin: item.DurationMin, Note: item.Note}
+			row := model.HabitLog{HabitID: habitID, TaskID: taskID, Date: item.Date, OccurrenceKey: item.OccurrenceKey, OccurredAt: item.OccurredAt, CountValue: item.CountValue, Period: item.Period, DurationMin: item.DurationMin, Note: item.Note}
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}

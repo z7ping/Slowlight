@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'habit_schedule_rule.dart';
 
 class Habit {
   final int id;
@@ -7,6 +8,7 @@ class Habit {
   final String icon;
   final String color;
   final String frequency;
+  final Map<String, dynamic> scheduleRule;
   /// 旧数据保持原有时长/时段语义；新习惯默认为 check。
   final String recordType;
   final String recordUnit;
@@ -28,6 +30,9 @@ class Habit {
   final String specificTime;
   final Map<String, dynamic> reminderAt;
   final bool checkedToday;
+  final bool? canCheckIn;
+  final int periodCount;
+  final int periodTarget;
   final List<String> checkedDays;
   final DateTime createdAt;
 
@@ -38,6 +43,7 @@ class Habit {
     this.icon = '✅',
     this.color = '#52c41a',
     this.frequency = 'daily',
+    this.scheduleRule = const {},
     this.recordType = 'legacy',
     this.recordUnit = '次',
     this.recordTimeLabel = '',
@@ -57,6 +63,9 @@ class Habit {
     this.specificTime = '',
     this.reminderAt = const {},
     this.checkedToday = false,
+    this.canCheckIn,
+    this.periodCount = 0,
+    this.periodTarget = 0,
     this.checkedDays = const [],
     required this.createdAt,
   });
@@ -69,6 +78,7 @@ class Habit {
       icon: json['icon'] ?? '✅',
       color: json['color'] ?? '#52c41a',
       frequency: json['frequency'] ?? 'daily',
+      scheduleRule: _parseReminderAt(json['schedule_rule']),
       recordType: json['record_type'] as String? ?? 'legacy',
       recordUnit: json['record_unit'] as String? ?? '次',
       recordTimeLabel: json['record_time_label'] as String? ?? '',
@@ -89,6 +99,9 @@ class Habit {
       durationMin: json['duration_min'] ?? 0,
       specificTime: json['specific_time'] ?? '',
       reminderAt: _parseReminderAt(json['reminder_at']),
+      canCheckIn: json['can_check_in'] is bool ? json['can_check_in'] as bool : null,
+      periodCount: json['period_count'] as int? ?? 0,
+      periodTarget: json['period_target'] as int? ?? 0,
       checkedToday:
           json['checked_today'] == true || json['checked_today'] == 1,
       checkedDays: (json['checked_days'] as List?)
@@ -117,6 +130,9 @@ class Habit {
   }
 
   String get frequencyText {
+    if (scheduleRule.isNotEmpty) {
+      return HabitScheduleRule.fromJson(scheduleRule, legacyFrequency: frequency).summary;
+    }
     switch (frequency) {
       case 'daily':
         return '每天';

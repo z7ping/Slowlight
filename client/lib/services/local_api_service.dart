@@ -229,6 +229,7 @@ class LocalApiService implements ApiDataSource {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    Map<String, dynamic>? scheduleRule,
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
@@ -250,6 +251,7 @@ class LocalApiService implements ApiDataSource {
         icon: icon,
         color: color,
         frequency: frequency,
+        scheduleRule: scheduleRule,
         recordType: recordType,
         recordUnit: recordUnit,
         recordTimeLabel: recordTimeLabel,
@@ -275,6 +277,7 @@ class LocalApiService implements ApiDataSource {
       icon: data['icon'] as String?,
       color: data['color'] as String?,
       frequency: data['frequency'] as String?,
+      scheduleRule: data['schedule_rule'] is Map ? Map<String, dynamic>.from(data['schedule_rule'] as Map) : null,
       recordType: data['record_type'] as String?,
       recordUnit: data['record_unit'] as String?,
       recordTimeLabel: data['record_time_label'] as String?,
@@ -306,6 +309,7 @@ class LocalApiService implements ApiDataSource {
     String? occurredAt,
     String? period,
     String? clientKey,
+    String? occurrenceKey,
   }) =>
       _habitRepo.checkIn(
         habitId,
@@ -316,6 +320,7 @@ class LocalApiService implements ApiDataSource {
         occurredAt: occurredAt,
         period: period,
         clientKey: clientKey,
+        occurrenceKey: occurrenceKey,
       );
 
   @override

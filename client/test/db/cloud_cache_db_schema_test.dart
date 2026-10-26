@@ -155,7 +155,7 @@ void main() {
 
     final upgraded = await CloudCacheDb().database;
     await expectRecordColumns(upgraded);
-    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 6);
+    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 7);
     final oldHabit = (await upgraded.query('habits', where: 'id = 7')).single;
     expect(oldHabit['server_id'], 27);
     expect(oldHabit['name'], '喝水');
@@ -206,6 +206,6 @@ void main() {
     await oldDb.close();
     final upgraded = await CloudCacheDb().database;
     await expectRecordColumns(upgraded);
-    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 6);
+    expect((await upgraded.rawQuery('PRAGMA user_version')).single.values.single, 7);
   });
 }

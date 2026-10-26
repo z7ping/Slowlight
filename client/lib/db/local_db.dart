@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 18,
+        version: 19,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 18,
+      version: 19,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -156,6 +156,7 @@ class LocalDb {
         icon TEXT DEFAULT '✅',
         color TEXT DEFAULT '#52c41a',
         frequency TEXT DEFAULT 'daily',
+        schedule_rule TEXT NOT NULL DEFAULT '{}',
         record_type TEXT NOT NULL DEFAULT 'legacy',
         record_unit TEXT NOT NULL DEFAULT '次',
         record_time_label TEXT NOT NULL DEFAULT '',
@@ -189,6 +190,7 @@ class LocalDb {
         count_value INTEGER,
         occurred_at TEXT,
         client_key TEXT,
+        occurrence_key TEXT,
         note TEXT DEFAULT '',
         task_id INTEGER,
         created_at TEXT NOT NULL,
@@ -202,6 +204,7 @@ class LocalDb {
     await db.execute('CREATE INDEX idx_habit_logs_habit_id ON habit_logs(habit_id)');
     await db.execute('CREATE INDEX idx_habit_logs_date ON habit_logs(date)');
     await db.execute('CREATE UNIQUE INDEX idx_habit_logs_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
+    await db.execute('CREATE UNIQUE INDEX idx_habit_occurrence ON habit_logs(habit_id, occurrence_key)');
 
     await db.execute('''
       CREATE TABLE reminder_sessions (
@@ -526,6 +529,23 @@ class LocalDb {
     if (oldVersion < 18) {
       await _upgradeMultipleHabitRecords(db);
     }
+    if (oldVersion < 19) {
+      await _upgradeHabitSchedules(db);
+    }
+  }
+
+  Future<void> _upgradeHabitSchedules(Database db) async {
+    final habits = (await db.rawQuery('PRAGMA table_info(habits)'))
+        .map((row) => row['name'].toString()).toSet();
+    if (!habits.contains('schedule_rule')) {
+      await db.execute("ALTER TABLE habits ADD COLUMN schedule_rule TEXT NOT NULL DEFAULT '{}'");
+    }
+    final logs = (await db.rawQuery('PRAGMA table_info(habit_logs)'))
+        .map((row) => row['name'].toString()).toSet();
+    if (!logs.contains('occurrence_key')) {
+      await db.execute('ALTER TABLE habit_logs ADD COLUMN occurrence_key TEXT');
+    }
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_habit_occurrence ON habit_logs(habit_id, occurrence_key)');
   }
 
   Future<void> _upgradeMultipleHabitRecords(Database db) async {

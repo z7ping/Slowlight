@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,8 +6,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../controllers/habit_controller.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import '../models/habit_schedule_rule.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/tag_links_repository.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/habit_checkin_flow.dart';
@@ -31,10 +34,11 @@ class HabitToolScreen extends StatefulWidget {
   State<HabitToolScreen> createState() => _HabitToolScreenState();
 }
 
-class _HabitToolScreenState extends State<HabitToolScreen> {
+class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObserver {
   late final HabitController _controller;
   late final TagLinksRepository _tagLinks;
   bool _editingHabit = false;
+  Timer? _nextSlotRefresh;
   int? _expandedHabitId;
   int _filter = 0; // 全部 / 待记录 / 已记录
   final Set<int> _pendingHabitActions = <int>{};
@@ -45,6 +49,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tagLinks = widget.tagLinksRepository ?? TagLinksRepository();
     _controller = HabitController(repository: widget.repository)
       ..addListener(_onChanged);
@@ -53,14 +58,46 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _nextSlotRefresh?.cancel();
     _controller.removeListener(_onChanged);
     _controller.dispose();
     super.dispose();
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _refreshAtNextSlot();
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _controller.load();
+      NotificationService().scheduleHabitReminders().catchError((Object _) {});
+    }
+  }
+
+  void _refreshAtNextSlot() {
+    _nextSlotRefresh?.cancel();
+    final now=DateTime.now();
+    DateTime? next;
+    for (final habit in _controller.habits) {
+      if (habit.scheduleRule.isEmpty) continue;
+      final rule=HabitScheduleRule.fromJson(habit.scheduleRule,
+          legacyFrequency:habit.frequency);
+      final times=rule.nextAfter(now,count:1);
+      final candidate=times.isNotEmpty ? times.first :
+          rule.kind=='goal' ? DateTime(now.year,now.month,now.day+1) : null;
+      if(candidate!=null && (next==null || candidate.isBefore(next)))next=candidate;
+    }
+    if(next==null)return;
+    final delay=next.difference(now)+const Duration(seconds:2);
+    _nextSlotRefresh=Timer(delay, () { if(mounted)_controller.load(); });
+  }
+
+
 
   void _message(String text) {
     if (!mounted) return;
@@ -102,6 +139,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           icon: value.icon,
           color: value.color,
           frequency: value.frequency,
+          scheduleRule: value.scheduleRule,
           recordType: value.recordType,
           recordUnit: value.recordUnit,
           recordTimeLabel: value.recordTimeLabel,
@@ -126,6 +164,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           return;
         }
         _message('习惯已创建');
+        try { await NotificationService().scheduleHabitReminders(); }
+        catch (_) { _message('习惯已保存，但提醒调度暂时失败'); }
       }
 
       if (widget.editor == null) {
@@ -155,6 +195,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           icon: value.icon,
           color: value.color,
           frequency: value.frequency,
+          scheduleRule: value.scheduleRule,
           recordType: value.recordType,
           recordUnit: value.recordUnit,
           recordTimeLabel: value.recordTimeLabel,
@@ -179,6 +220,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
           return;
         }
         _message('习惯已更新');
+        try { await NotificationService().scheduleHabitReminders(); }
+        catch (_) { _message('习惯已更新，但提醒调度暂时失败'); }
       }
 
       if (widget.editor == null) {
@@ -216,7 +259,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
   Future<void> _toggleTodayInternal(Habit habit) async {
-    if (habit.checkedToday && !habit.allowMultiplePerDay) {
+    if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
       final confirmed = await FxDialog.confirm(
         context: context,
         title: '取消打卡',
@@ -232,14 +275,22 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
       }
       return;
     }
+    if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
+      _message('当前没有可记录的计划时点，或本周期已达目标');
+      return;
+    }
     await _record(habit);
   }
 
   Future<void> _openDetailedCheckin(Habit habit) =>
       _runHabitAction(habit, () async {
         HapticFeedback.mediumImpact();
-        if (habit.checkedToday && !habit.allowMultiplePerDay) {
+        if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
           _message('今天已记录；请在历史明细中查看');
+          return;
+        }
+        if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
+          _message('当前没有可记录的计划时点');
           return;
         }
         await _record(habit, detailed: true);
@@ -750,11 +801,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> {
             : habit.checkedToday
                 ? '已记录'
                 : '记录今天',
-        icon: habit.checkedToday && !habit.allowMultiplePerDay
+        icon: habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true
             ? LucideIcons.circleCheck
             : LucideIcons.check,
         size: FxButtonSize.sm,
-        variant: habit.checkedToday && !habit.allowMultiplePerDay
+        variant: habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true
             ? FxButtonVariant.outline
             : FxButtonVariant.primary,
         onPressed: _pendingHabitActions.contains(habit.id)

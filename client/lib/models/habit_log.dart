@@ -3,6 +3,7 @@ class HabitLog {
   final int id;
   final int habitId;
   final String date;
+  final String? occurrenceKey;
   final String period;
   final int durationMin;
   final int? countValue;
@@ -14,6 +15,7 @@ class HabitLog {
     required this.id,
     required this.habitId,
     required this.date,
+    this.occurrenceKey,
     required this.period,
     required this.durationMin,
     this.countValue,
@@ -27,6 +29,7 @@ class HabitLog {
       id: json['id'] as int? ?? 0,
       habitId: json['habit_id'] as int? ?? 0,
       date: json['date'] as String? ?? '',
+      occurrenceKey: json['occurrence_key'] as String?,
       period: json['period'] as String? ?? '',
       durationMin: json['duration_min'] as int? ?? 0,
       countValue: json['count_value'] as int?,

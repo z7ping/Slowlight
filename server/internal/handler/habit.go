@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"slowlight/internal/model"
 )
@@ -66,6 +67,26 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
         for day := range days { habit.CheckedDays = append(habit.CheckedDays, day) }
         habit.GoalProgress = habitProgress(current, habit.GoalMetric)
         habit.GoalMet = habit.GoalValue > 0 && habit.GoalProgress >= habit.GoalValue
+		if rule, err := habitRuleFromJSON(habits[i].ScheduleRule); err == nil && rule != nil {
+			can := false
+			policy, ruleErr := habitRuleOccurrence(rule, now, today, "event:probe-availability")
+			if ruleErr == nil {
+				if rule.Kind == "goal" {
+					var count int64
+					h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND date >= ? AND date < ?",
+						habits[i].ID, policy.PeriodStart, policy.PeriodEnd).Count(&count)
+					habits[i].PeriodCount = int(count)
+					habits[i].PeriodTarget = policy.Target
+					can = count < int64(policy.Target) && (policy.SameDayMultiple || !habits[i].CheckedToday)
+				} else {
+					var count int64
+					h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND occurrence_key = ?",
+						habits[i].ID, policy.Key).Count(&count)
+					can = count == 0
+				}
+			}
+			habits[i].CanCheckIn = &can
+		}
     }
 
 	c.JSON(http.StatusOK, habits)
@@ -87,6 +108,11 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		return
 	}
 
+	scheduleJSON, scheduleErr := validateHabitSchedule(payload["schedule_rule"])
+	if scheduleErr != nil {
+		c.JSON(http.StatusBadRequest,gin.H{"error":scheduleErr.Error()})
+		return
+	}
 	recordType := habitString(payload, "record_type", "legacy")
 	if !validHabitRecordType(recordType) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的记录类型"})
@@ -104,6 +130,7 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		Icon:              habitString(payload, "icon", "✅"),
 		Color:             habitString(payload, "color", "#52c41a"),
 		Frequency:         habitString(payload, "frequency", "daily"),
+		ScheduleRule:      scheduleJSON,
 		RecordType:        recordType,
 		RecordUnit:        habitString(payload, "record_unit", "次"),
 		RecordTimeLabel:   habitString(payload, "record_time_label", ""),
@@ -200,6 +227,11 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 	}
 	if value, ok := payload["reminder_at"]; ok {
 		updates["reminder_at"] = habitJSON(value, "{}")
+	}
+	if value, ok := payload["schedule_rule"];ok {
+		encoded, err := validateHabitSchedule(value)
+		if err!=nil { c.JSON(http.StatusBadRequest,gin.H{"error":err.Error()});return }
+		updates["schedule_rule"]=encoded
 	}
 
     goalPeriod, goalMetric, goalValue := habit.GoalPeriod, habit.GoalMetric, habit.GoalValue
@@ -307,6 +339,10 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 		checkDay = parsed
 	}
 	checkDate := checkDay.Format("2006-01-02")
+	if habit.ScheduleRule!="" && habit.ScheduleRule!="{}" {
+		h.checkInHabitScheduled(c,userID,habit,payload,now,checkDay,checkDate,todayStart,loc)
+		return
+	}
 
 
     clientKey := habitString(payload, "client_key", "")
@@ -448,8 +484,213 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 	})
 }
 
+func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit model.Habit,payload map[string]interface{},now,checkDay time.Time,checkDate string,todayStart time.Time,loc *time.Location) {
+	rule, err := habitRuleFromJSON(habit.ScheduleRule)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "习惯的周期配置无效"})
+		return
+	}
+	policy, err := habitRuleOccurrence(rule, now, checkDate, habitString(payload, "occurrence_key", ""))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	clientKey := habitString(payload,"client_key","")
+	if len(clientKey)>64 {c.JSON(http.StatusBadRequest,gin.H{"error":"记录标识过长"});return}
+	var clientKeyPtr *string
+	if clientKey!="" {clientKeyPtr=&clientKey}
+	if clientKey!="" {
+		var replay model.HabitLog
+		if h.DB.Where("habit_id = ? AND client_key = ?",habit.ID,clientKey).First(&replay).Error==nil {
+			c.JSON(http.StatusOK,gin.H{"message":"记录已存在","already_checked":true,"log":replay,"streak_count":habit.StreakCount});return
+		}
+	}
+	var existingLog model.HabitLog
+	lookup := h.DB.Where("habit_id = ?", habit.ID)
+	if rule == nil {
+		lookup = lookup.Where("date = ?", checkDate)
+	} else {
+		lookup = lookup.Where("occurrence_key = ?", policy.Key)
+	}
+	if lookup.First(&existingLog).RowsAffected > 0 {
+		c.JSON(http.StatusOK, gin.H{"message": "该时段已打卡", "already_checked": true,
+			"log": existingLog, "streak_count": habit.StreakCount})
+		return
+	}
+	if rule != nil && rule.Kind == "goal" {
+		var count int64
+		h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND date >= ? AND date < ?",
+			habit.ID, policy.PeriodStart, policy.PeriodEnd).Count(&count)
+		if count >= int64(policy.Target) {
+			c.JSON(http.StatusConflict, gin.H{"error": "本周期已完成目标次数"})
+			return
+		}
+		if !policy.SameDayMultiple {
+			var dayLog model.HabitLog
+			if h.DB.Where("habit_id = ? AND date = ?", habit.ID, checkDate).First(&dayLog).RowsAffected > 0 {
+				c.JSON(http.StatusOK, gin.H{"message": "该日期已打卡", "already_checked": true,
+					"log": dayLog, "streak_count": habit.StreakCount})
+				return
+			}
+		}
+	}
+
+	durationMin := 0
+	var countValue *int
+	switch habit.RecordType {
+	case "legacy", "duration":
+		durationMin = habitInt(payload, "duration_min", 0)
+		if durationMin == 0 { durationMin = habit.DurationMin }
+	case "count":
+		value := habitInt(payload, "count_value", 0)
+		if value <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error":"完成次数必须大于 0"})
+			return
+		}
+		countValue = &value
+	}
+	if durationMin < 0 {
+		c.JSON(http.StatusBadRequest,gin.H{"error":"时长不能为负数"})
+		return
+	}
+	period := ""
+	if habit.RecordType == "legacy" || habit.RecordType == "duration" {
+		period = habitString(payload,"period","")
+		if period == "" { period = habit.PreferredPeriod }
+	}
+	var actualOccurredAt *time.Time
+	if raw := habitString(payload, "occurred_at", ""); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil || parsed.After(time.Now()) ||
+			parsed.In(loc).Format("2006-01-02") != checkDate {
+			c.JSON(http.StatusBadRequest,gin.H{"error":"实际发生时间无效或与打卡日期不一致"})
+			return
+		}
+		at := parsed.UTC()
+		actualOccurredAt = &at
+	}
+	if actualOccurredAt == nil && habit.RecordTimeLabel != "" && checkDate == todayStart.Format("2006-01-02") {
+		at := time.Now().UTC()
+		actualOccurredAt = &at
+	}
+	note := habitString(payload, "note", "")
+
+	occurredAt := now.UTC()
+	if checkDate != todayStart.Format("2006-01-02") {
+		occurredAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc).UTC()
+	}
+	var key *string
+	if rule != nil { key = &policy.Key }
+	log := model.HabitLog{
+		HabitID:     habit.ID,
+		ClientKey: clientKeyPtr,
+		Date:        checkDate,
+		OccurrenceKey: key,
+		OccurredAt: &occurredAt,
+        CountValue: countValue,
+		Note:        note,
+		DurationMin: durationMin,
+		Period:      period,
+	}
+	if actualOccurredAt != nil { log.OccurredAt = actualOccurredAt }
+    // Lock the habit row so simultaneous devices cannot exceed a period target.
+	// Create log + evidence in one transaction: never show a successful
+	// check-in whose BehaviorEvent was not committed (or vice versa).
+	var duplicate bool
+	var full bool
+	writeErr := h.DB.Transaction(func(tx *gorm.DB) error {
+		var locked model.Habit
+		lockedQuery := tx.Where("id = ? AND user_id = ?", habit.ID, userID)
+        if tx.Dialector.Name() != "sqlite" {
+            lockedQuery = lockedQuery.Clauses(clause.Locking{Strength: "UPDATE"})
+        }
+        if err := lockedQuery.First(&locked).Error; err != nil { return err }
+		query := tx.Model(&model.HabitLog{}).Where("habit_id = ?", habit.ID)
+		if rule == nil {
+			query = query.Where("date = ?", checkDate)
+		} else {
+			query = query.Where("occurrence_key = ?", policy.Key)
+		}
+		var count int64
+		if err := query.Count(&count).Error; err != nil { return err }
+		if count > 0 {
+			duplicate = true
+			return nil
+		}
+		if rule != nil && rule.Kind == "goal" {
+			var periodCount int64
+			if err := tx.Model(&model.HabitLog{}).
+				Where("habit_id = ? AND date >= ? AND date < ?", habit.ID, policy.PeriodStart, policy.PeriodEnd).
+				Count(&periodCount).Error; err != nil { return err }
+			if periodCount >= int64(policy.Target) { full = true; return nil }
+			if !policy.SameDayMultiple {
+				var dayCount int64
+				if err := tx.Model(&model.HabitLog{}).Where("habit_id = ? AND date = ?", habit.ID, checkDate).
+					Count(&dayCount).Error; err != nil { return err }
+				if dayCount > 0 { duplicate = true; return nil }
+			}
+		}
+		if err := tx.Create(&log).Error; err != nil { return err }
+		eventAt := now
+        if actualOccurredAt != nil {
+            eventAt = actualOccurredAt.In(loc)
+        } else if checkDate != todayStart.Format("2006-01-02") {
+			eventAt = time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), 12, 0, 0, 0, loc)
+		}
+		metadata, _ := json.Marshal(map[string]interface{}{"habit_date": checkDate, "habit_log_id": log.ID})
+		event := model.BehaviorEvent{
+			UserID: userID, EventType: "habit_checked", EntityType: "habit",
+			EntityID: habit.ID, SystemTagID: habit.SystemTagID, DurationMin: durationMin,
+			OccurredAt: eventAt.UTC(), Metadata: string(metadata),
+		}
+		if err := tx.Create(&event).Error; err != nil { return err }
+		return nil
+	})
+	if full {
+		c.JSON(http.StatusConflict, gin.H{"error": "本周期已完成目标次数"})
+		return
+	}
+	if duplicate || writeErr != nil {
+		query := h.DB.Where("habit_id = ?", habit.ID)
+		if rule == nil { query = query.Where("date = ?", checkDate) } else {
+			query = query.Where("occurrence_key = ?", policy.Key)
+		}
+		if query.First(&existingLog).RowsAffected > 0 {
+			c.JSON(http.StatusOK, gin.H{"message": "该时段已打卡", "already_checked": true,
+				"log": existingLog, "streak_count": habit.StreakCount})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "打卡写入未完成"})
+		return
+	}
+
+	habit.StreakCount = 0
+	h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
+
+	triggerWebhooks(h.DB, userID, model.EventHabitChecked, map[string]interface{}{
+		"habit_id":     habit.ID,
+		"name":         habit.Name,
+		"streak_count": habit.StreakCount,
+		"date":         checkDate,
+		"note":         note,
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "打卡成功",
+		"habit":        habit,
+		"log":          log,
+		"streak_count": habit.StreakCount,
+	})
+}
+
 // UncheckInHabit 取消今天的打卡。
 func (h *HabitHandler) UncheckInHabit(c *gin.Context) {
+	var scheduled model.Habit
+	if h.DB.Where("id = ? AND user_id = ?",c.Param("id"),c.GetUint("userID")).First(&scheduled).Error==nil &&
+		scheduled.ScheduleRule!="" && scheduled.ScheduleRule!="{}" {
+		h.uncheckHabitScheduled(c)
+		return
+	}
 	userID := c.GetUint("userID")
 	id := c.Param("id")
 
@@ -543,6 +784,75 @@ func (h *HabitHandler) DeleteHabitLog(c *gin.Context) {
         return
     }
     c.JSON(http.StatusOK, gin.H{"message": "记录已撤销"})
+}
+
+// UncheckInHabit 取消今天的打卡。
+func (h *HabitHandler) uncheckHabitScheduled(c *gin.Context) {
+	userID := c.GetUint("userID")
+	id := c.Param("id")
+
+	var tzUser model.User
+	h.DB.Select("timezone").First(&tzUser, userID)
+	loc := model.UserLocation(tzUser.Timezone)
+	now := time.Now().In(loc)
+	startLocal := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	endLocal := startLocal.AddDate(0, 0, 1)
+	today := startLocal.Format("2006-01-02")
+
+	var habit model.Habit
+	if err := h.DB.Where("id = ? AND user_id = ?", id, userID).First(&habit).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "习惯不存在"})
+		return
+	}
+
+	var log model.HabitLog
+	if err := h.DB.Where("habit_id = ? AND date = ?", id, today).Order("created_at DESC, id DESC").First(&log).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "今日未打卡，无法取消"})
+		return
+	}
+	if err := h.DB.Delete(&log).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "取消打卡失败"})
+		return
+	}
+
+	// Prefer exact event-to-log linkage. Older events have no log ID, so
+	// keep the legacy date-based fallback only for legacy habits.
+	var matchedEvents []model.BehaviorEvent
+	h.DB.Where("user_id = ? AND event_type = ? AND entity_type = ? AND entity_id = ?",
+		userID, "habit_checked", "habit", habit.ID).Find(&matchedEvents)
+	var matched bool
+	for _, event := range matchedEvents {
+		var meta map[string]interface{}
+		if json.Unmarshal([]byte(event.Metadata), &meta) == nil {
+			if value, ok := meta["habit_log_id"].(float64); ok && uint(value) == log.ID {
+				h.DB.Delete(&event)
+				matched = true
+				break
+			}
+		}
+	}
+	if !matched && (habit.ScheduleRule == "" || habit.ScheduleRule == "{}") {
+		h.DB.Where("user_id = ? AND event_type = ? AND entity_type = ? AND entity_id = ? AND occurred_at >= ? AND occurred_at < ?",
+			userID, "habit_checked", "habit", habit.ID, startLocal.UTC(), endLocal.UTC()).
+			Delete(&model.BehaviorEvent{})
+	}
+
+	if habit.ScheduleRule == "" || habit.ScheduleRule == "{}" {
+        habit.StreakCount = habitStreak(h.DB, habit, loc)
+    } else { habit.StreakCount = 0 }
+    h.DB.Model(&habit).Update("streak_count", habit.StreakCount)
+
+    triggerWebhooks(h.DB, userID, "habit.unchecked", map[string]interface{}{
+		"habit_id":     habit.ID,
+		"name":         habit.Name,
+		"streak_count": habit.StreakCount,
+		"date":         today,
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "取消打卡成功",
+		"streak_count": habit.StreakCount,
+	})
 }
 
 // GetHabitLogs 获取习惯的打卡记录
