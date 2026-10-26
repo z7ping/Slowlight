@@ -85,24 +85,23 @@ class TaskDetailSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
-      backgroundColor: Colors.transparent,
+      padding: EdgeInsets.zero,
+      backgroundColor: fxSurface(context),
       barrierColor: Colors.black.withValues(alpha: .45),
-      // 键盘避让由 FxSheet 统一处理，业务 Sheet 不再二次叠加 insets。
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(SlowlightRadius.sheet),
+        ),
+      ),
+      // FxSheet owns the surface and keyboard avoidance; avoid an additional
+      // clipping/decoration layer in the animated route.
       builder: (sheetContext) => Align(
         alignment: Alignment.bottomCenter,
-        child: Container(
-          width: 560,
+        child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
             maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
           ),
-          decoration: BoxDecoration(
-            color: fxSurface(sheetContext),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(SlowlightRadius.sheet),
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
           child: TaskDetailSheet(
             task: task,
             lists: lists,
@@ -313,7 +312,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            _priorityChip('none', '无'),
+            _priorityChip('none', '不重要 · 不紧急'),
             _priorityChip('urgent_important', '高'),
             _priorityChip('important', '中'),
             _priorityChip('urgent', '低'),

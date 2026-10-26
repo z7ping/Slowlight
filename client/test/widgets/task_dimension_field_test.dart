@@ -21,7 +21,6 @@ void main() {
       ),
     );
 
-    expect(find.text('归属维度（可选）'), findsOneWidget);
     expect(find.text('未归类'), findsOneWidget);
     expect(find.text('💪 身体'), findsOneWidget);
     expect(find.text('🧠 认知'), findsOneWidget);

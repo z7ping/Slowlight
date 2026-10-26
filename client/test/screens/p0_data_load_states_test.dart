@@ -84,7 +84,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('八月的任务'), findsWidgets);
-    await tester.tap(find.byTooltip('下个月'));
+    await tester.tap(fxTooltipFinder('下个月'));
     await tester.pumpAndSettle();
     expect(find.text('当前月份读取失败'), findsOneWidget);
     expect(find.text('八月的任务'), findsNothing);

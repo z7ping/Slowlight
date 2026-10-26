@@ -76,6 +76,7 @@
 | DELETE | `/api/habits/:id/checkin` |
 | GET | `/api/habits/:id/logs` |
 | PUT | `/api/habits/:id/logs/:logId` |
+| DELETE | `/api/habits/:id/logs/:logId` |
 | GET | `/api/habits/:id/streak` |
 | GET | `/api/system-tags` |
 | POST | `/api/system-tags` |
@@ -88,6 +89,7 @@
 | GET | `/api/migration/reports/latest` |
 | GET | `/api/migration/reports` |
 | GET | `/api/review/today` |
+| GET | `/api/review/today/timeline` |
 | GET | `/api/review/tasks` |
 | GET | `/api/reflections` |
 | POST | `/api/reflections` |
@@ -125,4 +127,4 @@
 | POST | `/api/caldav/test` |
 | GET | `/api/feishu/config` |
 
-共 118 条路由。
+共 120 条路由。

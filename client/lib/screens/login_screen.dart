@@ -394,8 +394,9 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: _isLoading ? null : () => _open(_LoginView.password),
         ),
         const SizedBox(height: SlowlightSpacing.md),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text('还没有账号？',
                 style: SlowlightTypography.caption(context).copyWith(
@@ -727,8 +728,9 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const SizedBox(height: SlowlightSpacing.md),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(register ? '已经有账号？' : '还没有账号？',
                 style: SlowlightTypography.caption(context).copyWith(

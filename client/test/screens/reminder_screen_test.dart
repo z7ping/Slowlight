@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/reminder_screen.dart';
 import 'package:slowlight/services/reminder_service.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('reminder_screen');
+    SharedPreferences.setMockInitialValues({});
+    await DataModeManager().setLocal();
+    ReminderService().updateConfig(autoStartOnLaunch: false);
+    await ReminderService().loadAll();
+    expect(ReminderService().isLoaded, isTrue);
+  });
+  tearDownAll(() { ReminderService().dispose(); });
   group('ReminderScreen 稳定契约', () {
     testWidgets('开始工作后服务进入 working 状态', (tester) async {
       final service = ReminderService();
@@ -21,6 +33,63 @@ void main() {
       await tester.pump();
       expect(service.state, 'idle');
       await disposeFxTestHost(tester);
+    });
+
+    testWidgets('两次小憩后先完成下一轮工作再进入长休息', (tester) async {
+      final service = ReminderService();
+      await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));
+      service.stopAll();
+      service.updateConfig(
+        workMinutes: 0, // 仅用于测试：下一次计时器触发即结束工作
+        microRestSeconds: 20,
+        longRestMinutes: 5,
+        microRestsBeforeLong: 2,
+        lockScreenMode: 'window',
+        autoLoop: true,
+      );
+
+      Future<void> waitForWork() async {
+        await tester.runAsync(() async {
+          final deadline = DateTime.now().add(const Duration(seconds: 3));
+          while (service.state != 'working' &&
+              DateTime.now().isBefore(deadline)) {
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        });
+        await tester.pump();
+        expect(service.state, 'working');
+      }
+
+      try {
+        service.startWork();
+        await tester.pump(const Duration(seconds: 1));
+        expect(service.state, 'micro_rest');
+
+        service.endRest();
+        await waitForWork();
+        expect(service.microRestCount, 1);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(service.state, 'micro_rest');
+
+        service.endRest();
+        await waitForWork();
+        expect(service.microRestCount, 2);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(service.state, 'long_rest');
+      } finally {
+        service.stopAll();
+        service.updateConfig(
+          workMinutes: 25,
+          microRestSeconds: 20,
+          longRestMinutes: 5,
+          microRestsBeforeLong: 2,
+          lockScreenMode: 'fullscreen',
+          autoLoop: true,
+        );
+        await disposeFxTestHost(tester);
+      }
     });
 
     for (final size in [

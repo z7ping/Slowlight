@@ -39,6 +39,7 @@ def public_markdown_files() -> list[Path]:
         "SECURITY.md",
         "CHANGELOG.md",
         "AGENTS.md",
+        "DESIGN.md",
         "CLAUDE.md",
     ):
         path = ROOT / name

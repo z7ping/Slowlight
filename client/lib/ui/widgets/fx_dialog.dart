@@ -33,6 +33,7 @@ class FxDialog {
     String? description,
     double? width,
     bool barrierDismissible = true,
+    bool showCloseButton = true,
   }) {
     return showShadDialog<T>(
       context: context,
@@ -40,8 +41,8 @@ class FxDialog {
       barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       builder: (ctx) => ShadDialog(
-        title:
-            title != null ? Text(title, style: _titleStyle(ctx)) : null,
+        closeIcon: showCloseButton ? null : const SizedBox.shrink(),
+        title: title != null ? Text(title, style: _titleStyle(ctx)) : null,
         description: description != null
             ? Text(description, style: _descriptionStyle(ctx))
             : null,
@@ -253,6 +254,7 @@ class FxDialogSurface extends StatelessWidget {
     this.shape,
     this.alignment,
     this.child,
+    this.showCloseButton = true,
   });
 
   final Color? backgroundColor;
@@ -268,6 +270,9 @@ class FxDialogSurface extends StatelessWidget {
   final AlignmentGeometry? alignment;
   final Widget? child;
 
+  /// 内容自行提供关闭入口或提交锁时，由内容统一管理关闭。
+  final bool showCloseButton;
+
   BorderRadius? get _radius {
     final currentShape = shape;
     if (currentShape is RoundedRectangleBorder &&
@@ -280,6 +285,7 @@ class FxDialogSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShadDialog(
+      closeIcon: showCloseButton ? null : const SizedBox.shrink(),
       backgroundColor: backgroundColor,
       padding: padding,
       radius: _radius,

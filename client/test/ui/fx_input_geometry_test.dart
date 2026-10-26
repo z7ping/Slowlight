@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
 import 'package:slowlight/widgets/task_schedule_fields.dart';
@@ -64,11 +63,8 @@ void main() {
         final fields = find.byType(FxInput);
         final minimum = platform == TargetPlatform.android ? 44.0 : 36.0;
         final expectedPadding = platform == TargetPlatform.android ? 12.0 : 8.0;
-        for (final input in tester.widgetList<ShadInput>(find.byType(ShadInput))) {
-          expect(input.constraints?.minHeight, minimum);
-          expect(input.inputPadding,
-              EdgeInsets.symmetric(vertical: expectedPadding));
-        }
+        expectFxInputSurfaceGeometry(tester,
+            minimum: minimum, verticalPadding: expectedPadding);
         for (var index = 0; index < 4; index++) {
           // 防止仅调整文字位置却将输入框压成截图中的细条。
           expect(tester.getSize(fields.at(index)).height,
@@ -205,10 +201,9 @@ void main() {
         await tester.pump();
         final inputHeight = tester.getSize(find.byType(FxInput)).height;
         final selectHeight = tester.getSize(find.byType(FxSelect<String>)).height;
-        final trigger = tester.widget<ShadSelect<String>>(find.byType(ShadSelect<String>));
         // 回归：检查真正绘制边框的 ShadSelect 内部留白，
         // 只断言 FxSelect 外层 minHeight 会漏掉截图中的扁平下拉框。
-        expect(trigger.padding, EdgeInsets.symmetric(
+        expectFxSelectSurfacePadding<String>(tester, EdgeInsets.symmetric(
           horizontal: platform == TargetPlatform.android ? 14 : 12,
           vertical: platform == TargetPlatform.android ? 12 : 8,
         ));

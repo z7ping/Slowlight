@@ -345,7 +345,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         spacing: 6,
         runSpacing: 6,
         children: [
-          _priorityChip('none', '无', Theme.of(context).colorScheme.onSurface),
+          _priorityChip('none', '不重要 · 不紧急', Theme.of(context).colorScheme.onSurface),
           _priorityChip('urgent_important', '高', AppTheme.priorityHigh),
           _priorityChip('important', '中', AppTheme.priorityMedium),
           _priorityChip('urgent', '低', AppTheme.priorityLow),

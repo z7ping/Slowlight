@@ -4,10 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
+import 'package:slowlight/services/reminder_service.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('settings_account_ux');
+    SharedPreferences.setMockInitialValues({});
+    ReminderService().updateConfig(autoStartOnLaunch: false);
+    await ReminderService().loadAll();
+  });
+  tearDownAll(() { ReminderService().dispose(); });
   test('GitHub OAuth 内部占位邮箱不向用户展示', () {
     expect(
       accountEmailLabel('gh-17805674@oauth.slowlight.invalid'),
@@ -20,7 +29,7 @@ void main() {
   testWidgets('本地账号不显示不可执行的 GitHub 绑定，而是说明云端登录和迁移',
       (tester) async {
     SharedPreferences.setMockInitialValues(const {});
-    await DataModeManager().setLocal();
+    await tester.runAsync(() => DataModeManager().setLocal());
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1200, 860);
     tester.view.devicePixelRatio = 1;
@@ -49,7 +58,7 @@ void main() {
   testWidgets('Windows 双栏不重复内容页头，并使用 24px 外边距展开右侧内容',
       (tester) async {
     SharedPreferences.setMockInitialValues(const {});
-    await DataModeManager().setLocal();
+    await tester.runAsync(() => DataModeManager().setLocal());
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(1184, 800);

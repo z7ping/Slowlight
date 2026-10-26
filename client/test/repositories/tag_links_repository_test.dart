@@ -1,13 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/local_db.dart';
 import 'package:slowlight/db/local_product_core_schema.dart';
 import 'package:slowlight/repositories/tag_links_repository.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 
 import '../helpers/isolated_test_db.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late String dbPath;
 
   setUpAll(() async {
@@ -18,8 +22,11 @@ void main() {
   });
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({'data_mode': 'local'});
+    FlutterSecureStorage.setMockInitialValues({});
     await LocalDb().close();
     await databaseFactory.deleteDatabase(dbPath);
+    await DataModeManager().setLocal();
   });
 
   tearDown(() async {

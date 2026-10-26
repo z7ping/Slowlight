@@ -1,10 +1,13 @@
+import 'dart:async';
+import 'package:slowlight/models/task.dart';
+import 'package:slowlight/services/data_service.dart';
 import 'package:slowlight/models/tag.dart';
 import 'package:slowlight/repositories/tag_repository.dart';
 import 'package:slowlight/services/data_source.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -26,7 +29,66 @@ class _CanonicalTagSource implements ApiDataSource {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _PendingTaskData implements DataService {
+  final result = Completer<Task>();
+  int creates = 0;
+
+  @override
+  Future<List<TodoList>> getLists() async => [];
+
+  @override
+  Future<Task> quickAddToInbox(String title, {int? systemTagId}) {
+    creates++;
+    return result.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  setUpAll(() async { await initializeDateFormatting('zh_CN'); });
+  testWidgets('任务提交中返回、遮罩和关闭操作都不能丢失待确认结果', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _PendingTaskData();
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(body: Builder(
+      builder: (context) => FxButton(label: '打开表单', onPressed: () => FxSheet.show<void>(
+        context: context, showCloseButton: false, padding: EdgeInsets.zero,
+        builder: (_) => TaskCreateSheet(
+          quickMode: true, defaultDueToday: false, dataService: data,
+          tagRepository: TagRepository(dataSource: _CanonicalTagSource()),
+        ),
+      )),
+    ))));
+    await tester.tap(find.text('打开表单'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '待确认的任务');
+    await tester.tap(find.widgetWithText(FxButton, '添加任务'));
+    await tester.pump();
+    expect(data.creates, 1);
+    final close = tester.widget<FxIconButton>(find.ancestor(
+      of: fxTooltipFinder('取消添加任务'), matching: find.byType(FxIconButton),
+    ));
+    expect(close.onPressed, isNull);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pump();
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    expect(data.creates, 1);
+    data.result.complete(Task(
+      id: 1, listId: 1, title: '待确认的任务', priority: 'none',
+      isCompleted: false, createdAt: DateTime(2026, 10, 24),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCreateSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
   testWidgets('Android 平板宽度超过 600dp 仍进入完整任务页面而非桌面弹窗', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -77,6 +139,7 @@ void main() {
 
     await tester.enterText(find.byType(EditableText).first, '季度复盘');
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('更多设置'), findsOneWidget);
@@ -89,11 +152,13 @@ void main() {
     expect(find.text('添加任务'), findsOneWidget);
 
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(TaskScheduleFields), findsNothing);
     expect(find.text('季度复盘'), findsOneWidget);
 
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(TaskScheduleFields), findsOneWidget);
     expect(find.text('季度复盘'), findsOneWidget);
@@ -401,7 +466,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('task-property-date')));
     await tester.pumpAndSettle();
     expect(find.byType(TaskCreateSheet), findsOneWidget);
-    expect(find.byType(ShadSheet), findsOneWidget);
+    expect(fxSheetSurfaceFinder(), findsOneWidget);
     expect(find.text('安排日期'), findsOneWidget);
     expect(find.byKey(const ValueKey('task-picker-back')), findsOneWidget);
     await tester.tap(find.text('选择其他日期'));
@@ -409,11 +474,11 @@ void main() {
     expect(find.text('选择日期'), findsOneWidget);
     expect(find.byType(FxCalendar<Object>), findsOneWidget);
     expect(find.byType(TaskCreateSheet), findsOneWidget);
-    expect(find.byType(ShadSheet), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
+    expect(fxSheetSurfaceFinder(), findsOneWidget);
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('安排日期'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('添加任务'), findsWidgets);
     expect(find.byKey(const ValueKey('task-property-date')), findsOneWidget);
@@ -444,7 +509,7 @@ void main() {
     expect(row('高').iconColor, AppTheme.priorityUrgentImportant);
     expect(row('中').iconColor, AppTheme.priorityImportant);
     expect(row('低').iconColor, AppTheme.priorityUrgent);
-    expect(row('无优先级').iconColor, isNull);
+    expect(row('不重要 · 不紧急').iconColor, isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -560,13 +625,15 @@ void main() {
     );
     final actionsRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
     expect(titleRect.left - sheetRect.left, closeTo(20, 1));
-    expect(titleRect.top - sheetRect.top, closeTo(20, 1));
+    final closeRect = tester.getRect(fxTooltipFinder('取消添加任务'));
+    expect(titleRect.top - sheetRect.top, greaterThanOrEqualTo(20));
+    expect(titleRect.center.dy, closeTo(closeRect.center.dy, 1));
     expect(inputRect.left - sheetRect.left, closeTo(20, 1));
     expect(listRect.left, greaterThan(inputRect.left));
     expect(actionsRect.right, lessThan(inputRect.right));
     expect(actionsRect.bottom, lessThan(inputRect.bottom));
 
-    // 日期展示文字与语义蓝色，未设置优先级仍是灰色图标。
+    // 日期展示文字与语义蓝色，第四象限仍是灰色图标。
     final dateChip = tester.widget<FxChip>(
       find.byKey(const ValueKey('task-property-date')),
     );
@@ -575,7 +642,7 @@ void main() {
     );
     expect(dateChip.label, '今天');
     expect(dateChip.foregroundColor, AppTheme.info);
-    expect(priorityButton.tooltip, '优先级：无优先级');
+    expect(priorityButton.tooltip, '优先级：不重要 · 不紧急');
 
     final editable = find.byType(EditableText).first;
     expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
@@ -639,6 +706,7 @@ void main() {
     ));
     await tester.pump();
     await tester.tap(find.text('更多设置'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(TaskScheduleFields), findsOneWidget);
@@ -706,7 +774,7 @@ void main() {
   });
 
   group('TaskCreateSheet', () {
-    test('快速创建默认使用无优先级并安排到今天', () {
+    test('快速创建默认使用第四象限并安排到今天', () {
       const sheet = TaskCreateSheet(quickMode: true);
 
       expect(sheet.initialPriority, 'none');

@@ -40,6 +40,20 @@ jobs:
           fi
       - name: Run static analysis
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 设计一致性契约
+        run: |
+          python -m unittest discover -s ../scripts/design -p 'test_*.py'
+          python ../scripts/design/check.py --report build/design-check/report.json
+      - name: 保留设计契约检查结果
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-contract-report
+          path: client/build/design-check/report.*
+          if-no-files-found: warn
       - name: Run tests
         run: flutter test
 

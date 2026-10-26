@@ -32,8 +32,8 @@ import 'reminder_screen.dart';
 /// GitHub OAuth 创建用户时服务端采用内部邮箱占位符，并非用户邮箱。
 Widget githubBrandMark(BuildContext context, {double size = 44}) {
   final dark = Theme.of(context).brightness == Brightness.dark;
-  final background = dark ? Colors.white : const Color(0xFF181717);
-  final foreground = dark ? const Color(0xFF181717) : Colors.white;
+  final background = dark ? Colors.white : SlowlightSemanticColor.github;
+  final foreground = dark ? SlowlightSemanticColor.github : Colors.white;
   return Container(
     width: size,
     height: size,
@@ -1633,7 +1633,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _settingLine(
           '长休息提醒',
           _reminder.isLoaded
-              ? '小憩满 ${_reminder.microRestsBeforeLong} 次后进入 ${_reminder.longRestMinutes} 分钟长休息'
+              ? '完成 ${_reminder.microRestsBeforeLong} 次小憩后，下一轮工作结束进入 ${_reminder.longRestMinutes} 分钟长休息'
               : _reminder.loadFailed ? '读取提醒配置失败，可重试' : '读取提醒配置中…',
           trailing: _statusChip(_reminder.loadFailed ? '读取失败' : _reminder.isLoaded ? '已配置' : '读取中…', accent: _reminder.isLoaded),
         ),

@@ -348,23 +348,18 @@ class ReminderService extends ChangeNotifier {
     _timer?.cancel();
     _cycleCount++;
 
-    final wasMicro = _state == 'micro_rest';
-    final willStartLong = wasMicro && (_microRestCount + 1 >= _microRestsBeforeLong);
-
-    if (wasMicro) {
+    if (_state == 'micro_rest') {
       _microRestCount++;
     } else {
       _microRestCount = 0;
     }
-    if (willStartLong) _microRestCount = 0;
 
     LockScreenManager().unlock();
 
+    // 无论当前完成哪种休息，都先进入下一轮工作，避免休息紧接休息。
     _local.endRest().then((_) async {
       await _refreshLocalStats();
-      if (willStartLong) {
-        startLongRest();
-      } else if (_autoLoop && !_paused) {
+      if (_autoLoop && !_paused) {
         startWork();
       } else {
         _state = 'idle';
@@ -456,7 +451,11 @@ class ReminderService extends ChangeNotifier {
           final wasRest = _state == 'micro_rest' || _state == 'long_rest';
           if (wasRest) {
             _cycleCount++;
-            if (_state == 'micro_rest') _microRestCount++;
+            if (_state == 'micro_rest') {
+              _microRestCount++;
+            } else {
+              _microRestCount = 0;
+            }
             _activeWorkStartedAt = null;
             _state = 'idle';
             LockScreenManager().unlock();
@@ -481,7 +480,12 @@ class ReminderService extends ChangeNotifier {
 
       if (_remainingSeconds <= 0) {
         if (_state == 'working') {
-          startMicroRest();
+          // 长休息在完成下一轮工作后触发，而非紧接最后一次小憩。
+          if (_microRestCount >= _microRestsBeforeLong) {
+            startLongRest();
+          } else {
+            startMicroRest();
+          }
         } else if (_state == 'micro_rest' || _state == 'long_rest') {
           endRest();
         }

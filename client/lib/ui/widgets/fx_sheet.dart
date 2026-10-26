@@ -21,6 +21,7 @@ abstract final class FxSheet {
     bool draggable = true,
     bool? enableDrag,
     bool? showDragHandle,
+    bool showCloseButton = true,
     bool isScrollControlled = true,
     bool scrollable = false,
     bool useSafeArea = false,
@@ -69,6 +70,7 @@ abstract final class FxSheet {
         if (useSafeArea) content = SafeArea(child: content);
 
         content = ShadSheet(
+          closeIcon: showCloseButton ? null : const SizedBox.shrink(),
           title: title,
           description: description,
           actions: actions,

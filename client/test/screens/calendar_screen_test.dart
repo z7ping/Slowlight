@@ -111,6 +111,36 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('选中日期只显示浅色底与描边，不用阴影涂满日程', (tester) async {
+    await pumpCalendar(tester);
+
+    final selectedDay = tester.widget<Container>(
+      find.byKey(const ValueKey('calendar-day-2026-08-21')),
+    );
+    final selectedDecoration = selectedDay.decoration! as BoxDecoration;
+    final selectedBorder = selectedDecoration.border! as Border;
+
+    expect(selectedDecoration.boxShadow, isNull);
+    expect(selectedBorder.top.style, BorderStyle.solid);
+    expect(selectedBorder.left.style, BorderStyle.solid);
+    expect(selectedBorder.top.width, greaterThan(1));
+
+    final otherDay = tester.widget<Container>(
+      find.byKey(const ValueKey('calendar-day-2026-08-22')),
+    );
+    final otherBorder = (otherDay.decoration! as BoxDecoration).border! as Border;
+    expect(otherBorder.top, BorderSide.none);
+    expect(otherBorder.left, BorderSide.none);
+    expect(otherBorder.right.style, BorderStyle.solid);
+    expect(otherBorder.bottom.style, BorderStyle.solid);
+    expect(selectedBorder.top.color, isNot(otherBorder.right.color));
+
+    // 修复选中态时，日期选择和日程预览仍然正常展示。
+    expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
+        findsOneWidget);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('切换日期后下方数据联动', (tester) async {
     await pumpCalendar(tester);
 

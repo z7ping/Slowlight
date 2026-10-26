@@ -56,6 +56,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   final Set<String> _unknownAnswers = <String>{};
   ReflectionRepository get _reflectionRepository =>
       widget.reflectionRepository ?? ReflectionRepository();
+  int _loadVersion = 0;
 
   @override
   void initState() {
@@ -87,6 +88,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   Future<void> _load() async {
+    final version = ++_loadVersion;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -102,12 +104,12 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           partialUnavailable.add('回应记录');
           return <ReflectionEntry>[];
         }),
-        _loadTodayHabitFacts().catchError((_) {
+        _loadTodayHabitFacts(partialUnavailable).catchError((_) {
           partialUnavailable.add('习惯明细');
           return <_TodayHabitFact>[];
         }),
       ]);
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _review = values[0] as Map<String, dynamic>;
         _reflections = values[1] as List<ReflectionEntry>;
@@ -116,7 +118,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -124,7 +126,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     }
   }
 
-  Future<List<_TodayHabitFact>> _loadTodayHabitFacts() async {
+  Future<List<_TodayHabitFact>> _loadTodayHabitFacts(
+      List<String> unavailable) async {
     final repository = widget.habitRepository ?? HabitRepository();
     final habits = await repository.getAll();
     final now = DateTime.now();
@@ -132,7 +135,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final monthKey = '${now.year}-${_two(now.month)}';
     final facts = <_TodayHabitFact>[];
 
-    for (final habit in habits) {
+    // Independent habit queries should not block one another.
+    await Future.wait<void>(habits.map((habit) async {
       try {
         final logs = await repository.logs(habit.id, month: monthKey);
         for (final log in logs) {
@@ -141,9 +145,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           }
         }
       } catch (_) {
-        // 单个习惯日志读取失败不阻断整页回顾。
+        unavailable.add('习惯「${habit.name}」明细');
       }
-    }
+    }));
     facts.sort((a, b) => a.log.createdAt.compareTo(b.log.createdAt));
     return facts;
   }
@@ -161,65 +165,75 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (_viewIndex != 0) {
-                return Row(
-                  children: [
-                    FxButton(
-                      label: '返回回顾',
-                      variant: FxButtonVariant.ghost,
-                      size: FxButtonSize.sm,
-                      onPressed: () => setState(() => _viewIndex = 0),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _viewIndex == 1 ? '完整统计' : '时间分配',
-                        style: SlowlightTypography.cardTitle(context),
+          padding: EdgeInsets.fromLTRB(
+            SlowlightPageInsets.horizontal(context),
+            SlowlightSpacing.xxxl,
+            SlowlightPageInsets.horizontal(context),
+            SlowlightSpacing.xl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (_viewIndex != 0) {
+                    return Row(
+                      children: [
+                        FxButton(
+                          label: '返回回顾',
+                          variant: FxButtonVariant.ghost,
+                          size: FxButtonSize.sm,
+                          onPressed: () => setState(() => _viewIndex = 0),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _viewIndex == 1 ? '完整统计' : '时间分配',
+                            style: SlowlightTypography.cardTitle(context),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  final title = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _periodTitle(),
+                        style: SlowlightTypography.pageTitle(context),
                       ),
-                    ),
-                  ],
-                );
-              }
-              final title = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _periodTitle(),
-                    style: SlowlightTypography.pageTitle(context),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _periodDescription(),
-                    style: SlowlightTypography.secondary(context).copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              );
-              final compact = constraints.maxWidth < 700;
-              final periods = FxSegmented(
-                labels: const ['今天', '本周', '近 30 天'],
-                selectedIndex: _periodIndex,
-                onChanged: (index) => setState(() => _periodIndex = index),
-                expanded: compact,
-              );
-              if (compact) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [title, const SizedBox(height: 12), periods],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: title),
-                  const SizedBox(width: 16),
-                  periods,
-                ],
-              );
-            },
+                      const SizedBox(height: 4),
+                      Text(
+                        _periodDescription(),
+                        style: SlowlightTypography.secondary(context).copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  );
+                  final compact = constraints.maxWidth < 700;
+                  final periods = FxSegmented(
+                    labels: const ['今天', '本周', '近 30 天'],
+                    selectedIndex: _periodIndex,
+                    onChanged: (index) => setState(() => _periodIndex = index),
+                    expanded: compact,
+                  );
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [title, const SizedBox(height: 12), periods],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: title),
+                      const SizedBox(width: 16),
+                      periods,
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
         ),
         Expanded(
@@ -243,10 +257,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   String _periodDescription() => switch (_periodIndex) {
-    1 => '看见一周的节奏与变化',
-    2 => '回看长期积累的行为轨迹',
-    _ => '行为留下轨迹，时间让自我显影',
-  };
+        1 => '看见一周的节奏与变化',
+        2 => '回看长期积累的行为轨迹',
+        _ => '行为留下轨迹，时间让自我显影',
+      };
 
   Widget _overviewBody() {
     if (_loading) return const Center(child: FxCircularProgress());
@@ -267,8 +281,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     );
     final today = DateTime.now();
     final hasReflections = _reflections.any(
-      (entry) => entry.entryType == 'reflection' &&
-          _sameDay(entry.createdAt, today),
+      (entry) =>
+          entry.entryType == 'reflection' && _sameDay(entry.createdAt, today),
     );
     final questions = (_review['questions'] as List? ?? const [])
         .whereType<Map>()
@@ -286,7 +300,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        padding: SlowlightPageInsets.scroll(
+          context,
+          top: SlowlightSpacing.xs,
+          bottom: 32,
+        ),
         children: [
           Center(
             child: ConstrainedBox(
@@ -330,7 +348,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           ],
                           if (questions.isNotEmpty) _questionsCard(questions),
                           if (hasReflections) ...[
-                            if (questions.isNotEmpty) const SizedBox(height: 16),
+                            if (questions.isNotEmpty)
+                              const SizedBox(height: 16),
                             _reflectionsCard(),
                           ],
                           if (questions.isEmpty) ...[
@@ -459,7 +478,6 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               label: _savingNote ? '保存中…' : '保存记录',
               size: FxButtonSize.sm,
               onPressed: _savingNote || _noteResultUnknown ? null : _saveNote,
-              
             ),
           ),
           if (_noteResultUnknown)
@@ -511,9 +529,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _noteController.clear();
         _noteResultUnknown = false;
       });
-      FxNotice.showContent(context, Text(saved.id < 0
-          ? '记录已保存在本机，等待云端同步'
-          : '记录已保存'));
+      FxNotice.showContent(
+          context, Text(saved.id < 0 ? '记录已保存在本机，等待云端同步' : '记录已保存'));
     } catch (_) {
       if (!mounted) return;
       setState(() => _noteResultUnknown = true);
@@ -543,10 +560,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           color: AppTheme.chartGreen,
           time: completedAt == null ? '今天' : _clockTime(completedAt),
           title: '完成「${task['title'] ?? ''}」',
-          note:
-              (task['list_name']?.toString() ?? '').isEmpty
-                  ? null
-                  : task['list_name'].toString(),
+          note: (task['list_name']?.toString() ?? '').isEmpty
+              ? null
+              : task['list_name'].toString(),
         ),
       );
     }
@@ -582,10 +598,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       final distribution = (facts['tag_distribution'] as List? ?? const [])
           .whereType<Map>()
           .toList(growable: false);
-      final note =
-          distribution.isEmpty
-              ? '当前数据源只提供今日专注汇总'
-              : '主要投入：${distribution.first['name'] ?? ''}';
+      final note = distribution.isEmpty
+          ? '当前数据源只提供今日专注汇总'
+          : '主要投入：${distribution.first['name'] ?? ''}';
       items.add(
         ReviewTimelineItem(
           color: AppTheme.info,
@@ -624,11 +639,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           const FxSectionHeader(title: '行为轨迹'),
           const SizedBox(height: 12),
           if (items.isEmpty)
-            const FxEmptyState(
+            FxEmptyState(
               icon: LucideIcons.footprints,
-              title: '今天还没有留下行为记录',
-              subtitle: '先记录一件真实发生的事，轨迹就会出现在这里。',
-              padding: EdgeInsets.symmetric(vertical: 24),
+              title: _partialUnavailable.isEmpty ? '今天还没有留下行为记录' : '行为轨迹暂不完整',
+              subtitle: _partialUnavailable.isEmpty
+                  ? '先记录一件真实发生的事，轨迹就会出现在这里。'
+                  : '部分记录读取失败，请重新加载后核对。',
+              padding: const EdgeInsets.symmetric(vertical: 24),
             )
           else
             ...List.generate(
@@ -656,12 +673,12 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   String _periodLabel(String value) => switch (value) {
-    'morning' => '☀️ 早晨',
-    'afternoon' => '下午',
-    'evening' => '傍晚',
-    'night' => '🌙 晚间',
-    _ => '',
-  };
+        'morning' => '☀️ 早晨',
+        'afternoon' => '下午',
+        'evening' => '傍晚',
+        'night' => '🌙 晚间',
+        _ => '',
+      };
 
   Widget _questionsCard(List<Map<String, dynamic>> questions) {
     final theme = Theme.of(context);
@@ -691,10 +708,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                 ),
                 child: FxInkWell(
                   borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                  onTap:
-                      index == 0
-                          ? null
-                          : () => setState(() {
+                  onTap: index == 0
+                      ? null
+                      : () => setState(() {
                             if (expanded) {
                               _expanded.remove(key);
                             } else {
@@ -743,11 +759,14 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: FxButton(
-                              label: _savingAnswers.contains(key) ? '保存中…' : '保存回应',
+                              label: _savingAnswers.contains(key)
+                                  ? '保存中…'
+                                  : '保存回应',
                               size: FxButtonSize.sm,
                               onPressed: _savingAnswers.contains(key) ||
                                       _unknownAnswers.contains(key)
-                                  ? null : () => _saveAnswer(question),
+                                  ? null
+                                  : () => _saveAnswer(question),
                             ),
                           ),
                           if (_unknownAnswers.contains(key))
@@ -814,8 +833,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final today = DateTime.now();
     final entries = _reflections
         .where((entry) =>
-            entry.entryType == 'reflection' &&
-            _sameDay(entry.createdAt, today))
+            entry.entryType == 'reflection' && _sameDay(entry.createdAt, today))
         .take(5)
         .toList(growable: false);
     return FxCard(
@@ -835,37 +853,38 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             )
           else
             ...entries.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (entry.context['question_prompt']
-                          ?.toString()
-                          .trim()
-                          .isNotEmpty ==
-                      true) ...[
-                    Text(
-                      '回应：${entry.context['question_prompt']}',
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (entry.context['question_prompt']
+                              ?.toString()
+                              .trim()
+                              .isNotEmpty ==
+                          true) ...[
+                        Text(
+                          '回应：${entry.context['question_prompt']}',
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      Text(
+                        entry.content,
+                        style: SlowlightTypography.body(context),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  Text(
-                    entry.content,
-                    style: SlowlightTypography.body(context),
+                      const SizedBox(height: 4),
+                      Text(
+                        _clockTime(entry.createdAt),
+                        style: SlowlightTypography.caption(context).copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _clockTime(entry.createdAt),
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            )),
+                )),
         ],
       ),
     );
@@ -873,7 +892,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   Future<void> _saveAnswer(Map<String, dynamic> question) async {
     final key = _questionKey(question);
-    if (_savingAnswers.contains(key) || _unknownAnswers.contains(key) ||
+    if (_savingAnswers.contains(key) ||
+        _unknownAnswers.contains(key) ||
         _answered.contains(key)) return;
     final controller = _controllerFor(question);
     final content = controller.text.trim();
@@ -898,9 +918,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _unknownAnswers.remove(key);
         controller.clear();
       });
-      FxNotice.showContent(context, Text(saved.id < 0
-          ? '回应已保存在本机，等待云端同步'
-          : '回应已保存'));
+      FxNotice.showContent(
+          context, Text(saved.id < 0 ? '回应已保存在本机，等待云端同步' : '回应已保存'));
     } catch (_) {
       if (!mounted) return;
       setState(() => _unknownAnswers.add(key));
