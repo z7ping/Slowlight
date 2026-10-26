@@ -6,6 +6,7 @@ import '../models/subtask.dart';
 import '../models/todo_list.dart';
 import '../models/task.dart';
 import '../models/tag.dart';
+import '../utils/habit_record_key.dart';
 import 'auth_service.dart';
 import 'data_mode_manager.dart';
 import 'local_api_service.dart';
@@ -476,6 +477,10 @@ class ApiService {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -495,6 +500,10 @@ class ApiService {
         recordType: recordType,
         recordUnit: recordUnit,
         recordTimeLabel: recordTimeLabel,
+      allowMultiplePerDay: allowMultiplePerDay,
+      goalPeriod: goalPeriod,
+      goalMetric: goalMetric,
+      goalValue: goalValue,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -514,6 +523,10 @@ class ApiService {
       'record_type': recordType,
       'record_unit': recordUnit,
       'record_time_label': recordTimeLabel,
+      'allow_multiple_per_day': allowMultiplePerDay,
+      'goal_period': goalPeriod,
+      'goal_metric': goalMetric,
+      'goal_value': goalValue,
       'target_days': targetDays,
       'preferred_period': preferredPeriod,
       'duration_min': durationMin,
@@ -590,15 +603,19 @@ class ApiService {
       String? period,
       String? occurrenceKey,
       int? countValue,
-      String? occurredAt}) async {
+      String? occurredAt,
+      String? clientKey}) async {
+    final effectiveKey = clientKey ?? createHabitRecordKey();
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, period: period, occurrenceKey: occurrenceKey,
-          countValue: countValue, occurredAt: occurredAt);
+          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: effectiveKey, occurrenceKey: occurrenceKey);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
       'duration_min': durationMin ?? 0,
+      if (countValue != null) 'count_value': countValue,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      'client_key': effectiveKey,
       'period': period ?? ''
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
@@ -617,6 +634,20 @@ class ApiService {
     final error = json.decode(response.body);
     throw StateError(error is Map && error['error'] != null
         ? error['error'].toString() : '打卡失败(${response.statusCode})');
+  }
+
+  static Future<void> deleteHabitLog(int habitId, int logId) async {
+    if (DataModeManager().isOffline) {
+      return _localApi.deleteHabitLog(habitId, logId);
+    }
+    final headers = await _authHeaders();
+    final response = await HttpUtil.delete(
+      Uri.parse('$baseUrl/habits/$habitId/logs/$logId'),
+      headers: headers,
+    ).timeout(_postTimeout);
+    if (response.statusCode != 200 && response.statusCode != 404) {
+      throw Exception('撤销记录失败（${response.statusCode}）');
+    }
   }
 
   // 取消打卡

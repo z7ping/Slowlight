@@ -43,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -161,6 +161,10 @@ class CloudCacheDb {
         record_type TEXT NOT NULL DEFAULT 'legacy',
         record_unit TEXT NOT NULL DEFAULT '次',
         record_time_label TEXT NOT NULL DEFAULT '',
+        allow_multiple_per_day INTEGER NOT NULL DEFAULT 0,
+        goal_period TEXT NOT NULL DEFAULT 'none',
+        goal_metric TEXT NOT NULL DEFAULT 'events',
+        goal_value INTEGER NOT NULL DEFAULT 0,
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -187,6 +191,7 @@ class CloudCacheDb {
         habit_id INTEGER NOT NULL,
         date TEXT NOT NULL,
         occurrence_key TEXT,
+        client_key TEXT,
         occurred_at TEXT,
         count_value INTEGER,
         period TEXT DEFAULT '',
@@ -230,6 +235,7 @@ class CloudCacheDb {
     await db.execute(
         'CREATE INDEX idx_cloud_habit_logs_habit_id ON habit_logs(habit_id)');
     await db.execute('CREATE UNIQUE INDEX idx_cloud_habit_occurrence ON habit_logs(habit_id, occurrence_key)');
+    await db.execute('CREATE UNIQUE INDEX idx_cloud_habit_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
     await db.execute(
         'CREATE INDEX idx_cloud_sync_queue_entity ON sync_queue(entity_type, entity_local_id)');
     await db.execute(
@@ -249,6 +255,26 @@ class CloudCacheDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 7) {
+      final names = (await db.rawQuery('PRAGMA table_info(habits)'))
+          .map((row) => row['name'].toString()).toSet();
+      for (final entry in <String, String>{
+        'allow_multiple_per_day': 'INTEGER NOT NULL DEFAULT 0',
+        'goal_period': "TEXT NOT NULL DEFAULT 'none'",
+        'goal_metric': "TEXT NOT NULL DEFAULT 'events'",
+        'goal_value': 'INTEGER NOT NULL DEFAULT 0',
+      }.entries) {
+        if (!names.contains(entry.key)) {
+          await db.execute('ALTER TABLE habits ADD COLUMN ${entry.key} ${entry.value}');
+        }
+      }
+      final logNames = (await db.rawQuery('PRAGMA table_info(habit_logs)'))
+          .map((row) => row['name'].toString()).toSet();
+      if (!logNames.contains('client_key')) {
+        await db.execute('ALTER TABLE habit_logs ADD COLUMN client_key TEXT');
+      }
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_habit_client_key ON habit_logs(client_key) WHERE client_key IS NOT NULL');
+    }
     if (oldVersion < 6) {
       final habitColumns = await db.rawQuery("PRAGMA table_info(habits)");
       for (final entry in <String, String>{

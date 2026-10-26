@@ -4,10 +4,10 @@ class HabitLog {
   final int habitId;
   final String date;
   final String? occurrenceKey;
-  final DateTime? occurredAt;
-  final int? countValue;
   final String period;
   final int durationMin;
+  final int? countValue;
+  final DateTime? occurredAt;
   final String note;
   final DateTime createdAt;
 
@@ -16,10 +16,10 @@ class HabitLog {
     required this.habitId,
     required this.date,
     this.occurrenceKey,
-    this.occurredAt,
-    this.countValue,
     required this.period,
     required this.durationMin,
+    this.countValue,
+    this.occurredAt,
     required this.note,
     required this.createdAt,
   });
@@ -30,10 +30,11 @@ class HabitLog {
       habitId: json['habit_id'] as int? ?? 0,
       date: json['date'] as String? ?? '',
       occurrenceKey: json['occurrence_key'] as String?,
-      occurredAt: json['occurred_at'] == null || json['occurred_at'] == '' ? null : DateTime.tryParse(json['occurred_at'].toString())?.toLocal(),
-      countValue: json['count_value'] as int?,
       period: json['period'] as String? ?? '',
       durationMin: json['duration_min'] as int? ?? 0,
+      countValue: json['count_value'] as int?,
+      occurredAt: json['occurred_at'] == null || json['occurred_at'] == ''
+          ? null : DateTime.parse(json['occurred_at'].toString()).toLocal(),
       note: json['note'] as String? ?? '',
       createdAt: json['created_at'] == null
           ? DateTime.now()

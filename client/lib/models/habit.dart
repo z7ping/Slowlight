@@ -9,9 +9,17 @@ class Habit {
   final String color;
   final String frequency;
   final Map<String, dynamic> scheduleRule;
+  /// 旧数据保持原有时长/时段语义；新习惯默认为 check。
   final String recordType;
   final String recordUnit;
+  /// 非空时在打卡弹层采集真实发生时间，文案由用户配置。
   final String recordTimeLabel;
+  final bool allowMultiplePerDay;
+  final String goalPeriod;
+  final String goalMetric;
+  final int goalValue;
+  final int goalProgress;
+  final bool goalMet;
   final int targetDays;
   final int streakCount;
   final String preferredPeriod;
@@ -39,6 +47,12 @@ class Habit {
     this.recordType = 'legacy',
     this.recordUnit = '次',
     this.recordTimeLabel = '',
+    this.allowMultiplePerDay = false,
+    this.goalPeriod = 'none',
+    this.goalMetric = 'events',
+    this.goalValue = 0,
+    this.goalProgress = 0,
+    this.goalMet = false,
     this.targetDays = 0,
     this.streakCount = 0,
     this.preferredPeriod = '',
@@ -68,6 +82,13 @@ class Habit {
       recordType: json['record_type'] as String? ?? 'legacy',
       recordUnit: json['record_unit'] as String? ?? '次',
       recordTimeLabel: json['record_time_label'] as String? ?? '',
+      allowMultiplePerDay: json['allow_multiple_per_day'] == true ||
+          json['allow_multiple_per_day'] == 1,
+      goalPeriod: json['goal_period'] as String? ?? 'none',
+      goalMetric: json['goal_metric'] as String? ?? 'events',
+      goalValue: json['goal_value'] as int? ?? 0,
+      goalProgress: json['goal_progress'] as int? ?? 0,
+      goalMet: json['goal_met'] == true || json['goal_met'] == 1,
       targetDays: json['target_days'] ?? 0,
       streakCount: json['streak_count'] ?? 0,
       preferredPeriod: json['preferred_period'] ?? '',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
+import 'habit_checkin_dialog.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
@@ -54,7 +55,20 @@ class HabitCheckinWidget extends StatelessWidget {
 
   Future<void> _checkIn(BuildContext context) async {
     try {
-      await ApiService.checkInHabit(habit.id);
+      Map<String, dynamic>? result;
+      if (habit.showCheckinDialog || habit.recordType == 'count' ||
+          habit.recordTimeLabel.isNotEmpty) {
+        result = await HabitCheckinDialog.show(context, habit: habit);
+        if (result == null) return;
+      }
+      await ApiService.checkInHabit(
+        habit.id,
+        durationMin: result?['duration_min'] as int?,
+        period: result?['period'] as String?,
+        countValue: result?['count_value'] as int?,
+        occurredAt: result?['occurred_at'] as String?,
+        note: result?['note'] as String? ?? '',
+      );
       onCheckin?.call();
     } catch (e) {
       if (context.mounted) {

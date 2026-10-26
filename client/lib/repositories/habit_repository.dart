@@ -1,5 +1,6 @@
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import '../utils/habit_record_key.dart';
 import '../services/cloud_api_service.dart';
 import '../services/data_mode_manager.dart';
 import '../services/data_source.dart';
@@ -31,6 +32,10 @@ class HabitRepository {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -49,6 +54,10 @@ class HabitRepository {
       recordType: recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,
+      allowMultiplePerDay: allowMultiplePerDay,
+      goalPeriod: goalPeriod,
+      goalMetric: goalMetric,
+      goalValue: goalValue,
       targetDays: targetDays,
       systemTagId: systemTagId,
       preferredPeriod: preferredPeriod,
@@ -71,6 +80,10 @@ class HabitRepository {
     String? recordType,
     String? recordUnit,
     String? recordTimeLabel,
+    bool? allowMultiplePerDay,
+    String? goalPeriod,
+    String? goalMetric,
+    int? goalValue,
     int? targetDays,
     int? systemTagId,
     bool updateSystemTag = false,
@@ -90,6 +103,10 @@ class HabitRepository {
       'record_type': recordType ?? habit.recordType,
       'record_unit': recordUnit ?? habit.recordUnit,
       'record_time_label': recordTimeLabel ?? habit.recordTimeLabel,
+      'allow_multiple_per_day': allowMultiplePerDay ?? habit.allowMultiplePerDay,
+      'goal_period': goalPeriod ?? habit.goalPeriod,
+      'goal_metric': goalMetric ?? habit.goalMetric,
+      'goal_value': goalValue ?? habit.goalValue,
       'target_days': targetDays ?? habit.targetDays,
       'system_tag_id': updateSystemTag ? systemTagId : habit.systemTagId,
       'preferred_period': preferredPeriod ?? habit.preferredPeriod,
@@ -112,21 +129,26 @@ class HabitRepository {
     String note = '',
     String? date,
     int? durationMin,
-    String? period,
-    String? occurrenceKey,
     int? countValue,
     String? occurredAt,
+    String? period,
+    String? clientKey,
+    String? occurrenceKey,
   }) =>
       _dataSource.checkInHabit(
         habitId,
         note: note,
         date: date,
         durationMin: durationMin,
-        period: period,
-        occurrenceKey: occurrenceKey,
         countValue: countValue,
         occurredAt: occurredAt,
+        period: period,
+        clientKey: clientKey ?? createHabitRecordKey(),
+        occurrenceKey: occurrenceKey,
       );
+
+  Future<void> deleteLog(int habitId, int logId) =>
+      _dataSource.deleteHabitLog(habitId, logId);
 
   Future<Map<String, dynamic>> uncheckIn(int habitId) =>
       _dataSource.uncheckInHabit(habitId);
@@ -153,6 +175,13 @@ class HabitRepository {
     String icon = '✅',
     String color = '#52c41a',
     String frequency = 'daily',
+    String recordType = 'check',
+    String recordUnit = '次',
+    String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -165,6 +194,13 @@ class HabitRepository {
         icon: icon,
         color: color,
         frequency: frequency,
+      recordType: recordType,
+      recordUnit: recordUnit,
+      recordTimeLabel: recordTimeLabel,
+      allowMultiplePerDay: allowMultiplePerDay,
+      goalPeriod: goalPeriod,
+      goalMetric: goalMetric,
+      goalValue: goalValue,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -181,14 +217,20 @@ class HabitRepository {
     String note = '',
     String? date,
     int? durationMin,
+    int? countValue,
+    String? occurredAt,
     String? period,
+    String? clientKey,
   }) =>
       checkIn(
         habitId,
         note: note,
         date: date,
         durationMin: durationMin,
+        countValue: countValue,
+        occurredAt: occurredAt,
         period: period,
+        clientKey: clientKey,
       );
 
   @Deprecated('Use uncheckIn().')

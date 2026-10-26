@@ -105,6 +105,10 @@ abstract class ApiDataSource {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -120,11 +124,13 @@ abstract class ApiDataSource {
     String note = '',
     String? date,
     int? durationMin,
-    String? period,
-    String? occurrenceKey,
     int? countValue,
     String? occurredAt,
+    String? period,
+    String? clientKey,
+    String? occurrenceKey,
   });
+  Future<void> deleteHabitLog(int habitId, int logId);
   Future<Map<String, dynamic>> uncheckInHabit(int habitId);
   Future<Map<String, dynamic>> getHabitLogs(int habitId, {String? month});
   Future<void> deleteHabit(int habitId);

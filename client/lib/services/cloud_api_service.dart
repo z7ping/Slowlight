@@ -426,6 +426,10 @@ class CloudApiService implements ApiDataSource {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -444,6 +448,10 @@ class CloudApiService implements ApiDataSource {
           recordType: recordType,
           recordUnit: recordUnit,
           recordTimeLabel: recordTimeLabel,
+          allowMultiplePerDay: allowMultiplePerDay,
+          goalPeriod: goalPeriod,
+          goalMetric: goalMetric,
+          goalValue: goalValue,
           targetDays: targetDays,
           systemTagId: systemTagId,
           preferredPeriod: preferredPeriod,
@@ -464,6 +472,10 @@ class CloudApiService implements ApiDataSource {
         recordType: recordType,
         recordUnit: recordUnit,
         recordTimeLabel: recordTimeLabel,
+      allowMultiplePerDay: allowMultiplePerDay,
+      goalPeriod: goalPeriod,
+      goalMetric: goalMetric,
+      goalValue: goalValue,
         targetDays: targetDays,
         systemTagId: systemTagId,
         preferredPeriod: preferredPeriod,
@@ -495,20 +507,22 @@ class CloudApiService implements ApiDataSource {
     String note = '',
     String? date,
     int? durationMin,
-    String? period,
-    String? occurrenceKey,
     int? countValue,
     String? occurredAt,
+    String? period,
+    String? clientKey,
+    String? occurrenceKey,
   }) {
     Future<Map<String, dynamic>> cached() => _cache.checkInHabit(
           habitId,
           note: note,
           date: date,
           durationMin: durationMin,
-          period: period,
-          occurrenceKey: occurrenceKey,
           countValue: countValue,
           occurredAt: occurredAt,
+          period: period,
+        clientKey: clientKey,
+          occurrenceKey: occurrenceKey,
         );
     if (habitId < 0) return cached();
     return _writeThrough(
@@ -517,12 +531,26 @@ class CloudApiService implements ApiDataSource {
         note: note,
         date: date,
         durationMin: durationMin,
-        period: period,
-        occurrenceKey: occurrenceKey,
         countValue: countValue,
         occurredAt: occurredAt,
+        period: period,
+        clientKey: clientKey,
+        occurrenceKey: occurrenceKey,
       ),
       cached,
+    );
+  }
+
+  @override
+  Future<void> deleteHabitLog(int habitId, int logId) async {
+    if (habitId < 0 || logId < 0) {
+      await _cache.deleteHabitLog(habitId, logId);
+      return;
+    }
+    // 幂等 DELETE 可安全离线补交；仅已确定未到达服务器的连接失败降级。
+    await _writeThroughVoid(
+      () => ApiService.deleteHabitLog(habitId, logId),
+      () => _cache.deleteHabitLog(habitId, logId),
     );
   }
 

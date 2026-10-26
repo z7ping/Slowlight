@@ -51,6 +51,10 @@ class FakeHabitDataSource implements ApiDataSource {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     Map<String, dynamic>? scheduleRule,
     int targetDays = 0,
     int? systemTagId,
@@ -68,10 +72,13 @@ class FakeHabitDataSource implements ApiDataSource {
       'icon': icon,
       'color': color,
       'frequency': frequency,
-      'schedule_rule':scheduleRule ?? const {},
       'record_type':recordType,
       'record_unit':recordUnit,
       'record_time_label':recordTimeLabel,
+      'allow_multiple_per_day': allowMultiplePerDay,
+      'goal_period': goalPeriod,
+      'goal_metric': goalMetric,
+      'goal_value': goalValue,
       'schedule_rule': scheduleRule ?? const <String, dynamic>{},
       'target_days': targetDays,
       'streak_count': 0,
@@ -133,6 +140,7 @@ void main() {
       },
     );
 
+    expect(created.recordType, 'check');
     expect(created.preferredPeriod, 'evening');
     expect(created.specificTime, '19:30');
     expect(source.lastCreate?['reminder_at']['enabled'], isTrue);

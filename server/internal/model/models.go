@@ -102,11 +102,15 @@ type Habit struct {
 	Name            string         `json:"name" gorm:"size:100;not null"`
 	Icon            string         `json:"icon" gorm:"size:50;default:'✅'"`
 	Color           string         `json:"color" gorm:"size:20;default:'#52c41a'"`
-	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // legacy daily/weekly/monthly/yearly
-	RecordType      string         `json:"record_type" gorm:"size:20;not null;default:'legacy'"`
+	RecordType      string         `json:"record_type" gorm:"size:20;not null;default:'legacy'"` // legacy/check/duration/count
 	RecordUnit      string         `json:"record_unit" gorm:"size:20;not null;default:'次'"`
 	RecordTimeLabel string         `json:"record_time_label" gorm:"size:40;not null;default:''"`
-	ScheduleRule    string         `json:"schedule_rule" gorm:"type:text;default:'{}'"` // V3 JSON rule (empty = legacy)
+	Frequency       string         `json:"frequency" gorm:"size:20;default:'daily'"` // legacy daily/weekly/monthly/yearly
+	ScheduleRule    string         `json:"schedule_rule" gorm:"type:text;default:'{}'"` // V3 JSON
+	AllowMultiplePerDay bool           `json:"allow_multiple_per_day" gorm:"not null;default:false"`
+	GoalPeriod      string         `json:"goal_period" gorm:"size:10;not null;default:'none'"`
+	GoalMetric      string         `json:"goal_metric" gorm:"size:12;not null;default:'events'"`
+	GoalValue       int            `json:"goal_value" gorm:"not null;default:0"`
 	TargetDays      int            `json:"target_days" gorm:"default:0"`            // 0 = 无限制
 	StreakCount     int            `json:"streak_count" gorm:"default:0"`           // 连续打卡天数
 	PreferredPeriod string         `json:"preferred_period" gorm:"size:20;default:''"` // morning/afternoon/evening/night
@@ -119,10 +123,12 @@ type Habit struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
-	CheckedToday    bool           `json:"checked_today" gorm:"-"`
+	GoalProgress    int            `json:"goal_progress" gorm:"-"`
+	GoalMet         bool           `json:"goal_met" gorm:"-"`
 	CanCheckIn     *bool          `json:"can_check_in,omitempty" gorm:"-"`
 	PeriodCount    int            `json:"period_count,omitempty" gorm:"-"`
-	PeriodTarget   int            `json:"period_target,omitempty" gorm:"-"`                     // 今日是否已打卡（非数据库字段）
+	PeriodTarget   int            `json:"period_target,omitempty" gorm:"-"`
+	CheckedToday    bool           `json:"checked_today" gorm:"-"`                     // 今日是否已打卡（非数据库字段）
 	CheckedDays     []string       `json:"checked_days" gorm:"-"`                      // 本周打卡日期（非数据库字段）
 }
 
@@ -130,11 +136,12 @@ type Habit struct {
 type HabitLog struct {
 	ID           uint           `json:"id" gorm:"primaryKey"`
 	HabitID      uint           `json:"habit_id" gorm:"not null;index;uniqueIndex:idx_habit_occurrence,priority:1,where:deleted_at IS NULL"`
-	Date         string         `json:"date" gorm:"size:10;not null"`
-	CountValue *int `json:"count_value" gorm:"default:null"`
+	ClientKey    *string        `json:"client_key,omitempty" gorm:"size:64;uniqueIndex:idx_habitlog_client_key"`
 	OccurrenceKey *string `json:"occurrence_key,omitempty" gorm:"size:120;uniqueIndex:idx_habit_occurrence,priority:2,where:deleted_at IS NULL"`
-	OccurredAt *time.Time `json:"occurred_at,omitempty"`          // YYYY-MM-DD
+	Date         string         `json:"date" gorm:"size:10;not null"`          // YYYY-MM-DD
 	Period       string         `json:"period" gorm:"size:20;default:''"`      // morning/afternoon/evening/night
+	CountValue   *int           `json:"count_value" gorm:"default:null"`
+	OccurredAt   *time.Time     `json:"occurred_at" gorm:"default:null"`
 	DurationMin  int            `json:"duration_min" gorm:"default:0"`         // 实际时长
 	Note         string         `json:"note" gorm:"size:500;default:''"`
 	TaskID       *uint          `json:"task_id" gorm:"index"`                  // 关联任务 ID（可选）

@@ -4,6 +4,8 @@ import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
 import '../models/habit_occurrence.dart';
+import '../models/habit_goal_progress.dart';
+import '../utils/habit_record_key.dart';
 import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -349,11 +351,13 @@ class CloudCacheRepository {
       final localId = row['id'] as int;
       final logs = await db.query(
         'habit_logs',
-        where: 'habit_id = ?',
+        where: "habit_id = ? AND sync_status != 'pending_delete'",
         whereArgs: [localId],
       );
       final days = logs.map((value) => value['date']?.toString() ?? '').toList();
       final today = _dateKey(DateTime.now());
+      final goalRows = logs.map((e) => Map<String, dynamic>.from(e));
+      final goal = HabitGoalProgress.current(Map<String, dynamic>.from(row), goalRows);
       final rule = HabitOccurrence.rule(row['schedule_rule'],
         legacyFrequency:row['frequency']?.toString() ?? 'daily');
       bool? canCheckIn;
@@ -386,6 +390,12 @@ class CloudCacheRepository {
         'record_type': row['record_type'] ?? 'legacy',
         'record_unit': row['record_unit'] ?? '次',
         'record_time_label': row['record_time_label'] ?? '',
+        'allow_multiple_per_day': (row['allow_multiple_per_day'] as int? ?? 0) == 1,
+        'goal_period': row['goal_period'] ?? 'none',
+        'goal_metric': row['goal_metric'] ?? 'events',
+        'goal_value': row['goal_value'] ?? 0,
+        'goal_progress': goal,
+        'goal_met': HabitGoalProgress.met(Map<String, dynamic>.from(row), goal),
         'target_days': row['target_days'] ?? 0,
         'streak_count': row['streak_count'] ?? 0,
         'preferred_period': row['preferred_period'] ?? '',
@@ -420,6 +430,10 @@ class CloudCacheRepository {
     String recordType = 'check',
     String recordUnit = '次',
     String recordTimeLabel = '',
+    bool allowMultiplePerDay = false,
+    String goalPeriod = 'none',
+    String goalMetric = 'events',
+    int goalValue = 0,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
@@ -443,6 +457,10 @@ class CloudCacheRepository {
       'record_type': recordType,
       'record_unit': recordUnit,
       'record_time_label': recordTimeLabel,
+      'allow_multiple_per_day': allowMultiplePerDay ? 1 : 0,
+      'goal_period': goalPeriod,
+      'goal_metric': goalMetric,
+      'goal_value': goalValue,
       'target_days': targetDays,
       'system_tag_id': systemTagLocalId,
       'preferred_period': preferredPeriod,
@@ -476,6 +494,9 @@ class CloudCacheRepository {
           ? null
           : await _localId(db, 'system_tags', publicTagId);
     }
+    for (final key in ['allow_multiple_per_day', 'generate_task', 'show_checkin_dialog']) {
+      if (updates[key] is bool) updates[key] = updates[key] == true ? 1 : 0;
+    }
     if (updates.containsKey('schedule_rule')) {
       updates['schedule_rule'] = jsonEncode(updates['schedule_rule'] ?? const {});
     }
@@ -504,6 +525,7 @@ class CloudCacheRepository {
     String? occurrenceKey,
     int? countValue,
     String? occurredAt,
+    String? clientKey,
   }) async {
     final db = await _db;
     final habit = await _rowByPublicId(db, 'habits', publicId);
@@ -517,10 +539,15 @@ class CloudCacheRepository {
     if (date != null && DateTime.tryParse(date)?.isAfter(DateTime(now.year,now.month,now.day)) == true) {
       throw StateError('不能记录未来日期');
     }
+    final effectiveKey = clientKey ?? createHabitRecordKey();
     final result=await db.transaction((tx) async {
+      final replay = await tx.query('habit_logs', where: 'client_key = ?',
+          whereArgs: [effectiveKey], limit: 1);
+      if (replay.isNotEmpty) return <String,dynamic>{'log_id': null,
+          'result': {'log': replay.first, 'already_checked': true}};
       final existing=await tx.query('habit_logs',
-        where: rule==null?'habit_id = ? AND date = ?':'habit_id = ? AND occurrence_key = ?',
-        whereArgs:[hid,rule==null?day:event!.key],limit:1);
+        where: rule==null?'habit_id = ? AND date = ? AND ? = 0':'habit_id = ? AND occurrence_key = ?',
+        whereArgs: rule==null ? [hid,day,habit['allow_multiple_per_day'] ?? 0] : [hid,event!.key],limit:1);
       if (existing.isNotEmpty) return <String,dynamic>{
         'log_id':null,'result':{'log':existing.first,'already_checked':true}};
       if (event?.periodStart != null) {
@@ -536,6 +563,7 @@ class CloudCacheRepository {
       final at=date==null?now:DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
       final id=await tx.insert('habit_logs',{
         'habit_id':hid,'date':day,'occurrence_key':event?.key,
+        'client_key':effectiveKey,
         'occurred_at':(occurredAt ?? at.toUtc().toIso8601String()),
         'count_value':countValue,
         'period':period ?? '', 'duration_min':durationMin ?? 0,
@@ -555,12 +583,33 @@ class CloudCacheRepository {
     return {'log':await _habitLogMap(db,row),'checked':true};
   }
 
+  Future<void> deleteHabitLog(int publicHabitId, int publicLogId) async {
+    final db = await _db;
+    final habitId = await _localId(db, 'habits', publicHabitId);
+    final logId = await _localId(db, 'habit_logs', publicLogId);
+    final rows = await db.query('habit_logs',
+        where: 'id = ? AND habit_id = ?', whereArgs: [logId, habitId], limit: 1);
+    if (rows.isEmpty) throw StateError('记录不属于此习惯');
+    final row = rows.first;
+    final serverId = row['server_id'] as int?;
+    if (serverId == null) {
+      await db.delete('sync_queue', where: 'entity_type = ? AND entity_local_id = ?',
+          whereArgs: ['habit_logs', logId]);
+      await db.delete('habit_logs', where: 'id = ?', whereArgs: [logId]);
+      return;
+    }
+    await db.update('habit_logs', {'sync_status': 'pending_delete'},
+        where: 'id = ?', whereArgs: [logId]);
+    await SyncService().enqueue(entityType:'habit_logs',entityLocalId:logId,
+        entityServerId:serverId,operation:'delete');
+  }
+
   Future<Map<String, dynamic>> getHabitLogs(int publicId, {String? month}) async {
     final db = await _db;
     final habitLocalId = await _localId(db, 'habits', publicId);
     final rows = await db.query(
       'habit_logs',
-      where: month == null ? 'habit_id = ?' : 'habit_id = ? AND date LIKE ?',
+      where: month == null ? "habit_id = ? AND sync_status != 'pending_delete'" : "habit_id = ? AND date LIKE ? AND sync_status != 'pending_delete'",
       whereArgs: month == null ? [habitLocalId] : [habitLocalId, '$month%'],
       orderBy: 'date DESC, created_at DESC, id DESC',
     );
@@ -723,6 +772,7 @@ class CloudCacheRepository {
         'date': row['date'],
         'occurrence_key': row['occurrence_key'],
         'occurred_at': row['occurred_at'],
+        'client_key': row['client_key'],
         'count_value': row['count_value'],
         'period': row['period'] ?? '',
         'duration_min': row['duration_min'] ?? 0,

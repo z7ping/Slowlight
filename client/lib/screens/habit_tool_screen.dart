@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -13,16 +12,22 @@ import '../repositories/tag_links_repository.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
-import '../widgets/habit_checkin_dialog.dart';
+import '../widgets/habit_checkin_flow.dart';
 import '../widgets/habit_editor_dialog.dart';
 
 class HabitToolScreen extends StatefulWidget {
   final HabitRepository? repository;
   final TagLinksRepository? tagLinksRepository;
-  final Future<HabitEditorValue?> Function(BuildContext, {Habit? habit})? editor;
+  final bool titleProvidedByShell;
+  final Future<HabitEditorValue?> Function(BuildContext, {Habit? habit})?
+      editor;
 
   const HabitToolScreen({
-    super.key, this.repository, this.tagLinksRepository, this.editor,
+    super.key,
+    this.repository,
+    this.tagLinksRepository,
+    this.editor,
+    this.titleProvidedByShell = false,
   });
 
   @override
@@ -37,6 +42,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   int? _expandedHabitId;
   int _filter = 0; // 全部 / 待记录 / 已记录
   final Set<int> _pendingHabitActions = <int>{};
+  final Set<int> _allLogsVisible = <int>{};
+  HabitEditorValue? _creationDraft;
+  final Map<int, HabitEditorValue> _editDrafts = {};
 
   @override
   void initState() {
@@ -89,6 +97,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     _nextSlotRefresh=Timer(delay, () { if(mounted)_controller.load(); });
   }
 
+
+
   void _message(String text) {
     if (!mounted) return;
     FxNotice.showContent(context, Text(text));
@@ -123,13 +133,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     if (_editingHabit) return;
     _editingHabit = true;
     try {
-      final value = widget.editor == null
-          ? await HabitEditorDialog.show(context)
-          : await widget.editor!(context);
-      if (value == null || !mounted) return;
-      Habit created;
-      try {
-        created = await _controller.create(
+      Future<void> save(HabitEditorValue value) async {
+        final created = await _controller.create(
           name: value.name,
           icon: value.icon,
           color: value.color,
@@ -138,6 +143,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           recordType: value.recordType,
           recordUnit: value.recordUnit,
           recordTimeLabel: value.recordTimeLabel,
+          allowMultiplePerDay: value.allowMultiplePerDay,
+          goalPeriod: value.goalPeriod,
+          goalMetric: value.goalMetric,
+          goalValue: value.goalValue,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           preferredPeriod: value.preferredPeriod,
@@ -147,17 +156,29 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           specificTime: value.specificTime,
           reminderAt: value.reminderAt,
         );
-      } catch (e) {
-        _message('创建结果未确认，请先在习惯列表核对，避免重复创建：$e');
-        return;
+        _creationDraft = null;
+        if (value.tagIds != null &&
+            value.tagIds!.isNotEmpty &&
+            !await _saveHabitTags(
+                created.id, List<int>.from(value.tagIds!), '创建')) {
+          return;
+        }
+        _message('习惯已创建');
+        try { await NotificationService().scheduleHabitReminders(); }
+        catch (_) { _message('习惯已保存，但提醒调度暂时失败'); }
       }
-      if (value.tagIds != null && value.tagIds!.isNotEmpty &&
-          !await _saveHabitTags(created.id, List<int>.from(value.tagIds!), '创建')) {
-        return;
+
+      if (widget.editor == null) {
+        await HabitEditorDialog.show(context,
+            onSubmit: save,
+            initialValue: _creationDraft,
+            onUnconfirmed: (value) => _creationDraft = value);
+      } else {
+        final value = await widget.editor!(context);
+        if (value != null && mounted) await save(value);
       }
-      _message('习惯已创建');
-      try { await NotificationService().scheduleHabitReminders(); }
-      catch (_) { _message('习惯已保存，但提醒调度暂时失败'); }
+    } catch (e) {
+      _message('创建结果未确认，请先在习惯列表核对，避免重复创建：$e');
     } finally {
       _editingHabit = false;
     }
@@ -167,11 +188,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     if (_editingHabit) return;
     _editingHabit = true;
     try {
-      final value = widget.editor == null
-          ? await HabitEditorDialog.show(context, habit: habit)
-          : await widget.editor!(context, habit: habit);
-      if (value == null || !mounted) return;
-      try {
+      Future<void> save(HabitEditorValue value) async {
         await _controller.update(
           habit,
           name: value.name,
@@ -182,6 +199,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           recordType: value.recordType,
           recordUnit: value.recordUnit,
           recordTimeLabel: value.recordTimeLabel,
+          allowMultiplePerDay: value.allowMultiplePerDay,
+          goalPeriod: value.goalPeriod,
+          goalMetric: value.goalMetric,
+          goalValue: value.goalValue,
           targetDays: value.targetDays,
           systemTagId: value.systemTagId,
           updateSystemTag: true,
@@ -192,17 +213,29 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           specificTime: value.specificTime,
           reminderAt: value.reminderAt,
         );
-      } catch (e) {
-        _message('更新结果未确认，请先查看习惯详情再重试：$e');
-        return;
+        _editDrafts.remove(habit.id);
+        if (value.tagIds != null &&
+            !await _saveHabitTags(
+                habit.id, List<int>.from(value.tagIds!), '更新')) {
+          return;
+        }
+        _message('习惯已更新');
+        try { await NotificationService().scheduleHabitReminders(); }
+        catch (_) { _message('习惯已更新，但提醒调度暂时失败'); }
       }
-      if (value.tagIds != null &&
-          !await _saveHabitTags(habit.id, List<int>.from(value.tagIds!), '更新')) {
-        return;
+
+      if (widget.editor == null) {
+        await HabitEditorDialog.show(context,
+            habit: habit,
+            onSubmit: save,
+            initialValue: _editDrafts[habit.id],
+            onUnconfirmed: (value) => _editDrafts[habit.id] = value);
+      } else {
+        final value = await widget.editor!(context, habit: habit);
+        if (value != null && mounted) await save(value);
       }
-      _message('习惯已更新');
-      try { await NotificationService().scheduleHabitReminders(); }
-      catch (_) { _message('习惯已更新，但提醒调度暂时失败'); }
+    } catch (e) {
+      _message('更新结果未确认，请先查看习惯详情再重试：$e');
     } finally {
       _editingHabit = false;
     }
@@ -225,86 +258,67 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   Future<void> _toggleToday(Habit habit) =>
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
-  Future<void> _undoLatestToday(Habit habit) async {
-    if (!habit.checkedToday) return;
-    final confirmed = await FxDialog.confirm(
-      context: context,
-      title: '撤销最近一次记录',
-      content: habit.scheduleRule.isNotEmpty
-          ? '仅撤销今天最新一条「'+habit.name+'」记录，其他时段记录保留。'
-          : '确定取消今天「'+habit.name+'」的打卡？',
-      confirmText: '撤销记录',
-    );
-    if (confirmed != true) return;
-    try {
-      await _controller.uncheckIn(habit);
-      _message('最近一次记录已撤销');
-    } catch (_) { _message('撤销记录失败'); }
-  }
-
   Future<void> _toggleTodayInternal(Habit habit) async {
-    if (!(habit.canCheckIn ?? !habit.checkedToday) && habit.checkedToday) {
-      await _undoLatestToday(habit);
+    if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '取消打卡',
+        content: '确定取消今天「${habit.name}」的打卡？连续天数将重新计算。',
+        confirmText: '取消打卡',
+      );
+      if (confirmed != true) return;
+      try {
+        await _controller.uncheckIn(habit);
+        _message('已取消今天的打卡');
+      } catch (_) {
+        _message('取消打卡失败');
+      }
       return;
     }
-    if (!(habit.canCheckIn ?? !habit.checkedToday)) {
+    if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
       _message('当前没有可记录的计划时点，或本周期已达目标');
       return;
     }
-    int? durationMin;
-    int? countValue;
-    String? occurredAt;
-    String? period;
-    var note = '';
-    if (habit.showCheckinDialog || habit.recordType == 'count' || habit.recordTimeLabel.isNotEmpty) {
-      final value = await HabitCheckinDialog.show(context, habit: habit);
-      if (value == null) return;
-      durationMin = value['duration_min'] as int?;
-      countValue = value['count_value'] as int?;
-      occurredAt = value['occurred_at']?.toString();
-      period = value['period']?.toString();
-      note = value['note']?.toString() ?? '';
-    }
-    try {
-      await _controller.checkIn(
-        habit,
-        durationMin: durationMin,
-        countValue: countValue,
-        occurredAt: occurredAt,
-        period: period,
-        note: note,
-      );
-      _message('已记录「${habit.name}」');
-    } catch (e) {
-      _message(e.toString().contains('已打卡') ? '今天已经记录过' : '打卡失败');
-    }
+    await _record(habit);
   }
 
   Future<void> _openDetailedCheckin(Habit habit) =>
-      _runHabitAction(habit, () => _openDetailedCheckinInternal(habit));
+      _runHabitAction(habit, () async {
+        HapticFeedback.mediumImpact();
+        if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
+          _message('今天已记录；请在历史明细中查看');
+          return;
+        }
+        if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
+          _message('当前没有可记录的计划时点');
+          return;
+        }
+        await _record(habit, detailed: true);
+      });
 
-  Future<void> _openDetailedCheckinInternal(Habit habit) async {
-    HapticFeedback.mediumImpact();
-    if (!(habit.canCheckIn ?? !habit.checkedToday)) {
-      _message('当前没有可记录的计划时点');
-      return;
-    }
-    final value = await HabitCheckinDialog.show(context, habit: habit);
-    if (value == null) return;
-    try {
-      await _controller.checkIn(
-        habit,
-        durationMin: value['duration_min'] as int?,
-        countValue: value['count_value'] as int?,
-        occurredAt: value['occurred_at']?.toString(),
-        period: value['period']?.toString(),
-        note: value['note']?.toString() ?? '',
-      );
-      HapticFeedback.lightImpact();
-      _message('已记录「${habit.name}」');
-    } catch (e) {
-      _message(e.toString().contains('已打卡') ? '今天已经记录过' : '打卡失败');
-    }
+  Future<void> _record(Habit habit,
+      {bool detailed = false, DateTime? date}) async {
+    final saved = await recordHabit(
+      context,
+      habit: habit,
+      detailed: detailed,
+      recordDate: date,
+      submit: (value) async {
+        await _controller.checkIn(
+          habit,
+          date: date == null
+              ? null
+              : '${date.year}-${_two(date.month)}-${_two(date.day)}',
+          durationMin: value['duration_min'] as int?,
+          countValue: value['count_value'] as int?,
+          occurredAt: value['occurred_at'] as String?,
+          period: value['period'] as String?,
+          note: value['note'] as String? ?? '',
+          clientKey: value['client_key'] as String?,
+        );
+      },
+    );
+    if (saved) _message(date == null ? '已记录「${habit.name}」' : '补卡已记录');
   }
 
   Future<void> _tapWeekDay(Habit habit, DateTime day) {
@@ -319,7 +333,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final today = DateTime(now.year, now.month, now.day);
     final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
     final active = habit.checkedDays.contains(key);
-    if (active) {
+    if (active && !habit.allowMultiplePerDay) {
       _message('历史打卡是事实记录，不在这里修改');
       return;
     }
@@ -333,22 +347,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         )) {
       return;
     }
-    final detail = await HabitCheckinDialog.show(context, habit: habit, recordDate: day);
-    if (detail == null) return;
-    try {
-      await _controller.checkIn(
-        habit,
-        date: key,
-        durationMin: detail['duration_min'] as int?,
-        countValue: detail['count_value'] as int?,
-        occurredAt: detail['occurred_at']?.toString(),
-        period: detail['period']?.toString(),
-        note: detail['note']?.toString() ?? '',
-      );
-      _message('补卡已记录');
-    } catch (e) {
-      _message(e.toString().contains('已打卡') ? '该日期已经记录过' : '补卡失败');
-    }
+    await _record(habit, detailed: true, date: day);
   }
 
   Future<void> _backfill(Habit habit) =>
@@ -372,22 +371,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       title: '选择补卡日期',
     );
     if (date == null) return;
-    final detail = await HabitCheckinDialog.show(context, habit: habit, recordDate: date);
-    if (detail == null) return;
-    try {
-      await _controller.checkIn(
-        habit,
-        date: '${date.year}-${_two(date.month)}-${_two(date.day)}',
-        durationMin: detail['duration_min'] as int?,
-        countValue: detail['count_value'] as int?,
-        occurredAt: detail['occurred_at']?.toString(),
-        period: detail['period']?.toString(),
-        note: detail['note']?.toString() ?? '',
-      );
-      _message('补卡已记录');
-    } catch (e) {
-      _message(e.toString().contains('已打卡') ? '该日期已经记录过' : '补卡失败');
-    }
+    await _record(habit, detailed: true, date: date);
   }
 
   Future<void> _delete(Habit habit) =>
@@ -406,8 +390,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       await _controller.delete(habit);
       if (_expandedHabitId == habit.id) _expandedHabitId = null;
       _message('习惯已删除');
-      try { await NotificationService().cancelHabitReminders(habit.id); }
-      catch (_) { _message('习惯已删除，但旧提醒可能尚未清理'); }
     } catch (_) {
       _message('删除习惯失败');
     }
@@ -432,16 +414,18 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       return const Center(child: FxCircularProgress());
     }
     final all = _controller.habits;
-    final visible = all.where((habit) => switch (_filter) {
-      1 => habit.canCheckIn ?? !habit.checkedToday,
-      2 => !(habit.canCheckIn ?? !habit.checkedToday),
-      _ => true,
-    }).toList(growable: false);
+    final visible = all
+        .where((habit) => switch (_filter) {
+              1 => !habit.checkedToday,
+              2 => habit.checkedToday,
+              _ => true,
+            })
+        .toList(growable: false);
     return FxRefresh(
       onRefresh: _controller.load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 88),
+        padding: SlowlightPageInsets.scroll(context, bottom: 88),
         children: [
           Center(
             child: ConstrainedBox(
@@ -449,8 +433,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _header(),
-                  const SizedBox(height: SlowlightSpacing.page),
+                  if (!widget.titleProvidedByShell) ...[
+                    _header(),
+                    const SizedBox(height: SlowlightSpacing.xxxl),
+                  ],
                   if (_controller.error != null) ...[
                     FxCard(
                       padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
@@ -473,6 +459,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     const SizedBox(height: SlowlightSpacing.page),
                   ],
                   _summaryBar(),
+                  if (all.isNotEmpty) ...[
+                    const SizedBox(height: SlowlightSpacing.xl),
+                    _filters(),
+                  ],
                   const SizedBox(height: SlowlightSpacing.xxxl),
                   if (all.isEmpty && _controller.error == null)
                     FxEmptyState(
@@ -526,12 +516,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         ],
       ),
       actions: [
-        FxButton(
-          label: '添加习惯',
-          icon: LucideIcons.plus,
-          size: FxButtonSize.sm,
-          onPressed: _createHabit,
-        ),
+        _addButton(),
       ],
     );
   }
@@ -564,18 +549,34 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         ],
       ),
       actions: [
-        if (total > 0)
-          FxSegmented(
-            labels: const ['全部', '待记录', '已记录'],
-            selectedIndex: _filter,
-            onChanged: (index) => setState(() => _filter = index),
-            itemKeys: const [
-              ValueKey('habits.filter_all'),
-              ValueKey('habits.filter_pending'),
-              ValueKey('habits.filter_done'),
-            ],
-          ),
+        if (widget.titleProvidedByShell) _addButton(),
       ],
+    );
+  }
+
+  Widget _addButton() => FxButton(
+        label: '添加习惯',
+        icon: LucideIcons.plus,
+        size: FxButtonSize.sm,
+        onPressed: _createHabit,
+      );
+
+  Widget _filters() {
+    final total = _controller.habits.length;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: total == 0
+          ? const SizedBox.shrink()
+          : FxSegmented(
+              labels: const ['全部', '待记录', '已记录'],
+              selectedIndex: _filter,
+              onChanged: (index) => setState(() => _filter = index),
+              itemKeys: const [
+                ValueKey('habits.filter_all'),
+                ValueKey('habits.filter_pending'),
+                ValueKey('habits.filter_done'),
+              ],
+            ),
     );
   }
 
@@ -591,8 +592,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         color: fxSurface(context),
         borderRadius: SlowlightRadius.lg,
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        boxShadow:
-            theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
         expanded: true,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -624,48 +623,67 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 );
               },
             ),
-            const SizedBox(height: SlowlightSpacing.xl),
-            FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
             const SizedBox(height: SlowlightSpacing.md),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '最近 7 天',
+            LayoutBuilder(builder: (context, constraints) {
+              final details = FxButton(
+                key: ValueKey('habits.details.${habit.id}'),
+                label: expanded ? '收起详情' : '查看详情',
+                icon:
+                    expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                size: FxButtonSize.sm,
+                variant: FxButtonVariant.link,
+                onPressed: () => _toggleExpanded(habit),
+              );
+              final label = Text('最近 7 天',
                   style: SlowlightTypography.caption(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                FxButton(
-                  key: ValueKey('habits.details.${habit.id}'),
-                  label: expanded ? '收起详情' : '查看详情',
-                  icon: expanded
-                      ? LucideIcons.chevronUp
-                      : LucideIcons.chevronDown,
-                  size: FxButtonSize.sm,
-                  variant: FxButtonVariant.link,
-                  onPressed: () => _toggleExpanded(habit),
-                ),
-              ],
-            ),
-            const SizedBox(height: SlowlightSpacing.xs),
-            _weekDots(habit, color),
+                  ));
+              final scale = MediaQuery.textScalerOf(context).scale(1);
+              if (constraints.maxWidth >= 460 * scale) {
+                return Row(children: [
+                  label,
+                  const SizedBox(width: SlowlightSpacing.md),
+                  Expanded(child: _weekDots(habit, color)),
+                  details,
+                ]);
+              }
+              return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FxActionBar(
+                        leading: label, actions: [details], stackBelow: 0),
+                    _weekDots(habit, color),
+                  ]);
+            }),
             if (expanded) ...[
               const SizedBox(height: SlowlightSpacing.xxxl),
-              FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
+              FxSeparator.horizontal(
+                  margin: EdgeInsets.zero,
+                  color: theme.colorScheme.outlineVariant),
               const SizedBox(height: SlowlightSpacing.xxxl),
               _stats(habit),
               const SizedBox(height: SlowlightSpacing.xxxl),
-              _heatmap(habit, color),
-              const SizedBox(height: SlowlightSpacing.xxxl),
-              Text(
-                '最近记录',
-                style: SlowlightTypography.fieldLabel(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              FxResponsiveFormGrid(
+                minColumnWidth: 240,
+                children: [
+                  Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('本月记录',
+                            style: SlowlightTypography.fieldLabel(context)),
+                        const SizedBox(height: SlowlightSpacing.md),
+                        _heatmap(habit, color),
+                      ]),
+                  Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('最近记录',
+                            style: SlowlightTypography.fieldLabel(context)),
+                        const SizedBox(height: SlowlightSpacing.md),
+                        _logs(habit, color),
+                      ]),
+                ],
               ),
-              const SizedBox(height: SlowlightSpacing.md),
-              _logs(habit, color),
               const SizedBox(height: SlowlightSpacing.xxxl),
               FxActionBar(
                 stackBelow: 280,
@@ -776,47 +794,41 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _todayButton(Habit habit) {
-    final can = habit.canCheckIn ?? !habit.checkedToday;
-    final goal = habit.periodTarget > 0;
-    final label = can ? (goal ? '记一次' : '记录现在') :
-        (goal && habit.periodCount >= habit.periodTarget ? '本期达标' :
-         habit.checkedToday ? '已记录' : '未到计划时点');
-    return FxButton(
-      key: ValueKey('habits.today.'+habit.id.toString()),
-      label: label,
-      icon: can ? LucideIcons.check : LucideIcons.circleCheck,
-      size: FxButtonSize.sm,
-      variant: can ? FxButtonVariant.primary : FxButtonVariant.outline,
-      onPressed: _pendingHabitActions.contains(habit.id) ||
-          (!can && !habit.checkedToday) ? null : () => _toggleToday(habit),
-    );
-  }
-
+  Widget _todayButton(Habit habit) => FxButton(
+        key: ValueKey('habits.today.${habit.id}'),
+        label: habit.allowMultiplePerDay
+            ? '新增记录'
+            : habit.checkedToday
+                ? '已记录'
+                : '记录今天',
+        icon: habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true
+            ? LucideIcons.circleCheck
+            : LucideIcons.check,
+        size: FxButtonSize.sm,
+        variant: habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true
+            ? FxButtonVariant.outline
+            : FxButtonVariant.primary,
+        onPressed: _pendingHabitActions.contains(habit.id)
+            ? null
+            : () => _toggleToday(habit),
+      );
 
   Widget _stats(Habit habit) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final lastSeven = List.generate(7,
-        (index) => today.subtract(Duration(days: index)));
+    final lastSeven =
+        List.generate(7, (index) => today.subtract(Duration(days: index)));
     final checked = habit.checkedDays.toSet();
-    final recentCount = lastSeven.where((day) =>
-        checked.contains('${day.year}-${_two(day.month)}-${_two(day.day)}'))
+    final recentCount = lastSeven
+        .where((day) =>
+            checked.contains('${day.year}-${_two(day.month)}-${_two(day.day)}'))
         .length;
     // 记录事实，不把不同频率的习惯统一当作“完成率”评判。
-    final values = habit.scheduleRule.isNotEmpty
-        ? [
-            (habit.periodTarget > 0
-                ? habit.periodCount.toString()+' / '+habit.periodTarget.toString()
-                : '按计划', habit.periodTarget > 0 ? '本周期记录' : '记录周期'),
-            (habit.checkedDays.toSet().length.toString(), '已记录日期'),
-            (recentCount.toString()+' / 7', '最近七日'),
-          ]
-        : [
-            (habit.streakCount.toString(), '当前连续'),
-            (habit.checkedDays.toSet().length.toString(), '已记录天数'),
-            (recentCount.toString()+' / 7', '最近七天'),
-          ];
+    final values = [
+      ('${habit.streakCount}', '当前连续'),
+      ('${habit.checkedDays.length}', '已记录天数'),
+      ('$recentCount / 7', '最近七天'),
+    ];
     return FxResponsiveFormGrid(
       minColumnWidth: 140,
       maxColumns: 3,
@@ -866,8 +878,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final first = DateTime(now.year, now.month, 1);
     final start = first.subtract(Duration(days: first.weekday - 1));
     final days = List.generate(35, (i) => start.add(Duration(days: i)));
-    final largeText =
-        MediaQuery.textScalerOf(
+    final largeText = MediaQuery.textScalerOf(
           context,
         ).scale(SlowlightTypography.captionSize) >=
         SlowlightTypography.captionSize * 1.3;
@@ -899,30 +910,27 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
             Wrap(
               spacing: cell - dot,
               runSpacing: 3,
-              children: days
-                  .map((day) {
-                    final inMonth = day.month == now.month;
-                    final key =
-                        '${day.year}-${_two(day.month)}-${_two(day.day)}';
-                    final active = checked.contains(key);
-                    return Container(
-                      width: dot,
-                      height: dot,
-                      decoration: BoxDecoration(
-                        color:
-                            active
-                                ? color.withValues(alpha: .85)
-                                : Theme.of(context).colorScheme.surfaceContainer
-                                    .withValues(alpha: inMonth ? 1 : .35),
-                        borderRadius: BorderRadius.circular(SlowlightRadius.sm),
-                        border:
-                            _sameDay(day, today)
-                                ? Border.all(color: color, width: 2)
-                                : null,
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
+              children: days.map((day) {
+                final inMonth = day.month == now.month;
+                final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
+                final active = checked.contains(key);
+                return Container(
+                  width: dot,
+                  height: dot,
+                  decoration: BoxDecoration(
+                    color: active
+                        ? color.withValues(alpha: .85)
+                        : Theme.of(context)
+                            .colorScheme
+                            .surfaceContainer
+                            .withValues(alpha: inMonth ? 1 : .35),
+                    borderRadius: BorderRadius.circular(SlowlightRadius.sm),
+                    border: _sameDay(day, today)
+                        ? Border.all(color: color, width: 2)
+                        : null,
+                  ),
+                );
+              }).toList(growable: false),
             ),
           ],
         ),
@@ -953,10 +961,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
               key: ValueKey('habits.week.${habit.id}.$index'),
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
               onTap: () => _tapWeekDay(habit, day),
-              child: SizedBox(
+              child: Container(
                 width: target,
-                height: touch ? 54 : 46,
+                constraints: BoxConstraints(minHeight: touch ? 54 : 46),
+                padding:
+                    const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
@@ -990,6 +1001,24 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     );
   }
 
+  Future<void> _removeLog(Habit habit, HabitLog log) =>
+      _runHabitAction(habit, () async {
+        final confirmed = await FxDialog.confirm(
+          context: context,
+          title: '撤销这条记录',
+          content: '只撤销所选记录，保留当天其他记录。确定吗？',
+          confirmText: '撤销记录',
+          destructive: true,
+        );
+        if (confirmed != true) return;
+        try {
+          await _controller.deleteLog(habit, log.id);
+          _message('记录已撤销');
+        } catch (error) {
+          _message('撤销结果未确认，请重新加载核对：$error');
+        }
+      });
+
   Widget _logs(Habit habit, Color color) {
     if (_controller.isLoadingLogs(habit.id)) {
       return const SizedBox(
@@ -998,31 +1027,60 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       );
     }
     final logs = _controller.logsFor(habit.id);
-    if (logs.isEmpty) {
+    final error = _controller.logErrorFor(habit.id);
+    if (logs.isEmpty && error == null) {
       return Text(
-        '本月还没有记录。',
+        '还没有记录。',
         style: SlowlightTypography.caption(
           context,
         ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       );
     }
-    final visible = logs.take(3).toList(growable: false);
+    final showAll = _allLogsVisible.contains(habit.id);
+    final visible = (showAll ? logs : logs.take(3)).toList(growable: false);
     return Column(
-      children: List.generate(
-        visible.length,
-        (index) =>
-            _logRow(habit, visible[index], color, index == visible.length - 1),
-      ),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (error != null) ...[
+          Text(logs.isEmpty ? '记录暂时无法加载，当前数量未知。' : '记录刷新失败，以下为上次加载的数据。'),
+          FxButton(
+              label: '重试加载记录',
+              variant: FxButtonVariant.outline,
+              onPressed: () => _controller.loadLogs(habit.id)),
+          const SizedBox(height: SlowlightSpacing.md),
+        ],
+        ...List.generate(
+          visible.length,
+          (index) => _logRow(
+              habit, visible[index], color, index == visible.length - 1),
+        ),
+        if (logs.length > 3)
+          FxButton(
+            key: ValueKey('habits.logs.all.${habit.id}'),
+            label: showAll ? '收起记录' : '查看全部 ${logs.length} 条记录',
+            variant: FxButtonVariant.link,
+            onPressed: () => setState(() {
+              if (showAll) {
+                _allLogsVisible.remove(habit.id);
+              } else {
+                _allLogsVisible.add(habit.id);
+              }
+            }),
+          ),
+      ],
     );
   }
 
   Widget _logRow(Habit habit, HabitLog log, Color color, bool last) {
     final theme = Theme.of(context);
-    final recordedAt = log.occurredAt ?? log.createdAt;
-    final time = '${_two(recordedAt.hour)}:${_two(recordedAt.minute)}';
+    final occurred = log.occurredAt;
+    final time = occurred == null
+        ? '时间未记录'
+        : '${_two(occurred.hour)}:${_two(occurred.minute)}';
     final parts = <String>[
       '${log.date.substring(5)} $time',
       if (log.durationMin > 0) '${log.durationMin} 分钟',
+      if (log.countValue != null) '${log.countValue} ${habit.recordUnit}',
       if (log.period.isNotEmpty) _periodText(log.period),
     ];
     final today = DateTime.now();
@@ -1066,11 +1124,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                         context,
                       ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
-                    if (canCancel)
+                    if (canCancel || habit.allowMultiplePerDay)
                       FxInkWell(
-                        onTap: () => _runHabitAction(habit, () => _undoLatestToday(habit)),
+                        onTap: () => habit.allowMultiplePerDay
+                            ? _removeLog(habit, log)
+                            : _toggleToday(habit),
                         child: Text(
-                          '撤销最近一次',
+                          '取消',
                           style: SlowlightTypography.caption(
                             context,
                           ).copyWith(color: theme.colorScheme.error),
@@ -1092,6 +1152,20 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   String _habitMeta(Habit habit) {
     final parts = <String>[habit.frequencyText];
+    if (habit.goalValue > 0) {
+      final unit = habit.goalMetric == 'duration'
+          ? '分钟'
+          : habit.goalMetric == 'count'
+              ? habit.recordUnit
+              : '次';
+      final period = habit.goalPeriod == 'day'
+          ? '今日'
+          : habit.goalPeriod == 'week'
+              ? '本周'
+              : '本月';
+      parts.add(
+          '$period ${habit.goalProgress} / ${habit.goalValue} $unit${habit.goalMet ? ' · 已达标' : ''}');
+    }
     if (habit.preferredPeriod.isNotEmpty) {
       parts.add(_periodText(habit.preferredPeriod));
     }
@@ -1105,12 +1179,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   }
 
   String _periodText(String value) => switch (value) {
-    'morning' => '☀️ 早晨',
-    'afternoon' => '下午',
-    'evening' => '傍晚',
-    'night' => '🌙 晚间',
-    _ => value,
-  };
+        'morning' => '☀️ 早晨',
+        'afternoon' => '下午',
+        'evening' => '傍晚',
+        'night' => '🌙 晚间',
+        _ => value,
+      };
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;

@@ -290,7 +290,10 @@ class SyncService extends ChangeNotifier {
     try {
       await _syncItem(db, Map<String, dynamic>.from(item));
       await db.delete('sync_queue', where: 'id = ?', whereArgs: [item['id']]);
-      if (await _hasColumn(db, table, 'sync_status')) {
+      if (table == 'habit_logs' && item['operation'] == 'delete') {
+        await db.delete('habit_logs',
+            where: 'id = ?', whereArgs: [localId]);
+      } else if (await _hasColumn(db, table, 'sync_status')) {
         await db.update(
           table,
           {'sync_status': 'synced'},
@@ -320,6 +323,7 @@ class SyncService extends ChangeNotifier {
           text.toLowerCase().contains('connection closed') ||
           text.toLowerCase().contains('connection terminated');
       if (item['operation'] == 'create' && ambiguous &&
+          table != 'habit_logs' &&
           await _hasColumn(db, table, 'sync_status')) {
         await db.update(table, {'sync_status': 'conflict'},
             where: 'id = ?', whereArgs: [localId]);
@@ -576,6 +580,10 @@ class SyncService extends ChangeNotifier {
         recordType: row['record_type'] as String? ?? 'legacy',
         recordUnit: row['record_unit'] as String? ?? '次',
         recordTimeLabel: row['record_time_label'] as String? ?? '',
+        allowMultiplePerDay: (row['allow_multiple_per_day'] as int? ?? 0) == 1,
+        goalPeriod: row['goal_period'] as String? ?? 'none',
+        goalMetric: row['goal_metric'] as String? ?? 'events',
+        goalValue: row['goal_value'] as int? ?? 0,
         targetDays: row['target_days'] as int? ?? 0,
         systemTagId: systemTagId,
         preferredPeriod: row['preferred_period'] as String? ?? '',
@@ -600,6 +608,10 @@ class SyncService extends ChangeNotifier {
       'record_type': row['record_type'],
       'record_unit': row['record_unit'],
       'record_time_label': row['record_time_label'],
+      'allow_multiple_per_day': (row['allow_multiple_per_day'] as int? ?? 0) == 1,
+      'goal_period': row['goal_period'],
+      'goal_metric': row['goal_metric'],
+      'goal_value': row['goal_value'],
       'target_days': row['target_days'],
       'system_tag_id': systemTagId,
       'preferred_period': row['preferred_period'],
@@ -617,11 +629,17 @@ class SyncService extends ChangeNotifier {
     int localId,
     int? queuedServerId,
   ) async {
-    if (op == 'delete') {
-      throw StateError('Remote arbitrary HabitLog delete is not supported');
-    }
-    if (op != 'create') return;
+    if (op != 'create' && op != 'delete') return;
     final row = await _row(db, 'habit_logs', localId);
+    if (op == 'delete') {
+      final serverLogId = queuedServerId ?? row['server_id'] as int?;
+      final habitServerId = await _serverId(db, 'habits', row['habit_id'] as int? ?? 0);
+      if (serverLogId != null && serverLogId > 0 && habitServerId > 0) {
+        await ApiService.deleteHabitLog(habitServerId, serverLogId)
+            .timeout(const Duration(seconds: 10));
+      }
+      return;
+    }
     final habitServerId =
         await _serverId(db, 'habits', row['habit_id'] as int? ?? 0);
     if (habitServerId <= 0) throw StateError('Habit has not been synced');
@@ -630,10 +648,11 @@ class SyncService extends ChangeNotifier {
       note: row['note'] as String? ?? '',
       date: row['date'] as String?,
       durationMin: row['duration_min'] as int?,
-      period: row['period'] as String?,
-      occurrenceKey: row['occurrence_key'] as String?,
       countValue: row['count_value'] as int?,
       occurredAt: row['occurred_at'] as String?,
+      period: row['period'] as String?,
+      clientKey: row['client_key'] as String?,
+      occurrenceKey: row['occurrence_key'] as String?,
     ).timeout(const Duration(seconds: 10));
     final log = result['log'];
     final remoteId = log is Map ? log['id'] as int? : result['id'] as int?;
@@ -986,6 +1005,13 @@ class SyncService extends ChangeNotifier {
         'icon': item['icon'] ?? '✅',
         'color': item['color'] ?? '#52c41a',
         'frequency': item['frequency'] ?? 'daily',
+        'record_type': item['record_type'] ?? 'legacy',
+        'record_unit': item['record_unit'] ?? '次',
+        'record_time_label': item['record_time_label'] ?? '',
+        'allow_multiple_per_day': _boolInt(item['allow_multiple_per_day']),
+        'goal_period': item['goal_period'] ?? 'none',
+        'goal_metric': item['goal_metric'] ?? 'events',
+        'goal_value': item['goal_value'] ?? 0,
         'target_days': item['target_days'] ?? 0,
         'streak_count': item['streak_count'] ?? 0,
         'preferred_period': item['preferred_period'] ?? '',
@@ -1105,6 +1131,9 @@ class SyncService extends ChangeNotifier {
           'count_value': item['count_value'],
           'period': item['period'] ?? '',
           'duration_min': item['duration_min'] ?? 0,
+          'count_value': item['count_value'],
+          'occurred_at': item['occurred_at'],
+          'client_key': item['client_key'],
           'note': item['note'] ?? '',
           'task_id': await _localId(db, 'tasks', item['task_id']),
           'created_at': _dateString(item['created_at']),
@@ -1242,6 +1271,7 @@ class SyncService extends ChangeNotifier {
           await _localId(db, 'system_tags', remote['system_tag_id']);
       result['generate_task'] = _boolInt(remote['generate_task']);
       result['show_checkin_dialog'] = _boolInt(remote['show_checkin_dialog']);
+      result['allow_multiple_per_day'] = _boolInt(remote['allow_multiple_per_day']);
       result['reminder_at'] = jsonEncode(remote['reminder_at'] ?? {});
       result['schedule_rule'] = jsonEncode(_jsonMap(remote['schedule_rule']));
     } else if (table == 'lists') {
@@ -1293,6 +1323,10 @@ class SyncService extends ChangeNotifier {
       'icon',
       'color',
       'frequency',
+      'record_type',
+      'record_unit',
+      'record_time_label',
+      'allow_multiple_per_day', 'goal_period', 'goal_metric', 'goal_value',
       'target_days',
       'streak_count',
       'preferred_period',
@@ -1335,6 +1369,8 @@ class SyncService extends ChangeNotifier {
       'date',
       'period',
       'duration_min',
+      'count_value',
+      'occurred_at', 'client_key',
       'note',
       'task_id',
       'occurrence_key',
