@@ -283,7 +283,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                   Text(dateLabel,
                       style: SlowlightTypography.sectionTitle(context)),
                   const SizedBox(height: SlowlightSpacing.xs),
-                  Text('\${remaining} 项待完成',
+                  Text('${remaining} 项待完成',
                       style: SlowlightTypography.caption(context).copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
@@ -304,7 +304,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         const SizedBox(height: SlowlightSpacing.xl),
         FxSectionHeader(
           title: title,
-          trailing: '\${_visible.length} 项',
+          trailing: '${_visible.length} 项',
         ),
         const SizedBox(height: SlowlightSpacing.md),
         _card(
@@ -345,7 +345,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         for (var i = 0; i < items.length; i++) ...[
           if (i > 0) const SizedBox(width: SlowlightSpacing.page),
           FxInkWell(
-            key: ValueKey('tasks.mobile.filter.\${i}'),
+            key: ValueKey('tasks.mobile.filter.${i}'),
             onTap: () => setState(() {
               _segment = i;
               _revealedTaskId = null;
@@ -371,7 +371,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(items[i].\$1',
+                  Text(items[i].$1,
                       style: SlowlightTypography.componentControl(context)
                           .copyWith(
                         color: _segment == i
@@ -381,7 +381,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             _segment == i ? FontWeight.w700 : FontWeight.w500,
                       )),
                   const SizedBox(width: SlowlightSpacing.xs),
-                  Text(items[i].\$2.toString(),
+                  Text(items[i].$2.toString(),
                       style: SlowlightTypography.caption(context).copyWith(
                         color: _segment == i
                             ? AppTheme.success
