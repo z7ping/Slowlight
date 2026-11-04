@@ -1055,18 +1055,24 @@ class _DashboardBodyState extends State<DashboardBody> {
               ),
             ],
             const SizedBox(width: SlowlightSpacing.md),
-            FxButton(
+            // Compact status-only action: the 44dp FxIconButton remains
+            // accessible without repeating the habit's text in every row.
+            FxIconButton(
               key: ValueKey('today.habit.record.${habit.id}'),
-              label: habit.allowMultiplePerDay
-                  ? '新增'
+              icon: habit.allowMultiplePerDay
+                  ? LucideIcons.circlePlus
                   : habit.checkedToday
-                      ? '已记录'
-                      : '记录',
-              icon: habit.checkedToday
-                  ? LucideIcons.circleCheck
-                  : LucideIcons.check,
-              size: FxButtonSize.sm,
-              variant: FxButtonVariant.secondary,
+                      ? LucideIcons.circleCheck
+                      : LucideIcons.circle,
+              iconSize: SlowlightIconSize.xl,
+              foregroundColor: habit.checkedToday && !habit.allowMultiplePerDay
+                  ? AppTheme.success
+                  : theme.colorScheme.onSurfaceVariant,
+              tooltip: habit.allowMultiplePerDay
+                  ? '为「${habit.name}」新增一次记录'
+                  : habit.checkedToday
+                      ? '查看或取消「${habit.name}」今天的打卡'
+                      : '记录「${habit.name}」今天的打卡',
               onPressed: widget.onHabitToggle == null
                   ? null
                   : () {
