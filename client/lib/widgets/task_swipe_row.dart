@@ -202,18 +202,24 @@ class _TaskSwipeRowState extends State<TaskSwipeRow> {
                 : const Duration(milliseconds: 190),
             curve: Curves.easeOutCubic,
             transform: Matrix4.translationValues(_offset, 0, 0),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragStart: _start,
-              onHorizontalDragUpdate: _drag,
-              onHorizontalDragEnd: _end,
-              onHorizontalDragCancel: () {
-                setState(() {
-                  _dragging = false;
-                  _offset = widget.open ? -_revealWidth : 0;
-                });
-              },
-              child: widget.child,
+            // The foreground must fully cover the action colors at rest.
+            // Use the same semantic surface as the host FxCard, in both themes.
+            child: ColoredBox(
+              key: const ValueKey('taskSwipe.foreground'),
+              color: fxSurface(context),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: _start,
+                onHorizontalDragUpdate: _drag,
+                onHorizontalDragEnd: _end,
+                onHorizontalDragCancel: () {
+                  setState(() {
+                    _dragging = false;
+                    _offset = widget.open ? -_revealWidth : 0;
+                  });
+                },
+                child: widget.child,
+              ),
             ),
           ),
           if (_running)

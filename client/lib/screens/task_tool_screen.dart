@@ -419,23 +419,27 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Widget _swipeTaskRow(Task task) {
-    if (task.isCompleted) return _taskRow(task);
+    // Keep completed and pending items on the same 48dp row rhythm.
+    // Completed tasks retain the click target but have no swipe actions.
+    final row = _taskRow(task, verticalPadding: 0);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs / 2),
-      child: TaskSwipeRow(
-        key: ValueKey('tasks.swipe.${task.id}'),
-        open: _revealedTaskId == task.id,
-        onOpenChanged: (open) {
-          final next = open ? task.id : null;
-          if (_revealedTaskId != next) {
-            setState(() => _revealedTaskId = next);
-          }
-        },
-        onComplete: () => _toggle(task),
-        onPostpone: () => _postpone(task),
-        onMore: () => _open(task),
-        child: _taskRow(task, verticalPadding: 0),
-      ),
+      child: task.isCompleted
+          ? row
+          : TaskSwipeRow(
+              key: ValueKey('tasks.swipe.${task.id}'),
+              open: _revealedTaskId == task.id,
+              onOpenChanged: (open) {
+                final next = open ? task.id : null;
+                if (_revealedTaskId != next) {
+                  setState(() => _revealedTaskId = next);
+                }
+              },
+              onComplete: () => _toggle(task),
+              onPostpone: () => _postpone(task),
+              onMore: () => _open(task),
+              child: row,
+            ),
     );
   }
 
@@ -466,6 +470,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         SlowlightTypography.secondarySize * 1.3;
 
     return FxInkWell(
+      key: ValueKey('tasks.row.${task.id}'),
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => _open(task),
       child: Container(
