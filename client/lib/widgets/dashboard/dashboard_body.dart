@@ -776,6 +776,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       },
       onPostpone: () => _postponeTask(task),
       onComplete: () async {
+        HapticFeedback.lightImpact();
         if (widget.onTaskSwipeComplete != null) {
           await widget.onTaskSwipeComplete!(task);
         } else {
