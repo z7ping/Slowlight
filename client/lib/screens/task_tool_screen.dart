@@ -8,6 +8,7 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
+import '../widgets/task_swipe_row.dart';
 import 'task_create_sheet.dart';
 
 class TaskToolScreen extends StatefulWidget {
@@ -30,7 +31,8 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   bool _loadFailed = false;
   int _loadVersion = 0;
   Task? _selectedTask;
-  final Map<int, double> _swipeOffsets = {};
+  int? _revealedTaskId;
+  final Set<int> _pendingTaskIds = <int>{};
 
   @override
   void initState() {
@@ -66,7 +68,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
             orElse: () => null,
           );
         }
-        _swipeOffsets.clear();
+        _revealedTaskId = null;
         _hasLoaded = true;
         _loadFailed = false;
         _loading = false;
@@ -120,27 +122,60 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   );
 
   Future<void> _toggle(Task task) async {
+    if (!_pendingTaskIds.add(task.id)) return;
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
+    final wasCompleted = task.isCompleted;
     try {
-      if (task.isCompleted) {
+      if (wasCompleted) {
         await DataService().uncompleteTask(task.id, null);
       } else {
         await DataService().completeTask(task.id, null);
       }
       await _load();
+      if (!mounted) return;
+      FxNotice.showContent(
+        context,
+        Text(wasCompleted ? '已恢复待办' : '任务已完成'),
+        variant: FxNoticeVariant.success,
+        duration: const Duration(seconds: 4),
+        action: wasCompleted
+            ? null
+            : FxNoticeAction(
+                label: '撤销',
+                onPressed: () => _undoCompletion(task.id),
+              ),
+      );
     } catch (_) {
-      _message('任务状态更新失败');
+      _message('任务状态更新失败，请核对任务状态');
+    } finally {
+      _pendingTaskIds.remove(task.id);
+    }
+  }
+
+  Future<void> _undoCompletion(int taskId) async {
+    if (!_pendingTaskIds.add(taskId)) return;
+    try {
+      await DataService().uncompleteTask(taskId, null);
+      await _load();
+      _message('已恢复待办');
+    } catch (_) {
+      _message('撤销结果未确认，请查看任务状态');
+    } finally {
+      _pendingTaskIds.remove(taskId);
     }
   }
 
   Future<void> _postpone(Task task) async {
+    if (!_pendingTaskIds.add(task.id)) return;
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     try {
       await DataService().postponeTask(task.id, null);
-      _message('已顺延到明天');
       await _load();
+      _message('已顺延到明天');
     } catch (_) {
-      _message('顺延任务失败');
+      _message('顺延结果未确认，请查看任务日期');
+    } finally {
+      _pendingTaskIds.remove(task.id);
     }
   }
 
@@ -381,103 +416,21 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
 
   Widget _swipeTaskRow(Task task) {
     if (task.isCompleted) return _taskRow(task);
-    final offset = _swipeOffsets[task.id] ?? 0;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(SlowlightRadius.md),
-        child: SizedBox(
-          height: 62,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: SizedBox(
-                    width: 140,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: FxInkWell(
-                            onTap: () => _postpone(task),
-                            child: Container(
-                              color: AppTheme.warning,
-                              alignment: Alignment.center,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(LucideIcons.clock3, size: 14, color: Colors.white),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    '顺延',
-                                    style: SlowlightTypography.caption(context).copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: FxInkWell(
-                            onTap: () => _toggle(task),
-                            child: Container(
-                              color: AppTheme.success,
-                              alignment: Alignment.center,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(LucideIcons.check, size: 14, color: Colors.white),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    '完成',
-                                    style: SlowlightTypography.caption(context).copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 140),
-                curve: Curves.easeOut,
-                left: offset,
-                right: -offset,
-                top: 0,
-                bottom: 0,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragUpdate: (details) {
-                    setState(() {
-                      final next = offset + details.delta.dx;
-                      _swipeOffsets[task.id] = next.clamp(-140.0, 0.0);
-                    });
-                  },
-                  onHorizontalDragEnd: (_) {
-                    final current = _swipeOffsets[task.id] ?? 0;
-                    setState(() {
-                      _swipeOffsets[task.id] = current < -48 ? -140 : 0;
-                    });
-                  },
-                  child: Container(
-                    color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                    child: _taskRow(task, verticalPadding: 0),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs / 2),
+      child: TaskSwipeRow(
+        key: ValueKey('tasks.swipe.${task.id}'),
+        open: _revealedTaskId == task.id,
+        onOpenChanged: (open) {
+          final next = open ? task.id : null;
+          if (_revealedTaskId != next) {
+            setState(() => _revealedTaskId = next);
+          }
+        },
+        onComplete: () => _toggle(task),
+        onPostpone: () => _postpone(task),
+        onMore: () => _open(task),
+        child: _taskRow(task, verticalPadding: 0),
       ),
     );
   }
