@@ -41,6 +41,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   Timer? _nextSlotRefresh;
   int? _expandedHabitId;
   int _filter = 0; // 全部 / 待记录 / 已记录
+  // Keep same-width action slots across recorded and pending habits.
+  static const double _todayActionWidth = 104;
+  static const double _mobileTodayActionWidth = 120;
   final Set<int> _pendingHabitActions = <int>{};
   final Set<int> _allLogsVisible = <int>{};
   HabitEditorValue? _creationDraft;
@@ -601,11 +604,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 final largeText =
                     MediaQuery.textScalerOf(context).scale(1) >= 1.3;
                 final narrow = constraints.maxWidth < 270 || largeText;
+                final actionWidth = (SlowlightPlatformDensity.usesMobileTouchTargets
+                        ? _mobileTodayActionWidth
+                        : _todayActionWidth) *
+                    MediaQuery.textScalerOf(context).scale(1);
                 if (narrow) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _habitHeading(habit, expanded, color),
+                      _habitHeading(habit, color),
                       const SizedBox(height: SlowlightSpacing.md),
                       Align(
                         alignment: Alignment.centerRight,
@@ -616,9 +623,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 }
                 return Row(
                   children: [
-                    Expanded(child: _habitHeading(habit, expanded, color)),
+                    Expanded(child: _habitHeading(habit, color)),
                     const SizedBox(width: SlowlightSpacing.md),
-                    _todayButton(habit),
+                    SizedBox(
+                      width: actionWidth,
+                      child: _todayButton(habit, expanded: true),
+                    ),
                   ],
                 );
               },
@@ -629,7 +639,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 key: ValueKey('habits.details.${habit.id}'),
                 label: expanded ? '收起详情' : '查看详情',
                 icon:
-                    expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                    expanded ? LucideIcons.chevronUp : LucideIcons.chevronRight,
                 size: FxButtonSize.sm,
                 variant: FxButtonVariant.link,
                 onPressed: () => _toggleExpanded(habit),
@@ -738,7 +748,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _habitHeading(Habit habit, bool expanded, Color color) {
+  Widget _habitHeading(Habit habit, Color color) {
     final theme = Theme.of(context);
     return FxInkWell(
       key: ValueKey('habits.expand.${habit.id}'),
@@ -783,35 +793,43 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 ],
               ),
             ),
-            Icon(
-              expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-              size: SlowlightIconSize.sm,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _todayButton(Habit habit) => FxButton(
-        key: ValueKey('habits.today.${habit.id}'),
-        label: habit.allowMultiplePerDay
-            ? '新增记录'
-            : habit.checkedToday
-                ? '已记录'
-                : '记录今天',
-        icon: habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true
-            ? LucideIcons.circleCheck
-            : LucideIcons.check,
-        size: FxButtonSize.sm,
-        variant: habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true
-            ? FxButtonVariant.outline
-            : FxButtonVariant.primary,
-        onPressed: _pendingHabitActions.contains(habit.id)
-            ? null
-            : () => _toggleToday(habit),
-      );
+  Widget _todayButton(Habit habit, {bool expanded = false}) {
+    final completed = habit.checkedToday &&
+        !habit.allowMultiplePerDay &&
+        habit.canCheckIn != true;
+    final theme = Theme.of(context);
+    // Keep the action subtle in both themes while using the existing
+    // success semantic color instead of a page-specific color constant.
+    final actionColor = Color.lerp(
+      AppTheme.success,
+      theme.colorScheme.onSurface,
+      theme.brightness == Brightness.dark ? .08 : .38,
+    )!;
+    return FxButton(
+      key: ValueKey('habits.today.${habit.id}'),
+      label: habit.allowMultiplePerDay
+          ? '新增记录'
+          : habit.checkedToday
+              ? '已记录'
+              : '记录今天',
+      icon: completed ? LucideIcons.circleCheck : LucideIcons.check,
+      size: FxButtonSize.sm,
+      expanded: expanded,
+      variant: FxButtonVariant.secondary,
+      foregroundColor: completed
+          ? theme.colorScheme.onSurfaceVariant
+          : actionColor,
+      onPressed: _pendingHabitActions.contains(habit.id)
+          ? null
+          : () => _toggleToday(habit),
+    );
+  }
 
   Widget _stats(Habit habit) {
     final now = DateTime.now();

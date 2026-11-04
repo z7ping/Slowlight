@@ -130,6 +130,40 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('习惯打卡操作轻量且右边缘对齐，七日概览无需展开', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: _SampleHabitRepo())),
+    ));
+    await tester.pumpAndSettle();
+
+    const pendingKey = ValueKey('habits.today.1');
+    const recordedKey = ValueKey('habits.today.2');
+    final pending = find.byKey(pendingKey);
+    final recorded = find.byKey(recordedKey);
+    expect(tester.widget<FxButton>(pending).variant, FxButtonVariant.secondary);
+    expect(tester.widget<FxButton>(recorded).variant, FxButtonVariant.secondary);
+    expect(tester.getTopRight(pending).dx,
+        closeTo(tester.getTopRight(recorded).dx, 1));
+    expect(find.descendant(
+      of: find.byKey(const ValueKey('habits.expand.1')),
+      matching: find.byType(Icon),
+    ), findsNothing);
+
+    // Week status and explicit details link are visible before expanding.
+    expect(find.byKey(const ValueKey('habits.week.1.0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('habits.week.1.6')), findsOneWidget);
+    expect(find.byKey(const ValueKey('habits.details.1')), findsOneWidget);
+    expect(find.text('当前连续'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('筛选全部、待记录、已记录来自仓库真实状态', (tester) async {
     tester.view.physicalSize = const Size(1080, 800);
     tester.view.devicePixelRatio = 1;
