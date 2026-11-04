@@ -148,9 +148,10 @@ class _TaskSwipeRowState extends State<TaskSwipeRow> {
         children: [
           Positioned.fill(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 125,
+                Expanded(
+                  child: Container(
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.only(left: SlowlightSpacing.xxxl),
                   color: AppTheme.success.withValues(alpha: .10),
@@ -167,8 +168,8 @@ class _TaskSwipeRowState extends State<TaskSwipeRow> {
                           )),
                     ],
                   ),
+                  ),
                 ),
-                const Spacer(),
                 _action(
                   icon: LucideIcons.clock3,
                   label: '顺延',
