@@ -278,7 +278,7 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _desktop() => Column(
         children: [
           _overviewCard(),
-          const SizedBox(height: 16),
+          const SizedBox(height: SlowlightSpacing.xl),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
