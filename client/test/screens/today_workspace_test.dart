@@ -32,6 +32,7 @@ void main() {
     List<Task> tasks = const [],
     List<Habit> habits = const [],
     ValueChanged<Task>? onTaskToggle,
+    ValueChanged<Habit>? onHabitToggle,
     VoidCallback? onStartFocus,
   }) => buildFxTestHost(
     home: Scaffold(body: MediaQuery(
@@ -40,6 +41,7 @@ void main() {
         tasks: tasks,
         habits: habits,
         onTaskToggle: onTaskToggle,
+        onHabitToggle: onHabitToggle,
         onStartFocus: onStartFocus,
         reviewLoader: () async => {
           'questions': [],
@@ -134,6 +136,45 @@ void main() {
     expect(tester.getTopLeft(row).dy - tester.getTopLeft(panel).dy,
         lessThan(18));
     expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 今日习惯按钮显式可见，标题与打卡分离',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var recordCount = 0;
+    await tester.pumpWidget(host(
+      width: 390,
+      habits: [
+        Habit(
+          id: 24,
+          userId: 1,
+          name: '每日阅读',
+          icon: '📚',
+          color: '#1890ff',
+          frequency: 'daily',
+          checkedToday: false,
+          createdAt: now,
+        ),
+      ],
+      onHabitToggle: (_) => recordCount++,
+    ));
+    await tester.pumpAndSettle();
+    final section = find.byKey(const ValueKey('today.section.habits'));
+    final record = find.byKey(const ValueKey('today.habit.record.24'));
+    expect(section, findsOneWidget);
+    expect(record, findsOneWidget);
+    expect(find.text('每天'), findsOneWidget);
+    expect(tester.getSize(record).height, greaterThanOrEqualTo(44));
+    await tester.ensureVisible(record);
+    await tester.tap(record);
+    await tester.pump();
+    expect(recordCount, 1);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
