@@ -762,7 +762,10 @@ class _DashboardBodyState extends State<DashboardBody> {
         ),
       ),
     );
-    if (!mobile || task.isCompleted || widget.onTaskToggle == null) {
+    if (!mobile ||
+        !SlowlightPlatformDensity.usesMobileTouchTargets ||
+        task.isCompleted ||
+        widget.onTaskToggle == null) {
       return row;
     }
     return TaskSwipeRow(
