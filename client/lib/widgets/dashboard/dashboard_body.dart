@@ -1055,9 +1055,23 @@ class _DashboardBodyState extends State<DashboardBody> {
               ),
             ],
             const SizedBox(width: SlowlightSpacing.md),
-            // Compact status-only action: the 44dp FxIconButton remains
-            // accessible without repeating the habit's text in every row.
-            FxIconButton(
+            // The visible mark stays small; the existing FxIconButton
+            // retains the platform 44dp hit area and focus behavior.
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                if (habit.checkedToday && !habit.allowMultiplePerDay)
+                  IgnorePointer(
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.success.withValues(alpha: .10),
+                      ),
+                    ),
+                  ),
+                FxIconButton(
               key: ValueKey('today.habit.record.${habit.id}'),
               icon: habit.allowMultiplePerDay
                   ? LucideIcons.circlePlus
@@ -1079,6 +1093,8 @@ class _DashboardBodyState extends State<DashboardBody> {
                       HapticFeedback.lightImpact();
                       widget.onHabitToggle?.call(habit);
                     },
+                ),
+              ],
             ),
           ],
         ),
