@@ -6,6 +6,7 @@ import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../services/data_service.dart';
+import '../services/api/task_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_picker.dart';
@@ -13,6 +14,7 @@ import 'tag_picker.dart';
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
   final Task task;
+  final bool isCreating;
   final List<TodoList> lists;
   final VoidCallback onChanged;
   final VoidCallback? onClose;
@@ -22,6 +24,7 @@ class TaskDetailSheet extends StatefulWidget {
   const TaskDetailSheet({
     super.key,
     required this.task,
+    this.isCreating = false,
     required this.lists,
     required this.onChanged,
     this.onClose,
@@ -34,6 +37,7 @@ class TaskDetailSheet extends StatefulWidget {
     required Task task,
     required List<TodoList> lists,
     required VoidCallback onChanged,
+    bool isCreating = false,
   }) {
     final desktop = MediaQuery.sizeOf(context).width >= 600;
     if (desktop) {
@@ -60,6 +64,7 @@ class TaskDetailSheet extends StatefulWidget {
                   child: SafeArea(
                     child: TaskDetailSheet(
                       task: task,
+                      isCreating: isCreating,
                       lists: lists,
                       onChanged: onChanged,
                       sidePanel: true,
@@ -100,20 +105,52 @@ class TaskDetailSheet extends StatefulWidget {
       // clipping/decoration layer in the animated route.
       builder: (sheetContext) => Align(
         alignment: Alignment.bottomCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(sheetContext).width,
-            maxHeight: (MediaQuery.sizeOf(sheetContext).height -
-                    MediaQuery.viewInsetsOf(sheetContext).bottom) *
-                .90,
-          ),
+        child: SizedBox(
+          width: MediaQuery.sizeOf(sheetContext).width,
+          // Shorter high-frequency editor: avoid a large blank area between
+          // the last property row and the fixed primary action.
+          height: ((MediaQuery.sizeOf(sheetContext).height -
+                      MediaQuery.viewInsetsOf(sheetContext).bottom) *
+                  .86)
+              .clamp(0.0, 590.0)
+              .toDouble(),
           child: TaskDetailSheet(
             task: task,
+            isCreating: isCreating,
             lists: lists,
             onChanged: onChanged,
           ),
         ),
       ),
+    );
+  }
+
+  /// Mobile task creation uses the exact same editor tree as editing.
+  /// The draft has no persisted identity; only _save may create it.
+  static Future<void> showCreate(
+    BuildContext context, {
+    required List<TodoList> lists,
+    required VoidCallback onChanged,
+  }) {
+    if (lists.isEmpty) return Future<void>.value();
+    final inboxes = lists.where((list) => list.isInbox);
+    final initialList = inboxes.isNotEmpty ? inboxes.first : lists.first;
+    final now = DateTime.now();
+    final draft = Task(
+      id: 0,
+      listId: initialList.id,
+      title: '',
+      priority: 'none',
+      dueDate: DateTime(now.year, now.month, now.day),
+      isCompleted: false,
+      createdAt: now,
+    );
+    return show(
+      context,
+      task: draft,
+      lists: lists,
+      onChanged: onChanged,
+      isCreating: true,
     );
   }
 
@@ -136,6 +173,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late List<Tag> _selectedTags;
   bool _saving = false;
   bool _mobileDirty = false;
+  bool _creationResultUnknown = false;
   bool _mobileExpanded = false;
   bool _mobileDescriptionOpen = false;
   bool _allowMobilePop = false;
@@ -165,6 +203,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _selectedTags = List<Tag>.from(task.tags);
     _mobileDescriptionOpen = _description.text.trim().isNotEmpty;
+    _mobileDirty = false;
   }
 
   @override
@@ -196,11 +235,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
 
   void _mobileChanged([String? _]) {
-    if (!_mobileDirty) setState(() => _mobileDirty = true);
+    // Rebuild the primary button when a new task first gets a title.
+    setState(() => _mobileDirty = true);
   }
 
   Future<void> _mobileToggleCompleted() async {
-    if (_saving) return;
+    if (_saving || widget.isCreating) return;
     if (_mobileDirty) {
       FxNotice.showContent(context, const Text('请先保存修改，再更改任务状态'));
       return;
@@ -232,8 +272,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (_mobileDirty) {
       final discard = await FxDialog.confirm(
         context: context,
-        title: '放弃未保存的修改？',
-        content: '本次编辑尚未保存，关闭后不会写入任务。',
+        title: widget.isCreating ? '放弃新建任务？' : '放弃未保存的修改？',
+        content: widget.isCreating
+            ? '尚未创建任务，关闭后将丢弃填写的内容。'
+            : '本次编辑尚未保存，关闭后不会写入任务。',
         confirmText: '放弃修改',
         destructive: true,
       );
@@ -259,9 +301,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(
-                SlowlightSpacing.xxxl,
                 SlowlightSpacing.xl,
-                SlowlightSpacing.xxxl,
+                SlowlightSpacing.md,
+                SlowlightSpacing.xl,
                 SlowlightSpacing.xl,
               ),
               child: _mobilePage == null
@@ -333,11 +375,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   ? LucideIcons.circleCheck
                   : LucideIcons.circle,
               iconSize: SlowlightIconSize.xl,
-              tooltip: widget.task.isCompleted ? '恢复待办' : '完成任务',
+              tooltip: widget.isCreating
+                  ? '创建后可完成任务'
+                  : widget.task.isCompleted ? '恢复待办' : '完成任务',
               foregroundColor: widget.task.isCompleted
                   ? AppTheme.success
                   : theme.colorScheme.onSurfaceVariant,
-              onPressed: _saving ? null : _mobileToggleCompleted,
+              onPressed: _saving || widget.isCreating
+                  ? null : _mobileToggleCompleted,
             ),
             const SizedBox(width: SlowlightSpacing.md),
             Expanded(
@@ -345,6 +390,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 key: const ValueKey('task.detail.title'),
                 controller: _title,
                 enabled: !_saving,
+                plain: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: SlowlightSpacing.xs,
+                ),
                 style: SlowlightTypography.emphasizedInput(context),
                 placeholder: '任务名称',
                 onChanged: _mobileChanged,
@@ -353,18 +402,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ],
         ),
         const SizedBox(height: SlowlightSpacing.md),
-        Padding(
-          padding: const EdgeInsets.only(
-            left: SlowlightControlSize.minTouchTarget + SlowlightSpacing.md,
-          ),
-          child: Text(
-            listLabel,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        const SizedBox(height: SlowlightSpacing.xl),
         if (_mobileDescriptionOpen)
           FxInput(
             key: const ValueKey('task.detail.description'),
@@ -400,7 +437,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               ),
             ),
           ),
-        const SizedBox(height: SlowlightSpacing.xl),
+        const SizedBox(height: SlowlightSpacing.md),
         Text(
           '任务属性',
           style: SlowlightTypography.caption(context).copyWith(
@@ -669,7 +706,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   option.$2,
                   selected: _repeatType == option.$1,
                   onTap: () => _mobileSelect(() {
-                    _repeatType = option.$1;
+                    if (_repeatType != option.$1) {
+                      _repeatType = option.$1;
+                      // A new frequency starts at its natural 1× cadence.
+                      _repeatInterval = 1;
+                    }
                     if (_repeatType != 'weekly') _weekdays.clear();
                   }, stay: option.$1 == 'weekly'),
                 ),
@@ -763,6 +804,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _mobileFooter() {
+    final canSave = widget.isCreating
+        ? _title.text.trim().isNotEmpty && !_creationResultUnknown
+        : _mobileDirty;
     return SafeArea(
       top: false,
       child: Padding(
@@ -776,10 +820,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           children: [
             Expanded(
               child: Text(
-                _mobilePage == null
-                    ? (_saving ? '正在保存…' :
-                        (_mobileDirty ? '有未保存的修改' : '已保存'))
-                    : '修改后返回详情',
+                _mobilePage != null
+                    ? '修改后返回详情'
+                    : _saving
+                        ? '正在保存…'
+                        : _creationResultUnknown
+                            ? '创建结果未确认'
+                            : widget.isCreating
+                                ? (_mobileDirty ? '尚未创建' : '填写任务名称')
+                                : (_mobileDirty ? '有未保存的修改' : '已保存'),
                 style: SlowlightTypography.caption(context).copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -788,15 +837,20 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             const SizedBox(width: SlowlightSpacing.md),
             FxButton(
               key: const ValueKey('task.detail.primaryAction'),
-              label: _mobilePage == null
-                  ? (_saving ? '保存中…' : '保存修改')
-                  : '完成',
+              label: _mobilePage != null
+                  ? '完成'
+                  : widget.isCreating
+                      ? (_saving ? '创建中…' : '创建任务')
+                      : (_saving ? '保存中…' : '保存修改'),
+              variant: _mobilePage == null && !canSave
+                  ? FxButtonVariant.secondary
+                  : FxButtonVariant.primary,
               size: FxButtonSize.sm,
               onPressed: _saving
                   ? null
                   : _mobilePage != null
                       ? () => setState(() => _mobilePage = null)
-                      : _mobileDirty
+                      : canSave
                           ? _save
                           : null,
             ),
@@ -823,25 +877,21 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   Widget _header() {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, widget.sidePanel ? 10 : 12, 10, 8),
+      padding: EdgeInsets.fromLTRB(
+        widget.sidePanel ? 20 : 16,
+        widget.sidePanel ? 10 : 12,
+        10,
+        widget.sidePanel ? 8 : 6,
+      ),
       child: Column(
         children: [
-          if (!widget.sidePanel) ...[
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: fxDivider(context),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
+          // The sheet is intentionally non-draggable. Omit a misleading
+          // drag handle and the extra header whitespace it introduced.
           Row(
             children: [
               Expanded(
                 child: Text(
-                  '任务详情',
+                  widget.isCreating ? '新建任务' : '任务详情',
                   style: SlowlightTypography.cardTitle(context).copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -854,7 +904,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   foregroundColor: activePalette.accent,
                   borderRadius: SlowlightRadius.pill,
                 ),
-              if (!widget.sidePanel) ...[
+              if (!widget.sidePanel && !widget.isCreating) ...[
                 const SizedBox(width: 4),
                 FxMenu<String>(
                   tooltip: '更多操作',
@@ -1229,6 +1279,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _save() async {
+    if (_saving || _creationResultUnknown) return;
     final title = _title.text.trim();
     final listId =
         _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
@@ -1241,38 +1292,72 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     }
     setState(() => _saving = true);
     try {
-      await DataService().updateTask(
-        localId: widget.task.id,
-        serverId: null,
-        listId: listId,
-        title: title,
-        description:
-            _description.text.trim().isEmpty ? null : _description.text.trim(),
-        priority: _priority,
-        dueDate: _dueDate,
-        dueTime: _dueTime == null ? null : _timeLabel(_dueTime!),
-        repeatType: _repeatType,
-        repeatInterval: _repeatInterval,
-        repeatDays:
-            _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
-        reminderAt: _reminderAt,
-        reminderAdvanceMinutes: _reminderAdvanceMinutes,
-        tagIds: _selectedTags.map((tag) => tag.id).toList(),
-        systemTagId: widget.task.systemTagId,
-        taskType: widget.task.taskType,
-        moodBefore: widget.task.moodBefore,
-        moodAfter: widget.task.moodAfter,
-        isMilestone: widget.task.isMilestone,
-        relatedQuestId: widget.task.relatedQuestId,
-        obsidianLink: widget.task.obsidianLink,
-        outputLevel: widget.task.outputLevel,
-      );
+      if (widget.isCreating) {
+        await DataService().createTask(
+          listId: listId,
+          title: title,
+          description:
+              _description.text.trim().isEmpty ? null : _description.text.trim(),
+          priority: _priority,
+          dueDate: _dueDate,
+          dueTime: _dueTime == null ? null : _timeLabel(_dueTime!),
+          repeatType: _repeatType,
+          repeatInterval: _repeatInterval,
+          repeatDays:
+              _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
+          reminderAt: _reminderAt,
+          reminderAdvanceMinutes: _reminderAdvanceMinutes,
+          tagIds: _selectedTags.map((tag) => tag.id).toList(),
+          systemTagId: widget.task.systemTagId,
+        );
+      } else {
+        await DataService().updateTask(
+          localId: widget.task.id,
+          serverId: null,
+          listId: listId,
+          title: title,
+          description:
+              _description.text.trim().isEmpty ? null : _description.text.trim(),
+          priority: _priority,
+          dueDate: _dueDate,
+          dueTime: _dueTime == null ? null : _timeLabel(_dueTime!),
+          repeatType: _repeatType,
+          repeatInterval: _repeatInterval,
+          repeatDays:
+              _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
+          reminderAt: _reminderAt,
+          reminderAdvanceMinutes: _reminderAdvanceMinutes,
+          tagIds: _selectedTags.map((tag) => tag.id).toList(),
+          systemTagId: widget.task.systemTagId,
+          taskType: widget.task.taskType,
+          moodBefore: widget.task.moodBefore,
+          moodAfter: widget.task.moodAfter,
+          isMilestone: widget.task.isMilestone,
+          relatedQuestId: widget.task.relatedQuestId,
+          obsidianLink: widget.task.obsidianLink,
+          outputLevel: widget.task.outputLevel,
+        );
+      }
       widget.onChanged();
       if (mounted) _close();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _saving = false);
-      FxNotice.showContent(context, Text('保存失败：$e'));
+      // A timed-out create may already be stored remotely. Disable a second
+      // create attempt unless the data layer explicitly confirmed no write.
+      final uncertain = widget.isCreating &&
+          (e is! TaskCreateException || !e.confirmedNotCreated);
+      setState(() {
+        _saving = false;
+        _creationResultUnknown = uncertain;
+      });
+      FxNotice.showContent(
+        context,
+        Text(uncertain
+            ? '创建结果未确认，请先返回任务列表核对，避免重复创建'
+            : widget.isCreating
+                ? '创建失败，请检查输入后重试'
+                : '保存结果未确认，请核对任务内容'),
+      );
     }
   }
 

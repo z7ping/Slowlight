@@ -39,6 +39,9 @@ class FxInput extends StatelessWidget {
   final Widget? trailing;
   final TextStyle? style;
   final TextStyle? placeholderStyle;
+  /// Borderless edit surface for inline titles. Uses ShadInput itself,
+  /// rather than a second text-field implementation or local border hacks.
+  final bool plain;
   final List<TextInputFormatter>? inputFormatters;
   final EdgeInsets? contentPadding;
 
@@ -68,6 +71,7 @@ class FxInput extends StatelessWidget {
     this.trailing,
     this.style,
     this.placeholderStyle,
+    this.plain = false,
     this.inputFormatters,
     this.contentPadding,
   });
@@ -77,6 +81,7 @@ class FxInput extends StatelessWidget {
     final theme = Theme.of(context);
     final multiline = maxLines != 1 || (minLines != null && minLines! > 1);
     final input = ShadInput(
+      decoration: plain ? ShadDecoration.none : null,
       controller: controller,
       onChanged: onChanged,
       onSubmitted: onSubmitted,

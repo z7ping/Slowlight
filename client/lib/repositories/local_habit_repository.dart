@@ -18,7 +18,7 @@ class LocalHabitRepository {
   String _nowUtc() => DateTime.now().toUtc().toIso8601String();
 
   Future<int> _calculateCurrentStreak(
-    Database db,
+    DatabaseExecutor db,
     int habitId,
     DateTime now,
   ) async {
