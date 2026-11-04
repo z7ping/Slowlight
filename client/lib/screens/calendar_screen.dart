@@ -121,12 +121,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
       await _load();
       return;
     }
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      await TaskDetailSheet.showCreate(
+        context,
+        initialDueDate: date,
+        defaultDueToday: false,
+        onChanged: _load,
+      );
+      return;
+    }
     final created = await TaskCreateSheet.showFullCreate(
       context,
       defaultDueDate: date,
       defaultToToday: false,
     );
-    if (created == true) await _load();
+    if (created == true && mounted) await _load();
   }
 
   void _showMore(DateTime date) {
