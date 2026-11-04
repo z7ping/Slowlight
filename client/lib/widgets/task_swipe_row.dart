@@ -152,22 +152,27 @@ class _TaskSwipeRowState extends State<TaskSwipeRow> {
               children: [
                 Expanded(
                   child: Container(
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: SlowlightSpacing.xxxl),
-                  color: AppTheme.success.withValues(alpha: .10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(LucideIcons.check, size: SlowlightIconSize.sm,
-                          color: theme.colorScheme.onSurface),
-                      const SizedBox(width: SlowlightSpacing.md),
-                      Text('完成',
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: SlowlightSpacing.xxxl),
+                    color: AppTheme.success.withValues(alpha: .10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.check,
+                          size: SlowlightIconSize.sm,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: SlowlightSpacing.md),
+                        Text(
+                          '完成',
                           style: SlowlightTypography.caption(context).copyWith(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurface,
-                          )),
-                    ],
-                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 _action(
