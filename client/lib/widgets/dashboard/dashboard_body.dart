@@ -204,7 +204,10 @@ class _DashboardBodyState extends State<DashboardBody> {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: SlowlightPageInsets.scroll(context, bottom: 40),
+        padding: SlowlightPageInsets.scroll(
+          context,
+          bottom: desktop ? 40 : 112,
+        ),
         children: [
           _header(desktop),
           if (widget.listsError) ...[
@@ -226,33 +229,81 @@ class _DashboardBodyState extends State<DashboardBody> {
     final theme = Theme.of(context);
     final now = DateTime.now();
     const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-    const short = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    final subtitle = desktop
-        ? '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 记录真实发生的事'
-        : '${now.month} 月 ${now.day} 日 ${short[now.weekday - 1]}';
-    final copy = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '今天，发生了什么',
-          style: SlowlightTypography.pageTitle(
-            context,
-          ).copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          style: SlowlightTypography.caption(
-            context,
-          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-    if (!desktop) return copy;
+    if (!desktop) {
+      // Match the approved Today prototype: date + focus are the entire
+      // above-the-fold header; high-frequency actions follow immediately.
+      final copy = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${now.month}月${now.day}日 · ${weekdays[now.weekday - 1]}',
+            style: SlowlightTypography.pageTitle(context)
+                .copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text(
+            '记录行动，也记录生活。',
+            style: SlowlightTypography.caption(context)
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      );
+      final focus = widget.onStartFocus == null
+          ? null
+          : FxButton(
+              label: '开始专注',
+              icon: LucideIcons.timer,
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: widget.onStartFocus,
+            );
+      if (focus == null) return copy;
+      return LayoutBuilder(builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        if (constraints.maxWidth < 320 * scale) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              copy,
+              const SizedBox(height: SlowlightSpacing.xs),
+              Align(alignment: Alignment.centerRight, child: focus),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: copy),
+            const SizedBox(width: SlowlightSpacing.md),
+            focus,
+          ],
+        );
+      });
+    }
+
+    final subtitle =
+        '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 记录真实发生的事';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Expanded(child: copy),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '今天，发生了什么',
+                style: SlowlightTypography.pageTitle(context)
+                    .copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: SlowlightTypography.caption(context)
+                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
         if (widget.onWriteObservation != null)
           FxButton(
             label: '记录观察',
@@ -262,7 +313,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             onPressed: widget.onWriteObservation,
           ),
         if (widget.onWriteObservation != null && widget.onQuickAdd != null)
-          const SizedBox(width: 8),
+          const SizedBox(width: SlowlightSpacing.md),
         if (widget.onQuickAdd != null)
           FxButton(
             label: '添加任务',
@@ -312,21 +363,15 @@ class _DashboardBodyState extends State<DashboardBody> {
         ],
       );
 
+  // 移动端严格按已确认原型：今日任务 → 习惯 → 今天的轨迹。
+  // 今日事实已有回顾页的“今日概况”提供，桌面工作台仍保留原有统计。
   Widget _mobile() => Column(
         children: [
-          _overviewCard(),
-          const SizedBox(height: SlowlightSpacing.xl),
           _taskCard(maxItems: 3, mobile: true),
           const SizedBox(height: SlowlightSpacing.xl),
-          _timelineCard(),
-          const SizedBox(height: SlowlightSpacing.xl),
           _habitCard(maxItems: 3, mobile: true),
-          if (_shouldShowQuestion) ...[
-            const SizedBox(height: SlowlightSpacing.xl),
-            _questionCard(),
-          ],
           const SizedBox(height: SlowlightSpacing.xl),
-          _dimensionCard(mobile: true),
+          _timelineCard(mobile: true),
         ],
       );
 
@@ -396,70 +441,95 @@ class _DashboardBodyState extends State<DashboardBody> {
     return ((_facts[key] as num?)?.toInt() ?? 0).toString();
   }
 
-  Widget _timelineCard() {
-    final items = _timelineExpanded ? _timeline : _timeline.take(5).toList();
-    return _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FxSectionHeader(
-            title: '今天的轨迹',
-            trailing: _timelineLoadFailed
-                ? '读取失败'
-                : _timelineLoading
-                    ? '读取中'
-                    : '${_timeline.length} 条记录',
-            trailingWidget: widget.onViewReview == null
-                ? null
-                : FxButton(
-                    label: '进入回顾',
+  Widget _timelineCard({bool mobile = false}) {
+    final previewLimit = mobile ? 3 : 5;
+    final items = _timelineExpanded
+        ? _timeline
+        : _timeline.take(previewLimit).toList(growable: false);
+    final header = FxSectionHeader(
+      title: '今天的轨迹',
+      trailing: _timelineLoadFailed
+          ? '读取失败'
+          : _timelineLoading
+              ? '读取中'
+              : '${_timeline.length} 条记录',
+      trailingWidget: widget.onViewReview == null
+          ? null
+          : FxButton(
+              label: '进入回顾',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: widget.onViewReview,
+            ),
+    );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_timelineLoadFailed)
+          _partialUnavailable('今天的轨迹暂时无法读取')
+        else if (_timelineLoading && _timeline.isEmpty)
+          _empty('正在读取今天的轨迹…', compact: mobile)
+        else if (_timeline.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('今天还没有行为记录。',
+                    style: SlowlightTypography.secondary(context)),
+                if (widget.onWriteObservation != null)
+                  FxButton(
+                    label: '记录此刻的想法',
                     variant: FxButtonVariant.ghost,
                     size: FxButtonSize.sm,
-                    onPressed: widget.onViewReview,
+                    onPressed: widget.onWriteObservation,
                   ),
-          ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          if (_timelineLoadFailed)
-            _partialUnavailable('今天的轨迹暂时无法读取')
-          else if (_timelineLoading && _timeline.isEmpty)
-            _empty('正在读取今天的轨迹…')
-          else if (_timeline.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('今天还没有行为记录。',
-                      style: SlowlightTypography.secondary(context)),
-                  if (widget.onWriteObservation != null) ...[
-                    const SizedBox(height: 4),
-                    FxButton(
-                      label: '记录此刻的想法',
-                      variant: FxButtonVariant.ghost,
-                      size: FxButtonSize.sm,
-                      onPressed: widget.onWriteObservation,
-                    ),
-                  ],
-                ],
-              ),
-            )
-          else ...[
-            for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
-              _timelineRow(items[i]),
-            ],
-            if (_timeline.length > 5)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FxButton(
-                  label: _timelineExpanded ? '收起记录' : '展开更多记录',
-                  variant: FxButtonVariant.ghost,
-                  size: FxButtonSize.sm,
-                  onPressed: () =>
-                      setState(() => _timelineExpanded = !_timelineExpanded),
-                ),
-              ),
+              ],
+            ),
+          )
+        else ...[
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
+            _timelineRow(items[i]),
           ],
+          if (_timeline.length > previewLimit)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FxButton(
+                label: _timelineExpanded ? '收起记录' : '展开更多记录',
+                variant: FxButtonVariant.ghost,
+                size: FxButtonSize.sm,
+                onPressed: () =>
+                    setState(() => _timelineExpanded = !_timelineExpanded),
+              ),
+            ),
+        ],
+      ],
+    );
+    if (mobile) {
+      return Column(
+        key: const ValueKey('today.section.timeline'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.md),
+          _card(
+            content,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.xl,
+              vertical: SlowlightSpacing.xs,
+            ),
+          ),
+        ],
+      );
+    }
+    return _card(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.xs),
+          content,
         ],
       ),
       padding: const EdgeInsets.all(SlowlightSpacing.xl),
@@ -624,38 +694,60 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _taskCard({required int maxItems, required bool mobile}) {
     final completed = widget.tasks.where((task) => task.isCompleted).length;
     final visible = widget.tasks.take(maxItems).toList(growable: false);
+    final header = FxSectionHeader(
+      title: '今日任务',
+      trailing: widget.tasksLoading
+          ? '读取中'
+          : widget.tasksError
+              ? (visible.isEmpty ? '数量未知' : '上次数据')
+              : '${completed}/${widget.tasks.length} 完成',
+      trailingWidget: widget.onViewAllTasks == null
+          ? null
+          : FxButton(
+              label: '查看全部',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: widget.onViewAllTasks,
+            ),
+    );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.tasksLoading || widget.tasksError)
+          _coreStatus('任务', widget.tasksLoading, widget.tasksError,
+              visible.isNotEmpty),
+        if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
+          _emptyWithNext(
+            '今天暂时没有任务',
+            '先写下一件想做的事',
+            widget.onQuickAdd,
+            compact: mobile,
+          )
+        else
+          ...visible.map((task) => _taskRow(task, mobile)),
+      ],
+    );
+    if (mobile) {
+      return Column(
+        key: const ValueKey('today.section.tasks'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.md),
+          _card(
+            content,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.xl,
+              vertical: SlowlightSpacing.xs,
+            ),
+          ),
+        ],
+      );
+    }
     return _card(
       Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FxSectionHeader(
-            title: '今日任务',
-            trailing: widget.tasksLoading
-                ? '读取中'
-                : widget.tasksError
-                    ? (visible.isEmpty ? '数量未知' : '上次数据')
-                    : '$completed/${widget.tasks.length} 完成',
-            trailingWidget: widget.onViewAllTasks == null
-                ? null
-                : FxButton(
-                    label: '查看全部',
-                    variant: FxButtonVariant.ghost,
-                    size: FxButtonSize.sm,
-                    onPressed: widget.onViewAllTasks,
-                  ),
-          ),
-          if (widget.tasksLoading || widget.tasksError)
-            _coreStatus('任务', widget.tasksLoading, widget.tasksError,
-                visible.isNotEmpty),
-          if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
-            _emptyWithNext(
-              '今天暂时没有任务',
-              '先写下一件想做的事',
-              widget.onQuickAdd,
-            )
-          else
-            ...visible.map((task) => _taskRow(task, mobile)),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [header, content],
       ),
       padding: const EdgeInsets.fromLTRB(
         SlowlightSpacing.xl,
@@ -810,41 +902,62 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _habitCard({required int maxItems, required bool mobile}) {
     final checked = widget.habits.where((habit) => habit.checkedToday).length;
     final visible = widget.habits.take(maxItems).toList(growable: false);
+    final header = FxSectionHeader(
+      title: '习惯',
+      trailing: widget.habitsLoading
+          ? '读取中'
+          : widget.habitsError
+              ? (visible.isEmpty ? '数量未知' : '上次数据')
+              : widget.habits.isEmpty
+                  ? '暂无习惯'
+                  : '${checked}/${widget.habits.length} 已打卡',
+      trailingWidget: widget.onViewAllHabits == null
+          ? null
+          : FxButton(
+              label: '查看全部',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: widget.onViewAllHabits,
+            ),
+    );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.habitsLoading || widget.habitsError)
+          _coreStatus('习惯', widget.habitsLoading, widget.habitsError,
+              visible.isNotEmpty),
+        if (visible.isEmpty && !widget.habitsLoading && !widget.habitsError)
+          _emptyWithNext(
+            '还没有习惯记录',
+            '去创建第一个习惯',
+            widget.onViewAllHabits,
+            compact: mobile,
+          )
+        else
+          ...visible.map((habit) => _habitRow(habit, mobile)),
+      ],
+    );
+    if (mobile) {
+      return Column(
+        key: const ValueKey('today.section.habits'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.md),
+          _card(
+            content,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.xl,
+              vertical: SlowlightSpacing.xs,
+            ),
+          ),
+        ],
+      );
+    }
     return _card(
       Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FxSectionHeader(
-            title: '习惯',
-            trailing: widget.habitsLoading
-                ? '读取中'
-                : widget.habitsError
-                    ? (visible.isEmpty ? '数量未知' : '上次数据')
-                    : widget.habits.isEmpty
-                        ? '暂无习惯'
-                        : '$checked/${widget.habits.length} 已打卡',
-            trailingWidget: widget.onViewAllHabits == null
-                ? null
-                : FxButton(
-                    label: '查看全部',
-                    variant: FxButtonVariant.ghost,
-                    size: FxButtonSize.sm,
-                    onPressed: widget.onViewAllHabits,
-                  ),
-          ),
-          if (widget.habitsLoading || widget.habitsError)
-            _coreStatus('习惯', widget.habitsLoading, widget.habitsError,
-                visible.isNotEmpty),
-          if (visible.isEmpty && !widget.habitsLoading && !widget.habitsError)
-            _emptyWithNext(
-              '还没有习惯记录',
-              '去创建第一个习惯',
-              widget.onViewAllHabits,
-              compact: mobile,
-            )
-          else
-            ...visible.map((habit) => _habitRow(habit, mobile)),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [header, content],
       ),
       padding: const EdgeInsets.fromLTRB(
         SlowlightSpacing.xl,
@@ -875,6 +988,96 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _habitRow(Habit habit, bool mobile) {
     final theme = Theme.of(context);
     final color = _parseColor(habit.color);
+    if (mobile) {
+      return Container(
+        key: ValueKey('today.habit.${habit.id}'),
+        constraints: const BoxConstraints(minHeight: 52),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: fxDivider(context))),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(SlowlightRadius.md),
+              ),
+              child: Text(
+                habit.icon,
+                style: const TextStyle(fontSize: SlowlightTypography.bodySize),
+              ),
+            ),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(
+              child: FxInkWell(
+                onTap: widget.onViewAllHabits,
+                onLongPress: widget.onHabitLongPress == null
+                    ? null
+                    : () => widget.onHabitLongPress?.call(habit),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: SlowlightControlSize.minTouchTarget,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        habit.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.secondary(context)
+                            .copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        habit.frequencyText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.caption(context).copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (habit.streakCount > 0) ...[
+              const SizedBox(width: SlowlightSpacing.xs),
+              Text(
+                '🔥 ${habit.streakCount}',
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(width: SlowlightSpacing.md),
+            FxButton(
+              key: ValueKey('today.habit.record.${habit.id}'),
+              label: habit.allowMultiplePerDay
+                  ? '新增'
+                  : habit.checkedToday
+                      ? '已记录'
+                      : '记录',
+              icon: habit.checkedToday
+                  ? LucideIcons.circleCheck
+                  : LucideIcons.check,
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.secondary,
+              onPressed: widget.onHabitToggle == null
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      widget.onHabitToggle?.call(habit);
+                    },
+            ),
+          ],
+        ),
+      );
+    }
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: widget.onHabitToggle == null
