@@ -35,9 +35,13 @@ void main() {
     ValueChanged<Task>? onTaskToggle,
     ValueChanged<Habit>? onHabitToggle,
     VoidCallback? onStartFocus,
+    double textScale = 1,
   }) => buildFxTestHost(
     home: Scaffold(body: MediaQuery(
-      data: MediaQueryData(size: Size(width, 800)),
+      data: MediaQueryData(
+        size: Size(width, 800),
+        textScaler: TextScaler.linear(textScale),
+      ),
       child: DashboardBody(
         tasks: tasks,
         habits: habits,
@@ -252,6 +256,47 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  for (final scale in [1.3, 2.0]) {
+    testWidgets('Android 360dp 图标操作适应文字放大 $scale',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(host(
+        width: 360,
+        textScale: scale,
+        habits: [
+          Habit(
+            id: 34,
+            userId: 1,
+            name: '一个标题特别长、仍应保留右侧打卡入口的习惯',
+            icon: '📚',
+            color: '#52c41a',
+            frequency: 'daily',
+            createdAt: now,
+          ),
+        ],
+        onHabitToggle: (_) {},
+      ));
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('today.habit.34'));
+      final action = find.byKey(const ValueKey('today.habit.record.34'));
+      expect(row, findsOneWidget);
+      expect(action, findsOneWidget);
+      final rowRect = tester.getRect(row);
+      final actionRect = tester.getRect(action);
+      expect(actionRect.left, greaterThan(rowRect.left));
+      expect(actionRect.right, lessThanOrEqualTo(rowRect.right + 1));
+      expect(actionRect.height, greaterThanOrEqualTo(44));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
 
   testWidgets('Android 今日卡片收紧内边距，任务热区保持不小于 44dp',
       (tester) async {
