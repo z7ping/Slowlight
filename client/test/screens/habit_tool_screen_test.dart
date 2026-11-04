@@ -102,6 +102,36 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('Android 360dp 习惯卡紧凑，最近七日仍有 44dp 点击区域',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: _SampleHabitRepo())),
+    ));
+    await tester.pumpAndSettle();
+
+    final first = find.byKey(const ValueKey('habits.card.1'));
+    final second = find.byKey(const ValueKey('habits.card.2'));
+    expect(first, findsOneWidget);
+    expect(second, findsOneWidget);
+    final between = tester.getTopLeft(second).dy -
+        tester.getBottomLeft(first).dy;
+    expect(between, closeTo(SlowlightSpacing.md, 1));
+
+    final weekDay = find.byKey(const ValueKey('habits.week.1.0'));
+    expect(weekDay, findsOneWidget);
+    expect(tester.getSize(weekDay).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(weekDay).height, closeTo(48, 1));
+    expect(find.byKey(const ValueKey('habits.today.1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('折叠卡片可见习惯、频率、今日操作和近七日，展开显示详情', (tester) async {
     tester.view.physicalSize = const Size(1080, 850);
     tester.view.devicePixelRatio = 1;
