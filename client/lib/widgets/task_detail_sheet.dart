@@ -270,8 +270,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (_mobileDirty) {
       final discard = await FxDialog.confirm(
         context: context,
-        title: '放弃未保存的修改？',
-        content: '本次编辑尚未保存，关闭后不会写入任务。',
+        title: widget.isCreating ? '放弃新建任务？' : '放弃未保存的修改？',
+        content: widget.isCreating
+            ? '尚未创建任务，关闭后将丢弃填写的内容。'
+            : '本次编辑尚未保存，关闭后不会写入任务。',
         confirmText: '放弃修改',
         destructive: true,
       );
@@ -1271,6 +1273,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _save() async {
+    if (_saving || _creationResultUnknown) return;
     final title = _title.text.trim();
     final listId =
         _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
@@ -1283,7 +1286,26 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     }
     setState(() => _saving = true);
     try {
-      await DataService().updateTask(
+      if (widget.isCreating) {
+        await DataService().createTask(
+          listId: listId,
+          title: title,
+          description:
+              _description.text.trim().isEmpty ? null : _description.text.trim(),
+          priority: _priority,
+          dueDate: _dueDate,
+          dueTime: _dueTime == null ? null : _timeLabel(_dueTime!),
+          repeatType: _repeatType,
+          repeatInterval: _repeatInterval,
+          repeatDays:
+              _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
+          reminderAt: _reminderAt,
+          reminderAdvanceMinutes: _reminderAdvanceMinutes,
+          tagIds: _selectedTags.map((tag) => tag.id).toList(),
+          systemTagId: widget.task.systemTagId,
+        );
+      } else {
+        await DataService().updateTask(
         localId: widget.task.id,
         serverId: null,
         listId: listId,
@@ -1308,13 +1330,28 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         relatedQuestId: widget.task.relatedQuestId,
         obsidianLink: widget.task.obsidianLink,
         outputLevel: widget.task.outputLevel,
-      );
+        );
+      }
       widget.onChanged();
       if (mounted) _close();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _saving = false);
-      FxNotice.showContent(context, Text('保存失败：$e'));
+      // A timed-out create may already be stored remotely. Disable a second
+      // create attempt unless the data layer explicitly confirmed no write.
+      final uncertain = widget.isCreating &&
+          (e is! TaskCreateException || !e.confirmedNotCreated);
+      setState(() {
+        _saving = false;
+        _creationResultUnknown = uncertain;
+      });
+      FxNotice.showContent(
+        context,
+        Text(uncertain
+            ? '创建结果未确认，请先返回任务列表核对，避免重复创建'
+            : widget.isCreating
+                ? '创建失败，请检查输入后重试'
+                : '保存结果未确认，请核对任务内容'),
+      );
     }
   }
 
