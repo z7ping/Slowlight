@@ -17,7 +17,7 @@ void main() {
               return TaskSwipeRow(
                 open: open,
                 onOpenChanged: (next) => update(() => open = next),
-                onComplete: () async => completeCount++,
+                onComplete: () async { completeCount++; },
                 onPostpone: () async {},
                 onMore: () {},
                 child: const SizedBox(
@@ -53,7 +53,7 @@ void main() {
                 open: open,
                 onOpenChanged: (next) => update(() => open = next),
                 onComplete: () async {},
-                onPostpone: () async => postponeCount++,
+                onPostpone: () async { postponeCount++; },
                 onMore: () => moreCount++,
                 child: const SizedBox(
                   height: 64,
@@ -98,8 +98,8 @@ void main() {
               return TaskSwipeRow(
                 open: open,
                 onOpenChanged: (next) => update(() => open = next),
-                onComplete: () async => completeCount++,
-                onPostpone: () async => postponeCount++,
+                onComplete: () async { completeCount++; },
+                onPostpone: () async { postponeCount++; },
                 onMore: () {},
                 child: const SizedBox(
                   height: 64,
