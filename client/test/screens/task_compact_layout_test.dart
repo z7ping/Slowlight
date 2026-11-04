@@ -9,6 +9,67 @@ import 'package:slowlight/ui/fx.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('全部任务混合状态下行高和间距一致，不露出滑动操作背景',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    final pending = Task(
+      id: 21,
+      listId: 1,
+      title: '待完成任务',
+      priority: 'none',
+      isCompleted: false,
+      createdAt: now,
+    );
+    final completed = Task(
+      id: 22,
+      listId: 1,
+      title: '已完成任务',
+      priority: 'none',
+      isCompleted: true,
+      completedAt: now,
+      createdAt: now,
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(
+          dataLoader: () async => <dynamic>[
+            <Task>[pending],
+            <Task>[pending, completed],
+            <Task>[completed],
+            <TodoList>[],
+          ],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('全部'));
+    await tester.pumpAndSettle();
+
+    final pendingRow = find.byKey(const ValueKey('tasks.row.21'));
+    final doneRow = find.byKey(const ValueKey('tasks.row.22'));
+    expect(pendingRow, findsOneWidget);
+    expect(doneRow, findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.swipe.21')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.swipe.22')), findsNothing);
+
+    final pendingRect = tester.getRect(pendingRow);
+    final doneRect = tester.getRect(doneRow);
+    expect(pendingRect.height, greaterThanOrEqualTo(44));
+    expect(doneRect.height, greaterThanOrEqualTo(44));
+    expect(doneRect.height, closeTo(pendingRect.height, 1));
+    expect(doneRect.top - pendingRect.bottom,
+        closeTo(SlowlightSpacing.xs, 1));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('任务页 360dp 保持紧凑卡片与可点击任务行', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
