@@ -105,13 +105,15 @@ class TaskDetailSheet extends StatefulWidget {
       // clipping/decoration layer in the animated route.
       builder: (sheetContext) => Align(
         alignment: Alignment.bottomCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(sheetContext).width,
-            maxHeight: (MediaQuery.sizeOf(sheetContext).height -
-                    MediaQuery.viewInsetsOf(sheetContext).bottom) *
-                .84,
-          ),
+        child: SizedBox(
+          width: MediaQuery.sizeOf(sheetContext).width,
+          // Shorter high-frequency editor: avoid a large blank area between
+          // the last property row and the fixed primary action.
+          height: ((MediaQuery.sizeOf(sheetContext).height -
+                      MediaQuery.viewInsetsOf(sheetContext).bottom) *
+                  .86)
+              .clamp(0.0, 590.0)
+              .toDouble(),
           child: TaskDetailSheet(
             task: task,
             isCreating: isCreating,
