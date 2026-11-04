@@ -1307,30 +1307,30 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         );
       } else {
         await DataService().updateTask(
-        localId: widget.task.id,
-        serverId: null,
-        listId: listId,
-        title: title,
-        description:
-            _description.text.trim().isEmpty ? null : _description.text.trim(),
-        priority: _priority,
-        dueDate: _dueDate,
-        dueTime: _dueTime == null ? null : _timeLabel(_dueTime!),
-        repeatType: _repeatType,
-        repeatInterval: _repeatInterval,
-        repeatDays:
-            _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
-        reminderAt: _reminderAt,
-        reminderAdvanceMinutes: _reminderAdvanceMinutes,
-        tagIds: _selectedTags.map((tag) => tag.id).toList(),
-        systemTagId: widget.task.systemTagId,
-        taskType: widget.task.taskType,
-        moodBefore: widget.task.moodBefore,
-        moodAfter: widget.task.moodAfter,
-        isMilestone: widget.task.isMilestone,
-        relatedQuestId: widget.task.relatedQuestId,
-        obsidianLink: widget.task.obsidianLink,
-        outputLevel: widget.task.outputLevel,
+          localId: widget.task.id,
+          serverId: null,
+          listId: listId,
+          title: title,
+          description:
+              _description.text.trim().isEmpty ? null : _description.text.trim(),
+          priority: _priority,
+          dueDate: _dueDate,
+          dueTime: _dueTime == null ? null : _timeLabel(_dueTime!),
+          repeatType: _repeatType,
+          repeatInterval: _repeatInterval,
+          repeatDays:
+              _weekdays.isEmpty ? '' : (_weekdays.toList()..sort()).join(','),
+          reminderAt: _reminderAt,
+          reminderAdvanceMinutes: _reminderAdvanceMinutes,
+          tagIds: _selectedTags.map((tag) => tag.id).toList(),
+          systemTagId: widget.task.systemTagId,
+          taskType: widget.task.taskType,
+          moodBefore: widget.task.moodBefore,
+          moodAfter: widget.task.moodAfter,
+          isMilestone: widget.task.isMilestone,
+          relatedQuestId: widget.task.relatedQuestId,
+          obsidianLink: widget.task.obsidianLink,
+          outputLevel: widget.task.outputLevel,
         );
       }
       widget.onChanged();
