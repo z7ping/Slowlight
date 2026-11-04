@@ -55,7 +55,6 @@ class FakeHabitDataSource implements ApiDataSource {
     String goalPeriod = 'none',
     String goalMetric = 'events',
     int goalValue = 0,
-    Map<String, dynamic>? scheduleRule,
     int targetDays = 0,
     int? systemTagId,
     String preferredPeriod = '',
