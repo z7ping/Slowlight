@@ -299,9 +299,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(
-                SlowlightSpacing.xxxl,
                 SlowlightSpacing.xl,
-                SlowlightSpacing.xxxl,
+                SlowlightSpacing.md,
+                SlowlightSpacing.xl,
                 SlowlightSpacing.xl,
               ),
               child: _mobilePage == null
@@ -700,7 +700,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   option.$2,
                   selected: _repeatType == option.$1,
                   onTap: () => _mobileSelect(() {
-                    _repeatType = option.$1;
+                    if (_repeatType != option.$1) {
+                      _repeatType = option.$1;
+                      // A new frequency starts at its natural 1× cadence.
+                      _repeatInterval = 1;
+                    }
                     if (_repeatType != 'weekly') _weekdays.clear();
                   }, stay: option.$1 == 'weekly'),
                 ),
@@ -867,20 +871,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   Widget _header() {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, widget.sidePanel ? 10 : 12, 10, 8),
+      padding: EdgeInsets.fromLTRB(16, widget.sidePanel ? 10 : 12, 10, 6),
       child: Column(
         children: [
-          if (!widget.sidePanel) ...[
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: fxDivider(context),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
+          // The sheet is intentionally non-draggable. Omit a misleading
+          // drag handle and the extra header whitespace it introduced.
           Row(
             children: [
               Expanded(
