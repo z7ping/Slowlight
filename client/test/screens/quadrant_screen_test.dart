@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
+import 'package:slowlight/widgets/task_detail_sheet.dart';
+import 'package:flutter/foundation.dart';
+import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -28,6 +31,37 @@ Future<QuadrantData> _loadTasks(List<Task> tasks) async => (
     );
 
 void main() {
+  testWidgets('Android 四象限优先级传入统一任务创建 Sheet', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks([])),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final button = find.ancestor(
+      of: fxTooltipFinder('在重要 · 紧急添加任务'),
+      matching: find.byType(FxIconButton),
+    );
+    expect(button, findsOneWidget);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    final detail = find.byType(TaskDetailSheet);
+    expect(detail, findsOneWidget);
+    final draft = tester.widget<TaskDetailSheet>(detail).task;
+    expect(draft.priority, 'urgent_important');
+    expect(draft.dueDate, isNull);
+    expect(find.text('新建任务'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 360dp 沿用 2×2 四象限且 none 是不重要不紧急', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
