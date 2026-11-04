@@ -390,6 +390,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 key: const ValueKey('task.detail.title'),
                 controller: _title,
                 enabled: !_saving,
+                plain: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: SlowlightSpacing.xs,
+                ),
                 style: SlowlightTypography.emphasizedInput(context),
                 placeholder: '任务名称',
                 onChanged: _mobileChanged,
