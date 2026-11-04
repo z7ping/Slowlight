@@ -5,6 +5,7 @@ import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
+import 'package:slowlight/widgets/task_swipe_row.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -177,6 +178,49 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('500 条 Android 任务按需构建，首屏不一次挂载所有滑动行',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    final tasks = List<Task>.generate(
+      500,
+      (index) => Task(
+        id: index + 1,
+        listId: 1,
+        title: '任务 ${index + 1}',
+        priority: 'none',
+        isCompleted: false,
+        createdAt: now,
+      ),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(
+          dataLoader: () async => <dynamic>[
+            tasks,
+            tasks,
+            <Task>[],
+            <TodoList>[],
+          ],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CustomScrollView), findsOneWidget);
+    expect(find.byType(SliverList), findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.mobile.shell.1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.mobile.shell.500')), findsNothing);
+    expect(find.byType(TaskSwipeRow).evaluate().length, lessThan(40));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('任务页 360dp 保持紧凑卡片与可点击任务行', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -206,11 +250,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final cards = tester.widgetList<FxCard>(find.byType(FxCard)).toList();
-    expect(cards, isNotEmpty);
+    final shell = find.byKey(const ValueKey('tasks.mobile.shell.7'));
+    expect(shell, findsOneWidget);
     expect(
-      cards.first.padding!.resolve(TextDirection.ltr).top,
-      lessThanOrEqualTo(12),
+      tester.getSize(shell).width,
+      closeTo(360 - SlowlightSpacing.xxxl * 2, 1),
     );
     final row = find.byKey(const ValueKey('tasks.swipe.7'));
     expect(row, findsOneWidget);
