@@ -280,7 +280,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
               ),
       );
     } catch (_) {
-      _message('任务状态更新失败，请核对任务状态');
+      _message('任务操作结果未确认，请核对任务状态');
     } finally {
       _pendingTaskActions.remove(task.id);
     }
