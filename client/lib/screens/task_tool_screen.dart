@@ -377,7 +377,6 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: SlowlightSpacing.md,
-                    vertical: SlowlightSpacing.xs,
                   ),
                   child: SlowlightPlatformDensity.usesMobileTouchTargets
                       ? _swipeTaskRow(task)
