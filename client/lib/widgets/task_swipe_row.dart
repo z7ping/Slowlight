@@ -216,6 +216,21 @@ class _TaskSwipeRowState extends State<TaskSwipeRow> {
               child: widget.child,
             ),
           ),
+          if (_running)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: SlowlightSpacing.xl),
+                    child: const FxSpinner(
+                      size: SlowlightIconSize.sm,
+                      semanticsLabel: '正在更新任务',
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
