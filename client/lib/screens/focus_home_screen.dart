@@ -271,7 +271,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
         Text(wasCompleted ? '已恢复待办' : '任务已完成'),
         variant: FxNoticeVariant.success,
         duration: const Duration(seconds: 4),
-        action: wasCompleted
+        // 完成重复任务可能已生成下一周期，不能用简单 toggle 伪装撤销。
+        action: wasCompleted || task.isRepeat
             ? null
             : FxNoticeAction(
                 label: '撤销',
