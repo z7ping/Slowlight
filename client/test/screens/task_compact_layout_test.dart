@@ -4,11 +4,66 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
+import 'package:slowlight/widgets/task_detail_sheet.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
 void main() {
+  for (final create in [true, false]) {
+    testWidgets('任务页${create ? '新建' : '查看详情'}打开同一任务编辑组件',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final task = Task(
+        id: 42,
+        listId: 7,
+        title: '已有的任务',
+        priority: 'none',
+        isCompleted: false,
+        createdAt: DateTime.now(),
+      );
+      final list = TodoList(
+        id: 7, name: '收集箱', isInbox: true, color: '#8db5a0',
+        createdAt: DateTime.now(),
+      );
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(
+          body: TaskToolScreen(
+            dataLoader: () async => <dynamic>[
+              <Task>[task],
+              <Task>[task],
+              <Task>[],
+              <TodoList>[list],
+            ],
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      if (create) {
+        await tester.tap(find.text('新建'));
+      } else {
+        await tester.tap(find.text('已有的任务'));
+      }
+      await tester.pumpAndSettle();
+      final detail = find.byType(TaskDetailSheet);
+      expect(detail, findsOneWidget);
+      expect(tester.widget<TaskDetailSheet>(detail).isCreating, create);
+      for (final field in ['list', 'due', 'priority', 'repeat']) {
+        expect(find.byKey(ValueKey('task.detail.property.$field')),
+            findsOneWidget);
+      }
+      expect(find.byKey(const ValueKey('task.detail.primaryAction')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('Android 任务列表按原型呈现轻量新建、下划线筛选和紧凑行',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
