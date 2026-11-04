@@ -27,6 +27,7 @@ class _InboxScreenState extends State<InboxScreen> {
   bool _isLoading = true;
   final _quickAddController = TextEditingController();
   final _quickAddFocus = FocusNode();
+  bool _quickAdding = false;
 
   @override
   void initState() {
@@ -61,19 +62,28 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _quickAdd() async {
+    if (_quickAdding) return;
     final title = _quickAddController.text.trim();
     if (title.isEmpty) return;
-    _quickAddController.clear();
-    _quickAddFocus.requestFocus();
-
+    setState(() => _quickAdding = true);
     try {
       final task = await DataService().quickAddToInbox(title);
       if (!mounted) return;
-      setState(() => _tasks.insert(0, task));
-    } catch (e) {
-      if (mounted) {
-        FxNotice.showContent(context, Text('添加失败: $e'));
+      // Clear only the submitted value, not anything typed while saving.
+      if (_quickAddController.text.trim() == title) {
+        _quickAddController.clear();
       }
+      setState(() => _tasks.insert(0, task));
+      _quickAddFocus.requestFocus();
+    } catch (_) {
+      if (mounted) {
+        FxNotice.showContent(
+          context,
+          const Text('创建结果未确认，已保留输入；请核对收集箱后再重试'),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _quickAdding = false);
     }
   }
 
@@ -263,7 +273,11 @@ class _InboxScreenState extends State<InboxScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          FxButton(label: '添加', size: FxButtonSize.sm, onPressed: _quickAdd),
+          FxButton(
+            label: _quickAdding ? '添加中…' : '添加',
+            size: FxButtonSize.sm,
+            onPressed: _quickAdding ? null : _quickAdd,
+          ),
         ],
       ),
     );
