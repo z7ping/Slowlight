@@ -222,8 +222,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     }
   }
 
-  Future<void> _requestMobileClose() async {
-    if (_mobilePage != null) {
+  Future<void> _requestMobileClose({bool backFromSystem = false}) async {
+    if (backFromSystem && _mobilePage != null) {
       setState(() => _mobilePage = null);
       return;
     }
@@ -244,7 +244,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     return PopScope(
       canPop: _allowMobilePop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _requestMobileClose();
+        if (!didPop) _requestMobileClose(backFromSystem: true);
       },
       child: Column(
         children: [
