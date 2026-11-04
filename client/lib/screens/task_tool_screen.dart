@@ -232,40 +232,167 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
           child:
               desktop
                   ? _desktopContent()
-                  : ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: SlowlightPageInsets.scroll(context, bottom: 72),
-                    children: [
-                      _taskActionBar(),
-                      if (_loadFailed) _refreshErrorNotice(),
-                      const SizedBox(height: SlowlightSpacing.xl),
-                      _card(
-                        child:
-                            _visible.isEmpty
-                                ? FxEmptyState(
-                                  icon: LucideIcons.listTodo,
-                                  title:
-                                      _segment == 2 ? '还没有已完成任务' : '这里暂时没有任务',
-                                  subtitle:
-                                      _segment == 0
-                                          ? '今天可以从一件真正想推进的事开始'
-                                          : '切换其他筛选看看',
-                                )
-                                : Column(
-                                  children: _visible
-                                      .map(
-                                        (task) =>
-                                            mobile && SlowlightPlatformDensity.usesMobileTouchTargets
-                                                ? _swipeTaskRow(task)
-                                                : _taskRow(task),
-                                      )
-                                      .toList(growable: false),
-                                ),
-                      ),
-                    ],
-                  ),
+                  : mobile
+                      ? _mobileTaskList()
+                      : ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: SlowlightPageInsets.scroll(context, bottom: 72),
+                          children: [
+                            _taskActionBar(),
+                            if (_loadFailed) _refreshErrorNotice(),
+                            const SizedBox(height: SlowlightSpacing.xl),
+                            _card(
+                              child: _visible.isEmpty
+                                  ? _emptyState()
+                                  : Column(
+                                      children: _visible
+                                          .map((task) => _taskRow(task))
+                                          .toList(growable: false),
+                                    ),
+                            ),
+                          ],
+                        ),
         );
       },
+    );
+  }
+
+  // The Android task workspace follows the confirmed compact-list prototype.
+  // Keep the app-bar title owned by the shell; avoid a second page heading.
+  Widget _mobileTaskList() {
+    final now = DateTime.now();
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final dateLabel = '${now.month}月${now.day}日 · 星期${weekdays[now.weekday - 1]}';
+    final remaining = _all.where((task) => !task.isCompleted).length;
+    final title = switch (_segment) {
+      1 => '所有任务',
+      2 => '已完成',
+      _ => '待处理',
+    };
+    return ListView(
+      key: const ValueKey('tasks.mobile.list'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: SlowlightPageInsets.scroll(context, bottom: 72),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(dateLabel,
+                      style: SlowlightTypography.sectionTitle(context)),
+                  const SizedBox(height: SlowlightSpacing.xs),
+                  Text('\${remaining} 项待完成',
+                      style: SlowlightTypography.caption(context).copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            FxButton(
+              label: '新建',
+              icon: LucideIcons.plus,
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.outline,
+              onPressed: _create,
+            ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
+        _mobileFilters(),
+        if (_loadFailed) _refreshErrorNotice(),
+        const SizedBox(height: SlowlightSpacing.xl),
+        FxSectionHeader(
+          title: title,
+          trailing: '\${_visible.length} 项',
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        _card(
+          padding: const EdgeInsets.symmetric(
+            horizontal: SlowlightSpacing.md,
+            vertical: SlowlightSpacing.xs,
+          ),
+          child: _visible.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: SlowlightSpacing.page,
+                  ),
+                  child: _emptyState(),
+                )
+              : Column(
+                  children: _visible.map((task) {
+                    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+                      return _swipeTaskRow(task);
+                    }
+                    return _taskRow(task, compactMobile: true);
+                  }).toList(growable: false),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _mobileFilters() {
+    final items = <(String, int)>[
+      ('今天', _today.length),
+      ('全部', _all.length),
+      ('已完成', _completed.length),
+    ];
+    final theme = Theme.of(context);
+    return Row(
+      key: const ValueKey('tasks.mobile.filters'),
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: SlowlightSpacing.page),
+          FxInkWell(
+            key: ValueKey('tasks.mobile.filter.\${i}'),
+            onTap: () => setState(() {
+              _segment = i;
+              _revealedTaskId = null;
+            }),
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: SlowlightControlSize.minTouchTarget,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: SlowlightSpacing.xs,
+                vertical: SlowlightSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: _segment == i
+                        ? AppTheme.success
+                        : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(items[i].\$1',
+                      style: SlowlightTypography.componentControl(context)
+                          .copyWith(
+                        color: _segment == i
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurfaceVariant,
+                        fontWeight:
+                            _segment == i ? FontWeight.w700 : FontWeight.w500,
+                      )),
+                  const SizedBox(width: SlowlightSpacing.xs),
+                  Text(items[i].\$2.toString(),
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: _segment == i
+                            ? AppTheme.success
+                            : theme.colorScheme.onSurfaceVariant,
+                      )),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
