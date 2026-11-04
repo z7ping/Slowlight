@@ -985,6 +985,96 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _habitRow(Habit habit, bool mobile) {
     final theme = Theme.of(context);
     final color = _parseColor(habit.color);
+    if (mobile) {
+      return Container(
+        key: ValueKey('today.habit.${habit.id}'),
+        constraints: const BoxConstraints(minHeight: 52),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: fxDivider(context))),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(SlowlightRadius.md),
+              ),
+              child: Text(
+                habit.icon,
+                style: const TextStyle(fontSize: SlowlightTypography.bodySize),
+              ),
+            ),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(
+              child: FxInkWell(
+                onTap: widget.onViewAllHabits,
+                onLongPress: widget.onHabitLongPress == null
+                    ? null
+                    : () => widget.onHabitLongPress?.call(habit),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: SlowlightControlSize.minTouchTarget,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        habit.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.secondary(context)
+                            .copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        habit.frequencyText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.caption(context).copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (habit.streakCount > 0) ...[
+              const SizedBox(width: SlowlightSpacing.xs),
+              Text(
+                '🔥 ${habit.streakCount}',
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(width: SlowlightSpacing.md),
+            FxButton(
+              key: ValueKey('today.habit.record.${habit.id}'),
+              label: habit.allowMultiplePerDay
+                  ? '新增'
+                  : habit.checkedToday
+                      ? '已记录'
+                      : '记录',
+              icon: habit.checkedToday
+                  ? LucideIcons.circleCheck
+                  : LucideIcons.check,
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.secondary,
+              onPressed: widget.onHabitToggle == null
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      widget.onHabitToggle?.call(habit);
+                    },
+            ),
+          ],
+        ),
+      );
+    }
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: widget.onHabitToggle == null
