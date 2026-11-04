@@ -6,6 +6,7 @@ import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../services/data_service.dart';
+import '../services/api/task_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_picker.dart';
@@ -13,6 +14,7 @@ import 'tag_picker.dart';
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
   final Task task;
+  final bool isCreating;
   final List<TodoList> lists;
   final VoidCallback onChanged;
   final VoidCallback? onClose;
@@ -22,6 +24,7 @@ class TaskDetailSheet extends StatefulWidget {
   const TaskDetailSheet({
     super.key,
     required this.task,
+    this.isCreating = false,
     required this.lists,
     required this.onChanged,
     this.onClose,
@@ -34,6 +37,7 @@ class TaskDetailSheet extends StatefulWidget {
     required Task task,
     required List<TodoList> lists,
     required VoidCallback onChanged,
+    bool isCreating = false,
   }) {
     final desktop = MediaQuery.sizeOf(context).width >= 600;
     if (desktop) {
@@ -60,6 +64,7 @@ class TaskDetailSheet extends StatefulWidget {
                   child: SafeArea(
                     child: TaskDetailSheet(
                       task: task,
+                      isCreating: isCreating,
                       lists: lists,
                       onChanged: onChanged,
                       sidePanel: true,
@@ -109,11 +114,41 @@ class TaskDetailSheet extends StatefulWidget {
           ),
           child: TaskDetailSheet(
             task: task,
+            isCreating: isCreating,
             lists: lists,
             onChanged: onChanged,
           ),
         ),
       ),
+    );
+  }
+
+  /// Mobile task creation uses the exact same editor tree as editing.
+  /// The draft has no persisted identity; only _save may create it.
+  static Future<void> showCreate(
+    BuildContext context, {
+    required List<TodoList> lists,
+    required VoidCallback onChanged,
+  }) {
+    if (lists.isEmpty) return Future<void>.value();
+    final inboxes = lists.where((list) => list.isInbox);
+    final initialList = inboxes.isNotEmpty ? inboxes.first : lists.first;
+    final now = DateTime.now();
+    final draft = Task(
+      id: 0,
+      listId: initialList.id,
+      title: '',
+      priority: 'none',
+      dueDate: DateTime(now.year, now.month, now.day),
+      isCompleted: false,
+      createdAt: now,
+    );
+    return show(
+      context,
+      task: draft,
+      lists: lists,
+      onChanged: onChanged,
+      isCreating: true,
     );
   }
 
@@ -136,6 +171,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late List<Tag> _selectedTags;
   bool _saving = false;
   bool _mobileDirty = false;
+  bool _creationResultUnknown = false;
   bool _mobileExpanded = false;
   bool _mobileDescriptionOpen = false;
   bool _allowMobilePop = false;
@@ -165,6 +201,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _selectedTags = List<Tag>.from(task.tags);
     _mobileDescriptionOpen = _description.text.trim().isNotEmpty;
+    _mobileDirty = widget.isCreating;
   }
 
   @override
