@@ -103,7 +103,10 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   Widget _segments() => FxSegmented(
     labels: const ['今天', '全部', '已完成'],
     selectedIndex: _segment,
-    onChanged: (index) => setState(() => _segment = index),
+    onChanged: (index) => setState(() {
+      _segment = index;
+      _revealedTaskId = null;
+    }),
     backgroundColor: fxSubtleSurface(context),
     selectedColor: fxSurface(context),
     borderRadius: SlowlightRadius.md,
