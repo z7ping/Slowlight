@@ -13,6 +13,7 @@ import '../../services/data_service.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
 import '../reflection_composer.dart';
+import '../task_swipe_row.dart';
 import 'insight_card.dart';
 
 class DashboardBody extends StatefulWidget {
@@ -20,6 +21,7 @@ class DashboardBody extends StatefulWidget {
   final List<Habit> habits;
   final ValueChanged<Task>? onTaskTap;
   final ValueChanged<Task>? onTaskToggle;
+  final Future<void> Function(Task)? onTaskSwipeComplete;
   final ValueChanged<Habit>? onHabitToggle;
   final ValueChanged<Habit>? onHabitLongPress;
   final VoidCallback? onViewAllTasks;
@@ -46,6 +48,7 @@ class DashboardBody extends StatefulWidget {
     required this.habits,
     this.onTaskTap,
     this.onTaskToggle,
+    this.onTaskSwipeComplete,
     this.onHabitToggle,
     this.onHabitLongPress,
     this.onViewAllTasks,
@@ -84,6 +87,7 @@ class _DashboardBodyState extends State<DashboardBody> {
   List<Insight> _insights = const [];
   Map<String, dynamic> _facts = const {};
   final Set<String> _ignored = {};
+  int? _revealedTaskId;
 
   @override
   void initState() {
@@ -758,14 +762,27 @@ class _DashboardBodyState extends State<DashboardBody> {
         ),
       ),
     );
-    if (!mobile || task.isCompleted) return row;
-    return _MobileTaskSwipeRow(
+    if (!mobile || task.isCompleted || widget.onTaskToggle == null) {
+      return row;
+    }
+    return TaskSwipeRow(
       key: ValueKey('today-task-${task.id}'),
-      onPostpone: () => _postponeTask(task),
-      onComplete: () {
-        HapticFeedback.lightImpact();
-        widget.onTaskToggle?.call(task);
+      open: _revealedTaskId == task.id,
+      onOpenChanged: (open) {
+        final next = open ? task.id : null;
+        if (_revealedTaskId != next) {
+          setState(() => _revealedTaskId = next);
+        }
       },
+      onPostpone: () => _postponeTask(task),
+      onComplete: () async {
+        if (widget.onTaskSwipeComplete != null) {
+          await widget.onTaskSwipeComplete!(task);
+        } else {
+          widget.onTaskToggle?.call(task);
+        }
+      },
+      onMore: () => widget.onTaskTap?.call(task),
       child: row,
     );
   }
@@ -1102,118 +1119,3 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 }
 
-class _MobileTaskSwipeRow extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onPostpone;
-  final VoidCallback onComplete;
-
-  const _MobileTaskSwipeRow({
-    super.key,
-    required this.child,
-    required this.onPostpone,
-    required this.onComplete,
-  });
-
-  @override
-  State<_MobileTaskSwipeRow> createState() => _MobileTaskSwipeRowState();
-}
-
-class _MobileTaskSwipeRowState extends State<_MobileTaskSwipeRow> {
-  static const double _actionWidth = 70;
-  static const double _maxReveal = _actionWidth * 2;
-  double _offset = 0;
-
-  void _drag(DragUpdateDetails details) {
-    setState(() {
-      _offset = (_offset + details.delta.dx).clamp(-_maxReveal, 0).toDouble();
-    });
-  }
-
-  void _end(DragEndDetails details) {
-    final open =
-        details.velocity.pixelsPerSecond.dx < -250 || _offset < -_maxReveal / 2;
-    setState(() => _offset = open ? -_maxReveal : 0);
-  }
-
-  void _run(VoidCallback action) {
-    setState(() => _offset = 0);
-    action();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(SlowlightRadius.lg),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _SwipeAction(
-                  width: _actionWidth,
-                  background: AppTheme.warning,
-                  label: '⏱ 顺延',
-                  onTap: () => _run(widget.onPostpone),
-                ),
-                _SwipeAction(
-                  width: _actionWidth,
-                  background: AppTheme.success,
-                  label: '✓ 完成',
-                  onTap: () => _run(widget.onComplete),
-                ),
-              ],
-            ),
-          ),
-          Transform.translate(
-            offset: Offset(_offset, 0),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragUpdate: _drag,
-              onHorizontalDragEnd: _end,
-              child: widget.child,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SwipeAction extends StatelessWidget {
-  final double width;
-  final Color background;
-  final String label;
-  final VoidCallback onTap;
-
-  const _SwipeAction({
-    required this.width,
-    required this.background,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: background,
-      child: FxInkWell(
-        onTap: onTap,
-        child: SizedBox(
-          width: width,
-          height: double.infinity,
-          child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: SlowlightTypography.captionSize,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
