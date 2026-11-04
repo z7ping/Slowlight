@@ -59,6 +59,9 @@ void main() {
 
     expect(find.text('新建任务'), findsOneWidget);
     expect(find.text('任务详情'), findsNothing);
+    expect(tester.widget<FxInput>(
+      find.byKey(const ValueKey('task.detail.title')),
+    ).plain, isTrue);
     for (final field in ['list', 'due', 'priority', 'repeat']) {
       expect(find.byKey(ValueKey('task.detail.property.$field')),
           findsOneWidget);
@@ -110,6 +113,9 @@ void main() {
 
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.byKey(const ValueKey('task.detail.title')), findsOneWidget);
+    expect(tester.widget<FxInput>(
+      find.byKey(const ValueKey('task.detail.title')),
+    ).plain, isTrue);
     expect(find.byKey(const ValueKey('task.detail.property.list')), findsOneWidget);
     expect(find.byKey(const ValueKey('task.detail.property.due')), findsOneWidget);
     expect(find.byKey(const ValueKey('task.detail.property.priority')), findsOneWidget);
