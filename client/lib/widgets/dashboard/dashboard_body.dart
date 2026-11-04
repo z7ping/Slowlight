@@ -1072,27 +1072,27 @@ class _DashboardBodyState extends State<DashboardBody> {
                     ),
                   ),
                 FxIconButton(
-              key: ValueKey('today.habit.record.${habit.id}'),
-              icon: habit.allowMultiplePerDay
-                  ? LucideIcons.circlePlus
-                  : habit.checkedToday
-                      ? LucideIcons.circleCheck
-                      : LucideIcons.circle,
-              iconSize: SlowlightIconSize.xl,
-              foregroundColor: habit.checkedToday && !habit.allowMultiplePerDay
-                  ? AppTheme.success
-                  : theme.colorScheme.onSurfaceVariant,
-              tooltip: habit.allowMultiplePerDay
-                  ? '为「${habit.name}」新增一次记录'
-                  : habit.checkedToday
-                      ? '已记录「${habit.name}」，点击可取消今天的打卡'
-                      : '记录「${habit.name}」今天的打卡',
-              onPressed: widget.onHabitToggle == null
-                  ? null
-                  : () {
-                      HapticFeedback.lightImpact();
-                      widget.onHabitToggle?.call(habit);
-                    },
+                  key: ValueKey('today.habit.record.${habit.id}'),
+                  icon: habit.allowMultiplePerDay
+                      ? LucideIcons.circlePlus
+                      : habit.checkedToday
+                          ? LucideIcons.circleCheck
+                          : LucideIcons.circle,
+                  iconSize: SlowlightIconSize.xl,
+                  foregroundColor: habit.checkedToday && !habit.allowMultiplePerDay
+                      ? AppTheme.success
+                      : theme.colorScheme.onSurfaceVariant,
+                  tooltip: habit.allowMultiplePerDay
+                      ? '为「${habit.name}」新增一次记录'
+                      : habit.checkedToday
+                          ? '已记录「${habit.name}」，点击可取消今天的打卡'
+                          : '记录「${habit.name}」今天的打卡',
+                  onPressed: widget.onHabitToggle == null
+                      ? null
+                      : () {
+                          HapticFeedback.lightImpact();
+                          widget.onHabitToggle?.call(habit);
+                        },
                 ),
               ],
             ),
