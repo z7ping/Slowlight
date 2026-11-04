@@ -200,7 +200,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     }
     // Mobile creates and edits through one editor and the same property rows.
     // Keep the existing desktop create dialog untouched.
-    if (MediaQuery.sizeOf(context).width < 600) {
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
       await TaskDetailSheet.showCreate(
         context,
         lists: _lists,
