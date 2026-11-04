@@ -15,7 +15,11 @@ import '../widgets/task_detail_sheet.dart';
 /// 快速捕获想法，稍后整理到清单。
 /// 功能：查看收集箱任务、快速添加、移动到清单、点击查看详情。
 class InboxScreen extends StatefulWidget {
-  const InboxScreen({super.key});
+  // Test seams for creation-result recovery without a live service.
+  final Future<({List<Task> tasks, List<TodoList> lists})> Function()? dataLoader;
+  final Future<Task> Function(String title)? createTask;
+
+  const InboxScreen({super.key, this.dataLoader, this.createTask});
 
   @override
   State<InboxScreen> createState() => _InboxScreenState();
@@ -44,16 +48,22 @@ class _InboxScreenState extends State<InboxScreen> {
 
   Future<void> _loadAll() async {
     try {
-      final data = await ApiService.getInbox();
-      final lists = await ApiService.getLists();
+      final values = widget.dataLoader != null
+          ? await widget.dataLoader!()
+          : await (() async {
+              final data = await ApiService.getInbox();
+              final lists = await ApiService.getLists();
+              final tasks = (data['tasks'] as List)
+                  .map((t) => t is Task
+                      ? t
+                      : Task.fromJson(Map<String, dynamic>.from(t as Map)))
+                  .toList();
+              return (tasks: tasks, lists: lists);
+            })();
       if (!mounted) return;
       setState(() {
-        _tasks = (data['tasks'] as List)
-            .map((t) => t is Task
-                ? t
-                : Task.fromJson(Map<String, dynamic>.from(t as Map)))
-            .toList();
-        _allLists = lists;
+        _tasks = values.tasks;
+        _allLists = values.lists;
         _isLoading = false;
       });
     } catch (e) {
@@ -67,7 +77,8 @@ class _InboxScreenState extends State<InboxScreen> {
     if (title.isEmpty) return;
     setState(() => _quickAdding = true);
     try {
-      final task = await DataService().quickAddToInbox(title);
+      final task = await (widget.createTask?.call(title) ??
+          DataService().quickAddToInbox(title));
       if (!mounted) return;
       // Clear only the submitted value, not anything typed while saving.
       if (_quickAddController.text.trim() == title) {
@@ -121,7 +132,7 @@ class _InboxScreenState extends State<InboxScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.warmWhite,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -225,7 +236,7 @@ class _InboxScreenState extends State<InboxScreen> {
                                   titleStyle: SlowlightTypography.body(context),
                                   subtitleStyle: SlowlightTypography.caption(
                                     context,
-                                  ).copyWith(color: AppTheme.warmGray400),
+                                  ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                                   trailing: FxIconButton(
                                     icon: LucideIcons.folderInput,
                                     iconSize: 20,
@@ -266,7 +277,7 @@ class _InboxScreenState extends State<InboxScreen> {
               placeholder: '快速记录想法...',
               placeholderStyle: SlowlightTypography.secondary(
                 context,
-              ).copyWith(color: AppTheme.warmGray400),
+              ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               style: SlowlightTypography.body(context),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _quickAdd(),
