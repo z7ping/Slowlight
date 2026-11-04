@@ -874,41 +874,62 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _habitCard({required int maxItems, required bool mobile}) {
     final checked = widget.habits.where((habit) => habit.checkedToday).length;
     final visible = widget.habits.take(maxItems).toList(growable: false);
+    final header = FxSectionHeader(
+      title: '习惯',
+      trailing: widget.habitsLoading
+          ? '读取中'
+          : widget.habitsError
+              ? (visible.isEmpty ? '数量未知' : '上次数据')
+              : widget.habits.isEmpty
+                  ? '暂无习惯'
+                  : '${checked}/${widget.habits.length} 已打卡',
+      trailingWidget: widget.onViewAllHabits == null
+          ? null
+          : FxButton(
+              label: '查看全部',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: widget.onViewAllHabits,
+            ),
+    );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.habitsLoading || widget.habitsError)
+          _coreStatus('习惯', widget.habitsLoading, widget.habitsError,
+              visible.isNotEmpty),
+        if (visible.isEmpty && !widget.habitsLoading && !widget.habitsError)
+          _emptyWithNext(
+            '还没有习惯记录',
+            '去创建第一个习惯',
+            widget.onViewAllHabits,
+            compact: mobile,
+          )
+        else
+          ...visible.map((habit) => _habitRow(habit, mobile)),
+      ],
+    );
+    if (mobile) {
+      return Column(
+        key: const ValueKey('today.section.habits'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.md),
+          _card(
+            content,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.xl,
+              vertical: SlowlightSpacing.xs,
+            ),
+          ),
+        ],
+      );
+    }
     return _card(
       Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FxSectionHeader(
-            title: '习惯',
-            trailing: widget.habitsLoading
-                ? '读取中'
-                : widget.habitsError
-                    ? (visible.isEmpty ? '数量未知' : '上次数据')
-                    : widget.habits.isEmpty
-                        ? '暂无习惯'
-                        : '$checked/${widget.habits.length} 已打卡',
-            trailingWidget: widget.onViewAllHabits == null
-                ? null
-                : FxButton(
-                    label: '查看全部',
-                    variant: FxButtonVariant.ghost,
-                    size: FxButtonSize.sm,
-                    onPressed: widget.onViewAllHabits,
-                  ),
-          ),
-          if (widget.habitsLoading || widget.habitsError)
-            _coreStatus('习惯', widget.habitsLoading, widget.habitsError,
-                visible.isNotEmpty),
-          if (visible.isEmpty && !widget.habitsLoading && !widget.habitsError)
-            _emptyWithNext(
-              '还没有习惯记录',
-              '去创建第一个习惯',
-              widget.onViewAllHabits,
-              compact: mobile,
-            )
-          else
-            ...visible.map((habit) => _habitRow(habit, mobile)),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [header, content],
       ),
       padding: const EdgeInsets.fromLTRB(
         SlowlightSpacing.xl,
