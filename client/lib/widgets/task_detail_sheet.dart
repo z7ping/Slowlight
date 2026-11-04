@@ -197,6 +197,31 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (!_mobileDirty) setState(() => _mobileDirty = true);
   }
 
+  Future<void> _mobileToggleCompleted() async {
+    if (_saving) return;
+    if (_mobileDirty) {
+      FxNotice.showContent(context, const Text('请先保存修改，再更改任务状态'));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      if (widget.task.isCompleted) {
+        await DataService().uncompleteTask(widget.task.id, null);
+      } else {
+        await DataService().completeTask(widget.task.id, null);
+      }
+      widget.onChanged();
+      if (mounted) _close();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      FxNotice.showContent(
+        context,
+        const Text('任务状态更新结果未确认，请核对后重试'),
+      );
+    }
+  }
+
   Future<void> _requestMobileClose() async {
     if (_mobilePage != null) {
       setState(() => _mobilePage = null);
@@ -300,20 +325,17 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       children: [
         Row(
           children: [
-            SizedBox(
-              width: SlowlightControlSize.minTouchTarget,
-              height: SlowlightControlSize.minTouchTarget,
-              child: Center(
-                child: Icon(
-                  widget.task.isCompleted
-                      ? LucideIcons.circleCheck
-                      : LucideIcons.circle,
-                  size: SlowlightIconSize.xl,
-                  color: widget.task.isCompleted
-                      ? AppTheme.success
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+            FxIconButton(
+              key: const ValueKey('task.detail.complete'),
+              icon: widget.task.isCompleted
+                  ? LucideIcons.circleCheck
+                  : LucideIcons.circle,
+              iconSize: SlowlightIconSize.xl,
+              tooltip: widget.task.isCompleted ? '恢复待办' : '完成任务',
+              foregroundColor: widget.task.isCompleted
+                  ? AppTheme.success
+                  : theme.colorScheme.onSurfaceVariant,
+              onPressed: _saving ? null : _mobileToggleCompleted,
             ),
             const SizedBox(width: SlowlightSpacing.md),
             Expanded(
