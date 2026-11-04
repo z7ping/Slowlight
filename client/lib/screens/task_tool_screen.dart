@@ -198,6 +198,16 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       _message('请先创建一个清单');
       return;
     }
+    // Mobile creates and edits through one editor and the same property rows.
+    // Keep the existing desktop create dialog untouched.
+    if (MediaQuery.sizeOf(context).width < 600) {
+      await TaskDetailSheet.showCreate(
+        context,
+        lists: _lists,
+        onChanged: _load,
+      );
+      return;
+    }
     final created = await TaskCreateSheet.showFullCreate(
       context,
       lists: _lists,
