@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -76,6 +77,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       GlobalKey<ScaffoldState>();
   // FAB 的实际布局坐标（相对于手机内容区域）；为空时停靠右下角。
   Offset? _fabPosition;
+  bool _fabAutoHidden = false;
   DateTime? _lastAndroidBackAt;
 
   @override
@@ -583,12 +585,32 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
         return Stack(
           children: [
-            Positioned.fill(child: content),
+            Positioned.fill(
+              child: NotificationListener<UserScrollNotification>(
+                onNotification: (notification) {
+                  // Floating quick-add must not cover the buttons beneath it
+                  // while the user is moving through the Today workspace.
+                  final direction = notification.direction;
+                  if (direction == ScrollDirection.idle) return false;
+                  final hide = direction == ScrollDirection.reverse;
+                  if (_fabAutoHidden != hide && mounted) {
+                    setState(() => _fabAutoHidden = hide);
+                  }
+                  return false;
+                },
+                child: content,
+              ),
+            ),
             if (_navigation.isToday)
               Positioned(
                 left: left,
                 top: top,
-                child: _mobileQuickAddButton(
+                child: IgnorePointer(
+                  ignoring: _fabAutoHidden,
+                  child: AnimatedOpacity(
+                    opacity: _fabAutoHidden ? 0 : 1,
+                    duration: const Duration(milliseconds: 160),
+                    child: _mobileQuickAddButton(
                   onPanUpdate: (details) {
                     setState(() {
                       final current = _fabPosition ?? Offset(left, top);
@@ -600,6 +622,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                       );
                     });
                   },
+                    ),
+                  ),
                 ),
               ),
           ],
