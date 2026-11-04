@@ -113,6 +113,43 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  for (final scale in [1.3, 2.0]) {
+    testWidgets('Android 360dp 大字号 $scale 下核心属性与底部保存可达',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(360, 880);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildFxTestHost(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+          ),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: TaskDetailSheet(
+            task: task,
+            lists: lists,
+            onChanged: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('task.detail.property.list')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('task.detail.primaryAction')),
+          findsOneWidget);
+      final save = find.byKey(const ValueKey('task.detail.primaryAction'));
+      expect(tester.getSize(save).height, greaterThanOrEqualTo(44));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('Windows 任务详情保留紧凑右侧面板操作区', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
