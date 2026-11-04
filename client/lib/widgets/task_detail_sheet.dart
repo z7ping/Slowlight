@@ -649,10 +649,29 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
+  String _mobileValueSnapshot() {
+    final days = _weekdays.toList()..sort();
+    final tags = _selectedTags.map((tag) => tag.id).toList()..sort();
+    return [
+      _listId,
+      _dueDate?.toIso8601String(),
+      _priority,
+      _repeatType,
+      _repeatInterval,
+      days.join(','),
+      _dueTime?.hour,
+      _dueTime?.minute,
+      _reminderAt?.toIso8601String(),
+      _reminderAdvanceMinutes,
+      tags.join(','),
+    ].join('|');
+  }
+
   void _mobileSelect(VoidCallback change, {bool stay = false}) {
+    final before = _mobileValueSnapshot();
     setState(() {
       change();
-      _mobileDirty = true;
+      if (_mobileValueSnapshot() != before) _mobileDirty = true;
       if (!stay) _mobilePage = null;
     });
   }
@@ -814,21 +833,36 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final before = _dueDate;
     await _pickDate();
     if (!mounted) return;
-    if (_dueDate != before) _mobileSelect(() {});
+    if (_dueDate != before) {
+      setState(() {
+        _mobileDirty = true;
+        _mobilePage = null;
+      });
+    }
   }
 
   Future<void> _mobilePickTime() async {
     final before = _dueTime;
     await _pickTime();
     if (!mounted) return;
-    if (_dueTime != before) _mobileSelect(() {});
+    if (_dueTime != before) {
+      setState(() {
+        _mobileDirty = true;
+        _mobilePage = null;
+      });
+    }
   }
 
   Future<void> _mobilePickReminder() async {
     final before = _reminderAt;
     await _pickReminder();
     if (!mounted) return;
-    if (_reminderAt != before) _mobileSelect(() {});
+    if (_reminderAt != before) {
+      setState(() {
+        _mobileDirty = true;
+        _mobilePage = null;
+      });
+    }
   }
 
   Widget _mobileFooter() {
