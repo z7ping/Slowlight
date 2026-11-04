@@ -291,6 +291,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _requestMobileClose({bool backFromSystem = false}) async {
+    if (_saving) return;
     if (backFromSystem && _mobilePage != null) {
       setState(() => _mobilePage = null);
       return;
@@ -418,6 +419,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 key: const ValueKey('task.detail.title'),
                 controller: _title,
                 enabled: !_saving,
+                autofocus: widget.isCreating,
                 plain: true,
                 contentPadding: const EdgeInsets.symmetric(
                   vertical: SlowlightSpacing.xs,
