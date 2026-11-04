@@ -548,7 +548,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   Widget _swipeTaskRow(Task task) {
     // Keep completed and pending items on the same 48dp row rhythm.
     // Completed tasks retain the click target but have no swipe actions.
-    final row = _taskRow(task, verticalPadding: 0);
+    final row = _taskRow(task, verticalPadding: 0, compactMobile: true);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs / 2),
       child: task.isCompleted
@@ -574,10 +574,14 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     Task task, {
     double verticalPadding = SlowlightSpacing.xs,
     bool selected = false,
+    bool compactMobile = false,
   }) {
     final theme = Theme.of(context);
+    final listName = task.list?.name ??
+        ([for (final list in _lists)
+          if (list.id == task.listId) list.name].firstOrNull);
     final meta = <String>[
-      if ((task.list?.name ?? '').trim().isNotEmpty) task.list!.name,
+      if ((listName ?? '').trim().isNotEmpty) listName!,
       if (!task.isCompleted && task.dueDate != null)
         _sameDay(task.dueDate!, DateTime.now())
             ? '今天${task.dueTime == null || task.dueTime!.isEmpty ? '' : ' ${task.dueTime}'}'
@@ -610,18 +614,22 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
           border: Border(bottom: BorderSide(color: fxSubtleSurface(context))),
         ),
-        child: Row(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: compactMobile ? 60 : 0),
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 3,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppTheme.priorityColor(task.priority),
-                borderRadius: BorderRadius.circular(2),
+            if (!compactMobile) ...[
+              Container(
+                width: 3,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.priorityColor(task.priority),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
+              const SizedBox(width: 10),
+            ],
             FxInkWell(
               borderRadius: BorderRadius.circular(999),
               onTap: () => _toggle(task),
@@ -691,15 +699,22 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 ],
               ),
             ),
-            if (!task.isCompleted && task.taskType == 'ongoing')
+            if (!compactMobile && !task.isCompleted && task.taskType == 'ongoing')
               FxChip(
                 label: '进行中',
                 backgroundColor: activePalette.accent.withValues(alpha: .12),
                 foregroundColor: activePalette.accent,
-                borderRadius: 999,
+                borderRadius: SlowlightRadius.pill,
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
               ),
+            if (compactMobile)
+              Icon(
+                LucideIcons.chevronRight,
+                size: SlowlightIconSize.sm,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
           ],
+        ),
         ),
       ),
     );
