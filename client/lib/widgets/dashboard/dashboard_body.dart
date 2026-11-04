@@ -184,7 +184,7 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Widget _card(Widget child, {EdgeInsetsGeometry? padding}) {
     return FxCard(
-      padding: padding ?? const EdgeInsets.all(16),
+      padding: padding ?? const EdgeInsets.all(SlowlightSpacing.xl),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
@@ -215,7 +215,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                 variant: FxButtonVariant.outline,
                 onPressed: widget.onRefresh),
           ],
-          const SizedBox(height: SlowlightSpacing.xxxl),
+          const SizedBox(height: SlowlightSpacing.xl),
           desktop ? _desktop() : _mobile(),
         ],
       ),
@@ -288,7 +288,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                   children: [
                     _timelineCard(),
                     if (_shouldShowQuestion) ...[
-                      const SizedBox(height: SlowlightSpacing.xxxl),
+                      const SizedBox(height: SlowlightSpacing.xl),
                       _questionCard(),
                     ],
                   ],
@@ -300,14 +300,14 @@ class _DashboardBodyState extends State<DashboardBody> {
                 child: Column(
                   children: [
                     _taskCard(maxItems: 4, mobile: false),
-                    const SizedBox(height: SlowlightSpacing.xxxl),
+                    const SizedBox(height: SlowlightSpacing.xl),
                     _habitCard(maxItems: 4, mobile: false),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: SlowlightSpacing.xxxl),
+          const SizedBox(height: SlowlightSpacing.xl),
           _dimensionCard(mobile: false),
         ],
       );
@@ -315,17 +315,17 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _mobile() => Column(
         children: [
           _overviewCard(),
-          const SizedBox(height: SlowlightSpacing.xxxl),
+          const SizedBox(height: SlowlightSpacing.xl),
           _taskCard(maxItems: 3, mobile: true),
-          const SizedBox(height: SlowlightSpacing.xxxl),
+          const SizedBox(height: SlowlightSpacing.xl),
           _timelineCard(),
-          const SizedBox(height: SlowlightSpacing.xxxl),
+          const SizedBox(height: SlowlightSpacing.xl),
           _habitCard(maxItems: 3, mobile: true),
           if (_shouldShowQuestion) ...[
-            const SizedBox(height: SlowlightSpacing.xxxl),
+            const SizedBox(height: SlowlightSpacing.xl),
             _questionCard(),
           ],
-          const SizedBox(height: SlowlightSpacing.xxxl),
+          const SizedBox(height: SlowlightSpacing.xl),
           _dimensionCard(mobile: true),
         ],
       );
@@ -353,15 +353,15 @@ class _DashboardBodyState extends State<DashboardBody> {
                     onPressed: widget.onStartFocus,
                   ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: SlowlightSpacing.md),
           Row(
             children: [
               for (var i = 0; i < counts.length; i++) ...[
                 if (i > 0)
                   Container(
-                    height: 42,
+                    height: 36,
                     width: 1,
-                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    margin: const EdgeInsets.symmetric(horizontal: SlowlightSpacing.md),
                     color: fxDivider(context),
                   ),
                 Expanded(
@@ -387,7 +387,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           ],
         ],
       ),
-      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
     );
   }
 
@@ -418,14 +418,14 @@ class _DashboardBodyState extends State<DashboardBody> {
                     onPressed: widget.onViewReview,
                   ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: SlowlightSpacing.xs),
           if (_timelineLoadFailed)
             _partialUnavailable('今天的轨迹暂时无法读取')
           else if (_timelineLoading && _timeline.isEmpty)
             _empty('正在读取今天的轨迹…')
           else if (_timeline.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -462,7 +462,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           ],
         ],
       ),
-      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
     );
   }
 
@@ -476,7 +476,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       _ => LucideIcons.bookOpen,
     };
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -518,7 +518,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                     onPressed: widget.onViewReview,
                   ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: SlowlightSpacing.md),
           if (_dimensionLoadFailed)
             _partialUnavailable('四维统计暂时不可用')
           else if (_dimensionLoading && _dimensions.isEmpty)
@@ -555,7 +555,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             ),
         ],
       ),
-      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
     );
   }
 
@@ -566,7 +566,10 @@ class _DashboardBodyState extends State<DashboardBody> {
     final activeCount =
         _lastSevenDays().where((day) => active.contains(_dateKey(day))).length;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: SlowlightSpacing.md,
+        vertical: SlowlightSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .06),
         border: Border.all(color: color.withValues(alpha: .18)),
@@ -655,9 +658,9 @@ class _DashboardBodyState extends State<DashboardBody> {
         ],
       ),
       padding: const EdgeInsets.fromLTRB(
-        SlowlightSpacing.xxxl,
-        SlowlightSpacing.xxxl,
-        SlowlightSpacing.xxxl,
+        SlowlightSpacing.xl,
+        SlowlightSpacing.xl,
+        SlowlightSpacing.xl,
         SlowlightSpacing.md,
       ),
     );
@@ -673,7 +676,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       onTap: () => widget.onTaskTap?.call(task),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 52),
+        constraints: const BoxConstraints(minHeight: 48),
         decoration: BoxDecoration(
           color: fxSurface(context),
           border: Border(bottom: BorderSide(color: fxDivider(context))),
@@ -844,9 +847,9 @@ class _DashboardBodyState extends State<DashboardBody> {
         ],
       ),
       padding: const EdgeInsets.fromLTRB(
-        SlowlightSpacing.xxxl,
-        SlowlightSpacing.xxxl,
-        SlowlightSpacing.xxxl,
+        SlowlightSpacing.xl,
+        SlowlightSpacing.xl,
+        SlowlightSpacing.xl,
         SlowlightSpacing.md,
       ),
     );
@@ -887,7 +890,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               widget.onHabitLongPress?.call(habit);
             },
       child: Container(
-        constraints: const BoxConstraints(minHeight: 56),
+        constraints: const BoxConstraints(minHeight: 48),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: fxDivider(context))),
         ),
@@ -1019,7 +1022,7 @@ class _DashboardBodyState extends State<DashboardBody> {
           ],
         ),
       ),
-      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
     );
   }
 
@@ -1047,7 +1050,9 @@ class _DashboardBodyState extends State<DashboardBody> {
     bool compact = false,
   }) =>
       Padding(
-        padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
+        padding: EdgeInsets.symmetric(
+          vertical: compact ? SlowlightSpacing.xs : SlowlightSpacing.md,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1067,7 +1072,9 @@ class _DashboardBodyState extends State<DashboardBody> {
       );
 
   Widget _empty(String text, {bool compact = false}) => Padding(
-        padding: EdgeInsets.symmetric(vertical: compact ? 8 : 14),
+        padding: EdgeInsets.symmetric(
+          vertical: compact ? SlowlightSpacing.xs : SlowlightSpacing.md,
+        ),
         child: Text(
           text,
           style: SlowlightTypography.secondary(
