@@ -110,7 +110,7 @@ class TaskDetailSheet extends StatefulWidget {
             maxWidth: MediaQuery.sizeOf(sheetContext).width,
             maxHeight: (MediaQuery.sizeOf(sheetContext).height -
                     MediaQuery.viewInsetsOf(sheetContext).bottom) *
-                .90,
+                .84,
           ),
           child: TaskDetailSheet(
             task: task,
@@ -201,7 +201,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _selectedTags = List<Tag>.from(task.tags);
     _mobileDescriptionOpen = _description.text.trim().isNotEmpty;
-    _mobileDirty = widget.isCreating;
+    _mobileDirty = false;
   }
 
   @override
@@ -233,11 +233,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
 
   void _mobileChanged([String? _]) {
-    if (!_mobileDirty) setState(() => _mobileDirty = true);
+    // Rebuild the primary button when a new task first gets a title.
+    setState(() => _mobileDirty = true);
   }
 
   Future<void> _mobileToggleCompleted() async {
-    if (_saving) return;
+    if (_saving || widget.isCreating) return;
     if (_mobileDirty) {
       FxNotice.showContent(context, const Text('请先保存修改，再更改任务状态'));
       return;
@@ -370,11 +371,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   ? LucideIcons.circleCheck
                   : LucideIcons.circle,
               iconSize: SlowlightIconSize.xl,
-              tooltip: widget.task.isCompleted ? '恢复待办' : '完成任务',
+              tooltip: widget.isCreating
+                  ? '创建后可完成任务'
+                  : widget.task.isCompleted ? '恢复待办' : '完成任务',
               foregroundColor: widget.task.isCompleted
                   ? AppTheme.success
                   : theme.colorScheme.onSurfaceVariant,
-              onPressed: _saving ? null : _mobileToggleCompleted,
+              onPressed: _saving || widget.isCreating
+                  ? null : _mobileToggleCompleted,
             ),
             const SizedBox(width: SlowlightSpacing.md),
             Expanded(
@@ -390,18 +394,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ],
         ),
         const SizedBox(height: SlowlightSpacing.md),
-        Padding(
-          padding: const EdgeInsets.only(
-            left: SlowlightControlSize.minTouchTarget + SlowlightSpacing.md,
-          ),
-          child: Text(
-            listLabel,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        const SizedBox(height: SlowlightSpacing.xl),
         if (_mobileDescriptionOpen)
           FxInput(
             key: const ValueKey('task.detail.description'),
@@ -437,7 +429,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               ),
             ),
           ),
-        const SizedBox(height: SlowlightSpacing.xl),
+        const SizedBox(height: SlowlightSpacing.md),
         Text(
           '任务属性',
           style: SlowlightTypography.caption(context).copyWith(
@@ -800,6 +792,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _mobileFooter() {
+    final canSave = widget.isCreating
+        ? _title.text.trim().isNotEmpty && !_creationResultUnknown
+        : _mobileDirty;
     return SafeArea(
       top: false,
       child: Padding(
@@ -813,10 +808,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           children: [
             Expanded(
               child: Text(
-                _mobilePage == null
-                    ? (_saving ? '正在保存…' :
-                        (_mobileDirty ? '有未保存的修改' : '已保存'))
-                    : '修改后返回详情',
+                _mobilePage != null
+                    ? '修改后返回详情'
+                    : _saving
+                        ? '正在保存…'
+                        : _creationResultUnknown
+                            ? '创建结果未确认'
+                            : widget.isCreating
+                                ? (_mobileDirty ? '尚未创建' : '填写任务名称')
+                                : (_mobileDirty ? '有未保存的修改' : '已保存'),
                 style: SlowlightTypography.caption(context).copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -825,15 +825,20 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             const SizedBox(width: SlowlightSpacing.md),
             FxButton(
               key: const ValueKey('task.detail.primaryAction'),
-              label: _mobilePage == null
-                  ? (_saving ? '保存中…' : '保存修改')
-                  : '完成',
+              label: _mobilePage != null
+                  ? '完成'
+                  : widget.isCreating
+                      ? (_saving ? '创建中…' : '创建任务')
+                      : (_saving ? '保存中…' : '保存修改'),
+              variant: _mobilePage == null && !canSave
+                  ? FxButtonVariant.secondary
+                  : FxButtonVariant.primary,
               size: FxButtonSize.sm,
               onPressed: _saving
                   ? null
                   : _mobilePage != null
                       ? () => setState(() => _mobilePage = null)
-                      : _mobileDirty
+                      : canSave
                           ? _save
                           : null,
             ),
@@ -878,7 +883,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             children: [
               Expanded(
                 child: Text(
-                  '任务详情',
+                  widget.isCreating ? '新建任务' : '任务详情',
                   style: SlowlightTypography.cardTitle(context).copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -891,7 +896,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   foregroundColor: activePalette.accent,
                   borderRadius: SlowlightRadius.pill,
                 ),
-              if (!widget.sidePanel) ...[
+              if (!widget.sidePanel && !widget.isCreating) ...[
                 const SizedBox(width: 4),
                 FxMenu<String>(
                   tooltip: '更多操作',
