@@ -32,6 +32,7 @@ void main() {
     List<Task> tasks = const [],
     List<Habit> habits = const [],
     ValueChanged<Task>? onTaskToggle,
+    VoidCallback? onStartFocus,
   }) => buildFxTestHost(
     home: Scaffold(body: MediaQuery(
       data: MediaQueryData(size: Size(width, 800)),
@@ -39,6 +40,7 @@ void main() {
         tasks: tasks,
         habits: habits,
         onTaskToggle: onTaskToggle,
+        onStartFocus: onStartFocus,
         reviewLoader: () async => {
           'questions': [],
           'facts': {
@@ -72,11 +74,69 @@ void main() {
       expect(find.text('习惯'), findsOneWidget);
       expect(find.text('今天值得留意的一件小事'), findsOneWidget);
       expect(find.text('专注 25 分钟'), findsOneWidget);
-      expect(find.text('最近 7 天 · 四维足迹'), findsOneWidget);
+      if (width < 600) {
+        // Mobile Today is action-first, while review owns the statistics.
+        expect(find.text('今日事实'), findsNothing);
+        expect(find.text('最近 7 天 · 四维足迹'), findsNothing);
+        expect(find.byKey(const ValueKey('today.section.tasks')), findsOneWidget);
+        expect(find.byKey(const ValueKey('today.section.habits')), findsOneWidget);
+        expect(find.byKey(const ValueKey('today.section.timeline')), findsOneWidget);
+      } else {
+        expect(find.text('今日事实'), findsOneWidget);
+        expect(find.text('最近 7 天 · 四维足迹'), findsOneWidget);
+      }
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
   }
+
+  testWidgets('移动端严格按照原型呈现任务→习惯→轨迹，标题不再放进卡片',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(host(
+      width: 390,
+      tasks: [
+        Task(
+          id: 11,
+          listId: 1,
+          title: '整理今天的计划',
+          priority: 'none',
+          isCompleted: false,
+          createdAt: now,
+        ),
+      ],
+      onTaskToggle: (_) {},
+      onStartFocus: () {},
+    ));
+    await tester.pumpAndSettle();
+
+    final tasks = find.byKey(const ValueKey('today.section.tasks'));
+    final habits = find.byKey(const ValueKey('today.section.habits'));
+    final timeline = find.byKey(const ValueKey('today.section.timeline'));
+    expect(tester.getTopLeft(tasks).dy, lessThan(tester.getTopLeft(habits).dy));
+    expect(tester.getTopLeft(habits).dy, lessThan(tester.getTopLeft(timeline).dy));
+    expect(find.text('开始专注'), findsOneWidget);
+    expect(find.text('记录行动，也记录生活。'), findsOneWidget);
+
+    final title = find.text('今日任务');
+    final panel = find.descendant(of: tasks, matching: find.byType(FxCard)).first;
+    final row = find.byKey(const ValueKey('today-task-11'));
+    // The heading is above the card, not hidden below a large card inset.
+    expect(tester.getBottomLeft(title).dy,
+        lessThan(tester.getTopLeft(panel).dy));
+    expect(tester.getTopLeft(panel).dy - tester.getBottomLeft(title).dy,
+        lessThan(20));
+    expect(tester.getTopLeft(row).dy - tester.getTopLeft(panel).dy,
+        lessThan(18));
+    expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('Android 今日卡片收紧内边距，任务热区保持不小于 44dp',
       (tester) async {
