@@ -254,7 +254,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                                   children: _visible
                                       .map(
                                         (task) =>
-                                            mobile
+                                            mobile && SlowlightPlatformDensity.usesMobileTouchTargets
                                                 ? _swipeTaskRow(task)
                                                 : _taskRow(task),
                                       )
