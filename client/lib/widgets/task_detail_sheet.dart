@@ -514,7 +514,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final theme = Theme.of(context);
     return FxInkWell(
       key: ValueKey('task.detail.property.${field}'),
-      onTap: _saving ? null : () => setState(() => _mobilePage = field),
+      onTap: _saving
+          ? null
+          : () {
+              FocusScope.of(context).unfocus();
+              setState(() => _mobilePage = field);
+            },
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 49),
         child: Row(
