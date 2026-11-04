@@ -28,7 +28,8 @@ void main() {
     ),
   ];
 
-  testWidgets('Android 任务详情按创建任务字段顺序展示，隐藏兼容分类', (tester) async {
+  testWidgets('Android 任务详情显示核心属性，使用同一 Sheet 内的编辑视图',
+      (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 880);
@@ -44,32 +45,70 @@ void main() {
         ),
       ),
     ));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('任务详情'), findsOneWidget);
-    expect(find.text('清单'), findsOneWidget);
-    expect(find.text('优先级'), findsOneWidget);
-    expect(find.text('时间安排'), findsOneWidget);
-    expect(find.text('到期日期'), findsOneWidget);
-    expect(find.text('重复'), findsOneWidget);
-    expect(find.byType(TagPicker), findsOneWidget);
-    expect(tester.widget<TagPicker>(find.byType(TagPicker)).label, '标签');
+    expect(find.byKey(const ValueKey('task.detail.title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.property.list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.property.due')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.property.priority')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.property.repeat')), findsOneWidget);
+    expect(find.text('时间安排'), findsNothing);
+    expect(find.byType(TagPicker), findsNothing);
     expect(find.text('历史分类（兼容）'), findsNothing);
-    expect(find.text('归属维度（可选）'), findsNothing);
-
-    final chips = tester.widgetList<FxChoiceChip>(find.byType(FxChoiceChip));
-    expect(chips.any((chip) => chip.label == '不重要 · 不紧急' && chip.selected), isTrue);
-    expect(chips.any((chip) => chip.label == '高'), isTrue);
-    expect(chips.any((chip) => chip.label == '中'), isTrue);
-    expect(chips.any((chip) => chip.label == '低'), isTrue);
-    final selects = tester.widgetList<FxSelect<String>>(
-      find.byType(FxSelect<String>),
-    );
-    expect(selects.any((widget) =>
-      widget.options.any((option) => option.value == 'yearly')), isTrue);
-    expect(find.byType(FxMenu<String>), findsOneWidget);
-    expect(find.text('删除'), findsNothing);
     expect(find.text('保存修改'), findsOneWidget);
+    expect(find.text('已保存'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    expect(find.text('设置优先级'), findsOneWidget);
+    expect(find.text('高'), findsOneWidget);
+    await tester.tap(find.text('高'));
+    await tester.pumpAndSettle();
+    expect(find.text('任务详情'), findsOneWidget);
+    expect(find.text('有未保存的修改'), findsOneWidget);
+    final save = tester.widget<FxButton>(
+        find.byKey(const ValueKey('task.detail.primaryAction')));
+    expect(save.onPressed, isNotNull);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task.detail.property.tags')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('task.detail.property.tags')));
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.tags')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TagPicker), findsOneWidget);
+    expect(find.text('历史分类（兼容）'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 重复属性支持每周选日且不立即保存',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(task: task, lists: lists, onChanged: () {}),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.repeat')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('每周'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择星期'), findsOneWidget);
+    expect(find.byType(FxChoiceChip), findsNWidgets(7));
+    expect(find.text('修改后返回详情'), findsOneWidget);
+    expect(find.text('有未保存的修改'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('task.detail.primaryAction')));
+    await tester.pumpAndSettle();
+    expect(find.text('有未保存的修改'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
