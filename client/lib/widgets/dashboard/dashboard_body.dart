@@ -438,70 +438,95 @@ class _DashboardBodyState extends State<DashboardBody> {
     return ((_facts[key] as num?)?.toInt() ?? 0).toString();
   }
 
-  Widget _timelineCard() {
-    final items = _timelineExpanded ? _timeline : _timeline.take(5).toList();
-    return _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FxSectionHeader(
-            title: '今天的轨迹',
-            trailing: _timelineLoadFailed
-                ? '读取失败'
-                : _timelineLoading
-                    ? '读取中'
-                    : '${_timeline.length} 条记录',
-            trailingWidget: widget.onViewReview == null
-                ? null
-                : FxButton(
-                    label: '进入回顾',
+  Widget _timelineCard({bool mobile = false}) {
+    final previewLimit = mobile ? 3 : 5;
+    final items = _timelineExpanded
+        ? _timeline
+        : _timeline.take(previewLimit).toList(growable: false);
+    final header = FxSectionHeader(
+      title: '今天的轨迹',
+      trailing: _timelineLoadFailed
+          ? '读取失败'
+          : _timelineLoading
+              ? '读取中'
+              : '${_timeline.length} 条记录',
+      trailingWidget: widget.onViewReview == null
+          ? null
+          : FxButton(
+              label: '进入回顾',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: widget.onViewReview,
+            ),
+    );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_timelineLoadFailed)
+          _partialUnavailable('今天的轨迹暂时无法读取')
+        else if (_timelineLoading && _timeline.isEmpty)
+          _empty('正在读取今天的轨迹…', compact: mobile)
+        else if (_timeline.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('今天还没有行为记录。',
+                    style: SlowlightTypography.secondary(context)),
+                if (widget.onWriteObservation != null)
+                  FxButton(
+                    label: '记录此刻的想法',
                     variant: FxButtonVariant.ghost,
                     size: FxButtonSize.sm,
-                    onPressed: widget.onViewReview,
+                    onPressed: widget.onWriteObservation,
                   ),
-          ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          if (_timelineLoadFailed)
-            _partialUnavailable('今天的轨迹暂时无法读取')
-          else if (_timelineLoading && _timeline.isEmpty)
-            _empty('正在读取今天的轨迹…')
-          else if (_timeline.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('今天还没有行为记录。',
-                      style: SlowlightTypography.secondary(context)),
-                  if (widget.onWriteObservation != null) ...[
-                    const SizedBox(height: 4),
-                    FxButton(
-                      label: '记录此刻的想法',
-                      variant: FxButtonVariant.ghost,
-                      size: FxButtonSize.sm,
-                      onPressed: widget.onWriteObservation,
-                    ),
-                  ],
-                ],
-              ),
-            )
-          else ...[
-            for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
-              _timelineRow(items[i]),
-            ],
-            if (_timeline.length > 5)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FxButton(
-                  label: _timelineExpanded ? '收起记录' : '展开更多记录',
-                  variant: FxButtonVariant.ghost,
-                  size: FxButtonSize.sm,
-                  onPressed: () =>
-                      setState(() => _timelineExpanded = !_timelineExpanded),
-                ),
-              ),
+              ],
+            ),
+          )
+        else ...[
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
+            _timelineRow(items[i]),
           ],
+          if (_timeline.length > previewLimit)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FxButton(
+                label: _timelineExpanded ? '收起记录' : '展开更多记录',
+                variant: FxButtonVariant.ghost,
+                size: FxButtonSize.sm,
+                onPressed: () =>
+                    setState(() => _timelineExpanded = !_timelineExpanded),
+              ),
+            ),
+        ],
+      ],
+    );
+    if (mobile) {
+      return Column(
+        key: const ValueKey('today.section.timeline'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.md),
+          _card(
+            content,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.xl,
+              vertical: SlowlightSpacing.xs,
+            ),
+          ),
+        ],
+      );
+    }
+    return _card(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.xs),
+          content,
         ],
       ),
       padding: const EdgeInsets.all(SlowlightSpacing.xl),
