@@ -87,6 +87,7 @@ class TaskDetailSheet extends StatefulWidget {
       showDragHandle: false,
       showCloseButton: false,
       draggable: false,
+      isDismissible: false,
       padding: EdgeInsets.zero,
       backgroundColor: fxSurface(context),
       barrierColor: Colors.black.withValues(alpha: .45),
@@ -779,6 +780,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   void _close() {
     if (widget.onClose != null) {
       widget.onClose!();
+    } else if (!widget.sidePanel && !_allowMobilePop) {
+      setState(() => _allowMobilePop = true);
+      // PopScope must rebuild before the route is allowed to exit.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
     } else {
       Navigator.pop(context);
     }
@@ -857,7 +864,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               ],
               FxIconButton(
                 tooltip: '关闭',
-                onPressed: _saving ? null : _close,
+                onPressed: _saving
+                    ? null
+                    : () {
+                        if (widget.sidePanel) {
+                          _close();
+                        } else {
+                          _requestMobileClose();
+                        }
+                      },
                 icon: LucideIcons.x,
                 foregroundColor: theme.colorScheme.onSurfaceVariant,
               ),
@@ -1188,7 +1203,13 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final title = _title.text.trim();
     final listId =
         _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
-    if (title.isEmpty || listId == null) return;
+    if (title.isEmpty || listId == null) {
+      FxNotice.showContent(
+        context,
+        Text(title.isEmpty ? '请输入任务名称' : '请选择清单后再保存'),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await DataService().updateTask(
