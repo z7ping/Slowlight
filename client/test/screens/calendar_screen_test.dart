@@ -2,10 +2,56 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
+import 'package:slowlight/models/todo_list.dart';
+import 'package:slowlight/widgets/task_detail_sheet.dart';
+import 'package:slowlight/ui/fx.dart';
+import 'package:flutter/foundation.dart';
 
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('Android 日历选中日期传入统一创建 Sheet', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final selectedDate = DateTime(2026, 8, 21);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: CalendarScreen(
+          initialMonth: DateTime(2026, 8),
+          initialSelectedDate: selectedDate,
+          monthLoader: (requested) async => CalendarMonthData(
+            month: requested,
+            records: const [],
+          ),
+          createListsOverride: [
+            TodoList(
+              id: 1, name: '收集箱', isInbox: true,
+              color: '#8db5a0', createdAt: DateTime(2026),
+            ),
+          ],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final create = find.byKey(const ValueKey('calendar-add-task'));
+    await tester.ensureVisible(create);
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+
+    final detail = find.byType(TaskDetailSheet);
+    expect(detail, findsOneWidget);
+    expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
+    expect(tester.widget<TaskDetailSheet>(detail).task.dueDate, selectedDate);
+    expect(find.text('新建任务'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   final month = DateTime(2026, 8, 1);
   final selected = DateTime(2026, 8, 21);
   final records = [
