@@ -368,14 +368,14 @@ func (h *TaskHandler) PostponeTask(c *gin.Context) {
 		return
 	}
 
-	// 用用户时区算"今日"
+	// 以用户当地的日历日加一天，避免夏令时跨日漂移。
 	var user model.User
 	h.DB.Select("timezone").First(&user, userID)
 	loc := model.UserLocation(user.Timezone)
-	today := time.Now().In(loc).Format("2006-01-02")
+	tomorrow := time.Now().In(loc).AddDate(0, 0, 1).Format("2006-01-02")
 
 	h.DB.Model(&task).Updates(map[string]interface{}{
-		"due_date": today,
+		"due_date": tomorrow,
 	})
 	h.DB.Preload("List").Preload("Tags").First(&task, task.ID)
 	h.fillSubtaskProgress([]model.Task{task})
