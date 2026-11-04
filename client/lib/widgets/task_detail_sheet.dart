@@ -85,6 +85,8 @@ class TaskDetailSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
+      showCloseButton: false,
+      draggable: false,
       padding: EdgeInsets.zero,
       backgroundColor: fxSurface(context),
       barrierColor: Colors.black.withValues(alpha: .45),
@@ -99,7 +101,7 @@ class TaskDetailSheet extends StatefulWidget {
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
+            maxWidth: MediaQuery.sizeOf(sheetContext).width,
             maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
           ),
           child: TaskDetailSheet(
@@ -130,6 +132,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late int _reminderAdvanceMinutes;
   late List<Tag> _selectedTags;
   bool _saving = false;
+  bool _mobileDirty = false;
+  bool _mobileExpanded = false;
+  bool _mobileDescriptionOpen = false;
+  bool _allowMobilePop = false;
+  String? _mobilePage;
 
   @override
   void initState() {
@@ -154,6 +161,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _selectedTags = List<Tag>.from(task.tags);
+    _mobileDescriptionOpen = _description.text.trim().isNotEmpty;
   }
 
   @override
@@ -165,6 +173,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.sidePanel) return _mobileEditor();
     return Column(
       children: [
         _header(),
