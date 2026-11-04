@@ -438,11 +438,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 children: [
                   if (!widget.titleProvidedByShell) ...[
                     _header(),
-                    const SizedBox(height: SlowlightSpacing.xxxl),
+                    const SizedBox(height: SlowlightSpacing.xl),
                   ],
                   if (_controller.error != null) ...[
                     FxCard(
-                      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+                      padding: const EdgeInsets.all(SlowlightSpacing.xl),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -459,14 +459,14 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                         ],
                       ),
                     ),
-                    const SizedBox(height: SlowlightSpacing.page),
+                    const SizedBox(height: SlowlightSpacing.xl),
                   ],
                   _summaryBar(),
                   if (all.isNotEmpty) ...[
-                    const SizedBox(height: SlowlightSpacing.xl),
+                    const SizedBox(height: SlowlightSpacing.md),
                     _filters(),
                   ],
-                  const SizedBox(height: SlowlightSpacing.xxxl),
+                  const SizedBox(height: SlowlightSpacing.xl),
                   if (all.isEmpty && _controller.error == null)
                     FxEmptyState(
                       icon: LucideIcons.repeat2,
@@ -588,10 +588,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final expanded = _expandedHabitId == habit.id;
     final color = _parseColor(habit.color);
     return Padding(
-      padding: const EdgeInsets.only(bottom: SlowlightSpacing.xl),
+      padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
       child: FxCard(
         key: ValueKey('habits.card.${habit.id}'),
-        padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+        padding: const EdgeInsets.all(SlowlightSpacing.xl),
         color: fxSurface(context),
         borderRadius: SlowlightRadius.lg,
         border: Border.all(color: theme.colorScheme.outlineVariant),
@@ -633,7 +633,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 );
               },
             ),
-            const SizedBox(height: SlowlightSpacing.md),
+            const SizedBox(height: SlowlightSpacing.xs),
             LayoutBuilder(builder: (context, constraints) {
               final details = FxButton(
                 key: ValueKey('habits.details.${habit.id}'),
@@ -666,13 +666,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                   ]);
             }),
             if (expanded) ...[
-              const SizedBox(height: SlowlightSpacing.xxxl),
+              const SizedBox(height: SlowlightSpacing.xl),
               FxSeparator.horizontal(
                   margin: EdgeInsets.zero,
                   color: theme.colorScheme.outlineVariant),
-              const SizedBox(height: SlowlightSpacing.xxxl),
+              const SizedBox(height: SlowlightSpacing.xl),
               _stats(habit),
-              const SizedBox(height: SlowlightSpacing.xxxl),
+              const SizedBox(height: SlowlightSpacing.xl),
               FxResponsiveFormGrid(
                 minColumnWidth: 240,
                 children: [
@@ -694,7 +694,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                       ]),
                 ],
               ),
-              const SizedBox(height: SlowlightSpacing.xxxl),
+              const SizedBox(height: SlowlightSpacing.xl),
               FxActionBar(
                 stackBelow: 280,
                 actions: [
@@ -981,7 +981,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
               onTap: () => _tapWeekDay(habit, day),
               child: Container(
                 width: target,
-                constraints: BoxConstraints(minHeight: touch ? 54 : 46),
+                constraints: BoxConstraints(
+                  minHeight: touch ? 48 : SlowlightControlSize.minTouchTarget,
+                ),
                 padding:
                     const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
                 child: Column(
