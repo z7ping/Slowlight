@@ -1071,7 +1071,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               tooltip: habit.allowMultiplePerDay
                   ? '为「${habit.name}」新增一次记录'
                   : habit.checkedToday
-                      ? '查看或取消「${habit.name}」今天的打卡'
+                      ? '已记录「${habit.name}」，点击可取消今天的打卡'
                       : '记录「${habit.name}」今天的打卡',
               onPressed: widget.onHabitToggle == null
                   ? null
