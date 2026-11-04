@@ -103,7 +103,9 @@ class TaskDetailSheet extends StatefulWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: MediaQuery.sizeOf(sheetContext).width,
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
+            maxHeight: (MediaQuery.sizeOf(sheetContext).height -
+                    MediaQuery.viewInsetsOf(sheetContext).bottom) *
+                .90,
           ),
           child: TaskDetailSheet(
             task: task,
