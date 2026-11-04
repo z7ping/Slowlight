@@ -877,7 +877,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   Widget _header() {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, widget.sidePanel ? 10 : 12, 10, 6),
+      padding: EdgeInsets.fromLTRB(
+        widget.sidePanel ? 20 : 16,
+        widget.sidePanel ? 10 : 12,
+        10,
+        widget.sidePanel ? 8 : 6,
+      ),
       child: Column(
         children: [
           // The sheet is intentionally non-draggable. Omit a misleading
