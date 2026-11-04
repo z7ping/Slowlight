@@ -611,17 +611,19 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                     opacity: _fabAutoHidden ? 0 : 1,
                     duration: const Duration(milliseconds: 160),
                     child: _mobileQuickAddButton(
-                  onPanUpdate: (details) {
-                    setState(() {
-                      final current = _fabPosition ?? Offset(left, top);
-                      _fabPosition = Offset(
-                        (current.dx + details.delta.dx)
-                            .clamp(0.0, maxLeft)
-                            .toDouble(),
-                        (current.dy + details.delta.dy).clamp(0.0, maxTop).toDouble(),
-                      );
-                    });
-                  },
+                      onPanUpdate: (details) {
+                        setState(() {
+                          final current = _fabPosition ?? Offset(left, top);
+                          _fabPosition = Offset(
+                            (current.dx + details.delta.dx)
+                                .clamp(0.0, maxLeft)
+                                .toDouble(),
+                            (current.dy + details.delta.dy)
+                                .clamp(0.0, maxTop)
+                                .toDouble(),
+                          );
+                        });
+                      },
                     ),
                   ),
                 ),
