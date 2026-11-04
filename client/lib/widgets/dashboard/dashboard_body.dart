@@ -666,38 +666,60 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _taskCard({required int maxItems, required bool mobile}) {
     final completed = widget.tasks.where((task) => task.isCompleted).length;
     final visible = widget.tasks.take(maxItems).toList(growable: false);
+    final header = FxSectionHeader(
+      title: '今日任务',
+      trailing: widget.tasksLoading
+          ? '读取中'
+          : widget.tasksError
+              ? (visible.isEmpty ? '数量未知' : '上次数据')
+              : '${completed}/${widget.tasks.length} 完成',
+      trailingWidget: widget.onViewAllTasks == null
+          ? null
+          : FxButton(
+              label: '查看全部',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: widget.onViewAllTasks,
+            ),
+    );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.tasksLoading || widget.tasksError)
+          _coreStatus('任务', widget.tasksLoading, widget.tasksError,
+              visible.isNotEmpty),
+        if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
+          _emptyWithNext(
+            '今天暂时没有任务',
+            '先写下一件想做的事',
+            widget.onQuickAdd,
+            compact: mobile,
+          )
+        else
+          ...visible.map((task) => _taskRow(task, mobile)),
+      ],
+    );
+    if (mobile) {
+      return Column(
+        key: const ValueKey('today.section.tasks'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: SlowlightSpacing.md),
+          _card(
+            content,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.xl,
+              vertical: SlowlightSpacing.xs,
+            ),
+          ),
+        ],
+      );
+    }
     return _card(
       Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FxSectionHeader(
-            title: '今日任务',
-            trailing: widget.tasksLoading
-                ? '读取中'
-                : widget.tasksError
-                    ? (visible.isEmpty ? '数量未知' : '上次数据')
-                    : '$completed/${widget.tasks.length} 完成',
-            trailingWidget: widget.onViewAllTasks == null
-                ? null
-                : FxButton(
-                    label: '查看全部',
-                    variant: FxButtonVariant.ghost,
-                    size: FxButtonSize.sm,
-                    onPressed: widget.onViewAllTasks,
-                  ),
-          ),
-          if (widget.tasksLoading || widget.tasksError)
-            _coreStatus('任务', widget.tasksLoading, widget.tasksError,
-                visible.isNotEmpty),
-          if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
-            _emptyWithNext(
-              '今天暂时没有任务',
-              '先写下一件想做的事',
-              widget.onQuickAdd,
-            )
-          else
-            ...visible.map((task) => _taskRow(task, mobile)),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [header, content],
       ),
       padding: const EdgeInsets.fromLTRB(
         SlowlightSpacing.xl,
