@@ -9,6 +9,58 @@ import 'package:slowlight/ui/fx.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('Android 任务列表按原型呈现轻量新建、下划线筛选和紧凑行',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    final pending = Task(
+      id: 31, listId: 1, title: '认真阅读',
+      priority: 'important', isCompleted: false, createdAt: now,
+    );
+    final completed = Task(
+      id: 32, listId: 1, title: '整理清单',
+      priority: 'none', isCompleted: true,
+      completedAt: now, createdAt: now,
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(
+          dataLoader: () async => <dynamic>[
+            <Task>[pending],
+            <Task>[pending, completed],
+            <Task>[completed],
+            <TodoList>[],
+          ],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('tasks.mobile.list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.mobile.filters')), findsOneWidget);
+    expect(find.text('新建'), findsOneWidget);
+    expect(find.text('待处理'), findsOneWidget);
+    final pendingRow = find.byKey(const ValueKey('tasks.row.31'));
+    expect(pendingRow, findsOneWidget);
+    expect(tester.getSize(pendingRow).height,
+        inInclusiveRange(60, 110));
+
+    await tester.tap(find.byKey(const ValueKey('tasks.mobile.filter.1')));
+    await tester.pumpAndSettle();
+    expect(find.text('所有任务'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.row.32')), findsOneWidget);
+    final doneRow = find.byKey(const ValueKey('tasks.row.32'));
+    expect(tester.getSize(doneRow).height,
+        closeTo(tester.getSize(pendingRow).height, 1));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('全部任务混合状态下行高和间距一致，不露出滑动操作背景',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
