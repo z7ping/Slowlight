@@ -192,7 +192,7 @@ void main() {
 
     for (final (id, icon, hint) in [
       (31, LucideIcons.circle, '记录「今天阅读」今天的打卡'),
-      (32, LucideIcons.circleCheck, '查看或取消「今天散步」今天的打卡'),
+      (32, LucideIcons.circleCheck, '已记录「今天散步」，点击可取消今天的打卡'),
       (33, LucideIcons.circlePlus, '为「喝水」新增一次记录'),
     ]) {
       final control = find.byKey(ValueKey('today.habit.record.$id'));
