@@ -39,7 +39,6 @@ import 'settings_screen.dart';
 import 'about_screen.dart';
 import 'stats_screen.dart';
 import 'system_tag_screen.dart';
-import 'task_create_sheet.dart';
 import 'task_tool_screen.dart';
 import 'time_distribution_screen.dart';
 import 'today_review_screen.dart';
@@ -357,7 +356,11 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   }
 
   void _quickAdd() {
-    TaskCreateSheet.showQuickCreate(context, onCreated: _reload);
+    TaskDetailSheet.showCreate(
+      context,
+      lists: _lists.isEmpty ? null : _lists,
+      onChanged: _reload,
+    );
   }
 
   Future<void> _openSearch() {
