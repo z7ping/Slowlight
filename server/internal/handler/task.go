@@ -357,7 +357,7 @@ func (h *TaskHandler) GetTodayTasks(c *gin.Context) {
 	c.JSON(http.StatusOK, tasks)
 }
 
-// PostponeTask 顺延任务到今天
+// PostponeTask 顺延任务到用户时区的明天
 func (h *TaskHandler) PostponeTask(c *gin.Context) {
 	userID := c.GetUint("userID")
 	id := c.Param("id")
