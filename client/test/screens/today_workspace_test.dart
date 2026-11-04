@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/today_timeline_item.dart';
+import 'package:slowlight/models/task.dart';
+import 'package:slowlight/models/habit.dart';
+import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/dashboard/dashboard_body.dart';
 
 import '../support/fx_test_host.dart';
@@ -26,12 +29,16 @@ void main() {
     required double width,
     Future<List<TodayTimelineItem>> Function()? timeline,
     VoidCallback? onReview,
+    List<Task> tasks = const [],
+    List<Habit> habits = const [],
+    ValueChanged<Task>? onTaskToggle,
   }) => buildFxTestHost(
     home: Scaffold(body: MediaQuery(
       data: MediaQueryData(size: Size(width, 800)),
       child: DashboardBody(
-        tasks: const [],
-        habits: const [],
+        tasks: tasks,
+        habits: habits,
+        onTaskToggle: onTaskToggle,
         reviewLoader: () async => {
           'questions': [],
           'facts': {
@@ -70,6 +77,56 @@ void main() {
       await disposeFxTestHost(tester);
     });
   }
+
+  testWidgets('Android 今日卡片收紧内边距，任务热区保持不小于 44dp',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(host(
+      width: 390,
+      tasks: [
+        Task(
+          id: 11,
+          listId: 1,
+          title: '整理今天的计划',
+          priority: 'none',
+          isCompleted: false,
+          createdAt: now,
+        ),
+      ],
+      habits: [
+        Habit(
+          id: 22,
+          userId: 1,
+          name: '每日阅读',
+          icon: '📚',
+          color: '#1890ff',
+          frequency: 'daily',
+          checkedToday: false,
+          createdAt: now,
+        ),
+      ],
+      onTaskToggle: (_) {},
+    ));
+    await tester.pumpAndSettle();
+
+    final cards = tester.widgetList<FxCard>(find.byType(FxCard)).toList();
+    expect(cards, isNotEmpty);
+    for (final card in cards) {
+      final padding = card.padding!.resolve(TextDirection.ltr);
+      expect(padding.top, lessThanOrEqualTo(12));
+      expect(padding.bottom, lessThanOrEqualTo(12));
+    }
+    final task = find.byKey(const ValueKey('today-task-11'));
+    expect(task, findsOneWidget);
+    expect(tester.getSize(task).height, inInclusiveRange(44, 56));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('时间轨迹请求卡住时，今日任务仍可使用', (tester) async {
     final pending = Completer<List<TodayTimelineItem>>();

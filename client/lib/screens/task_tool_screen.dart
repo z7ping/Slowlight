@@ -91,7 +91,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
 
   Widget _card({required Widget child, EdgeInsetsGeometry? padding}) {
     return FxCard(
-      padding: padding ?? const EdgeInsets.all(SlowlightSpacing.xxxl),
+      padding: padding ?? const EdgeInsets.all(SlowlightSpacing.xl),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(color: fxBorder(context)),
@@ -238,7 +238,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                     children: [
                       _taskActionBar(),
                       if (_loadFailed) _refreshErrorNotice(),
-                      const SizedBox(height: SlowlightSpacing.xxxl),
+                      const SizedBox(height: SlowlightSpacing.xl),
                       _card(
                         child:
                             _visible.isEmpty
@@ -303,7 +303,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
         children: [
           _taskActionBar(),
           if (_loadFailed) _refreshErrorNotice(),
-          const SizedBox(height: SlowlightSpacing.xxxl),
+          const SizedBox(height: SlowlightSpacing.xl),
           Expanded(
             child:
                 _visible.isEmpty
@@ -326,7 +326,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: SlowlightSpacing.xxxl),
+                        const SizedBox(width: SlowlightSpacing.xl),
                         Expanded(
                           child: _card(
                             padding: EdgeInsets.zero,
@@ -441,7 +441,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
 
   Widget _taskRow(
     Task task, {
-    double verticalPadding = 10,
+    double verticalPadding = SlowlightSpacing.xs,
     bool selected = false,
   }) {
     final theme = Theme.of(context);
