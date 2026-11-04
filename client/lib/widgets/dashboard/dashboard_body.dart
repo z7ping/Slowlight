@@ -204,7 +204,10 @@ class _DashboardBodyState extends State<DashboardBody> {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: SlowlightPageInsets.scroll(context, bottom: 112),
+        padding: SlowlightPageInsets.scroll(
+          context,
+          bottom: desktop ? 40 : 112,
+        ),
         children: [
           _header(desktop),
           if (widget.listsError) ...[
