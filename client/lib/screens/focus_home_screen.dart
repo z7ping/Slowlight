@@ -640,17 +640,23 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       child: FxTooltip(
         message: '快速添加任务（按住可拖动）',
         child: Material(
-          color: activePalette.accent,
-          elevation: 8,
-          shadowColor: Colors.black.withValues(alpha: .18),
-          shape: const CircleBorder(),
+          color: Theme.of(context).colorScheme.onSurface,
+          elevation: 4,
+          shadowColor: Colors.black.withValues(alpha: .14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(SlowlightRadius.xl),
+          ),
           clipBehavior: Clip.antiAlias,
           child: FxInkWell(
             onTap: _quickAdd,
-            child: const SizedBox(
+            child: SizedBox(
               width: 48,
               height: 48,
-              child: Icon(LucideIcons.plus, color: Colors.white, size: 22),
+              child: Icon(
+                LucideIcons.plus,
+                color: Theme.of(context).colorScheme.surface,
+                size: SlowlightIconSize.xl,
+              ),
             ),
           ),
         ),
