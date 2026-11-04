@@ -38,11 +38,37 @@ func newTaskRouter(h *TaskHandler, userID uint) *gin.Engine {
 	r.PUT("/tasks/:id", h.UpdateTask)
 	r.DELETE("/tasks/:id", h.DeleteTask)
 	r.PATCH("/tasks/:id/complete", h.CompleteTask)
+	r.PATCH("/tasks/:id/postpone", h.PostponeTask)
 	r.GET("/tasks/search", h.SearchTasks)
 	r.GET("/tasks/today", h.GetTodayTasks)
 	r.GET("/tasks/completed", h.GetCompletedTasks)
 	r.GET("/tasks/stats", h.GetStats)
 	return r
+}
+
+
+func TestPostponeTaskMovesToTomorrowInUserTimezone(t *testing.T) {
+	_, handler, user, list := setupTaskTest(t)
+	r := newTaskRouter(handler, user.ID)
+	task := createTestTask(t, handler.DB, user.ID, list.ID, "顺延到明天")
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("PATCH", "/tasks/"+strconv.FormatUint(uint64(task.ID), 10)+"/postpone", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("PostponeTask 返回 %d: %s", w.Code, w.Body.String())
+	}
+	var updated model.Task
+	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.DueDate == nil || !updated.DueDate.Valid {
+		t.Fatal("顺延后没有有效日期")
+	}
+	want := time.Now().In(model.UserLocation(user.Timezone)).AddDate(0, 0, 1).Format("2006-01-02")
+	if got := updated.DueDate.Time.Format("2006-01-02"); got != want {
+		t.Fatalf("顺延日期为 %s，期望用户日历的明天 %s", got, want)
+	}
 }
 
 func TestCreateTask(t *testing.T) {

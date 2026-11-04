@@ -61,6 +61,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   final Set<String> _coreLoading = {'清单', '任务', '习惯'};
   final Set<String> _coreErrors = {};
   final Set<int> _pendingHabitActions = {};
+  final Set<int> _pendingTaskActions = {};
   int _loadVersion = 0;
   GlobalKey _workspaceKey = GlobalKey(debugLabel: '回顾工作区');
   bool _reviewOpened = false;
@@ -255,15 +256,46 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   }
 
   Future<void> _toggleTask(Task task) async {
+    if (!_pendingTaskActions.add(task.id)) return;
+    final wasCompleted = task.isCompleted;
     try {
-      if (task.isCompleted) {
+      if (wasCompleted) {
         await DataService().uncompleteTask(task.id, null);
       } else {
         await DataService().completeTask(task.id, null);
       }
       await _reload();
+      if (!mounted) return;
+      FxNotice.showContent(
+        context,
+        Text(wasCompleted ? '已恢复待办' : '任务已完成'),
+        variant: FxNoticeVariant.success,
+        duration: const Duration(seconds: 4),
+        // 完成重复任务可能已生成下一周期，不能用简单 toggle 伪装撤销。
+        action: wasCompleted || task.isRepeat
+            ? null
+            : FxNoticeAction(
+                label: '撤销',
+                onPressed: () => _undoTaskCompletion(task.id),
+              ),
+      );
     } catch (_) {
-      _message('任务状态更新失败');
+      _message('任务操作结果未确认，请核对任务状态');
+    } finally {
+      _pendingTaskActions.remove(task.id);
+    }
+  }
+
+  Future<void> _undoTaskCompletion(int taskId) async {
+    if (!_pendingTaskActions.add(taskId)) return;
+    try {
+      await DataService().uncompleteTask(taskId, null);
+      await _reload();
+      _message('已恢复待办');
+    } catch (_) {
+      _message('撤销结果未确认，请查看任务状态');
+    } finally {
+      _pendingTaskActions.remove(taskId);
     }
   }
 
@@ -645,6 +677,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
           refreshTick: _dashboardRefreshTick,
           onTaskTap: _openTask,
           onTaskToggle: _toggleTask,
+          onTaskSwipeComplete: _toggleTask,
           onHabitToggle: _toggleHabit,
           onHabitLongPress: _openDetailedHabitCheckin,
           onViewAllTasks: () => _openTool(HomeToolSection.tasks),

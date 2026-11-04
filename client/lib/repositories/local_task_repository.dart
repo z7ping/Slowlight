@@ -257,10 +257,12 @@ class LocalTaskRepository {
 
   Future<Task> postpone(int id) async {
     final db = await _db.database;
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
     await db.update(
       'tasks',
       {
-        'due_date': LocalTimeBoundary.dateKey(DateTime.now()),
+        'due_date': LocalTimeBoundary.dateKey(tomorrow),
         'updated_at': _nowUtc(),
       },
       where: 'id = ?',

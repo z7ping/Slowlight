@@ -202,7 +202,7 @@ class MockTaskDataSource implements ApiDataSource {
       title: task.title,
       description: task.description,
       priority: task.priority,
-      dueDate: DateTime(now.year, now.month, now.day),
+      dueDate: DateTime(now.year, now.month, now.day + 1),
       dueTime: task.dueTime,
       repeatType: task.repeatType,
       repeatInterval: task.repeatInterval,
@@ -352,7 +352,12 @@ void main() {
 
       expect((await repository.search('book')).single.id, due.id);
       expect((await repository.getTasksForMonth(2026, 6)).single.id, due.id);
-      expect((await repository.postponeTask(due.id)).dueDate, isNotNull);
+      final postponed = await repository.postponeTask(due.id);
+      final now = DateTime.now();
+      final tomorrow = DateTime(now.year, now.month, now.day + 1);
+      expect(postponed.dueDate?.year, tomorrow.year);
+      expect(postponed.dueDate?.month, tomorrow.month);
+      expect(postponed.dueDate?.day, tomorrow.day);
     });
 
     test('delete removes task', () async {
