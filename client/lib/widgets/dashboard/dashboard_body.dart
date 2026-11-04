@@ -1055,24 +1055,46 @@ class _DashboardBodyState extends State<DashboardBody> {
               ),
             ],
             const SizedBox(width: SlowlightSpacing.md),
-            FxButton(
-              key: ValueKey('today.habit.record.${habit.id}'),
-              label: habit.allowMultiplePerDay
-                  ? '新增'
-                  : habit.checkedToday
-                      ? '已记录'
-                      : '记录',
-              icon: habit.checkedToday
-                  ? LucideIcons.circleCheck
-                  : LucideIcons.check,
-              size: FxButtonSize.sm,
-              variant: FxButtonVariant.secondary,
-              onPressed: widget.onHabitToggle == null
-                  ? null
-                  : () {
-                      HapticFeedback.lightImpact();
-                      widget.onHabitToggle?.call(habit);
-                    },
+            // The visible mark stays small; the existing FxIconButton
+            // retains the platform 44dp hit area and focus behavior.
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                if (habit.checkedToday && !habit.allowMultiplePerDay)
+                  IgnorePointer(
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.success.withValues(alpha: .10),
+                      ),
+                    ),
+                  ),
+                FxIconButton(
+                  key: ValueKey('today.habit.record.${habit.id}'),
+                  icon: habit.allowMultiplePerDay
+                      ? LucideIcons.circlePlus
+                      : habit.checkedToday
+                          ? LucideIcons.circleCheck
+                          : LucideIcons.circle,
+                  iconSize: SlowlightIconSize.xl,
+                  foregroundColor: habit.checkedToday && !habit.allowMultiplePerDay
+                      ? AppTheme.success
+                      : theme.colorScheme.onSurfaceVariant,
+                  tooltip: habit.allowMultiplePerDay
+                      ? '为「${habit.name}」新增一次记录'
+                      : habit.checkedToday
+                          ? '已记录「${habit.name}」，点击可取消今天的打卡'
+                          : '记录「${habit.name}」今天的打卡',
+                  onPressed: widget.onHabitToggle == null
+                      ? null
+                      : () {
+                          HapticFeedback.lightImpact();
+                          widget.onHabitToggle?.call(habit);
+                        },
+                ),
+              ],
             ),
           ],
         ),

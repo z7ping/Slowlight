@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:slowlight/models/today_timeline_item.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/habit.dart';
@@ -34,9 +35,13 @@ void main() {
     ValueChanged<Task>? onTaskToggle,
     ValueChanged<Habit>? onHabitToggle,
     VoidCallback? onStartFocus,
+    double textScale = 1,
   }) => buildFxTestHost(
     home: Scaffold(body: MediaQuery(
-      data: MediaQueryData(size: Size(width, 800)),
+      data: MediaQueryData(
+        size: Size(width, 800),
+        textScaler: TextScaler.linear(textScale),
+      ),
       child: DashboardBody(
         tasks: tasks,
         habits: habits,
@@ -140,6 +145,79 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 今日习惯图标动作保留 44dp 热区及三种语义',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final tapped = <int>[];
+    final all = [
+      Habit(
+        id: 31,
+        userId: 1,
+        name: '今天阅读',
+        icon: '📚',
+        color: '#1890ff',
+        frequency: 'daily',
+        checkedToday: false,
+        createdAt: now,
+      ),
+      Habit(
+        id: 32,
+        userId: 1,
+        name: '今天散步',
+        icon: '🚶',
+        color: '#52c41a',
+        frequency: 'daily',
+        checkedToday: true,
+        createdAt: now,
+      ),
+      Habit(
+        id: 33,
+        userId: 1,
+        name: '喝水',
+        icon: '💧',
+        color: '#1890ff',
+        frequency: 'daily',
+        checkedToday: true,
+        allowMultiplePerDay: true,
+        createdAt: now,
+      ),
+    ];
+    await tester.pumpWidget(host(
+      width: 360,
+      habits: all,
+      onHabitToggle: (habit) => tapped.add(habit.id),
+    ));
+    await tester.pumpAndSettle();
+
+    for (final (id, icon, hint) in [
+      (31, LucideIcons.circle, '记录「今天阅读」今天的打卡'),
+      (32, LucideIcons.circleCheck, '已记录「今天散步」，点击可取消今天的打卡'),
+      (33, LucideIcons.circlePlus, '为「喝水」新增一次记录'),
+    ]) {
+      final control = find.byKey(ValueKey('today.habit.record.$id'));
+      expect(control, findsOneWidget);
+      final button = tester.widget<FxIconButton>(control);
+      expect(button.icon, icon);
+      expect(button.tooltip, hint);
+      expect(tester.getSize(control).width, greaterThanOrEqualTo(44));
+      expect(tester.getSize(control).height, greaterThanOrEqualTo(44));
+      await tester.ensureVisible(control);
+      await tester.tap(control);
+      await tester.pump();
+    }
+    expect(tapped, [31, 32, 33]);
+    // These are icon-only actions; status words must not form three buttons.
+    expect(find.text('新增'), findsNothing);
+    expect(find.text('已记录'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 今日习惯按钮显式可见，标题与打卡分离',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -178,6 +256,47 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  for (final scale in [1.3, 2.0]) {
+    testWidgets('Android 360dp 图标操作适应文字放大 $scale',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(host(
+        width: 360,
+        textScale: scale,
+        habits: [
+          Habit(
+            id: 34,
+            userId: 1,
+            name: '一个标题特别长、仍应保留右侧打卡入口的习惯',
+            icon: '📚',
+            color: '#52c41a',
+            frequency: 'daily',
+            createdAt: now,
+          ),
+        ],
+        onHabitToggle: (_) {},
+      ));
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('today.habit.34'));
+      final action = find.byKey(const ValueKey('today.habit.record.34'));
+      expect(row, findsOneWidget);
+      expect(action, findsOneWidget);
+      final rowRect = tester.getRect(row);
+      final actionRect = tester.getRect(action);
+      expect(actionRect.left, greaterThan(rowRect.left));
+      expect(actionRect.right, lessThanOrEqualTo(rowRect.right + 1));
+      expect(actionRect.height, greaterThanOrEqualTo(44));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
 
   testWidgets('Android 今日卡片收紧内边距，任务热区保持不小于 44dp',
       (tester) async {
