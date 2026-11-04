@@ -85,6 +85,9 @@ class TaskDetailSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
+      showCloseButton: false,
+      draggable: false,
+      isDismissible: false,
       padding: EdgeInsets.zero,
       backgroundColor: fxSurface(context),
       barrierColor: Colors.black.withValues(alpha: .45),
@@ -99,8 +102,10 @@ class TaskDetailSheet extends StatefulWidget {
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(sheetContext).width * .94,
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * .90,
+            maxWidth: MediaQuery.sizeOf(sheetContext).width,
+            maxHeight: (MediaQuery.sizeOf(sheetContext).height -
+                    MediaQuery.viewInsetsOf(sheetContext).bottom) *
+                .90,
           ),
           child: TaskDetailSheet(
             task: task,
@@ -130,6 +135,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late int _reminderAdvanceMinutes;
   late List<Tag> _selectedTags;
   bool _saving = false;
+  bool _mobileDirty = false;
+  bool _mobileExpanded = false;
+  bool _mobileDescriptionOpen = false;
+  bool _allowMobilePop = false;
+  String? _mobilePage;
 
   @override
   void initState() {
@@ -154,6 +164,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
     _selectedTags = List<Tag>.from(task.tags);
+    _mobileDescriptionOpen = _description.text.trim().isNotEmpty;
   }
 
   @override
@@ -165,6 +176,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.sidePanel) return _mobileEditor();
     return Column(
       children: [
         _header(),
@@ -182,9 +194,627 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
+
+  void _mobileChanged([String? _]) {
+    if (!_mobileDirty) setState(() => _mobileDirty = true);
+  }
+
+  Future<void> _mobileToggleCompleted() async {
+    if (_saving) return;
+    if (_mobileDirty) {
+      FxNotice.showContent(context, const Text('请先保存修改，再更改任务状态'));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      if (widget.task.isCompleted) {
+        await DataService().uncompleteTask(widget.task.id, null);
+      } else {
+        await DataService().completeTask(widget.task.id, null);
+      }
+      widget.onChanged();
+      if (mounted) _close();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      FxNotice.showContent(
+        context,
+        const Text('任务状态更新结果未确认，请核对后重试'),
+      );
+    }
+  }
+
+  Future<void> _requestMobileClose({bool backFromSystem = false}) async {
+    if (backFromSystem && _mobilePage != null) {
+      setState(() => _mobilePage = null);
+      return;
+    }
+    if (_mobileDirty) {
+      final discard = await FxDialog.confirm(
+        context: context,
+        title: '放弃未保存的修改？',
+        content: '本次编辑尚未保存，关闭后不会写入任务。',
+        confirmText: '放弃修改',
+        destructive: true,
+      );
+      if (discard != true || !mounted) return;
+    }
+    _close();
+  }
+
+  Widget _mobileEditor() {
+    return PopScope(
+      canPop: _allowMobilePop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _requestMobileClose(backFromSystem: true);
+      },
+      child: Column(
+        children: [
+          if (_mobilePage == null)
+            _header()
+          else
+            _mobilePropertyHeader(),
+          FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+          Expanded(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(
+                SlowlightSpacing.xxxl,
+                SlowlightSpacing.xl,
+                SlowlightSpacing.xxxl,
+                SlowlightSpacing.xl,
+              ),
+              child: _mobilePage == null
+                  ? _mobileMainForm()
+                  : _mobilePropertyPage(),
+            ),
+          ),
+          FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+          _mobileFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _mobilePropertyHeader() {
+    const names = {
+      'list': '选择清单',
+      'due': '安排日期',
+      'priority': '设置优先级',
+      'repeat': '重复规则',
+      'time': '安排时间',
+      'reminder': '设置提醒',
+      'tags': '任务标签',
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: SlowlightSpacing.md,
+        vertical: SlowlightSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          FxIconButton(
+            icon: LucideIcons.chevronLeft,
+            tooltip: '返回任务详情',
+            onPressed: () => setState(() => _mobilePage = null),
+          ),
+          const SizedBox(width: SlowlightSpacing.md),
+          Expanded(
+            child: Text(
+              names[_mobilePage] ?? '任务属性',
+              style: SlowlightTypography.cardTitle(context),
+            ),
+          ),
+          FxIconButton(
+            icon: LucideIcons.x,
+            tooltip: '关闭',
+            onPressed: _saving ? null : _requestMobileClose,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mobileMainForm() {
+    final theme = Theme.of(context);
+    final selectedList = [
+      for (final list in widget.lists)
+        if (list.id == _listId) list.name,
+    ];
+    final listLabel = selectedList.isNotEmpty ? selectedList.first : '未选择';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            FxIconButton(
+              key: const ValueKey('task.detail.complete'),
+              icon: widget.task.isCompleted
+                  ? LucideIcons.circleCheck
+                  : LucideIcons.circle,
+              iconSize: SlowlightIconSize.xl,
+              tooltip: widget.task.isCompleted ? '恢复待办' : '完成任务',
+              foregroundColor: widget.task.isCompleted
+                  ? AppTheme.success
+                  : theme.colorScheme.onSurfaceVariant,
+              onPressed: _saving ? null : _mobileToggleCompleted,
+            ),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(
+              child: FxInput(
+                key: const ValueKey('task.detail.title'),
+                controller: _title,
+                enabled: !_saving,
+                style: SlowlightTypography.emphasizedInput(context),
+                placeholder: '任务名称',
+                onChanged: _mobileChanged,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        Padding(
+          padding: const EdgeInsets.only(
+            left: SlowlightControlSize.minTouchTarget + SlowlightSpacing.md,
+          ),
+          child: Text(
+            listLabel,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
+        if (_mobileDescriptionOpen)
+          FxInput(
+            key: const ValueKey('task.detail.description'),
+            controller: _description,
+            enabled: !_saving,
+            minLines: 2,
+            maxLines: 5,
+            style: SlowlightTypography.componentSecondary(context),
+            placeholder: '补充一些细节…',
+            onChanged: _mobileChanged,
+          )
+        else
+          FxInkWell(
+            key: const ValueKey('task.detail.showDescription'),
+            onTap: () => setState(() => _mobileDescriptionOpen = true),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: SlowlightControlSize.minTouchTarget,
+              ),
+              child: Row(
+                children: [
+                  Icon(LucideIcons.plus,
+                      size: SlowlightIconSize.sm,
+                      color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: SlowlightSpacing.md),
+                  Text(
+                    '添加描述',
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: SlowlightSpacing.xl),
+        Text(
+          '任务属性',
+          style: SlowlightTypography.caption(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        _mobilePropertyGroup([
+          _mobilePropertyRow('list', LucideIcons.folder, '清单', listLabel),
+          _mobilePropertyRow(
+            'due', LucideIcons.calendarDays, '到期日期',
+            _dueDate == null ? '未安排' : _dateLabel(_dueDate!),
+          ),
+          _mobilePropertyRow(
+            'priority', LucideIcons.flag, '优先级',
+            switch (_priority) {
+              'urgent_important' => '高',
+              'important' => '中',
+              'urgent' => '低',
+              _ => '不重要 · 不紧急',
+            },
+          ),
+          _mobilePropertyRow(
+            'repeat', LucideIcons.repeat, '重复',
+            switch (_repeatType) {
+              'daily' => '每天',
+              'weekly' => '每周',
+              'monthly' => '每月',
+              'yearly' => '每年',
+              _ => '不重复',
+            },
+          ),
+        ]),
+        const SizedBox(height: SlowlightSpacing.md),
+        FxInkWell(
+          key: const ValueKey('task.detail.moreSettings'),
+          onTap: () => setState(() => _mobileExpanded = !_mobileExpanded),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: SlowlightControlSize.minTouchTarget,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '更多设置（时间、提醒、标签）',
+                    style: SlowlightTypography.componentSecondary(context),
+                  ),
+                ),
+                Icon(
+                  _mobileExpanded
+                      ? LucideIcons.chevronUp
+                      : LucideIcons.chevronDown,
+                  size: SlowlightIconSize.sm,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_mobileExpanded)
+          _mobilePropertyGroup([
+            _mobilePropertyRow(
+              'time', LucideIcons.clock3, '时间',
+              _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
+            ),
+            _mobilePropertyRow(
+              'reminder', LucideIcons.bell, '提醒',
+              _reminderAt == null
+                  ? '不提醒'
+                  : '${_dateLabel(_reminderAt!)} ${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}',
+            ),
+            _mobilePropertyRow(
+              'tags', LucideIcons.tag, '标签',
+              _selectedTags.isEmpty
+                  ? '无标签'
+                  : '${_selectedTags.length} 个标签',
+            ),
+          ]),
+      ],
+    );
+  }
+
+  Widget _mobilePropertyGroup(List<Widget> rows) {
+    return FxCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: SlowlightSpacing.md,
+      ),
+      color: fxSurface(context),
+      borderRadius: SlowlightRadius.lg,
+      border: Border.all(color: fxBorder(context)),
+      expanded: true,
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index++) ...[
+            if (index > 0)
+              FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+            rows[index],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _mobilePropertyRow(
+    String field,
+    IconData icon,
+    String label,
+    String value,
+  ) {
+    final theme = Theme.of(context);
+    return FxInkWell(
+      key: ValueKey('task.detail.property.${field}'),
+      onTap: _saving
+          ? null
+          : () {
+              FocusScope.of(context).unfocus();
+              setState(() => _mobilePage = field);
+            },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 49),
+        child: Row(
+          children: [
+            Icon(icon,
+                size: SlowlightIconSize.md,
+                color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: SlowlightSpacing.xl),
+            Expanded(
+              child: Text(label, style: SlowlightTypography.componentControl(context)),
+            ),
+            Flexible(
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+                style: SlowlightTypography.componentSecondary(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: SlowlightSpacing.md),
+            Icon(LucideIcons.chevronRight,
+                size: SlowlightIconSize.xs,
+                color: theme.colorScheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mobileChoice(
+    String label, {
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return FxInkWell(
+      onTap: _saving ? null : onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: SlowlightControlSize.minTouchTarget,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: SlowlightTypography.componentControl(context).copyWith(
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    color: selected
+                        ? AppTheme.success
+                        : theme.colorScheme.onSurface,
+                  )),
+            ),
+            if (selected)
+              Icon(LucideIcons.check,
+                  size: SlowlightIconSize.sm, color: AppTheme.success),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mobileSelect(VoidCallback change, {bool stay = false}) {
+    setState(() {
+      change();
+      _mobileDirty = true;
+      if (!stay) _mobilePage = null;
+    });
+  }
+
+  Widget _mobilePropertyPage() {
+    final theme = Theme.of(context);
+    Widget group(List<Widget> children) => _mobilePropertyGroup(children);
+    switch (_mobilePage) {
+      case 'list':
+        return group([
+          if (widget.lists.isEmpty)
+            Text('清单暂时不可用',
+                style: SlowlightTypography.secondary(context))
+          else
+            for (final list in widget.lists)
+              _mobileChoice(
+                '${list.icon} ${list.name}',
+                selected: _listId == list.id,
+                onTap: () => _mobileSelect(() => _listId = list.id),
+              ),
+        ]);
+      case 'priority':
+        return group([
+          for (final option in const [
+            ('none', '不重要 · 不紧急'),
+            ('urgent_important', '高'),
+            ('important', '中'),
+            ('urgent', '低'),
+          ])
+            _mobileChoice(
+              option.$2,
+              selected: _priority == option.$1,
+              onTap: () => _mobileSelect(() => _priority = option.$1),
+            ),
+        ]);
+      case 'due':
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final tomorrow = DateTime(now.year, now.month, now.day + 1);
+        bool matches(DateTime? other, DateTime date) =>
+            other?.year == date.year &&
+            other?.month == date.month &&
+            other?.day == date.day;
+        return group([
+          _mobileChoice(
+            '不设置',
+            selected: _dueDate == null,
+            onTap: () => _mobileSelect(() => _dueDate = null),
+          ),
+          _mobileChoice(
+            '今天',
+            selected: matches(_dueDate, today),
+            onTap: () => _mobileSelect(() => _dueDate = today),
+          ),
+          _mobileChoice(
+            '明天',
+            selected: matches(_dueDate, tomorrow),
+            onTap: () => _mobileSelect(() => _dueDate = tomorrow),
+          ),
+          _mobileChoice(
+            '选择其他日期…',
+            selected: false,
+            onTap: _mobilePickDate,
+          ),
+        ]);
+      case 'repeat':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            group([
+              for (final option in const [
+                ('none', '不重复'),
+                ('daily', '每天'),
+                ('weekly', '每周'),
+                ('monthly', '每月'),
+                ('yearly', '每年'),
+              ])
+                _mobileChoice(
+                  option.$2,
+                  selected: _repeatType == option.$1,
+                  onTap: () => _mobileSelect(() {
+                    _repeatType = option.$1;
+                    if (_repeatType != 'weekly') _weekdays.clear();
+                  }, stay: option.$1 == 'weekly'),
+                ),
+            ]),
+            if (_repeatType == 'weekly') ...[
+              const SizedBox(height: SlowlightSpacing.xl),
+              Text('选择星期',
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                )),
+              const SizedBox(height: SlowlightSpacing.md),
+              Wrap(
+                spacing: SlowlightSpacing.md,
+                runSpacing: SlowlightSpacing.md,
+                children: [
+                  for (var i = 0; i < 7; i++)
+                    FxChoiceChip(
+                      label: const ['一','二','三','四','五','六','日'][i],
+                      selected: _weekdays.contains(i + 1),
+                      onTap: () => _mobileSelect(() {
+                        if (!_weekdays.add(i + 1)) _weekdays.remove(i + 1);
+                      }, stay: true),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        );
+      case 'time':
+        return group([
+          _mobileChoice(
+            '不设置时间',
+            selected: _dueTime == null,
+            onTap: () => _mobileSelect(() => _dueTime = null),
+          ),
+          _mobileChoice(
+            _dueTime == null ? '选择时间…' : '修改时间 · ${_timeLabel(_dueTime!)}',
+            selected: _dueTime != null,
+            onTap: _mobilePickTime,
+          ),
+        ]);
+      case 'reminder':
+        return group([
+          _mobileChoice(
+            '不提醒',
+            selected: _reminderAt == null,
+            onTap: () => _mobileSelect(() {
+              _reminderAt = null;
+              _reminderAdvanceMinutes = 0;
+            }),
+          ),
+          _mobileChoice(
+            '选择提醒日期和时间…',
+            selected: _reminderAt != null,
+            onTap: _mobilePickReminder,
+          ),
+        ]);
+      case 'tags':
+        return TagPicker(
+          label: '标签',
+          enabled: !_saving,
+          selectedTags: _selectedTags,
+          onChanged: (tags) => _mobileSelect(() {
+            _selectedTags = tags;
+          }, stay: true),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Future<void> _mobilePickDate() async {
+    final before = _dueDate;
+    await _pickDate();
+    if (!mounted) return;
+    if (_dueDate != before) _mobileSelect(() {});
+  }
+
+  Future<void> _mobilePickTime() async {
+    final before = _dueTime;
+    await _pickTime();
+    if (!mounted) return;
+    if (_dueTime != before) _mobileSelect(() {});
+  }
+
+  Future<void> _mobilePickReminder() async {
+    final before = _reminderAt;
+    await _pickReminder();
+    if (!mounted) return;
+    if (_reminderAt != before) _mobileSelect(() {});
+  }
+
+  Widget _mobileFooter() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          SlowlightSpacing.xxxl,
+          SlowlightSpacing.md,
+          SlowlightSpacing.xxxl,
+          SlowlightSpacing.xl,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _mobilePage == null
+                    ? (_saving ? '正在保存…' :
+                        (_mobileDirty ? '有未保存的修改' : '已保存'))
+                    : '修改后返回详情',
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: SlowlightSpacing.md),
+            FxButton(
+              key: const ValueKey('task.detail.primaryAction'),
+              label: _mobilePage == null
+                  ? (_saving ? '保存中…' : '保存修改')
+                  : '完成',
+              size: FxButtonSize.sm,
+              onPressed: _saving
+                  ? null
+                  : _mobilePage != null
+                      ? () => setState(() => _mobilePage = null)
+                      : _mobileDirty
+                          ? _save
+                          : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _close() {
     if (widget.onClose != null) {
       widget.onClose!();
+    } else if (!widget.sidePanel && !_allowMobilePop) {
+      setState(() => _allowMobilePop = true);
+      // PopScope must rebuild before the route is allowed to exit.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
     } else {
       Navigator.pop(context);
     }
@@ -263,7 +893,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               ],
               FxIconButton(
                 tooltip: '关闭',
-                onPressed: _saving ? null : _close,
+                onPressed: _saving
+                    ? null
+                    : () {
+                        if (widget.sidePanel) {
+                          _close();
+                        } else {
+                          _requestMobileClose();
+                        }
+                      },
                 icon: LucideIcons.x,
                 foregroundColor: theme.colorScheme.onSurfaceVariant,
               ),
@@ -594,7 +1232,13 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final title = _title.text.trim();
     final listId =
         _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
-    if (title.isEmpty || listId == null) return;
+    if (title.isEmpty || listId == null) {
+      FxNotice.showContent(
+        context,
+        Text(title.isEmpty ? '请输入任务名称' : '请选择清单后再保存'),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await DataService().updateTask(
