@@ -69,7 +69,12 @@ void main() {
     expect(find.text('创建任务'), findsOneWidget);
     expect(tester.widget<FxButton>(action).onPressed, isNull);
     await tester.enterText(
-        find.byKey(const ValueKey('task.detail.title')), '写下明天的计划');
+      find.descendant(
+        of: find.byKey(const ValueKey('task.detail.title')),
+        matching: find.byType(EditableText),
+      ),
+      '写下明天的计划',
+    );
     await tester.pumpAndSettle();
     expect(tester.widget<FxButton>(action).onPressed, isNotNull);
 
