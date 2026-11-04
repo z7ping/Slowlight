@@ -43,6 +43,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   int _filter = 0; // 全部 / 待记录 / 已记录
   // Keep same-width action slots across recorded and pending habits.
   static const double _todayActionWidth = 104;
+  static const double _mobileTodayActionWidth = 120;
   final Set<int> _pendingHabitActions = <int>{};
   final Set<int> _allLogsVisible = <int>{};
   HabitEditorValue? _creationDraft;
@@ -603,6 +604,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                 final largeText =
                     MediaQuery.textScalerOf(context).scale(1) >= 1.3;
                 final narrow = constraints.maxWidth < 270 || largeText;
+                final actionWidth = (SlowlightPlatformDensity.usesMobileTouchTargets
+                        ? _mobileTodayActionWidth
+                        : _todayActionWidth) *
+                    MediaQuery.textScalerOf(context).scale(1);
                 if (narrow) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -621,7 +626,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     Expanded(child: _habitHeading(habit, color)),
                     const SizedBox(width: SlowlightSpacing.md),
                     SizedBox(
-                      width: _todayActionWidth,
+                      width: actionWidth,
                       child: _todayButton(habit, expanded: true),
                     ),
                   ],
