@@ -204,7 +204,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: SlowlightPageInsets.scroll(context, bottom: 40),
+        padding: SlowlightPageInsets.scroll(context, bottom: 112),
         children: [
           _header(desktop),
           if (widget.listsError) ...[
@@ -226,33 +226,81 @@ class _DashboardBodyState extends State<DashboardBody> {
     final theme = Theme.of(context);
     final now = DateTime.now();
     const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-    const short = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    final subtitle = desktop
-        ? '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 记录真实发生的事'
-        : '${now.month} 月 ${now.day} 日 ${short[now.weekday - 1]}';
-    final copy = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '今天，发生了什么',
-          style: SlowlightTypography.pageTitle(
-            context,
-          ).copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          style: SlowlightTypography.caption(
-            context,
-          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-    if (!desktop) return copy;
+    if (!desktop) {
+      // Match the approved Today prototype: date + focus are the entire
+      // above-the-fold header; high-frequency actions follow immediately.
+      final copy = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${now.month}月${now.day}日 · ${weekdays[now.weekday - 1]}',
+            style: SlowlightTypography.pageTitle(context)
+                .copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text(
+            '记录行动，也记录生活。',
+            style: SlowlightTypography.caption(context)
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      );
+      final focus = widget.onStartFocus == null
+          ? null
+          : FxButton(
+              label: '开始专注',
+              icon: LucideIcons.timer,
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: widget.onStartFocus,
+            );
+      if (focus == null) return copy;
+      return LayoutBuilder(builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        if (constraints.maxWidth < 320 * scale) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              copy,
+              const SizedBox(height: SlowlightSpacing.xs),
+              Align(alignment: Alignment.centerRight, child: focus),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: copy),
+            const SizedBox(width: SlowlightSpacing.md),
+            focus,
+          ],
+        );
+      });
+    }
+
+    final subtitle =
+        '${now.month} 月 ${now.day} 日 ${weekdays[now.weekday - 1]} · 记录真实发生的事';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Expanded(child: copy),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '今天，发生了什么',
+                style: SlowlightTypography.pageTitle(context)
+                    .copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: SlowlightTypography.caption(context)
+                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
         if (widget.onWriteObservation != null)
           FxButton(
             label: '记录观察',
@@ -262,7 +310,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             onPressed: widget.onWriteObservation,
           ),
         if (widget.onWriteObservation != null && widget.onQuickAdd != null)
-          const SizedBox(width: 8),
+          const SizedBox(width: SlowlightSpacing.md),
         if (widget.onQuickAdd != null)
           FxButton(
             label: '添加任务',
@@ -312,21 +360,15 @@ class _DashboardBodyState extends State<DashboardBody> {
         ],
       );
 
+  // 移动端严格按已确认原型：今日任务 → 习惯 → 今天的轨迹。
+  // 今日事实已有回顾页的“今日概况”提供，桌面工作台仍保留原有统计。
   Widget _mobile() => Column(
         children: [
-          _overviewCard(),
-          const SizedBox(height: SlowlightSpacing.xl),
           _taskCard(maxItems: 3, mobile: true),
           const SizedBox(height: SlowlightSpacing.xl),
-          _timelineCard(),
-          const SizedBox(height: SlowlightSpacing.xl),
           _habitCard(maxItems: 3, mobile: true),
-          if (_shouldShowQuestion) ...[
-            const SizedBox(height: SlowlightSpacing.xl),
-            _questionCard(),
-          ],
           const SizedBox(height: SlowlightSpacing.xl),
-          _dimensionCard(mobile: true),
+          _timelineCard(mobile: true),
         ],
       );
 
