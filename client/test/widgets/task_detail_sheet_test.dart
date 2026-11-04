@@ -28,6 +28,62 @@ void main() {
     ),
   ];
 
+  testWidgets('新建任务与详情共享相同字段树，并仅在输入标题后可创建',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final draft = Task(
+      id: 0,
+      listId: 1,
+      title: '',
+      priority: 'none',
+      dueDate: DateTime(2026, 11, 5),
+      isCompleted: false,
+      createdAt: DateTime(2026, 11, 5),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: draft,
+          isCreating: true,
+          lists: lists,
+          onChanged: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.text('任务详情'), findsNothing);
+    for (final field in ['list', 'due', 'priority', 'repeat']) {
+      expect(find.byKey(ValueKey('task.detail.property.$field')),
+          findsOneWidget);
+    }
+    expect(find.byKey(const ValueKey('task.detail.complete')), findsOneWidget);
+    expect(find.byType(FxMenu<String>), findsNothing);
+    final action = find.byKey(const ValueKey('task.detail.primaryAction'));
+    expect(find.text('创建任务'), findsOneWidget);
+    expect(tester.widget<FxButton>(action).onPressed, isNull);
+    await tester.enterText(
+        find.byKey(const ValueKey('task.detail.title')), '写下明天的计划');
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxButton>(action).onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    expect(find.text('设置优先级'), findsOneWidget);
+    await tester.tap(find.text('高'));
+    await tester.pumpAndSettle();
+    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.text('尚未创建'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 任务详情显示核心属性，使用同一 Sheet 内的编辑视图',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
