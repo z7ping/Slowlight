@@ -339,11 +339,12 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       ('已完成', _completed.length),
     ];
     final theme = Theme.of(context);
-    return Row(
+    return Wrap(
       key: const ValueKey('tasks.mobile.filters'),
+      spacing: SlowlightSpacing.page,
+      runSpacing: SlowlightSpacing.xs,
       children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(width: SlowlightSpacing.page),
+        for (var i = 0; i < items.length; i++)
           FxInkWell(
             key: ValueKey('tasks.mobile.filter.${i}'),
             onTap: () => setState(() {
@@ -391,7 +392,6 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               ),
             ),
           ),
-        ],
       ],
     );
   }
@@ -577,9 +577,15 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     bool compactMobile = false,
   }) {
     final theme = Theme.of(context);
-    final listName = task.list?.name ??
-        ([for (final list in _lists)
-          if (list.id == task.listId) list.name].firstOrNull);
+    String? listName = task.list?.name;
+    if (listName == null) {
+      for (final list in _lists) {
+        if (list.id == task.listId) {
+          listName = list.name;
+          break;
+        }
+      }
+    }
     final meta = <String>[
       if ((listName ?? '').trim().isNotEmpty) listName!,
       if (!task.isCompleted && task.dueDate != null)
