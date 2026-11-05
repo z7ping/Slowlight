@@ -221,6 +221,44 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Windows 700dp 中等宽度也不全量构建 250 条任务',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(700, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    final tasks = List<Task>.generate(
+      250,
+      (index) => Task(
+        id: index + 1,
+        listId: 1,
+        title: '中等宽度任务 ${index + 1}',
+        priority: 'none',
+        isCompleted: false,
+        createdAt: now,
+      ),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(
+          dataLoader: () async => <dynamic>[
+            tasks, tasks, <Task>[], <TodoList>[],
+          ],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CustomScrollView), findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.row.1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tasks.row.250')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('任务页 360dp 保持紧凑卡片与可点击任务行', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
