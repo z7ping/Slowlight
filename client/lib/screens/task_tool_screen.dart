@@ -373,7 +373,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 border: Border(
                   bottom: BorderSide(
                     color: _segment == i
-                        ? AppTheme.success
+                        ? theme.colorScheme.primary
                         : Colors.transparent,
                     width: 2,
                   ),
@@ -395,7 +395,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                   Text(items[i].$2.toString(),
                       style: SlowlightTypography.caption(context).copyWith(
                         color: _segment == i
-                            ? AppTheme.success
+                            ? theme.colorScheme.primary
                             : theme.colorScheme.onSurfaceVariant,
                       )),
                 ],
@@ -494,59 +494,29 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     subtitle: _segment == 0 ? '今天可以从一件真正想推进的事开始' : '切换其他筛选看看',
   );
 
+  // The desktop inspector is already beside the primary create action.
+  // Keep its unselected state quiet rather than showing another large CTA.
   Widget _desktopEmptyDetail() {
     final theme = Theme.of(context);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(SlowlightSpacing.page),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: .08),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.mousePointerClick,
-                  size: 30,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 22),
               Text(
-                '选择一个任务查看详情',
-                style: SlowlightTypography.pageTitle(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w700),
+                '选择任务后查看详情',
+                style: SlowlightTypography.cardTitle(context),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: SlowlightSpacing.md),
               Text(
-                '在左侧选择任务后，可以在这里查看和编辑任务信息。',
+                '从左侧列表选择任务，查看或编辑其信息。',
                 textAlign: TextAlign.center,
-                style: SlowlightTypography.secondary(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 22),
-              FxButton(
-                label: '新建任务',
-                icon: LucideIcons.plus,
-                variant: FxButtonVariant.secondary,
-                size: FxButtonSize.sm,
-                onPressed: _create,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                '提示：点击左侧任务即可在当前页面查看详情',
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.caption(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: SlowlightTypography.secondary(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -631,7 +601,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
           border: Border(bottom: BorderSide(color: fxSubtleSurface(context))),
         ),
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: compactMobile ? 60 : 0),
+          constraints: BoxConstraints(minHeight: compactMobile ? 48 : 0),
           child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
