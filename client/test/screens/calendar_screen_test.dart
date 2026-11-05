@@ -4,7 +4,6 @@ import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/ui/fx.dart';
 import 'package:flutter/foundation.dart';
 
 import '../support/fx_test_host.dart';
