@@ -47,7 +47,8 @@ void main() {
     expect(detail, findsOneWidget);
     expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
     expect(tester.widget<TaskDetailSheet>(detail).task.dueDate, selectedDate);
-    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.descendant(of: detail, matching: find.text('新建任务')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
