@@ -106,6 +106,7 @@ class TaskDetailSheet extends StatefulWidget {
       // clipping/decoration layer in the animated route.
       builder: (sheetContext) => Align(
         alignment: Alignment.bottomCenter,
+        heightFactor: 1,
         child: ConstrainedBox(
           // The editor wraps its content until this viewport limit, then
           // scrolls its body while keeping the footer reachable.
