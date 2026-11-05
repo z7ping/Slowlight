@@ -148,10 +148,19 @@ class FxListTile extends StatelessWidget {
         (subtitle is String && (subtitle! as String).isNotEmpty);
     final resolvedBaseHeight = minTileHeight ?? minHeight ?? _semanticMinHeight;
     final baseMinHeight = dense ? resolvedBaseHeight - 8 : resolvedBaseHeight;
-    final effectiveMinHeight = visualDensity?.effectiveConstraints(
+    final densityAdjustedMinHeight = visualDensity?.effectiveConstraints(
           BoxConstraints(minHeight: baseMinHeight),
         ).minHeight ??
         baseMinHeight;
+    // Windows 继续采用紧凑密度；Android 的可点击行不能被 dense、
+    // visualDensity 或调用方覆写的 minHeight 缩到 44dp 以下。
+    final isInteractive = enabled && (onTap != null || onLongPress != null);
+    final effectiveMinHeight =
+        SlowlightPlatformDensity.usesMobileTouchTargets &&
+                isInteractive &&
+                densityAdjustedMinHeight < SlowlightControlSize.minTouchTarget
+            ? SlowlightControlSize.minTouchTarget
+            : densityAdjustedMinHeight;
 
     final leadingWidget = leading == null
         ? null
