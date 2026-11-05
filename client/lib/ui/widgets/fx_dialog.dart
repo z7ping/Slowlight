@@ -4,6 +4,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../color_tokens.dart';
 import '../layout_tokens.dart';
 import '../typography_tokens.dart';
+import 'fx_button.dart';
 
 /// FxDialog — 统一弹窗入口。
 class FxDialog {
@@ -19,11 +20,6 @@ class FxDialog {
           ? SlowlightTypography.secondary(context).copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             )
-          : null;
-
-  static TextStyle? _buttonStyle() =>
-      SlowlightTypography.useAndroidComponentTypography
-          ? SlowlightTypography.button
           : null;
 
   static Future<T?> show<T>({
@@ -109,21 +105,20 @@ class FxDialog {
         title: Text(title, style: _titleStyle(ctx)),
         description: Text(content, style: _descriptionStyle(ctx)),
         actions: [
-          ShadButton.outline(
+          // 复用统一按钮的尺寸、语义与异步防重入契约。
+          // 直接使用 ShadButton 会绕过 Android 44dp 点击区域。
+          FxButton(
+            label: cancelText,
+            variant: FxButtonVariant.outline,
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: Text(cancelText, style: _buttonStyle()),
           ),
-          destructive
-              ? ShadButton.destructive(
-                  onPressed: () =>
-                      Navigator.of(ctx, rootNavigator: true).pop(true),
-                  child: Text(confirmText, style: _buttonStyle()),
-                )
-              : ShadButton(
-                  onPressed: () =>
-                      Navigator.of(ctx, rootNavigator: true).pop(true),
-                  child: Text(confirmText, style: _buttonStyle()),
-                ),
+          FxButton(
+            label: confirmText,
+            variant: destructive
+                ? FxButtonVariant.destructive
+                : FxButtonVariant.primary,
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+          ),
         ],
       ),
     );
