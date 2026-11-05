@@ -244,26 +244,66 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                   ? _desktopContent()
                   : mobile
                       ? _mobileTaskList()
-                      : ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: SlowlightPageInsets.scroll(context, bottom: 72),
-                          children: [
-                            _taskActionBar(),
-                            if (_loadFailed) _refreshErrorNotice(),
-                            const SizedBox(height: SlowlightSpacing.xl),
-                            _card(
-                              child: _visible.isEmpty
-                                  ? _emptyState()
-                                  : Column(
-                                      children: _visible
-                                          .map((task) => _taskRow(task))
-                                          .toList(growable: false),
-                                    ),
-                            ),
-                          ],
-                        ),
+                      : _mediumTaskList(),
         );
       },
+    );
+  }
+
+  Widget _mediumTaskList() {
+    final visible = _visible;
+    final edge = BorderSide(color: fxBorder(context));
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: SlowlightPageInsets.scroll(context, bottom: 72),
+          sliver: SliverList.builder(
+            itemCount: 1 + (visible.isEmpty ? 1 : visible.length),
+            itemBuilder: (context, position) {
+              if (position == 0) {
+                return Column(
+                  children: [
+                    _taskActionBar(),
+                    if (_loadFailed) _refreshErrorNotice(),
+                    const SizedBox(height: SlowlightSpacing.xl),
+                  ],
+                );
+              }
+              if (visible.isEmpty) return _card(child: _emptyState());
+              final index = position - 1;
+              final task = visible[index];
+              final first = index == 0;
+              final last = index == visible.length - 1;
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  color: fxSurface(context),
+                  border: Border(
+                    left: edge,
+                    right: edge,
+                    top: first ? edge : BorderSide.none,
+                    bottom: last ? edge : BorderSide.none,
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: first
+                        ? const Radius.circular(SlowlightRadius.lg)
+                        : Radius.zero,
+                    bottom: last
+                        ? const Radius.circular(SlowlightRadius.lg)
+                        : Radius.zero,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SlowlightSpacing.xl,
+                  ),
+                  child: _taskRow(task),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
