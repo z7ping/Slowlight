@@ -9,7 +9,6 @@ import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
-import 'task_create_sheet.dart';
 
 typedef QuadrantData = ({
   List<Task> tasks,
@@ -499,11 +498,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Future<void> _addTask(String priority) {
-    return TaskCreateSheet.showQuickCreate(
+    return TaskDetailSheet.showCreate(
       context,
+      lists: _lists.isEmpty ? null : _lists,
       initialPriority: priority,
       defaultDueToday: false,
-      onCreated: _load,
+      onChanged: _load,
     );
   }
 

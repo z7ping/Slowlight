@@ -39,7 +39,8 @@ class TaskDetailSheet extends StatefulWidget {
     required VoidCallback onChanged,
     bool isCreating = false,
   }) {
-    final desktop = MediaQuery.sizeOf(context).width >= 600;
+    final desktop = !SlowlightPlatformDensity.usesMobileTouchTargets &&
+        MediaQuery.sizeOf(context).width >= SlowlightBreakpoints.tabletMin;
     if (desktop) {
       return showGeneralDialog<void>(
         context: context,
@@ -105,15 +106,14 @@ class TaskDetailSheet extends StatefulWidget {
       // clipping/decoration layer in the animated route.
       builder: (sheetContext) => Align(
         alignment: Alignment.bottomCenter,
-        child: SizedBox(
-          width: MediaQuery.sizeOf(sheetContext).width,
-          // Shorter high-frequency editor: avoid a large blank area between
-          // the last property row and the fixed primary action.
-          height: ((MediaQuery.sizeOf(sheetContext).height -
-                      MediaQuery.viewInsetsOf(sheetContext).bottom) *
-                  .86)
-              .clamp(0.0, 590.0)
-              .toDouble(),
+        heightFactor: 1,
+        child: ConstrainedBox(
+          // The editor wraps its content until this viewport limit, then
+          // scrolls its body while keeping the footer reachable.
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(sheetContext).width,
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .88,
+          ),
           child: TaskDetailSheet(
             task: task,
             isCreating: isCreating,
@@ -129,26 +129,53 @@ class TaskDetailSheet extends StatefulWidget {
   /// The draft has no persisted identity; only _save may create it.
   static Future<void> showCreate(
     BuildContext context, {
-    required List<TodoList> lists,
+    List<TodoList>? lists,
     required VoidCallback onChanged,
-  }) {
-    if (lists.isEmpty) return Future<void>.value();
-    final inboxes = lists.where((list) => list.isInbox);
-    final initialList = inboxes.isNotEmpty ? inboxes.first : lists.first;
+    int? selectedListId,
+    DateTime? initialDueDate,
+    bool defaultDueToday = true,
+    String initialTitle = '',
+    String initialPriority = 'none',
+    int? systemTagId,
+  }) async {
+    List<TodoList> available;
+    try {
+      available = lists ?? await DataService().getLists();
+    } catch (_) {
+      if (context.mounted) {
+        FxNotice.showContent(context, const Text('清单读取失败，请稍后重试'));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    if (available.isEmpty) {
+      FxNotice.showContent(context, const Text('请先创建一个清单'));
+      return;
+    }
+
+    final inboxes = available.where((list) => list.isInbox);
+    final preferred = inboxes.isNotEmpty ? inboxes.first : available.first;
+    final selected = [
+      for (final list in available)
+        if (list.id == selectedListId) list,
+    ];
+    final initialList = selected.isNotEmpty ? selected.first : preferred;
     final now = DateTime.now();
     final draft = Task(
       id: 0,
       listId: initialList.id,
-      title: '',
-      priority: 'none',
-      dueDate: DateTime(now.year, now.month, now.day),
+      title: initialTitle,
+      priority: initialPriority,
+      dueDate: initialDueDate ??
+          (defaultDueToday ? DateTime(now.year, now.month, now.day) : null),
+      systemTagId: systemTagId,
       isCompleted: false,
       createdAt: now,
     );
-    return show(
+    await show(
       context,
       task: draft,
-      lists: lists,
+      lists: available,
       onChanged: onChanged,
       isCreating: true,
     );
@@ -265,6 +292,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _requestMobileClose({bool backFromSystem = false}) async {
+    if (_saving) return;
     if (backFromSystem && _mobilePage != null) {
       setState(() => _mobilePage = null);
       return;
@@ -291,13 +319,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         if (!didPop) _requestMobileClose(backFromSystem: true);
       },
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (_mobilePage == null)
             _header()
           else
             _mobilePropertyHeader(),
           FxSeparator.horizontal(height: 1, color: fxDivider(context)),
-          Expanded(
+          Flexible(
+            fit: FlexFit.loose,
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(
@@ -390,6 +420,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 key: const ValueKey('task.detail.title'),
                 controller: _title,
                 enabled: !_saving,
+                autofocus: widget.isCreating,
                 plain: true,
                 contentPadding: const EdgeInsets.symmetric(
                   vertical: SlowlightSpacing.xs,
@@ -621,10 +652,29 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
+  String _mobileValueSnapshot() {
+    final days = _weekdays.toList()..sort();
+    final tags = _selectedTags.map((tag) => tag.id).toList()..sort();
+    return [
+      _listId,
+      _dueDate?.toIso8601String(),
+      _priority,
+      _repeatType,
+      _repeatInterval,
+      days.join(','),
+      _dueTime?.hour,
+      _dueTime?.minute,
+      _reminderAt?.toIso8601String(),
+      _reminderAdvanceMinutes,
+      tags.join(','),
+    ].join('|');
+  }
+
   void _mobileSelect(VoidCallback change, {bool stay = false}) {
+    final before = _mobileValueSnapshot();
     setState(() {
       change();
-      _mobileDirty = true;
+      if (_mobileValueSnapshot() != before) _mobileDirty = true;
       if (!stay) _mobilePage = null;
     });
   }
@@ -786,21 +836,36 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final before = _dueDate;
     await _pickDate();
     if (!mounted) return;
-    if (_dueDate != before) _mobileSelect(() {});
+    if (_dueDate != before) {
+      setState(() {
+        _mobileDirty = true;
+        _mobilePage = null;
+      });
+    }
   }
 
   Future<void> _mobilePickTime() async {
     final before = _dueTime;
     await _pickTime();
     if (!mounted) return;
-    if (_dueTime != before) _mobileSelect(() {});
+    if (_dueTime != before) {
+      setState(() {
+        _mobileDirty = true;
+        _mobilePage = null;
+      });
+    }
   }
 
   Future<void> _mobilePickReminder() async {
     final before = _reminderAt;
     await _pickReminder();
     if (!mounted) return;
-    if (_reminderAt != before) _mobileSelect(() {});
+    if (_reminderAt != before) {
+      setState(() {
+        _mobileDirty = true;
+        _mobilePage = null;
+      });
+    }
   }
 
   Widget _mobileFooter() {

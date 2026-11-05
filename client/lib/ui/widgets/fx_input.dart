@@ -134,7 +134,27 @@ class FxInput extends StatelessWidget {
               : null),
     );
 
-    final field = input;
+    // The borderless title still needs a visible keyboard-focus state.
+    // Keep the cue inside FxInput so screens never layer custom borders.
+    final Widget field = plain
+        ? Focus(
+            canRequestFocus: false,
+            builder: (focusContext, node) => AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: node.hasFocus
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant.withValues(alpha: .45),
+                    width: node.hasFocus ? 2 : 1,
+                  ),
+                ),
+              ),
+              child: input,
+            ),
+          )
+        : input;
 
     if (label == null && (errorText == null || errorText!.isEmpty)) {
       return field;

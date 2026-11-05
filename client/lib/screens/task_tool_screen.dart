@@ -200,7 +200,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     }
     // Mobile creates and edits through one editor and the same property rows.
     // Keep the existing desktop create dialog untouched.
-    if (MediaQuery.sizeOf(context).width < 600) {
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
       await TaskDetailSheet.showCreate(
         context,
         lists: _lists,
@@ -244,26 +244,66 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                   ? _desktopContent()
                   : mobile
                       ? _mobileTaskList()
-                      : ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: SlowlightPageInsets.scroll(context, bottom: 72),
-                          children: [
-                            _taskActionBar(),
-                            if (_loadFailed) _refreshErrorNotice(),
-                            const SizedBox(height: SlowlightSpacing.xl),
-                            _card(
-                              child: _visible.isEmpty
-                                  ? _emptyState()
-                                  : Column(
-                                      children: _visible
-                                          .map((task) => _taskRow(task))
-                                          .toList(growable: false),
-                                    ),
-                            ),
-                          ],
-                        ),
+                      : _mediumTaskList(),
         );
       },
+    );
+  }
+
+  Widget _mediumTaskList() {
+    final visible = _visible;
+    final edge = BorderSide(color: fxBorder(context));
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: SlowlightPageInsets.scroll(context, bottom: 72),
+          sliver: SliverList.builder(
+            itemCount: 1 + (visible.isEmpty ? 1 : visible.length),
+            itemBuilder: (context, position) {
+              if (position == 0) {
+                return Column(
+                  children: [
+                    _taskActionBar(),
+                    if (_loadFailed) _refreshErrorNotice(),
+                    const SizedBox(height: SlowlightSpacing.xl),
+                  ],
+                );
+              }
+              if (visible.isEmpty) return _card(child: _emptyState());
+              final index = position - 1;
+              final task = visible[index];
+              final first = index == 0;
+              final last = index == visible.length - 1;
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  color: fxSurface(context),
+                  border: Border(
+                    left: edge,
+                    right: edge,
+                    top: first ? edge : BorderSide.none,
+                    bottom: last ? edge : BorderSide.none,
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: first
+                        ? const Radius.circular(SlowlightRadius.lg)
+                        : Radius.zero,
+                    bottom: last
+                        ? const Radius.circular(SlowlightRadius.lg)
+                        : Radius.zero,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SlowlightSpacing.xl,
+                  ),
+                  child: _taskRow(task),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -274,69 +314,117 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final dateLabel = '${now.month}月${now.day}日 · 星期${weekdays[now.weekday - 1]}';
     final remaining = _all.where((task) => !task.isCompleted).length;
+    final visible = _visible;
     final title = switch (_segment) {
       1 => '所有任务',
       2 => '已完成',
       _ => '待处理',
     };
-    return ListView(
+    final edge = BorderSide(color: fxBorder(context));
+
+    // SliverList builds only visible task rows; a Column eagerly created the
+    // entire '全部' list on every state change.
+    return CustomScrollView(
       key: const ValueKey('tasks.mobile.list'),
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: SlowlightPageInsets.scroll(context, bottom: 72),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(dateLabel,
-                      style: SlowlightTypography.sectionTitle(context)),
-                  const SizedBox(height: SlowlightSpacing.xs),
-                  Text('${remaining} 项待完成',
-                      style: SlowlightTypography.caption(context).copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-            FxButton(
-              label: '新建',
-              icon: LucideIcons.plus,
-              size: FxButtonSize.sm,
-              variant: FxButtonVariant.outline,
-              onPressed: _create,
-            ),
-          ],
-        ),
-        const SizedBox(height: SlowlightSpacing.xl),
-        _mobileFilters(),
-        if (_loadFailed) _refreshErrorNotice(),
-        const SizedBox(height: SlowlightSpacing.xl),
-        FxSectionHeader(
-          title: title,
-          trailing: '${_visible.length} 项',
-        ),
-        const SizedBox(height: SlowlightSpacing.md),
-        _card(
-          padding: const EdgeInsets.symmetric(
-            horizontal: SlowlightSpacing.md,
-            vertical: SlowlightSpacing.xs,
-          ),
-          child: _visible.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: SlowlightSpacing.page,
+      slivers: [
+        SliverPadding(
+          padding: SlowlightPageInsets.scroll(context, bottom: 72),
+          sliver: SliverList.builder(
+            itemCount: 1 + (visible.isEmpty ? 1 : visible.length),
+            itemBuilder: (context, position) {
+              if (position == 0) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                dateLabel,
+                                style: SlowlightTypography.sectionTitle(context),
+                              ),
+                              const SizedBox(height: SlowlightSpacing.xs),
+                              Text(
+                                '${remaining} 项待完成',
+                                style: SlowlightTypography.caption(context)
+                                    .copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        FxButton(
+                          label: '新建',
+                          icon: LucideIcons.plus,
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: _create,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: SlowlightSpacing.xl),
+                    _mobileFilters(),
+                    if (_loadFailed) _refreshErrorNotice(),
+                    const SizedBox(height: SlowlightSpacing.xl),
+                    FxSectionHeader(
+                      title: title,
+                      trailing: '${visible.length} 项',
+                    ),
+                    const SizedBox(height: SlowlightSpacing.md),
+                  ],
+                );
+              }
+              if (visible.isEmpty) {
+                return _card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: SlowlightSpacing.page,
+                    ),
+                    child: _emptyState(),
                   ),
-                  child: _emptyState(),
-                )
-              : Column(
-                  children: _visible.map((task) {
-                    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
-                      return _swipeTaskRow(task);
-                    }
-                    return _taskRow(task, compactMobile: true);
-                  }).toList(growable: false),
+                );
+              }
+
+              final index = position - 1;
+              final task = visible[index];
+              final first = index == 0;
+              final last = index == visible.length - 1;
+              return DecoratedBox(
+                key: ValueKey('tasks.mobile.shell.${task.id}'),
+                decoration: BoxDecoration(
+                  color: fxSurface(context),
+                  border: Border(
+                    left: edge,
+                    right: edge,
+                    top: first ? edge : BorderSide.none,
+                    bottom: last ? edge : BorderSide.none,
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: first
+                        ? const Radius.circular(SlowlightRadius.lg)
+                        : Radius.zero,
+                    bottom: last
+                        ? const Radius.circular(SlowlightRadius.lg)
+                        : Radius.zero,
+                  ),
                 ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SlowlightSpacing.md,
+                  ),
+                  child: SlowlightPlatformDensity.usesMobileTouchTargets
+                      ? _swipeTaskRow(task)
+                      : _taskRow(task, compactMobile: true),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -451,15 +539,15 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                         SizedBox(
                           width: 430,
                           child: _card(
-                            child: ListView(
-                              children: _visible
-                                  .map(
-                                    (task) => _taskRow(
-                                      task,
-                                      selected: _selectedTask?.id == task.id,
-                                    ),
-                                  )
-                                  .toList(growable: false),
+                            child: ListView.builder(
+                              itemCount: _visible.length,
+                              itemBuilder: (context, index) {
+                                final task = _visible[index];
+                                return _taskRow(
+                                  task,
+                                  selected: _selectedTask?.id == task.id,
+                                );
+                              },
                             ),
                           ),
                         ),

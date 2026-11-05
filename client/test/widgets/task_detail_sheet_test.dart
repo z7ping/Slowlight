@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/ui/theme_manager.dart';
 import 'package:slowlight/widgets/tag_picker.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 
@@ -88,6 +89,88 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('新建任务'), findsOneWidget);
     expect(find.text('尚未创建'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 任务新建携带来自日历的日期和四象限优先级',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '打开创建',
+            onPressed: () => TaskDetailSheet.showCreate(
+              context,
+              lists: lists,
+              onChanged: () {},
+              initialDueDate: DateTime(2026, 11, 21),
+              initialPriority: 'urgent_important',
+              defaultDueToday: false,
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('打开创建'));
+    await tester.pumpAndSettle();
+
+    final detail = find.byType(TaskDetailSheet);
+    expect(detail, findsOneWidget);
+    final draft = tester.widget<TaskDetailSheet>(detail).task;
+    expect(draft.dueDate, DateTime(2026, 11, 21));
+    expect(draft.priority, 'urgent_important');
+    expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
+    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.text('高'), findsOneWidget);
+    expect(find.text('2026-11-21'), findsOneWidget);
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.title')),
+      matching: find.byType(EditableText),
+    );
+    expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
+    // The main form grows with content but never occupies the whole viewport.
+    expect(tester.getSize(detail).height, lessThan(820));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 重新选中相同优先级不误报未保存',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: task,
+          lists: lists,
+          onChanged: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('不重要 · 不紧急'));
+    await tester.pumpAndSettle();
+    expect(find.text('已保存'), findsOneWidget);
+    expect(find.text('有未保存的修改'), findsNothing);
+    expect(
+      tester.widget<FxButton>(
+        find.byKey(const ValueKey('task.detail.primaryAction')),
+      ).onPressed,
+      isNull,
+    );
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -216,6 +299,45 @@ void main() {
       await disposeFxTestHost(tester);
     });
   }
+
+  testWidgets('Android 暗色 320dp 高字号弹层保持可滚动和固定保存入口',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      theme: ThemeManager.darkTheme,
+      shadTheme: ThemeManager.shadDark,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(1.3),
+        ),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: TaskDetailSheet(task: task, lists: lists, onChanged: () {}),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final footer = find.byKey(const ValueKey('task.detail.primaryAction'));
+    expect(footer, findsOneWidget);
+    final rect = tester.getRect(footer);
+    expect(rect.left, greaterThanOrEqualTo(0));
+    expect(rect.right, lessThanOrEqualTo(320));
+    expect(rect.bottom, lessThanOrEqualTo(640));
+    final more = find.byKey(const ValueKey('task.detail.moreSettings'));
+    await tester.ensureVisible(more);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task.detail.property.tags')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('Windows 任务详情保留紧凑右侧面板操作区', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;

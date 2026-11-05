@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/calendar_record.dart';
+import '../models/todo_list.dart';
 import '../repositories/calendar_repository.dart';
 import '../services/data_service.dart';
 import '../theme/app_theme.dart';
@@ -14,6 +15,8 @@ class CalendarScreen extends StatefulWidget {
   final CalendarMonthLoader? monthLoader;
   final DateTime? initialMonth;
   final DateTime? initialSelectedDate;
+  /// Allows deterministic editor-entry widget tests without remote list reads.
+  final List<TodoList>? createListsOverride;
   final Future<void> Function(BuildContext context, DateTime date)?
   createTaskOverride;
 
@@ -22,6 +25,7 @@ class CalendarScreen extends StatefulWidget {
     this.monthLoader,
     this.initialMonth,
     this.initialSelectedDate,
+    this.createListsOverride,
     this.createTaskOverride,
   });
 
@@ -121,12 +125,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
       await _load();
       return;
     }
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      await TaskDetailSheet.showCreate(
+        context,
+        lists: widget.createListsOverride,
+        initialDueDate: date,
+        defaultDueToday: false,
+        onChanged: _load,
+      );
+      return;
+    }
     final created = await TaskCreateSheet.showFullCreate(
       context,
       defaultDueDate: date,
       defaultToToday: false,
     );
-    if (created == true) await _load();
+    if (created == true && mounted) await _load();
   }
 
   void _showMore(DateTime date) {
