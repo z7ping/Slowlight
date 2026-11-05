@@ -55,7 +55,12 @@ class _FxIconButtonState extends State<FxIconButton> {
   Widget build(BuildContext context) {
     final visualSize = SlowlightPlatformDensity.iconButtonVisualSize;
     const borderWidth = 1.0;
-    final contentSize = visualSize - borderWidth * 2;
+    // ShadIconButton 的 width/height 是按钮自身的最小尺寸。
+    // Android 直接为按钮设置 44dp，不能减去绘制边框后只给 42dp。
+    // Windows 保留既有 28dp 内容尺寸与约 30dp 可见几何。
+    final contentSize = SlowlightPlatformDensity.usesMobileTouchTargets
+        ? visualSize
+        : visualSize - borderWidth * 2;
     // Shad 默认次级焦点环会在按钮外再预留 8px，使页头及输入框尾部跳高。
     // 用同宽的单层边框表达焦点，保留键盘反馈与 Android 触控尺寸。
     final colors = Theme.of(context).colorScheme;
