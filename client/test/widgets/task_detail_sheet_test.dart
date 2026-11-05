@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/ui/theme_manager.dart';
 import 'package:slowlight/widgets/tag_picker.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 
@@ -298,6 +299,45 @@ void main() {
       await disposeFxTestHost(tester);
     });
   }
+
+  testWidgets('Android 暗色 320dp 高字号弹层保持可滚动和固定保存入口',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      theme: ThemeManager.darkTheme,
+      shadTheme: ThemeManager.shadDark,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(1.3),
+        ),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: TaskDetailSheet(task: task, lists: lists, onChanged: () {}),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final footer = find.byKey(const ValueKey('task.detail.primaryAction'));
+    expect(footer, findsOneWidget);
+    final rect = tester.getRect(footer);
+    expect(rect.left, greaterThanOrEqualTo(0));
+    expect(rect.right, lessThanOrEqualTo(320));
+    expect(rect.bottom, lessThanOrEqualTo(640));
+    final more = find.byKey(const ValueKey('task.detail.moreSettings'));
+    await tester.ensureVisible(more);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task.detail.property.tags')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('Windows 任务详情保留紧凑右侧面板操作区', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
