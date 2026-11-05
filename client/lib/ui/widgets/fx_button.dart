@@ -163,7 +163,32 @@ class _FxButtonState extends State<FxButton> {
     });
   }
 
+  // Android 的最低命中高度必须属于 ShadButton 本身，而非外层空白。
+  // 按真实文本倍率增长，避免 200% 系统字号被固定 44dp 裁切。
+  double _mobileButtonHeight(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(text: widget.label, style: _textMetrics(context)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final textHeight = painter.height;
+    painter.dispose();
+    final minHeight = widget.size == FxButtonSize.lg
+        ? 48.0
+        : SlowlightControlSize.minTouchTarget;
+    final verticalSpace = switch (widget.size) {
+      FxButtonSize.sm => SlowlightSpacing.md,
+      FxButtonSize.md => SlowlightSpacing.xl,
+      FxButtonSize.lg => SlowlightSpacing.xxxl,
+    };
+    return math.max(minHeight, textHeight + verticalSpace);
+  }
+
   Widget _buildButton(BuildContext context, {double? height}) {
+    final effectiveHeight = height ??
+        (SlowlightPlatformDensity.usesMobileTouchTargets
+            ? _mobileButtonHeight(context)
+            : null);
     final child = _buildChild(context);
     final Widget button;
     switch (widget.variant) {
@@ -172,7 +197,7 @@ class _FxButtonState extends State<FxButton> {
           onPressed: _effectiveAction,
           size: _shadSize,
           expands: widget.expanded,
-          height: height,
+          height: effectiveHeight,
           child: child,
         );
         break;
@@ -181,7 +206,7 @@ class _FxButtonState extends State<FxButton> {
           onPressed: _effectiveAction,
           size: _shadSize,
           expands: widget.expanded,
-          height: height,
+          height: effectiveHeight,
           child: child,
         );
         break;
@@ -190,7 +215,7 @@ class _FxButtonState extends State<FxButton> {
           onPressed: _effectiveAction,
           size: _shadSize,
           expands: widget.expanded,
-          height: height,
+          height: effectiveHeight,
           child: child,
         );
         break;
@@ -199,7 +224,7 @@ class _FxButtonState extends State<FxButton> {
           onPressed: _effectiveAction,
           size: _shadSize,
           expands: widget.expanded,
-          height: height,
+          height: effectiveHeight,
           child: child,
         );
         break;
@@ -208,7 +233,7 @@ class _FxButtonState extends State<FxButton> {
           onPressed: _effectiveAction,
           size: _shadSize,
           expands: widget.expanded,
-          height: height,
+          height: effectiveHeight,
           child: child,
         );
         break;
@@ -217,19 +242,11 @@ class _FxButtonState extends State<FxButton> {
           onPressed: _effectiveAction,
           size: _shadSize,
           expands: widget.expanded,
-          height: height,
+          height: effectiveHeight,
           child: child,
         );
         break;
     }
-    if (!SlowlightPlatformDensity.usesMobileTouchTargets) {
-      return button;
-    }
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minHeight: SlowlightControlSize.minTouchTarget,
-      ),
-      child: button,
-    );
+    return button;
   }
 }
