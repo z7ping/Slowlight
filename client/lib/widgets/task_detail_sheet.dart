@@ -729,7 +729,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                     const SizedBox(width: SlowlightSpacing.xs),
                     Flexible(
                       child: Text(
-                        value,
+                        value!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: SlowlightTypography.componentSecondary(context),
