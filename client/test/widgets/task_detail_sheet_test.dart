@@ -158,6 +158,46 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 修改任务标题后撤回原值不会留下虚假的未保存状态',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: task,
+          lists: lists,
+          onChanged: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.title')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(title, '临时修改');
+    await tester.pumpAndSettle();
+    expect(find.text('有未保存的修改'), findsOneWidget);
+
+    await tester.enterText(title, task.title);
+    await tester.pumpAndSettle();
+    expect(find.text('已保存'), findsOneWidget);
+    expect(
+      tester.widget<FxButton>(
+        find.byKey(const ValueKey('task.detail.primaryAction')),
+      ).onPressed,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 重新选中相同优先级不误报未保存',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
