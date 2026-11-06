@@ -637,6 +637,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       _dueTime?.minute,
       _reminderAt?.toIso8601String(),
       _reminderAdvanceMinutes,
+      _reminderAt != null && _mobileReminderCustom,
       tags.join(','),
     ].join('|');
   }
@@ -922,10 +923,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _mobilePickReminder(VoidCallback dismiss) async {
-    final before = _reminderAt;
+    final before = _mobileValueSnapshot();
     await _pickReminder();
     if (!mounted) return;
-    if (_reminderAt != before) {
+    if (_mobileValueSnapshot() != before) {
       setState(() {
         _mobileReminderCustom = true;
         _mobileDirty = true;
