@@ -24,6 +24,9 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   bool _loading = true;
   int _segment = 0;
   List<Task> _today = const [];
+  // The Android Today filter displays pending actions before completed facts.
+  // Keep repository ordering for Windows / other layouts.
+  List<Task> _mobileToday = const [];
   List<Task> _all = const [];
   List<Task> _completed = const [];
   List<TodoList> _lists = const [];
@@ -59,6 +62,10 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
       if (!mounted || request != _loadVersion) return;
       setState(() {
         _today = values[0] as List<Task>;
+        _mobileToday = [
+          ..._today.where((task) => !task.isCompleted),
+          ..._today.where((task) => task.isCompleted),
+        ];
         _all = values[1] as List<Task>;
         _completed = values[2] as List<Task>;
         _lists = values[3] as List<TodoList>;
@@ -314,11 +321,11 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final dateLabel = '${now.month}月${now.day}日 · 星期${weekdays[now.weekday - 1]}';
     final remaining = _all.where((task) => !task.isCompleted).length;
-    final visible = _visible;
+    final visible = _segment == 0 ? _mobileToday : _visible;
     final title = switch (_segment) {
       1 => '所有任务',
       2 => '已完成',
-      _ => '待处理',
+      _ => '今日相关',
     };
     final edge = BorderSide(color: fxBorder(context));
 
@@ -449,7 +456,11 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
               _segment = i;
               _revealedTaskId = null;
             }),
-            child: Container(
+            child: AnimatedContainer(
+              duration: MediaQuery.of(context).disableAnimations
+                  ? Duration.zero
+                  : const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
               constraints: const BoxConstraints(
                 minHeight: SlowlightControlSize.minTouchTarget,
               ),
@@ -461,7 +472,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                 border: Border(
                   bottom: BorderSide(
                     color: _segment == i
-                        ? AppTheme.success
+                        ? theme.colorScheme.primary
                         : Colors.transparent,
                     width: 2,
                   ),
@@ -483,7 +494,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                   Text(items[i].$2.toString(),
                       style: SlowlightTypography.caption(context).copyWith(
                         color: _segment == i
-                            ? AppTheme.success
+                            ? theme.colorScheme.primary
                             : theme.colorScheme.onSurfaceVariant,
                       )),
                 ],
@@ -719,7 +730,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
           border: Border(bottom: BorderSide(color: fxSubtleSurface(context))),
         ),
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: compactMobile ? 60 : 0),
+          constraints: BoxConstraints(minHeight: compactMobile ? 48 : 0),
           child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [

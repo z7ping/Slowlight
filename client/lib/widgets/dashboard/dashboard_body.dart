@@ -869,7 +869,10 @@ class _DashboardBodyState extends State<DashboardBody> {
         !SlowlightPlatformDensity.usesMobileTouchTargets ||
         task.isCompleted ||
         widget.onTaskToggle == null) {
-      return row;
+      return KeyedSubtree(
+        key: ValueKey('today-task-${task.id}'),
+        child: row,
+      );
     }
     return TaskSwipeRow(
       key: ValueKey('today-task-${task.id}'),
