@@ -203,6 +203,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         await widget.onRefresh?.call();
       },
       child: ListView(
+        key: const PageStorageKey('today.workspace.scroll'),
         physics: const AlwaysScrollableScrollPhysics(),
         padding: SlowlightPageInsets.scroll(
           context,
@@ -230,23 +231,13 @@ class _DashboardBodyState extends State<DashboardBody> {
     final now = DateTime.now();
     const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
     if (!desktop) {
-      // Match the approved Today prototype: date + focus are the entire
-      // above-the-fold header; high-frequency actions follow immediately.
-      final copy = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${now.month}月${now.day}日 · ${weekdays[now.weekday - 1]}',
-            style: SlowlightTypography.pageTitle(context)
-                .copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Text(
-            '记录行动，也记录生活。',
-            style: SlowlightTypography.caption(context)
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
+      // The Android prototype has one compact date/focus line. The shell owns
+      // the page title; do not insert a second descriptive heading here.
+      final date = Text(
+        '${now.month}月${now.day}日 · ${weekdays[now.weekday - 1]}',
+        key: const ValueKey('today.mobile.date'),
+        style: SlowlightTypography.sectionTitle(context)
+            .copyWith(fontWeight: FontWeight.w700),
       );
       final focus = widget.onStartFocus == null
           ? null
@@ -257,23 +248,22 @@ class _DashboardBodyState extends State<DashboardBody> {
               size: FxButtonSize.sm,
               onPressed: widget.onStartFocus,
             );
-      if (focus == null) return copy;
+      if (focus == null) return date;
       return LayoutBuilder(builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
-        if (constraints.maxWidth < 320 * scale) {
+        if (constraints.maxWidth < 300 * scale) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              copy,
+              date,
               const SizedBox(height: SlowlightSpacing.xs),
               Align(alignment: Alignment.centerRight, child: focus),
             ],
           );
         }
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: copy),
+            Expanded(child: date),
             const SizedBox(width: SlowlightSpacing.md),
             focus,
           ],
@@ -456,7 +446,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       trailingWidget: widget.onViewReview == null
           ? null
           : FxButton(
-              label: '进入回顾',
+              label: mobile ? '进入回顾 →' : '进入回顾',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
               onPressed: widget.onViewReview,
@@ -477,7 +467,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               children: [
                 Text('今天还没有行为记录。',
                     style: SlowlightTypography.secondary(context)),
-                if (widget.onWriteObservation != null)
+                if (!mobile && widget.onWriteObservation != null)
                   FxButton(
                     label: '记录此刻的想法',
                     variant: FxButtonVariant.ghost,
@@ -712,7 +702,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       trailingWidget: widget.onViewAllTasks == null
           ? null
           : FxButton(
-              label: '查看全部',
+              label: mobile ? '查看全部 →' : '查看全部',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
               onPressed: widget.onViewAllTasks,
@@ -725,12 +715,28 @@ class _DashboardBodyState extends State<DashboardBody> {
           _coreStatus('任务', widget.tasksLoading, widget.tasksError,
               visible.isNotEmpty),
         if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
-          _emptyWithNext(
-            '今天暂时没有任务',
-            '先写下一件想做的事',
-            widget.onQuickAdd,
-            compact: mobile,
-          )
+          mobile
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('今天暂时没有任务',
+                          style: SlowlightTypography.secondary(context)
+                              .copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: SlowlightSpacing.xs),
+                      Text('在右下角添加第一件想做的事。',
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          )),
+                    ],
+                  ),
+                )
+              : _emptyWithNext(
+                  '今天暂时没有任务',
+                  '先写下一件想做的事',
+                  widget.onQuickAdd,
+                )
         else
           ...visible.map((task) => _taskRow(task, mobile)),
       ],
@@ -925,7 +931,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       trailingWidget: widget.onViewAllHabits == null
           ? null
           : FxButton(
-              label: '查看全部',
+              label: mobile ? '查看全部 →' : '查看全部',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
               onPressed: widget.onViewAllHabits,

@@ -13,6 +13,8 @@ class TagPicker extends StatefulWidget {
   final ValueChanged<List<Tag>> onChanged;
   final bool enabled;
   final String label;
+  final bool allowCreation;
+  final bool showEmptyOption;
 
   const TagPicker({
     super.key,
@@ -20,6 +22,8 @@ class TagPicker extends StatefulWidget {
     required this.onChanged,
     this.enabled = true,
     this.label = '标签（可多选）',
+    this.allowCreation = true,
+    this.showEmptyOption = true,
   });
 
   @override
@@ -201,7 +205,8 @@ class _TagPickerState extends State<TagPicker> {
         ]);
       },
       enabled: widget.enabled,
-      onCreateTag: widget.enabled ? _showCreateTagDialog : null,
+      onCreateTag: widget.enabled && widget.allowCreation ? _showCreateTagDialog : null,
+      showEmptyOption: widget.showEmptyOption,
       label: widget.label,
     );
   }

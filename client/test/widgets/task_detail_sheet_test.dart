@@ -58,16 +58,19 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.text('任务详情'), findsNothing);
     expect(tester.widget<FxInput>(
       find.byKey(const ValueKey('task.detail.title')),
     ).plain, isTrue);
+    expect(tester.widget<FxInput>(
+      find.byKey(const ValueKey('task.detail.title')),
+    ).showPlainFocusUnderline, isFalse);
     for (final field in ['list', 'due', 'priority', 'tags']) {
       expect(find.byKey(ValueKey('task.detail.property.$field')),
           findsOneWidget);
     }
-    expect(find.byKey(const ValueKey('task.detail.complete')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.complete')), findsNothing);
     expect(find.byType(FxMenu<String>), findsNWidgets(4));
     final quickbar = find.byKey(const ValueKey('task.detail.quickbar'));
     expect(quickbar, findsOneWidget);
@@ -84,7 +87,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('创建任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
     expect(tester.widget<FxButton>(action).onPressed, isNull);
     await tester.enterText(
       find.descendant(
@@ -101,8 +104,8 @@ void main() {
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
     await tester.tap(find.text('高'));
     await tester.pumpAndSettle();
-    expect(find.text('新建任务'), findsOneWidget);
-    expect(find.text('尚未创建'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -141,7 +144,7 @@ void main() {
     expect(draft.dueDate, DateTime(2026, 11, 21));
     expect(draft.priority, 'urgent_important');
     expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
-    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.text('高'), findsOneWidget);
     expect(find.text('2026-11-21'), findsOneWidget);
     final title = find.descendant(
@@ -151,6 +154,46 @@ void main() {
     expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
     // The main form grows with content but never occupies the whole viewport.
     expect(tester.getSize(detail).height, lessThan(820));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 修改任务标题后撤回原值不会留下虚假的未保存状态',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: task,
+          lists: lists,
+          onChanged: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.title')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(title, '临时修改');
+    await tester.pumpAndSettle();
+    expect(find.text('有未保存的修改'), findsOneWidget);
+
+    await tester.enterText(title, task.title);
+    await tester.pumpAndSettle();
+    expect(find.text('已保存'), findsOneWidget);
+    expect(
+      tester.widget<FxButton>(
+        find.byKey(const ValueKey('task.detail.primaryAction')),
+      ).onPressed,
+      isNull,
+    );
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });

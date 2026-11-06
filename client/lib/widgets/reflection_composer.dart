@@ -6,6 +6,7 @@ import '../models/observation_tag.dart';
 import '../models/tag.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../repositories/reflection_repository.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_choice_field.dart';
@@ -53,12 +54,16 @@ class ReflectionComposer {
     Map<String, dynamic> contextData = const {},
   }) async {
     final controller = TextEditingController();
+    final inlineTagName = TextEditingController();
     List<ObservationTag> tags = const [];
-    try {
-      tags = await ObservationTagRepository().getAll();
-    } catch (_) {}
+    if (_useDesktopObservationDialog) {
+      try {
+        tags = await ObservationTagRepository().getAll();
+      } catch (_) {}
+    }
     if (!context.mounted) {
       controller.dispose();
+      inlineTagName.dispose();
       return false;
     }
 
@@ -66,7 +71,90 @@ class ReflectionComposer {
     int? selectedTagId;
     List<Tag> canonicalTags = [];
     var saving = false;
+    var resultUnknown = false;
+    var inlineTagOpen = false;
+    var inlineTagSaving = false;
+    var allowMobilePop = false;
+    var closePending = false;
+    String? inlineTagError;
     String? error;
+
+    bool observationDirty() =>
+        controller.text.trim().isNotEmpty ||
+        selectedDimension != dimensionKey ||
+        selectedTagId != null ||
+        canonicalTags.isNotEmpty;
+
+    Future<void> requestMobileClose(
+      BuildContext sheetContext,
+      StateSetter setSheetState,
+    ) async {
+      if (saving || inlineTagSaving || closePending) return;
+      if (!observationDirty() && !resultUnknown) {
+        setSheetState(() => allowMobilePop = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (sheetContext.mounted) Navigator.of(sheetContext).pop(false);
+        });
+        return;
+      }
+      closePending = true;
+      try {
+        final discard = await FxDialog.confirm(
+          context: sheetContext,
+          title: resultUnknown ? '观察保存结果未确认' : '放弃未保存的观察？',
+          content: resultUnknown
+              ? '本次保存可能已经成功，请先到回顾核对，避免再次创建重复记录。'
+              : '本次观察尚未保存，关闭后会丢失填写的内容。',
+          confirmText: resultUnknown ? '返回核对' : '放弃修改',
+          destructive: !resultUnknown,
+        );
+        if (discard != true || !sheetContext.mounted) return;
+        setSheetState(() => allowMobilePop = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (sheetContext.mounted) Navigator.of(sheetContext).pop(false);
+        });
+      } finally {
+        closePending = false;
+      }
+    }
+
+    Future<void> createInlineTag(
+      BuildContext entryContext,
+      StateSetter setEntryState,
+    ) async {
+      if (inlineTagSaving) return;
+      final name = inlineTagName.text.trim().replaceFirst(RegExp(r'^#'), '').trim();
+      if (name.isEmpty) {
+        setEntryState(() => inlineTagError = '请输入标签名称');
+        return;
+      }
+      setEntryState(() {
+        inlineTagSaving = true;
+        inlineTagError = null;
+      });
+      try {
+        final tag = await ApiService.createTag(
+          name: name,
+          color: '#0075de',
+        );
+        if (!entryContext.mounted) return;
+        setEntryState(() {
+          canonicalTags = [
+            ...canonicalTags.where((value) => value.id != tag.id),
+            tag,
+          ];
+          inlineTagOpen = false;
+          inlineTagSaving = false;
+          inlineTagName.clear();
+        });
+      } catch (_) {
+        if (!entryContext.mounted) return;
+        setEntryState(() {
+          inlineTagSaving = false;
+          inlineTagError = '标签创建失败，输入已保留';
+        });
+      }
+    }
 
     Widget buildFields(BuildContext entryContext, StateSetter setEntryState) {
       final theme = Theme.of(entryContext);
@@ -104,13 +192,26 @@ class ReflectionComposer {
             },
           );
           if (entryContext.mounted) {
-            Navigator.of(entryContext).pop(true);
+            if (_useDesktopObservationDialog) {
+              Navigator.of(entryContext).pop(true);
+            } else {
+              // PopScope blocks even programmatic pops until it rebuilds.
+              setEntryState(() => allowMobilePop = true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (entryContext.mounted) Navigator.of(entryContext).pop(true);
+              });
+            }
           }
-        } catch (e) {
+        } catch (_) {
           if (!entryContext.mounted) return;
+          // Keep Windows' existing recoverable failure contract. Android
+          // treats uncertain creates as non-idempotent and blocks replay.
           setEntryState(() {
             saving = false;
-            error = e.toString();
+            resultUnknown = !_useDesktopObservationDialog;
+            error = _useDesktopObservationDialog
+                ? '保存失败，请检查网络后重试'
+                : '保存结果未确认。请先到回顾核对，避免重复记录。';
           });
         }
       }
@@ -118,7 +219,7 @@ class ReflectionComposer {
       final saveButton = FxButton(
         label: saving ? '保存中…' : '保存观察',
         size: FxButtonSize.sm,
-        onPressed: saving ? null : saveObservation,
+        onPressed: saving || resultUnknown ? null : saveObservation,
       );
 
       return SingleChildScrollView(
@@ -135,35 +236,133 @@ class ReflectionComposer {
               placeholder: '写下此刻的观察，只描述真实发生的事…',
             ),
             const SizedBox(height: 12),
-            TagChoiceField(
-              label: '历史观察分类（兼容）',
-              tags: tags,
-              selectedTagId: selectedTagId,
-              enabled: !saving,
-              onChanged: (id) => setEntryState(() {
-                selectedTagId = id;
-                final match = tags.where((tag) => tag.id == id);
-                if (match.isNotEmpty && match.first.dimensionKey != null) {
-                  // 仅用于旧记录兼容，不再展示维度概念。
-                  selectedDimension = match.first.dimensionKey;
-                }
-              }),
-              onCreateTag: () async {
-                if (saving) return;
-                final created = await _createObservationTag(entryContext);
-                if (created == null || !entryContext.mounted) return;
-                setEntryState(() {
-                  tags = [...tags, created];
-                  selectedTagId = created.id;
-                });
-              },
-            ),
-            const SizedBox(height: 12),
+            if (_useDesktopObservationDialog) ...[
+              TagChoiceField(
+                label: '历史观察分类（兼容）',
+                tags: tags,
+                selectedTagId: selectedTagId,
+                enabled: !saving,
+                onChanged: (id) => setEntryState(() {
+                  selectedTagId = id;
+                  final match = tags.where((tag) => tag.id == id);
+                  if (match.isNotEmpty && match.first.dimensionKey != null) {
+                    selectedDimension = match.first.dimensionKey;
+                  }
+                }),
+                onCreateTag: () async {
+                  if (saving) return;
+                  final created = await _createObservationTag(entryContext);
+                  if (created == null || !entryContext.mounted) return;
+                  setEntryState(() {
+                    tags = [...tags, created];
+                    selectedTagId = created.id;
+                  });
+                },
+              ),
+              const SizedBox(height: SlowlightSpacing.xl),
+            ] else ...[
+              Text(
+                '归属维度（可选）',
+                style: SlowlightTypography.componentFieldLabel(entryContext)
+                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              Wrap(
+                key: const ValueKey('observation.mobile.dimensions'),
+                spacing: SlowlightSpacing.md,
+                runSpacing: SlowlightSpacing.md,
+                children: [
+                  FxChoiceChip(
+                    label: '未归类',
+                    selected: selectedDimension == null,
+                    onTap: saving ? null : () =>
+                        setEntryState(() => selectedDimension = null),
+                  ),
+                  for (final dimension in DimensionCatalog.all)
+                    FxChoiceChip(
+                      label: '${dimension.icon} ${dimension.name}',
+                      selected: selectedDimension == dimension.keyValue,
+                      onTap: saving ? null : () => setEntryState(
+                        () => selectedDimension = dimension.keyValue,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: SlowlightSpacing.xl),
+            ],
             TagPicker(
+              label: '标签（可选）',
               enabled: !saving,
               selectedTags: canonicalTags,
-              onChanged: (tags) => setEntryState(() => canonicalTags = tags),
+              allowCreation: _useDesktopObservationDialog,
+              showEmptyOption: _useDesktopObservationDialog,
+              onChanged: (value) => setEntryState(() => canonicalTags = value),
             ),
+            if (!_useDesktopObservationDialog) ...[
+              const SizedBox(height: SlowlightSpacing.xs),
+              if (inlineTagOpen)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: SlowlightSpacing.md,
+                      runSpacing: SlowlightSpacing.md,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
+                          child: FxInput(
+                            key: const ValueKey('observation.mobile.tagName'),
+                            controller: inlineTagName,
+                            autofocus: true,
+                            enabled: !saving && !inlineTagSaving,
+                            maxLength: 20,
+                            placeholder: '输入标签名称',
+                          ),
+                        ),
+                        FxButton(
+                          label: inlineTagSaving ? '添加中…' : '添加',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: saving || inlineTagSaving
+                              ? null
+                              : () => createInlineTag(entryContext, setEntryState),
+                        ),
+                        FxButton(
+                          label: '取消',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.ghost,
+                          onPressed: inlineTagSaving
+                              ? null
+                              : () => setEntryState(() {
+                                    inlineTagOpen = false;
+                                    inlineTagError = null;
+                                    inlineTagName.clear();
+                                  }),
+                        ),
+                      ],
+                    ),
+                    if (inlineTagError != null)
+                      Text(
+                        inlineTagError!,
+                        style: SlowlightTypography.caption(entryContext)
+                            .copyWith(color: theme.colorScheme.error),
+                      ),
+                  ],
+                )
+              else
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FxButton(
+                    label: '＋ 新建标签',
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: saving
+                        ? null
+                        : () => setEntryState(() => inlineTagOpen = true),
+                  ),
+                ),
+            ],
             if (error != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -189,7 +388,21 @@ class ReflectionComposer {
                 ],
               )
             else
-              SizedBox(width: double.infinity, child: saveButton),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FxButton(
+                    key: const ValueKey('observation.mobile.cancel'),
+                    label: '取消',
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.outline,
+                    onPressed: saving ? null : () =>
+                        requestMobileClose(entryContext, setEntryState),
+                  ),
+                  const SizedBox(width: SlowlightSpacing.md),
+                  saveButton,
+                ],
+              ),
           ],
         ),
       );
@@ -216,25 +429,52 @@ class ReflectionComposer {
         context: context,
         isScrollControlled: true,
         showDragHandle: false,
+        showCloseButton: false,
+        draggable: false,
+        isDismissible: false,
+        padding: EdgeInsets.zero,
+        backgroundColor: fxSurface(context),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(SlowlightRadius.xl),
+          ),
+        ),
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      '记录观察',
-                      style: SlowlightTypography.cardTitle(
-                        sheetContext,
-                      ).copyWith(fontWeight: FontWeight.w700),
+            return PopScope(
+              canPop: allowMobilePop,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) requestMobileClose(sheetContext, setSheetState);
+              },
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(sheetContext).height * .88,
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      SlowlightSpacing.xxxl,
+                      SlowlightSpacing.xl,
+                      SlowlightSpacing.xxxl,
+                      SlowlightSpacing.xxxl,
                     ),
-                    const SizedBox(height: 12),
-                    Flexible(child: buildFields(sheetContext, setSheetState)),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '记录观察',
+                          style: SlowlightTypography.cardTitle(sheetContext)
+                              .copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: SlowlightSpacing.xl),
+                        Flexible(
+                          child: buildFields(sheetContext, setSheetState),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             );
@@ -248,6 +488,7 @@ class ReflectionComposer {
         : await showMobileSheet();
 
     controller.dispose();
+    inlineTagName.dispose();
     return saved == true;
   }
 
