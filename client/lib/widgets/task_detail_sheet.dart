@@ -1026,6 +1026,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         dueTime: _dueTime,
         advanceMinutes: _reminderAdvanceMinutes,
       );
+      // Without a due date, a former relative reminder is no longer valid.
+      if (_reminderAt == null) _reminderAdvanceMinutes = 0;
     }
   }
 
