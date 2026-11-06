@@ -696,11 +696,36 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       key: _workspaceKey,
       index: showingReview ? 1 : 0,
       children: [
-        showingReview ? const SizedBox.shrink() : _buildContent(),
+        showingReview ? _buildTodayDashboard() : _buildContent(),
         _reviewOpened ? const TodayReviewScreen() : const SizedBox.shrink(),
       ],
     );
   }
+
+  // Keep the same Today element mounted across Today / Review tab changes.
+  // Recreating DashboardBody would restart its loaders and reset expansion state.
+  Widget _buildTodayDashboard() => DashboardBody(
+    tasks: _tasks,
+    tasksLoading: _coreLoading.contains('任务'),
+    habitsLoading: _coreLoading.contains('习惯'),
+    tasksError: _coreErrors.contains('任务'),
+    habitsError: _coreErrors.contains('习惯'),
+    listsError: _coreErrors.contains('清单'),
+    habits: _habits,
+    refreshTick: _dashboardRefreshTick,
+    onTaskTap: _openTask,
+    onTaskToggle: _toggleTask,
+    onTaskSwipeComplete: _toggleTask,
+    onHabitToggle: _toggleHabit,
+    onHabitLongPress: _openDetailedHabitCheckin,
+    onViewAllTasks: () => _openTool(HomeToolSection.tasks),
+    onViewAllHabits: () => _openTool(HomeToolSection.habits),
+    onViewReview: () => _openPrimary(HomePrimarySection.review),
+    onQuickAdd: _quickAdd,
+    onWriteObservation: _writeObservation,
+    onStartFocus: _startFocus,
+    onRefresh: _reload,
+  );
 
   Widget _buildContent() {
     final tool = _navigation.tool;
@@ -719,28 +744,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
       };
     }
     return switch (_navigation.primary) {
-      HomePrimarySection.today => DashboardBody(
-          tasks: _tasks,
-          tasksLoading: _coreLoading.contains('任务'),
-          habitsLoading: _coreLoading.contains('习惯'),
-          tasksError: _coreErrors.contains('任务'),
-          habitsError: _coreErrors.contains('习惯'),
-          listsError: _coreErrors.contains('清单'),
-          habits: _habits,
-          refreshTick: _dashboardRefreshTick,
-          onTaskTap: _openTask,
-          onTaskToggle: _toggleTask,
-          onTaskSwipeComplete: _toggleTask,
-          onHabitToggle: _toggleHabit,
-          onHabitLongPress: _openDetailedHabitCheckin,
-          onViewAllTasks: () => _openTool(HomeToolSection.tasks),
-          onViewAllHabits: () => _openTool(HomeToolSection.habits),
-          onViewReview: () => _openPrimary(HomePrimarySection.review),
-          onQuickAdd: _quickAdd,
-          onWriteObservation: _writeObservation,
-          onStartFocus: _startFocus,
-          onRefresh: _reload,
-        ),
+      HomePrimarySection.today => _buildTodayDashboard(),
       HomePrimarySection.review => const TodayReviewScreen(),
     };
   }
