@@ -563,11 +563,129 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     String field,
     IconData icon,
     String label,
-    String value,
-  ) {
+    String value, {
+    bool quick = false,
+    bool compactSetting = false,
+  }) {
     final theme = Theme.of(context);
+    final isUnset = value == '未设置';
+    final showQuickValue = !isUnset || field == 'due' || field == 'list';
+    final triggerKey = ValueKey('task.detail.property.$field');
+    final content = quick
+        ? ConstrainedBox(
+            key: triggerKey,
+            constraints: BoxConstraints(
+              minWidth: SlowlightControlSize.minTouchTarget,
+              minHeight: SlowlightControlSize.minTouchTarget,
+              maxWidth: MediaQuery.sizeOf(context).width * .5,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: SlowlightSpacing.md,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: SlowlightIconSize.md,
+                    color: field == 'due'
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  if (showQuickValue) ...[
+                    const SizedBox(width: SlowlightSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.componentSecondary(context)
+                            .copyWith(color: theme.colorScheme.onSurface),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          )
+        : compactSetting
+            ? Container(
+                key: triggerKey,
+                constraints: const BoxConstraints(minHeight: 60),
+                padding: const EdgeInsets.all(SlowlightSpacing.md),
+                decoration: BoxDecoration(
+                  color: fxSurface(context),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                  border: Border.all(color: fxBorder(context)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(icon, size: SlowlightIconSize.sm,
+                            color: theme.colorScheme.onSurfaceVariant),
+                        const SizedBox(width: SlowlightSpacing.xs),
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: SlowlightTypography.caption(context)
+                                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: SlowlightSpacing.xs),
+                    Text(
+                      value,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SlowlightTypography.componentControl(context),
+                    ),
+                  ],
+                ),
+              )
+            : ConstrainedBox(
+                key: triggerKey,
+                constraints: const BoxConstraints(
+                  minHeight: SlowlightControlSize.minTouchTarget,
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon,
+                        size: SlowlightIconSize.md,
+                        color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: SlowlightSpacing.xl),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: SlowlightTypography.componentControl(context),
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        textAlign: TextAlign.end,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.componentSecondary(context)
+                            .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                    const SizedBox(width: SlowlightSpacing.md),
+                    Icon(LucideIcons.chevronDown,
+                        size: SlowlightIconSize.xs,
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ],
+                ),
+              );
     return FxMenu<String>(
       enabled: !_saving,
+      tooltip: quick ? label : null,
       onOpened: () => FocusScope.of(context).unfocus(),
       constraints: BoxConstraints(
         minWidth: 220,
@@ -584,39 +702,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ),
         ),
       ),
-      child: ConstrainedBox(
-        key: ValueKey('task.detail.property.$field'),
-        constraints: const BoxConstraints(
-          minHeight: SlowlightControlSize.minTouchTarget,
-        ),
-        child: Row(
-          children: [
-            Icon(icon,
-                size: SlowlightIconSize.md,
-                color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: SlowlightSpacing.xl),
-            Expanded(
-              child: Text(label,
-                  style: SlowlightTypography.componentControl(context)),
-            ),
-            Flexible(
-              child: Text(
-                value,
-                maxLines: 1,
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.componentSecondary(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: SlowlightSpacing.md),
-            Icon(LucideIcons.chevronDown,
-                size: SlowlightIconSize.xs,
-                color: theme.colorScheme.onSurfaceVariant),
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 
@@ -639,13 +725,13 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   style: SlowlightTypography.componentControl(context).copyWith(
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     color: selected
-                        ? AppTheme.success
+                        ? theme.colorScheme.primary
                         : theme.colorScheme.onSurface,
                   )),
             ),
             if (selected)
               Icon(LucideIcons.check,
-                  size: SlowlightIconSize.sm, color: AppTheme.success),
+                  size: SlowlightIconSize.sm, color: theme.colorScheme.primary),
           ],
         ),
       ),
@@ -968,14 +1054,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final canSave = widget.isCreating
         ? _title.text.trim().isNotEmpty && !_creationResultUnknown
         : _mobileDirty;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          SlowlightSpacing.xxxl,
-          SlowlightSpacing.md,
-          SlowlightSpacing.xxxl,
-          SlowlightSpacing.xl,
+    return Padding(
+        padding: const EdgeInsets.only(
+          top: SlowlightSpacing.md,
         ),
         child: Row(
           children: [
@@ -1007,7 +1088,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             ),
           ],
         ),
-      ),
     );
   }
 
