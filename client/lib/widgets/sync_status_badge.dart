@@ -6,6 +6,7 @@ import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
 import '../services/sync_service.dart';
 import '../ui/fx.dart';
+import '../ui/sync_status_text.dart';
 
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
 class SyncStatusBadge extends StatelessWidget {
@@ -212,10 +213,13 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       if (!mounted) return;
       final pending = widget.sync.pendingCount +
           CloudSyncCoordinator().standalonePendingCount.value;
-      if (completed &&
-          widget.sync.status == SyncStatusEnum.idle &&
-          conflicts.isEmpty &&
-          pending == 0) {
+      if (cloudSyncFullySettled(
+        requestSucceeded: completed,
+        status: widget.sync.status,
+        conflictCheckFailed: false,
+        conflictCount: conflicts.length,
+        pendingCount: pending,
+      )) {
         Navigator.of(context).pop();
         widget.notice.show('同步已完成', variant: FxNoticeVariant.success);
         return;
