@@ -181,6 +181,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     setState(() {
       _navigation = _navigation.openPrimary(section);
       if (section == HomePrimarySection.review) _reviewOpened = true;
+      if (section == HomePrimarySection.today) _fabAutoHidden = false;
       _organizeToolsExpanded = false;
     });
     if (section == HomePrimarySection.today) _reload();
@@ -208,6 +209,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   void _closeTool() {
     setState(() {
       _navigation = _navigation.closeTool();
+      if (_navigation.isToday) _fabAutoHidden = false;
       _organizeToolsExpanded = false;
     });
   }
@@ -601,7 +603,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                   // Floating quick-add must not cover the buttons beneath it
                   // while the user is moving through the Today workspace.
                   final direction = notification.direction;
-                  if (direction == ScrollDirection.idle) return false;
+                  if (!_navigation.isToday ||
+                      direction == ScrollDirection.idle) return false;
                   final hide = direction == ScrollDirection.reverse;
                   if (_fabAutoHidden != hide && mounted) {
                     setState(() => _fabAutoHidden = hide);
@@ -616,6 +619,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 left: left,
                 top: top,
                 child: IgnorePointer(
+                  key: const ValueKey('today.fab.pointer'),
                   ignoring: _fabAutoHidden,
                   child: AnimatedSlide(
                     offset: _fabAutoHidden
@@ -688,16 +692,18 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   }
 
   Widget _buildWorkspace() {
-    final showingReview = _navigation.tool == null &&
+    final tool = _navigation.tool;
+    final showingReview = tool == null &&
         _navigation.primary == HomePrimarySection.review;
-    // 首次进入回顾才加载；离开时保留输入、未知结果和进行中的保存。
-    // 账号/数据模式切换会整体换 key，避免跨账号复用草稿。
+    // Today stays mounted through both Review and tool navigation.
+    // Review still loads on demand; a data-mode change replaces _workspaceKey.
     return IndexedStack(
       key: _workspaceKey,
-      index: showingReview ? 1 : 0,
+      index: tool != null ? 2 : showingReview ? 1 : 0,
       children: [
-        showingReview ? _buildTodayDashboard() : _buildContent(),
+        _buildTodayDashboard(),
         _reviewOpened ? const TodayReviewScreen() : const SizedBox.shrink(),
+        tool == null ? const SizedBox.shrink() : _buildToolContent(tool),
       ],
     );
   }
@@ -727,27 +733,18 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     onRefresh: _reload,
   );
 
-  Widget _buildContent() {
-    final tool = _navigation.tool;
-    if (tool != null) {
-      return switch (tool) {
-        HomeToolSection.tasks => const TaskToolScreen(),
-        HomeToolSection.habits =>
-          const HabitToolScreen(titleProvidedByShell: true),
-        HomeToolSection.quadrant => const QuadrantScreen(),
-        HomeToolSection.calendar => const CalendarScreen(),
-        HomeToolSection.lists => const ListManageScreen(),
-        HomeToolSection.observationTags => const SystemTagScreen(),
-        HomeToolSection.stats => const StatsScreen(),
-        HomeToolSection.weeklyReview => const WeeklyReviewScreen(),
-        HomeToolSection.timeDistribution => const TimeDistributionScreen(),
-      };
-    }
-    return switch (_navigation.primary) {
-      HomePrimarySection.today => _buildTodayDashboard(),
-      HomePrimarySection.review => const TodayReviewScreen(),
-    };
-  }
+  Widget _buildToolContent(HomeToolSection tool) => switch (tool) {
+    HomeToolSection.tasks => const TaskToolScreen(),
+    HomeToolSection.habits =>
+      const HabitToolScreen(titleProvidedByShell: true),
+    HomeToolSection.quadrant => const QuadrantScreen(),
+    HomeToolSection.calendar => const CalendarScreen(),
+    HomeToolSection.lists => const ListManageScreen(),
+    HomeToolSection.observationTags => const SystemTagScreen(),
+    HomeToolSection.stats => const StatsScreen(),
+    HomeToolSection.weeklyReview => const WeeklyReviewScreen(),
+    HomeToolSection.timeDistribution => const TimeDistributionScreen(),
+  };
 
   Future<Map<String, String>> _loadAccountDisplay() async {
     if (DataModeManager().isLocal) {
