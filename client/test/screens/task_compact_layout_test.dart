@@ -113,6 +113,14 @@ void main() {
     final doneRow = find.byKey(const ValueKey('tasks.row.32'));
     expect(tester.getSize(doneRow).height,
         closeTo(tester.getSize(pendingRow).height, 1));
+    // The approved mobile row has a round 18dp completed mark, not a
+    // rounded-square checkbox. The outer control still owns a 44dp hit area.
+    final circles = tester.widgetList<Container>(
+      find.descendant(of: doneRow, matching: find.byType(Container)),
+    ).where((widget) =>
+        widget.decoration is BoxDecoration &&
+        (widget.decoration! as BoxDecoration).shape == BoxShape.circle);
+    expect(circles, isNotEmpty);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
