@@ -230,23 +230,13 @@ class _DashboardBodyState extends State<DashboardBody> {
     final now = DateTime.now();
     const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
     if (!desktop) {
-      // Match the approved Today prototype: date + focus are the entire
-      // above-the-fold header; high-frequency actions follow immediately.
-      final copy = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${now.month}月${now.day}日 · ${weekdays[now.weekday - 1]}',
-            style: SlowlightTypography.pageTitle(context)
-                .copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Text(
-            '记录行动，也记录生活。',
-            style: SlowlightTypography.caption(context)
-                .copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
+      // The Android prototype has one compact date/focus line. The shell owns
+      // the page title; do not insert a second descriptive heading here.
+      final date = Text(
+        '${now.month}月${now.day}日 · ${weekdays[now.weekday - 1]}',
+        key: const ValueKey('today.mobile.date'),
+        style: SlowlightTypography.sectionTitle(context)
+            .copyWith(fontWeight: FontWeight.w700),
       );
       final focus = widget.onStartFocus == null
           ? null
@@ -257,23 +247,22 @@ class _DashboardBodyState extends State<DashboardBody> {
               size: FxButtonSize.sm,
               onPressed: widget.onStartFocus,
             );
-      if (focus == null) return copy;
+      if (focus == null) return date;
       return LayoutBuilder(builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
-        if (constraints.maxWidth < 320 * scale) {
+        if (constraints.maxWidth < 300 * scale) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              copy,
+              date,
               const SizedBox(height: SlowlightSpacing.xs),
               Align(alignment: Alignment.centerRight, child: focus),
             ],
           );
         }
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: copy),
+            Expanded(child: date),
             const SizedBox(width: SlowlightSpacing.md),
             focus,
           ],
@@ -725,12 +714,16 @@ class _DashboardBodyState extends State<DashboardBody> {
           _coreStatus('任务', widget.tasksLoading, widget.tasksError,
               visible.isNotEmpty),
         if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
-          _emptyWithNext(
-            '今天暂时没有任务',
-            '先写下一件想做的事',
-            widget.onQuickAdd,
-            compact: mobile,
-          )
+          mobile
+              ? _empty(
+                  '今天暂时没有任务。在右下角添加第一件想做的事。',
+                  compact: true,
+                )
+              : _emptyWithNext(
+                  '今天暂时没有任务',
+                  '先写下一件想做的事',
+                  widget.onQuickAdd,
+                )
         else
           ...visible.map((task) => _taskRow(task, mobile)),
       ],
