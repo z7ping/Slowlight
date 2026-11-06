@@ -268,6 +268,85 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Windows 任务详情切换与关闭必须保护未保存草稿', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    Task task(int id, String title) => Task(
+      id: id, listId: 1, title: title, priority: 'none',
+      isCompleted: false, createdAt: now,
+    );
+    final first = task(41, '第一项任务');
+    final second = task(42, '第二项任务');
+    final lists = <TodoList>[
+      TodoList(id: 1, name: '收集箱', isInbox: true,
+          color: '#8db5a0', createdAt: now),
+    ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(
+          dataLoader: () async => <dynamic>[
+            <Task>[first, second],
+            <Task>[first, second],
+            <Task>[],
+            lists,
+          ],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('tasks.row.41')));
+    await tester.pumpAndSettle();
+    Finder titleField() => find.descendant(
+      of: find.byType(TaskDetailSheet),
+      matching: find.byType(EditableText),
+    ).first;
+    expect(tester.widget<TaskDetailSheet>(find.byType(TaskDetailSheet))
+        .task.id, 41);
+    await tester.enterText(titleField(), '第一项任务：尚未保存');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('tasks.row.42')));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TaskDetailSheet>(find.byType(TaskDetailSheet))
+        .task.id, 41);
+    expect(tester.widget<EditableText>(titleField()).controller.text,
+        '第一项任务：尚未保存');
+
+    await tester.tap(find.byKey(const ValueKey('tasks.row.42')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TaskDetailSheet>(find.byType(TaskDetailSheet))
+        .task.id, 42);
+    expect(tester.widget<EditableText>(titleField()).controller.text,
+        '第二项任务');
+
+    await tester.enterText(titleField(), '第二项任务：草稿');
+    await tester.pump();
+    await tester.tap(fxTooltipFinder('关闭'));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    await tester.tap(fxTooltipFinder('关闭'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows 700dp 中等宽度也不全量构建 250 条任务',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
