@@ -136,25 +136,7 @@ class FxInput extends StatelessWidget {
 
     // The borderless title still needs a visible keyboard-focus state.
     // Keep the cue inside FxInput so screens never layer custom borders.
-    final Widget field = plain
-        ? Focus(
-            canRequestFocus: false,
-            builder: (focusContext, node) => AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: node.hasFocus
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outlineVariant.withValues(alpha: .45),
-                    width: node.hasFocus ? 2 : 1,
-                  ),
-                ),
-              ),
-              child: input,
-            ),
-          )
-        : input;
+    final Widget field = plain ? _PlainFocusBorder(child: input) : input;
 
     if (label == null && (errorText == null || errorText!.isEmpty)) {
       return field;
@@ -179,6 +161,67 @@ class FxInput extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// 无边框输入的键盘聚焦下划线。
+///
+/// Flutter 的 `Focus` 没有 `builder` 参数，这里自持 FocusNode 并监听
+/// `hasFocus`（ShadInput 内部节点获得焦点时本节点是其祖先，同样为 true）；
+/// `canRequestFocus: false` 只禁止本节点自身接收焦点，不影响内部输入框。
+class _PlainFocusBorder extends StatefulWidget {
+  const _PlainFocusBorder({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_PlainFocusBorder> createState() => _PlainFocusBorderState();
+}
+
+class _PlainFocusBorderState extends State<_PlainFocusBorder> {
+  final FocusNode _focusNode = FocusNode(canRequestFocus: false);
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    final focused = _focusNode.hasFocus;
+    if (focused == _focused) return;
+    setState(() => _focused = focused);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final focused = _focused;
+    return Focus(
+      focusNode: _focusNode,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: focused
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outlineVariant.withValues(alpha: .45),
+              width: focused ? 2 : 1,
+            ),
+          ),
+        ),
+        child: widget.child,
+      ),
     );
   }
 }
