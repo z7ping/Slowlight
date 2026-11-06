@@ -10,6 +10,7 @@ import '../services/api/task_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_picker.dart';
+import 'task_schedule_fields.dart';
 
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
@@ -647,7 +648,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 Flexible(
                   fit: FlexFit.loose,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(SlowlightSpacing.sm),
+                    padding: const EdgeInsets.all(SlowlightSpacing.md),
                     child: _mobilePropertyPage(field),
                   ),
                 ),
@@ -707,7 +708,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 minWidth: SlowlightControlSize.minTouchTarget,
               ),
               padding: const EdgeInsets.symmetric(
-                horizontal: SlowlightSpacing.sm,
+                horizontal: SlowlightSpacing.md,
                 vertical: SlowlightSpacing.xs,
               ),
               decoration: BoxDecoration(
@@ -805,10 +806,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     }
   }
 
-  Widget _mobilePropertyPage() {
+  Widget _mobilePropertyPage(String field) {
     final theme = Theme.of(context);
-    Widget group(List<Widget> children) => _mobilePropertyGroup(children);
-    switch (_mobilePage) {
+    Widget group(List<Widget> children) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+    switch (field) {
       case 'list':
         return group([
           if (widget.lists.isEmpty)
@@ -848,17 +853,17 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           _mobileChoice(
             '不设置',
             selected: _dueDate == null,
-            onTap: () => _mobileSelect(() => _dueDate = null),
+            onTap: () => _mobileSelect(() => _mobileSetDueDate(null)),
           ),
           _mobileChoice(
             '今天',
             selected: matches(_dueDate, today),
-            onTap: () => _mobileSelect(() => _dueDate = today),
+            onTap: () => _mobileSelect(() => _mobileSetDueDate(today)),
           ),
           _mobileChoice(
             '明天',
             selected: matches(_dueDate, tomorrow),
-            onTap: () => _mobileSelect(() => _dueDate = tomorrow),
+            onTap: () => _mobileSelect(() => _mobileSetDueDate(tomorrow)),
           ),
           _mobileChoice(
             '选择其他日期…',
@@ -920,7 +925,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           _mobileChoice(
             '不设置时间',
             selected: _dueTime == null,
-            onTap: () => _mobileSelect(() => _dueTime = null),
+            onTap: () => _mobileSelect(() => _mobileSetDueTime(null)),
           ),
           _mobileChoice(
             _dueTime == null ? '选择时间…' : '修改时间 · ${_timeLabel(_dueTime!)}',
