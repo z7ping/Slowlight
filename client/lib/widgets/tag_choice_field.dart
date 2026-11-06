@@ -16,6 +16,7 @@ class TagChoiceField extends StatelessWidget {
   final bool enabled;
   final VoidCallback? onCreateTag;
   final String label;
+  final bool showEmptyOption;
 
   const TagChoiceField({
     super.key,
@@ -27,6 +28,7 @@ class TagChoiceField extends StatelessWidget {
     this.enabled = true,
     this.onCreateTag,
     this.label = '标签（可选）',
+    this.showEmptyOption = true,
   });
 
   @override
@@ -39,7 +41,7 @@ class TagChoiceField extends StatelessWidget {
         spacing: SlowlightSpacing.md,
         runSpacing: SlowlightSpacing.md,
         children: [
-          FxChoiceChip(
+          if (showEmptyOption) FxChoiceChip(
             label: '无标签',
             selected: multiple ? selectedIds.isEmpty : selectedTagId == null,
             // “无标签”是默认状态，不使用强调色冒充用户主动选择的标签。
