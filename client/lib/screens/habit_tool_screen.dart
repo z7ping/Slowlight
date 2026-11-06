@@ -934,8 +934,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
     final touch = SlowlightPlatformDensity.usesMobileTouchTargets;
     final target = touch ? SlowlightControlSize.minTouchTarget : 36.0;
-    // 七日点阵只展示历史事实；点击补记与撤销由明确操作入口处理。
-    // Android 窄屏允许水平阅读，避免缩小已有 7 日信息。
+    // 七日点阵只展示历史事实；补记与撤销由显式入口处理。
+    // Android 窄屏允许水平阅读，避免挤压七日信息。
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -947,39 +947,39 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
             label: '${day.month}月${day.day}日${active ? '已记录' : '未记录'}',
             child: Container(
               key: ValueKey('habits.week.${habit.id}.$index'),
-                width: target,
-                constraints: BoxConstraints(
-                  minHeight: touch ? 48 : SlowlightControlSize.minTouchTarget,
-                ),
-                padding:
-                    const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      weekdayLabels[day.weekday - 1],
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+              width: target,
+              constraints: BoxConstraints(
+                minHeight: touch ? 48 : SlowlightControlSize.minTouchTarget,
+              ),
+              padding:
+                  const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    weekdayLabels[day.weekday - 1],
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: SlowlightSpacing.xs),
+                  Container(
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active ? color : Colors.transparent,
+                      border: Border.all(
+                        color: active
+                            ? color
+                            : Theme.of(context).colorScheme.outline,
+                        width: _sameDay(day, today) ? 2 : 1.5,
                       ),
                     ),
-                    const SizedBox(height: SlowlightSpacing.xs),
-                    Container(
-                      width: 13,
-                      height: 13,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: active ? color : Colors.transparent,
-                        border: Border.all(
-                          color: active
-                              ? color
-                              : Theme.of(context).colorScheme.outline,
-                          width: _sameDay(day, today) ? 2 : 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
             ),
           );
         }),
