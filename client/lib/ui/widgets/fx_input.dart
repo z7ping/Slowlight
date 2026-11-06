@@ -42,6 +42,8 @@ class FxInput extends StatelessWidget {
   /// Borderless edit surface for inline titles. Uses ShadInput itself,
   /// rather than a second text-field implementation or local border hacks.
   final bool plain;
+  /// Suppress the inline underline when a parent workspace already owns focus.
+  final bool showPlainFocusUnderline;
   final List<TextInputFormatter>? inputFormatters;
   final EdgeInsets? contentPadding;
 
@@ -72,6 +74,7 @@ class FxInput extends StatelessWidget {
     this.style,
     this.placeholderStyle,
     this.plain = false,
+    this.showPlainFocusUnderline = true,
     this.inputFormatters,
     this.contentPadding,
   });
@@ -136,7 +139,9 @@ class FxInput extends StatelessWidget {
 
     // The borderless title still needs a visible keyboard-focus state.
     // Keep the cue inside FxInput so screens never layer custom borders.
-    final Widget field = plain ? _PlainFocusBorder(child: input) : input;
+    final Widget field = plain && showPlainFocusUnderline
+        ? _PlainFocusBorder(child: input)
+        : input;
 
     if (label == null && (errorText == null || errorText!.isEmpty)) {
       return field;
