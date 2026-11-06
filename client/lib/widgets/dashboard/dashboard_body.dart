@@ -693,7 +693,15 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Widget _taskCard({required int maxItems, required bool mobile}) {
     final completed = widget.tasks.where((task) => task.isCompleted).length;
-    final visible = widget.tasks.take(maxItems).toList(growable: false);
+    // Android: pending tasks must not be pushed out of the short Today preview
+    // by completed tasks returned first from the repository. Preserve the
+    // source order within each group and keep desktop ordering unchanged.
+    final previewTasks = mobile
+        ? widget.tasks.where((task) => !task.isCompleted).followedBy(
+              widget.tasks.where((task) => task.isCompleted),
+            )
+        : widget.tasks;
+    final visible = previewTasks.take(maxItems).toList(growable: false);
     final header = FxSectionHeader(
       title: '今日任务',
       trailing: widget.tasksLoading
