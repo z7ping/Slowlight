@@ -68,7 +68,15 @@ void main() {
           findsOneWidget);
     }
     expect(find.byKey(const ValueKey('task.detail.complete')), findsNothing);
-    expect(find.byKey(const ValueKey('task.detail.workbench')), findsOneWidget);
+    final workbench = find.byKey(const ValueKey('task.detail.workbench'));
+    expect(workbench, findsOneWidget);
+    expect(
+      find.descendant(
+        of: workbench,
+        matching: find.byKey(const ValueKey('task.detail.primaryAction')),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('task.detail.property.repeat')), findsNothing);
     final action = find.byKey(const ValueKey('task.detail.primaryAction'));
     expect(find.text('创建任务'), findsOneWidget);
@@ -263,6 +271,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('选择星期'), findsNothing);
     expect(find.text('有未保存的修改'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 属性浮窗保持任务工作台，选择同值不变脏',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(task: task, lists: lists, onChanged: () {}),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    expect(find.text('设置优先级'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.primaryAction')), findsOneWidget);
+    await tester.tap(find.text('不重要 · 不紧急'));
+    await tester.pumpAndSettle();
+    expect(find.text('设置优先级'), findsNothing);
+    expect(find.text('已保存'), findsOneWidget);
+    expect(find.text('有未保存的修改'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 无到期日无法设置相对提醒，更多设置保留独立提醒',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(task: task, lists: lists, onChanged: () {}),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.reminder')));
+    await tester.pumpAndSettle();
+    expect(find.text('先安排日期，才能设置相对提醒'), findsOneWidget);
+    expect(find.text('提前 10 分钟'), findsNothing);
+    expect(find.text('指定提醒日期与时间…'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.title')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
