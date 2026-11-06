@@ -17,10 +17,10 @@ class TaskToolScreen extends StatefulWidget {
   const TaskToolScreen({super.key, this.dataLoader});
 
   @override
-  State<TaskToolScreen> createState() => _TaskToolScreenState();
+  State<TaskToolScreen> createState() => TaskToolScreenState();
 }
 
-class _TaskToolScreenState extends State<TaskToolScreen> {
+class TaskToolScreenState extends State<TaskToolScreen> {
   bool _loading = true;
   int _segment = 0;
   List<Task> _today = const [];
@@ -109,13 +109,34 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     );
   }
 
+  /// Called by the shell before removing the Tasks tool subtree.
+  /// Delegates to the same editor guard as desktop task-to-task switching.
+  Future<bool> confirmLeaveTool() async {
+    final editor = _selectedTaskEditorKey?.currentState;
+    return editor == null || await editor.confirmLeaveSidePanel();
+  }
+
+  Future<void> _changeSegment(int index) async {
+    if (_switchingDesktopTask || index == _segment) return;
+    _switchingDesktopTask = true;
+    try {
+      if (!await confirmLeaveTool() || !mounted) return;
+      setState(() {
+        _segment = index;
+        _revealedTaskId = null;
+        // A filtered list must not keep editing an unrelated selected task.
+        _selectedTask = null;
+        _selectedTaskEditorKey = null;
+      });
+    } finally {
+      _switchingDesktopTask = false;
+    }
+  }
+
   Widget _segments() => FxSegmented(
     labels: const ['今天', '全部', '已完成'],
     selectedIndex: _segment,
-    onChanged: (index) => setState(() {
-      _segment = index;
-      _revealedTaskId = null;
-    }),
+    onChanged: _changeSegment,
     backgroundColor: fxSubtleSurface(context),
     selectedColor: fxSurface(context),
     borderRadius: SlowlightRadius.md,
@@ -206,8 +227,7 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     if (_switchingDesktopTask || _selectedTask?.id == task.id) return;
     _switchingDesktopTask = true;
     try {
-      final editor = _selectedTaskEditorKey?.currentState;
-      if (editor != null && !await editor.confirmLeaveSidePanel()) return;
+      if (!await confirmLeaveTool()) return;
       if (!mounted) return;
       setState(() {
         _selectedTask = task;
