@@ -328,15 +328,18 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           FxSeparator.horizontal(height: 1, color: fxDivider(context)),
           Flexible(
             fit: FlexFit.loose,
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(
-                SlowlightSpacing.xl,
-                SlowlightSpacing.md,
-                SlowlightSpacing.xl,
-                SlowlightSpacing.xl,
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(
+                  SlowlightSpacing.xl,
+                  SlowlightSpacing.md,
+                  SlowlightSpacing.xl,
+                  SlowlightSpacing.xl,
+                ),
+                child: _mobileMainForm(),
               ),
-              child: _mobileMainForm(),
             ),
           ),
         ],
