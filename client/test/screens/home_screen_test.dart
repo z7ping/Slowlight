@@ -7,6 +7,7 @@ import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
+import 'package:slowlight/widgets/dashboard/dashboard_body.dart';
 
 import '../support/fx_test_host.dart';
 import '../helpers/isolated_test_db.dart';
@@ -52,6 +53,25 @@ void main() {
       expect(fxTooltipFinder('快速添加任务（按住可拖动）'), findsOneWidget);
       expect(fxTooltipFinder('添加任务'), findsNothing);
       expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('今天与回顾切换不销毁今天工作台状态', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      final today = find.byType(DashboardBody, skipOffstage: false);
+      expect(today, findsOneWidget);
+      final dashboardState = tester.state(today);
+
+      await tester.tap(find.text('回顾').last);
+      await tester.pump();
+      expect(today, findsOneWidget);
+      expect(identical(tester.state(today), dashboardState), isTrue);
+
+      await tester.tap(find.text('今天').last);
+      await tester.pump();
+      expect(today, findsOneWidget);
+      expect(identical(tester.state(today), dashboardState), isTrue);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
