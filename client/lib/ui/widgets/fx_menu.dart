@@ -39,6 +39,13 @@ class FxMenuItem<T> extends StatelessWidget {
 
 typedef FxMenuItemBuilder<T> = List<FxMenuItem<T>> Function(BuildContext context);
 
+/// Optional rich content using the same anchored ShadPopover surface.
+/// The dismiss callback hides this popover without affecting the parent route.
+typedef FxMenuContentBuilder = Widget Function(
+  BuildContext context,
+  VoidCallback dismiss,
+);
+
 /// Slowlight 统一弹出菜单。
 ///
 /// API 兼容项目中既有 PopupMenuButton / PopupMenuItem 常用调用形态；
@@ -46,7 +53,8 @@ typedef FxMenuItemBuilder<T> = List<FxMenuItem<T>> Function(BuildContext context
 class FxMenu<T> extends StatefulWidget {
   const FxMenu({
     super.key,
-    required this.itemBuilder,
+    this.itemBuilder,
+    this.contentBuilder,
     this.initialValue,
     this.onSelected,
     this.onCanceled,
@@ -73,9 +81,10 @@ class FxMenu<T> extends StatefulWidget {
     this.useRootNavigator = false,
     this.popUpAnimationStyle,
     this.style,
-  });
+  }) : assert(itemBuilder != null || contentBuilder != null);
 
-  final FxMenuItemBuilder<T> itemBuilder;
+  final FxMenuItemBuilder<T>? itemBuilder;
+  final FxMenuContentBuilder? contentBuilder;
   final T? initialValue;
   final ValueChanged<T>? onSelected;
   final VoidCallback? onCanceled;
@@ -168,7 +177,14 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
       padding: EdgeInsets.zero,
       child: clickable,
       popover: (popoverContext) {
-        final items = widget.itemBuilder(popoverContext);
+        if (widget.contentBuilder case final builder?) {
+          return ConstrainedBox(
+            constraints: widget.constraints ??
+                const BoxConstraints(minWidth: 160, maxWidth: 320),
+            child: builder(popoverContext, _controller.hide),
+          );
+        }
+        final items = widget.itemBuilder!(popoverContext);
         final content = Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
