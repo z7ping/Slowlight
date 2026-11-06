@@ -542,23 +542,30 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     return Expanded(
       child: FxInkWell(
         onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 58),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 17, color: color),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: SlowlightTypography.caption(context).copyWith(
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    color: color,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: selected
+                ? theme.colorScheme.primary.withValues(alpha: .08)
+                : Colors.transparent,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 58),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 17, color: color),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: SlowlightTypography.caption(context).copyWith(
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                      color: color,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
