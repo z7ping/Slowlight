@@ -339,8 +339,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               child: _mobileMainForm(),
             ),
           ),
-          FxSeparator.horizontal(height: 1, color: fxDivider(context)),
-          _mobileFooter(),
         ],
       ),
     );
@@ -367,6 +365,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FxIconButton(
                     key: const ValueKey('task.detail.complete'),
@@ -394,6 +393,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       enabled: !_saving,
                       autofocus: widget.isCreating,
                       plain: true,
+                      minLines: 2,
+                      maxLines: 4,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
                       contentPadding: const EdgeInsets.symmetric(
                         vertical: SlowlightSpacing.xs,
                       ),
@@ -405,26 +408,40 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 ],
               ),
               const SizedBox(height: SlowlightSpacing.sm),
-              _mobilePropertyGroup([
-                _mobilePropertyRow(
-                    'list', LucideIcons.folder, '清单', listLabel),
-                _mobilePropertyRow(
+              Wrap(
+                key: const ValueKey('task.detail.quickbar'),
+                spacing: SlowlightSpacing.xs,
+                runSpacing: SlowlightSpacing.xs,
+                children: [
+                  _mobilePropertyRow(
+                    'list', LucideIcons.folder, '清单', listLabel,
+                    quick: true,
+                  ),
+                  _mobilePropertyRow(
                     'due', LucideIcons.calendarDays, '日期',
-                    _dueDate == null ? '未安排' : _dateLabel(_dueDate!)),
-                _mobilePropertyRow(
+                    _dueDate == null ? '未安排' : _dateLabel(_dueDate!),
+                    quick: true,
+                  ),
+                  _mobilePropertyRow(
                     'priority', LucideIcons.flag, '优先级',
                     switch (_priority) {
                       'urgent_important' => '高',
                       'important' => '中',
                       'urgent' => '低',
                       _ => '未设置',
-                    }),
-                _mobilePropertyRow(
+                    },
+                    quick: true,
+                  ),
+                  _mobilePropertyRow(
                     'tags', LucideIcons.tag, '标签',
                     _selectedTags.isEmpty
                         ? '未设置'
-                        : '${_selectedTags.length} 个标签'),
-              ]),
+                        : '${_selectedTags.length} 个标签',
+                    quick: true,
+                  ),
+                ],
+              ),
+              _mobileFooter(),
             ],
           ),
         ),
@@ -487,11 +504,18 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 ),
               ),
             ),
-          _mobilePropertyGroup([
-            _mobilePropertyRow(
+          FxResponsiveFormGrid(
+            minColumnWidth: 136,
+            maxColumns: 2,
+            horizontalGap: SlowlightSpacing.md,
+            verticalGap: SlowlightSpacing.md,
+            children: [
+              _mobilePropertyRow(
                 'time', LucideIcons.clock3, '时间',
-                _dueTime == null ? '未设置' : _timeLabel(_dueTime!)),
-            _mobilePropertyRow(
+                _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
+                compactSetting: true,
+              ),
+              _mobilePropertyRow(
                 'repeat', LucideIcons.repeat, '重复',
                 switch (_repeatType) {
                   'daily' => '每天',
@@ -499,11 +523,16 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   'monthly' => '每月',
                   'yearly' => '每年',
                   _ => '不重复',
-                }),
-            _mobilePropertyRow(
+                },
+                compactSetting: true,
+              ),
+              _mobilePropertyRow(
                 'reminder', LucideIcons.bell, '提醒',
-                _mobileReminderLabel()),
-          ]),
+                _mobileReminderLabel(),
+                compactSetting: true,
+              ),
+            ],
+          ),
         ],
       ],
     );
