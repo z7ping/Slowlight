@@ -49,6 +49,30 @@ void main() {
       '云同步 · 2 个冲突待处理',
     );
   });
+  test('即使协调器返回 true，剩余队列或冲突状态未知也不得报同步完成', () {
+    bool settled({
+      int queue = 0,
+      int intents = 0,
+      bool conflictsKnown = true,
+      int conflicts = 0,
+      SyncStatusEnum status = SyncStatusEnum.idle,
+    }) => cloudSyncFullySettled(
+      requestSucceeded: true,
+      status: status,
+      conflictCheckFailed: !conflictsKnown,
+      conflictCount: conflicts,
+      pendingCount: queue + intents,
+    );
+
+    expect(settled(), isTrue);
+    expect(settled(queue: 1), isFalse);
+    expect(settled(intents: 1), isFalse);
+    expect(settled(conflictsKnown: false), isFalse);
+    expect(settled(conflicts: 1), isFalse);
+    expect(settled(status: SyncStatusEnum.error), isFalse);
+    expect(settled(status: SyncStatusEnum.syncing), isFalse);
+  });
+
   test('只有成功、静止、待处理项与冲突均归零才是同步完成', () {
     bool settled({
       bool success = true,
