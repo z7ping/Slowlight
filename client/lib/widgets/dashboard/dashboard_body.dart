@@ -492,7 +492,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         else ...[
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
-            _timelineRow(items[i]),
+            _timelineRow(items[i], mobile: mobile),
           ],
           if (_timeline.length > previewLimit)
             Align(
@@ -538,8 +538,45 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
-  Widget _timelineRow(TodayTimelineItem item) {
+  Widget _timelineRow(TodayTimelineItem item, {bool mobile = false}) {
     final theme = Theme.of(context);
+    if (mobile) {
+      // The Android prototype uses a time column, then title and type.
+      // Desktop intentionally keeps the existing icon-led timeline.
+      return Padding(
+        key: ValueKey('today.timeline.row.${item.id}'),
+        padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 42,
+              child: Text(
+                item.timeLabel,
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.description,
+                      style: SlowlightTypography.body(context)),
+                  const SizedBox(height: 3),
+                  Text(item.category,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      )),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final icon = switch (item.kind) {
       'task_completed' => LucideIcons.checkCheck,
       'habit_checked' => LucideIcons.repeat,
@@ -787,7 +824,8 @@ class _DashboardBodyState extends State<DashboardBody> {
                   widget.onQuickAdd,
                 )
         else
-          ...visible.map((task) => _taskRow(task, mobile)),
+          for (var i = 0; i < visible.length; i++)
+            _taskRow(visible[i], mobile, last: mobile && i == visible.length - 1),
       ],
     );
     if (mobile) {
@@ -821,7 +859,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
-  Widget _taskRow(Task task, bool mobile) {
+  Widget _taskRow(Task task, bool mobile, {bool last = false}) {
     final theme = Theme.of(context);
     final meta = _taskMeta(task);
     final largeText =
@@ -834,7 +872,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         constraints: const BoxConstraints(minHeight: 48),
         decoration: BoxDecoration(
           color: fxSurface(context),
-          border: Border(bottom: BorderSide(color: fxDivider(context))),
+          border: Border(bottom: last ? BorderSide.none : BorderSide(color: fxDivider(context))),
         ),
         child: Row(
           children: [
@@ -865,13 +903,13 @@ class _DashboardBodyState extends State<DashboardBody> {
                     width: 18,
                     height: 18,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
+                      shape: BoxShape.circle,
                       color: task.isCompleted
-                          ? AppTheme.success
+                          ? theme.colorScheme.primary
                           : Colors.transparent,
                       border: Border.all(
                         color: task.isCompleted
-                            ? AppTheme.success
+                            ? theme.colorScheme.primary
                             : theme.colorScheme.outline,
                         width: 1.5,
                       ),
@@ -1012,7 +1050,8 @@ class _DashboardBodyState extends State<DashboardBody> {
             compact: mobile,
           )
         else
-          ...visible.map((habit) => _habitRow(habit, mobile)),
+          for (var i = 0; i < visible.length; i++)
+            _habitRow(visible[i], mobile, last: mobile && i == visible.length - 1),
       ],
     );
     if (mobile) {
@@ -1063,7 +1102,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
-  Widget _habitRow(Habit habit, bool mobile) {
+  Widget _habitRow(Habit habit, bool mobile, {bool last = false}) {
     final theme = Theme.of(context);
     final color = _parseColor(habit.color);
     if (mobile) {
@@ -1071,16 +1110,16 @@ class _DashboardBodyState extends State<DashboardBody> {
         key: ValueKey('today.habit.${habit.id}'),
         constraints: const BoxConstraints(minHeight: 52),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: fxDivider(context))),
+          border: Border(bottom: last ? BorderSide.none : BorderSide(color: fxDivider(context))),
         ),
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 32,
+              height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .12),
+                color: fxSubtleSurface(context),
                 borderRadius: BorderRadius.circular(SlowlightRadius.md),
               ),
               child: Text(
@@ -1123,15 +1162,6 @@ class _DashboardBodyState extends State<DashboardBody> {
                 ),
               ),
             ),
-            if (habit.streakCount > 0) ...[
-              const SizedBox(width: SlowlightSpacing.xs),
-              Text(
-                '🔥 ${habit.streakCount}',
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
             const SizedBox(width: SlowlightSpacing.md),
             // The visible mark stays small; the existing FxIconButton
             // retains the platform 44dp hit area and focus behavior.
@@ -1145,7 +1175,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                       height: 30,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppTheme.success.withValues(alpha: .10),
+                        color: theme.colorScheme.primary.withValues(alpha: .10),
                       ),
                     ),
                   ),
@@ -1158,7 +1188,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                           : LucideIcons.circle,
                   iconSize: SlowlightIconSize.xl,
                   foregroundColor: habit.checkedToday && !habit.allowMultiplePerDay
-                      ? AppTheme.success
+                      ? theme.colorScheme.primary
                       : theme.colorScheme.onSurfaceVariant,
                   tooltip: habit.allowMultiplePerDay
                       ? '为「${habit.name}」新增一次记录'
