@@ -63,12 +63,13 @@ void main() {
     expect(tester.widget<FxInput>(
       find.byKey(const ValueKey('task.detail.title')),
     ).plain, isTrue);
-    for (final field in ['list', 'due', 'priority', 'repeat']) {
+    for (final field in ['list', 'due', 'priority', 'tags']) {
       expect(find.byKey(ValueKey('task.detail.property.$field')),
           findsOneWidget);
     }
-    expect(find.byKey(const ValueKey('task.detail.complete')), findsOneWidget);
-    expect(find.byType(FxMenu<String>), findsNothing);
+    expect(find.byKey(const ValueKey('task.detail.complete')), findsNothing);
+    expect(find.byKey(const ValueKey('task.detail.workbench')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.property.repeat')), findsNothing);
     final action = find.byKey(const ValueKey('task.detail.primaryAction'));
     expect(find.text('创建任务'), findsOneWidget);
     expect(tester.widget<FxButton>(action).onPressed, isNull);
@@ -202,7 +203,8 @@ void main() {
     expect(find.byKey(const ValueKey('task.detail.property.list')), findsOneWidget);
     expect(find.byKey(const ValueKey('task.detail.property.due')), findsOneWidget);
     expect(find.byKey(const ValueKey('task.detail.property.priority')), findsOneWidget);
-    expect(find.byKey(const ValueKey('task.detail.property.repeat')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.property.tags')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.property.repeat')), findsNothing);
     expect(find.text('时间安排'), findsNothing);
     expect(find.byType(TagPicker), findsNothing);
     expect(find.text('历史分类（兼容）'), findsNothing);
@@ -221,12 +223,10 @@ void main() {
         find.byKey(const ValueKey('task.detail.primaryAction')));
     expect(save.onPressed, isNotNull);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('task.detail.moreSettings')));
-    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('task.detail.property.tags')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const ValueKey('task.detail.property.tags')));
+    expect(find.byKey(const ValueKey('task.detail.title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.primaryAction')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('task.detail.property.tags')));
+
     await tester.pumpAndSettle();
     expect(find.byType(TagPicker), findsOneWidget);
     expect(find.text('历史分类（兼容）'), findsNothing);
@@ -248,16 +248,20 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('task.detail.property.repeat')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('每周'));
     await tester.pumpAndSettle();
     expect(find.text('选择星期'), findsOneWidget);
     expect(find.byType(FxChoiceChip), findsNWidgets(7));
-    expect(find.text('修改后返回详情'), findsOneWidget);
-    expect(find.text('有未保存的修改'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('task.detail.primaryAction')));
+    expect(find.text('有未保存的修改'), findsOneWidget);
+    expect(find.text('完成'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.title')), findsOneWidget);
+    await tester.tap(find.text('完成'));
     await tester.pumpAndSettle();
+    expect(find.text('选择星期'), findsNothing);
     expect(find.text('有未保存的修改'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
