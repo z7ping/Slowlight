@@ -194,11 +194,13 @@ class ReflectionComposer {
           if (entryContext.mounted) {
             Navigator.of(entryContext).pop(true);
           }
-        } catch (e) {
+        } catch (_) {
           if (!entryContext.mounted) return;
+          // A create timeout can hide a committed write. Never blindly retry.
           setEntryState(() {
             saving = false;
-            error = e.toString();
+            resultUnknown = true;
+            error = '保存结果未确认。请先到回顾核对，避免重复记录。';
           });
         }
       }
@@ -206,7 +208,7 @@ class ReflectionComposer {
       final saveButton = FxButton(
         label: saving ? '保存中…' : '保存观察',
         size: FxButtonSize.sm,
-        onPressed: saving ? null : saveObservation,
+        onPressed: saving || resultUnknown ? null : saveObservation,
       );
 
       return SingleChildScrollView(
@@ -375,7 +377,21 @@ class ReflectionComposer {
                 ],
               )
             else
-              SizedBox(width: double.infinity, child: saveButton),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FxButton(
+                    key: const ValueKey('observation.mobile.cancel'),
+                    label: '取消',
+                    size: FxButtonSize.sm,
+                    variant: FxButtonVariant.outline,
+                    onPressed: saving ? null : () =>
+                        requestMobileClose(entryContext, setEntryState),
+                  ),
+                  const SizedBox(width: SlowlightSpacing.md),
+                  saveButton,
+                ],
+              ),
           ],
         ),
       );
@@ -402,25 +418,52 @@ class ReflectionComposer {
         context: context,
         isScrollControlled: true,
         showDragHandle: false,
+        showCloseButton: false,
+        draggable: false,
+        isDismissible: false,
+        padding: EdgeInsets.zero,
+        backgroundColor: fxSurface(context),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(SlowlightRadius.xl),
+          ),
+        ),
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      '记录观察',
-                      style: SlowlightTypography.cardTitle(
-                        sheetContext,
-                      ).copyWith(fontWeight: FontWeight.w700),
+            return PopScope(
+              canPop: allowMobilePop,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) requestMobileClose(sheetContext, setSheetState);
+              },
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(sheetContext).height * .88,
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      SlowlightSpacing.xxxl,
+                      SlowlightSpacing.xl,
+                      SlowlightSpacing.xxxl,
+                      SlowlightSpacing.xxxl,
                     ),
-                    const SizedBox(height: 12),
-                    Flexible(child: buildFields(sheetContext, setSheetState)),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '记录观察',
+                          style: SlowlightTypography.cardTitle(sheetContext)
+                              .copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: SlowlightSpacing.xl),
+                        Flexible(
+                          child: buildFields(sheetContext, setSheetState),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             );
@@ -434,6 +477,7 @@ class ReflectionComposer {
         : await showMobileSheet();
 
     controller.dispose();
+    inlineTagName.dispose();
     return saved == true;
   }
 
