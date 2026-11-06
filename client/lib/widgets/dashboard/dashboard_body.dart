@@ -203,6 +203,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         await widget.onRefresh?.call();
       },
       child: ListView(
+        key: const PageStorageKey('today.workspace.scroll'),
         physics: const AlwaysScrollableScrollPhysics(),
         padding: SlowlightPageInsets.scroll(
           context,
@@ -445,7 +446,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       trailingWidget: widget.onViewReview == null
           ? null
           : FxButton(
-              label: '进入回顾',
+              label: mobile ? '进入回顾 →' : '进入回顾',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
               onPressed: widget.onViewReview,
@@ -701,7 +702,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       trailingWidget: widget.onViewAllTasks == null
           ? null
           : FxButton(
-              label: '查看全部',
+              label: mobile ? '查看全部 →' : '查看全部',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
               onPressed: widget.onViewAllTasks,
@@ -918,7 +919,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       trailingWidget: widget.onViewAllHabits == null
           ? null
           : FxButton(
-              label: '查看全部',
+              label: mobile ? '查看全部 →' : '查看全部',
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
               onPressed: widget.onViewAllHabits,
