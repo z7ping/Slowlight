@@ -71,6 +71,66 @@ void main() {
     )),
   );
 
+  testWidgets('Android 今日前三条优先显示未完成，完成数仍包含全部记录',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // The repository can return completed tasks ahead of pending ones.
+    // Only the preview is reordered; its total/count must remain unchanged.
+    final tasks = [
+      for (var id = 1; id <= 5; id++)
+        Task(
+          id: id,
+          listId: 1,
+          title: '任务 $id',
+          priority: 'none',
+          isCompleted: id <= 3,
+          createdAt: now,
+        ),
+    ];
+    await tester.pumpWidget(host(
+      width: 390,
+      tasks: tasks,
+      onTaskToggle: (_) {},
+    ));
+    await tester.pumpAndSettle();
+
+    final section = find.byKey(const ValueKey('today.section.tasks'));
+    for (final id in [4, 5, 1]) {
+      expect(
+        find.descendant(
+          of: section,
+          matching: find.byKey(ValueKey('today-task-$id')),
+        ),
+        findsOneWidget,
+      );
+    }
+    for (final id in [2, 3]) {
+      expect(
+        find.descendant(
+          of: section,
+          matching: find.byKey(ValueKey('today-task-$id')),
+        ),
+        findsNothing,
+      );
+    }
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('today-task-4'))).dy,
+      lessThan(tester.getTopLeft(find.byKey(const ValueKey('today-task-5'))).dy),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('today-task-5'))).dy,
+      lessThan(tester.getTopLeft(find.byKey(const ValueKey('today-task-1'))).dy),
+    );
+    expect(find.text('3/5 完成'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   for (final width in [390.0, 1200.0]) {
     testWidgets('${width.toInt()} 今日轨迹与四维足迹共存，不阻断任务习惯', (tester) async {
       tester.view.physicalSize = Size(width, 800);
