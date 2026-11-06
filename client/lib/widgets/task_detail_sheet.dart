@@ -540,9 +540,15 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         maxWidth: MediaQuery.sizeOf(context).width - SlowlightSpacing.xl * 2,
         maxHeight: MediaQuery.sizeOf(context).height * .54,
       ),
-      contentBuilder: (popoverContext, dismiss) => SingleChildScrollView(
-        padding: const EdgeInsets.all(SlowlightSpacing.sm),
-        child: _mobilePropertyPage(field, dismiss),
+      contentBuilder: (popoverContext, dismiss) => StatefulBuilder(
+        builder: (popoverContext, refreshPopover) => SingleChildScrollView(
+          padding: const EdgeInsets.all(SlowlightSpacing.sm),
+          child: _mobilePropertyPage(
+            field,
+            dismiss,
+            () => refreshPopover(() {}),
+          ),
+        ),
       ),
       child: ConstrainedBox(
         key: ValueKey('task.detail.property.$field'),
@@ -634,16 +640,25 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     VoidCallback change, {
     bool stay = false,
     required VoidCallback dismiss,
+    required VoidCallback refreshPopover,
   }) {
     final before = _mobileValueSnapshot();
     setState(() {
       change();
       if (_mobileValueSnapshot() != before) _mobileDirty = true;
     });
-    if (!stay) dismiss();
+    if (stay) {
+      refreshPopover();
+    } else {
+      dismiss();
+    }
   }
 
-  Widget _mobilePropertyPage(String field, VoidCallback dismiss) {
+  Widget _mobilePropertyPage(
+    String field,
+    VoidCallback dismiss,
+    VoidCallback refreshPopover,
+  ) {
     final theme = Theme.of(context);
     Widget group(List<Widget> children) => _mobilePropertyGroup(children);
     switch (field) {
@@ -657,7 +672,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               _mobileChoice(
                 '${list.icon} ${list.name}',
                 selected: _listId == list.id,
-                onTap: () => _mobileSelect(() => _listId = list.id, dismiss: dismiss),
+                onTap: () => _mobileSelect(() => _listId = list.id, dismiss: dismiss, refreshPopover: refreshPopover),
               ),
         ]);
       case 'priority':
@@ -671,7 +686,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             _mobileChoice(
               option.$2,
               selected: _priority == option.$1,
-              onTap: () => _mobileSelect(() => _priority = option.$1, dismiss: dismiss),
+              onTap: () => _mobileSelect(() => _priority = option.$1, dismiss: dismiss, refreshPopover: refreshPopover),
             ),
         ]);
       case 'due':
@@ -686,17 +701,17 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           _mobileChoice(
             '不设置',
             selected: _dueDate == null,
-            onTap: () => _mobileSelect(() => _dueDate = null, dismiss: dismiss),
+            onTap: () => _mobileSelect(() => _dueDate = null, dismiss: dismiss, refreshPopover: refreshPopover),
           ),
           _mobileChoice(
             '今天',
             selected: matches(_dueDate, today),
-            onTap: () => _mobileSelect(() => _dueDate = today, dismiss: dismiss),
+            onTap: () => _mobileSelect(() => _dueDate = today, dismiss: dismiss, refreshPopover: refreshPopover),
           ),
           _mobileChoice(
             '明天',
             selected: matches(_dueDate, tomorrow),
-            onTap: () => _mobileSelect(() => _dueDate = tomorrow, dismiss: dismiss),
+            onTap: () => _mobileSelect(() => _dueDate = tomorrow, dismiss: dismiss, refreshPopover: refreshPopover),
           ),
           _mobileChoice(
             '选择其他日期…',
@@ -726,7 +741,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       _repeatInterval = 1;
                     }
                     if (_repeatType != 'weekly') _weekdays.clear();
-                  }, stay: option.$1 == 'weekly', dismiss: dismiss),
+                  }, stay: option.$1 == 'weekly', dismiss: dismiss, refreshPopover: refreshPopover),
                 ),
             ]),
             if (_repeatType == 'weekly') ...[
@@ -746,7 +761,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       selected: _weekdays.contains(i + 1),
                       onTap: () => _mobileSelect(() {
                         if (!_weekdays.add(i + 1)) _weekdays.remove(i + 1);
-                      }, stay: true, dismiss: dismiss),
+                      }, stay: true, dismiss: dismiss, refreshPopover: refreshPopover),
                     ),
                 ],
               ),
@@ -758,7 +773,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           _mobileChoice(
             '不设置时间',
             selected: _dueTime == null,
-            onTap: () => _mobileSelect(() => _dueTime = null, dismiss: dismiss),
+            onTap: () => _mobileSelect(() => _dueTime = null, dismiss: dismiss, refreshPopover: refreshPopover),
           ),
           _mobileChoice(
             _dueTime == null ? '选择时间…' : '修改时间 · ${_timeLabel(_dueTime!)}',
@@ -774,7 +789,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             onTap: () => _mobileSelect(() {
               _reminderAt = null;
               _reminderAdvanceMinutes = 0;
-            }, dismiss: dismiss),
+            }, dismiss: dismiss, refreshPopover: refreshPopover),
           ),
           _mobileChoice(
             '选择提醒日期和时间…',
@@ -793,7 +808,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               selectedTags: _selectedTags,
               onChanged: (tags) => _mobileSelect(() {
                 _selectedTags = tags;
-              }, stay: true, dismiss: dismiss),
+              }, stay: true, dismiss: dismiss, refreshPopover: refreshPopover),
             ),
             const SizedBox(height: SlowlightSpacing.sm),
             Align(
