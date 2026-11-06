@@ -189,7 +189,8 @@ void main() {
     expect(tester.getTopLeft(tasks).dy, lessThan(tester.getTopLeft(habits).dy));
     expect(tester.getTopLeft(habits).dy, lessThan(tester.getTopLeft(timeline).dy));
     expect(find.text('开始专注'), findsOneWidget);
-    expect(find.text('记录行动，也记录生活。'), findsOneWidget);
+    expect(find.text('记录行动，也记录生活。'), findsNothing);
+    expect(find.byKey(const ValueKey('today.mobile.date')), findsOneWidget);
 
     final title = find.text('今日任务');
     final panel = find.descendant(of: tasks, matching: find.byType(FxCard)).first;
