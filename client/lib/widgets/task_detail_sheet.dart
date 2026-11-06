@@ -204,7 +204,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   bool _mobileExpanded = false;
   bool _mobileDescriptionOpen = false;
   bool _allowMobilePop = false;
-  String? _mobilePage;
 
   @override
   void initState() {
@@ -293,10 +292,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   Future<void> _requestMobileClose({bool backFromSystem = false}) async {
     if (_saving) return;
-    if (backFromSystem && _mobilePage != null) {
-      setState(() => _mobilePage = null);
-      return;
-    }
     if (_mobileDirty) {
       final discard = await FxDialog.confirm(
         context: context,
@@ -321,10 +316,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_mobilePage == null)
-            _header()
-          else
-            _mobilePropertyHeader(),
+          _header(),
           FxSeparator.horizontal(height: 1, color: fxDivider(context)),
           Flexible(
             fit: FlexFit.loose,
@@ -336,52 +328,11 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 SlowlightSpacing.xl,
                 SlowlightSpacing.xl,
               ),
-              child: _mobilePage == null
-                  ? _mobileMainForm()
-                  : _mobilePropertyPage(),
+              child: _mobileMainForm(),
             ),
           ),
           FxSeparator.horizontal(height: 1, color: fxDivider(context)),
           _mobileFooter(),
-        ],
-      ),
-    );
-  }
-
-  Widget _mobilePropertyHeader() {
-    const names = {
-      'list': '选择清单',
-      'due': '安排日期',
-      'priority': '设置优先级',
-      'repeat': '重复规则',
-      'time': '安排时间',
-      'reminder': '设置提醒',
-      'tags': '任务标签',
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: SlowlightSpacing.md,
-        vertical: SlowlightSpacing.xs,
-      ),
-      child: Row(
-        children: [
-          FxIconButton(
-            icon: LucideIcons.chevronLeft,
-            tooltip: '返回任务详情',
-            onPressed: () => setState(() => _mobilePage = null),
-          ),
-          const SizedBox(width: SlowlightSpacing.md),
-          Expanded(
-            child: Text(
-              names[_mobilePage] ?? '任务属性',
-              style: SlowlightTypography.cardTitle(context),
-            ),
-          ),
-          FxIconButton(
-            icon: LucideIcons.x,
-            tooltip: '关闭',
-            onPressed: _saving ? null : _requestMobileClose,
-          ),
         ],
       ),
     );
@@ -580,16 +531,23 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     String value,
   ) {
     final theme = Theme.of(context);
-    return FxInkWell(
-      key: ValueKey('task.detail.property.${field}'),
-      onTap: _saving
-          ? null
-          : () {
-              FocusScope.of(context).unfocus();
-              setState(() => _mobilePage = field);
-            },
+    return FxMenu<String>(
+      enabled: !_saving,
+      onOpened: () => FocusScope.of(context).unfocus(),
+      constraints: BoxConstraints(
+        minWidth: 220,
+        maxWidth: MediaQuery.sizeOf(context).width - SlowlightSpacing.xl * 2,
+        maxHeight: MediaQuery.sizeOf(context).height * .54,
+      ),
+      contentBuilder: (popoverContext, dismiss) => SingleChildScrollView(
+        padding: const EdgeInsets.all(SlowlightSpacing.sm),
+        child: _mobilePropertyPage(field, dismiss),
+      ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 49),
+        key: ValueKey('task.detail.property.$field'),
+        constraints: const BoxConstraints(
+          minHeight: SlowlightControlSize.minTouchTarget,
+        ),
         child: Row(
           children: [
             Icon(icon,
@@ -597,7 +555,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(width: SlowlightSpacing.xl),
             Expanded(
-              child: Text(label, style: SlowlightTypography.componentControl(context)),
+              child: Text(label,
+                  style: SlowlightTypography.componentControl(context)),
             ),
             Flexible(
               child: Text(
@@ -611,7 +570,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               ),
             ),
             const SizedBox(width: SlowlightSpacing.md),
-            Icon(LucideIcons.chevronRight,
+            Icon(LucideIcons.chevronDown,
                 size: SlowlightIconSize.xs,
                 color: theme.colorScheme.onSurfaceVariant),
           ],
@@ -670,19 +629,23 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     ].join('|');
   }
 
-  void _mobileSelect(VoidCallback change, {bool stay = false}) {
+  void _mobileSelect(
+    VoidCallback change, {
+    bool stay = false,
+    required VoidCallback dismiss,
+  }) {
     final before = _mobileValueSnapshot();
     setState(() {
       change();
       if (_mobileValueSnapshot() != before) _mobileDirty = true;
-      if (!stay) _mobilePage = null;
     });
+    if (!stay) dismiss();
   }
 
-  Widget _mobilePropertyPage() {
+  Widget _mobilePropertyPage(String field, VoidCallback dismiss) {
     final theme = Theme.of(context);
     Widget group(List<Widget> children) => _mobilePropertyGroup(children);
-    switch (_mobilePage) {
+    switch (field) {
       case 'list':
         return group([
           if (widget.lists.isEmpty)
@@ -693,7 +656,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               _mobileChoice(
                 '${list.icon} ${list.name}',
                 selected: _listId == list.id,
-                onTap: () => _mobileSelect(() => _listId = list.id),
+                onTap: () => _mobileSelect(() => _listId = list.id, dismiss: dismiss),
               ),
         ]);
       case 'priority':
@@ -707,7 +670,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             _mobileChoice(
               option.$2,
               selected: _priority == option.$1,
-              onTap: () => _mobileSelect(() => _priority = option.$1),
+              onTap: () => _mobileSelect(() => _priority = option.$1, dismiss: dismiss),
             ),
         ]);
       case 'due':
@@ -722,22 +685,22 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           _mobileChoice(
             '不设置',
             selected: _dueDate == null,
-            onTap: () => _mobileSelect(() => _dueDate = null),
+            onTap: () => _mobileSelect(() => _dueDate = null, dismiss: dismiss),
           ),
           _mobileChoice(
             '今天',
             selected: matches(_dueDate, today),
-            onTap: () => _mobileSelect(() => _dueDate = today),
+            onTap: () => _mobileSelect(() => _dueDate = today, dismiss: dismiss),
           ),
           _mobileChoice(
             '明天',
             selected: matches(_dueDate, tomorrow),
-            onTap: () => _mobileSelect(() => _dueDate = tomorrow),
+            onTap: () => _mobileSelect(() => _dueDate = tomorrow, dismiss: dismiss),
           ),
           _mobileChoice(
             '选择其他日期…',
             selected: false,
-            onTap: _mobilePickDate,
+            onTap: () => _mobilePickDate(dismiss),
           ),
         ]);
       case 'repeat':
@@ -762,7 +725,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       _repeatInterval = 1;
                     }
                     if (_repeatType != 'weekly') _weekdays.clear();
-                  }, stay: option.$1 == 'weekly'),
+                  }, stay: option.$1 == 'weekly', dismiss: dismiss),
                 ),
             ]),
             if (_repeatType == 'weekly') ...[
@@ -782,7 +745,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       selected: _weekdays.contains(i + 1),
                       onTap: () => _mobileSelect(() {
                         if (!_weekdays.add(i + 1)) _weekdays.remove(i + 1);
-                      }, stay: true),
+                      }, stay: true, dismiss: dismiss),
                     ),
                 ],
               ),
@@ -794,12 +757,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           _mobileChoice(
             '不设置时间',
             selected: _dueTime == null,
-            onTap: () => _mobileSelect(() => _dueTime = null),
+            onTap: () => _mobileSelect(() => _dueTime = null, dismiss: dismiss),
           ),
           _mobileChoice(
             _dueTime == null ? '选择时间…' : '修改时间 · ${_timeLabel(_dueTime!)}',
             selected: _dueTime != null,
-            onTap: _mobilePickTime,
+            onTap: () => _mobilePickTime(dismiss),
           ),
         ]);
       case 'reminder':
@@ -810,12 +773,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             onTap: () => _mobileSelect(() {
               _reminderAt = null;
               _reminderAdvanceMinutes = 0;
-            }),
+            }, dismiss: dismiss),
           ),
           _mobileChoice(
             '选择提醒日期和时间…',
             selected: _reminderAt != null,
-            onTap: _mobilePickReminder,
+            onTap: () => _mobilePickReminder(dismiss),
           ),
         ]);
       case 'tags':
@@ -825,46 +788,40 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           selectedTags: _selectedTags,
           onChanged: (tags) => _mobileSelect(() {
             _selectedTags = tags;
-          }, stay: true),
+          }, stay: true, dismiss: dismiss),
         );
       default:
         return const SizedBox.shrink();
     }
   }
 
-  Future<void> _mobilePickDate() async {
+  Future<void> _mobilePickDate(VoidCallback dismiss) async {
     final before = _dueDate;
     await _pickDate();
     if (!mounted) return;
     if (_dueDate != before) {
-      setState(() {
-        _mobileDirty = true;
-        _mobilePage = null;
-      });
+      setState(() => _mobileDirty = true);
+      dismiss();
     }
   }
 
-  Future<void> _mobilePickTime() async {
+  Future<void> _mobilePickTime(VoidCallback dismiss) async {
     final before = _dueTime;
     await _pickTime();
     if (!mounted) return;
     if (_dueTime != before) {
-      setState(() {
-        _mobileDirty = true;
-        _mobilePage = null;
-      });
+      setState(() => _mobileDirty = true);
+      dismiss();
     }
   }
 
-  Future<void> _mobilePickReminder() async {
+  Future<void> _mobilePickReminder(VoidCallback dismiss) async {
     final before = _reminderAt;
     await _pickReminder();
     if (!mounted) return;
     if (_reminderAt != before) {
-      setState(() {
-        _mobileDirty = true;
-        _mobilePage = null;
-      });
+      setState(() => _mobileDirty = true);
+      dismiss();
     }
   }
 
@@ -885,9 +842,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           children: [
             Expanded(
               child: Text(
-                _mobilePage != null
-                    ? '修改后返回详情'
-                    : _saving
+                _saving
                         ? '正在保存…'
                         : _creationResultUnknown
                             ? '创建结果未确认'
@@ -902,22 +857,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             const SizedBox(width: SlowlightSpacing.md),
             FxButton(
               key: const ValueKey('task.detail.primaryAction'),
-              label: _mobilePage != null
-                  ? '完成'
-                  : widget.isCreating
+              label: widget.isCreating
                       ? (_saving ? '创建中…' : '创建任务')
                       : (_saving ? '保存中…' : '保存修改'),
-              variant: _mobilePage == null && !canSave
+              variant: !canSave
                   ? FxButtonVariant.secondary
                   : FxButtonVariant.primary,
               size: FxButtonSize.sm,
-              onPressed: _saving
-                  ? null
-                  : _mobilePage != null
-                      ? () => setState(() => _mobilePage = null)
-                      : canSave
-                          ? _save
-                          : null,
+              onPressed: _saving || !canSave ? null : _save,
             ),
           ],
         ),
