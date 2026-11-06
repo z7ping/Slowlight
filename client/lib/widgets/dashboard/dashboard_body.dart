@@ -436,21 +436,33 @@ class _DashboardBodyState extends State<DashboardBody> {
     final items = _timelineExpanded
         ? _timeline
         : _timeline.take(previewLimit).toList(growable: false);
+    final status = _timelineLoadFailed
+        ? '读取失败'
+        : _timelineLoading
+            ? '读取中'
+            : '${_timeline.length} 条记录';
     final header = FxSectionHeader(
       title: '今天的轨迹',
-      trailing: _timelineLoadFailed
-          ? '读取失败'
-          : _timelineLoading
-              ? '读取中'
-              : '${_timeline.length} 条记录',
+      titleStyle: mobile
+          ? SlowlightTypography.body(context).copyWith(
+              fontWeight: FontWeight.w600,
+            )
+          : null,
+      trailing: mobile && widget.onViewReview != null ? null : status,
       trailingWidget: widget.onViewReview == null
           ? null
-          : FxButton(
-              label: mobile ? '进入回顾 →' : '进入回顾',
-              variant: FxButtonVariant.ghost,
-              size: FxButtonSize.sm,
-              onPressed: widget.onViewReview,
-            ),
+          : mobile
+              ? _mobileSectionActions(
+                  status,
+                  '进入回顾 →',
+                  widget.onViewReview!,
+                )
+              : FxButton(
+                  label: '进入回顾',
+                  variant: FxButtonVariant.ghost,
+                  size: FxButtonSize.sm,
+                  onPressed: widget.onViewReview,
+                ),
     );
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -681,6 +693,31 @@ class _DashboardBodyState extends State<DashboardBody> {
     );
   }
 
+  Widget _mobileSectionActions(
+    String status,
+    String label,
+    VoidCallback onPressed,
+  ) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          status,
+          style: SlowlightTypography.caption(context)
+              .copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(width: SlowlightSpacing.xs),
+        FxButton(
+          label: label,
+          variant: FxButtonVariant.ghost,
+          size: FxButtonSize.sm,
+          onPressed: onPressed,
+        ),
+      ],
+    );
+  }
+
   Widget _taskCard({required int maxItems, required bool mobile}) {
     final completed = widget.tasks.where((task) => task.isCompleted).length;
     // Android: pending tasks must not be pushed out of the short Today preview
@@ -692,21 +729,33 @@ class _DashboardBodyState extends State<DashboardBody> {
             )
         : widget.tasks;
     final visible = previewTasks.take(maxItems).toList(growable: false);
+    final status = widget.tasksLoading
+        ? '读取中'
+        : widget.tasksError
+            ? (visible.isEmpty ? '数量未知' : '上次数据')
+            : '${completed}/${widget.tasks.length} 完成';
     final header = FxSectionHeader(
       title: '今日任务',
-      trailing: widget.tasksLoading
-          ? '读取中'
-          : widget.tasksError
-              ? (visible.isEmpty ? '数量未知' : '上次数据')
-              : '${completed}/${widget.tasks.length} 完成',
+      titleStyle: mobile
+          ? SlowlightTypography.body(context).copyWith(
+              fontWeight: FontWeight.w600,
+            )
+          : null,
+      trailing: mobile && widget.onViewAllTasks != null ? null : status,
       trailingWidget: widget.onViewAllTasks == null
           ? null
-          : FxButton(
-              label: mobile ? '查看全部 →' : '查看全部',
-              variant: FxButtonVariant.ghost,
-              size: FxButtonSize.sm,
-              onPressed: widget.onViewAllTasks,
-            ),
+          : mobile
+              ? _mobileSectionActions(
+                  status,
+                  '查看全部 →',
+                  widget.onViewAllTasks!,
+                )
+              : FxButton(
+                  label: '查看全部',
+                  variant: FxButtonVariant.ghost,
+                  size: FxButtonSize.sm,
+                  onPressed: widget.onViewAllTasks,
+                ),
     );
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -919,23 +968,35 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _habitCard({required int maxItems, required bool mobile}) {
     final checked = widget.habits.where((habit) => habit.checkedToday).length;
     final visible = widget.habits.take(maxItems).toList(growable: false);
+    final status = widget.habitsLoading
+        ? '读取中'
+        : widget.habitsError
+            ? (visible.isEmpty ? '数量未知' : '上次数据')
+            : widget.habits.isEmpty
+                ? '暂无习惯'
+                : '${checked}/${widget.habits.length} 已打卡';
     final header = FxSectionHeader(
       title: '习惯',
-      trailing: widget.habitsLoading
-          ? '读取中'
-          : widget.habitsError
-              ? (visible.isEmpty ? '数量未知' : '上次数据')
-              : widget.habits.isEmpty
-                  ? '暂无习惯'
-                  : '${checked}/${widget.habits.length} 已打卡',
+      titleStyle: mobile
+          ? SlowlightTypography.body(context).copyWith(
+              fontWeight: FontWeight.w600,
+            )
+          : null,
+      trailing: mobile && widget.onViewAllHabits != null ? null : status,
       trailingWidget: widget.onViewAllHabits == null
           ? null
-          : FxButton(
-              label: mobile ? '查看全部 →' : '查看全部',
-              variant: FxButtonVariant.ghost,
-              size: FxButtonSize.sm,
-              onPressed: widget.onViewAllHabits,
-            ),
+          : mobile
+              ? _mobileSectionActions(
+                  status,
+                  '查看全部 →',
+                  widget.onViewAllHabits!,
+                )
+              : FxButton(
+                  label: '查看全部',
+                  variant: FxButtonVariant.ghost,
+                  size: FxButtonSize.sm,
+                  onPressed: widget.onViewAllHabits,
+                ),
     );
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

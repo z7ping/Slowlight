@@ -145,7 +145,7 @@ void main() {
     expect(draft.priority, 'urgent_important');
     expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
     expect(find.text('添加任务'), findsNWidgets(2));
-    expect(find.text('高'), findsOneWidget);
+    expect(find.text('重要 · 紧急'), findsOneWidget);
     expect(find.text('2026-11-21'), findsOneWidget);
     final title = find.descendant(
       of: find.byKey(const ValueKey('task.detail.title')),
