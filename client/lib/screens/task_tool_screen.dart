@@ -465,8 +465,8 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                     horizontal: SlowlightSpacing.md,
                   ),
                   child: SlowlightPlatformDensity.usesMobileTouchTargets
-                      ? _swipeTaskRow(task)
-                      : _taskRow(task, compactMobile: true),
+                      ? _swipeTaskRow(task, last: last)
+                      : _taskRow(task, compactMobile: true, lastMobile: last),
                 ),
               );
             },
@@ -696,10 +696,15 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     );
   }
 
-  Widget _swipeTaskRow(Task task) {
+  Widget _swipeTaskRow(Task task, {bool last = false}) {
     // Keep completed and pending items on the same 48dp row rhythm.
     // Completed tasks retain the click target but have no swipe actions.
-    final row = _taskRow(task, verticalPadding: 0, compactMobile: true);
+    final row = _taskRow(
+      task,
+      verticalPadding: 0,
+      compactMobile: true,
+      lastMobile: last,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs / 2),
       child: task.isCompleted
@@ -726,6 +731,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     double verticalPadding = SlowlightSpacing.xs,
     bool selected = false,
     bool compactMobile = false,
+    bool lastMobile = false,
   }) {
     final theme = Theme.of(context);
     String? listName = task.list?.name;
@@ -769,7 +775,11 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                   ? theme.colorScheme.primary.withValues(alpha: .07)
                   : null,
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
-          border: Border(bottom: BorderSide(color: fxSubtleSurface(context))),
+          border: Border(
+            bottom: lastMobile
+                ? BorderSide.none
+                : BorderSide(color: fxSubtleSurface(context)),
+          ),
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: compactMobile ? 48 : 0),
@@ -799,15 +809,15 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                     height: 18,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
+                      shape: BoxShape.circle,
                       color:
                           task.isCompleted
-                              ? AppTheme.success
+                              ? theme.colorScheme.primary
                               : Colors.transparent,
                       border: Border.all(
                         color:
                             task.isCompleted
-                                ? AppTheme.success
+                                ? theme.colorScheme.primary
                                 : theme.colorScheme.outline,
                         width: 1.5,
                       ),
