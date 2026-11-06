@@ -545,7 +545,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: selected
-                ? theme.colorScheme.primary.withValues(alpha: .08)
+                ? activePalette.accent.withValues(alpha: .12)
                 : Colors.transparent,
           ),
           child: ConstrainedBox(
