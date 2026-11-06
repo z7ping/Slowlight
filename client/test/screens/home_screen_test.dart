@@ -76,6 +76,32 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('打开工具页再返回时保留今天状态及 FAB 入口', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      final today = find.byType(DashboardBody, skipOffstage: false);
+      final dashboardState = tester.state(today);
+
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('四象限'));
+      await tester.pumpAndSettle();
+      expect(find.byType(QuadrantScreen), findsOneWidget);
+      expect(identical(tester.state(today), dashboardState), isTrue);
+
+      await tester.tap(fxTooltipFinder('返回'));
+      await tester.pumpAndSettle();
+      expect(find.byType(QuadrantScreen), findsNothing);
+      expect(identical(tester.state(today), dashboardState), isTrue);
+      final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
+      expect(fab, findsOneWidget);
+      final ignoring = tester.widget<IgnorePointer>(
+        find.ancestor(of: fab, matching: find.byType(IgnorePointer)),
+      );
+      expect(ignoring.ignoring, isFalse);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('悬浮添加任务按钮移动后仍可再次拖动并点击', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
       final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
