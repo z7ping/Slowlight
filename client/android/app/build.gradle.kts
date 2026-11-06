@@ -52,6 +52,9 @@ android {
 
     buildTypes {
         release {
+            // 通知插件通过 Gson 恢复已保存的提醒，保留其反射所需的类型信息。
+            proguardFiles("proguard-rules.pro")
+
             // Android 平台图标是已经人工验收并提交的最终静态资产；Release 构建直接保留原 PNG，
             // 避免 AAPT2 对已定稿 PNG 再次 crunch 时出现资源编译异常。
             isCrunchPngs = false
