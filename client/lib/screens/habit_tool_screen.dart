@@ -324,35 +324,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     if (saved) _message(date == null ? '已记录「${habit.name}」' : '补卡已记录');
   }
 
-  Future<void> _tapWeekDay(Habit habit, DateTime day) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    if (_sameDay(day, today)) return _toggleToday(habit);
-    return _runHabitAction(habit, () => _tapWeekDayInternal(habit, day));
-  }
-
-  Future<void> _tapWeekDayInternal(Habit habit, DateTime day) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
-    final active = habit.checkedDays.contains(key);
-    if (active && !habit.allowMultiplePerDay) {
-      _message('历史打卡是事实记录，不在这里修改');
-      return;
-    }
-    if (day.isAfter(today) ||
-        day.isBefore(
-          DateTime(
-            habit.createdAt.year,
-            habit.createdAt.month,
-            habit.createdAt.day,
-          ),
-        )) {
-      return;
-    }
-    await _record(habit, detailed: true, date: day);
-  }
-
   Future<void> _backfill(Habit habit) =>
       _runHabitAction(habit, () => _backfillInternal(habit));
 
@@ -963,8 +934,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
     final touch = SlowlightPlatformDensity.usesMobileTouchTargets;
     final target = touch ? SlowlightControlSize.minTouchTarget : 36.0;
-    // Android 360dp 不能把 7 天的可点区域缩到不足 44dp。
-    // 留出独立横向滚动，不挤压右侧“记录今天”。
+    // 七日点阵只展示历史事实；补记与撤销由显式入口处理。
+    // Android 窄屏允许水平阅读，避免挤压七日信息。
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -973,46 +944,41 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
           final active = checked.contains(key);
           return Semantics(
-            button: true,
             label: '${day.month}月${day.day}日${active ? '已记录' : '未记录'}',
-            child: FxInkWell(
+            child: Container(
               key: ValueKey('habits.week.${habit.id}.$index'),
-              borderRadius: BorderRadius.circular(SlowlightRadius.md),
-              onTap: () => _tapWeekDay(habit, day),
-              child: Container(
-                width: target,
-                constraints: BoxConstraints(
-                  minHeight: touch ? 48 : SlowlightControlSize.minTouchTarget,
-                ),
-                padding:
-                    const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      weekdayLabels[day.weekday - 1],
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+              width: target,
+              constraints: BoxConstraints(
+                minHeight: touch ? 48 : SlowlightControlSize.minTouchTarget,
+              ),
+              padding:
+                  const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    weekdayLabels[day.weekday - 1],
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: SlowlightSpacing.xs),
+                  Container(
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active ? color : Colors.transparent,
+                      border: Border.all(
+                        color: active
+                            ? color
+                            : Theme.of(context).colorScheme.outline,
+                        width: _sameDay(day, today) ? 2 : 1.5,
                       ),
                     ),
-                    const SizedBox(height: SlowlightSpacing.xs),
-                    Container(
-                      width: 13,
-                      height: 13,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: active ? color : Colors.transparent,
-                        border: Border.all(
-                          color: active
-                              ? color
-                              : Theme.of(context).colorScheme.outline,
-                          width: _sameDay(day, today) ? 2 : 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );

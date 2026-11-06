@@ -102,7 +102,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
-  testWidgets('Android 360dp 习惯卡紧凑，最近七日仍有 44dp 点击区域',
+  testWidgets('Android 360dp 习惯卡紧凑，七日事实只读且保持可读宽度',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -127,6 +127,11 @@ void main() {
     expect(weekDay, findsOneWidget);
     expect(tester.getSize(weekDay).width, greaterThanOrEqualTo(44));
     expect(tester.getSize(weekDay).height, closeTo(48, 1));
+    final barriersBefore = find.byType(ModalBarrier).evaluate().length;
+    await tester.tap(weekDay);
+    await tester.pumpAndSettle();
+    // A read-only history marker cannot open a record/backfill sheet.
+    expect(find.byType(ModalBarrier).evaluate().length, barriersBefore);
     expect(find.byKey(const ValueKey('habits.today.1')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
