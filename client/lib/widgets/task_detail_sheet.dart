@@ -934,6 +934,22 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ),
         ]);
       case 'reminder':
+        const relativeOptions = <(int, String)>[
+          (0, '准时'),
+          (5, '提前 5 分钟'),
+          (10, '提前 10 分钟'),
+          (15, '提前 15 分钟'),
+          (30, '提前 30 分钟'),
+          (60, '提前 1 小时'),
+        ];
+        final calculated = buildTaskReminderAt(
+          dueDate: _dueDate,
+          dueTime: _dueTime,
+          advanceMinutes: _reminderAdvanceMinutes,
+        );
+        final isRelative = _reminderAt != null &&
+            calculated != null &&
+            _reminderAt!.isAtSameMomentAs(calculated);
         return group([
           _mobileChoice(
             '不提醒',
@@ -943,9 +959,36 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               _reminderAdvanceMinutes = 0;
             }),
           ),
+          if (_dueDate == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: SlowlightSpacing.md,
+              ),
+              child: Text(
+                '先安排日期，才能设置相对提醒',
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            for (final (minutes, label) in relativeOptions)
+              _mobileChoice(
+                label,
+                selected: isRelative &&
+                    _reminderAdvanceMinutes == minutes,
+                onTap: () => _mobileSelect(() {
+                  _reminderAdvanceMinutes = minutes;
+                  _reminderAt = buildTaskReminderAt(
+                    dueDate: _dueDate,
+                    dueTime: _dueTime,
+                    advanceMinutes: minutes,
+                  );
+                }),
+              ),
           _mobileChoice(
-            '选择提醒日期和时间…',
-            selected: _reminderAt != null,
+            '指定提醒日期与时间…',
+            selected: _reminderAt != null && !isRelative,
             onTap: _mobilePickReminder,
           ),
         ]);
@@ -963,97 +1006,83 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     }
   }
 
+  bool get _mobileReminderFollowsSchedule {
+    final computed = buildTaskReminderAt(
+      dueDate: _dueDate,
+      dueTime: _dueTime,
+      advanceMinutes: _reminderAdvanceMinutes,
+    );
+    return _reminderAt != null &&
+        computed != null &&
+        _reminderAt!.isAtSameMomentAs(computed);
+  }
+
+  void _mobileSetDueDate(DateTime? date) {
+    final follow = _mobileReminderFollowsSchedule;
+    _dueDate = date;
+    if (follow) {
+      _reminderAt = buildTaskReminderAt(
+        dueDate: _dueDate,
+        dueTime: _dueTime,
+        advanceMinutes: _reminderAdvanceMinutes,
+      );
+    }
+  }
+
+  void _mobileSetDueTime(TimeOfDay? time) {
+    final follow = _mobileReminderFollowsSchedule;
+    _dueTime = time;
+    if (follow) {
+      _reminderAt = buildTaskReminderAt(
+        dueDate: _dueDate,
+        dueTime: _dueTime,
+        advanceMinutes: _reminderAdvanceMinutes,
+      );
+    }
+  }
+
   Future<void> _mobilePickDate() async {
     final before = _dueDate;
+    final follow = _mobileReminderFollowsSchedule;
+    _mobileCloseProperty?.call();
     await _pickDate();
-    if (!mounted) return;
-    if (_dueDate != before) {
-      setState(() {
-        _mobileDirty = true;
-        _mobilePage = null;
-      });
-    }
+    if (!mounted || _dueDate == before) return;
+    setState(() {
+      if (follow) {
+        _reminderAt = buildTaskReminderAt(
+          dueDate: _dueDate,
+          dueTime: _dueTime,
+          advanceMinutes: _reminderAdvanceMinutes,
+        );
+      }
+      _recomputeMobileDirty();
+    });
   }
 
   Future<void> _mobilePickTime() async {
     final before = _dueTime;
+    final follow = _mobileReminderFollowsSchedule;
+    _mobileCloseProperty?.call();
     await _pickTime();
-    if (!mounted) return;
-    if (_dueTime != before) {
-      setState(() {
-        _mobileDirty = true;
-        _mobilePage = null;
-      });
-    }
+    if (!mounted || _dueTime == before) return;
+    setState(() {
+      if (follow) {
+        _reminderAt = buildTaskReminderAt(
+          dueDate: _dueDate,
+          dueTime: _dueTime,
+          advanceMinutes: _reminderAdvanceMinutes,
+        );
+      }
+      _recomputeMobileDirty();
+    });
   }
 
   Future<void> _mobilePickReminder() async {
-    final before = _reminderAt;
+    final before = _mobileValueSnapshot();
+    _mobileCloseProperty?.call();
     await _pickReminder();
-    if (!mounted) return;
-    if (_reminderAt != before) {
-      setState(() {
-        _mobileDirty = true;
-        _mobilePage = null;
-      });
-    }
-  }
-
-  Widget _mobileFooter() {
-    final canSave = widget.isCreating
-        ? _title.text.trim().isNotEmpty && !_creationResultUnknown
-        : _mobileDirty;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          SlowlightSpacing.xxxl,
-          SlowlightSpacing.md,
-          SlowlightSpacing.xxxl,
-          SlowlightSpacing.xl,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _mobilePage != null
-                    ? '修改后返回详情'
-                    : _saving
-                        ? '正在保存…'
-                        : _creationResultUnknown
-                            ? '创建结果未确认'
-                            : widget.isCreating
-                                ? (_mobileDirty ? '尚未创建' : '填写任务名称')
-                                : (_mobileDirty ? '有未保存的修改' : '已保存'),
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: SlowlightSpacing.md),
-            FxButton(
-              key: const ValueKey('task.detail.primaryAction'),
-              label: _mobilePage != null
-                  ? '完成'
-                  : widget.isCreating
-                      ? (_saving ? '创建中…' : '创建任务')
-                      : (_saving ? '保存中…' : '保存修改'),
-              variant: _mobilePage == null && !canSave
-                  ? FxButtonVariant.secondary
-                  : FxButtonVariant.primary,
-              size: FxButtonSize.sm,
-              onPressed: _saving
-                  ? null
-                  : _mobilePage != null
-                      ? () => setState(() => _mobilePage = null)
-                      : canSave
-                          ? _save
-                          : null,
-            ),
-          ],
-        ),
-      ),
-    );
+    if (!mounted || _mobileValueSnapshot() == before) return;
+    setState(_recomputeMobileDirty);
   }
 
   void _close() {
