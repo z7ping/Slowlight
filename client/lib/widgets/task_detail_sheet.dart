@@ -407,7 +407,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: SlowlightSpacing.sm),
+              const SizedBox(height: SlowlightSpacing.md),
               Wrap(
                 key: const ValueKey('task.detail.quickbar'),
                 spacing: SlowlightSpacing.xs,
@@ -694,7 +694,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       ),
       contentBuilder: (popoverContext, dismiss) => StatefulBuilder(
         builder: (popoverContext, refreshPopover) => SingleChildScrollView(
-          padding: const EdgeInsets.all(SlowlightSpacing.sm),
+          padding: const EdgeInsets.all(SlowlightSpacing.md),
           child: _mobilePropertyPage(
             field,
             dismiss,
@@ -995,7 +995,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 _selectedTags = tags;
               }, stay: true, dismiss: dismiss, refreshPopover: refreshPopover),
             ),
-            const SizedBox(height: SlowlightSpacing.sm),
+            const SizedBox(height: SlowlightSpacing.md),
             Align(
               alignment: Alignment.centerRight,
               child: FxButton(
