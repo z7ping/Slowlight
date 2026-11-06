@@ -619,6 +619,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 left: left,
                 top: top,
                 child: IgnorePointer(
+                  key: const ValueKey('today.fab.pointer'),
                   ignoring: _fabAutoHidden,
                   child: AnimatedSlide(
                     offset: _fabAutoHidden
