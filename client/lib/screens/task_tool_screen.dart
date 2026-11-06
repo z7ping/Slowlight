@@ -699,7 +699,12 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   Widget _swipeTaskRow(Task task, {bool last = false}) {
     // Keep completed and pending items on the same 48dp row rhythm.
     // Completed tasks retain the click target but have no swipe actions.
-    final row = _taskRow(task, verticalPadding: 0, compactMobile: true, lastMobile: last);
+    final row = _taskRow(
+      task,
+      verticalPadding: 0,
+      compactMobile: true,
+      lastMobile: last,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs / 2),
       child: task.isCompleted
@@ -770,7 +775,11 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                   ? theme.colorScheme.primary.withValues(alpha: .07)
                   : null,
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
-          border: Border(bottom: lastMobile ? BorderSide.none : BorderSide(color: fxSubtleSurface(context))),
+          border: Border(
+            bottom: lastMobile
+                ? BorderSide.none
+                : BorderSide(color: fxSubtleSurface(context)),
+          ),
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: compactMobile ? 48 : 0),
