@@ -95,7 +95,7 @@ void main() {
       final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
       expect(fab, findsOneWidget);
       final ignoring = tester.widget<IgnorePointer>(
-        find.ancestor(of: fab, matching: find.byType(IgnorePointer)),
+        find.byKey(const ValueKey('today.fab.pointer')),
       );
       expect(ignoring.ignoring, isFalse);
       expect(tester.takeException(), isNull);
