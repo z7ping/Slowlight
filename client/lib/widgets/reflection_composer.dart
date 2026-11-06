@@ -223,35 +223,133 @@ class ReflectionComposer {
               placeholder: '写下此刻的观察，只描述真实发生的事…',
             ),
             const SizedBox(height: 12),
-            TagChoiceField(
-              label: '历史观察分类（兼容）',
-              tags: tags,
-              selectedTagId: selectedTagId,
-              enabled: !saving,
-              onChanged: (id) => setEntryState(() {
-                selectedTagId = id;
-                final match = tags.where((tag) => tag.id == id);
-                if (match.isNotEmpty && match.first.dimensionKey != null) {
-                  // 仅用于旧记录兼容，不再展示维度概念。
-                  selectedDimension = match.first.dimensionKey;
-                }
-              }),
-              onCreateTag: () async {
-                if (saving) return;
-                final created = await _createObservationTag(entryContext);
-                if (created == null || !entryContext.mounted) return;
-                setEntryState(() {
-                  tags = [...tags, created];
-                  selectedTagId = created.id;
-                });
-              },
-            ),
-            const SizedBox(height: 12),
+            if (_useDesktopObservationDialog) ...[
+              TagChoiceField(
+                label: '历史观察分类（兼容）',
+                tags: tags,
+                selectedTagId: selectedTagId,
+                enabled: !saving,
+                onChanged: (id) => setEntryState(() {
+                  selectedTagId = id;
+                  final match = tags.where((tag) => tag.id == id);
+                  if (match.isNotEmpty && match.first.dimensionKey != null) {
+                    selectedDimension = match.first.dimensionKey;
+                  }
+                }),
+                onCreateTag: () async {
+                  if (saving) return;
+                  final created = await _createObservationTag(entryContext);
+                  if (created == null || !entryContext.mounted) return;
+                  setEntryState(() {
+                    tags = [...tags, created];
+                    selectedTagId = created.id;
+                  });
+                },
+              ),
+              const SizedBox(height: SlowlightSpacing.xl),
+            ] else ...[
+              Text(
+                '归属维度（可选）',
+                style: SlowlightTypography.componentFieldLabel(entryContext)
+                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              Wrap(
+                key: const ValueKey('observation.mobile.dimensions'),
+                spacing: SlowlightSpacing.md,
+                runSpacing: SlowlightSpacing.md,
+                children: [
+                  FxChoiceChip(
+                    label: '未归类',
+                    selected: selectedDimension == null,
+                    onTap: saving ? null : () =>
+                        setEntryState(() => selectedDimension = null),
+                  ),
+                  for (final dimension in DimensionCatalog.all)
+                    FxChoiceChip(
+                      label: '${dimension.icon} ${dimension.name}',
+                      selected: selectedDimension == dimension.keyValue,
+                      onTap: saving ? null : () => setEntryState(
+                        () => selectedDimension = dimension.keyValue,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: SlowlightSpacing.xl),
+            ],
             TagPicker(
+              label: '标签（可选）',
               enabled: !saving,
               selectedTags: canonicalTags,
-              onChanged: (tags) => setEntryState(() => canonicalTags = tags),
+              allowCreation: _useDesktopObservationDialog,
+              showEmptyOption: _useDesktopObservationDialog,
+              onChanged: (value) => setEntryState(() => canonicalTags = value),
             ),
+            if (!_useDesktopObservationDialog) ...[
+              const SizedBox(height: SlowlightSpacing.xs),
+              if (inlineTagOpen)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: SlowlightSpacing.md,
+                      runSpacing: SlowlightSpacing.md,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
+                          child: FxInput(
+                            key: const ValueKey('observation.mobile.tagName'),
+                            controller: inlineTagName,
+                            autofocus: true,
+                            enabled: !saving && !inlineTagSaving,
+                            maxLength: 20,
+                            placeholder: '输入标签名称',
+                          ),
+                        ),
+                        FxButton(
+                          label: inlineTagSaving ? '添加中…' : '添加',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.outline,
+                          onPressed: saving || inlineTagSaving
+                              ? null
+                              : () => createInlineTag(entryContext, setEntryState),
+                        ),
+                        FxButton(
+                          label: '取消',
+                          size: FxButtonSize.sm,
+                          variant: FxButtonVariant.ghost,
+                          onPressed: inlineTagSaving
+                              ? null
+                              : () => setEntryState(() {
+                                    inlineTagOpen = false;
+                                    inlineTagError = null;
+                                    inlineTagName.clear();
+                                  }),
+                        ),
+                      ],
+                    ),
+                    if (inlineTagError != null)
+                      Text(
+                        inlineTagError!,
+                        style: SlowlightTypography.caption(entryContext)
+                            .copyWith(color: theme.colorScheme.error),
+                      ),
+                  ],
+                )
+              else
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FxButton(
+                    label: '＋ 新建标签',
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: saving
+                        ? null
+                        : () => setEntryState(() => inlineTagOpen = true),
+                  ),
+                ),
+            ],
             if (error != null) ...[
               const SizedBox(height: 8),
               Text(
