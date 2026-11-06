@@ -264,6 +264,57 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 相对提醒复用任务日期时间，10 分钟预设可选且不立即写入',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final scheduled = Task(
+      id: 71,
+      listId: 1,
+      title: '定时准备',
+      priority: 'none',
+      isCompleted: false,
+      dueDate: DateTime(2026, 11, 20),
+      dueTime: '12:00',
+      createdAt: DateTime(2026, 11, 5),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: scheduled,
+          lists: lists,
+          onChanged: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('task.detail.property.reminder')),
+    );
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.reminder')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('准时'), findsOneWidget);
+    expect(find.text('提前 10 分钟'), findsOneWidget);
+    expect(find.text('提前 1 小时'), findsOneWidget);
+    expect(find.text('自定义日期与时间…'), findsOneWidget);
+
+    await tester.tap(find.text('提前 10 分钟'));
+    await tester.pumpAndSettle();
+    expect(find.text('提前 10 分钟'), findsOneWidget);
+    expect(find.text('有未保存的修改'), findsOneWidget);
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   for (final scale in [1.3, 2.0]) {
     testWidgets('Android 360dp 大字号 $scale 下核心属性与底部保存可达',
         (tester) async {

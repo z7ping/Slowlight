@@ -10,6 +10,7 @@ import '../services/api/task_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_picker.dart';
+import 'task_schedule_fields.dart';
 
 /// 任务详情：桌面右侧面板，窄屏底部弹层。
 class TaskDetailSheet extends StatefulWidget {
@@ -197,6 +198,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late Set<int> _weekdays;
   late DateTime? _reminderAt;
   late int _reminderAdvanceMinutes;
+  late bool _mobileReminderCustom;
   late List<Tag> _selectedTags;
   bool _saving = false;
   bool _mobileDirty = false;
@@ -227,6 +229,12 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 .toSet();
     _reminderAt = task.reminderAt;
     _reminderAdvanceMinutes = task.reminderAdvanceMinutes;
+    _mobileReminderCustom = _reminderAt != null &&
+        _reminderAt != buildTaskReminderAt(
+          dueDate: _dueDate,
+          dueTime: _dueTime,
+          advanceMinutes: _reminderAdvanceMinutes,
+        );
     _selectedTags = List<Tag>.from(task.tags);
     _mobileDescriptionOpen = _description.text.trim().isNotEmpty;
     _mobileDirty = false;
@@ -494,10 +502,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 }),
             _mobilePropertyRow(
                 'reminder', LucideIcons.bell, '提醒',
-                _reminderAt == null
-                    ? '不提醒'
-                    : '${_dateLabel(_reminderAt!)} '
-                        '${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}'),
+                _mobileReminderLabel()),
           ]),
         ],
       ],
@@ -632,8 +637,35 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       _dueTime?.minute,
       _reminderAt?.toIso8601String(),
       _reminderAdvanceMinutes,
+      _reminderAt != null && _mobileReminderCustom,
       tags.join(','),
     ].join('|');
+  }
+
+  void _mobileRecomputeRelativeReminder() {
+    if (_mobileReminderCustom || _reminderAt == null) return;
+    _reminderAt = buildTaskReminderAt(
+      dueDate: _dueDate,
+      dueTime: _dueTime,
+      advanceMinutes: _reminderAdvanceMinutes,
+    );
+  }
+
+  String _mobileReminderLabel() {
+    if (_reminderAt == null) return '不提醒';
+    if (!_mobileReminderCustom) {
+      return switch (_reminderAdvanceMinutes) {
+        0 => '准时',
+        5 => '提前 5 分钟',
+        10 => '提前 10 分钟',
+        15 => '提前 15 分钟',
+        30 => '提前 30 分钟',
+        60 => '提前 1 小时',
+        _ => '提前 ${_reminderAdvanceMinutes} 分钟',
+      };
+    }
+    return '${_dateLabel(_reminderAt!)} '
+        '${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}';
   }
 
   void _mobileSelect(
@@ -643,8 +675,13 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     required VoidCallback refreshPopover,
   }) {
     final before = _mobileValueSnapshot();
+    final oldDueDate = _dueDate;
+    final oldDueTime = _dueTime;
     setState(() {
       change();
+      if (oldDueDate != _dueDate || oldDueTime != _dueTime) {
+        _mobileRecomputeRelativeReminder();
+      }
       if (_mobileValueSnapshot() != before) _mobileDirty = true;
     });
     if (stay) {
@@ -789,11 +826,44 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             onTap: () => _mobileSelect(() {
               _reminderAt = null;
               _reminderAdvanceMinutes = 0;
+              _mobileReminderCustom = false;
             }, dismiss: dismiss, refreshPopover: refreshPopover),
           ),
+          for (final option in const [
+            (0, '准时'),
+            (5, '提前 5 分钟'),
+            (10, '提前 10 分钟'),
+            (15, '提前 15 分钟'),
+            (30, '提前 30 分钟'),
+            (60, '提前 1 小时'),
+          ])
+            _mobileChoice(
+              option.$2,
+              selected: _reminderAt != null &&
+                  !_mobileReminderCustom &&
+                  _reminderAdvanceMinutes == option.$1,
+              onTap: () {
+                if (_dueDate == null) {
+                  FxNotice.showContent(
+                    context,
+                    const Text('请先安排日期，再设置相对提醒'),
+                  );
+                  return;
+                }
+                _mobileSelect(() {
+                  _mobileReminderCustom = false;
+                  _reminderAdvanceMinutes = option.$1;
+                  _reminderAt = buildTaskReminderAt(
+                    dueDate: _dueDate,
+                    dueTime: _dueTime,
+                    advanceMinutes: option.$1,
+                  );
+                }, dismiss: dismiss, refreshPopover: refreshPopover);
+              },
+            ),
           _mobileChoice(
-            '选择提醒日期和时间…',
-            selected: _reminderAt != null,
+            '自定义日期与时间…',
+            selected: _reminderAt != null && _mobileReminderCustom,
             onTap: () => _mobilePickReminder(dismiss),
           ),
         ]);
@@ -831,7 +901,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     await _pickDate();
     if (!mounted) return;
     if (_dueDate != before) {
-      setState(() => _mobileDirty = true);
+      setState(() {
+        _mobileRecomputeRelativeReminder();
+        _mobileDirty = true;
+      });
       dismiss();
     }
   }
@@ -841,17 +914,23 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     await _pickTime();
     if (!mounted) return;
     if (_dueTime != before) {
-      setState(() => _mobileDirty = true);
+      setState(() {
+        _mobileRecomputeRelativeReminder();
+        _mobileDirty = true;
+      });
       dismiss();
     }
   }
 
   Future<void> _mobilePickReminder(VoidCallback dismiss) async {
-    final before = _reminderAt;
+    final before = _mobileValueSnapshot();
     await _pickReminder();
     if (!mounted) return;
-    if (_reminderAt != before) {
-      setState(() => _mobileDirty = true);
+    if (_mobileValueSnapshot() != before) {
+      setState(() {
+        _mobileReminderCustom = true;
+        _mobileDirty = true;
+      });
       dismiss();
     }
   }
