@@ -9,12 +9,14 @@ import '../typography_tokens.dart';
 /// Android 使用可读的辅助层级；桌面端保持既定高密度字号。
 class FxSectionHeader extends StatelessWidget {
   final String title;
+  final TextStyle? titleStyle;
   final String? trailing;
   final Widget? trailingWidget;
 
   const FxSectionHeader({
     super.key,
     required this.title,
+    this.titleStyle,
     this.trailing,
     this.trailingWidget,
   });
@@ -29,7 +31,7 @@ class FxSectionHeader extends StatelessWidget {
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: SlowlightTypography.componentSecondary(context).copyWith(
+            style: titleStyle ?? SlowlightTypography.componentSecondary(context).copyWith(
               // Fx 化前正式分区标题组件使用 13px / 600；这里保持相同层级，
               // 不因为迁移到统一组件顺便把桌面分区标题加粗到 700。
               fontWeight: FontWeight.w600,
