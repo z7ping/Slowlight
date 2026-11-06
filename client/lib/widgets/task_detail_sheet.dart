@@ -348,111 +348,78 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            FxIconButton(
-              key: const ValueKey('task.detail.complete'),
-              icon: widget.task.isCompleted
-                  ? LucideIcons.circleCheck
-                  : LucideIcons.circle,
-              iconSize: SlowlightIconSize.xl,
-              tooltip: widget.isCreating
-                  ? '创建后可完成任务'
-                  : widget.task.isCompleted ? '恢复待办' : '完成任务',
-              foregroundColor: widget.task.isCompleted
-                  ? AppTheme.success
-                  : theme.colorScheme.onSurfaceVariant,
-              onPressed: _saving || widget.isCreating
-                  ? null : _mobileToggleCompleted,
-            ),
-            const SizedBox(width: SlowlightSpacing.md),
-            Expanded(
-              child: FxInput(
-                key: const ValueKey('task.detail.title'),
-                controller: _title,
-                enabled: !_saving,
-                autofocus: widget.isCreating,
-                plain: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: SlowlightSpacing.xs,
-                ),
-                style: SlowlightTypography.emphasizedInput(context),
-                placeholder: '任务名称',
-                onChanged: _mobileChanged,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: SlowlightSpacing.md),
-        if (_mobileDescriptionOpen)
-          FxInput(
-            key: const ValueKey('task.detail.description'),
-            controller: _description,
-            enabled: !_saving,
-            minLines: 2,
-            maxLines: 5,
-            style: SlowlightTypography.componentSecondary(context),
-            placeholder: '补充一些细节…',
-            onChanged: _mobileChanged,
-          )
-        else
-          FxInkWell(
-            key: const ValueKey('task.detail.showDescription'),
-            onTap: () => setState(() => _mobileDescriptionOpen = true),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minHeight: SlowlightControlSize.minTouchTarget,
-              ),
-              child: Row(
+        FxCard(
+          key: const ValueKey('task.detail.workspace'),
+          padding: const EdgeInsets.all(SlowlightSpacing.md),
+          expanded: true,
+          borderRadius: SlowlightRadius.lg,
+          color: fxSurface(context),
+          border: Border.all(color: theme.colorScheme.primary),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  Icon(LucideIcons.plus,
-                      size: SlowlightIconSize.sm,
-                      color: theme.colorScheme.onSurfaceVariant),
+                  FxIconButton(
+                    key: const ValueKey('task.detail.complete'),
+                    icon: widget.task.isCompleted
+                        ? LucideIcons.circleCheck
+                        : LucideIcons.circle,
+                    iconSize: SlowlightIconSize.xl,
+                    tooltip: widget.isCreating
+                        ? '创建后可完成任务'
+                        : widget.task.isCompleted
+                            ? '恢复待办'
+                            : '完成任务',
+                    foregroundColor: widget.task.isCompleted
+                        ? AppTheme.success
+                        : theme.colorScheme.onSurfaceVariant,
+                    onPressed: _saving || widget.isCreating
+                        ? null
+                        : _mobileToggleCompleted,
+                  ),
                   const SizedBox(width: SlowlightSpacing.md),
-                  Text(
-                    '添加描述',
-                    style: SlowlightTypography.secondary(context).copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  Expanded(
+                    child: FxInput(
+                      key: const ValueKey('task.detail.title'),
+                      controller: _title,
+                      enabled: !_saving,
+                      autofocus: widget.isCreating,
+                      plain: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: SlowlightSpacing.xs,
+                      ),
+                      style: SlowlightTypography.emphasizedInput(context),
+                      placeholder: '任务名称',
+                      onChanged: _mobileChanged,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        const SizedBox(height: SlowlightSpacing.md),
-        Text(
-          '任务属性',
-          style: SlowlightTypography.caption(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: SlowlightSpacing.sm),
+              _mobilePropertyGroup([
+                _mobilePropertyRow(
+                    'list', LucideIcons.folder, '清单', listLabel),
+                _mobilePropertyRow(
+                    'due', LucideIcons.calendarDays, '日期',
+                    _dueDate == null ? '未安排' : _dateLabel(_dueDate!)),
+                _mobilePropertyRow(
+                    'priority', LucideIcons.flag, '优先级',
+                    switch (_priority) {
+                      'urgent_important' => '高',
+                      'important' => '中',
+                      'urgent' => '低',
+                      _ => '未设置',
+                    }),
+                _mobilePropertyRow(
+                    'tags', LucideIcons.tag, '标签',
+                    _selectedTags.isEmpty
+                        ? '未设置'
+                        : '${_selectedTags.length} 个标签'),
+              ]),
+            ],
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.md),
-        _mobilePropertyGroup([
-          _mobilePropertyRow('list', LucideIcons.folder, '清单', listLabel),
-          _mobilePropertyRow(
-            'due', LucideIcons.calendarDays, '到期日期',
-            _dueDate == null ? '未安排' : _dateLabel(_dueDate!),
-          ),
-          _mobilePropertyRow(
-            'priority', LucideIcons.flag, '优先级',
-            switch (_priority) {
-              'urgent_important' => '高',
-              'important' => '中',
-              'urgent' => '低',
-              _ => '不重要 · 不紧急',
-            },
-          ),
-          _mobilePropertyRow(
-            'repeat', LucideIcons.repeat, '重复',
-            switch (_repeatType) {
-              'daily' => '每天',
-              'weekly' => '每周',
-              'monthly' => '每月',
-              'yearly' => '每年',
-              _ => '不重复',
-            },
-          ),
-        ]),
         const SizedBox(height: SlowlightSpacing.md),
         FxInkWell(
           key: const ValueKey('task.detail.moreSettings'),
@@ -465,7 +432,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    '更多设置（时间、提醒、标签）',
+                    '更多设置（描述、时间、重复、提醒）',
                     style: SlowlightTypography.componentSecondary(context),
                   ),
                 ),
@@ -480,25 +447,59 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             ),
           ),
         ),
-        if (_mobileExpanded)
+        if (_mobileExpanded) ...[
+          if (_mobileDescriptionOpen)
+            FxInput(
+              key: const ValueKey('task.detail.description'),
+              controller: _description,
+              enabled: !_saving,
+              minLines: 2,
+              maxLines: 5,
+              style: SlowlightTypography.componentSecondary(context),
+              placeholder: '补充一些细节…',
+              onChanged: _mobileChanged,
+            )
+          else
+            FxInkWell(
+              key: const ValueKey('task.detail.showDescription'),
+              onTap: () => setState(() => _mobileDescriptionOpen = true),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: SlowlightControlSize.minTouchTarget,
+                ),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.plus,
+                        size: SlowlightIconSize.sm,
+                        color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: SlowlightSpacing.md),
+                    Text('添加描述',
+                        style: SlowlightTypography.secondary(context)),
+                  ],
+                ),
+              ),
+            ),
           _mobilePropertyGroup([
             _mobilePropertyRow(
-              'time', LucideIcons.clock3, '时间',
-              _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
-            ),
+                'time', LucideIcons.clock3, '时间',
+                _dueTime == null ? '未设置' : _timeLabel(_dueTime!)),
             _mobilePropertyRow(
-              'reminder', LucideIcons.bell, '提醒',
-              _reminderAt == null
-                  ? '不提醒'
-                  : '${_dateLabel(_reminderAt!)} ${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}',
-            ),
+                'repeat', LucideIcons.repeat, '重复',
+                switch (_repeatType) {
+                  'daily' => '每天',
+                  'weekly' => '每周',
+                  'monthly' => '每月',
+                  'yearly' => '每年',
+                  _ => '不重复',
+                }),
             _mobilePropertyRow(
-              'tags', LucideIcons.tag, '标签',
-              _selectedTags.isEmpty
-                  ? '无标签'
-                  : '${_selectedTags.length} 个标签',
-            ),
+                'reminder', LucideIcons.bell, '提醒',
+                _reminderAt == null
+                    ? '不提醒'
+                    : '${_dateLabel(_reminderAt!)} '
+                        '${_timeLabel(TimeOfDay.fromDateTime(_reminderAt!))}'),
           ]),
+        ],
       ],
     );
   }
@@ -782,13 +783,28 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ),
         ]);
       case 'tags':
-        return TagPicker(
-          label: '标签',
-          enabled: !_saving,
-          selectedTags: _selectedTags,
-          onChanged: (tags) => _mobileSelect(() {
-            _selectedTags = tags;
-          }, stay: true, dismiss: dismiss),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TagPicker(
+              label: '标签',
+              enabled: !_saving,
+              selectedTags: _selectedTags,
+              onChanged: (tags) => _mobileSelect(() {
+                _selectedTags = tags;
+              }, stay: true, dismiss: dismiss),
+            ),
+            const SizedBox(height: SlowlightSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FxButton(
+                label: '完成',
+                size: FxButtonSize.sm,
+                onPressed: dismiss,
+              ),
+            ),
+          ],
         );
       default:
         return const SizedBox.shrink();
