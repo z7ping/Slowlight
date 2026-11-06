@@ -601,13 +601,21 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final isUnset = value == '未设置';
     final showQuickValue = !isUnset || field == 'due' || field == 'list';
     final triggerKey = ValueKey('task.detail.property.$field');
+    final hasQuickValue = field == 'list' ||
+        field == 'due' ||
+        (field == 'priority' && _priority != 'none') ||
+        (field == 'tags' && _selectedTags.isNotEmpty);
     final content = quick
-        ? ConstrainedBox(
+        ? Container(
             key: triggerKey,
             constraints: BoxConstraints(
               minWidth: SlowlightControlSize.minTouchTarget,
               minHeight: SlowlightControlSize.minTouchTarget,
               maxWidth: MediaQuery.sizeOf(context).width * .5,
+            ),
+            decoration: BoxDecoration(
+              color: hasQuickValue ? fxSubtleSurface(context) : Colors.transparent,
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(
