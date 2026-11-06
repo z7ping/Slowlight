@@ -38,6 +38,10 @@ class FxMenuItem<T> extends StatelessWidget {
 }
 
 typedef FxMenuItemBuilder<T> = List<FxMenuItem<T>> Function(BuildContext context);
+typedef FxMenuContentBuilder = Widget Function(
+  BuildContext context,
+  VoidCallback dismiss,
+);
 
 /// Slowlight 统一弹出菜单。
 ///
@@ -46,7 +50,8 @@ typedef FxMenuItemBuilder<T> = List<FxMenuItem<T>> Function(BuildContext context
 class FxMenu<T> extends StatefulWidget {
   const FxMenu({
     super.key,
-    required this.itemBuilder,
+    this.itemBuilder,
+    this.contentBuilder,
     this.initialValue,
     this.onSelected,
     this.onCanceled,
@@ -75,7 +80,9 @@ class FxMenu<T> extends StatefulWidget {
     this.style,
   });
 
-  final FxMenuItemBuilder<T> itemBuilder;
+  final FxMenuItemBuilder<T>? itemBuilder;
+  /// Reuse the same anchored ShadPopover for interactive multi-select content.
+  final FxMenuContentBuilder? contentBuilder;
   final T? initialValue;
   final ValueChanged<T>? onSelected;
   final VoidCallback? onCanceled;
@@ -168,7 +175,15 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
       padding: EdgeInsets.zero,
       child: clickable,
       popover: (popoverContext) {
-        final items = widget.itemBuilder(popoverContext);
+        final custom = widget.contentBuilder;
+        if (custom != null) {
+          return ConstrainedBox(
+            constraints: widget.constraints ??
+                const BoxConstraints(minWidth: 160, maxWidth: 320),
+            child: custom(popoverContext, _controller.hide),
+          );
+        }
+        final items = widget.itemBuilder?.call(popoverContext) ?? [];
         final content = Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
