@@ -1,9 +1,7 @@
 name: CI
 
+# Temporarily manual-only to avoid noisy PR/push runs. Keep local checks and release gates.
 on:
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
   workflow_call:
 

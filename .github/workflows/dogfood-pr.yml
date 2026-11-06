@@ -1,13 +1,8 @@
 name: Preview Packages for Release PR
 
+# Temporarily manual-only to avoid noisy PR/push runs. Keep local checks and release gates.
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'client/**'
-      - '.github/workflows/dogfood.yml'
-      - '.github/workflows/dogfood-pr.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,7 +11,8 @@ jobs:
   packages:
     name: Build release PR packages
     if: >-
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      startsWith(github.head_ref, 'release/')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.head_ref, 'release/'))
     uses: ./.github/workflows/dogfood.yml
     secrets: inherit
