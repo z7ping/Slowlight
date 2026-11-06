@@ -328,19 +328,20 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           FxSeparator.horizontal(height: 1, color: fxDivider(context)),
           Flexible(
             fit: FlexFit.loose,
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(
-                SlowlightSpacing.xl,
-                SlowlightSpacing.md,
-                SlowlightSpacing.xl,
-                SlowlightSpacing.xl,
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(
+                  SlowlightSpacing.xl,
+                  SlowlightSpacing.md,
+                  SlowlightSpacing.xl,
+                  SlowlightSpacing.xl,
+                ),
+                child: _mobileMainForm(),
               ),
-              child: _mobileMainForm(),
             ),
           ),
-          FxSeparator.horizontal(height: 1, color: fxDivider(context)),
-          _mobileFooter(),
         ],
       ),
     );
@@ -367,6 +368,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FxIconButton(
                     key: const ValueKey('task.detail.complete'),
@@ -394,6 +396,10 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       enabled: !_saving,
                       autofocus: widget.isCreating,
                       plain: true,
+                      minLines: 2,
+                      maxLines: 4,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
                       contentPadding: const EdgeInsets.symmetric(
                         vertical: SlowlightSpacing.xs,
                       ),
@@ -404,27 +410,41 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: SlowlightSpacing.sm),
-              _mobilePropertyGroup([
-                _mobilePropertyRow(
-                    'list', LucideIcons.folder, '清单', listLabel),
-                _mobilePropertyRow(
+              const SizedBox(height: SlowlightSpacing.md),
+              Wrap(
+                key: const ValueKey('task.detail.quickbar'),
+                spacing: SlowlightSpacing.xs,
+                runSpacing: SlowlightSpacing.xs,
+                children: [
+                  _mobilePropertyRow(
+                    'list', LucideIcons.folder, '清单', listLabel,
+                    quick: true,
+                  ),
+                  _mobilePropertyRow(
                     'due', LucideIcons.calendarDays, '日期',
-                    _dueDate == null ? '未安排' : _dateLabel(_dueDate!)),
-                _mobilePropertyRow(
+                    _dueDate == null ? '未安排' : _dateLabel(_dueDate!),
+                    quick: true,
+                  ),
+                  _mobilePropertyRow(
                     'priority', LucideIcons.flag, '优先级',
                     switch (_priority) {
                       'urgent_important' => '高',
                       'important' => '中',
                       'urgent' => '低',
                       _ => '未设置',
-                    }),
-                _mobilePropertyRow(
+                    },
+                    quick: true,
+                  ),
+                  _mobilePropertyRow(
                     'tags', LucideIcons.tag, '标签',
                     _selectedTags.isEmpty
                         ? '未设置'
-                        : '${_selectedTags.length} 个标签'),
-              ]),
+                        : '${_selectedTags.length} 个标签',
+                    quick: true,
+                  ),
+                ],
+              ),
+              _mobileFooter(),
             ],
           ),
         ),
@@ -487,11 +507,18 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 ),
               ),
             ),
-          _mobilePropertyGroup([
-            _mobilePropertyRow(
+          FxResponsiveFormGrid(
+            minColumnWidth: 136,
+            maxColumns: 2,
+            horizontalGap: SlowlightSpacing.md,
+            verticalGap: SlowlightSpacing.md,
+            children: [
+              _mobilePropertyRow(
                 'time', LucideIcons.clock3, '时间',
-                _dueTime == null ? '未设置' : _timeLabel(_dueTime!)),
-            _mobilePropertyRow(
+                _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
+                compactSetting: true,
+              ),
+              _mobilePropertyRow(
                 'repeat', LucideIcons.repeat, '重复',
                 switch (_repeatType) {
                   'daily' => '每天',
@@ -499,11 +526,16 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   'monthly' => '每月',
                   'yearly' => '每年',
                   _ => '不重复',
-                }),
-            _mobilePropertyRow(
+                },
+                compactSetting: true,
+              ),
+              _mobilePropertyRow(
                 'reminder', LucideIcons.bell, '提醒',
-                _mobileReminderLabel()),
-          ]),
+                _mobileReminderLabel(),
+                compactSetting: true,
+              ),
+            ],
+          ),
         ],
       ],
     );
@@ -534,11 +566,129 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     String field,
     IconData icon,
     String label,
-    String value,
-  ) {
+    String value, {
+    bool quick = false,
+    bool compactSetting = false,
+  }) {
     final theme = Theme.of(context);
+    final isUnset = value == '未设置';
+    final showQuickValue = !isUnset || field == 'due' || field == 'list';
+    final triggerKey = ValueKey('task.detail.property.$field');
+    final content = quick
+        ? ConstrainedBox(
+            key: triggerKey,
+            constraints: BoxConstraints(
+              minWidth: SlowlightControlSize.minTouchTarget,
+              minHeight: SlowlightControlSize.minTouchTarget,
+              maxWidth: MediaQuery.sizeOf(context).width * .5,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: SlowlightSpacing.md,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: SlowlightIconSize.md,
+                    color: field == 'due'
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  if (showQuickValue) ...[
+                    const SizedBox(width: SlowlightSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.componentSecondary(context)
+                            .copyWith(color: theme.colorScheme.onSurface),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          )
+        : compactSetting
+            ? Container(
+                key: triggerKey,
+                constraints: const BoxConstraints(minHeight: 60),
+                padding: const EdgeInsets.all(SlowlightSpacing.md),
+                decoration: BoxDecoration(
+                  color: fxSurface(context),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                  border: Border.all(color: fxBorder(context)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(icon, size: SlowlightIconSize.sm,
+                            color: theme.colorScheme.onSurfaceVariant),
+                        const SizedBox(width: SlowlightSpacing.xs),
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: SlowlightTypography.caption(context)
+                                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: SlowlightSpacing.xs),
+                    Text(
+                      value,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SlowlightTypography.componentControl(context),
+                    ),
+                  ],
+                ),
+              )
+            : ConstrainedBox(
+                key: triggerKey,
+                constraints: const BoxConstraints(
+                  minHeight: SlowlightControlSize.minTouchTarget,
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon,
+                        size: SlowlightIconSize.md,
+                        color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: SlowlightSpacing.xl),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: SlowlightTypography.componentControl(context),
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        textAlign: TextAlign.end,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.componentSecondary(context)
+                            .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                    const SizedBox(width: SlowlightSpacing.md),
+                    Icon(LucideIcons.chevronDown,
+                        size: SlowlightIconSize.xs,
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ],
+                ),
+              );
     return FxMenu<String>(
       enabled: !_saving,
+      tooltip: quick ? label : null,
       onOpened: () => FocusScope.of(context).unfocus(),
       constraints: BoxConstraints(
         minWidth: 220,
@@ -547,7 +697,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       ),
       contentBuilder: (popoverContext, dismiss) => StatefulBuilder(
         builder: (popoverContext, refreshPopover) => SingleChildScrollView(
-          padding: const EdgeInsets.all(SlowlightSpacing.sm),
+          padding: const EdgeInsets.all(SlowlightSpacing.md),
           child: _mobilePropertyPage(
             field,
             dismiss,
@@ -555,39 +705,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
           ),
         ),
       ),
-      child: ConstrainedBox(
-        key: ValueKey('task.detail.property.$field'),
-        constraints: const BoxConstraints(
-          minHeight: SlowlightControlSize.minTouchTarget,
-        ),
-        child: Row(
-          children: [
-            Icon(icon,
-                size: SlowlightIconSize.md,
-                color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: SlowlightSpacing.xl),
-            Expanded(
-              child: Text(label,
-                  style: SlowlightTypography.componentControl(context)),
-            ),
-            Flexible(
-              child: Text(
-                value,
-                maxLines: 1,
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.componentSecondary(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: SlowlightSpacing.md),
-            Icon(LucideIcons.chevronDown,
-                size: SlowlightIconSize.xs,
-                color: theme.colorScheme.onSurfaceVariant),
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 
@@ -610,13 +728,13 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                   style: SlowlightTypography.componentControl(context).copyWith(
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                     color: selected
-                        ? AppTheme.success
+                        ? theme.colorScheme.primary
                         : theme.colorScheme.onSurface,
                   )),
             ),
             if (selected)
               Icon(LucideIcons.check,
-                  size: SlowlightIconSize.sm, color: AppTheme.success),
+                  size: SlowlightIconSize.sm, color: theme.colorScheme.primary),
           ],
         ),
       ),
@@ -880,7 +998,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                 _selectedTags = tags;
               }, stay: true, dismiss: dismiss, refreshPopover: refreshPopover),
             ),
-            const SizedBox(height: SlowlightSpacing.sm),
+            const SizedBox(height: SlowlightSpacing.md),
             Align(
               alignment: Alignment.centerRight,
               child: FxButton(
@@ -939,14 +1057,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     final canSave = widget.isCreating
         ? _title.text.trim().isNotEmpty && !_creationResultUnknown
         : _mobileDirty;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          SlowlightSpacing.xxxl,
-          SlowlightSpacing.md,
-          SlowlightSpacing.xxxl,
-          SlowlightSpacing.xl,
+    return Padding(
+        padding: const EdgeInsets.only(
+          top: SlowlightSpacing.md,
         ),
         child: Row(
           children: [
@@ -978,7 +1091,6 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             ),
           ],
         ),
-      ),
     );
   }
 

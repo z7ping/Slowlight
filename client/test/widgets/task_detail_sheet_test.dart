@@ -69,7 +69,21 @@ void main() {
     }
     expect(find.byKey(const ValueKey('task.detail.complete')), findsOneWidget);
     expect(find.byType(FxMenu<String>), findsNWidgets(4));
+    final quickbar = find.byKey(const ValueKey('task.detail.quickbar'));
+    expect(quickbar, findsOneWidget);
+    // Unset priority/tags stay icon-only in the compact quickbar.
+    expect(
+      find.descendant(of: quickbar, matching: find.text('未设置')),
+      findsNothing,
+    );
     final action = find.byKey(const ValueKey('task.detail.primaryAction'));
+    expect(
+      find.ancestor(
+        of: action,
+        matching: find.byKey(const ValueKey('task.detail.workspace')),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('创建任务'), findsOneWidget);
     expect(tester.widget<FxButton>(action).onPressed, isNull);
     await tester.enterText(
@@ -251,6 +265,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
     await tester.pumpAndSettle();
+    expect(find.byType(FxResponsiveFormGrid), findsOneWidget);
     await tester.ensureVisible(find.byKey(const ValueKey('task.detail.property.repeat')));
     await tester.tap(find.byKey(const ValueKey('task.detail.property.repeat')));
     await tester.pumpAndSettle();
