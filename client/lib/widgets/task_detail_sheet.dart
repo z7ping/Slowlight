@@ -603,9 +603,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       onCanceled: () {
         if (mounted && _mobilePage == field) {
           setState(() => _mobilePage = null);
+          _mobileCloseProperty = null;
+          _mobileRefreshProperty = null;
         }
-        _mobileCloseProperty = null;
-        _mobileRefreshProperty = null;
       },
       contentBuilder: (popoverContext, dismiss) {
         _mobileCloseProperty = dismiss;
