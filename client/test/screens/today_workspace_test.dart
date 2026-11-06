@@ -275,7 +275,8 @@ void main() {
     expect(time, findsOneWidget);
     expect(event, findsOneWidget);
     expect(category, findsOneWidget);
-    expect(tester.getLeft(event), greaterThan(tester.getLeft(time) + 42));
+    expect(tester.getTopLeft(event).dx,
+        greaterThan(tester.getTopLeft(time).dx + 42));
     expect(tester.getTopLeft(category).dy,
         greaterThan(tester.getTopLeft(event).dy));
     expect(tester.takeException(), isNull);
