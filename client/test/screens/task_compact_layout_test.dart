@@ -54,7 +54,7 @@ void main() {
       final detail = find.byType(TaskDetailSheet);
       expect(detail, findsOneWidget);
       expect(tester.widget<TaskDetailSheet>(detail).isCreating, create);
-      for (final field in ['list', 'due', 'priority', 'repeat']) {
+      for (final field in ['list', 'due', 'priority', 'tags']) {
         expect(find.byKey(ValueKey('task.detail.property.$field')),
             findsOneWidget);
       }
@@ -100,11 +100,11 @@ void main() {
     expect(find.byKey(const ValueKey('tasks.mobile.list')), findsOneWidget);
     expect(find.byKey(const ValueKey('tasks.mobile.filters')), findsOneWidget);
     expect(find.text('新建'), findsOneWidget);
-    expect(find.text('待处理'), findsOneWidget);
+    expect(find.text('今日相关'), findsOneWidget);
     final pendingRow = find.byKey(const ValueKey('tasks.row.31'));
     expect(pendingRow, findsOneWidget);
     expect(tester.getSize(pendingRow).height,
-        inInclusiveRange(60, 110));
+        inInclusiveRange(44, 62));
 
     await tester.tap(find.byKey(const ValueKey('tasks.mobile.filter.1')));
     await tester.pumpAndSettle();
@@ -113,6 +113,53 @@ void main() {
     final doneRow = find.byKey(const ValueKey('tasks.row.32'));
     expect(tester.getSize(doneRow).height,
         closeTo(tester.getSize(pendingRow).height, 1));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('今天筛选保留全部真实记录，但未完成任务在前', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    Task record(int id, {required bool done}) => Task(
+      id: id,
+      listId: 1,
+      title: '排序任务 $id',
+      priority: 'none',
+      isCompleted: done,
+      createdAt: now,
+    );
+    final completed = record(1, done: true);
+    final firstPending = record(2, done: false);
+    final secondPending = record(3, done: false);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(
+          dataLoader: () async => <dynamic>[
+            <Task>[completed, firstPending, secondPending],
+            <Task>[completed, firstPending, secondPending],
+            <Task>[completed],
+            <TodoList>[],
+          ],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日相关'), findsOneWidget);
+    expect(find.text('3 项'), findsOneWidget);
+    final a = find.byKey(const ValueKey('tasks.row.2'));
+    final b = find.byKey(const ValueKey('tasks.row.3'));
+    final done = find.byKey(const ValueKey('tasks.row.1'));
+    expect(a, findsOneWidget);
+    expect(b, findsOneWidget);
+    expect(done, findsOneWidget);
+    expect(tester.getTopLeft(a).dy, lessThan(tester.getTopLeft(b).dy));
+    expect(tester.getTopLeft(b).dy, lessThan(tester.getTopLeft(done).dy));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
