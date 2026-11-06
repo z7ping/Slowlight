@@ -407,6 +407,48 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Windows 任务页按原型呈现分栏与轻量详情占位', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    final task = Task(id: 221, listId: 1, title: '桌面任务',
+        priority: 'none', isCompleted: false, createdAt: now);
+    final list = TodoList(id: 1, name: '工作', isInbox: true,
+        color: '#8db5a0', createdAt: now);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(dataLoader: () async => <dynamic>[
+          <Task>[task], <Task>[task], <Task>[], <TodoList>[list],
+        ]),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(const ValueKey('tasks.row.221'));
+    final hint = find.text('选择一项任务查看详情');
+    expect(row, findsOneWidget);
+    expect(hint, findsOneWidget);
+    expect(find.text('列表用于浏览，日期、描述和提醒在这里调整。'),
+        findsOneWidget);
+    expect(find.text('提示：点击左侧任务即可在当前页面查看详情'),
+        findsNothing);
+    expect(find.byType(FxCard), findsNothing);
+    expect(tester.getTopLeft(hint).dy,
+        lessThan(tester.getTopLeft(row).dy + 125));
+
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    final detail = find.byType(TaskDetailSheet);
+    expect(detail, findsOneWidget);
+    expect(tester.widget<TaskDetailSheet>(detail).sidePanel, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows 700dp 中等宽度也不全量构建 250 条任务',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
