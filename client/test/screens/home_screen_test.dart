@@ -4,6 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
+import 'package:slowlight/services/data_service.dart';
+import 'package:slowlight/screens/habit_tool_screen.dart';
+import 'package:slowlight/screens/task_tool_screen.dart';
+import 'package:slowlight/widgets/task_detail_sheet.dart';
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -151,6 +155,46 @@ void main() {
         size: const Size(360, 800),
         textScale: 1.3,
       );
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('Windows 从任务工具切换到习惯时保护未保存详情草稿', (tester) async {
+      final list = await DataService().createList(name: '草稿防丢失测试');
+      final task = await DataService().createTask(
+        listId: list.id,
+        title: '尚待处理的工作',
+        dueDate: DateTime.now(),
+      );
+      await pumpAt(tester, size: const Size(1200, 800));
+      await tester.tap(find.text('任务').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskToolScreen), findsOneWidget);
+
+      await tester.tap(find.byKey(ValueKey('tasks.row.${task.id}')));
+      await tester.pumpAndSettle();
+      final title = find.descendant(
+        of: find.byType(TaskDetailSheet),
+        matching: find.byType(EditableText),
+      ).first;
+      await tester.enterText(title, '尚未保存的工作草稿');
+      await tester.pump();
+
+      await tester.tap(find.text('习惯').first);
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskToolScreen), findsOneWidget);
+      expect(tester.widget<EditableText>(title).controller.text,
+          '尚未保存的工作草稿');
+
+      await tester.tap(find.text('习惯').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('放弃修改'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HabitToolScreen), findsOneWidget);
+      expect(find.byType(TaskDetailSheet), findsNothing);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
