@@ -207,6 +207,81 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 今天任务圆形完成控件、习惯不挤入额外连胜信息', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(host(
+      width: 390,
+      tasks: [
+        Task(id: 51, listId: 1, title: '先完成一件事',
+            priority: 'none', isCompleted: true, createdAt: now),
+        Task(id: 52, listId: 1, title: '继续推进',
+            priority: 'none', isCompleted: false, createdAt: now),
+      ],
+      habits: [
+        Habit(id: 61, userId: 1, name: '每天读书', icon: '📚',
+            streakCount: 99, checkedToday: true, createdAt: now),
+      ],
+      onTaskToggle: (_) {},
+      onHabitToggle: (_) {},
+    ));
+    await tester.pumpAndSettle();
+
+    final completed = find.byKey(const ValueKey('today-task-51'));
+    expect(completed, findsOneWidget);
+    final circularBoxes = tester.widgetList<Container>(
+      find.descendant(of: completed, matching: find.byType(Container)),
+    ).where((widget) =>
+        widget.decoration is BoxDecoration &&
+        (widget.decoration! as BoxDecoration).shape == BoxShape.circle);
+    expect(circularBoxes, isNotEmpty);
+    final habit = find.byKey(const ValueKey('today.habit.61'));
+    expect(habit, findsOneWidget);
+    expect(find.descendant(of: habit, matching: find.text('🔥 99')),
+        findsNothing);
+    expect(tester.getSize(find.byKey(
+        const ValueKey('today.habit.record.61'))).width,
+        greaterThanOrEqualTo(44));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 今天轨迹按时间→事件→类别排版，而非图标在前', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(host(width: 390));
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('today.timeline.row.reflection:5'));
+    await tester.ensureVisible(row);
+    await tester.pump();
+    expect(row, findsOneWidget);
+    final time = find.descendant(
+      of: row, matching: find.text(items.first.timeLabel),
+    );
+    final event = find.descendant(
+      of: row, matching: find.text('今天值得留意的一件小事'),
+    );
+    final category = find.descendant(
+      of: row, matching: find.text('观察'),
+    );
+    expect(time, findsOneWidget);
+    expect(event, findsOneWidget);
+    expect(category, findsOneWidget);
+    expect(tester.getLeft(event), greaterThan(tester.getLeft(time) + 42));
+    expect(tester.getTopLeft(category).dy,
+        greaterThan(tester.getTopLeft(event).dy));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 今日习惯图标动作保留 44dp 热区及三种语义',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
