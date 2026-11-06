@@ -19,11 +19,13 @@ void main() {
       home: Scaffold(
         body: Builder(builder: (context) => FxButton(
           label: '记录观察',
-          onPressed: () => ReflectionComposer.show(
-            context,
-            entryType: 'observation',
-            contextData: const {'source': 'today'},
-          ),
+          onPressed: () async {
+            await ReflectionComposer.show(
+              context,
+              entryType: 'observation',
+              contextData: const {'source': 'today'},
+            );
+          },
         )),
       ),
     ));
