@@ -347,6 +347,58 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Windows 筛选切换先保护详情草稿，不直接卸载编辑器', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    final task = Task(
+      id: 81, listId: 1, title: '待处理过滤任务',
+      priority: 'none', isCompleted: false, createdAt: now,
+    );
+    final lists = <TodoList>[
+      TodoList(id: 1, name: '收集箱', isInbox: true,
+          color: '#8db5a0', createdAt: now),
+    ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskToolScreen(dataLoader: () async => <dynamic>[
+          <Task>[task], <Task>[task], <Task>[], lists,
+        ]),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tasks.row.81')));
+    await tester.pumpAndSettle();
+    final editor = find.descendant(
+      of: find.byType(TaskDetailSheet),
+      matching: find.byType(EditableText),
+    ).first;
+    await tester.enterText(editor, '尚未保存的任务');
+    await tester.pump();
+
+    await tester.tap(find.text('已完成').first);
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(tester.widget<EditableText>(editor).controller.text,
+        '尚未保存的任务');
+
+    await tester.tap(find.text('已完成').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsNothing);
+    expect(find.text('还没有已完成任务'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows 700dp 中等宽度也不全量构建 250 条任务',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
