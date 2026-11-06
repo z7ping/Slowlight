@@ -6,6 +6,7 @@ import '../models/observation_tag.dart';
 import '../models/tag.dart';
 import '../repositories/observation_tag_repository.dart';
 import '../repositories/reflection_repository.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'tag_choice_field.dart';
@@ -53,12 +54,16 @@ class ReflectionComposer {
     Map<String, dynamic> contextData = const {},
   }) async {
     final controller = TextEditingController();
+    final inlineTagName = TextEditingController();
     List<ObservationTag> tags = const [];
-    try {
-      tags = await ObservationTagRepository().getAll();
-    } catch (_) {}
+    if (_useDesktopObservationDialog) {
+      try {
+        tags = await ObservationTagRepository().getAll();
+      } catch (_) {}
+    }
     if (!context.mounted) {
       controller.dispose();
+      inlineTagName.dispose();
       return false;
     }
 
@@ -66,7 +71,90 @@ class ReflectionComposer {
     int? selectedTagId;
     List<Tag> canonicalTags = [];
     var saving = false;
+    var resultUnknown = false;
+    var inlineTagOpen = false;
+    var inlineTagSaving = false;
+    var allowMobilePop = false;
+    var closePending = false;
+    String? inlineTagError;
     String? error;
+
+    bool observationDirty() =>
+        controller.text.trim().isNotEmpty ||
+        selectedDimension != dimensionKey ||
+        selectedTagId != null ||
+        canonicalTags.isNotEmpty;
+
+    Future<void> requestMobileClose(
+      BuildContext sheetContext,
+      StateSetter setSheetState,
+    ) async {
+      if (saving || inlineTagSaving || closePending) return;
+      if (!observationDirty() && !resultUnknown) {
+        setSheetState(() => allowMobilePop = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (sheetContext.mounted) Navigator.of(sheetContext).pop(false);
+        });
+        return;
+      }
+      closePending = true;
+      try {
+        final discard = await FxDialog.confirm(
+          context: sheetContext,
+          title: resultUnknown ? '观察保存结果未确认' : '放弃未保存的观察？',
+          content: resultUnknown
+              ? '本次保存可能已经成功，请先到回顾核对，避免再次创建重复记录。'
+              : '本次观察尚未保存，关闭后会丢失填写的内容。',
+          confirmText: resultUnknown ? '返回核对' : '放弃修改',
+          destructive: !resultUnknown,
+        );
+        if (discard != true || !sheetContext.mounted) return;
+        setSheetState(() => allowMobilePop = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (sheetContext.mounted) Navigator.of(sheetContext).pop(false);
+        });
+      } finally {
+        closePending = false;
+      }
+    }
+
+    Future<void> createInlineTag(
+      BuildContext entryContext,
+      StateSetter setEntryState,
+    ) async {
+      if (inlineTagSaving) return;
+      final name = inlineTagName.text.trim().replaceFirst(RegExp(r'^#'), '').trim();
+      if (name.isEmpty) {
+        setEntryState(() => inlineTagError = '请输入标签名称');
+        return;
+      }
+      setEntryState(() {
+        inlineTagSaving = true;
+        inlineTagError = null;
+      });
+      try {
+        final tag = await ApiService.createTag(
+          name: name,
+          color: '#0075de',
+        );
+        if (!entryContext.mounted) return;
+        setEntryState(() {
+          canonicalTags = [
+            ...canonicalTags.where((value) => value.id != tag.id),
+            tag,
+          ];
+          inlineTagOpen = false;
+          inlineTagSaving = false;
+          inlineTagName.clear();
+        });
+      } catch (_) {
+        if (!entryContext.mounted) return;
+        setEntryState(() {
+          inlineTagSaving = false;
+          inlineTagError = '标签创建失败，输入已保留';
+        });
+      }
+    }
 
     Widget buildFields(BuildContext entryContext, StateSetter setEntryState) {
       final theme = Theme.of(entryContext);
