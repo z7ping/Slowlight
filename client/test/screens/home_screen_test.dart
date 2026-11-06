@@ -88,7 +88,7 @@ void main() {
       expect(find.byType(QuadrantScreen), findsOneWidget);
       expect(identical(tester.state(today), dashboardState), isTrue);
 
-      await tester.tap(fxTooltipFinder('返回'));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byType(QuadrantScreen), findsNothing);
       expect(identical(tester.state(today), dashboardState), isTrue);
