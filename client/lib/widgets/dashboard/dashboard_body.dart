@@ -467,7 +467,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               children: [
                 Text('今天还没有行为记录。',
                     style: SlowlightTypography.secondary(context)),
-                if (widget.onWriteObservation != null)
+                if (!mobile && widget.onWriteObservation != null)
                   FxButton(
                     label: '记录此刻的想法',
                     variant: FxButtonVariant.ghost,
@@ -716,9 +716,21 @@ class _DashboardBodyState extends State<DashboardBody> {
               visible.isNotEmpty),
         if (visible.isEmpty && !widget.tasksLoading && !widget.tasksError)
           mobile
-              ? _empty(
-                  '今天暂时没有任务。在右下角添加第一件想做的事。',
-                  compact: true,
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('今天暂时没有任务',
+                          style: SlowlightTypography.secondary(context)
+                              .copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: SlowlightSpacing.xs),
+                      Text('在右下角添加第一件想做的事。',
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          )),
+                    ],
+                  ),
                 )
               : _emptyWithNext(
                   '今天暂时没有任务',
