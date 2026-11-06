@@ -192,15 +192,26 @@ class ReflectionComposer {
             },
           );
           if (entryContext.mounted) {
-            Navigator.of(entryContext).pop(true);
+            if (_useDesktopObservationDialog) {
+              Navigator.of(entryContext).pop(true);
+            } else {
+              // PopScope blocks even programmatic pops until it rebuilds.
+              setEntryState(() => allowMobilePop = true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (entryContext.mounted) Navigator.of(entryContext).pop(true);
+              });
+            }
           }
         } catch (_) {
           if (!entryContext.mounted) return;
-          // A create timeout can hide a committed write. Never blindly retry.
+          // Keep Windows' existing recoverable failure contract. Android
+          // treats uncertain creates as non-idempotent and blocks replay.
           setEntryState(() {
             saving = false;
-            resultUnknown = true;
-            error = '保存结果未确认。请先到回顾核对，避免重复记录。';
+            resultUnknown = !_useDesktopObservationDialog;
+            error = _useDesktopObservationDialog
+                ? '保存失败，请检查网络后重试'
+                : '保存结果未确认。请先到回顾核对，避免重复记录。';
           });
         }
       }
