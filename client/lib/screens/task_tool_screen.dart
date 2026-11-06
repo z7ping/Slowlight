@@ -569,6 +569,8 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   );
 
   Widget _desktopContent() {
+    // Master prototype: one open task workspace, not two oversized cards.
+    // Keep the existing Fx action bar, lazy list and shared task editor.
     return Padding(
       padding: SlowlightPageInsets.scroll(
         context,
@@ -580,49 +582,48 @@ class TaskToolScreenState extends State<TaskToolScreen> {
           if (_loadFailed) _refreshErrorNotice(),
           const SizedBox(height: SlowlightSpacing.xl),
           Expanded(
-            child:
-                _visible.isEmpty
-                    ? _card(child: _emptyState())
-                    : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: 430,
-                          child: _card(
-                            child: ListView.builder(
-                              itemCount: _visible.length,
-                              itemBuilder: (context, index) {
-                                final task = _visible[index];
-                                return _taskRow(
-                                  task,
-                                  selected: _selectedTask?.id == task.id,
-                                );
-                              },
-                            ),
-                          ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 9,
+                  child: _visible.isEmpty
+                      ? _emptyState()
+                      : ListView.builder(
+                          itemCount: _visible.length,
+                          itemBuilder: (context, index) {
+                            final task = _visible[index];
+                            return _taskRow(
+                              task,
+                              selected: _selectedTask?.id == task.id,
+                            );
+                          },
                         ),
-                        const SizedBox(width: SlowlightSpacing.xl),
-                        Expanded(
-                          child: _card(
-                            padding: EdgeInsets.zero,
-                            child:
-                                _selectedTask == null
-                                    ? _desktopEmptyDetail()
-                                    : TaskDetailSheet(
-                                      key: _selectedTaskEditorKey,
-                                      task: _selectedTask!,
-                                      lists: _lists,
-                                      sidePanel: true,
-                                      onClose: () => setState(() {
-                                        _selectedTask = null;
-                                        _selectedTaskEditorKey = null;
-                                      }),
-                                      onChanged: _load,
-                                    ),
-                          ),
+                ),
+                const SizedBox(width: 20),
+                FxSeparator.vertical(
+                  width: 1,
+                  color: fxBorder(context),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  flex: 11,
+                  child: _selectedTask == null
+                      ? _desktopEmptyDetail()
+                      : TaskDetailSheet(
+                          key: _selectedTaskEditorKey,
+                          task: _selectedTask!,
+                          lists: _lists,
+                          sidePanel: true,
+                          onClose: () => setState(() {
+                            _selectedTask = null;
+                            _selectedTaskEditorKey = null;
+                          }),
+                          onChanged: _load,
                         ),
-                      ],
-                    ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -636,62 +637,33 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   );
 
   Widget _desktopEmptyDetail() {
-    final theme = Theme.of(context);
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: .08),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.mousePointerClick,
-                  size: 30,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 22),
-              Text(
-                '选择一个任务查看详情',
-                style: SlowlightTypography.pageTitle(
-                  context,
-                ).copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '在左侧选择任务后，可以在这里查看和编辑任务信息。',
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.secondary(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 22),
-              FxButton(
-                label: '新建任务',
-                icon: LucideIcons.plus,
-                variant: FxButtonVariant.secondary,
-                size: FxButtonSize.sm,
-                onPressed: _create,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                '提示：点击左侧任务即可在当前页面查看详情',
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.caption(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 24, 12, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            LucideIcons.mousePointerClick,
+            size: SlowlightIconSize.xl,
+            color: scheme.onSurfaceVariant,
           ),
-        ),
+          const SizedBox(height: SlowlightSpacing.xl),
+          Text(
+            '选择一项任务查看详情',
+            style: SlowlightTypography.body(context).copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '列表用于浏览，日期、描述和提醒在这里调整。',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
