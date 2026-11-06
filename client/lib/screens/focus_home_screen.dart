@@ -185,7 +185,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   Future<void> _navigate(HomeNavigationState next) async {
     if (_navigating) return;
     final previous = _navigation;
-    if (previous.primary == next.primary && previous.tool == next.tool) return;
+    if (previous.primary == next.primary && previous.tool == next.tool) {
+      if (next.isToday) _reload();
+      return;
+    }
     _navigating = true;
     try {
       if (previous.tool == HomeToolSection.tasks &&
