@@ -34,6 +34,8 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
   bool _loadFailed = false;
   int _loadVersion = 0;
   Task? _selectedTask;
+  GlobalKey<TaskDetailSheetState>? _selectedTaskEditorKey;
+  bool _switchingDesktopTask = false;
   int? _revealedTaskId;
   final Set<int> _pendingTaskIds = <int>{};
 
@@ -194,10 +196,27 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
     final availableWidth =
         context.size?.width ?? MediaQuery.sizeOf(context).width;
     if (availableWidth >= 860) {
-      setState(() => _selectedTask = task);
+      _selectDesktopTask(task);
       return;
     }
     TaskDetailSheet.show(context, task: task, lists: _lists, onChanged: _load);
+  }
+
+  Future<void> _selectDesktopTask(Task task) async {
+    if (_switchingDesktopTask || _selectedTask?.id == task.id) return;
+    _switchingDesktopTask = true;
+    try {
+      final editor = _selectedTaskEditorKey?.currentState;
+      if (editor != null && !await editor.confirmLeaveSidePanel()) return;
+      if (!mounted) return;
+      setState(() {
+        _selectedTask = task;
+        // A different task must receive a fresh form state and initial snapshot.
+        _selectedTaskEditorKey = GlobalKey<TaskDetailSheetState>();
+      });
+    } finally {
+      _switchingDesktopTask = false;
+    }
   }
 
   Future<void> _create() async {
@@ -570,11 +589,14 @@ class _TaskToolScreenState extends State<TaskToolScreen> {
                                 _selectedTask == null
                                     ? _desktopEmptyDetail()
                                     : TaskDetailSheet(
-                                      key: ValueKey(_selectedTask!.id),
+                                      key: _selectedTaskEditorKey,
                                       task: _selectedTask!,
                                       lists: _lists,
                                       sidePanel: true,
-                                      onClose: () => setState(() => _selectedTask = null),
+                                      onClose: () => setState(() {
+                                        _selectedTask = null;
+                                        _selectedTaskEditorKey = null;
+                                      }),
                                       onChanged: _load,
                                     ),
                           ),
