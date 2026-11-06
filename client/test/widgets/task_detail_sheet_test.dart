@@ -58,7 +58,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('添加任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.text('任务详情'), findsNothing);
     expect(tester.widget<FxInput>(
       find.byKey(const ValueKey('task.detail.title')),
@@ -104,7 +104,7 @@ void main() {
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
     await tester.tap(find.text('高'));
     await tester.pumpAndSettle();
-    expect(find.text('添加任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
