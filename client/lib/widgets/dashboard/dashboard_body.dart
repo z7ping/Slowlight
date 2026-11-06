@@ -825,7 +825,11 @@ class _DashboardBodyState extends State<DashboardBody> {
                 )
         else
           for (var i = 0; i < visible.length; i++)
-            _taskRow(visible[i], mobile, last: mobile && i == visible.length - 1),
+            _taskRow(
+              visible[i],
+              mobile,
+              last: mobile && i == visible.length - 1,
+            ),
       ],
     );
     if (mobile) {
@@ -872,7 +876,11 @@ class _DashboardBodyState extends State<DashboardBody> {
         constraints: const BoxConstraints(minHeight: 48),
         decoration: BoxDecoration(
           color: fxSurface(context),
-          border: Border(bottom: last ? BorderSide.none : BorderSide(color: fxDivider(context))),
+          border: Border(
+            bottom: last
+                ? BorderSide.none
+                : BorderSide(color: fxDivider(context)),
+          ),
         ),
         child: Row(
           children: [
@@ -1051,7 +1059,11 @@ class _DashboardBodyState extends State<DashboardBody> {
           )
         else
           for (var i = 0; i < visible.length; i++)
-            _habitRow(visible[i], mobile, last: mobile && i == visible.length - 1),
+            _habitRow(
+              visible[i],
+              mobile,
+              last: mobile && i == visible.length - 1,
+            ),
       ],
     );
     if (mobile) {
@@ -1110,7 +1122,11 @@ class _DashboardBodyState extends State<DashboardBody> {
         key: ValueKey('today.habit.${habit.id}'),
         constraints: const BoxConstraints(minHeight: 52),
         decoration: BoxDecoration(
-          border: Border(bottom: last ? BorderSide.none : BorderSide(color: fxDivider(context))),
+          border: Border(
+            bottom: last
+                ? BorderSide.none
+                : BorderSide(color: fxDivider(context)),
+          ),
         ),
         child: Row(
           children: [
