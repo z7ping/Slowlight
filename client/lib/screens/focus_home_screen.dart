@@ -64,6 +64,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   final Set<int> _pendingTaskActions = {};
   int _loadVersion = 0;
   GlobalKey _workspaceKey = GlobalKey(debugLabel: '回顾工作区');
+  GlobalKey<TaskToolScreenState> _taskToolKey = GlobalKey<TaskToolScreenState>();
+  bool _navigating = false;
   bool _reviewOpened = false;
   bool _organizeToolsExpanded = false;
   late Future<Map<String, String>> _accountFuture;
@@ -177,14 +179,34 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     if (task != null && mounted) _openTask(task);
   }
 
-  void _openPrimary(HomePrimarySection section) {
-    setState(() {
-      _navigation = _navigation.openPrimary(section);
-      if (section == HomePrimarySection.review) _reviewOpened = true;
-      if (section == HomePrimarySection.today) _fabAutoHidden = false;
-      _organizeToolsExpanded = false;
-    });
-    if (section == HomePrimarySection.today) _reload();
+  Future<void> _openPrimary(HomePrimarySection section) =>
+      _navigate(_navigation.openPrimary(section));
+
+  Future<void> _navigate(HomeNavigationState next) async {
+    if (_navigating) return;
+    final previous = _navigation;
+    if (previous.primary == next.primary && previous.tool == next.tool) {
+      if (next.isToday) _reload();
+      return;
+    }
+    _navigating = true;
+    try {
+      if (previous.tool == HomeToolSection.tasks &&
+          next.tool != HomeToolSection.tasks &&
+          !await (_taskToolKey.currentState?.confirmLeaveTool() ??
+              Future<bool>.value(true))) return;
+      if (!mounted) return;
+      setState(() {
+        _navigation = next;
+        if (next.isReview) _reviewOpened = true;
+        if (next.isToday) _fabAutoHidden = false;
+        _organizeToolsExpanded =
+            next.tool != null && _isOrganizeTool(next.tool!);
+      });
+      if (next.isToday && !previous.isToday) _reload();
+    } finally {
+      _navigating = false;
+    }
   }
 
   bool _isOrganizeTool(HomeToolSection tool) => switch (tool) {
@@ -199,20 +221,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
           _navigation.tool == HomeToolSection.weeklyReview ||
           _navigation.tool == HomeToolSection.timeDistribution);
 
-  void _openTool(HomeToolSection tool) {
-    setState(() {
-      _navigation = _navigation.openTool(tool);
-      _organizeToolsExpanded = _isOrganizeTool(tool);
-    });
-  }
+  Future<void> _openTool(HomeToolSection tool) =>
+      _navigate(_navigation.openTool(tool));
 
-  void _closeTool() {
-    setState(() {
-      _navigation = _navigation.closeTool();
-      if (_navigation.isToday) _fabAutoHidden = false;
-      _organizeToolsExpanded = false;
-    });
-  }
+  Future<void> _closeTool() => _navigate(_navigation.closeTool());
 
   void _openMobileTools() {
     // 工具菜单改为左侧滑出抽屉（替代自下而上的全屏面板）
@@ -734,7 +746,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   );
 
   Widget _buildToolContent(HomeToolSection tool) => switch (tool) {
-    HomeToolSection.tasks => const TaskToolScreen(),
+    HomeToolSection.tasks => TaskToolScreen(key: _taskToolKey),
     HomeToolSection.habits =>
       const HabitToolScreen(titleProvidedByShell: true),
     HomeToolSection.quadrant => const QuadrantScreen(),
@@ -775,6 +787,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
     setState(() {
       _accountFuture = _loadAccountDisplay();
       _workspaceKey = GlobalKey(debugLabel: '回顾工作区');
+      _taskToolKey = GlobalKey<TaskToolScreenState>();
       _reviewOpened = _navigation.tool == null &&
           _navigation.primary == HomePrimarySection.review;
       _lists = const [];
