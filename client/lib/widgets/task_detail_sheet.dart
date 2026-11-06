@@ -202,6 +202,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   late List<Tag> _selectedTags;
   bool _saving = false;
   bool _mobileDirty = false;
+  late final String _initialMobileSnapshot;
   bool _creationResultUnknown = false;
   bool _mobileExpanded = false;
   bool _mobileDescriptionOpen = false;
@@ -238,6 +239,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     _selectedTags = List<Tag>.from(task.tags);
     _mobileDescriptionOpen = _description.text.trim().isNotEmpty;
     _mobileDirty = false;
+    _initialMobileSnapshot = _mobileFormSnapshot();
   }
 
   @override
@@ -268,9 +270,14 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
 
+  String _mobileFormSnapshot() => [
+        _title.text.trim(),
+        _description.text.trim(),
+        _mobileValueSnapshot(),
+      ].join('\u0000');
+
   void _mobileChanged([String? _]) {
-    // Rebuild the primary button when a new task first gets a title.
-    setState(() => _mobileDirty = true);
+    setState(() => _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot);
   }
 
   Future<void> _mobileToggleCompleted() async {
@@ -300,13 +307,17 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
 
   Future<void> _requestMobileClose({bool backFromSystem = false}) async {
     if (_saving) return;
-    if (_mobileDirty) {
+    if (_mobileDirty || _creationResultUnknown) {
       final discard = await FxDialog.confirm(
         context: context,
-        title: widget.isCreating ? '放弃新建任务？' : '放弃未保存的修改？',
-        content: widget.isCreating
-            ? '尚未创建任务，关闭后将丢弃填写的内容。'
-            : '本次编辑尚未保存，关闭后不会写入任务。',
+        title: _creationResultUnknown
+            ? '任务创建结果未确认'
+            : widget.isCreating ? '放弃新建任务？' : '放弃未保存的修改？',
+        content: _creationResultUnknown
+            ? '请求可能已经成功。请关闭后核对任务列表，避免重复创建。'
+            : widget.isCreating
+                ? '尚未创建任务，关闭后将丢弃填写的内容。'
+                : '本次编辑尚未保存，关闭后不会写入任务。',
         confirmText: '放弃修改',
         destructive: true,
       );
@@ -370,7 +381,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FxIconButton(
+                  if (!widget.isCreating) FxIconButton(
                     key: const ValueKey('task.detail.complete'),
                     icon: widget.task.isCompleted
                         ? LucideIcons.circleCheck
@@ -388,7 +399,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                         ? null
                         : _mobileToggleCompleted,
                   ),
-                  const SizedBox(width: SlowlightSpacing.md),
+                  if (!widget.isCreating)
+                    const SizedBox(width: SlowlightSpacing.md),
                   Expanded(
                     child: FxInput(
                       key: const ValueKey('task.detail.title'),
@@ -396,6 +408,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                       enabled: !_saving,
                       autofocus: widget.isCreating,
                       plain: true,
+                      showPlainFocusUnderline: false,
                       minLines: 2,
                       maxLines: 4,
                       keyboardType: TextInputType.multiline,
@@ -404,7 +417,8 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                         vertical: SlowlightSpacing.xs,
                       ),
                       style: SlowlightTypography.emphasizedInput(context),
-                      placeholder: '任务名称',
+                      placeholder: '要做什么？',
+                      maxLength: 180,
                       onChanged: _mobileChanged,
                     ),
                   ),
@@ -460,7 +474,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    '更多设置（描述、时间、重复、提醒）',
+                    '更多设置',
                     style: SlowlightTypography.componentSecondary(context),
                   ),
                 ),
@@ -537,6 +551,19 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             ],
           ),
         ],
+        if (!widget.isCreating || _creationResultUnknown)
+          Padding(
+            padding: const EdgeInsets.only(top: SlowlightSpacing.xs),
+            child: Text(
+              _creationResultUnknown
+                  ? '创建结果未确认，请先核对'
+                  : _mobileDirty ? '有未保存的修改' : '已保存',
+              key: const ValueKey('task.detail.status'),
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -800,7 +827,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
       if (oldDueDate != _dueDate || oldDueTime != _dueTime) {
         _mobileRecomputeRelativeReminder();
       }
-      if (_mobileValueSnapshot() != before) _mobileDirty = true;
+      _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot;
     });
     if (stay) {
       refreshPopover();
@@ -1021,7 +1048,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (_dueDate != before) {
       setState(() {
         _mobileRecomputeRelativeReminder();
-        _mobileDirty = true;
+        _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot;
       });
       dismiss();
     }
@@ -1034,7 +1061,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (_dueTime != before) {
       setState(() {
         _mobileRecomputeRelativeReminder();
-        _mobileDirty = true;
+        _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot;
       });
       dismiss();
     }
@@ -1047,7 +1074,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
     if (_mobileValueSnapshot() != before) {
       setState(() {
         _mobileReminderCustom = true;
-        _mobileDirty = true;
+        _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot;
       });
       dismiss();
     }
@@ -1058,39 +1085,21 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         ? _title.text.trim().isNotEmpty && !_creationResultUnknown
         : _mobileDirty;
     return Padding(
-        padding: const EdgeInsets.only(
-          top: SlowlightSpacing.md,
+      padding: const EdgeInsets.only(top: SlowlightSpacing.md),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: FxButton(
+          key: const ValueKey('task.detail.primaryAction'),
+          label: widget.isCreating
+              ? (_saving ? '添加中…' : '添加任务')
+              : (_saving ? '保存中…' : '保存修改'),
+          variant: !canSave
+              ? FxButtonVariant.secondary
+              : FxButtonVariant.primary,
+          size: FxButtonSize.sm,
+          onPressed: _saving || !canSave ? null : _save,
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _saving
-                        ? '正在保存…'
-                        : _creationResultUnknown
-                            ? '创建结果未确认'
-                            : widget.isCreating
-                                ? (_mobileDirty ? '尚未创建' : '填写任务名称')
-                                : (_mobileDirty ? '有未保存的修改' : '已保存'),
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: SlowlightSpacing.md),
-            FxButton(
-              key: const ValueKey('task.detail.primaryAction'),
-              label: widget.isCreating
-                      ? (_saving ? '创建中…' : '创建任务')
-                      : (_saving ? '保存中…' : '保存修改'),
-              variant: !canSave
-                  ? FxButtonVariant.secondary
-                  : FxButtonVariant.primary,
-              size: FxButtonSize.sm,
-              onPressed: _saving || !canSave ? null : _save,
-            ),
-          ],
-        ),
+      ),
     );
   }
 
@@ -1125,7 +1134,9 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
             children: [
               Expanded(
                 child: Text(
-                  widget.isCreating ? '新建任务' : '任务详情',
+                  widget.isCreating
+                      ? (widget.sidePanel ? '新建任务' : '添加任务')
+                      : '任务详情',
                   style: SlowlightTypography.cardTitle(context).copyWith(
                     fontWeight: FontWeight.w700,
                   ),
