@@ -610,10 +610,20 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                 top: top,
                 child: IgnorePointer(
                   ignoring: _fabAutoHidden,
-                  child: AnimatedOpacity(
-                    opacity: _fabAutoHidden ? 0 : 1,
-                    duration: const Duration(milliseconds: 160),
-                    child: _mobileQuickAddButton(
+                  child: AnimatedSlide(
+                    offset: _fabAutoHidden
+                        ? const Offset(0, 0.25)
+                        : Offset.zero,
+                    duration: MediaQuery.of(context).disableAnimations
+                        ? Duration.zero
+                        : const Duration(milliseconds: 160),
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedOpacity(
+                      opacity: _fabAutoHidden ? 0 : 1,
+                      duration: MediaQuery.of(context).disableAnimations
+                          ? Duration.zero
+                          : const Duration(milliseconds: 160),
+                      child: _mobileQuickAddButton(
                       onPanUpdate: (details) {
                         setState(() {
                           final current = _fabPosition ?? Offset(left, top);
@@ -627,6 +637,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                           );
                         });
                       },
+                      ),
                     ),
                   ),
                 ),
