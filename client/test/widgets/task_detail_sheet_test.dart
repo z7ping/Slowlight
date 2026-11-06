@@ -58,16 +58,19 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsOneWidget);
     expect(find.text('任务详情'), findsNothing);
     expect(tester.widget<FxInput>(
       find.byKey(const ValueKey('task.detail.title')),
     ).plain, isTrue);
+    expect(tester.widget<FxInput>(
+      find.byKey(const ValueKey('task.detail.title')),
+    ).showPlainFocusUnderline, isFalse);
     for (final field in ['list', 'due', 'priority', 'tags']) {
       expect(find.byKey(ValueKey('task.detail.property.$field')),
           findsOneWidget);
     }
-    expect(find.byKey(const ValueKey('task.detail.complete')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.complete')), findsNothing);
     expect(find.byType(FxMenu<String>), findsNWidgets(4));
     final quickbar = find.byKey(const ValueKey('task.detail.quickbar'));
     expect(quickbar, findsOneWidget);
@@ -84,7 +87,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('创建任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
     expect(tester.widget<FxButton>(action).onPressed, isNull);
     await tester.enterText(
       find.descendant(
@@ -101,8 +104,8 @@ void main() {
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
     await tester.tap(find.text('高'));
     await tester.pumpAndSettle();
-    expect(find.text('新建任务'), findsOneWidget);
-    expect(find.text('尚未创建'), findsOneWidget);
+    expect(find.text('添加任务'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -141,7 +144,7 @@ void main() {
     expect(draft.dueDate, DateTime(2026, 11, 21));
     expect(draft.priority, 'urgent_important');
     expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
-    expect(find.text('新建任务'), findsOneWidget);
+    expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.text('高'), findsOneWidget);
     expect(find.text('2026-11-21'), findsOneWidget);
     final title = find.descendant(
