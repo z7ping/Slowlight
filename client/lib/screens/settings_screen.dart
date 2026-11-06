@@ -1938,12 +1938,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_syncing || DataModeManager().isLocal) return;
     setState(() => _syncing = true);
     try {
-      final ok = await CloudSyncCoordinator().syncNow();
-      if (!mounted) return;
+      final requested = await CloudSyncCoordinator().syncNow();
+      if (!mounted || DataModeManager().isLocal) return;
       await _loadConflictCount();
-      if (mounted) {
-        _message(ok ? '同步完成' : '同步未完成，请检查待同步记录和冲突');
-      }
+      if (!mounted || DataModeManager().isLocal) return;
+      final sync = SyncService();
+      final settled = cloudSyncFullySettled(
+        requestSucceeded: requested,
+        status: sync.status,
+        conflictCheckFailed: _conflictCheckFailed,
+        conflictCount: _conflictCount,
+        pendingCount: sync.pendingCount +
+            CloudSyncCoordinator().standalonePendingCount.value,
+      );
+      _message(settled
+          ? '同步已完成'
+          : _conflictCheckFailed
+              ? '同步结果待确认，请先核对同步冲突和待同步记录'
+              : '同步未完成，请检查待同步记录和冲突');
     } catch (e) {
       if (mounted) {
         FxNotice.errorWithDetails(context, '同步失败', e.toString());
