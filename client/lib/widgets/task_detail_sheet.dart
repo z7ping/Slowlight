@@ -183,10 +183,10 @@ class TaskDetailSheet extends StatefulWidget {
   }
 
   @override
-  State<TaskDetailSheet> createState() => _TaskDetailSheetState();
+  State<TaskDetailSheet> createState() => TaskDetailSheetState();
 }
 
-class _TaskDetailSheetState extends State<TaskDetailSheet> {
+class TaskDetailSheetState extends State<TaskDetailSheet> {
   late final TextEditingController _title;
   late final TextEditingController _description;
   late int? _listId;
@@ -273,6 +273,26 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
         _description.text.trim(),
         _mobileValueSnapshot(),
       ].join('\u0000');
+
+  /// Desktop side panels share the same full-field snapshot as the mobile editor.
+  /// Do not let list selection discard a draft or interrupt an in-flight save.
+  Future<bool> confirmLeaveSidePanel() async {
+    if (_saving || _creationResultUnknown) return false;
+    if (_mobileFormSnapshot() == _initialMobileSnapshot) return true;
+    final discard = await FxDialog.confirm(
+      context: context,
+      title: '放弃未保存的修改？',
+      content: '切换任务或关闭详情后，当前未保存的修改将丢失。',
+      confirmText: '放弃修改',
+      destructive: true,
+    );
+    return mounted && discard == true;
+  }
+
+  Future<void> _requestDesktopClose() async {
+    if (!await confirmLeaveSidePanel() || !mounted) return;
+    _close();
+  }
 
   void _mobileChanged([String? _]) {
     setState(() => _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot);
@@ -1191,7 +1211,7 @@ class _TaskDetailSheetState extends State<TaskDetailSheet> {
                     ? null
                     : () {
                         if (widget.sidePanel) {
-                          _close();
+                          _requestDesktopClose();
                         } else {
                           _requestMobileClose();
                         }
