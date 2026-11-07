@@ -466,28 +466,31 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       ((patterns['task_delta'] as num?)?.toInt() ?? 0) != 0;
 
   Widget _freeNoteCard() {
-    return FxCard(
-      padding: const EdgeInsets.all(16),
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final card = FxCard(
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '留给今天的一句话'),
-          const SizedBox(height: 8),
+          if (!mobile) ...[
+            const FxSectionHeader(title: '留给今天的一句话'),
+            const SizedBox(height: SlowlightSpacing.md),
+          ],
           Text(
             '今天最值得记住的一件事是什么？',
             style: SlowlightTypography.secondary(context).copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: SlowlightSpacing.xl),
           FxInput(
             controller: _noteController,
             placeholder: '写下一点想法…',
             maxLines: 3,
             style: SlowlightTypography.body(context),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: SlowlightSpacing.md),
           Align(
             alignment: Alignment.centerRight,
             child: FxButton(
@@ -503,6 +506,15 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             ),
         ],
       ),
+    );
+    if (!mobile) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '留给今天的一句话'),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
     );
   }
 
