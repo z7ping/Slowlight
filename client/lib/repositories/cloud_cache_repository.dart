@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
 import '../models/habit_log.dart';
+import '../models/habit_timezone_policy.dart';
 import '../models/habit_occurrence.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
@@ -535,6 +536,13 @@ class CloudCacheRepository {
     String? clientKey,
   }) async {
     final db = await _db;
+    // Cached writes build both calendar dates and V3 occurrence keys on
+    // the device. Only allow them when its calendar matches this account's
+    // authoritative server timezone; online writes remain server-owned.
+    final account = await AuthService.getUser();
+    HabitTimezonePolicy.requireCompatibleDeviceCalendar(
+      account?.timezone, recordDate: date,
+    );
     final habit = await _rowByPublicId(db, 'habits', publicId);
     final hid = habit['id'] as int;
     final now = DateTime.now();
