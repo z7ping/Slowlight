@@ -53,7 +53,10 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 	recentStartStr := now.AddDate(0, 0, -6).Format("2006-01-02")
 
 	var habits []model.Habit
-	h.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&habits)
+    if err := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&habits).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"读取习惯失败"})
+        return
+    }
 
     monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
     from := weekStartStr
@@ -863,6 +866,16 @@ func (h *HabitHandler) GetHabitLogs(c *gin.Context) {
 	userID := c.GetUint("userID")
 	id := c.Param("id")
 	month := c.Query("month")
+    // The optional filter is a calendar month, not an SQL LIKE pattern.
+    // Reject ambiguous / wildcard values instead of silently broadening
+    // the historical query.
+    if month != "" {
+        parsed, err := time.Parse("2006-01", month)
+        if err != nil || parsed.Format("2006-01") != month {
+            c.JSON(http.StatusBadRequest, gin.H{"error":"month 应为 YYYY-MM"})
+            return
+        }
+    }
 
 	var habit model.Habit
 	if err := h.DB.Where("id = ? AND user_id = ?", id, userID).First(&habit).Error; err != nil {
@@ -875,7 +888,11 @@ func (h *HabitHandler) GetHabitLogs(c *gin.Context) {
 	if month != "" {
 		query = query.Where("date LIKE ?", month+"%")
 	}
-	query.Order("date DESC, created_at DESC, id DESC").Find(&logs)
+    if err := query.Order("date DESC, created_at DESC, id DESC").Find(&logs).Error; err != nil {
+        // Query failure is unknown data, never a confirmed empty history.
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"读取习惯记录失败"})
+        return
+    }
 
 	c.JSON(http.StatusOK, gin.H{
 		"habit": habit,
