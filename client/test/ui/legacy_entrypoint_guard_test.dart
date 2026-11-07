@@ -11,6 +11,23 @@ import 'package:slowlight/widgets/task_detail_sheet.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  test('初始与退出登录必须保留 AuthGate，不得创建裸登录根路由', () async {
+    final main = await File('lib/main.dart').readAsString();
+    final login = await File('lib/screens/login_screen.dart').readAsString();
+    final settings = await File('lib/screens/settings_screen.dart').readAsString();
+
+    expect(main, contains('home: const AuthGate()'));
+    expect(login, isNot(contains('Navigator.pushReplacement(')));
+    expect(settings,
+        contains('MaterialPageRoute(builder: (_) => const AuthGate())'));
+    expect(
+      RegExp(
+        r'pushAndRemoveUntil\(\s*MaterialPageRoute\(builder: \(_\) => const LoginScreen\(',
+      ).hasMatch(settings),
+      isFalse,
+    );
+  });
+
   test('旧首页、侧栏与维度字段不得悄悄重返正式业务调用链', () async {
     const compatibilityFiles = {
       'lib/screens/home_drawer.dart': 'HomeDrawer',
