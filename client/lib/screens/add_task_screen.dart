@@ -172,7 +172,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   // PopScope must observe canPop=true before the route is removed.
-  void _finish(bool result) {
+  void _finish(Object result) {
     if (_allowPop) return;
     setState(() => _allowPop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -455,7 +455,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           leading: widget.isEdit ? FxButton(
             label: '删除',
             variant: FxButtonVariant.ghost,
-            onPressed: _isSaving ? null : _requestClose,
+            onPressed: _isSaving ? null : () => _finish('delete'),
           ) : null,
           actions: [
             FxButton(
