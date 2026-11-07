@@ -25,6 +25,8 @@ class MigrationHistoryDialog extends StatefulWidget {
     width: 720,
     title: '迁移历史',
     description: '本机留痕与云端审计分开保存，不会跨模式读取。',
+    // The dialog already has an explicit footer close action.
+    showCloseButton: false,
     child: const MigrationHistoryDialog(),
   );
 

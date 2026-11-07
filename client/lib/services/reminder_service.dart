@@ -544,18 +544,29 @@ class ReminderService extends ChangeNotifier {
     }
   }
 
+  void _fallbackToInAppRest() {
+    if (!Platform.isWindows || _lockScreenMode != 'fullscreen' ||
+        (_state != 'micro_rest' && _state != 'long_rest') ||
+        _nativeOverlayFailed) return;
+    // Never hide the Flutter window when the native DLL overlay is unusable.
+    _nativeOverlayFailed = true;
+    notifyListeners();
+  }
+
   Future<void> _doLockScreen() async {
     try {
       if (_lockScreenMode == 'fullscreen') {
         await LockScreenManager().lock(message: '请休息一下 ☕');
         if (Platform.isWindows && !LockScreenManager().isLocked) {
-          // 缺少 DLL/原生遮罩启动失败，通知 UI 改用内置休息弹层。
-          _nativeOverlayFailed = true;
-          notifyListeners();
+          // Missing DLL / failed native overlay: keep the main window usable.
+          _fallbackToInAppRest();
         }
       }
       // window 模式下由 UI 层的 _RestOverlay 处理
-    } catch (e) {
+    } catch (_) {
+      // The native manager usually swallows startup errors, but any exception
+      // escaping it must take the same in-app fallback path.
+      _fallbackToInAppRest();
     }
   }
 

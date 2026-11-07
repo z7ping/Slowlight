@@ -259,6 +259,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
               Future<bool>.value(true))) return;
       if (!mounted) return;
       setState(() {
+        // A back-to-exit gesture belongs to the page where it started.
+        // Switching tabs or tools must not make the next Back exit the app.
+        _lastAndroidBackAt = null;
         _navigation = next;
         if (next.isReview) _reviewOpened = true;
         if (next.isToday) _fabAutoHidden = false;
