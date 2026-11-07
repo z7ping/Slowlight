@@ -28,6 +28,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   bool _loading = true;
   bool _hasLoadedData = false;
   bool _initialLoadFailed = false;
+  int _loadVersion = 0;
   List<Task> _tasks = const [];
   List<TodoList> _lists = const [];
   String? _dragTarget;
@@ -39,10 +40,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
+    final version = ++_loadVersion;
+    // A refresh must not replace the confirmed quadrant grid with a spinner.
+    if (mounted) setState(() => _loading = !_hasLoadedData);
     try {
       final values = await (widget.dataLoader?.call() ?? _loadDefault());
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _tasks = values.tasks
             .where((task) => !task.isCompleted)
@@ -53,7 +56,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         _initialLoadFailed = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _loading = false;
         _initialLoadFailed = !_hasLoadedData;
@@ -78,7 +81,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: FxCircularProgress());
+    if (_loading && !_hasLoadedData) {
+      return const Center(child: FxCircularProgress());
+    }
     if (_initialLoadFailed) {
       return Center(
         child: SingleChildScrollView(
