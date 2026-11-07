@@ -897,9 +897,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         return group([
           for (final option in const [
             ('none', '不重要 · 不紧急'),
-            ('urgent_important', '高'),
-            ('important', '中'),
-            ('urgent', '低'),
+            ('urgent_important', '重要 · 紧急'),
+            ('important', '重要 · 不紧急'),
+            ('urgent', '不重要 · 紧急'),
           ])
             _mobileChoice(
               option.$2,
