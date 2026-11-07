@@ -332,7 +332,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('task-property-priority')));
     await tester.pumpAndSettle();
     expect(find.text('设置优先级'), findsOneWidget);
-    await tester.tap(find.text('高'));
+    await tester.tap(find.text('重要 · 紧急'));
     await tester.pumpAndSettle();
     final priority = tester.widget<FxChip>(
       find.byKey(const ValueKey('task-property-priority')),
@@ -418,6 +418,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('task-picker-grid')), findsNothing);
     expect(find.byKey(const ValueKey('task-picker-list')), findsOneWidget);
+    for (final label in const [
+      '重要 · 紧急',
+      '重要 · 不紧急',
+      '不重要 · 紧急',
+      '不重要 · 不紧急',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -555,9 +563,11 @@ void main() {
         matching: find.byType(FxListTile),
       ).first,
     );
-    expect(row('高').iconColor, AppTheme.priorityUrgentImportant);
-    expect(row('中').iconColor, AppTheme.priorityImportant);
-    expect(row('低').iconColor, AppTheme.priorityUrgent);
+    expect(find.byKey(const ValueKey('task-picker-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-picker-grid')), findsNothing);
+    expect(row('重要 · 紧急').iconColor, AppTheme.priorityUrgentImportant);
+    expect(row('重要 · 不紧急').iconColor, AppTheme.priorityImportant);
+    expect(row('不重要 · 紧急').iconColor, AppTheme.priorityUrgent);
     expect(row('不重要 · 不紧急').iconColor, isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
