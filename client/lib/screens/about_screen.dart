@@ -9,14 +9,29 @@ import '../ui/widgets/slowlight_logo.dart';
 
 /// 产品身份与版本信息页。
 class AboutScreen extends StatefulWidget {
-  const AboutScreen({super.key});
+  /// Test seam; production uses the existing AppInfoService.
+  final Future<PackageInfo> Function()? infoLoader;
+
+  const AboutScreen({super.key, this.infoLoader});
 
   @override
   State<AboutScreen> createState() => _AboutScreenState();
 }
 
 class _AboutScreenState extends State<AboutScreen> {
-  late final Future<PackageInfo> _packageInfo = AppInfoService.instance.load();
+  late Future<PackageInfo> _packageInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _packageInfo = (widget.infoLoader?.call() ?? AppInfoService.instance.load());
+  }
+
+  void _reloadInfo() {
+    setState(() {
+      _packageInfo = (widget.infoLoader?.call() ?? AppInfoService.instance.load());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +46,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 future: _packageInfo,
                 builder: (context, snapshot) {
                   final info = snapshot.data;
+                  final failed = snapshot.hasError;
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(24, 22, 24, 40),
                     children: [
@@ -64,9 +80,21 @@ class _AboutScreenState extends State<AboutScreen> {
                                 context,
                                 '版本',
                                 info == null
-                                    ? '读取中…'
+                                    ? (failed ? '读取失败' : '读取中…')
                                     : '${info.version}+${info.buildNumber}',
                               ),
+                              if (failed) ...[
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: FxButton(
+                                    label: '重试读取版本',
+                                    size: FxButtonSize.sm,
+                                    variant: FxButtonVariant.ghost,
+                                    onPressed: _reloadInfo,
+                                  ),
+                                ),
+                              ],
                               _info(context, '数据', '本地优先 · 你的记录属于你'),
                               _info(context, '开源许可', '许可证待定'),
                               _link(
