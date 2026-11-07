@@ -15,6 +15,35 @@ void main() {
   tearDown(() async {
     await LocalDb().close();
   });
+  test('P05 Local 历史目标版本只追加，不倒填旧记录', () async {
+    final repo = LocalHabitRepository();
+    final created = await repo.create(
+      name: '目标修订', goalPeriod: 'week', goalValue: 3,
+    );
+    final id = created['id'] as int;
+    List history(Map<String, dynamic> row) => row['goal_history'] as List;
+    expect(history(created), hasLength(1));
+    expect((history(created).first as Map)['goal_value'], 3);
+    final cosmetic = await repo.update(id, name: '重命名');
+    expect(history(cosmetic), hasLength(1));
+    final revised = await repo.update(id, goalValue: 5);
+    expect(history(revised), hasLength(2));
+    expect((history(revised).first as Map)['goal_value'], 3);
+    expect((history(revised).last as Map)['goal_value'], 5);
+    final replay = await repo.update(id, goalValue: 5);
+    expect(history(replay), hasLength(2));
+    final db = await LocalDb().database;
+    final legacyId = await db.insert('habits', {
+      'name': '旧习惯', 'created_at': DateTime.now().toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    final legacy = await repo.update(legacyId, goalValue: 4);
+    expect(history(legacy), hasLength(1));
+    expect((history(legacy).first as Map)['goal_value'], 4);
+    await LocalDb().close();
+    expect(history((await repo.getById(id))!), hasLength(2));
+  });
+
   test('同日多条累计、按记录撤销、默认旧习惯单日一次', () async {
     final repo = LocalHabitRepository();
     final habit = await repo.create(
