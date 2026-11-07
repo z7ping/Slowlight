@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
@@ -31,6 +33,82 @@ Future<QuadrantData> _loadTasks(List<Task> tasks) async => (
     );
 
 void main() {
+  testWidgets('P06 四象限刷新挂起时保留现有网格与任务', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final waiting = Completer<QuadrantData>();
+    var reads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(
+        dataLoader: () => ++reads == 1
+            ? _loadTasks([_task(41, '已有象限任务', 'important')])
+            : waiting.future,
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    final refreshing = tester.widget<FxRefresh>(
+      find.byType(FxRefresh),
+    ).onRefresh();
+    await tester.pump();
+    expect(reads, 2);
+    expect(find.text('已有象限任务'), findsOneWidget);
+    expect(find.byType(GridView), findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    waiting.completeError(StateError('临时离线'));
+    await refreshing;
+    await tester.pumpAndSettle();
+    expect(find.text('已有象限任务'), findsOneWidget);
+    expect(find.byKey(const ValueKey('quadrant-load-error')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P06 旧刷新迟到不覆盖较新的四象限任务', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final oldResult = Completer<QuadrantData>();
+    final latestResult = Completer<QuadrantData>();
+    var reads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(
+        dataLoader: () {
+          switch (++reads) {
+            case 1:
+              return _loadTasks([_task(51, '初始任务', 'urgent')]);
+            case 2:
+              return oldResult.future;
+            default:
+              return latestResult.future;
+          }
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final refresh = tester.widget<FxRefresh>(find.byType(FxRefresh));
+    final stale = refresh.onRefresh();
+    final latest = refresh.onRefresh();
+    await tester.pump();
+
+    latestResult.complete(await _loadTasks([_task(52, '最新任务', 'important')]));
+    await latest;
+    await tester.pump();
+    expect(find.text('最新任务'), findsOneWidget);
+    oldResult.complete(await _loadTasks([_task(53, '过期任务', 'none')]));
+    await stale;
+    await tester.pumpAndSettle();
+    expect(reads, 3);
+    expect(find.text('最新任务'), findsOneWidget);
+    expect(find.text('过期任务'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 四象限优先级传入统一任务创建 Sheet', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
