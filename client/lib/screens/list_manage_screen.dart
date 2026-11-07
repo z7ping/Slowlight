@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -10,7 +12,15 @@ import '../utils/color_utils.dart';
 
 /// 清单管理：作为「更多工具」中的一级内容页嵌入主壳，不再叠加第二层 AppBar。
 class ListManageScreen extends StatefulWidget {
-  const ListManageScreen({super.key});
+  // Source-level test seams; production still uses DataService.
+  final Future<List<TodoList>> Function()? listsLoader;
+  final Future<List<Task>> Function()? tasksLoader;
+
+  const ListManageScreen({
+    super.key,
+    this.listsLoader,
+    this.tasksLoader,
+  });
 
   @override
   State<ListManageScreen> createState() => _ListManageScreenState();
@@ -20,6 +30,10 @@ class _ListManageScreenState extends State<ListManageScreen> {
   bool _loading = true;
   bool _hasLoaded = false;
   bool _loadFailed = false;
+  bool _taskCountConfirmed = false;
+  bool _taskCountLoading = false;
+  bool _taskCountFailed = false;
+  int _loadVersion = 0;
   List<TodoList> _lists = const [];
   List<Task> _tasks = const [];
 
@@ -55,35 +69,67 @@ class _ListManageScreenState extends State<ListManageScreen> {
   }
 
   Future<void> _loadLists() async {
-    if (mounted && !_hasLoaded) {
+    final version = ++_loadVersion;
+    if (mounted) {
       setState(() {
-        _loading = true;
+        // List management is usable independently of task count reporting.
+        _loading = !_hasLoaded;
         _loadFailed = false;
       });
     }
     try {
-      final values = await Future.wait<dynamic>([
-        DataService().getLists(),
-        DataService().getAllTasks(),
-      ]);
-      if (!mounted) return;
+      final lists = await (widget.listsLoader?.call() ??
+          DataService().getLists());
+      if (!mounted || version != _loadVersion) return;
       setState(() {
-        _lists = values[0] as List<TodoList>;
-        _tasks = values[1] as List<Task>;
+        _lists = lists;
         _loading = false;
         _hasLoaded = true;
         _loadFailed = false;
+        // A new list snapshot requires independently checked task totals.
+        _taskCountConfirmed = false;
+        _taskCountFailed = false;
+        _taskCountLoading = true;
       });
+      unawaited(_loadTaskCounts(version));
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _loading = false;
         _loadFailed = true;
       });
-      if (_hasLoaded) {
-        FxNotice.showContent(context, const Text('清单刷新失败，仍显示上次加载的内容'));
-      }
+      // Keep the previously confirmed list rows; never show a false empty.
     }
+  }
+
+  Future<void> _loadTaskCounts(int version) async {
+    try {
+      final tasks = await (widget.tasksLoader?.call() ??
+          DataService().getAllTasks());
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _tasks = tasks;
+        _taskCountConfirmed = true;
+        _taskCountLoading = false;
+        _taskCountFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _taskCountConfirmed = false;
+        _taskCountLoading = false;
+        _taskCountFailed = true;
+      });
+    }
+  }
+
+  Future<void> _retryTaskCounts() async {
+    if (_taskCountLoading) return;
+    setState(() {
+      _taskCountLoading = true;
+      _taskCountFailed = false;
+    });
+    await _loadTaskCounts(_loadVersion);
   }
 
   int _taskCountFor(TodoList list) =>
@@ -327,6 +373,13 @@ class _ListManageScreenState extends State<ListManageScreen> {
   );
 
   Future<void> _deleteList(TodoList list) async {
+    if (!_taskCountConfirmed) {
+      FxNotice.showContent(
+        context,
+        const Text('请先确认任务数量后再删除清单，避免误删未知任务'),
+      );
+      return;
+    }
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '删除清单',
@@ -399,6 +452,31 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       ),
                     ],
                   ),
+                  if (_loadFailed || _taskCountFailed) ...[
+                    FxCard(
+                      padding: const EdgeInsets.all(12),
+                      expanded: true,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _loadFailed
+                                  ? '清单刷新未确认，继续展示上次已载入的清单。'
+                                  : '任务数量未确认，清单仍可创建和编辑；删除请先重试。',
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
+                          FxButton(
+                            label: '重新加载',
+                            size: FxButtonSize.sm,
+                            variant: FxButtonVariant.ghost,
+                            onPressed: _loadFailed ? _loadLists : _retryTaskCounts,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   const SizedBox(height: 14),
                   if (_lists.isEmpty)
                     FxEmptyState(
@@ -446,7 +524,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  '$count 条',
+                                  _taskCountConfirmed ? '$count 条' : '— 条',
                                   style: SlowlightTypography.caption(
                                     context,
                                   ).copyWith(
@@ -463,7 +541,9 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                 if (!list.isInbox)
                                   FxIconButton(
                                     tooltip: '删除',
-                                    onPressed: () => _deleteList(list),
+                                    onPressed: _taskCountConfirmed
+                                        ? () => _deleteList(list)
+                                        : null,
                                     icon: LucideIcons.trash2,
                                     iconSize: SlowlightIconSize.md,
                                   ),
