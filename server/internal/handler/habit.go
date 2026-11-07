@@ -38,6 +38,7 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 	}
 	weekStart := now.AddDate(0, 0, -int(weekday-time.Monday))
 	weekStartStr := weekStart.Format("2006-01-02")
+	recentStartStr := now.AddDate(0, 0, -6).Format("2006-01-02")
 
 	var habits []model.Habit
 	h.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&habits)
@@ -46,6 +47,7 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
     from := weekStartStr
     monthStartStr := monthStart.Format("2006-01-02")
     if monthStartStr < from { from = monthStartStr }
+    if recentStartStr < from { from = recentStartStr }
     var windowLogs []model.HabitLog
     h.DB.Where("date >= ? AND date <= ?", from, today).Find(&windowLogs)
     byHabit := make(map[uint][]model.HabitLog)
@@ -60,7 +62,7 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
         if habit.GoalPeriod == "week" { goalFrom = weekStartStr }
         if habit.GoalPeriod == "month" { goalFrom = monthStartStr }
         for _, log := range byHabit[habit.ID] {
-            if log.Date >= weekStartStr { days[log.Date] = true }
+            if log.Date >= recentStartStr { days[log.Date] = true }
             if log.Date == today { habit.CheckedToday = true }
             if log.Date >= goalFrom { current = append(current, log) }
         }
