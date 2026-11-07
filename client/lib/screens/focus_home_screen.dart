@@ -163,6 +163,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   }
 
   Future<void> _reload() async {
+    _knownToday = DateUtils.dateOnly(DateTime.now());
     final version = ++_loadVersion;
     if (mounted)
       setState(() {
