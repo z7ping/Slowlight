@@ -43,7 +43,28 @@ class TaskDetailSheet extends StatefulWidget {
     required VoidCallback onChanged,
     bool isCreating = false,
     String? initialPriority,
-  }) {
+  }) async {
+    // Different tool routes may not have loaded lists yet. Resolve their
+    // canonical list options before opening an editor, never treat an empty
+    // source as a safe fallback to a guessed list ID.
+    late final List<TodoList> availableLists;
+    try {
+      availableLists = lists.isEmpty ? await DataService().getLists() : lists;
+    } catch (_) {
+      if (context.mounted) {
+        FxNotice.showContent(
+          context, const Text('清单读取失败，请重新打开任务详情'),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    if (availableLists.isEmpty) {
+      FxNotice.showContent(
+        context, const Text('清单暂不可用，请先创建或加载清单'),
+      );
+      return;
+    }
     final desktop = !SlowlightPlatformDensity.usesMobileTouchTargets &&
         MediaQuery.sizeOf(context).width >= SlowlightBreakpoints.tabletMin;
     if (desktop) {
@@ -95,7 +116,7 @@ class TaskDetailSheet extends StatefulWidget {
                         task: task,
                         isCreating: isCreating,
                         initialPriority: initialPriority,
-                        lists: lists,
+                        lists: availableLists,
                         onChanged: onChanged,
                         onClose: closeRoute,
                         sidePanel: true,
@@ -157,7 +178,7 @@ class TaskDetailSheet extends StatefulWidget {
             task: task,
             isCreating: isCreating,
             initialPriority: initialPriority,
-            lists: lists,
+            lists: availableLists,
             onChanged: onChanged,
           ),
         ),
@@ -1675,10 +1696,13 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     final title = _title.text.trim();
     final listId =
         _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
-    if (title.isEmpty || listId == null) {
+    if (title.isEmpty || listId == null ||
+        !widget.lists.any((list) => list.id == listId)) {
       FxNotice.showContent(
         context,
-        Text(title.isEmpty ? '请输入任务名称' : '请选择清单后再保存'),
+        Text(title.isEmpty
+            ? '请输入任务名称'
+            : '请先选择已确认的清单后再保存'),
       );
       return;
     }
