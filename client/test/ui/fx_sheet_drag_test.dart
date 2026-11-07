@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/todo_list.dart';
@@ -13,6 +14,78 @@ import 'package:slowlight/widgets/task_detail_sheet.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+
+  testWidgets('普通移动 Sheet 的显式引导线和 16dp 顶角与原型一致',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开选项',
+          onPressed: () => FxSheet.show<void>(
+            context: context,
+            showDragHandle: true,
+            builder: (_) => const SizedBox(
+              height: 180,
+              child: Center(child: Text('可安全关闭的选项')),
+            ),
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开选项'));
+    await tester.pumpAndSettle();
+    final grip = find.byKey(const ValueKey('fx.sheet.visualHandle'));
+    expect(grip, findsOneWidget);
+    expect(tester.getSize(grip).height, 44);
+    final sheet = tester.widget<ShadSheet>(fxSheetSurfaceFinder());
+    expect(
+      sheet.radius,
+      const BorderRadius.vertical(top: Radius.circular(SlowlightRadius.xl)),
+    );
+    expect(sheet.draggable, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('明确隐藏引导线的受保护表单仍禁止整面拖拽', (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开无引导线表单',
+          onPressed: () => FxSheet.show<void>(
+            context: context,
+            showDragHandle: false,
+            draggable: true,
+            isDismissible: false,
+            onDismissRequested: () async {},
+            builder: (_) => const SizedBox(
+              height: 180,
+              child: Center(child: Text('含未保存内容')),
+            ),
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开无引导线表单'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('fx.sheet.dragHandle')), findsNothing);
+    expect(find.byKey(const ValueKey('fx.sheet.visualHandle')), findsNothing);
+    final sheet = tester.widget<ShadSheet>(fxSheetSurfaceFinder());
+    expect(sheet.draggable, isFalse);
+    expect(
+      sheet.radius,
+      const BorderRadius.vertical(top: Radius.circular(SlowlightRadius.xl)),
+    );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
