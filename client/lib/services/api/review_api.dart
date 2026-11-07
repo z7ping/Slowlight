@@ -22,17 +22,22 @@ class ReviewApi {
     return _getJson('/review/today');
   }
 
-  static Future<List<TodayTimelineItem>> getTodayTimeline() async {
-    if (DataModeManager().isLocal) {
-      return LocalTodayTimelineService().getTodayTimeline();
+  static Future<List<TodayTimelineItem>> getTodayTimeline() async =>
+      (await getPeriodTimeline()).items;
+
+  /// One Local/Cloud evidence contract for today, this week and rolling
+  /// 30 days. Observation count is not derived from the capped event list.
+  static Future<ReviewPeriodTimeline> getPeriodTimeline({
+    String period = 'today',
+  }) async {
+    if (period != 'today' && period != 'week' && period != 'month') {
+      throw ArgumentError.value(period, 'period', 'Unsupported review period');
     }
-    final data = await _getJson('/review/today/timeline');
-    final values = data['items'];
-    if (values is! List) throw StateError('Invalid today timeline');
-    return TodayTimelineItem.sorted(values
-        .whereType<Map>()
-        .map((item) => TodayTimelineItem.fromJson(Map<String, dynamic>.from(item)))
-        .whereType<TodayTimelineItem>());
+    if (DataModeManager().isLocal) {
+      return LocalTodayTimelineService().getPeriodTimeline(period: period);
+    }
+    final data = await _getJson('/review/today/timeline?period=$period');
+    return ReviewPeriodTimeline.fromJson(data);
   }
 
   static Future<Map<String, dynamic>> getTasksReview({int days = 7}) async {
