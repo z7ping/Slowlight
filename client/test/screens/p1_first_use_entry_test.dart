@@ -53,10 +53,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('先写下一件想做的事'), findsOneWidget);
-    expect(find.text('去创建第一个习惯'), findsOneWidget);
+    expect(find.text('添加习惯'), findsOneWidget);
     await tester.tap(find.text('先写下一件想做的事'));
     await tester.pump();
-    await tester.tap(find.text('去创建第一个习惯'));
+    await tester.tap(find.text('添加习惯'));
     await tester.pump();
     expect(tasks, 1);
     expect(habits, 1);
