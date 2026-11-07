@@ -36,7 +36,8 @@ abstract final class HabitTimezonePolicy {
   /// not just today: identical offsets now can conceal different DST rules.
   /// No IANA device API is required; DateTime.toLocal is the OS authority.
   static void requireCompatibleDeviceCalendar(String? accountZone,
-      {DateTime? now, String? recordDate}) {
+      {DateTime? now, String? recordDate,
+      Duration Function(DateTime)? deviceOffsetAt}) {
     final location = _accountLocation(accountZone);
     final current = (now ?? DateTime.now()).toUtc();
     final probes = <DateTime>[
@@ -51,7 +52,8 @@ abstract final class HabitTimezonePolicy {
       }
     }
     for (final instant in probes) {
-      final deviceOffset = instant.toLocal().timeZoneOffset;
+      final deviceOffset =
+          deviceOffsetAt?.call(instant) ?? instant.toLocal().timeZoneOffset;
       final accountOffset = tz.TZDateTime.from(instant, location).timeZoneOffset;
       if (deviceOffset != accountOffset) {
         throw const HabitTimezoneMismatch(
