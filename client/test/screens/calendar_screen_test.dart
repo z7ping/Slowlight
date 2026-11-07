@@ -139,6 +139,28 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('P08 月度部分来源失败不伪装成当日完整记录', (tester) async {
+    tester.view.physicalSize = const Size(1100, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: CalendarScreen(
+        initialMonth: month,
+        initialSelectedDate: selected,
+        monthLoader: (requested) async => CalendarMonthData(
+          month: requested,
+          records: [records.first],
+          unavailableTypes: const {CalendarRecordType.habit},
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已载入 1 条记录（部分待核对）'), findsOneWidget);
+    expect(find.textContaining('习惯记录暂时不可用'), findsOneWidget);
+    expect(find.textContaining('完整记录'), findsNothing);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('还原高密度月历与当日完整记录', (tester) async {
     await pumpCalendar(tester);
 
