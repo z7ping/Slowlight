@@ -314,6 +314,14 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> _checkAuth() async {
     final generation = ++_authCheckGeneration;
+    // On explicit retry or auth-state changes, do not keep showing a stale
+    // error/login/home screen while the identity result is still unknown.
+    if (mounted && !_isLoading) {
+      setState(() {
+        _isLoading = true;
+        _authCheckFailed = false;
+      });
+    }
     var hasAccess = false;
     var pendingGitHubLogin = false;
     var checkFailed = false;
