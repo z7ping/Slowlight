@@ -9,7 +9,10 @@ import '../ui/fx.dart';
 
 /// 同步冲突：明确并排展示“本地版本 / 服务端版本”，再由用户选择。
 class ConflictScreen extends StatefulWidget {
-  const ConflictScreen({super.key});
+  /// Test seam only; production continues using SyncService.
+  final Future<List<Map<String, dynamic>>> Function()? conflictsLoader;
+
+  const ConflictScreen({super.key, this.conflictsLoader});
 
   @override
   State<ConflictScreen> createState() => _ConflictScreenState();
@@ -21,6 +24,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
   bool _loading = true;
   bool _hasLoaded = false;
   bool _loadFailed = false;
+  int _loadVersion = 0;
 
   @override
   void initState() {
@@ -29,12 +33,14 @@ class _ConflictScreenState extends State<ConflictScreen> {
   }
 
   Future<void> _loadConflicts() async {
+    final version = ++_loadVersion;
     if (mounted && !_hasLoaded) setState(() => _loading = true);
     late final List<Map<String, dynamic>> rows;
     try {
-      rows = await _sync.getAllConflicts();
+      rows = await (widget.conflictsLoader?.call() ?? _sync.getAllConflicts());
+      if (!mounted || version != _loadVersion) return;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _loading = false;
         _loadFailed = true;
@@ -46,6 +52,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     }
     final previews = <_ConflictPreview>[];
     for (final local in rows) {
+      if (!mounted || version != _loadVersion) return;
       final type = local['_entity_type'] as String;
       Map<String, dynamic>? remote;
       final serverId = local['server_id'] as int?;
@@ -64,7 +71,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
         entityType: type, local: local, remote: remote,
       ));
     }
-    if (!mounted) return;
+    if (!mounted || version != _loadVersion) return;
     setState(() {
       _conflicts = previews;
       _loading = false;
