@@ -61,6 +61,60 @@ func TestStartSession(t *testing.T) {
 	assertEqual(t, result["message"], "会话已开始", "message")
 }
 
+func TestStartSession_PersistsPerRoundTarget(t *testing.T) {
+	_, handler, userID := setupSessionTest(t)
+	r := newSessionRouter(handler, userID)
+
+	for _, minutes := range []int{45, 60} {
+		body, _ := json.Marshal(map[string]interface{}{
+			"session_type": "work",
+			"target_minutes": minutes,
+		})
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/sessions/start", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("start %d minute round: %d %s", minutes, w.Code, w.Body.String())
+		}
+		var created map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+			t.Fatal(err)
+		}
+		session := created["session"].(map[string]interface{})
+		if session["target_minutes"] != float64(minutes) {
+			t.Fatalf("created target: got %v, want %d", session["target_minutes"], minutes)
+		}
+		active := httptest.NewRecorder()
+		check, _ := http.NewRequest("GET", "/sessions/active", nil)
+		r.ServeHTTP(active, check)
+		var resumed map[string]interface{}
+		if err := json.Unmarshal(active.Body.Bytes(), &resumed); err != nil {
+			t.Fatal(err)
+		}
+		stored := resumed["session"].(map[string]interface{})
+		if stored["target_minutes"] != float64(minutes) {
+			t.Fatalf("restored target: got %v, want %d", stored["target_minutes"], minutes)
+		}
+	}
+}
+
+func TestStartSession_RejectsInvalidTarget(t *testing.T) {
+	_, handler, userID := setupSessionTest(t)
+	r := newSessionRouter(handler, userID)
+	body, _ := json.Marshal(map[string]interface{}{
+		"session_type": "work",
+		"target_minutes": 181,
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/sessions/start", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("invalid target should return 400; got %d", w.Code)
+	}
+}
+
 func TestStartSession_InvalidType(t *testing.T) {
 	_, handler, userID := setupSessionTest(t)
 	r := newSessionRouter(handler, userID)

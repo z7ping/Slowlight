@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 19,
+        version: 20,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 19,
+      version: 20,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -532,6 +532,12 @@ class LocalDb {
     if (oldVersion < 19) {
       await _upgradeHabitSchedules(db);
     }
+    if (oldVersion < 20) {
+      final columns = await db.rawQuery('PRAGMA table_info(work_sessions)');
+      if (!columns.any((column) => column['name'] == 'target_minutes')) {
+        await db.execute('ALTER TABLE work_sessions ADD COLUMN target_minutes INTEGER NOT NULL DEFAULT 0');
+      }
+    }
   }
 
   Future<void> _upgradeHabitSchedules(Database db) async {
@@ -599,6 +605,7 @@ class LocalDb {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_type TEXT NOT NULL,
         task_id INTEGER,
+        target_minutes INTEGER NOT NULL DEFAULT 0,
         started_at TEXT NOT NULL,
         ended_at TEXT,
         duration_sec INTEGER DEFAULT 0,

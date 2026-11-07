@@ -144,12 +144,17 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 	userID := c.GetUint("userID")
 
 	var req struct {
-		SessionType string `json:"session_type" binding:"required,oneof=work break long_break"`
-		TaskID      *uint  `json:"task_id"`
+		SessionType   string `json:"session_type" binding:"required,oneof=work break long_break"`
+		TargetMinutes int    `json:"target_minutes"`
+		TaskID        *uint  `json:"task_id"`
 		Device      string `json:"device"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+		return
+	}
+	if req.TargetMinutes < 0 || req.TargetMinutes > 180 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "目标时长必须在 1 到 180 分钟之间"})
 		return
 	}
 	if req.TaskID != nil {
@@ -193,8 +198,9 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 
 		session = model.WorkSession{
 			UserID:      userID,
-			SessionType: req.SessionType,
-			StartedAt:   time.Now(),
+			SessionType:   req.SessionType,
+			TargetMinutes: req.TargetMinutes,
+			StartedAt:     time.Now(),
 			Device:      req.Device,
 			TaskID:      req.TaskID,
 		}

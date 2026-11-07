@@ -7,6 +7,7 @@ type WorkSession struct {
 	ID             uint       `json:"id" gorm:"primaryKey"`
 	UserID         uint       `json:"user_id" gorm:"not null;index"`
 	SessionType    string     `json:"session_type" gorm:"size:20;not null"` // work, break, long_break
+	TargetMinutes  int        `json:"target_minutes" gorm:"not null;default:0"` // 0 = legacy session without a snapshot
 	StartedAt      time.Time  `json:"started_at" gorm:"not null"`
 	EndedAt        *time.Time `json:"ended_at"`
 	DurationSec    int        `json:"duration_seconds"`
