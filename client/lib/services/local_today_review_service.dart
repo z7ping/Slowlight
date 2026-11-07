@@ -18,8 +18,8 @@ class LocalTodayReviewService {
   Future<Map<String, dynamic>> computeTodayReview() async {
     final db = await LocalDb().database;
     final today = LocalTimeBoundary.dayStart(DateTime.now());
-    final yesterday = today.subtract(const Duration(days: 1));
-    final weekAgo = today.subtract(const Duration(days: 7));
+    final yesterday = LocalTimeBoundary.addCalendarDays(today, -1);
+    final weekAgo = LocalTimeBoundary.addCalendarDays(today, -7);
 
     final todayDate = LocalTimeBoundary.dateKey(today);
     final yesterdayDate = LocalTimeBoundary.dateKey(yesterday);
