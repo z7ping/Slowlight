@@ -22,6 +22,18 @@ func NewHabitHandler(db *gorm.DB) *HabitHandler {
 	return &HabitHandler{DB: db}
 }
 
+// habitUserWindowLogs returns only active logs belonging to non-deleted
+// habits of this user. The SQL ownership predicate is applied *before*
+// records are materialized; HabitLog itself does not store user_id.
+func habitUserWindowLogs(db *gorm.DB, userID uint, from, through string) ([]model.HabitLog,error) {
+    var logs []model.HabitLog
+    err := db.Model(&model.HabitLog{}).
+        Joins("JOIN habits ON habits.id = habit_logs.habit_id AND habits.user_id = ? AND habits.deleted_at IS NULL", userID).
+        Where("habit_logs.date >= ? AND habit_logs.date <= ?", from, through).
+        Find(&logs).Error
+    return logs,err
+}
+
 // GetHabits 获取当前用户的习惯列表
 func (h *HabitHandler) GetHabits(c *gin.Context) {
 	userID := c.GetUint("userID")
@@ -48,8 +60,13 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
     monthStartStr := monthStart.Format("2006-01-02")
     if monthStartStr < from { from = monthStartStr }
     if recentStartStr < from { from = recentStartStr }
-    var windowLogs []model.HabitLog
-    h.DB.Where("date >= ? AND date <= ?", from, today).Find(&windowLogs)
+    // HabitLog has no user_id column. Join through the owning, live Habit
+    // rather than materializing every account's logs in this user's request.
+    windowLogs, err := habitUserWindowLogs(h.DB, userID, from, today)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"读取习惯记录失败"})
+        return
+    }
     byHabit := make(map[uint][]model.HabitLog)
     for _, log := range windowLogs {
         byHabit[log.HabitID] = append(byHabit[log.HabitID], log)
