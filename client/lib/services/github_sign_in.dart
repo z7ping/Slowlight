@@ -209,7 +209,12 @@ class GitHubSignIn {
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (data == null) throw const _TemporaryOAuthPollFailure();
+      // Only the two documented server states are safe to act on. An
+      // unexpected/malformed success response cannot prove OAuth failed.
+      if (data == null ||
+          (data['status'] != 'pending' && data['status'] != 'complete')) {
+        throw const _TemporaryOAuthPollFailure();
+      }
       return data;
     }
     final code = data?['code'];
