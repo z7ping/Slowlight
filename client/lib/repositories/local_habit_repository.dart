@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 import '../db/local_db.dart';
+import '../models/habit_log.dart';
 import '../models/habit_occurrence.dart';
 import '../models/habit_schedule_rule.dart';
 import '../models/habit_goal_progress.dart';
@@ -477,6 +478,7 @@ class LocalHabitRepository {
   }
 
   Future<Map<String, dynamic>> getLogs(int habitId, {String? month}) async {
+    HabitLog.validateMonth(month);
     final db = await _db.database;
     String where = 'habit_id = ?';
     final whereArgs = <dynamic>[habitId];
