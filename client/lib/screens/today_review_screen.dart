@@ -316,13 +316,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   Widget _overviewBody() {
+    // WeeklyReviewScreen and TaskMonthTab load their own period data.
+    // A slow/failed Today request must not block these independent periods.
+    if (_periodIndex == 1) return const WeeklyReviewScreen(embedded: true);
+    if (_periodIndex == 2) return const TaskMonthTab();
     if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _errorView();
-    return switch (_periodIndex) {
-      1 => const WeeklyReviewScreen(embedded: true),
-      2 => const TaskMonthTab(),
-      _ => _todayBody(),
-    };
+    return _todayBody();
   }
 
   Widget _todayBody() {
