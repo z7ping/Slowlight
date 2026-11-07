@@ -93,6 +93,33 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('S04 修改启用状态后清除已失效的密钥校验错误', (tester) async {
+    final store = AiConfigStore(secrets: _Secrets());
+    await store.save(const AiConfig(
+      enabled: true,
+      provider: AiProviderType.openai,
+      model: 'test-model',
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: AiSettingsScreen(store: store),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('保存'));
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    expect(find.text('当前 AI 服务需要访问密钥'), findsOneWidget);
+
+    await tester.ensureVisible(find.byType(FxSwitch));
+    await tester.tap(find.byType(FxSwitch));
+    await tester.pump();
+    expect(tester.widget<FxSwitch>(find.byType(FxSwitch)).value, isFalse);
+    expect(find.text('当前 AI 服务需要访问密钥'), findsNothing);
+    expect((await store.load()).enabled, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('安全密钥写入失败保留输入草稿且不得声称保存成功', (tester) async {
     final secrets = _Secrets()..failWrite = true;
     final store = AiConfigStore(secrets: secrets);
