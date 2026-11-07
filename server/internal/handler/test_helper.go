@@ -67,6 +67,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.ReflectionTag{},
 		&model.Habit{},
 		&model.HabitLog{},
+        &model.HabitGoalRevision{},
 		&model.UserConfig{},
 		&model.SystemTag{},
 		&model.BehaviorEvent{},
