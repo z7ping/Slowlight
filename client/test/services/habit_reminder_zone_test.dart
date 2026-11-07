@@ -9,7 +9,7 @@ void main() {
       DateTime.utc(2026, 11, 1, 9, 30),
     ]) {
       final scheduled = NotificationService.toScheduleInstant(instant);
-      expect(scheduled.isUtc, isTrue);
+      expect(scheduled.timeZoneOffset, Duration.zero);
       expect(scheduled.millisecondsSinceEpoch,
           instant.millisecondsSinceEpoch);
     }
