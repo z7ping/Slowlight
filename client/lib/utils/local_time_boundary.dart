@@ -13,12 +13,16 @@ class LocalTimeBoundary {
   static DateTime dayStart(DateTime local) =>
       DateTime(local.year, local.month, local.day);
 
-  static DateTime dayEnd(DateTime local) =>
-      dayStart(local).add(const Duration(days: 1));
+  /// Advance a *calendar* date rather than an elapsed 24-hour duration.
+  /// Local days can have 23 or 25 hours across UTC offset transitions.
+  static DateTime addCalendarDays(DateTime local, int days) =>
+      DateTime(local.year, local.month, local.day + days);
+
+  static DateTime dayEnd(DateTime local) => addCalendarDays(local, 1);
 
   static DateTime weekStart(DateTime local) {
     final start = dayStart(local);
-    return start.subtract(Duration(days: start.weekday - 1));
+    return addCalendarDays(start, 1 - start.weekday);
   }
 
   static DateTime monthStart(DateTime local) =>
