@@ -41,6 +41,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _activeSession = false;
   bool _finalizingSession = false;
   bool _sessionTransitioning = false;
+  bool _endConfirmationOpen = false;
   int? _sessionId;
   int _sessionRevision = 0;
   DateTime? _sessionStartedAt;
@@ -324,7 +325,30 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _stop() async {
-    if (_finalizingSession) return;
+    if (_finalizingSession || _sessionTransitioning ||
+        _endConfirmationOpen || !_activeSession) return;
+    // Do not stop the persisted timer before the user confirms. The timer
+    // may also finish naturally while the confirmation is on screen.
+    final sessionId = _sessionId;
+    final sessionType = _sessionType;
+    _endConfirmationOpen = true;
+    bool? confirmed;
+    try {
+      confirmed = await FxDialog.confirm(
+        context: context,
+        title: sessionType == 'work' ? '结束本轮专注？' : '结束本轮休息？',
+        content: '结束后将按实际计时尝试保存本轮记录。',
+        cancelText: '继续计时',
+        confirmText: '确认结束',
+        destructive: true,
+        barrierDismissible: false,
+      );
+    } finally {
+      _endConfirmationOpen = false;
+    }
+    if (!mounted || confirmed != true || !_activeSession ||
+        _sessionId != sessionId || _sessionType != sessionType ||
+        _finalizingSession || _sessionTransitioning) return;
     _timer?.cancel();
     setState(() {
       _finalizingSession = true;
