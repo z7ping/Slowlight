@@ -56,8 +56,8 @@ class LocalAnalyticsService {
   Future<Map<String, dynamic>> getTimeDistribution({int days = 7}) async {
     final db = await LocalDb().database;
     final today = LocalTimeBoundary.dayStart(DateTime.now());
-    final start = today.subtract(Duration(days: days - 1));
-    final end = today.add(const Duration(days: 1));
+    final start = LocalTimeBoundary.addCalendarDays(today, 1 - days);
+    final end = LocalTimeBoundary.dayEnd(today);
     final events = await _focusEvents(db, start, end);
     final tags = await _observationTagMap(db);
 
@@ -100,7 +100,9 @@ class LocalAnalyticsService {
 
     final byDay = <Map<String, dynamic>>[];
     for (var i = 0; i < days; i++) {
-      final date = LocalTimeBoundary.dateKey(start.add(Duration(days: i)));
+      final date = LocalTimeBoundary.dateKey(
+        LocalTimeBoundary.addCalendarDays(start, i),
+      );
       byDay.add(daily[date] ?? {
         'date': date,
         'total_min': 0,
@@ -113,8 +115,8 @@ class LocalAnalyticsService {
   Future<Map<String, dynamic>> getWeeklyReview() async {
     final db = await LocalDb().database;
     final weekStart = LocalTimeBoundary.weekStart(DateTime.now());
-    final weekEnd = weekStart.add(const Duration(days: 7));
-    final lastWeekStart = weekStart.subtract(const Duration(days: 7));
+    final weekEnd = LocalTimeBoundary.addCalendarDays(weekStart, 7);
+    final lastWeekStart = LocalTimeBoundary.addCalendarDays(weekStart, -7);
 
     final focusThis = await _focusEvents(db, weekStart, weekEnd);
     final focusLast = await _focusEvents(db, lastWeekStart, weekStart);
@@ -124,7 +126,7 @@ class LocalAnalyticsService {
     return {
       'week_start': LocalTimeBoundary.dateKey(weekStart),
       'week_end': LocalTimeBoundary.dateKey(
-        weekEnd.subtract(const Duration(days: 1)),
+        LocalTimeBoundary.addCalendarDays(weekEnd, -1),
       ),
       'habit_checked': await _countHabitLogsInRange(db, weekStart, weekEnd),
       'habit_last_week':
@@ -150,8 +152,8 @@ class LocalAnalyticsService {
     final result = <Map<String, dynamic>>[];
 
     for (var i = days - 1; i >= 0; i--) {
-      final start = today.subtract(Duration(days: i));
-      final end = start.add(const Duration(days: 1));
+      final start = LocalTimeBoundary.addCalendarDays(today, -i);
+      final end = LocalTimeBoundary.dayEnd(start);
       final created = await _countCreatedBetween(db, start, end);
       final cohortCompleted =
           await _countCreatedCohortCompleted(db, start, end);
@@ -178,8 +180,8 @@ class LocalAnalyticsService {
     final db = await LocalDb().database;
     final now = DateTime.now();
     final weekStart = LocalTimeBoundary.weekStart(now);
-    final weekEnd = weekStart.add(const Duration(days: 7));
-    final lastWeekStart = weekStart.subtract(const Duration(days: 7));
+    final weekEnd = LocalTimeBoundary.addCalendarDays(weekStart, 7);
+    final lastWeekStart = LocalTimeBoundary.addCalendarDays(weekStart, -7);
     final useEvents = await _tableExists(db, 'behavior_events');
     final result = <Map<String, dynamic>>[];
 

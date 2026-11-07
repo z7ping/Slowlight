@@ -1,5 +1,6 @@
-import 'local_analytics_service.dart';
 import '../db/local_db.dart';
+import '../utils/local_time_boundary.dart';
+import 'local_analytics_service.dart';
 
 /// StatsScreen 所需的基础统计，同样在 Local Data Mode 直接从 SQLite 计算。
 extension LocalAnalyticsStats on LocalAnalyticsService {
@@ -32,14 +33,14 @@ extension LocalAnalyticsStats on LocalAnalyticsService {
     ''');
 
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = LocalTimeBoundary.dayStart(now);
     final daily = <Map<String, dynamic>>[];
     for (var i = 6; i >= 0; i--) {
-      final start = today.subtract(Duration(days: i));
-      final end = start.add(const Duration(days: 1));
+      final start = LocalTimeBoundary.addCalendarDays(today, -i);
+      final end = LocalTimeBoundary.dayEnd(start);
       final rows = await db.rawQuery(
         'SELECT COUNT(*) AS cnt FROM tasks WHERE deleted_at IS NULL AND is_completed = 1 AND completed_at >= ? AND completed_at < ?',
-        [start.toIso8601String(), end.toIso8601String()],
+        [start.toUtc().toIso8601String(), end.toUtc().toIso8601String()],
       );
       final count = rows.first['cnt'] as int? ?? 0;
       if (count > 0) {
