@@ -412,7 +412,9 @@ class _ListManageScreenState extends State<ListManageScreen> {
       showCloseButton: false,
       child: Builder(
         builder: (dialogContext) => SizedBox(
-          width: 390,
+          width: MediaQuery.sizeOf(dialogContext).width < 454
+              ? MediaQuery.sizeOf(dialogContext).width - 64
+              : 390,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -429,16 +431,21 @@ class _ListManageScreenState extends State<ListManageScreen> {
                   child: ListView.builder(
                     key: const ValueKey('lists.delete.affectedTasks'),
                     itemCount: affected.length,
-                    itemExtent: 44,
                     itemBuilder: (context, index) {
                       final task = affected[index];
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '${task.title} · ${task.isCompleted ? '已完成' : '未完成'}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: SlowlightTypography.secondary(context),
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 32),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${task.title} · ${task.isCompleted ? '已完成' : '未完成'}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
                         ),
                       );
                     },
