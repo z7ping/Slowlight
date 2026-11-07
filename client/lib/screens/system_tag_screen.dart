@@ -9,15 +9,20 @@ import '../utils/color_utils.dart';
 
 /// 标签管理页。历史标签的 dimension_key 只保留在兼容数据层。
 class SystemTagScreen extends StatefulWidget {
-  const SystemTagScreen({super.key});
+  // Optional test seam; production uses the same ObservationTagRepository.
+  final ObservationTagRepository? repository;
+
+  const SystemTagScreen({super.key, this.repository});
 
   @override
   State<SystemTagScreen> createState() => _SystemTagScreenState();
 }
 
 class _SystemTagScreenState extends State<SystemTagScreen> {
-  final _repository = ObservationTagRepository();
+  late final ObservationTagRepository _repository;
   bool _loading = true;
+  bool _hasLoaded = false;
+  int _loadVersion = 0;
   String? _error;
   List<ObservationTag> _tags = const [];
 
@@ -53,21 +58,31 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? ObservationTagRepository();
     _load();
   }
 
   Future<void> _load() async {
+    final version = ++_loadVersion;
+    if (mounted) {
+      setState(() {
+        _loading = !_hasLoaded;
+        _error = null;
+      });
+    }
     try {
       final tags = await _repository.getAll();
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _tags = tags;
         _loading = false;
+        _hasLoaded = true;
         _error = null;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
+        // Preserve previously confirmed tags and their edit controls.
         _loading = false;
         _error = e.toString();
       });
@@ -110,8 +125,10 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: FxCircularProgress());
-    if (_error != null) return _errorView();
+    if (_loading && !_hasLoaded) {
+      return const Center(child: FxCircularProgress());
+    }
+    if (_error != null && !_hasLoaded) return _errorView();
 
     final groups = _groups();
     return FxRefresh(
@@ -137,6 +154,29 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                       ),
                     ],
                   ),
+                  if (_error != null) ...[
+                    FxCard(
+                      padding: const EdgeInsets.all(12),
+                      expanded: true,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '标签刷新未确认，以下仍为上次已载入的标签。',
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
+                          FxButton(
+                            label: '重试',
+                            size: FxButtonSize.sm,
+                            variant: FxButtonVariant.ghost,
+                            onPressed: _load,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   const SizedBox(height: 14),
                   if (_tags.isEmpty)
                     FxEmptyState(
