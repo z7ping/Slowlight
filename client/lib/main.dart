@@ -63,10 +63,19 @@ Future<void> main() async {
   } catch (_) {}
 
   // Data Mode 只决定数据来源，不决定 AI 能力。
-  // Local Mode 无需 Slowlight Server；Cloud Mode 在认证通过后启用独立 Cloud Cache。
-  await DataModeManager().load();
-  if (DataModeManager().isLocal) {
-    await AuthService.initLocalUser();
+  // Startup failure must not prevent Flutter from showing its first frame.
+  // AuthGate rechecks initialization and provides an explicit retry UI.
+  try {
+    await DataModeManager().load();
+    if (DataModeManager().isLocal) {
+      await AuthService.initLocalUser();
+    }
+  } catch (error, stackTrace) {
+    unawaited(AppErrorLogger.instance.write(
+      source: 'startup_data_mode',
+      error: error,
+      stackTrace: stackTrace,
+    ));
   }
 
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
@@ -326,6 +335,9 @@ class _AuthGateState extends State<AuthGate> {
     var pendingGitHubLogin = false;
     var checkFailed = false;
     try {
+      // Even if initialization failed before runApp(), the existing gate can
+      // recover. Never assume DataModeManager's default mode is the real one.
+      await DataModeManager().load();
       if (DataModeManager().isLocal) {
         CloudSyncCoordinator().stop();
         await AuthService.initLocalUser();
