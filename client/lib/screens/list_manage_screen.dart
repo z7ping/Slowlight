@@ -380,14 +380,98 @@ class _ListManageScreenState extends State<ListManageScreen> {
       );
       return;
     }
-    final confirmed = await FxDialog.confirm(
+
+    // A cached list count is not enough for an irreversible delete.
+    // Recheck the affected tasks immediately before opening confirmation.
+    final version = _loadVersion;
+    late final List<Task> currentTasks;
+    try {
+      currentTasks = await (widget.tasksLoader?.call() ??
+          DataService().getAllTasks());
+    } catch (_) {
+      if (mounted) {
+        FxNotice.showContent(
+          context,
+          const Text('无法核对删除影响范围，未执行删除，请稍后重试'),
+        );
+      }
+      return;
+    }
+    if (!mounted || version != _loadVersion ||
+        !_lists.any((item) => item.id == list.id)) return;
+    final affected = currentTasks
+        .where((task) => task.listId == list.id)
+        .toList(growable: false);
+    final completed = affected.where((task) => task.isCompleted).length;
+    setState(() => _tasks = currentTasks);
+
+    final confirmed = await FxDialog.show<bool>(
       context: context,
-      title: '删除清单',
-      content: '确定删除「${list.name}」？该清单下的任务也会被删除。',
-      confirmText: '删除',
-      destructive: true,
+      title: '删除清单及其任务？',
+      barrierDismissible: false,
+      showCloseButton: false,
+      child: Builder(
+        builder: (dialogContext) => SizedBox(
+          width: 390,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '删除「${list.name}」将同时删除 ${affected.length} 项任务'
+                '（其中已完成 $completed 项），并影响今天、回顾和统计。',
+                style: SlowlightTypography.secondary(dialogContext),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              if (affected.isNotEmpty)
+                SizedBox(
+                  height: affected.length > 4 ? 176 : affected.length * 44.0,
+                  child: ListView.builder(
+                    key: const ValueKey('lists.delete.affectedTasks'),
+                    itemCount: affected.length,
+                    itemExtent: 44,
+                    itemBuilder: (context, index) {
+                      final task = affected[index];
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${task.title} · ${task.isCompleted ? '已完成' : '未完成'}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.secondary(context),
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                Text('该清单暂无任务。',
+                    style: SlowlightTypography.secondary(dialogContext)),
+              const SizedBox(height: SlowlightSpacing.xl),
+              FxDialogActions(
+                actions: [
+                  FxButton(
+                    label: '保留清单',
+                    variant: FxButtonVariant.outline,
+                    onPressed: () => Navigator.of(
+                      dialogContext, rootNavigator: true,
+                    ).pop(false),
+                  ),
+                  FxButton(
+                    label: '删除清单与任务',
+                    variant: FxButtonVariant.destructive,
+                    onPressed: () => Navigator.of(
+                      dialogContext, rootNavigator: true,
+                    ).pop(true),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     try {
       await DataService().deleteList(list.id, list.serverId);
       await _loadLists();
