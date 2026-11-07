@@ -19,6 +19,8 @@ class HabitToolScreen extends StatefulWidget {
   final HabitRepository? repository;
   final TagLinksRepository? tagLinksRepository;
   final bool titleProvidedByShell;
+  /// Open the existing editor once when the Today empty state requests create.
+  final bool createOnOpen;
   final Future<HabitEditorValue?> Function(BuildContext, {Habit? habit})?
       editor;
 
@@ -28,6 +30,7 @@ class HabitToolScreen extends StatefulWidget {
     this.tagLinksRepository,
     this.editor,
     this.titleProvidedByShell = false,
+    this.createOnOpen = false,
   });
 
   @override
@@ -57,6 +60,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     _controller = HabitController(repository: widget.repository)
       ..addListener(_onChanged);
     _controller.load();
+    if (widget.createOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _createHabit();
+      });
+    }
   }
 
   @override
