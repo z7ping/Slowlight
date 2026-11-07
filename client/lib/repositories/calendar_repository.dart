@@ -14,14 +14,17 @@ class CalendarRepository {
   final HabitRepository _habitRepository;
   final ReflectionRepository _reflectionRepository;
   final SessionRepository _sessionRepository;
+  final Future<List<Task>> Function(int year, int month)? _taskLoader;
 
   CalendarRepository({
     HabitRepository? habitRepository,
     ReflectionRepository? reflectionRepository,
     SessionRepository? sessionRepository,
+    Future<List<Task>> Function(int year, int month)? taskLoader,
   })  : _habitRepository = habitRepository ?? HabitRepository(),
         _reflectionRepository = reflectionRepository ?? ReflectionRepository(),
-        _sessionRepository = sessionRepository ?? SessionRepository();
+        _sessionRepository = sessionRepository ?? SessionRepository(),
+        _taskLoader = taskLoader;
 
   Future<CalendarMonthData> loadMonth(DateTime month) async {
     final normalized = DateTime(month.year, month.month, 1);
@@ -53,7 +56,8 @@ class CalendarRepository {
     Set<CalendarRecordType> unavailable,
   ) async {
     try {
-      final tasks = await ApiService.getTasksForMonth(month.year, month.month);
+      final tasks = await (_taskLoader?.call(month.year, month.month) ??
+          ApiService.getTasksForMonth(month.year, month.month));
       for (final task in tasks) {
         final due = task.dueDate?.toLocal();
         if (due == null) continue;
@@ -88,37 +92,37 @@ class CalendarRepository {
     try {
       final habits = await _habitRepository.getAll();
       final monthKey = DateFormat('yyyy-MM').format(month);
-      final values = await Future.wait(
-        habits.map((habit) async => (
-              habit,
-              await _habitRepository.logs(
-                habit.id,
-                month: monthKey,
-              )
-            )),
-      );
-      for (final value in values) {
-        final habit = value.$1;
-        for (final log in value.$2) {
-          final date = DateTime.tryParse(log.date);
-          if (date == null || !_inMonth(date, month)) continue;
-          target.add(CalendarRecord(
-            id: 'habit-${habit.id}-${log.id}-${log.date}',
-            type: CalendarRecordType.habit,
-            kind: CalendarRecordKind.actual,
-            date: DateTime(date.year, date.month, date.day),
-            title: '${habit.icon} ${habit.name}',
-            timeLabel: habit.specificTime.isNotEmpty
-                ? habit.specificTime
-                : _periodLabel(log.period),
-            description: log.note,
-            colorHex: habit.color,
-            durationMin:
-                log.durationMin > 0 ? log.durationMin : habit.durationMin,
-            completed: true,
-          ));
+      // One unavailable habit must not erase records from all the other
+      // habits. Mark the category partial and keep every confirmed log.
+      await Future.wait(habits.map((habit) async {
+        try {
+          final logs = await _habitRepository.logs(
+            habit.id,
+            month: monthKey,
+          );
+          for (final log in logs) {
+            final date = DateTime.tryParse(log.date);
+            if (date == null || !_inMonth(date, month)) continue;
+            target.add(CalendarRecord(
+              id: 'habit-${habit.id}-${log.id}-${log.date}',
+              type: CalendarRecordType.habit,
+              kind: CalendarRecordKind.actual,
+              date: DateTime(date.year, date.month, date.day),
+              title: '${habit.icon} ${habit.name}',
+              timeLabel: habit.specificTime.isNotEmpty
+                  ? habit.specificTime
+                  : _periodLabel(log.period),
+              description: log.note,
+              colorHex: habit.color,
+              durationMin:
+                  log.durationMin > 0 ? log.durationMin : habit.durationMin,
+              completed: true,
+            ));
+          }
+        } catch (_) {
+          unavailable.add(CalendarRecordType.habit);
         }
-      }
+      }));
     } catch (_) {
       unavailable.add(CalendarRecordType.habit);
     }
