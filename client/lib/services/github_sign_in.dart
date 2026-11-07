@@ -353,6 +353,11 @@ class GitHubSignIn {
       if (isAndroid) await GitHubOAuthPending.save(pending);
     }
     if (!shouldContinue()) return false;
+    // Capture a stable, non-null authorization session before passing it
+    // into the asynchronous poll callback. A promoted nullable local cannot
+    // be captured safely by Dart flow analysis here.
+    final activePending = pending;
+    if (activePending == null) return false;
 
     final resumeObserver = _OAuthResumeObserver();
     _activeObserver = resumeObserver;
@@ -370,7 +375,7 @@ class GitHubSignIn {
           onStatus?.call('等待 GitHub 完成授权…');
         }
       }
-      while (DateTime.now().isBefore(pending.expiresAt)) {
+      while (DateTime.now().isBefore(activePending.expiresAt)) {
         if (!shouldContinue()) return false;
         await resumeObserver.waitUntilPoll();
         if (!shouldContinue()) return false;
@@ -378,7 +383,7 @@ class GitHubSignIn {
         Map<String, dynamic>? result;
         try {
           result = await pollWithNetworkRetry(
-            request: () => _pollReliable(pending),
+            request: () => _pollReliable(activePending),
             shouldContinue: shouldContinue,
             reliable: true,
           );
@@ -404,7 +409,7 @@ class GitHubSignIn {
           );
           // 确认凭据已安全落盘，再允许服务端消费授权结果。
           // ack 是幂等操作；确认失败不能撤销已成功保存在本机的登录。
-          final confirmedSession = pending;
+          final confirmedSession = activePending;
           unawaited(() async {
             try {
               await ApiService.post('/auth/github/poll', body: {
