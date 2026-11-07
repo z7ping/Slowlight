@@ -33,8 +33,21 @@ void main() {
     expect(fxDialogSurfaceFinder(), findsNothing);
     expect(find.text('添加习惯'), findsOneWidget);
     expect(find.text('创建习惯'), findsOneWidget);
-    expect(find.byKey(const ValueKey('habit-editor-mobile-footer')),
-        findsOneWidget);
+    final footer = find.byKey(const ValueKey('habit-editor-mobile-footer'));
+    expect(footer, findsOneWidget);
+    final cancel = find.descendant(
+      of: footer, matching: find.widgetWithText(FxButton, '取消'),
+    );
+    final submit = find.descendant(
+      of: footer, matching: find.widgetWithText(FxButton, '创建习惯'),
+    );
+    expect(cancel, findsOneWidget);
+    expect(submit, findsOneWidget);
+    // V3 high fidelity keeps two full-width touch targets in a 5:7 ratio.
+    final ratio = tester.getSize(submit).width / tester.getSize(cancel).width;
+    expect(ratio, closeTo(1.4, 0.02));
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(submit).height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('取消'));
