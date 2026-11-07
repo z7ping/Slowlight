@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -8,7 +10,15 @@ import '../../ui/fx.dart';
 import 'completed_task_item.dart';
 
 class TaskMonthTab extends StatefulWidget {
-  const TaskMonthTab({super.key});
+  /// Test seams only. Production reuses the existing Review/Analytics APIs.
+  final Future<Map<String, dynamic>> Function()? tasksReviewLoader;
+  final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
+
+  const TaskMonthTab({
+    super.key,
+    this.tasksReviewLoader,
+    this.dailyTrendLoader,
+  });
 
   @override
   State<TaskMonthTab> createState() => _TaskMonthTabState();
@@ -37,35 +47,44 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       _error = null;
       _refreshError = null;
     });
-    var trendLoadFailed = false;
+
+    // Primary 30-day task facts should not wait for an optional trend query.
+    unawaited(_loadTrend(version));
     try {
-      // As in WeeklyReviewScreen, the trend is optional. A failed chart
-      // request must not invalidate a successful 30-day task summary.
-      final results = await Future.wait<dynamic>([
-        ReviewApi.getTasksReview(days: 30),
-        AnalyticsApi.getDailyTrend(days: 30).catchError((Object _) {
-          trendLoadFailed = true;
-          return <Map<String, dynamic>>[];
-        }),
-      ]);
+      final result = await (widget.tasksReviewLoader ??
+          () => ReviewApi.getTasksReview(days: 30))();
       if (!mounted || version != _loadVersion) return;
       setState(() {
-        _data = results[0] as Map<String, dynamic>;
-        _trendDays = results[1] as List<Map<String, dynamic>>;
-        _trendLoadFailed = trendLoadFailed;
+        _data = result;
         _hasConfirmedReview = true;
         _loading = false;
       });
-    } catch (e) {
+    } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
         if (_hasConfirmedReview) {
-          _refreshError = e.toString();
+          _refreshError = error.toString();
         } else {
-          _error = e.toString();
+          _error = error.toString();
         }
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadTrend(int version) async {
+    try {
+      final trend = await (widget.dailyTrendLoader ??
+          () => AnalyticsApi.getDailyTrend(days: 30))();
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _trendDays = trend;
+        _trendLoadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      // Do not erase a previously confirmed trend on a failed refresh.
+      setState(() => _trendLoadFailed = true);
     }
   }
 
@@ -91,7 +110,9 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         ((summary['created_count'] as num?)?.toInt() ?? 0) > 0 ||
         tasks.isNotEmpty ||
         _trendDays.any(
-          (day) => ((day['task_completed'] as num?)?.toInt() ?? 0) > 0,
+          (day) =>
+              ((day['task_completed'] as num?)?.toInt() ?? 0) > 0 ||
+              ((day['habit_checked'] as num?)?.toInt() ?? 0) > 0,
         );
 
     return FxRefresh(
@@ -153,9 +174,12 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                         ],
                       ),
                     )
-                  else if (hasData)
+                  if (_trendDays.isNotEmpty && hasData) ...[
+                    const SizedBox(height: SlowlightSpacing.md),
+                    _trendCard(),
+                  ] else if (!_trendLoadFailed && hasData)
                     _trendCard()
-                  else
+                  else if (!_trendLoadFailed)
                     const FxEmptyState(
                       icon: LucideIcons.calendarDays,
                       title: '近 30 天还没有任务记录',
@@ -189,6 +213,10 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
             ? Map<String, dynamic>.from(summary['best_day'] as Map)
             : null;
     final bestCount = (bestDay?['completed'] as num?)?.toInt() ?? 0;
+    final habitCount = _trendDays.fold<int>(
+      0,
+      (sum, day) => sum + ((day['habit_checked'] as num?)?.toInt() ?? 0),
+    );
 
     return FxCard(
       padding: const EdgeInsets.all(16),
@@ -196,12 +224,15 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '近 30 天任务'),
+          FxSectionHeader(title: '近 30 天已载入记录', trailing: '$days 天'),
           const SizedBox(height: 12),
           _stats([
-            FxStatCell(value: '$completed', label: '完成'),
-            FxStatCell(value: '$created', label: '新建'),
-            FxStatCell(value: '$days', label: '统计天数'),
+            FxStatCell(value: '$completed', label: '完成任务'),
+            FxStatCell(value: '$created', label: '新建任务'),
+            FxStatCell(
+              value: _trendDays.isEmpty ? '—' : '$habitCount',
+              label: '习惯记录',
+            ),
           ]),
           if (bestDay != null && bestCount > 0) ...[
             const SizedBox(height: 10),
@@ -235,7 +266,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '每日完成趋势', trailing: '近 30 天'),
+          const FxSectionHeader(title: '每日任务完成趋势', trailing: '近 30 天'),
           const SizedBox(height: 14),
           if (_trendDays.isEmpty)
             Text(

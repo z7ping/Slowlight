@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -9,8 +11,18 @@ import '../ui/fx.dart';
 /// 每周回顾：作为「更多工具」内容页嵌入主壳。
 class WeeklyReviewScreen extends StatefulWidget {
   final bool embedded;
+  /// Optional test seams; production always uses the existing AnalyticsApi.
+  final Future<Map<String, dynamic>> Function()? reviewLoader;
+  final Future<Map<String, dynamic>> Function()? outputStatsLoader;
+  final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
 
-  const WeeklyReviewScreen({super.key, this.embedded = false});
+  const WeeklyReviewScreen({
+    super.key,
+    this.embedded = false,
+    this.reviewLoader,
+    this.outputStatsLoader,
+    this.dailyTrendLoader,
+  });
 
   @override
   State<WeeklyReviewScreen> createState() => _WeeklyReviewScreenState();
@@ -45,45 +57,60 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _refreshError = null;
       });
     }
-    var outputStatsFailed = false;
-    var dailyTrendFailed = false;
+
+    // Optional trend/output requests cannot delay the weekly facts.
+    unawaited(_loadOutputStats(version));
+    unawaited(_loadDailyTrend(version));
     try {
-      final results = await Future.wait<dynamic>([
-        AnalyticsApi.getWeeklyReview(),
-        AnalyticsApi.getOutputStats(
-          period: 'week',
-        ).catchError((_) {
-          outputStatsFailed = true;
-          return <String, dynamic>{};
-        }),
-        AnalyticsApi.getDailyTrend(
-          days: 7,
-        ).catchError((_) {
-          dailyTrendFailed = true;
-          return <Map<String, dynamic>>[];
-        }),
-      ]);
+      final review = await (widget.reviewLoader ??
+          AnalyticsApi.getWeeklyReview)();
       if (!mounted || version != _loadVersion) return;
       setState(() {
-        _review = results[0] as Map<String, dynamic>;
-        _outputStats = results[1] as Map<String, dynamic>;
-        _dailyTrend = results[2] as List<Map<String, dynamic>>;
-        _outputStatsFailed = outputStatsFailed;
-        _dailyTrendFailed = dailyTrendFailed;
+        _review = review;
         _hasConfirmedReview = true;
         _loading = false;
       });
-    } catch (e) {
-      if (mounted && version == _loadVersion) {
-        setState(() {
-          _loading = false;
-          if (_hasConfirmedReview) {
-            _refreshError = e.toString();
-          } else {
-            _loadError = e.toString();
-          }
-        });
-      }
+    } catch (error) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _loading = false;
+        if (_hasConfirmedReview) {
+          _refreshError = error.toString();
+        } else {
+          _loadError = error.toString();
+        }
+      });
+    }
+  }
+
+  Future<void> _loadOutputStats(int version) async {
+    try {
+      final stats = await (widget.outputStatsLoader ??
+          () => AnalyticsApi.getOutputStats(period: 'week'))();
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _outputStats = stats;
+        _outputStatsFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      // Last confirmed output stats remain available for display.
+      setState(() => _outputStatsFailed = true);
+    }
+  }
+
+  Future<void> _loadDailyTrend(int version) async {
+    try {
+      final trend = await (widget.dailyTrendLoader ??
+          () => AnalyticsApi.getDailyTrend(days: 7))();
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _dailyTrend = trend;
+        _dailyTrendFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() => _dailyTrendFailed = true);
     }
   }
 
