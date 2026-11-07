@@ -62,6 +62,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   List<Habit> _habits = const [];
   final Set<String> _coreLoading = {'清单', '任务', '习惯'};
   final Set<String> _coreErrors = {};
+  // Once a source has loaded, retain its rows during silent refresh.
+  final Set<String> _coreLoaded = {};
   final Set<int> _pendingHabitActions = {};
   final Set<int> _pendingTaskActions = {};
   int _loadVersion = 0;
@@ -166,17 +168,28 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   Future<void> _reload() async {
     _knownToday = DateUtils.dateOnly(DateTime.now());
     final version = ++_loadVersion;
-    if (mounted)
+    if (mounted) {
       setState(() {
-        _coreLoading.addAll(['清单', '任务', '习惯']);
+        for (final name in ['清单', '任务', '习惯']) {
+          if (_coreLoaded.contains(name)) {
+            _coreLoading.remove(name);
+          } else {
+            _coreLoading.add(name);
+          }
+        }
         _coreErrors.clear();
       });
+    }
     Future<void> load<T>(
         String name, Future<T> Function() read, void Function(T) apply) async {
       try {
         final value = await read();
         if (!mounted || version != _loadVersion) return;
-        setState(() => apply(value));
+        setState(() {
+          apply(value);
+          _coreLoaded.add(name);
+          _coreErrors.remove(name);
+        });
       } catch (_) {
         if (!mounted || version != _loadVersion) return;
         setState(() => _coreErrors.add(name));
@@ -859,6 +872,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       _lists = const [];
       _tasks = const [];
       _habits = const [];
+      _coreLoaded.clear();
+      _coreLoading.addAll(['清单', '任务', '习惯']);
+      _coreErrors.clear();
     });
     _reload();
   }
