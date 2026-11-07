@@ -1906,18 +1906,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       if (toLocal) {
         await manager.setLocal();
+        // AuthGate listens to authStateNotifier; mode changes must also
+        // re-evaluate the root, not leave a stale Cloud/Local session.
+        authStateNotifier.value = !authStateNotifier.value;
       } else {
-        final token = await AuthService.getToken();
+        // A non-local token may already be expired. Reuse AuthService's
+        // verified JWT check instead of switching the data source blindly.
+        final hasValidCloudSession = await AuthService.isLoggedIn();
         if (!mounted) return;
-        if (token == null || token.startsWith('local:')) {
+        if (!hasValidCloudSession) {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
           );
-          // 登录页负责认证成功后切换模式；取消登录时保留原模式。
+          // LoginScreen changes mode and broadcasts only after valid auth.
+          // Cancel leaves local data intact and never reports Cloud success.
           if (!mounted || manager.isLocal) return;
         } else {
           await manager.setCloud();
+          authStateNotifier.value = !authStateNotifier.value;
         }
       }
       if (!mounted) return;
