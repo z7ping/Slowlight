@@ -86,6 +86,23 @@ void main() {
     expect(cancel, isNot(contains('Navigator.pushReplacement(')));
   });
 
+  test('注册结果未知后主操作转为登录核对，不重复调用注册接口', () async {
+    final login = await File('lib/screens/login_screen.dart').readAsString();
+    final submitStart = login.indexOf('Future<void> _submit() async');
+    final submitEnd = login.indexOf('Future<void> _retryStoredCredentialsCloudMode()',
+        submitStart);
+    expect(submitStart, greaterThanOrEqualTo(0));
+    expect(submitEnd, greaterThan(submitStart));
+    final submit = login.substring(submitStart, submitEnd);
+    expect(submit, contains('if (!_isLogin && _registrationNeedsVerification)'));
+    expect(submit.indexOf('if (!_isLogin && _registrationNeedsVerification)'),
+        lessThan(submit.indexOf('await AuthService.register(')));
+    expect(submit, contains('_open(_LoginView.password);'));
+    expect(submit, contains('setState(() => _registrationNeedsVerification = true)'));
+    expect(login, contains('login.registration_verify'));
+    expect(login, contains("'前往登录核对'"));
+  });
+
   test('旧首页、侧栏与维度字段不得悄悄重返正式业务调用链', () async {
     const compatibilityFiles = {
       'lib/screens/home_drawer.dart': 'HomeDrawer',
