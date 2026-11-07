@@ -379,6 +379,24 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         : null;
   });
 
+  /// Date-dependent reminders cannot survive an unassigned due date.
+  /// Keep this in one place for quick chips, calendar and advanced fields.
+  void _changeDueDate(DateTime? next, {bool closePicker = false}) {
+    final removedReminder = next == null && _reminderAdvanceMinutes >= 0;
+    setState(() {
+      _dueDate = next;
+      if (next != null) _calendarFocusedDay = next;
+      if (removedReminder) _reminderAdvanceMinutes = -1;
+      if (closePicker) _mobilePage = null;
+    });
+    if (removedReminder) {
+      FxNotice.showContent(
+        context,
+        const Text('已取消到期日期，关联提醒也已清除'),
+      );
+    }
+  }
+
   Widget _mobileEditorContent(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -612,14 +630,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           return;
         }
         final today = _today();
-        setState(() {
-          _dueDate = switch (value) {
+        _changeDueDate(
+          switch (value) {
             1 => today,
             3 => DateTime(today.year, today.month, today.day + 1),
             _ => null,
-          };
-          _mobilePage = null;
-        });
+          },
+          closePicker: true,
+        );
       case _MobileTaskPage.priority:
         setState(() {
           _selectedPriority = value as String;
@@ -796,11 +814,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                           focusedDay: _calendarFocusedDay,
                           selectedDay: _dueDate,
                           eventLoader: (_) => const <Object>[],
-                          onDaySelected: (day, focusedDay) => setState(() {
-                            _dueDate = DateTime(day.year, day.month, day.day);
-                            _calendarFocusedDay = focusedDay;
-                            _mobilePage = null;
-                          }),
+                          onDaySelected: (day, _) => _changeDueDate(
+                            DateTime(day.year, day.month, day.day),
+                            closePicker: true,
+                          ),
                           onPageChanged: (day) => setState(
                             () => _calendarFocusedDay = day,
                           ),
@@ -909,7 +926,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               selected: _dueDate != null,
               onTap: () {
                 HapticFeedback.selectionClick();
-                setState(() => _dueDate = _dueToday ? null : _today());
+                _changeDueDate(_dueToday ? null : _today());
               },
             ),
             _QuickChip(
@@ -987,7 +1004,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         compact: !widget.desktopDialog,
         enabled: !_saving,
         dueDate: _dueDate,
-        onDateChanged: (date) => setState(() => _dueDate = date),
+        onDateChanged: (date) => _changeDueDate(date),
         dueTime: _dueTime,
         onTimeChanged: (time) => setState(() => _dueTime = time),
         repeatType: _repeatType,
@@ -1165,6 +1182,12 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     }
     if (title.isEmpty || _saving) {
       if (title.isEmpty) setState(() => _error = '先写下要做的事情');
+      return;
+    }
+    // Even if an old widget state bypassed the picker guard, never send an
+    // apparently enabled reminder without a schedulable due date.
+    if (_dueDate == null && _reminderAdvanceMinutes >= 0) {
+      setState(() => _error = '请先安排到期日期，再保存提醒');
       return;
     }
 

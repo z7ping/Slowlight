@@ -423,6 +423,46 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X02 详情移除到期日期后相对提醒回填为不提醒',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final scheduled = Task(
+      id: 82,
+      listId: 1,
+      title: '需要提前准备的任务',
+      priority: 'none',
+      isCompleted: false,
+      dueDate: DateTime(2026, 11, 20),
+      dueTime: '12:00',
+      reminderAt: DateTime(2026, 11, 20, 11, 50),
+      reminderAdvanceMinutes: 10,
+      createdAt: DateTime(2026, 11, 5),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskDetailSheet(
+        task: scheduled, lists: lists, onChanged: () {},
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.pumpAndSettle();
+    expect(find.text('提前 10 分钟'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('task.detail.property.due')));
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.due')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('不设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('不提醒'), findsOneWidget);
+    expect(find.text('有未保存的修改'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   for (final scale in [1.3, 2.0]) {
     testWidgets('Android 360dp 大字号 $scale 下核心属性与底部保存可达',
         (tester) async {

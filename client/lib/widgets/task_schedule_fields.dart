@@ -145,17 +145,19 @@ class TaskScheduleFields extends StatelessWidget {
       -1: '不提醒',
       0: '准时',
       5: '提前 5 分钟',
+      10: '提前 10 分钟',
       15: '提前 15 分钟',
       30: '提前 30 分钟',
       60: '提前 1 小时',
     };
     return FxFormField(
-      label: '提醒',
+      label: dueDate == null ? '提醒（先设置到期日期）' : '提醒',
       child: SizedBox(
         width: double.infinity,
         child: FxSelect<int>(
-          value: reminderAdvanceMinutes,
-          enabled: enabled,
+          // A relative reminder without a date creates no actual reminderAt.
+          value: dueDate == null ? -1 : reminderAdvanceMinutes,
+          enabled: enabled && dueDate != null,
           options: values.entries
               .map((entry) => FxSelectOption<int>(
                 value: entry.key,
