@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/add_task_screen.dart';
+import 'package:slowlight/screens/task_create_sheet.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/tag_choice_field.dart';
 
@@ -236,4 +237,51 @@ void main() {
     });
 
   });
+  testWidgets('P04 Windows 完整新建的遮罩/取消/返回不丢失草稿', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1050, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开完整新建',
+          onPressed: () => TaskCreateSheet.showFullCreate(
+            context,
+            lists: testLists,
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开完整新建'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AddTaskScreen), findsOneWidget);
+    await tester.enterText(find.byType(EditableText).first, '需要保留的草稿');
+    await tester.pumpAndSettle();
+
+    // Backdrop is not a dismissal path for the desktop full editor.
+    await tester.tapAt(const Offset(3, 3));
+    await tester.pumpAndSettle();
+    expect(find.byType(AddTaskScreen), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FxButton, '取消').first);
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(AddTaskScreen), findsOneWidget);
+    expect(tester.widget<EditableText>(find.byType(EditableText).first)
+        .controller.text, '需要保留的草稿');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AddTaskScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
