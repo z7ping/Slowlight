@@ -44,7 +44,9 @@ class _TagImpactRepo extends ObservationTagRepository {
   }
 
   @override
-  Future<void> delete(ObservationTag tag) async => deleteCalls++;
+  Future<void> delete(ObservationTag tag) async {
+    deleteCalls++;
+  }
 }
 
 void main() {
