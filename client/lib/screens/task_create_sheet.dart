@@ -60,7 +60,9 @@ class TaskCreateSheet extends StatefulWidget {
     bool defaultDueToday = true,
     VoidCallback? onCreated,
   }) async {
+    final editorKey = GlobalKey<_TaskCreateSheetState>();
     final editor = TaskCreateSheet(
+      key: editorKey,
       quickMode: true,
       desktopDialog: _useDesktopDialog(context),
       systemTagId: systemTagId,
@@ -86,8 +88,13 @@ class TaskCreateSheet extends StatefulWidget {
       // 快捷表单按内容高度展示；保留下滑关闭手势，
       // 键盘出现时仍由 FxSheet 统一避让，不自动扩展成全屏。
       isScrollControlled: true,
-      draggable: true,
-      showDragHandle: false,
+      draggable: false,
+      isDismissible: false,
+      showDragHandle: true,
+      onDismissRequested: () async {
+        final editor = editorKey.currentState;
+        if (editor != null) await editor._requestClose();
+      },
       showCloseButton: false,
       // ShadSheet 的默认内边距与表单自身边距叠加会使移动端内容过窄。
       // 快捷表单由自身统一控制间距，其他 Sheet 不受影响。
@@ -199,6 +206,11 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   bool _loadingTags = true;
   bool _tagLoadFailed = false;
   bool _saving = false;
+  bool _allowPop = false;
+  bool _closePending = false;
+  DateTime? _initialDueDate;
+  int? _initialListId;
+  late String _initialPriority;
   String? _error;
   _MobileTaskPage? _mobilePage;
   String _mobileQuery = '';
@@ -212,6 +224,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     _dataService = widget.dataService ?? DataService();
     _dueDate = widget.defaultDueToday ? _today() : null;
     _selectedPriority = _normalizePriority(widget.initialPriority);
+    _initialDueDate = _dueDate;
+    _initialPriority = _selectedPriority;
     // 旧 system_tag_id 独立透传，不混入 canonical 标签集合。
     _calendarFocusedDay = _dueDate ?? DateTime.now();
     _loadLists();
@@ -233,6 +247,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       setState(() {
         _lists = lists;
         _selectedListId = inbox?.id ?? (lists.isEmpty ? null : lists.first.id);
+        _initialListId ??= _selectedListId;
         _loadingLists = false;
         _listLoadFailed = false;
       });
@@ -727,7 +742,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                   FxIconButton(
                     icon: LucideIcons.x,
                     tooltip: '取消添加任务',
-                    onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                    onPressed: _saving ? null : _requestClose,
                   ),
               ]),
               const FxSeparator.horizontal(height: 12),
@@ -1003,11 +1018,64 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     onPressed: _saving || _creationResultUnknown ? null : _createTask,
   );
 
+  bool get _hasUnsavedDraft {
+    final dueChanged = _dueDate == null
+        ? _initialDueDate != null
+        : _initialDueDate == null ||
+            !_dueDate!.isAtSameMomentAs(_initialDueDate!);
+    return _titleController.text.trim().isNotEmpty ||
+        _descriptionController.text.trim().isNotEmpty ||
+        _selectedTagIds.isNotEmpty ||
+        dueChanged ||
+        _dueTime != null ||
+        _repeatType != 'none' ||
+        _selectedWeekdays.isNotEmpty ||
+        _reminderAdvanceMinutes != -1 ||
+        _selectedPriority != _initialPriority ||
+        (_initialListId != null && _selectedListId != _initialListId);
+  }
+
+  Future<void> _requestClose() async {
+    if (_saving || _closePending) return;
+    if (_mobilePage != null) {
+      _backMobilePage();
+      return;
+    }
+    if (_hasUnsavedDraft || _creationResultUnknown ||
+        _pendingCreatedTask != null) {
+      _closePending = true;
+      try {
+        final unknown = _creationResultUnknown || _pendingCreatedTask != null;
+        final confirmed = await FxDialog.confirm(
+          context: context,
+          title: unknown ? '任务创建结果未确认' : '放弃未保存的任务？',
+          content: unknown
+              ? '任务可能已创建，请先核对任务列表，避免重复创建。'
+              : '关闭后将丢失当前填写的任务内容。',
+          confirmText: unknown ? '返回核对' : '放弃修改',
+          destructive: !unknown,
+        );
+        if (confirmed != true || !mounted) return;
+      } finally {
+        _closePending = false;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
   Widget _editorActions() => FxDialogActions(actions: [
     FxButton(
       label: '取消',
       variant: FxButtonVariant.ghost,
-      onPressed: _saving ? null : () => Navigator.of(context).pop(),
+      onPressed: _saving
+          ? null
+          : widget.desktopDialog
+              ? () => Navigator.of(context).pop()
+              : _requestClose,
     ),
     _submitButton(),
   ]);
@@ -1015,9 +1083,11 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_saving && _mobilePage == null,
+      canPop: widget.desktopDialog
+          ? !_saving && _mobilePage == null
+          : _allowPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_saving && _mobilePage != null) _backMobilePage();
+        if (!didPop && !_saving && !widget.desktopDialog) _requestClose();
       },
       child: _buildEditor(context),
     );
@@ -1064,7 +1134,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                       FxIconButton(
                         icon: LucideIcons.x,
                         tooltip: '取消添加任务',
-                        onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                        onPressed: _saving ? null : _requestClose,
                       ),
                     ]),
                     const SizedBox(height: 12),
@@ -1176,7 +1246,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
       if (!mounted) return;
       HapticFeedback.lightImpact();
       if (!_parentNotifiedOfCreation) widget.onCreated?.call();
-      Navigator.pop(context);
+      setState(() {
+        _saving = false;
+        _allowPop = true;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
       notice.showContent(Text(_createdText(task)));
     } catch (e) {
       if (!mounted) return;
