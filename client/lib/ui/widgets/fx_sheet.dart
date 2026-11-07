@@ -174,7 +174,9 @@ abstract final class FxSheet {
 
         // 键盘开合时保持相同的组件树，避免重新挂载输入框、丢失焦点。
         return AnimatedPadding(
-          duration: const Duration(milliseconds: 200),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
           curve: Curves.linearToEaseOut,
           padding: insetPadding,
           child: MediaQuery.removeViewInsets(
