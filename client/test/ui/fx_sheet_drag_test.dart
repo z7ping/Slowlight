@@ -88,7 +88,6 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-
   testWidgets('统一引导线：轻拖回弹，长拖请求退出；内容滑动不能关闭',
       (tester) async {
     tester.view.physicalSize = const Size(390, 850);
