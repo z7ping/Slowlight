@@ -239,6 +239,57 @@ void main() {
     expect(attempts, 2);
   });
 
+  test('reliable OAuth 轮询：代理 HTTP 503 无终止 code，保留重试直到恢复', () async {
+    var calls = 0;
+    final result = await GitHubSignIn.pollWithNetworkRetry(
+      request: () async {
+        calls++;
+        return GitHubSignIn.decodeReliablePollResponse(
+          calls == 1
+              ? http.Response('<html>Bad Gateway</html>', 503)
+              : http.Response('{"status":"pending","phase":"profile"}', 200),
+        );
+      },
+      shouldContinue: () => true,
+      reliable: true,
+      delay: (_) async {},
+    );
+    expect(calls, 2);
+    expect(result?['status'], 'pending');
+  });
+
+  test('reliable OAuth 轮询：服务端明确终止 code 不可重试', () async {
+    final reply = http.Response(
+      '{"code":"github_unavailable","error":"需要重新授权"}',
+      503,
+    );
+    expect(
+      () => GitHubSignIn.decodeReliablePollResponse(reply),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('reliable OAuth 轮询：临时 HTTP 429/500 和非 JSON 200 均不丢授权', () {
+    for (final reply in [
+      http.Response('{"error":"rate limited"}', 429),
+      http.Response('{"error":"upstream timeout"}', 500),
+      http.Response('invalid JSON', 200),
+    ]) {
+      expect(
+        () => GitHubSignIn.decodeReliablePollResponse(reply),
+        throwsA(predicate<Object>(
+          (error) => GitHubSignIn.isTransientNetworkFailure(error),
+        )),
+      );
+    }
+    expect(
+      () => GitHubSignIn.decodeReliablePollResponse(
+        http.Response('{"error":"授权已超时"}', 410),
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   test('GitHub 阶段文案只描述正在进行的步骤', () {
     expect(GitHubSignIn.statusForPhase('authorization'), contains('GitHub'));
     expect(GitHubSignIn.statusForPhase('token'), contains('授权码'));
