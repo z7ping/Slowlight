@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/habit.dart';
@@ -18,6 +20,8 @@ class HabitController extends ChangeNotifier {
   List<Habit> _habits = const [];
   final Map<int, List<HabitLog>> _logs = {};
   final Set<int> _loadingLogIds = {};
+  final Map<int, Future<void>> _activeLogReads = {};
+  final Set<int> _queuedLogRefreshes = {};
   final Map<int, String> _logErrors = {};
   bool _loading = false;
   String? _error;
@@ -205,18 +209,46 @@ class HabitController extends ChangeNotifier {
     await load();
   }
 
-  Future<void> loadLogs(int habitId) async {
-    if (_loadingLogIds.contains(habitId)) return;
+  /// A check-in may finish while the expanded history is still loading.
+  /// Coalesce repeated requests into one trailing refresh instead of silently
+  /// ignoring the post-write reload or publishing an obsolete snapshot.
+  Future<void> loadLogs(int habitId) {
+    final active = _activeLogReads[habitId];
+    if (active != null) {
+      _queuedLogRefreshes.add(habitId);
+      return active;
+    }
+    final request = _readLogsUntilCurrent(habitId);
+    _activeLogReads[habitId] = request;
+    return request.whenComplete(() {
+      _activeLogReads.remove(habitId);
+    });
+  }
+
+  Future<void> _readLogsUntilCurrent(int habitId) async {
     _loadingLogIds.add(habitId);
     _logErrors.remove(habitId);
     notifyListeners();
     try {
-      _logs[habitId] = await _repository.logs(habitId);
-    } catch (error) {
-      _logErrors[habitId] = error.toString();
+      while (true) {
+        _queuedLogRefreshes.remove(habitId);
+        try {
+          final logs = await _repository.logs(habitId);
+          if (!_queuedLogRefreshes.contains(habitId) && !_disposed) {
+            _logs[habitId] = logs;
+            _logErrors.remove(habitId);
+          }
+        } catch (error) {
+          if (!_queuedLogRefreshes.contains(habitId) && !_disposed) {
+            _logErrors[habitId] = error.toString();
+          }
+        }
+        if (!_queuedLogRefreshes.remove(habitId)) break;
+      }
     } finally {
       _loadingLogIds.remove(habitId);
       notifyListeners();
     }
   }
+
 }
