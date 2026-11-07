@@ -506,14 +506,13 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     if (tag.isDefault || _deletingTag) return;
     _deletingTag = true;
     try {
-      final (:tasks, :habits, :sessions, :reflections)?
-          impact = await _repository.getDeletionImpact(tag);
+      final impact = await _repository.getDeletionImpact(tag);
       if (!mounted) return;
       final detail = impact == null
           ? '云端未提供关联数量，无法在此核对影响条数。'
               '服务端删除只解除标签及对应关联，不删除任务、习惯和历史记录。'
-          : '本机已确认关联：任务 ${tasks} 项、习惯 ${habits} 项、'
-              '专注 ${sessions} 项、观察/回应 ${reflections} 项。'
+          : '本机已确认关联：任务 ${impact.tasks} 项、习惯 ${impact.habits} 项、'
+              '专注 ${impact.sessions} 项、观察/回应 ${impact.reflections} 项。'
               '删除会解除这些关联，不删除原有记录。';
       final confirmed = await FxDialog.confirm(
         context: context,
