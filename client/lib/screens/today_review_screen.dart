@@ -51,6 +51,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       [..._reflectionUnavailable, ..._habitUnavailable];
   Map<String, dynamic> _review = {};
   List<ReflectionEntry> _reflections = const [];
+  // A question is not safe to submit until saved responses were checked.
+  bool _reflectionsChecked = false;
   List<_TodayHabitFact> _todayHabitFacts = const [];
   int _viewIndex = 0;
   int _periodIndex = 0;
@@ -104,6 +106,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _loading = !_hasConfirmedReview;
         _error = null;
         _refreshError = null;
+        _reflectionsChecked = false;
         if (!_hasConfirmedReview) {
           _reflectionUnavailable = const [];
           _habitUnavailable = const [];
@@ -144,12 +147,16 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       if (!mounted || version != _loadVersion) return;
       setState(() {
         _reflections = entries;
+        _reflectionsChecked = true;
         _reflectionUnavailable = const [];
       });
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
       // Keep already confirmed saved responses; failure is not empty.
-      setState(() => _reflectionUnavailable = const ['回应记录']);
+      setState(() {
+        _reflectionsChecked = false;
+        _reflectionUnavailable = const ['回应记录'];
+      });
     }
   }
 
@@ -958,6 +965,17 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                             context,
                           ).copyWith(fontWeight: FontWeight.w600),
                         ),
+                        if (!_reflectionsChecked) ...[
+                          const SizedBox(height: SlowlightSpacing.xs),
+                          Text(
+                            _reflectionUnavailable.isEmpty
+                                ? '正在核对已保存的回应…'
+                                : '回应记录未核对成功，请重新加载后提交。',
+                            style: SlowlightTypography.caption(context).copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                         if (!expanded) ...[
                           const SizedBox(height: 6),
                           Text(
@@ -985,7 +1003,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                                   ? '保存中…'
                                   : '保存回应',
                               size: FxButtonSize.sm,
-                              onPressed: _savingAnswers.contains(key) ||
+                              onPressed: !_reflectionsChecked ||
+                                      _savingAnswers.contains(key) ||
                                       _unknownAnswers.contains(key)
                                   ? null
                                   : () => _saveAnswer(question),
@@ -1114,7 +1133,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   Future<void> _saveAnswer(Map<String, dynamic> question) async {
     final key = _questionKey(question);
-    if (_savingAnswers.contains(key) ||
+    if (!_reflectionsChecked ||
+        _savingAnswers.contains(key) ||
         _unknownAnswers.contains(key) ||
         _answered.contains(key)) return;
     final controller = _controllerFor(question);
