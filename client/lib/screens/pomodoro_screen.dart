@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/task.dart';
 import '../repositories/session_repository.dart';
@@ -21,6 +23,7 @@ class PomodoroScreen extends StatefulWidget {
 
 class _PomodoroScreenState extends State<PomodoroScreen>
     with SingleTickerProviderStateMixin {
+  static const _settingsPrefsKey = 'slowlight_pomodoro_settings_v1';
   final SessionRepository _sessions = SessionRepository();
 
   int _workMinutes = 25;
@@ -63,7 +66,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
     _loadTodayStats();
     _loadTodayTasks();
-    _restoreActiveSession();
+    unawaited(_restorePreferencesThenSession());
   }
 
   @override
@@ -105,6 +108,39 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _applySession(Map<String, dynamic>.from(data['session'] as Map));
     } catch (_) {
       if (mounted) _message('恢复专注状态失败，请检查连接');
+    }
+  }
+
+  /// Restore preferences before the legacy session fallback reads a target
+  /// duration. Active rounds with persisted target_minutes remain authoritative.
+  Future<void> _restorePreferencesThenSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_settingsPrefsKey);
+      if (raw != null) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          final work = decoded['workMinutes'];
+          if (work is int && const [25, 45, 60].contains(work)) {
+            _workMinutes = work;
+          }
+          final auto = decoded['autoStartNext'];
+          if (auto is bool) _autoStartNext = auto;
+          final sound = decoded['soundEnabled'];
+          if (sound is bool) _soundEnabled = sound;
+          if (mounted && !_activeSession) {
+            setState(() {
+              _sessionTargetMinutes = _durationFor(_sessionType);
+              _remainingSeconds = _sessionTargetMinutes * 60;
+            });
+          }
+        }
+      }
+    } catch (_) {
+      // Invalid old preferences must not stop active-session recovery.
+      if (mounted) _message('专注偏好读取失败，已使用默认设置');
+    } finally {
+      if (mounted) await _restoreActiveSession();
     }
   }
 
@@ -542,6 +578,22 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
 
     if (saved != true || !mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final persisted = await prefs.setString(
+        _settingsPrefsKey,
+        jsonEncode({
+          'workMinutes': work,
+          'autoStartNext': autoStart,
+          'soundEnabled': soundEnabled,
+        }),
+      );
+      if (!persisted) throw StateError('写入设置失败');
+    } catch (_) {
+      if (mounted) _message('专注设置未保存，请重试');
+      return;
+    }
+    if (!mounted) return;
     final oldTotal = _durationFor(_sessionType) * 60;
     final atStart = !_activeSession && _remainingSeconds == oldTotal;
     setState(() {
