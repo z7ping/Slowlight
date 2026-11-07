@@ -181,26 +181,24 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   Future<void> _loadHabitDetails(int version) async {
     final unavailable = <String>[];
+    final failedHabitIds = <int>{};
     try {
-      final facts = await _loadTodayHabitFacts(unavailable);
+      final facts = await _loadTodayHabitFacts(unavailable, failedHabitIds);
       if (!mounted || version != _loadVersion) return;
       setState(() {
         // Partial per-habit failures must not wipe confirmed fact rows.
         // Keep old entries only for habits whose logs were unavailable.
-        if (unavailable.isEmpty) {
+        if (failedHabitIds.isEmpty) {
           _todayHabitFacts = facts;
         } else {
-          final failedNames = unavailable
-              .where((value) => value.startsWith('习惯「') &&
-                  value.endsWith('」明细'))
-              .map((value) => value.substring(3, value.length - 3))
-              .toSet();
+          // Names are not identifiers: two habits may share the same title.
+          // Only preserve rows belonging to the exact failed habit ID.
           _todayHabitFacts = [
             ...facts,
             ..._todayHabitFacts.where(
-              (row) => failedNames.contains(row.habit.name),
+              (row) => failedHabitIds.contains(row.habit.id),
             ),
-          ]..sort((a, b) => a.log.createdAt.compareTo(b.log.createdAt));
+          ]..sort(_compareHabitFactsByOccurredAt);
         }
         _habitUnavailable = List<String>.unmodifiable(unavailable);
       });
@@ -210,8 +208,17 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     }
   }
 
+  DateTime _habitFactOccurredAt(HabitLog log) =>
+      log.occurredAt ?? log.createdAt;
+
+  int _compareHabitFactsByOccurredAt(
+      _TodayHabitFact first, _TodayHabitFact second) =>
+      _habitFactOccurredAt(first.log).compareTo(
+        _habitFactOccurredAt(second.log),
+      );
+
   Future<List<_TodayHabitFact>> _loadTodayHabitFacts(
-      List<String> unavailable) async {
+      List<String> unavailable, Set<int> failedHabitIds) async {
     final repository = widget.habitRepository ?? HabitRepository();
     final habits = await repository.getAll();
     final now = DateTime.now();
@@ -229,10 +236,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           }
         }
       } catch (_) {
+        failedHabitIds.add(habit.id);
         unavailable.add('习惯「${habit.name}」明细');
       }
     }));
-    facts.sort((a, b) => a.log.createdAt.compareTo(b.log.createdAt));
+    facts.sort(_compareHabitFactsByOccurredAt);
     return facts;
   }
 
@@ -776,7 +784,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         items.add(
           ReviewTimelineItem(
             color: ColorUtils.safeParse(fact.habit.color),
-            time: '${_two(log.createdAt.hour)}:${_two(log.createdAt.minute)}',
+            // Backfilled habits have an occurrence instant distinct from
+            // their record creation time. Do not invent a logging timestamp.
+            time: _clockTime(_habitFactOccurredAt(log)),
             title: '${fact.habit.icon} 打卡「${fact.habit.name}」',
             note: _habitFactNote(log),
           ),
