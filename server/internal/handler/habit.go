@@ -28,6 +28,7 @@ func NewHabitHandler(db *gorm.DB) *HabitHandler {
 func habitUserWindowLogs(db *gorm.DB, userID uint, from, through string) ([]model.HabitLog,error) {
     var logs []model.HabitLog
     err := db.Model(&model.HabitLog{}).
+        Select("habit_logs.*").
         Joins("JOIN habits ON habits.id = habit_logs.habit_id AND habits.user_id = ? AND habits.deleted_at IS NULL", userID).
         Where("habit_logs.date >= ? AND habit_logs.date <= ?", from, through).
         Find(&logs).Error
