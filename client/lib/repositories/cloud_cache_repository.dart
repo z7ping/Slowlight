@@ -497,6 +497,22 @@ class CloudCacheRepository {
     final localId = row['id'] as int;
     final serverId = row['server_id'] as int?;
     final updates = Map<String, dynamic>.from(data);
+    const contract = ['goal_period', 'goal_metric', 'goal_value',
+      'record_type', 'schedule_rule'];
+    final changed = contract.any((field) {
+      if (!updates.containsKey(field)) return false;
+      if (field == 'schedule_rule') {
+        return jsonEncode(_jsonMap(row[field])) !=
+            jsonEncode(_jsonMap(updates[field]));
+      }
+      return row[field] != updates[field];
+    });
+    if (changed) {
+      // Server appends the authoritative revision inside the same update
+      // transaction. A disconnected edit has no trustworthy version time,
+      // so never accept a change that could rewrite earlier goal evidence.
+      throw const HabitGoalVersionRequiresOnline();
+    }
     if (updates.containsKey('system_tag_id')) {
       final publicTagId = updates['system_tag_id'] as int?;
       updates['system_tag_id'] = publicTagId == null
