@@ -25,7 +25,6 @@ String syncDetailResultLabel({
   return '无待处理项';
 }
 
-/// 同步状态指示器 — 显示在 AppBar 或 Drawer
 /// Failed/unknown writes must be reconciled before any user-triggered replay.
 /// SyncService uses conflict status for ambiguous creates; one global error
 /// does not prove the entire failed batch is safe to submit again.
@@ -40,6 +39,7 @@ bool syncMayStartUserRetry({
     conflictCount == 0 &&
     !hasRequestError;
 
+/// 同步状态指示器 — 显示在 AppBar 或 Drawer
 class SyncStatusBadge extends StatelessWidget {
   final bool showHealthy;
   final bool showLocal;
