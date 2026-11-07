@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
 import '../models/habit_schedule_rule.dart';
+import '../models/habit_timezone_policy.dart';
 import '../models/observation_tag.dart';
 import '../models/tag.dart';
 import '../repositories/tag_links_repository.dart';
@@ -589,6 +590,13 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       if (!mounted) return;
       setState(() => _submitting = false);
       _complete(value);
+    } on HabitKnownWriteBlock catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _resultUnknown = false;
+        _validationError = error.message;
+      });
     } catch (error) {
       if (!mounted) return;
       widget.onUnconfirmed?.call(value);
