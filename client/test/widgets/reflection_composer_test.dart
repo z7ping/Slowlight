@@ -7,7 +7,6 @@ import 'package:slowlight/widgets/reflection_composer.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
-
   testWidgets('Android 360dp 观察 Sheet 引导线和底部操作与原型几何一致',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
