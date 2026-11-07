@@ -1,6 +1,7 @@
 package handler
 
 import (
+    "errors"
 	"encoding/json"
     "fmt"
 	"net/http"
@@ -287,6 +288,31 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
                 locked = locked.Clauses(clause.Locking{Strength:"UPDATE"})
             }
             if err := locked.First(&current).Error; err != nil { return err }
+            // A record's count/duration interpretation must never change
+            // after the first fact was stored under that record contract.
+            newRecordType := current.RecordType
+            newRecordUnit := current.RecordUnit
+            if v,ok := updates["record_type"].(string);ok {newRecordType=v}
+            if v,ok := updates["record_unit"].(string);ok {newRecordUnit=v}
+            if newRecordType != current.RecordType || newRecordUnit != current.RecordUnit {
+                var n int64
+                if err:=tx.Model(&model.HabitLog{}).
+                    Where("habit_id = ?",current.ID).Count(&n).Error;err!=nil{return err}
+                if n>0 {return errHabitRecordContractUsed}
+            }
+            if encoded,ok := updates["schedule_rule"].(string);ok &&
+                encoded!=current.ScheduleRule && encoded!="{}" {
+                var first model.HabitLog
+                err:=tx.Where("habit_id = ?",current.ID).Order("date ASC").First(&first).Error
+                if err!=nil && !errors.Is(err,gorm.ErrRecordNotFound){return err}
+                if err==nil {
+                    rule,parseErr:=habitRuleFromJSON(encoded)
+                    if parseErr!=nil{return parseErr}
+                    if rule!=nil && rule.AnchorDate>first.Date {
+                        return errHabitAnchorAfterHistory
+                    }
+                }
+            }
             if err := tx.Model(&current).Updates(updates).Error; err != nil {
                 return err
             }
@@ -296,6 +322,11 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
             if !habitGoalChanged(current,next) { return nil }
             return recordHabitGoalRevision(tx,next)
         }); err != nil {
+            if errors.Is(err,errHabitRecordContractUsed) ||
+               errors.Is(err,errHabitAnchorAfterHistory) {
+                c.JSON(http.StatusConflict,gin.H{"error":err.Error()})
+                return
+            }
             c.JSON(http.StatusInternalServerError, gin.H{"error":"更新习惯及目标版本失败"})
             return
         }
