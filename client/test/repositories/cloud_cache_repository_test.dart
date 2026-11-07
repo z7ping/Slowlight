@@ -7,6 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/cloud_cache_db.dart';
 import 'package:slowlight/db/local_db.dart';
 import 'package:slowlight/repositories/cloud_cache_repository.dart';
+import 'package:slowlight/models/habit_timezone_policy.dart';
 import 'package:slowlight/services/cloud_task_completion_cache.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/services/sync_service.dart';
@@ -143,7 +144,7 @@ void main() {
     expect((loaded['goal_history'] as List), hasLength(1));
     await expectLater(
       CloudCacheRepository().updateHabit(701, {'goal_value': 5}),
-      throwsA(isA<Exception>()),
+      throwsA(isA<HabitGoalVersionRequiresOnline>()),
     );
     final rows = await db.query('habits', where: 'server_id = ?',
         whereArgs: [701]);
