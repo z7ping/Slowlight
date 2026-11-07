@@ -18,19 +18,19 @@ ObservationTag _tag(int id, String name) => ObservationTag(
 
 class _TagReads extends ObservationTagRepository {
   _TagReads(this.reads);
-  final List<Future<List<ObservationTag>>> reads;
+  final List<Future<List<ObservationTag>> Function()> reads;
   int calls = 0;
 
   @override
-  Future<List<ObservationTag>> getAll() => reads[calls++];
+  Future<List<ObservationTag>> getAll() => reads[calls++]();
 }
 
 void main() {
   testWidgets('P15 已载入标签刷新失败仍可见，并支持再次重试', (tester) async {
     final repository = _TagReads([
-      Future.value([_tag(7, '阅读')]),
-      Future.error(StateError('temporary offline')),
-      Future.value([_tag(7, '阅读'), _tag(8, '心流')]),
+      () async => [_tag(7, '阅读')],
+      () async => throw StateError('temporary offline'),
+      () async => [_tag(7, '阅读'), _tag(8, '心流')],
     ]);
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: SystemTagScreen(repository: repository)),
@@ -58,9 +58,9 @@ void main() {
     final pending = Completer<List<ObservationTag>>();
     final current = Completer<List<ObservationTag>>();
     final repository = _TagReads([
-      Future.value([_tag(1, '初始')]),
-      pending.future,
-      current.future,
+      () async => [_tag(1, '初始')],
+      () => pending.future,
+      () => current.future,
     ]);
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: SystemTagScreen(repository: repository)),
@@ -86,7 +86,7 @@ void main() {
 
   testWidgets('P15 首次标签读取失败明确显示重试而非空标签', (tester) async {
     final repository = _TagReads([
-      Future.error(StateError('offline')),
+      () async => throw StateError('offline'),
     ]);
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: SystemTagScreen(repository: repository)),
