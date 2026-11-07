@@ -6,6 +6,15 @@ import 'package:slowlight/ui/fx.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  test('S12 缺失或未知迁移状态不能冒充成功回执', () {
+    expect(migrationHistoryStatusLabel(null), '状态待核对');
+    expect(migrationHistoryStatusLabel(''), '状态待核对');
+    expect(migrationHistoryStatusLabel('unrecognized'), '状态待核对');
+    expect(migrationHistoryStatusLabel('running'), '结果未确认');
+    expect(migrationHistoryStatusLabel('failed'), '待核对');
+    expect(migrationHistoryStatusLabel('succeeded'), '成功');
+  });
+
   testWidgets('迁移历史弹窗可以从根导航正常打开和关闭', (tester) async {
     await tester.pumpWidget(
       buildFxTestHost(
