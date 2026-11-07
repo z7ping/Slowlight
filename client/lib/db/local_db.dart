@@ -556,6 +556,7 @@ class LocalDb {
         goal_metric TEXT NOT NULL,
         goal_value INTEGER NOT NULL,
         record_type TEXT NOT NULL,
+        record_unit TEXT NOT NULL,
         schedule_rule TEXT NOT NULL,
         effective_at TEXT NOT NULL,
         UNIQUE (habit_id, revision),
