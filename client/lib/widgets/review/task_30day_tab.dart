@@ -119,9 +119,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         ((summary['completed_count'] as num?)?.toInt() ?? 0) > 0 ||
         ((summary['created_count'] as num?)?.toInt() ?? 0) > 0 ||
         tasks.isNotEmpty ||
-        _trendDays.any(
+        // Old trend may still be shown with a stale marker, but it cannot
+        // establish activity in the newly-confirmed 30-day task snapshot.
+        (!_trendRefreshing && !_trendLoadFailed && _trendDays.any(
           (day) => ((day['task_completed'] as num?)?.toInt() ?? 0) > 0,
-        );
+        ));
 
     return FxRefresh(
       onRefresh: _load,
