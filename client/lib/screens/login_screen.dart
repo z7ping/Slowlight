@@ -870,8 +870,12 @@ class _LoginScreenState extends State<LoginScreen> {
           (_view == _LoginView.welcome && !_githubAuthorizing),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || _allowCompletionPop) return;
-        if (_view == _LoginView.github && _githubAuthorizing) {
-          if (!_githubFinishing) unawaited(_stopGitHubWaiting());
+        if (_view == _LoginView.github) {
+          // System back must not skip clearing a pending GitHub login,
+          // including after a failed authorization or failed cancellation.
+          if (!_githubFinishing && (!_isLoading || _githubAuthorizing)) {
+            unawaited(_stopGitHubWaiting());
+          }
         } else if (!_isLoading) {
           _open(_LoginView.welcome);
         }
