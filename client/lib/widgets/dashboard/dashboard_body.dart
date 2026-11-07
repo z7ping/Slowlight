@@ -26,6 +26,7 @@ class DashboardBody extends StatefulWidget {
   final ValueChanged<Habit>? onHabitLongPress;
   final VoidCallback? onViewAllTasks;
   final VoidCallback? onViewAllHabits;
+  final VoidCallback? onCreateHabit;
   final VoidCallback? onViewReview;
   final Future<List<TodayTimelineItem>> Function()? timelineLoader;
   final VoidCallback? onQuickAdd;
@@ -53,6 +54,7 @@ class DashboardBody extends StatefulWidget {
     this.onHabitLongPress,
     this.onViewAllTasks,
     this.onViewAllHabits,
+    this.onCreateHabit,
     this.onViewReview,
     this.timelineLoader,
     this.onQuickAdd,
@@ -1121,12 +1123,14 @@ class _DashboardBodyState extends State<DashboardBody> {
                           style: SlowlightTypography.caption(context).copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           )),
-                      if (widget.onViewAllHabits != null)
+                      if (widget.onCreateHabit != null ||
+                          widget.onViewAllHabits != null)
                         FxButton(
                           label: '添加习惯',
                           variant: FxButtonVariant.ghost,
                           size: FxButtonSize.sm,
-                          onPressed: widget.onViewAllHabits,
+                          onPressed:
+                              widget.onCreateHabit ?? widget.onViewAllHabits,
                         ),
                     ],
                   ),
@@ -1134,7 +1138,7 @@ class _DashboardBodyState extends State<DashboardBody> {
               : _emptyWithNext(
                   '找到想坚持的事时，再把它加入习惯。',
                   '添加习惯',
-                  widget.onViewAllHabits,
+                  widget.onCreateHabit ?? widget.onViewAllHabits,
                 )
         else
           for (var i = 0; i < visible.length; i++)
