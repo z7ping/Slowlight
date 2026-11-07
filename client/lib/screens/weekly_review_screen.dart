@@ -26,6 +26,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   Map<String, dynamic> _review = {};
   Map<String, dynamic> _outputStats = {};
   List<Map<String, dynamic>> _dailyTrend = const [];
+  int _loadVersion = 0;
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Future<void> _loadReview() async {
+    final version = ++_loadVersion;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -58,7 +60,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
           return <Map<String, dynamic>>[];
         }),
       ]);
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _review = results[0] as Map<String, dynamic>;
         _outputStats = results[1] as Map<String, dynamic>;
@@ -68,7 +70,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (mounted) {
+      if (mounted && version == _loadVersion) {
         setState(() {
           _loading = false;
           _loadError = e.toString();
