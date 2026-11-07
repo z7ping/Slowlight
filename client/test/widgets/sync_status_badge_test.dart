@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slowlight/widgets/sync_status_badge.dart';
 import 'package:slowlight/services/sync_service.dart';
+import 'package:slowlight/widgets/sync_status_badge.dart';
 
 void main() {
   test('X09 未确认或冲突状态只允许核对，不会触发普通同步', () {
