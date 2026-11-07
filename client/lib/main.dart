@@ -398,7 +398,11 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
     return _pendingGitHubLogin || !_hasAccess
-        ? const LoginScreen()
+        ? LoginScreen(
+            returnToLocalOnCancel: _pendingGitHubLogin &&
+                _hasAccess &&
+                DataModeManager().isLocal,
+          )
         : const HomeScreen();
   }
 }
