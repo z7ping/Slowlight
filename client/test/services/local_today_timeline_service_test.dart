@@ -140,7 +140,9 @@ void main() {
     expect(daily.items.length, 40);
     expect(rolling.items.length, 40);
     expect(rolling.items.first.kind, 'observation');
-    expect(() => service.getPeriodTimeline(period: 'year'), throwsArgumentError);
+    await expectLater(
+      service.getPeriodTimeline(period: 'year'), throwsArgumentError,
+    );
   });
 
 }
