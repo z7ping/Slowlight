@@ -254,7 +254,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _conflictReadFailed = false;
         _feedback = conflicts.isNotEmpty
             ? '有同步冲突，请先核对并解决；未重新提交数据。'
-            : '已核对冲突与待处理数量。原始请求结果仍未确认时，不自动重新写入。';
+            : '已尝试刷新当前可用的冲突与队列状态；原始请求结果仍未确认时，不自动重新写入。';
       });
     } catch (error) {
       if (!mounted) return;
