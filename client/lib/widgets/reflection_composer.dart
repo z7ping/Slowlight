@@ -511,6 +511,7 @@ class ReflectionComposer {
                       children: [
                         Text(
                           '记录观察',
+                          key: const ValueKey('observation.mobile.title'),
                           style: SlowlightTypography.cardTitle(sheetContext)
                               .copyWith(fontWeight: FontWeight.w700),
                         ),
