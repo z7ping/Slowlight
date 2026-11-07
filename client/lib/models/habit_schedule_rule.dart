@@ -123,6 +123,13 @@ class HabitScheduleRule {
     }
     final minutes=minute(anchorTime);
     final hour=minutes~/60,m=minutes%60;
+    // One recurrence path for specific dates: preview must use exactly
+    // the same calendar semantics as upcoming reminders.
+    if(kind=='specific'){
+      final anchorTime=DateTime(start.year,start.month,start.day,hour,m);
+      return nextAfter(anchorTime.subtract(const Duration(microseconds:1)),
+          count:count);
+    }
     final result=<DateTime>[];
     if(kind=='interval'){
       for(var i=0;i<count;i++){
@@ -139,18 +146,6 @@ class HabitScheduleRule {
         }
       }
       return result;
-    }
-    final monday=DateTime.utc(start.year,start.month,start.day-start.weekday+1);
-    for(var i=0;i<3660&&result.length<count;i++){
-      final d=DateTime(start.year,start.month,start.day+i,hour,m);
-      if(unit=='week'){
-        final weeks=DateTime.utc(d.year,d.month,d.day).difference(monday).inDays~/7;
-        if(weeks%every==0&&weekdays.contains(d.weekday))result.add(d);
-      }else{
-        final months=(d.year-start.year)*12+d.month-start.month;
-        if(months%every==0&&(monthDays.contains(d.day)||
-             lastDay&&d.day==DateTime(d.year,d.month+1,0).day))result.add(d);
-      }
     }
     return result;
   }
@@ -205,17 +200,35 @@ class HabitScheduleRule {
       }
       return result;
     }
+    if(kind=='specific'&&unit=='month'){
+      // Scan actual selected months rather than only 3,660 daily dates.
+      // A 24-month schedule needs >10 years to return eight occurrences.
+      // A 400-year Gregorian horizon bounds impossible combinations such
+      // as "every February 31st" without an unbounded retry loop.
+      final delta=(after.year-start.year)*12+after.month-start.month;
+      final firstCycle=max(0,delta~/every)*every;
+      final anchorSlot=DateTime(start.year,start.month,start.day,hh,mm);
+      for(var offset=firstCycle;offset<firstCycle+4800 &&
+          result.length<count;offset+=every){
+        final month=DateTime(start.year,start.month+offset,1);
+        final last=DateTime(month.year,month.month+1,0).day;
+        final daysInMonth=<int>{
+          for(final d in monthDays)if(d<=last)d,
+          if(lastDay)last,
+        }.toList()..sort();
+        for(final d in daysInMonth){
+          final value=DateTime(month.year,month.month,d,hh,mm);
+          if(!value.isBefore(anchorSlot))add(value);
+          if(result.length==count)break;
+        }
+      }
+      return result;
+    }
     final monday=DateTime.utc(start.year,start.month,start.day-start.weekday+1);
     for(var d=max(0,days);d<max(0,days)+3660&&result.length<count;d++){
       final value=DateTime(start.year,start.month,start.day+d,hh,mm);
-      if(unit=='week'){
-        final week=DateTime.utc(value.year,value.month,value.day).difference(monday).inDays~/7;
-        if(week%every==0&&weekdays.contains(value.weekday))add(value);
-      }else{
-        final delta=(value.year-start.year)*12+value.month-start.month;
-        if(delta%every==0&&(monthDays.contains(value.day)||
-            lastDay&&value.day==DateTime(value.year,value.month+1,0).day))add(value);
-      }
+      final week=DateTime.utc(value.year,value.month,value.day).difference(monday).inDays~/7;
+      if(week%every==0&&weekdays.contains(value.weekday))add(value);
     }
     return result;
   }
