@@ -3,6 +3,8 @@ class User {
   final String username;
   final String email;
   final String nickname;
+  /// Cloud account's authoritative IANA timezone. Null in legacy caches.
+  final String? timezone;
   final String? avatar;
   final DateTime createdAt;
 
@@ -12,6 +14,7 @@ class User {
     required this.email,
     required this.nickname,
     this.avatar,
+    this.timezone,
     required this.createdAt,
   });
 
@@ -22,6 +25,7 @@ class User {
       email: json['email'],
       nickname: json['nickname'] ?? json['username'],
       avatar: json['avatar'],
+      timezone: json['timezone'] as String?,
       createdAt: DateTime.parse(json['created_at']),
     );
   }
@@ -33,6 +37,7 @@ class User {
       'email': email,
       'nickname': nickname,
       'avatar': avatar,
+      'timezone': timezone,
       'created_at': createdAt.toIso8601String(),
     };
   }
