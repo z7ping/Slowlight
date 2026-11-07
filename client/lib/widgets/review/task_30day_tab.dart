@@ -249,10 +249,13 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
               if (_failedPeriodPageOffset != null)
                 Text('本页读取未完成，仍显示上一页；可重新读取。',
                     style: SlowlightTypography.secondary(context)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              if (_periodPageOffset > 0 ||
+                  page?.hasMore == true ||
+                  _failedPeriodPageOffset != null) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                 children: [
                   if (_periodPageOffset > 0)
                     FxButton(
@@ -262,7 +265,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                       onPressed: _loadingPeriodPage ? null
                           : () => _loadPeriodPage(_periodPageOffset - 40),
                     ),
-                  if (page?.hasMore == true)
+                  if (page?.hasMore == true &&
+                      _failedPeriodPageOffset == null)
                     FxButton(
                       label: '下一页',
                       variant: FxButtonVariant.outline,
@@ -280,7 +284,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                           : () => _loadPeriodPage(_failedPeriodPageOffset!),
                     ),
                 ],
-              ),
+                ),
+              ],
             ],
           ],
         ],
