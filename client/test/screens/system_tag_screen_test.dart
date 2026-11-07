@@ -1,0 +1,101 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:slowlight/models/observation_tag.dart';
+import 'package:slowlight/repositories/observation_tag_repository.dart';
+import 'package:slowlight/screens/system_tag_screen.dart';
+import 'package:slowlight/ui/fx.dart';
+
+import '../support/fx_test_host.dart';
+
+ObservationTag _tag(int id, String name) => ObservationTag(
+  id: id,
+  name: name,
+  icon: '📚',
+  color: '#1890FF',
+);
+
+class _TagReads extends ObservationTagRepository {
+  _TagReads(this.reads);
+  final List<Future<List<ObservationTag>>> reads;
+  int calls = 0;
+
+  @override
+  Future<List<ObservationTag>> getAll() => reads[calls++];
+}
+
+void main() {
+  testWidgets('P15 已载入标签刷新失败仍可见，并支持再次重试', (tester) async {
+    final repository = _TagReads([
+      Future.value([_tag(7, '阅读')]),
+      Future.error(StateError('temporary offline')),
+      Future.value([_tag(7, '阅读'), _tag(8, '心流')]),
+    ]);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('#阅读'), findsOneWidget);
+
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pumpAndSettle();
+    expect(find.text('#阅读'), findsOneWidget);
+    expect(find.text('标签刷新未确认，以下仍为上次已载入的标签。'),
+        findsOneWidget);
+    expect(find.text('标签加载失败'), findsNothing);
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, 3);
+    expect(find.text('#心流'), findsOneWidget);
+    expect(find.text('标签刷新未确认，以下仍为上次已载入的标签。'),
+        findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P15 旧请求迟到不会覆盖新标签列表', (tester) async {
+    final pending = Completer<List<ObservationTag>>();
+    final current = Completer<List<ObservationTag>>();
+    final repository = _TagReads([
+      Future.value([_tag(1, '初始')]),
+      pending.future,
+      current.future,
+    ]);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    final refresh = tester.widget<FxRefresh>(find.byType(FxRefresh));
+    final earlier = refresh.onRefresh();
+    final later = refresh.onRefresh();
+    await tester.pump();
+    expect(find.text('#初始'), findsOneWidget);
+    current.complete([_tag(2, '最新')]);
+    await later;
+    await tester.pump();
+    pending.complete([_tag(3, '过期')]);
+    await earlier;
+    await tester.pumpAndSettle();
+    expect(repository.calls, 3);
+    expect(find.text('#最新'), findsOneWidget);
+    expect(find.text('#过期'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P15 首次标签读取失败明确显示重试而非空标签', (tester) async {
+    final repository = _TagReads([
+      Future.error(StateError('offline')),
+    ]);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('标签加载失败'), findsOneWidget);
+    expect(find.text('还没有标签'), findsNothing);
+    expect(find.text('重试'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+}
