@@ -44,10 +44,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    final button = find.ancestor(
-      of: fxTooltipFinder('在重要 · 紧急添加任务'),
-      matching: find.byType(FxIconButton),
-    );
+    final button = find.byKey(const ValueKey('quadrant-add-urgent_important'));
     expect(button, findsOneWidget);
     await tester.tap(button);
     await tester.pumpAndSettle();
@@ -85,7 +82,40 @@ void main() {
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
     expect(find.text('未设优先级'), findsNothing);
     expect(find.text('传智面试录课'), findsOneWidget);
-    expect(fxTooltipFinder('移动到其他象限'), findsOneWidget);
+    expect(fxTooltipFinder('移动到其他象限'), findsNothing);
+    await tester.longPress(find.text('传智面试录课'));
+    await tester.pumpAndSettle();
+    expect(find.text('「传智面试录课」移动到…'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 四象限填满可用高度且空格只有一个添加入口', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks([])),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final grid = tester.widget<GridView>(find.byType(GridView).first);
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    const cellWidth = (360.0 - 12 * 2 - 12) / 2;
+    expect(cellWidth / delegate.childAspectRatio, greaterThan(400));
+    expect(find.byKey(const ValueKey('quadrant-add-urgent_important')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('quadrant-add-important')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('quadrant-add-urgent')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('quadrant-add-none')),
+        findsOneWidget);
+    expect(fxTooltipFinder('在重要 · 紧急添加任务'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
