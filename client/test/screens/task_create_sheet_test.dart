@@ -46,7 +46,133 @@ class _PendingTaskData implements DataService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _TwoListData implements DataService {
+  @override
+  Future<List<TodoList>> getLists() async => [
+    TodoList(
+      id: 11,
+      name: '收集箱',
+      color: '#777777',
+      isInbox: true,
+      createdAt: DateTime(2026, 10, 1),
+    ),
+    TodoList(
+      id: 22,
+      name: '项目清单',
+      color: '#3B82F6',
+      createdAt: DateTime(2026, 10, 1),
+    ),
+  ];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  testWidgets('X02 日程提醒只有选择到期日期后才可设置，包含提前10分钟',
+      (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskScheduleFields(
+        enabled: true,
+        compact: true,
+        dueDate: null,
+        onDateChanged: (_) {},
+        dueTime: null,
+        onTimeChanged: (_) {},
+        repeatType: 'none',
+        onRepeatChanged: (_) {},
+        selectedWeekdays: const <int>{},
+        onWeekdayToggled: (_) {},
+        reminderAdvanceMinutes: 10,
+        onReminderChanged: (_) {},
+      )),
+    ));
+    await tester.pump();
+    final reminder = tester.widget<FxSelect<int>>(find.byType(FxSelect<int>));
+    expect(reminder.enabled, isFalse);
+    expect(reminder.value, -1);
+    expect(reminder.options.map((option) => option.label),
+        contains('提前 10 分钟'));
+    expect(find.text('提醒（先设置到期日期）'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X02 快捷任务取消到期日期，同时解除已经选中的相对提醒',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('更多设置'));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final reminder = tester.widget<FxSelect<int>>(find.byType(FxSelect<int>));
+    expect(reminder.enabled, isTrue);
+    reminder.onChanged!(10);
+    await tester.pump();
+    expect(tester.widget<FxSelect<int>>(find.byType(FxSelect<int>)).value, 10);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('task-property-date')));
+    await tester.tap(find.byKey(const ValueKey('task-property-date')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('不安排日期'));
+    await tester.pumpAndSettle();
+    expect(find.text('已取消到期日期，关联提醒也已清除'), findsWidgets);
+
+    if (find.byType(TaskScheduleFields).evaluate().isEmpty) {
+      await tester.tap(find.text('更多设置'));
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+    final after = tester.widget<FxSelect<int>>(find.byType(FxSelect<int>));
+    expect(after.enabled, isFalse);
+    expect(after.value, -1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X02 快捷清单选中后返回保留实际列表ID的回填',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskCreateSheet(
+        quickMode: true,
+        dataService: _TwoListData(),
+        tagRepository: TagRepository(dataSource: _CanonicalTagSource()),
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    const listKey = ValueKey('task-property-list');
+    await tester.tap(find.byKey(listKey));
+    await tester.pumpAndSettle();
+    expect(find.text('选择清单'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('task-picker-option-list-22')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxChip>(find.byKey(listKey)).label, '项目清单');
+
+    await tester.tap(find.byKey(listKey));
+    await tester.pumpAndSettle();
+    final item = tester.widget<FxListTile>(
+      find.byKey(const ValueKey('task-picker-option-list-22')),
+    );
+    expect(item.selected, isTrue);
+    await tester.tap(find.byKey(const ValueKey('task-picker-back')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxChip>(find.byKey(listKey)).label, '项目清单');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   setUpAll(() async { await initializeDateFormatting('zh_CN'); });
   testWidgets('任务提交中返回、遮罩和关闭操作都不能丢失待确认结果', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
