@@ -58,9 +58,9 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       });
     }
 
-    // Optional trend/output requests cannot delay the weekly facts.
-    unawaited(_loadOutputStats(version));
-    unawaited(_loadDailyTrend(version));
+    // Confirm the primary week before fetching optional statistics.
+    // Otherwise a failed primary refresh mixes new auxiliary data into an
+    // older confirmed week and silently changes what the user is reviewing.
     try {
       final review = await (widget.reviewLoader ??
           AnalyticsApi.getWeeklyReview)();
@@ -69,7 +69,17 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _review = review;
         _hasConfirmedReview = true;
         _loading = false;
+        // The new review starts a fresh evidence cohort. Old trend/output
+        // belongs to the previous snapshot and must not be mixed into it.
+        _outputStats = {};
+        _dailyTrend = const [];
+        _outputStatsFailed = false;
+        _dailyTrendFailed = false;
+        _aiReport = null;
       });
+      // The optional queries must never delay the confirmed weekly summary.
+      unawaited(_loadOutputStats(version));
+      unawaited(_loadDailyTrend(version));
     } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -114,8 +124,27 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     }
   }
 
+  Future<void> _confirmGenerateAiReport() async {
+    if (_generatingAi || !_hasConfirmedReview) return;
+    if (_refreshError != null) {
+      _message('本周统计刷新尚未确认，请核对后再生成 AI 周报');
+      return;
+    }
+    final version = _loadVersion;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '确认生成 AI 周报？',
+      content: '将本周已确认的记录发送给当前启用的 AI 服务生成周报。是否继续？',
+      confirmText: '确认生成',
+    );
+    if (confirmed != true || !mounted || version != _loadVersion ||
+        _refreshError != null) return;
+    await _generateAiReport();
+  }
+
   Future<void> _generateAiReport() async {
-    if (_generatingAi) return;
+    if (_generatingAi || _refreshError != null || !_hasConfirmedReview) return;
+    final version = _loadVersion;
     setState(() => _generatingAi = true);
     try {
       final ai = AiService();
@@ -131,7 +160,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
           if (!_dailyTrendFailed) 'daily_trend': _dailyTrend,
         },
       });
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() => _aiReport = text.trim());
     } catch (e) {
       _message('AI 周报生成失败：$e');
@@ -488,7 +517,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
           const SizedBox(height: 10),
           FxInkWell(
             borderRadius: BorderRadius.circular(999),
-            onTap: _generatingAi ? null : _generateAiReport,
+            onTap: _generatingAi || _refreshError != null
+                ? null : _confirmGenerateAiReport,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 44),
               child: Align(
