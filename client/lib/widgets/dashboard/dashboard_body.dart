@@ -539,7 +539,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                   ),
               ],
             ),
-          )
+          ),
         if (_timeline.isNotEmpty) ...[
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
