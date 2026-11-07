@@ -134,8 +134,10 @@ void main() {
 
     final service = LocalTodayTimelineService();
     final daily = await service.getPeriodTimeline();
+    final weekly = await service.getPeriodTimeline(period: 'week');
     final rolling = await service.getPeriodTimeline(period: 'month');
     expect(daily.observationCount, 45);
+    expect(weekly.observationCount, 45);
     expect(rolling.observationCount, 46);
     expect(daily.items.length, 40);
     expect(rolling.items.length, 40);
