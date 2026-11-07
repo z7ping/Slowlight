@@ -74,7 +74,7 @@ class ReflectionComposer {
     var resultUnknown = false;
     var inlineTagOpen = false;
     var inlineTagSaving = false;
-    var allowMobilePop = false;
+    var allowEditorPop = false;
     var closePending = false;
     String? inlineTagError;
     String? error;
@@ -85,13 +85,13 @@ class ReflectionComposer {
         selectedTagId != null ||
         canonicalTags.isNotEmpty;
 
-    Future<void> requestMobileClose(
+    Future<void> requestEntryClose(
       BuildContext sheetContext,
       StateSetter setSheetState,
     ) async {
       if (saving || inlineTagSaving || closePending) return;
       if (!observationDirty() && !resultUnknown) {
-        setSheetState(() => allowMobilePop = true);
+        setSheetState(() => allowEditorPop = true);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (sheetContext.mounted) Navigator.of(sheetContext).pop(false);
         });
@@ -109,7 +109,7 @@ class ReflectionComposer {
           destructive: !resultUnknown,
         );
         if (discard != true || !sheetContext.mounted) return;
-        setSheetState(() => allowMobilePop = true);
+        setSheetState(() => allowEditorPop = true);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (sheetContext.mounted) Navigator.of(sheetContext).pop(false);
         });
@@ -196,7 +196,7 @@ class ReflectionComposer {
               Navigator.of(entryContext).pop(true);
             } else {
               // PopScope blocks even programmatic pops until it rebuilds.
-              setEntryState(() => allowMobilePop = true);
+              setEntryState(() => allowEditorPop = true);
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (entryContext.mounted) Navigator.of(entryContext).pop(true);
               });
@@ -225,7 +225,7 @@ class ReflectionComposer {
         expanded: narrowMobileFooter,
         variant: FxButtonVariant.outline,
         onPressed: saving ? null : () =>
-            requestMobileClose(entryContext, setEntryState),
+            requestEntryClose(entryContext, setEntryState),
       );
       final saveButton = FxButton(
         label: saving ? '保存中…' : '保存观察',
@@ -406,7 +406,7 @@ class ReflectionComposer {
                     variant: FxButtonVariant.outline,
                     onPressed: saving
                         ? null
-                        : () => Navigator.of(entryContext).pop(false),
+                        : () => requestEntryClose(entryContext, setEntryState),
                   ),
                   saveButton,
                 ],
@@ -437,12 +437,21 @@ class ReflectionComposer {
         width: 520,
         // The footer already owns Cancel; avoid an extra corner close action.
         showCloseButton: false,
+        barrierDismissible: false,
         child: StatefulBuilder(
-          builder: (dialogContext, setDialogState) => ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(dialogContext).height * .72,
+          builder: (dialogContext, setDialogState) => PopScope(
+            // Desktop cancellation and Escape must share the same draft
+            // protection as the Android editor, including unknown results.
+            canPop: allowEditorPop,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) requestEntryClose(dialogContext, setDialogState);
+            },
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(dialogContext).height * .72,
+              ),
+              child: buildFields(dialogContext, setDialogState),
             ),
-            child: buildFields(dialogContext, setDialogState),
           ),
         ),
       );
@@ -462,7 +471,7 @@ class ReflectionComposer {
           final owner = activeSheetContext;
           final update = activeSheetSetState;
           if (owner != null && update != null && owner.mounted) {
-            await requestMobileClose(owner, update);
+            await requestEntryClose(owner, update);
           }
         },
         isDismissible: false,
@@ -478,9 +487,9 @@ class ReflectionComposer {
             activeSheetContext = sheetContext;
             activeSheetSetState = setSheetState;
             return PopScope(
-              canPop: allowMobilePop,
+              canPop: allowEditorPop,
               onPopInvokedWithResult: (didPop, _) {
-                if (!didPop) requestMobileClose(sheetContext, setSheetState);
+                if (!didPop) requestEntryClose(sheetContext, setSheetState);
               },
               child: ConstrainedBox(
                 constraints: BoxConstraints(
