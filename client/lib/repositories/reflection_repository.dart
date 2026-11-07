@@ -132,11 +132,11 @@ class ReflectionRepository {
     final rows = await db.query(
       'reflections',
       where: legacy
-          ? 'deleted_at IS NULL AND (question_id = ? OR '
+          ? 'deleted_at IS NULL AND entry_type = \'reflection\' AND (question_id = ? OR '
               '((question_id IS NULL OR question_id = \'\') AND '
               'entry_type = ? AND context_json LIKE ? AND '
               'context_json LIKE ? AND context_json LIKE ?))'
-          : 'deleted_at IS NULL AND question_id = ?',
+          : 'deleted_at IS NULL AND entry_type = \'reflection\' AND question_id = ?',
       whereArgs: legacy
           ? [
               questionId,
