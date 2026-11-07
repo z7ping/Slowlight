@@ -652,4 +652,41 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P04 Android 任务行保留四象限优先级文字而非仅靠色条', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final now = DateTime.now();
+    final high = Task(
+      id: 501, listId: 1, title: '需要优先处理的事',
+      priority: 'urgent_important',
+      isCompleted: false, createdAt: now,
+    );
+    final low = Task(
+      id: 502, listId: 1, title: '普通任务',
+      priority: 'none',
+      isCompleted: false, createdAt: now,
+    );
+    final inbox = TodoList(
+      id: 1, name: '收集箱', isInbox: true,
+      color: '#8db5a0', createdAt: now,
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        dataLoader: () async => <dynamic>[
+          [high, low], [high, low], <Task>[], [inbox],
+        ],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('需要优先处理的事'), findsOneWidget);
+    expect(find.textContaining('重要 · 紧急'), findsOneWidget);
+    expect(find.text('普通任务'), findsOneWidget);
+    expect(find.textContaining('不重要 · 不紧急'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
