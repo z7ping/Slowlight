@@ -38,6 +38,9 @@ void main() {
     expect(lists.isCompleted, isFalse);
     expect(find.text('待处理的工作'), findsOneWidget);
     expect(find.byType(FxCircularProgress), findsNothing);
+    await tester.tap(find.text('待处理的工作'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsNothing);
 
     lists.complete([
       TodoList(
@@ -85,6 +88,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('已有任务保留'), findsOneWidget);
     expect(find.textContaining('清单读取失败，已有任务仍可浏览'), findsOneWidget);
+    await tester.tap(find.text('已有任务保留'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsNothing);
     await tester.tap(find.text('重试清单'));
     await tester.pumpAndSettle();
     expect(reads, 2);
@@ -614,4 +620,36 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('P04 Windows 新建优先选收集箱，不用数据返回首个清单', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1100, 960);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final now = DateTime.now();
+    final nonInbox = TodoList(
+      id: 17, name: '项目', color: '#445566', createdAt: now,
+    );
+    final inbox = TodoList(
+      id: 28, name: '收集箱', color: '#778899', isInbox: true,
+      createdAt: now,
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        taskDataLoader: () async => <dynamic>[
+          <Task>[], <Task>[], <Task>[],
+        ],
+        listsLoader: () async => [nonInbox, inbox],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FxButton, '新建任务'));
+    await tester.pumpAndSettle();
+    final options = tester.widgetList<FxChoiceChip>(find.byType(FxChoiceChip))
+        .where((choice) => choice.label.contains('收集箱')).toList();
+    expect(options.length, 1);
+    expect(options.single.selected, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
