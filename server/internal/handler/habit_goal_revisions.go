@@ -14,6 +14,7 @@ func habitGoalChanged(old, next model.Habit) bool {
         old.GoalMetric != next.GoalMetric ||
         old.GoalValue != next.GoalValue ||
         old.RecordType != next.RecordType ||
+        old.RecordUnit != next.RecordUnit ||
         old.ScheduleRule != next.ScheduleRule
 }
 
@@ -32,6 +33,7 @@ func recordHabitGoalRevision(tx *gorm.DB, habit model.Habit) error {
         GoalMetric: habit.GoalMetric,
         GoalValue: habit.GoalValue,
         RecordType: habit.RecordType,
+        RecordUnit: habit.RecordUnit,
         ScheduleRule: habit.ScheduleRule,
         EffectiveAt: time.Now().UTC(),
     }).Error
