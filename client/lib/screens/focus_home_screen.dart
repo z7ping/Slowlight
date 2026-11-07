@@ -70,6 +70,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   bool _navigating = false;
   bool _reviewOpened = false;
   bool _organizeToolsExpanded = false;
+  bool _openHabitEditorOnEnter = false;
   late Future<Map<String, String>> _accountFuture;
   bool _shortcutModifierPressed = false;
   int _dashboardRefreshTick = 0;
@@ -262,6 +263,20 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
 
   Future<void> _openTool(HomeToolSection tool) =>
       _navigate(_navigation.openTool(tool));
+
+  Future<void> _createHabitFromToday() async {
+    if (_navigating) return;
+    setState(() => _openHabitEditorOnEnter = true);
+    try {
+      await _openTool(HomeToolSection.habits);
+    } finally {
+      // Only the first build of the tool screen receives the create intent.
+      // Returning to the same tool later must not reopen the editor.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _openHabitEditorOnEnter = false);
+      });
+    }
+  }
 
   Future<void> _closeTool() => _navigate(_navigation.closeTool());
 
@@ -785,6 +800,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     onHabitLongPress: _openDetailedHabitCheckin,
     onViewAllTasks: () => _openTool(HomeToolSection.tasks),
     onViewAllHabits: () => _openTool(HomeToolSection.habits),
+    onCreateHabit: _createHabitFromToday,
     onViewReview: () => _openPrimary(HomePrimarySection.review),
     onQuickAdd: _quickAdd,
     onWriteObservation: _writeObservation,
@@ -795,7 +811,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   Widget _buildToolContent(HomeToolSection tool) => switch (tool) {
     HomeToolSection.tasks => TaskToolScreen(key: _taskToolKey),
     HomeToolSection.habits =>
-      const HabitToolScreen(titleProvidedByShell: true),
+      HabitToolScreen(
+        titleProvidedByShell: true,
+        createOnOpen: _openHabitEditorOnEnter,
+      ),
     HomeToolSection.quadrant => const QuadrantScreen(),
     HomeToolSection.calendar => const CalendarScreen(),
     HomeToolSection.lists => const ListManageScreen(),
