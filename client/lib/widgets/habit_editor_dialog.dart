@@ -961,15 +961,22 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           ],
                           Row(
                             children: [
-                              FxButton(
-                                label: '取消',
-                                variant: FxButtonVariant.outline,
-                                onPressed: _submitting
-                                    ? null
-                                    : _requestClose,
+                              // V3 Android prototype: Cancel : Save = 1 : 1.4.
+                              // Keep the buttons aligned in one fixed footer.
+                              Expanded(
+                                flex: 5,
+                                child: FxButton(
+                                  label: '取消',
+                                  expanded: true,
+                                  variant: FxButtonVariant.outline,
+                                  onPressed: _submitting
+                                      ? null
+                                      : _requestClose,
+                                ),
                               ),
                               const SizedBox(width: SlowlightSpacing.md),
                               Expanded(
+                                flex: 7,
                                 child: FxButton(
                                   label: _submitting
                                       ? '保存中…'
