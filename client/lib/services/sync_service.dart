@@ -562,9 +562,11 @@ class SyncService extends ChangeNotifier {
       return;
     }
     if (op == 'uncheck_today') {
-      if (queuedServerId == null || queuedServerId <= 0) return;
-      await ApiService.uncheckInHabit(queuedServerId).timeout(const Duration(seconds: 10));
-      return;
+      // Legacy queued day-level cancellations contain no log ID. Replaying
+      // tomorrow could delete a different real event. Keep this operation
+      // visible as unresolved instead of silently deleting server history.
+      throw StateError(
+          '旧版按日撤销无法确认原日志，已停止自动重放；请联网核对习惯明细');
     }
     final row = await _row(db, 'habits', localId);
     final systemTagId = await _mapSystemTag(db, row['system_tag_id'] as int?);

@@ -32,6 +32,15 @@ void main() {
     ]), throwsFormatException);
   });
 
+  test('P05 invalid civil dates fail before offline writes', () {
+    expect(() => HabitLog.validateDate('2026-02-28'), returnsNormally);
+    expect(() => HabitLog.validateDate(null), returnsNormally);
+    for (final date in ['2026-02-30', '2026-11-31', '2026-1-2',
+      '2026-13-01', '2026-02-29', '']) {
+      expect(() => HabitLog.validateDate(date), throwsFormatException);
+    }
+  });
+
   test('P05 calendar month filtering agrees with server', () {
     for (final month in ['2026-01', '2026-11', '2026-12']) {
       expect(() => HabitLog.validateMonth(month), returnsNormally);

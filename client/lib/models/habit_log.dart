@@ -56,6 +56,14 @@ class HabitLog {
         parsed.toIso8601String().substring(0, 10) == value;
   }
 
+  /// Exact civil date required for both historical writes and reads.
+  /// DateTime.parse may normalize February 30, so compare the round trip.
+  static void validateDate(String? date) {
+    if (date != null && !_isValidDay(date)) {
+      throw const FormatException('打卡日期应为真实的 YYYY-MM-DD');
+    }
+  }
+
   /// All storage modes agree with the server's YYYY-MM month format.
   static void validateMonth(String? month) {
     if (month != null &&

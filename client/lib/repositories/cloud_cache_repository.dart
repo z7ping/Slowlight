@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
 import '../models/habit_log.dart';
+import '../models/habit_timezone_policy.dart';
 import '../models/habit_occurrence.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
@@ -535,6 +536,14 @@ class CloudCacheRepository {
     String? clientKey,
   }) async {
     final db = await _db;
+    HabitLog.validateDate(date);
+    // Cached writes build both calendar dates and V3 occurrence keys on
+    // the device. Only allow them when its calendar matches this account's
+    // authoritative server timezone; online writes remain server-owned.
+    final account = await AuthService.getUser();
+    HabitTimezonePolicy.requireCompatibleDeviceCalendar(
+      account?.timezone, recordDate: date,
+    );
     final habit = await _rowByPublicId(db, 'habits', publicId);
     final hid = habit['id'] as int;
     final now = DateTime.now();
@@ -639,39 +648,31 @@ class CloudCacheRepository {
     );
   }
 
-  /// 当前服务端“取消打卡”按习惯 + 当天语义执行；离线缓存保持相同语义。
+  /// Offline cancellation must identify an exact persisted log. A
+  /// day-level "uncheck_today" queue item can delete the wrong record when
+  /// the device reconnects after midnight or in a different timezone.
   Future<Map<String, dynamic>> uncheckInHabit(int publicId) async {
+    final account = await AuthService.getUser();
+    HabitTimezonePolicy.requireCompatibleDeviceCalendar(account?.timezone);
     final db = await _db;
     final habitRow = await _rowByPublicId(db, 'habits', publicId);
     final habitLocalId = habitRow['id'] as int;
     final day = _dateKey(DateTime.now())!;
     final rows = await db.query(
       'habit_logs',
-      where: 'habit_id = ? AND date = ?',
+      where: "habit_id = ? AND date = ? AND sync_status != 'pending_delete'",
       whereArgs: [habitLocalId, day],
       orderBy: 'created_at DESC, id DESC',
-      limit: 1,
+      limit: 2,
     );
-    for (final row in rows) {
-      final localLogId = row['id'] as int;
-      final serverLogId = row['server_id'] as int?;
-      if (serverLogId == null) {
-        await db.delete(
-          'sync_queue',
-          where: 'entity_type = ? AND entity_local_id = ?',
-          whereArgs: ['habit_logs', localLogId],
-        );
-      }
-      await db.delete('habit_logs', where: 'id = ?', whereArgs: [localLogId]);
+    if (rows.isEmpty) throw StateError('今天没有可撤销的已确认记录');
+    if (rows.length != 1) {
+      throw StateError('今天有多条记录，请从明细中逐条撤销');
     }
-    if (habitRow['server_id'] != null) {
-      await SyncService().enqueue(
-        entityType: 'habits',
-        entityLocalId: habitLocalId,
-        entityServerId: habitRow['server_id'] as int?,
-        operation: 'uncheck_today',
-      );
-    }
+    final logPublicId = _publicId(rows.single);
+    // Reuse the existing exact-log tombstone + sync queue rather than
+    // creating a second, date-dependent cancellation mechanism.
+    await deleteHabitLog(publicId, logPublicId);
     return {'checked': false};
   }
 
