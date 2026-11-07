@@ -7,7 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../ai/ai_config_store.dart';
 import '../ai/ai_models.dart';
 import '../models/user.dart';
-import '../main.dart' show authStateNotifier;
+import '../main.dart' show AuthGate, authStateNotifier;
 import '../services/auth_service.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
@@ -901,8 +901,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     CloudSyncCoordinator().stop();
     authStateNotifier.value = !authStateNotifier.value;
     if (!mounted) return;
+    // The root of the app must remain an AuthGate after logout.
+    // A standalone LoginScreen would never hear the next auth change.
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => const AuthGate()),
       (route) => false,
     );
   }
