@@ -104,18 +104,33 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   int _loadVersion = 0;
+  bool _hasStartedInitialLoad = false;
 
   Future<void> _load() async {
     final version = ++_loadVersion;
-    if (mounted)
-      setState(() {
-        _dimensionLoading = true;
-        _reviewLoading = true;
-        _dimensionLoadFailed = false;
-        _reviewLoadFailed = false;
-        _timelineLoading = true;
-        _timelineLoadFailed = false;
-      });
+    // Keep previously confirmed facts visible on refresh. Sources whose
+    // last attempt failed still need a visible loading state on retry.
+    final initial = !_hasStartedInitialLoad;
+    _hasStartedInitialLoad = true;
+    if (initial || _dimensionLoadFailed || _reviewLoadFailed ||
+        _timelineLoadFailed) {
+      if (mounted) {
+        setState(() {
+          if (initial || _dimensionLoadFailed) {
+            _dimensionLoading = true;
+            _dimensionLoadFailed = false;
+          }
+          if (initial || _reviewLoadFailed) {
+            _reviewLoading = true;
+            _reviewLoadFailed = false;
+          }
+          if (initial || _timelineLoadFailed) {
+            _timelineLoading = true;
+            _timelineLoadFailed = false;
+          }
+        });
+      }
+    }
 
     // 独立完成/报错：任意一个辅助接口迟迟未返回，也不能阻塞另一个区域。
     Future<void> loadDimensions() async {
