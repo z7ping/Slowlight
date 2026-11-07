@@ -20,7 +20,7 @@ type todayTimelineItem struct {
     OccurredAt  time.Time `json:"occurred_at"`
 }
 
-// GetTodayTimeline 使用账号时区确定今天，按实际发生时间逆序展示。
+// GetTodayTimeline 保留既有路由，同时按账号时区支持 today/week/rolling month。
 // 软删除、取消打卡/完成的旧事件不能回到时间轨迹。
 func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
     userID := c.GetUint("userID")
@@ -60,7 +60,7 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
         Where("(be.event_type = 'task_completed' AND t.id IS NOT NULL) OR (be.event_type = 'habit_checked' AND h.id IS NOT NULL) OR be.event_type = 'session_ended'").
         Order("be.occurred_at DESC, be.id DESC").Limit(60).Scan(&events).Error
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取今日行为记录"})
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取周期行为记录"})
         return
     }
 
@@ -68,7 +68,7 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
     err = h.DB.Where("user_id = ? AND created_at >= ? AND created_at < ? AND entry_type IN ?", userID, start, end, []string{"observation", "reflection"}).
         Order("created_at DESC, id DESC").Limit(60).Find(&reflections).Error
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取今日观察记录"})
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取周期观察记录"})
         return
     }
     // The visible timeline is bounded, but the observation total is exact.
