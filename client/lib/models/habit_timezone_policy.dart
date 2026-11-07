@@ -3,11 +3,20 @@ import 'package:timezone/timezone.dart' as tz;
 
 /// Cloud habit dates are owned by the server account timezone; a cached
 /// offline write must never silently use a different device calendar.
-class HabitTimezoneMismatch implements Exception {
-  const HabitTimezoneMismatch(this.message);
+abstract class HabitKnownWriteBlock implements Exception {
+  const HabitKnownWriteBlock(this.message);
   final String message;
   @override
   String toString() => message;
+}
+
+class HabitTimezoneMismatch extends HabitKnownWriteBlock {
+  const HabitTimezoneMismatch(super.message);
+}
+
+class HabitGoalVersionRequiresOnline extends HabitKnownWriteBlock {
+  const HabitGoalVersionRequiresOnline()
+      : super('目标或频率变更需联网保存，以免离线修改丢失历史版本；本次未写入');
 }
 
 abstract final class HabitTimezonePolicy {
