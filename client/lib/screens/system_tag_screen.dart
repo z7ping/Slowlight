@@ -23,6 +23,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   bool _loading = true;
   bool _hasLoaded = false;
   int _loadVersion = 0;
+  bool _deletingTag = false;
   String? _error;
   List<ObservationTag> _tags = const [];
 
@@ -502,22 +503,42 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   );
 
   Future<void> _confirmDelete(ObservationTag tag) async {
-    final confirmed = await FxDialog.confirm(
-      context: context,
-      title: '删除标签',
-      content: '确定删除「${tag.name}」吗？删除后，已有记录不会再关联这个标签。',
-      confirmText: '删除',
-      destructive: true,
-    );
-    if (confirmed != true) return;
+    if (tag.isDefault || _deletingTag) return;
+    final version = _loadVersion;
+    _deletingTag = true;
     try {
+      final impact = await _repository.getDeletionImpact(tag);
+      if (!mounted || version != _loadVersion ||
+          !_tags.any((item) => item.id == tag.id)) return;
+      final detail = impact == null
+          ? '云端未提供关联数量，无法在此核对影响条数。'
+              '服务端删除只解除标签及对应关联，不删除任务、习惯和历史记录。'
+          : '本机已确认关联：任务 ${impact.tasks} 项、习惯 ${impact.habits} 项、'
+              '专注 ${impact.sessions} 项、观察/回应 ${impact.reflections} 项。'
+              '删除会解除这些关联，不删除原有记录。';
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '删除标签并解除关联？',
+        content: '删除「${tag.name}」？$detail',
+        confirmText: '删除标签',
+        cancelText: '保留标签',
+        destructive: true,
+        barrierDismissible: false,
+      );
+      if (confirmed != true || !mounted || version != _loadVersion) return;
       await _repository.delete(tag);
-      await _load();
-    } catch (e) {
+      if (mounted) await _load();
+    } catch (error) {
       if (!mounted) return;
-      FxNotice.showContent(context, Text('删除失败：$e'));
+      FxNotice.showContent(
+        context,
+        Text('无法确认标签删除影响或删除失败，标签未被确认删除：$error'),
+      );
+    } finally {
+      _deletingTag = false;
     }
   }
+
 }
 
 class _ObservationTagGroup {

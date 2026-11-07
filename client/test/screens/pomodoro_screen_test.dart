@@ -1,10 +1,51 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/pomodoro_screen.dart';
 
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('X10 专注设置保存后重新进入页面仍保留，取消不覆盖偏好',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    addTearDown(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+    await tester.pumpWidget(buildFxTestHost(home: const PomodoroScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(fxTooltipFinder('专注设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('45'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存设置'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('slowlight_pomodoro_settings_v1');
+    expect(raw, isNotNull);
+    expect((jsonDecode(raw!) as Map)['workMinutes'], 45);
+
+    await tester.tap(fxTooltipFinder('专注设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('60'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect((jsonDecode(
+      prefs.getString('slowlight_pomodoro_settings_v1')!,
+    ) as Map)['workMinutes'], 45);
+
+    // A new screen instance must read stored preferences, not in-memory state.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(buildFxTestHost(home: const PomodoroScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('45:00'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('14 Android 360dp/200% 字体的刻度盘自适应且文字不溢出', (tester) async {
     tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1;

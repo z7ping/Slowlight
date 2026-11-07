@@ -150,6 +150,59 @@ class ObservationTagRepository {
     return ObservationTag.fromJson(Map<String, dynamic>.from(value as Map));
   }
 
+  /// Counts only the Local associations the existing delete() will remove.
+  /// Cloud exposes no scoped usage endpoint; null means unverified, not zero.
+  Future<({int tasks, int habits, int sessions, int reflections})?>
+      getDeletionImpact(ObservationTag tag) async {
+    if (!DataModeManager().isLocal) return null;
+    await LocalProductCoreSchema.ensureReady();
+    final db = await LocalDb().database;
+    final aliases = await db.query(
+      'legacy_system_tag_aliases',
+      columns: ['tag_id'],
+      where: 'system_tag_id = ?',
+      whereArgs: [tag.id],
+      limit: 1,
+    );
+    var canonicalId = -1;
+    if (aliases.isNotEmpty) {
+      final linkedId = aliases.first['tag_id'] as int;
+      final others = await db.rawQuery(
+        'SELECT COUNT(*) AS total FROM legacy_system_tag_aliases '
+        'WHERE tag_id = ? AND system_tag_id != ?',
+        [linkedId, tag.id],
+      );
+      // Deleting a legacy alias shared by another managed label does not
+      // remove the canonical label or its shared link rows.
+      if ((others.first['total'] as num).toInt() == 0) {
+        canonicalId = linkedId;
+      }
+    }
+
+    Future<int> count(String table, String idColumn,
+        {String? legacyTable}) async {
+      final rows = await db.rawQuery(
+        legacyTable == null
+            ? 'SELECT COUNT(*) AS total FROM $table WHERE tag_id = ?'
+            : 'SELECT COUNT(*) AS total FROM ('
+                'SELECT id AS entity_id FROM $legacyTable '
+                'WHERE system_tag_id = ? '
+                'UNION SELECT $idColumn AS entity_id FROM $table '
+                'WHERE tag_id = ?)',
+        legacyTable == null ? [canonicalId] : [tag.id, canonicalId],
+      );
+      return (rows.first['total'] as num).toInt();
+    }
+
+    return (
+      tasks: await count('task_tags', 'task_id', legacyTable: 'tasks'),
+      habits: await count('habit_tags', 'habit_id', legacyTable: 'habits'),
+      sessions: await count('work_session_tags', 'work_session_id',
+          legacyTable: 'work_sessions'),
+      reflections: await count('reflection_tags', 'reflection_id'),
+    );
+  }
+
   Future<void> delete(ObservationTag tag) async {
     if (tag.isDefault) throw StateError('默认观察标签不可删除');
     if (DataModeManager().isLocal) {

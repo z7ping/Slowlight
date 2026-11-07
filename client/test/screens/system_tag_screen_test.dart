@@ -25,7 +25,69 @@ class _TagReads extends ObservationTagRepository {
   Future<List<ObservationTag>> getAll() => reads[calls++]();
 }
 
+class _TagImpactRepo extends ObservationTagRepository {
+  _TagImpactRepo({this.failPreview = false});
+
+  final bool failPreview;
+  int deleteCalls = 0;
+  int previewCalls = 0;
+
+  @override
+  Future<List<ObservationTag>> getAll() async => [_tag(7, '阅读')];
+
+  @override
+  Future<({int tasks, int habits, int sessions, int reflections})?>
+      getDeletionImpact(ObservationTag tag) async {
+    previewCalls++;
+    if (failPreview) throw StateError('association count unavailable');
+    return (tasks: 2, habits: 1, sessions: 3, reflections: 4);
+  }
+
+  @override
+  Future<void> delete(ObservationTag tag) async {
+    deleteCalls++;
+  }
+}
+
 void main() {
+  testWidgets('X08 标签删除明确展示已核对关联范围，取消保持数据',
+      (tester) async {
+    final repository = _TagImpactRepo();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byWidgetPredicate(
+      (widget) => widget is FxIconButton && widget.tooltip == '删除',
+    ));
+    await tester.pumpAndSettle();
+    expect(repository.previewCalls, 1);
+    expect(find.text('删除标签并解除关联？'), findsOneWidget);
+    expect(find.textContaining('任务 2 项、习惯 1 项'), findsOneWidget);
+    expect(find.textContaining('专注 3 项、观察/回应 4 项'), findsOneWidget);
+    await tester.tap(find.text('保留标签'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteCalls, 0);
+    expect(find.text('#阅读'), findsOneWidget);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X08 关联范围查询失败禁止删除', (tester) async {
+    final repository = _TagImpactRepo(failPreview: true);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byWidgetPredicate(
+      (widget) => widget is FxIconButton && widget.tooltip == '删除',
+    ));
+    await tester.pumpAndSettle();
+    expect(repository.previewCalls, 1);
+    expect(repository.deleteCalls, 0);
+    expect(find.text('删除标签并解除关联？'), findsNothing);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P15 已载入标签刷新失败仍可见，并支持再次重试', (tester) async {
     final repository = _TagReads([
       () async => [_tag(7, '阅读')],
