@@ -215,11 +215,7 @@ void main() {
     expect(find.text('今日未记录'), findsOneWidget);
     expect(find.text('今日有记录'), findsOneWidget);
 
-    final icon = find.text('📚');
-    final iconBox = find.ancestor(
-      of: icon,
-      matching: find.byType(Container),
-    ).first;
+    final iconBox = find.byKey(const ValueKey('habits.icon.1'));
     expect(tester.getSize(iconBox).width, closeTo(32, 1));
     expect(tester.getSize(iconBox).height, closeTo(32, 1));
 
