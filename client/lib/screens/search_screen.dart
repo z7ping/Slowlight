@@ -22,11 +22,19 @@ typedef SearchResultData = ({
 });
 
 typedef SearchDataLoader = Future<SearchResultData> Function(String query);
+typedef SearchSourceLoaders = ({
+  Future<List<Task>> Function(String query) tasks,
+  Future<List<Habit>> Function() habits,
+  Future<List<ReflectionEntry>> Function() reflections,
+  Future<List<TodoList>> Function() lists,
+});
 
 class SearchScreen extends StatefulWidget {
   final SearchDataLoader? dataLoader;
+  // Optional source-level test seam; production still uses existing repositories.
+  final SearchSourceLoaders? sourceLoaders;
 
-  const SearchScreen({super.key, this.dataLoader});
+  const SearchScreen({super.key, this.dataLoader, this.sourceLoaders});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -39,6 +47,7 @@ class _SearchScreenState extends State<SearchScreen> {
   int _searchSeq = 0;
   bool _loading = false;
   bool _error = false;
+  List<String> _partialUnavailable = const [];
   String _query = '';
   List<Task> _tasks = const [];
   List<Habit> _habits = const [];
@@ -65,8 +74,18 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _changed(String value) {
     _debounce?.cancel();
+    // Invalidate pending queries immediately; waiting for the debounce
+    // must never allow old results to overwrite a newly typed keyword.
+    ++_searchSeq;
+    if (value.trim().isEmpty) {
+      unawaited(_search(''));
+      return;
+    }
     _debounce = Timer(const Duration(milliseconds: 300), () => _search(value));
-    setState(() {});
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
   }
 
   Future<void> _search(String raw) async {
@@ -80,6 +99,8 @@ class _SearchScreenState extends State<SearchScreen> {
         _tasks = const [];
         _habits = const [];
         _reflections = const [];
+        _lists = const [];
+        _partialUnavailable = const [];
         _loading = false;
       });
       return;
@@ -91,7 +112,11 @@ class _SearchScreenState extends State<SearchScreen> {
       _error = false;
     });
     try {
-      final values = await (widget.dataLoader?.call(query) ?? _loadSearchData(query));
+      var unavailable = <String>[];
+      final values = await (widget.dataLoader?.call(query) ??
+          _loadSearchData(query, onUnavailable: (sources) {
+            unavailable = sources;
+          }));
       if (!mounted || seq != _searchSeq) return;
       final lower = query.toLowerCase();
       setState(() {
@@ -103,6 +128,7 @@ class _SearchScreenState extends State<SearchScreen> {
             .where((entry) => entry.content.toLowerCase().contains(lower))
             .toList(growable: false);
         _lists = values.lists;
+        _partialUnavailable = unavailable;
         _loading = false;
         _error = false;
       });
@@ -114,19 +140,49 @@ class _SearchScreenState extends State<SearchScreen> {
         _habits = const [];
         _reflections = const [];
         _lists = const [];
+        _partialUnavailable = const [];
         _loading = false;
         _error = true;
       });
     }
   }
 
-  Future<SearchResultData> _loadSearchData(String query) async {
+  Future<SearchResultData> _loadSearchData(
+    String query, {
+    required void Function(List<String>) onUnavailable,
+  }) async {
+    final missing = <String>{};
+    final sources = widget.sourceLoaders;
     final values = await Future.wait<dynamic>([
-      DataService().searchTasks(query),
-      HabitRepository().getAll(),
-      ReflectionRepository().recent(limit: 100),
-      DataService().getLists(),
+      (sources?.tasks(query) ?? DataService().searchTasks(query))
+          .catchError((Object _) {
+        missing.add('任务');
+        return <Task>[];
+      }),
+      (sources?.habits() ?? HabitRepository().getAll())
+          .catchError((Object _) {
+        missing.add('习惯');
+        return <Habit>[];
+      }),
+      (sources?.reflections() ?? ReflectionRepository().recent(limit: 100))
+          .catchError((Object _) {
+        missing.add('回顾');
+        return <ReflectionEntry>[];
+      }),
+      (sources?.lists() ?? DataService().getLists())
+          .catchError((Object _) {
+        missing.add('清单');
+        return <TodoList>[];
+      }),
     ]);
+    if (missing.length == 4) {
+      throw StateError('所有搜索来源均未读取成功');
+    }
+    onUnavailable(
+      ['任务', '习惯', '回顾', '清单']
+          .where(missing.contains)
+          .toList(growable: false),
+    );
     return (
       tasks: values[0] as List<Task>,
       habits: values[1] as List<Habit>,
@@ -142,6 +198,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _useRecent(String value) {
+    _debounce?.cancel();
     _controller.text = value;
     _controller.selection = TextSelection.collapsed(offset: value.length);
     _search(value);
@@ -177,6 +234,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                     : FxIconButton(
                                       tooltip: '清空',
                                       onPressed: () {
+                                        _debounce?.cancel();
                                         _controller.clear();
                                         _search('');
                                         setState(() {});
@@ -212,6 +270,29 @@ class _SearchScreenState extends State<SearchScreen> {
                               ],
                             ),
                           const SizedBox(height: 18),
+                          if (!_loading && _partialUnavailable.isNotEmpty) ...[
+                            FxCard(
+                              padding: const EdgeInsets.all(12),
+                              expanded: true,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '部分搜索来源未读取：${_partialUnavailable.join('、')}。以下仅为已载入结果。',
+                                      style: SlowlightTypography.secondary(context),
+                                    ),
+                                  ),
+                                  FxButton(
+                                    label: '重试',
+                                    variant: FxButtonVariant.ghost,
+                                    size: FxButtonSize.sm,
+                                    onPressed: () => _search(_query),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           if (_loading)
                             const Center(
                               child: Padding(
@@ -239,10 +320,14 @@ class _SearchScreenState extends State<SearchScreen> {
                           else if (_tasks.isEmpty &&
                               _habits.isEmpty &&
                               _reflections.isEmpty)
-                            const FxEmptyState(
+                            FxEmptyState(
                               icon: LucideIcons.search,
-                              title: '没有找到相关内容',
-                              subtitle: '没有结果也是一种明确答案',
+                              title: _partialUnavailable.isEmpty
+                                  ? '没有找到相关内容'
+                                  : '已读取来源没有匹配结果',
+                              subtitle: _partialUnavailable.isEmpty
+                                  ? '没有结果也是一种明确答案'
+                                  : '其他来源仍待核对，请重试查询',
                             )
                           else ...[
                             if (_tasks.isNotEmpty) _taskGroup(),
@@ -287,13 +372,21 @@ class _SearchScreenState extends State<SearchScreen> {
     ].join(' · ');
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      onTap:
-          () => TaskDetailSheet.show(
+      onTap: () {
+        if (_partialUnavailable.contains('清单')) {
+          FxNotice.showContent(
             context,
-            task: task,
-            lists: _lists,
-            onChanged: () => _search(_query),
-          ),
+            const Text('清单暂未读取成功，请重试搜索后打开任务详情'),
+          );
+          return;
+        }
+        TaskDetailSheet.show(
+          context,
+          task: task,
+          lists: _lists,
+          onChanged: () => _search(_query),
+        );
+      },
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
