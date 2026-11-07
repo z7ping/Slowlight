@@ -277,6 +277,21 @@ void main() {
     ));
     await tester.tap(find.text('记录习惯'));
     await tester.pumpAndSettle();
+    // The check-in footer stays compact like the canonical V3 editor;
+    // avoid wrapping Cancel above a full-width primary button.
+    final footer = find.byKey(const ValueKey('habit-checkin-mobile-footer'));
+    final cancel = find.descendant(
+      of: footer, matching: find.widgetWithText(FxButton, '取消'));
+    final submit = find.byKey(const ValueKey('habit-checkin-primary-action'));
+    expect(footer, findsOneWidget);
+    expect(cancel, findsOneWidget);
+    expect(submit, findsOneWidget);
+    expect(
+      tester.getSize(submit).width / tester.getSize(cancel).width,
+      closeTo(1.4, 0.02),
+    );
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(cancel).height, tester.getSize(submit).height);
     await tester.enterText(find.byType(EditableText).first, '未保存的打卡说明');
     await tester.drag(
       find.byKey(const ValueKey('fx.sheet.dragHandle')),
