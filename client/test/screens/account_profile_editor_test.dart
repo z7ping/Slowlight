@@ -36,6 +36,46 @@ void main() {
   });
 
 
+  testWidgets('S09 已修改昵称点击取消必须确认，保留未保存输入', (tester) async {
+    final user = User(
+      id: 8,
+      username: 'clouduser',
+      email: 'user@example.com',
+      nickname: '旧昵称',
+      createdAt: DateTime(2026),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(builder: (context) => FxButton(
+          onPressed: () => editCloudNickname(context, user),
+          label: '编辑资料',
+        )),
+      ),
+    ));
+    await tester.tap(find.text('编辑资料'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('account.nickname.input')),
+        matching: find.byType(EditableText),
+      ),
+      '未保存的新昵称',
+    );
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的昵称？'), findsOneWidget);
+    await tester.tap(find.text('继续编辑'));
+    await tester.pumpAndSettle();
+    expect(find.text('未保存的新昵称'), findsWidgets);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('account.nickname.input')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('设置密码校验留在原表单字段，修改输入后恢复', (tester) async {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(
@@ -71,6 +111,10 @@ void main() {
 
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的密码修改？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('account.password.new')), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
