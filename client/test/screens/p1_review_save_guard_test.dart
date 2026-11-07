@@ -38,17 +38,73 @@ class _ControlledReflections extends ReflectionRepository {
 }
 
 void main() {
-  Widget review(_ControlledReflections repository) => buildFxTestHost(
+  Widget review(_ControlledReflections repository, {
+    List<Map<String, dynamic>> questions = const [],
+  }) => buildFxTestHost(
     home: Scaffold(body: TodayReviewScreen(
       reflectionRepository: repository,
       habitRepository: _NoHabits(),
       reviewLoader: () async => {
         'facts': <String, dynamic>{},
         'patterns': <String, dynamic>{},
-        'questions': <Map<String, dynamic>>[],
+        'questions': questions,
       },
     )),
   );
+
+  testWidgets('Android 回顾标题卡外展示，空问题保留且工具集中到底部',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(review(_ControlledReflections()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('回看事实，留下自己的理解'), findsOneWidget);
+    for (final title in ['今日概况', '发生过的事', '留给今天的一句话']) {
+      expect(find.text(title), findsOneWidget);
+      expect(find.descendant(
+        of: find.byType(FxCard),
+        matching: find.text(title),
+      ), findsNothing);
+    }
+    expect(find.byKey(const ValueKey('review.mobile.questions.quiet')),
+        findsOneWidget);
+    expect(find.text('今天还没有留下记录'), findsOneWidget);
+    expect(find.byKey(const ValueKey('review.mobile.related')),
+        findsOneWidget);
+    expect(find.text('统计'), findsOneWidget);
+    expect(find.text('每周回顾'), findsOneWidget);
+    expect(find.text('时间分配'), findsOneWidget);
+    expect(find.byType(FxInput), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 有待回应问题时也不能隐藏自由记录草稿', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(review(
+      _ControlledReflections(),
+      questions: [
+        {'id': 'real-question-1', 'content': '今天有什么值得记住的事？'},
+      ],
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今天有什么值得记住的事？'), findsOneWidget);
+    expect(find.text('留给今天的一句话'), findsOneWidget);
+    expect(find.byType(FxInput), findsNWidgets(2));
+    expect(find.text('保存记录'), findsOneWidget);
+    expect(find.text('保存回应'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('回顾记录保存过程中连续点击只会创建一次', (tester) async {
     final repository = _ControlledReflections();

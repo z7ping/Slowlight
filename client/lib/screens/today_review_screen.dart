@@ -247,20 +247,73 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     );
   }
 
+  Widget _mobileRelatedTools() => Wrap(
+        key: const ValueKey('review.mobile.related'),
+        spacing: SlowlightSpacing.md,
+        runSpacing: SlowlightSpacing.xs,
+        children: [
+          FxButton(
+            label: '统计',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() => _viewIndex = 1),
+          ),
+          FxButton(
+            label: '每周回顾',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() {
+              _viewIndex = 0;
+              _periodIndex = 1;
+            }),
+          ),
+          FxButton(
+            label: '近 30 天',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() {
+              _viewIndex = 0;
+              _periodIndex = 2;
+            }),
+          ),
+          FxButton(
+            label: '时间分配',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() => _viewIndex = 2),
+          ),
+          // Keep the existing formal rest-review route reachable.
+          FxButton(
+            label: '休息回顾',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: _openRestReview,
+          ),
+        ],
+      );
+
   String _periodTitle() {
     final now = DateTime.now();
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return switch (_periodIndex) {
       1 => '本周回顾',
       2 => '近 30 天回顾',
-      _ => '${now.month} 月 ${now.day} 日 · 今天',
+      _ => mobile
+          ? '${now.month} 月 ${now.day} 日'
+          : '${now.month} 月 ${now.day} 日 · 今天',
     };
   }
 
-  String _periodDescription() => switch (_periodIndex) {
-        1 => '看见一周的节奏与变化',
-        2 => '回看长期积累的行为轨迹',
-        _ => '行为留下轨迹，时间让自我显影',
-      };
+  String _periodDescription() {
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      return '回看事实，留下自己的理解';
+    }
+    return switch (_periodIndex) {
+      1 => '看见一周的节奏与变化',
+      2 => '回看长期积累的行为轨迹',
+      _ => '行为留下轨迹，时间让自我显影',
+    };
+  }
 
   Widget _overviewBody() {
     if (_loading) return const Center(child: FxCircularProgress());
@@ -346,26 +399,30 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                             _patternsCard(patterns),
                             const SizedBox(height: 16),
                           ],
-                          if (questions.isNotEmpty) _questionsCard(questions),
+                          if (questions.isNotEmpty ||
+                              SlowlightPlatformDensity.usesMobileTouchTargets) ...[
+                            _questionsCard(questions),
+                            const SizedBox(height: SlowlightSpacing.xxxl),
+                          ],
                           if (hasReflections) ...[
-                            if (questions.isNotEmpty)
-                              const SizedBox(height: 16),
                             _reflectionsCard(),
+                            const SizedBox(height: SlowlightSpacing.xxxl),
                           ],
-                          if (questions.isEmpty) ...[
-                            if (hasReflections) const SizedBox(height: 16),
-                            _freeNoteCard(),
-                          ],
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FxButton(
-                              label: '查看休息回顾 →',
-                              variant: FxButtonVariant.link,
-                              size: FxButtonSize.sm,
-                              onPressed: _openRestReview,
+                          // Free notes are independent of suggested questions.
+                          _freeNoteCard(),
+                          const SizedBox(height: SlowlightSpacing.md),
+                          if (SlowlightPlatformDensity.usesMobileTouchTargets)
+                            _mobileRelatedTools()
+                          else
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: FxButton(
+                                label: '查看休息回顾 →',
+                                variant: FxButtonVariant.link,
+                                size: FxButtonSize.sm,
+                                onPressed: _openRestReview,
+                              ),
                             ),
-                          ),
                         ],
                       );
                       if (constraints.maxWidth < 760) {
@@ -401,46 +458,61 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final tasks = (facts['task_completed'] as num?)?.toInt() ?? 0;
     final habits = (facts['habit_checked'] as num?)?.toInt() ?? 0;
     final focus = (facts['focus_minutes'] as num?)?.toInt() ?? 0;
-    return FxCard(
-      padding: const EdgeInsets.all(16),
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final card = FxCard(
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '今日概况'),
-          const SizedBox(height: 8),
+          if (!mobile) ...[
+            const FxSectionHeader(title: '今日概况'),
+            const SizedBox(height: SlowlightSpacing.md),
+          ],
           FxResponsiveFormGrid(
             minColumnWidth: 96,
             maxColumns: 3,
-            horizontalGap: 8,
-            verticalGap: 8,
+            horizontalGap: SlowlightSpacing.md,
+            verticalGap: SlowlightSpacing.md,
             children: [
               FxStatCell(value: '$tasks', label: '完成任务'),
               FxStatCell(value: '$habits', label: '习惯打卡'),
               FxStatCell(value: '$focus', label: '专注分钟'),
             ],
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              FxButton(
-                label: '查看完整统计 →',
-                variant: FxButtonVariant.link,
-                size: FxButtonSize.sm,
-                onPressed: () => setState(() => _viewIndex = 1),
-              ),
-              FxButton(
-                label: '查看时间分配 →',
-                variant: FxButtonVariant.link,
-                size: FxButtonSize.sm,
-                onPressed: () => setState(() => _viewIndex = 2),
-              ),
-            ],
-          ),
+          if (!mobile) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            Wrap(
+              spacing: SlowlightSpacing.md,
+              runSpacing: SlowlightSpacing.xs,
+              children: [
+                FxButton(
+                  label: '查看完整统计 →',
+                  variant: FxButtonVariant.link,
+                  size: FxButtonSize.sm,
+                  onPressed: () => setState(() => _viewIndex = 1),
+                ),
+                FxButton(
+                  label: '查看时间分配 →',
+                  variant: FxButtonVariant.link,
+                  size: FxButtonSize.sm,
+                  onPressed: () => setState(() => _viewIndex = 2),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+    if (!mobile) return card;
+    // Section title lives outside the single facts panel in the master prototype.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '今日概况'),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
     );
   }
 
@@ -450,28 +522,31 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       ((patterns['task_delta'] as num?)?.toInt() ?? 0) != 0;
 
   Widget _freeNoteCard() {
-    return FxCard(
-      padding: const EdgeInsets.all(16),
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final card = FxCard(
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '留给今天的一句话'),
-          const SizedBox(height: 8),
+          if (!mobile) ...[
+            const FxSectionHeader(title: '留给今天的一句话'),
+            const SizedBox(height: SlowlightSpacing.md),
+          ],
           Text(
             '今天最值得记住的一件事是什么？',
             style: SlowlightTypography.secondary(context).copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: SlowlightSpacing.xl),
           FxInput(
             controller: _noteController,
             placeholder: '写下一点想法…',
             maxLines: 3,
             style: SlowlightTypography.body(context),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: SlowlightSpacing.md),
           Align(
             alignment: Alignment.centerRight,
             child: FxButton(
@@ -487,6 +562,15 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             ),
         ],
       ),
+    );
+    if (!mobile) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '留给今天的一句话'),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
     );
   }
 
@@ -629,24 +713,35 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
     // 仅已知精确时间的记录参与时间排序；无时间的汇总置于末尾。
     items.sort(compareReviewTimelineItems);
-
-    return FxCard(
-      padding: const EdgeInsets.all(16),
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final card = FxCard(
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '行为轨迹'),
-          const SizedBox(height: 12),
+          if (!mobile) ...[
+            const FxSectionHeader(title: '行为轨迹'),
+            const SizedBox(height: SlowlightSpacing.xl),
+          ],
           if (items.isEmpty)
-            FxEmptyState(
-              icon: LucideIcons.footprints,
-              title: _partialUnavailable.isEmpty ? '今天还没有留下行为记录' : '行为轨迹暂不完整',
-              subtitle: _partialUnavailable.isEmpty
-                  ? '先记录一件真实发生的事，轨迹就会出现在这里。'
-                  : '部分记录读取失败，请重新加载后核对。',
-              padding: const EdgeInsets.symmetric(vertical: 24),
-            )
+            mobile
+                ? Text(
+                    _partialUnavailable.isEmpty
+                        ? '今天还没有留下记录'
+                        : '部分记录尚未读取成功，请稍后核对。',
+                    style: SlowlightTypography.secondary(context),
+                  )
+                : FxEmptyState(
+                    icon: LucideIcons.footprints,
+                    title: _partialUnavailable.isEmpty
+                        ? '今天还没有留下行为记录'
+                        : '行为轨迹暂不完整',
+                    subtitle: _partialUnavailable.isEmpty
+                        ? '先记录一件真实发生的事，轨迹就会出现在这里。'
+                        : '部分记录读取失败，请重新加载后核对。',
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                  )
           else
             ...List.generate(
               items.length,
@@ -660,6 +755,20 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             ),
         ],
       ),
+    );
+    if (!mobile) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FxSectionHeader(
+          title: '发生过的事',
+          trailing: _partialUnavailable.isNotEmpty
+              ? '待核对'
+              : '${items.length} 项',
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
     );
   }
 
@@ -682,6 +791,24 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   Widget _questionsCard(List<Map<String, dynamic>> questions) {
     final theme = Theme.of(context);
+    if (SlowlightPlatformDensity.usesMobileTouchTargets && questions.isEmpty) {
+      // An empty prompt list is a real quiet state, not a reason to remove
+      // the whole section or invent a suggested question.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FxSectionHeader(title: '值得想一想'),
+          const SizedBox(height: SlowlightSpacing.md),
+          Text(
+            '当前没有待回应的问题。',
+            key: const ValueKey('review.mobile.questions.quiet'),
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
     return FxCard(
       padding: const EdgeInsets.all(16),
       expanded: true,
