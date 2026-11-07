@@ -21,6 +21,8 @@ abstract final class FxSheet {
     bool useRootNavigator = false,
     bool draggable = true,
     bool? enableDrag,
+    /// Explicitly controls the handle. When omitted, guarded editors show it.
+    /// Ordinary draggable sheets show it only when explicitly requested.
     bool? showDragHandle,
     /// Invoked by the 44dp grip only. The owner decides whether a dirty
     /// draft may close; FxSheet must never pop an editor behind its back.
@@ -45,10 +47,6 @@ abstract final class FxSheet {
       radius = shape.borderRadius as BorderRadius;
     }
 
-    // showDragHandle 仅用于兼容旧 Material 调用。shadcn_ui 0.26.5 没有等价的
-    // 独立 drag-handle 开关；拖拽能力仍由 draggable / enableDrag 控制。
-    final _ = showDragHandle;
-
     return showShadSheet<T>(
       context: context,
       side: side,
@@ -63,12 +61,24 @@ abstract final class FxSheet {
       anchorPoint: anchorPoint,
       builder: (sheetContext) {
         final platform = Theme.of(sheetContext).platform;
-        final handleOnly = side == ShadSheetSide.bottom &&
-            onDismissRequested != null &&
+        final mobileBottom = side == ShadSheetSide.bottom &&
             (platform == TargetPlatform.android ||
              platform == TargetPlatform.iOS);
-        // ShadSheet 0.26.x drags the entire surface, including scrollable
-        // forms. The approved Android behavior is a handle-only gesture.
+        final hasDismissGuard = onDismissRequested != null;
+        final handleOnly = mobileBottom &&
+            hasDismissGuard &&
+            (showDragHandle ?? true);
+        // A simple, safely dismissible action sheet may use ShadSheet's
+        // native drag; its requested indicator was previously ignored.
+        // Never show a dead drag affordance on non-draggable forms.
+        final passiveHandle = mobileBottom &&
+            !hasDismissGuard &&
+            showDragHandle == true &&
+            effectiveDraggable &&
+            effectiveDismissible &&
+            title == null;
+        // Guarded forms never let ShadSheet drag the entire scrollable body,
+        // even if their owner explicitly hides the handle.
         double dragDistance = 0;
         bool dragging = false;
         final reduceMotion = MediaQuery.of(sheetContext).disableAnimations;
@@ -92,20 +102,40 @@ abstract final class FxSheet {
           actions: actions,
           constraints: constraints,
           padding: padding,
-          radius: handleOnly
+          radius: radius ?? (mobileBottom
               ? const BorderRadius.vertical(
                   top: Radius.circular(SlowlightRadius.xl))
-              : radius,
+              : null),
           backgroundColor: backgroundColor,
-          draggable: handleOnly ? false : effectiveDraggable,
+          draggable: hasDismissGuard && mobileBottom
+              ? false
+              : effectiveDraggable,
           isScrollControlled: isScrollControlled,
           scrollable: scrollable,
           child: content,
         );
 
+        // Shared Android handle geometry: 44dp hit zone, 36x4dp indicator.
+        Widget gripIndicator({Key? key}) => SizedBox(
+          key: key,
+          width: double.infinity,
+          height: SlowlightControlSize.minTouchTarget,
+          child: Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(sheetContext).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const SizedBox(width: 36, height: 4),
+            ),
+          ),
+        );
+
         Widget sheet;
         if (!handleOnly) {
-          sheet = buildSheet(null);
+          sheet = buildSheet(passiveHandle
+              ? gripIndicator(key: const ValueKey('fx.sheet.visualHandle'))
+              : null);
         } else {
           sheet = StatefulBuilder(
             builder: (context, setDragState) {
@@ -145,19 +175,7 @@ abstract final class FxSheet {
                     if (close) await onDismissRequested?.call();
                   },
                   onVerticalDragCancel: reset,
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: SlowlightControlSize.minTouchTarget,
-                    child: Center(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.outlineVariant,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const SizedBox(width: 36, height: 4),
-                      ),
-                    ),
-                  ),
+                  child: gripIndicator(),
                 ),
               );
               return AnimatedContainer(
