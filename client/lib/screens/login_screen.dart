@@ -149,10 +149,14 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
+        // Registration may already have committed remotely when the response
+        // or local credential persistence fails. Do not invite a blind retry.
         FxNotice.errorWithDetails(
           context,
-          _isLogin ? '登录失败' : '注册失败',
-          e.toString(),
+          _isLogin ? '登录失败' : '注册结果待核对',
+          _isLogin
+              ? e.toString()
+              : '若请求已送达云端，账号可能已经创建。请先尝试登录核对，避免重复注册。\n$e',
         );
       }
     } finally {
