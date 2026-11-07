@@ -221,7 +221,11 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
       // signIn only returns true after the JWT has been safely persisted.
-      _githubCredentialsSaved = true;
+      setState(() {
+        _githubCredentialsSaved = true;
+        _githubDeviceCode = null;
+        _githubVerificationUri = null;
+      });
       await _enterCloudAfterGitHub(isCurrent);
     } catch (e) {
       unawaited(
@@ -612,7 +616,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _oauthStep(context,
                   label: '已发起授权',
                   icon: Icons.check_circle_outline_rounded,
-                  active: isWaiting),
+                  active: isWaiting || _githubCredentialsSaved),
               const SizedBox(height: SlowlightSpacing.xxxl),
               _oauthStep(context,
                   label: _githubCredentialsSaved
