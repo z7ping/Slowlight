@@ -554,22 +554,27 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   Widget _filters() {
     final total = _controller.habits.length;
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    if (total == 0) return const SizedBox.shrink();
+    final segments = FxSegmented(
+      labels: mobile
+          ? const ['全部', '今日未记录', '今日有记录']
+          : const ['全部', '待记录', '已记录'],
+      selectedIndex: _filter,
+      onChanged: (index) => setState(() => _filter = index),
+      itemKeys: const [
+        ValueKey('habits.filter_all'),
+        ValueKey('habits.filter_pending'),
+        ValueKey('habits.filter_done'),
+      ],
+    );
     return Align(
       alignment: Alignment.centerLeft,
-      child: total == 0
-          ? const SizedBox.shrink()
-          : FxSegmented(
-              labels: mobile
-                   ? const ['全部', '今日未记录', '今日有记录']
-                   : const ['全部', '待记录', '已记录'],
-              selectedIndex: _filter,
-              onChanged: (index) => setState(() => _filter = index),
-              itemKeys: const [
-                ValueKey('habits.filter_all'),
-                ValueKey('habits.filter_pending'),
-                ValueKey('habits.filter_done'),
-              ],
-            ),
+      child: mobile
+          ? SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: segments,
+            )
+          : segments,
     );
   }
 
