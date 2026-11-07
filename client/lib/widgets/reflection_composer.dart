@@ -192,15 +192,12 @@ class ReflectionComposer {
             },
           );
           if (entryContext.mounted) {
-            if (_useDesktopObservationDialog) {
-              Navigator.of(entryContext).pop(true);
-            } else {
-              // PopScope blocks even programmatic pops until it rebuilds.
-              setEntryState(() => allowEditorPop = true);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (entryContext.mounted) Navigator.of(entryContext).pop(true);
-              });
-            }
+            // Both desktop and mobile routes own a draft-protecting PopScope.
+            // Allow the confirmed success to pop only after the guard rebuilds.
+            setEntryState(() => allowEditorPop = true);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (entryContext.mounted) Navigator.of(entryContext).pop(true);
+            });
           }
         } catch (_) {
           if (!entryContext.mounted) return;
