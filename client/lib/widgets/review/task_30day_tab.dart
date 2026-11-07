@@ -32,6 +32,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   Map<String, dynamic> _data = {};
   List<Map<String, dynamic>> _trendDays = const [];
   bool _trendLoadFailed = false;
+  bool _trendRefreshing = false;
   int _loadVersion = 0;
 
   @override
@@ -48,8 +49,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       _refreshError = null;
     });
 
-    // Primary 30-day task facts should not wait for an optional trend query.
-    unawaited(_loadTrend(version));
+    // First confirm the requested 30-day facts. Starting a new trend read
+    // before that can blend fresh trend facts into an older primary snapshot.
     try {
       final result = await (widget.tasksReviewLoader ??
           () => ReviewApi.getTasksReview(days: 30))();
@@ -58,7 +59,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _data = result;
         _hasConfirmedReview = true;
         _loading = false;
+        _trendRefreshing = _trendDays.isNotEmpty;
+        _trendLoadFailed = false;
       });
+      // Optional trend must not delay the confirmed primary task facts.
+      unawaited(_loadTrend(version));
     } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -79,12 +84,16 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       if (!mounted || version != _loadVersion) return;
       setState(() {
         _trendDays = trend;
+        _trendRefreshing = false;
         _trendLoadFailed = false;
       });
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
       // Do not erase a previously confirmed trend on a failed refresh.
-      setState(() => _trendLoadFailed = true);
+      setState(() {
+        _trendRefreshing = false;
+        _trendLoadFailed = true;
+      });
     }
   }
 
@@ -105,15 +114,16 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         .take(20)
         .toList(growable: false);
 
-    final hasData =
+    // Habit check-ins alone do not establish a task-completion history.
+    final hasTaskData =
         ((summary['completed_count'] as num?)?.toInt() ?? 0) > 0 ||
         ((summary['created_count'] as num?)?.toInt() ?? 0) > 0 ||
         tasks.isNotEmpty ||
-        _trendDays.any(
-          (day) =>
-              ((day['task_completed'] as num?)?.toInt() ?? 0) > 0 ||
-              ((day['habit_checked'] as num?)?.toInt() ?? 0) > 0,
-        );
+        // Old trend may still be shown with a stale marker, but it cannot
+        // establish activity in the newly-confirmed 30-day task snapshot.
+        (!_trendRefreshing && !_trendLoadFailed && _trendDays.any(
+          (day) => ((day['task_completed'] as num?)?.toInt() ?? 0) > 0,
+        ));
 
     return FxRefresh(
       onRefresh: _load,
@@ -151,6 +161,14 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                   ],
                   _summaryCard(summary),
                   const SizedBox(height: 14),
+                  if (_trendRefreshing && _trendDays.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        '趋势核对中，当前趋势与习惯汇总仍来自上次读取。',
+                        style: SlowlightTypography.secondary(context),
+                      ),
+                    ),
                   if (_trendLoadFailed)
                     FxCard(
                       padding: const EdgeInsets.all(16),
@@ -164,6 +182,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                             '趋势暂时无法加载，已载入的任务统计仍可查看。',
                             style: SlowlightTypography.secondary(context),
                           ),
+                          if (_trendDays.isNotEmpty)
+                            Text(
+                              '习惯汇总与下方趋势来自上次核对，非本次刷新结果。',
+                              style: SlowlightTypography.caption(context),
+                            ),
                           const SizedBox(height: 8),
                           FxButton(
                             label: '重新加载',
@@ -174,10 +197,10 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                         ],
                       ),
                     )
-                  if (_trendDays.isNotEmpty && hasData) ...[
+                  if (_trendDays.isNotEmpty && hasTaskData) ...[
                     const SizedBox(height: SlowlightSpacing.md),
                     _trendCard(),
-                  ] else if (!_trendLoadFailed && hasData)
+                  ] else if (!_trendLoadFailed && hasTaskData)
                     _trendCard()
                   else if (!_trendLoadFailed)
                     const FxEmptyState(
@@ -186,7 +209,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                       subtitle: '有记录后，这里会展示完成趋势与任务分布。',
                       padding: EdgeInsets.symmetric(vertical: 24),
                     ),
-                  if (hasData && dist.isNotEmpty) ...[
+                  if (hasTaskData && dist.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _distributionCard(dist),
                   ],
@@ -227,11 +250,20 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
           FxSectionHeader(title: '近 30 天已载入记录', trailing: '$days 天'),
           const SizedBox(height: 12),
           _stats([
-            FxStatCell(value: '$completed', label: '完成任务'),
-            FxStatCell(value: '$created', label: '新建任务'),
+            FxStatCell(
+              value: summary['completed_count'] is num ? '$completed' : '—',
+              label: '完成任务',
+            ),
+            FxStatCell(
+              value: summary['created_count'] is num ? '$created' : '—',
+              label: '新建任务',
+            ),
             FxStatCell(
               value: _trendDays.isEmpty ? '—' : '$habitCount',
-              label: '习惯记录',
+              label: _trendDays.isNotEmpty &&
+                      (_trendRefreshing || _trendLoadFailed)
+                  ? '习惯记录（上次核对）'
+                  : '习惯记录',
             ),
           ]),
           if (bestDay != null && bestCount > 0) ...[

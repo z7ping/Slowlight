@@ -203,6 +203,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(trendReads, 2);
     expect(find.text('6'), findsOneWidget);
+    expect(find.text('习惯记录（上次核对）'), findsOneWidget);
+    expect(find.text('习惯汇总与下方趋势来自上次核对，非本次刷新结果。'),
+        findsOneWidget);
     expect(find.text('趋势暂时无法加载，已载入的任务统计仍可查看。'), findsOneWidget);
     expect(find.text('每日任务完成趋势'), findsOneWidget);
     expect(tester.takeException(), isNull);
