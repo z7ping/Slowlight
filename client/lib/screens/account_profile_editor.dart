@@ -13,6 +13,8 @@ Future<bool> editCloudNickname(BuildContext context, User user) async {
     context: context,
     title: '修改昵称',
     width: 400,
+    barrierDismissible: false,
+    showCloseButton: false,
     child: _NicknameForm(initialName: user.nickname),
   );
   return done == true;
@@ -27,6 +29,7 @@ Future<bool> manageAccountPassword(BuildContext context, {
     title: alreadySet ? '修改登录密码' : '设置账号密码',
     width: 430,
     barrierDismissible: false,
+    showCloseButton: false,
     child: _PasswordForm(alreadySet: alreadySet, username: username),
   );
   return done == true;
@@ -52,7 +55,24 @@ class _NicknameFormState extends State<_NicknameForm> {
     super.dispose();
   }
 
+  Future<void> _cancel() async {
+    if (_saving) return;
+    if (_name.text.trim() != widget.initialName.trim()) {
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '放弃未保存的昵称？',
+        content: '本次昵称修改尚未保存，离开后草稿将丢失。',
+        cancelText: '继续编辑',
+        confirmText: '放弃修改',
+        destructive: true,
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    if (mounted) Navigator.of(context).pop(false);
+  }
+
   Future<void> _save() async {
+    if (_saving) return;
     final value = _name.text.trim();
     if (value.isEmpty || value.runes.length > 50) {
       setState(() => _error = '昵称应为 1–50 个字符');
@@ -76,7 +96,12 @@ class _NicknameFormState extends State<_NicknameForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _cancel();
+    },
+    child: Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -96,13 +121,14 @@ class _NicknameFormState extends State<_NicknameForm> {
       const SizedBox(height: 18),
       Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         FxButton(label: '取消', variant: FxButtonVariant.ghost,
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false)),
+          onPressed: _saving ? null : _cancel),
         const SizedBox(width: 8),
         FxButton(key: const ValueKey('account.nickname.save'),
           label: _saving ? '保存中…' : '保存',
           onPressed: _saving ? null : _save),
       ]),
     ],
+    ),
   );
 }
 
@@ -134,6 +160,28 @@ class _PasswordFormState extends State<_PasswordForm> {
     _password.dispose();
     _confirm.dispose();
     super.dispose();
+  }
+
+  bool get _hasDraft =>
+      _username.text.trim().isNotEmpty ||
+      _old.text.isNotEmpty ||
+      _password.text.isNotEmpty ||
+      _confirm.text.isNotEmpty;
+
+  Future<void> _cancel() async {
+    if (_saving) return;
+    if (_hasDraft) {
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '放弃未保存的密码修改？',
+        content: '离开后尚未提交的账号和密码输入将丢失。',
+        cancelText: '继续编辑',
+        confirmText: '放弃修改',
+        destructive: true,
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    if (mounted) Navigator.of(context).pop(false);
   }
 
   Future<void> _save() async {
@@ -197,7 +245,12 @@ class _PasswordFormState extends State<_PasswordForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _cancel();
+    },
+    child: Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -211,7 +264,12 @@ class _PasswordFormState extends State<_PasswordForm> {
           controller: _username,
           errorText: _usernameError,
           onChanged: (_) {
-            if (_usernameError != null) setState(() => _usernameError = null);
+            if (_usernameError != null || _formError != null) {
+              setState(() {
+                _usernameError = null;
+                _formError = null;
+              });
+            }
           },
           enabled: !_saving,
         ),
@@ -223,7 +281,12 @@ class _PasswordFormState extends State<_PasswordForm> {
           controller: _old,
           errorText: _oldError,
           onChanged: (_) {
-            if (_oldError != null) setState(() => _oldError = null);
+            if (_oldError != null || _formError != null) {
+              setState(() {
+                _oldError = null;
+                _formError = null;
+              });
+            }
           },
           obscureText: true,
           enabled: !_saving,
@@ -236,7 +299,14 @@ class _PasswordFormState extends State<_PasswordForm> {
         controller: _password,
         errorText: _passwordError,
         onChanged: (_) {
-          if (_passwordError != null) setState(() => _passwordError = null);
+          if (_passwordError != null || _confirmError != null ||
+              _formError != null) {
+            setState(() {
+              _passwordError = null;
+              _confirmError = null;
+              _formError = null;
+            });
+          }
         },
         obscureText: true,
         enabled: !_saving,
@@ -247,7 +317,12 @@ class _PasswordFormState extends State<_PasswordForm> {
         controller: _confirm,
         errorText: _confirmError,
         onChanged: (_) {
-          if (_confirmError != null) setState(() => _confirmError = null);
+          if (_confirmError != null || _formError != null) {
+            setState(() {
+              _confirmError = null;
+              _formError = null;
+            });
+          }
         },
         obscureText: true,
         enabled: !_saving,
@@ -264,12 +339,13 @@ class _PasswordFormState extends State<_PasswordForm> {
       const SizedBox(height: 20),
       Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         FxButton(label: '取消', variant: FxButtonVariant.ghost,
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false)),
+          onPressed: _saving ? null : _cancel),
         const SizedBox(width: 8),
         FxButton(key: const ValueKey('account.password.save'),
           label: _saving ? '处理中…' : widget.alreadySet ? '修改密码' : '验证并设置',
           onPressed: _saving ? null : _save),
       ]),
     ],
+    ),
   );
 }
