@@ -104,18 +104,26 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   int _loadVersion = 0;
+  bool _hasStartedInitialLoad = false;
 
   Future<void> _load() async {
     final version = ++_loadVersion;
-    if (mounted)
-      setState(() {
-        _dimensionLoading = true;
-        _reviewLoading = true;
-        _dimensionLoadFailed = false;
-        _reviewLoadFailed = false;
-        _timelineLoading = true;
-        _timelineLoadFailed = false;
-      });
+    // After the initial load, leave the last confirmed facts visible while
+    // refreshing. FxRefresh owns the pull progress; resetting the three
+    // loading flags would flash stale panels on every task/habit action.
+    if (!_hasStartedInitialLoad) {
+      _hasStartedInitialLoad = true;
+      if (mounted) {
+        setState(() {
+          _dimensionLoading = true;
+          _reviewLoading = true;
+          _dimensionLoadFailed = false;
+          _reviewLoadFailed = false;
+          _timelineLoading = true;
+          _timelineLoadFailed = false;
+        });
+      }
+    }
 
     // 独立完成/报错：任意一个辅助接口迟迟未返回，也不能阻塞另一个区域。
     Future<void> loadDimensions() async {
