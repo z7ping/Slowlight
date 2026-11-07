@@ -33,8 +33,15 @@ class SearchScreen extends StatefulWidget {
   final SearchDataLoader? dataLoader;
   // Optional source-level test seam; production still uses existing repositories.
   final SearchSourceLoaders? sourceLoaders;
+  /// Only the app shell owns navigation to the canonical habit tool.
+  final ValueChanged<Habit>? onOpenHabit;
 
-  const SearchScreen({super.key, this.dataLoader, this.sourceLoaders});
+  const SearchScreen({
+    super.key,
+    this.dataLoader,
+    this.sourceLoaders,
+    this.onOpenHabit,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -439,36 +446,43 @@ class _SearchScreenState extends State<SearchScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
         child: Column(
-          children:
-              _habits
-                  .take(20)
-                  .map(
-                    (habit) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          Text(
-                            habit.icon,
-                            style: const TextStyle(fontSize: SlowlightIconSize.md),
-                          ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: _highlight(
-                              habit.name,
-                              _query,
-                              style: SlowlightTypography.body(context),
-                            ),
-                          ),
-                          if (habit.streakCount > 0)
-                            FxChip(
-                              label: '🔥 ${habit.streakCount}',
-                              variant: FxChipVariant.secondary,
-                            ),
-                        ],
+          children: _habits.take(20).map((habit) {
+            return FxInkWell(
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
+              onTap: widget.onOpenHabit == null
+                  ? null
+                  : () => widget.onOpenHabit!(habit),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Text(
+                        habit.icon,
+                        style: const TextStyle(fontSize: SlowlightIconSize.md),
                       ),
-                    ),
-                  )
-                  .toList(),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: _highlight(
+                          habit.name,
+                          _query,
+                          style: SlowlightTypography.body(context),
+                        ),
+                      ),
+                      if (habit.streakCount > 0)
+                        FxChip(
+                          label: '🔥 ${habit.streakCount}',
+                          variant: FxChipVariant.secondary,
+                        ),
+                      if (widget.onOpenHabit != null)
+                        const Icon(LucideIcons.chevronRight, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
