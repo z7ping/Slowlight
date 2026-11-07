@@ -11,6 +11,36 @@ import 'package:slowlight/screens/search_screen.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('P09 搜索习惯命中通过唯一正式入口打开指定习惯', (tester) async {
+    final habit = Habit(
+      id: 86,
+      userId: 1,
+      name: '晨间阅读',
+      createdAt: DateTime(2026, 11, 7),
+    );
+    int? selectedHabitId;
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(
+        dataLoader: (_) async => (
+          tasks: <Task>[],
+          habits: <Habit>[habit],
+          reflections: <ReflectionEntry>[],
+          lists: <TodoList>[],
+        ),
+        onOpenHabit: (selected) => selectedHabitId = selected.id,
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '晨间阅读');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('晨间阅读'));
+    expect(selectedHabitId, 86);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P09 一个搜索来源失败仍展示其他真实任务结果', (tester) async {
     final task = Task(
       id: 71,
