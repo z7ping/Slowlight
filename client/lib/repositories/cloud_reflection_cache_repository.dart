@@ -95,6 +95,20 @@ class CloudReflectionCacheRepository {
     return rows.map(_fromRow).toList(growable: false);
   }
 
+  /// Local pending submissions remain visible even when the exact Cloud
+  /// period lookup returns no confirmed record.
+  Future<ReflectionEntry?> pendingByQuestionId(String questionId) async {
+    final db = await _cache.database;
+    final rows = await db.query(
+      'reflections',
+      where: 'question_id = ? AND sync_status = ?',
+      whereArgs: [questionId, 'pending'],
+      orderBy: 'created_at DESC, id DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : _fromRow(rows.first);
+  }
+
   Future<void> markCreateSynced(
     Database db,
     int localId,
