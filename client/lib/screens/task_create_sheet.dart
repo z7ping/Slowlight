@@ -153,6 +153,8 @@ class TaskCreateSheet extends StatefulWidget {
 
     return FxDialog.raw<bool>(
       context: context,
+      // Do not discard the full editor via backdrop; its PopScope owns exit.
+      barrierDismissible: false,
       barrierColor: FxDialog.barrierColor,
       builder: (dialogContext) {
         final size = MediaQuery.sizeOf(dialogContext);
