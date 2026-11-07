@@ -13,7 +13,6 @@ import '../services/data_mode_manager.dart';
 import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
-import 'home_screen.dart';
 
 enum _LoginView { welcome, github, password, register, local }
 
@@ -265,12 +264,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       final navigator = Navigator.of(context);
       if (navigator.canPop()) {
+        // Settings/migration opens LoginScreen as a route and expects a result.
         navigator.pop(value);
       } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        // The initial LoginScreen is a child of AuthGate, not a route.
+        // AuthGate already listens for authStateNotifier updates. Replacing
+        // the root route would destroy that listener and break later logout.
       }
       if (successMessage != null) {
         notice!.show(
