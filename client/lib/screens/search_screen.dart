@@ -494,7 +494,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _reflectionGroup() {
     final theme = Theme.of(context);
     return _group(
-      '回顾 · ${_reflections.length} 条',
+      '回顾与观察 · ${_reflections.length} 条',
       FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
@@ -511,40 +511,40 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 44),
                         child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            entry.entryType == 'observation'
-                                ? LucideIcons.fileText
-                                : LucideIcons.messageCircle,
-                            size: SlowlightIconSize.md,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _highlight(
-                                  entry.content,
-                                  _query,
-                                  style: SlowlightTypography.body(context),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                entry.entryType == 'observation'
+                                    ? LucideIcons.fileText
+                                    : LucideIcons.messageCircle,
+                                size: SlowlightIconSize.md,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _highlight(
+                                      entry.content,
+                                      _query,
+                                      style: SlowlightTypography.body(context),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${entry.createdAt.month} 月 ${entry.createdAt.day} 日${entry.dimensionKey == null ? '' : ' · #${_dimensionLabel(entry.dimensionKey!)}'}',
+                                      style: SlowlightTypography.caption(
+                                        context,
+                                      ).copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${entry.createdAt.month} 月 ${entry.createdAt.day} 日${entry.dimensionKey == null ? '' : ' · #${_dimensionLabel(entry.dimensionKey!)}'}',
-                                  style: SlowlightTypography.caption(
-                                    context,
-                                  ).copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
