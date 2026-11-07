@@ -355,7 +355,12 @@ class CloudCacheRepository {
         whereArgs: [localId],
       );
       final days = logs.map((value) => value['date']?.toString() ?? '').toList();
-      final today = _dateKey(DateTime.now());
+      final now = DateTime.now();
+      final today = _dateKey(now);
+      final sevenStart = _dateKey(
+        DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 6)),
+      )!;
       final goalRows = logs.map((e) => Map<String, dynamic>.from(e));
       final goal = HabitGoalProgress.current(Map<String, dynamic>.from(row), goalRows);
       final rule = HabitOccurrence.rule(row['schedule_rule'],
@@ -415,7 +420,8 @@ class CloudCacheRepository {
         if (canCheckIn != null) 'can_check_in': canCheckIn,
         'period_count':count,
         'period_target':target,
-        'checked_days': days.toSet().toList(),
+        'checked_days': days.where((day) => day.compareTo(sevenStart) >= 0 &&
+            day.compareTo(today!) <= 0).toSet().toList(),
         'created_at': row['created_at'],
       });
     }
