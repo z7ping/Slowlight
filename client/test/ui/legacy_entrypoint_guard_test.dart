@@ -67,6 +67,25 @@ void main() {
     expect(login, contains("'重试进入云端'"));
   });
 
+  test('本地模式冷启动 GitHub 授权取消后复查根门禁，恢复原工作台', () async {
+    final main = await File('lib/main.dart').readAsString();
+    final login = await File('lib/screens/login_screen.dart').readAsString();
+
+    expect(main, contains('returnToLocalOnCancel: _pendingGitHubLogin'));
+    expect(main, contains('DataModeManager().isLocal'));
+    final cancelStart = login.indexOf('Future<void> _stopGitHubWaiting()');
+    final cancelEnd = login.indexOf('Future<void> _useLocal()', cancelStart);
+    expect(cancelStart, greaterThanOrEqualTo(0));
+    expect(cancelEnd, greaterThan(cancelStart));
+    final cancel = login.substring(cancelStart, cancelEnd);
+    expect(cancel, contains('await GitHubSignIn.cancelPendingAuthorization()'));
+    expect(cancel.indexOf('await GitHubSignIn.cancelPendingAuthorization()'),
+        lessThan(cancel.indexOf('authStateNotifier.value =')));
+    expect(cancel, contains('if (widget.returnToLocalOnCancel)'));
+    expect(cancel, isNot(contains('DataModeManager().setLocal()')));
+    expect(cancel, isNot(contains('Navigator.pushReplacement(')));
+  });
+
   test('旧首页、侧栏与维度字段不得悄悄重返正式业务调用链', () async {
     const compatibilityFiles = {
       'lib/screens/home_drawer.dart': 'HomeDrawer',

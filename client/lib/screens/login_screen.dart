@@ -20,7 +20,15 @@ class LoginScreen extends StatefulWidget {
   /// Auth-only mode for data migration: never switch the active data source.
   final bool preserveDataMode;
 
-  const LoginScreen({super.key, this.preserveDataMode = false});
+  /// Root AuthGate may show this screen over an already accessible local mode
+  /// while a GitHub authorization is pending. Cancel returns to that workspace.
+  final bool returnToLocalOnCancel;
+
+  const LoginScreen({
+    super.key,
+    this.preserveDataMode = false,
+    this.returnToLocalOnCancel = false,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -397,6 +405,11 @@ class _LoginScreenState extends State<LoginScreen> {
           _githubDeviceCode = null;
           _githubVerificationUri = null;
         });
+        if (widget.returnToLocalOnCancel) {
+          // Recheck the existing root guard only after persisted OAuth state
+          // has been cleared; the already selected Local mode is unchanged.
+          authStateNotifier.value = !authStateNotifier.value;
+        }
       }
     } catch (error) {
       unawaited(
