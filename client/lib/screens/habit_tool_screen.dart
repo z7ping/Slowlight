@@ -996,8 +996,14 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final first = DateTime(now.year, now.month, 1);
-    final start = first.subtract(Duration(days: first.weekday - 1));
-    final days = List.generate(35, (i) => start.add(Duration(days: i)));
+    final leadingDays = first.weekday - 1;
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    // Months requiring six calendar rows must not silently lose their
+    // final dates (e.g. November 2026 ends on a sixth-row Monday).
+    final gridLength = ((leadingDays + daysInMonth + 6) ~/ 7) * 7;
+    final start = DateTime(now.year, now.month, 1 - leadingDays);
+    final days = List.generate(gridLength,
+        (index) => DateTime(start.year, start.month, start.day + index));
     final largeText = MediaQuery.textScalerOf(
           context,
         ).scale(SlowlightTypography.captionSize) >=
