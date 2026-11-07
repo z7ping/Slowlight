@@ -77,6 +77,49 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('删除前重新核对任务范围并展示全部影响，取消不删除',
+      (tester) async {
+    var reads = 0;
+    final completed = Task(
+      id: 19,
+      listId: 10,
+      title: '已完成的提交',
+      priority: 'none',
+      isCompleted: true,
+      createdAt: DateTime(2026, 11, 1),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: ListManageScreen(
+        listsLoader: () async => [_list()],
+        tasksLoader: () async {
+          reads++;
+          return [_task(), completed];
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(reads, 1);
+
+    await tester.tap(find.byWidgetPredicate(
+      (widget) => widget is FxIconButton && widget.tooltip == '删除',
+    ));
+    await tester.pumpAndSettle();
+    expect(reads, 2);
+    expect(find.text('删除清单及其任务？'), findsOneWidget);
+    expect(find.textContaining('同时删除 2 项任务'), findsOneWidget);
+    expect(find.textContaining('已完成 1 项'), findsOneWidget);
+    expect(find.text('已保存的任务 · 未完成'), findsOneWidget);
+    expect(find.text('已完成的提交 · 已完成'), findsOneWidget);
+    expect(find.byKey(const ValueKey('lists.delete.affectedTasks')),
+        findsOneWidget);
+    await tester.tap(find.text('保留清单'));
+    await tester.pumpAndSettle();
+    expect(find.text('客户清单'), findsOneWidget);
+    expect(find.text('删除清单及其任务？'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P14 清单读取失败时不会把失败当作空清单', (tester) async {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: ListManageScreen(
