@@ -536,6 +536,7 @@ class CloudCacheRepository {
     String? clientKey,
   }) async {
     final db = await _db;
+    HabitLog.validateDate(date);
     // Cached writes build both calendar dates and V3 occurrence keys on
     // the device. Only allow them when its calendar matches this account's
     // authoritative server timezone; online writes remain server-owned.
