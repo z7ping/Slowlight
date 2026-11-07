@@ -11,6 +11,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../main.dart' show authStateNotifier;
 import '../models/habit.dart';
+import '../models/reflection_entry.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../navigation/home_navigation_state.dart';
@@ -74,6 +75,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   bool _organizeToolsExpanded = false;
   bool _openHabitEditorOnEnter = false;
   int? _searchFocusHabitId;
+  ReflectionEntry? _searchFocusObservation;
+  int _searchFocusObservationRequest = 0;
   late Future<Map<String, String>> _accountFuture;
   bool _shortcutModifierPressed = false;
   int _dashboardRefreshTick = 0;
@@ -445,6 +448,17 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     );
   }
 
+  Future<void> _openSearchReflection(ReflectionEntry entry) async {
+    await _openPrimary(HomePrimarySection.review);
+    if (!mounted || !_navigation.isReview) return;
+    setState(() {
+      // The prototype pins observations only. Replies open the review page.
+      _searchFocusObservation =
+          entry.entryType == 'observation' ? entry : null;
+      _searchFocusObservationRequest++;
+    });
+  }
+
   Future<void> _openSearch() {
     return Navigator.push<void>(
       context,
@@ -455,6 +469,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             if (!mounted) return;
             setState(() => _searchFocusHabitId = habit.id);
             unawaited(_openTool(HomeToolSection.habits));
+          },
+          onOpenReflection: (entry) {
+            Navigator.of(searchContext).pop();
+            unawaited(_openSearchReflection(entry));
           },
         ),
       ),
@@ -799,7 +817,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       index: tool != null ? 2 : showingReview ? 1 : 0,
       children: [
         _buildTodayDashboard(),
-        _reviewOpened ? const TodayReviewScreen() : const SizedBox.shrink(),
+        _reviewOpened
+            ? TodayReviewScreen(
+                focusObservation: _searchFocusObservation,
+                focusRequestId: _searchFocusObservationRequest,
+              )
+            : const SizedBox.shrink(),
         tool == null ? const SizedBox.shrink() : _buildToolContent(tool),
       ],
     );
@@ -880,6 +903,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       _taskToolKey = GlobalKey<TaskToolScreenState>();
       _reviewOpened = _navigation.tool == null &&
           _navigation.primary == HomePrimarySection.review;
+      _searchFocusObservation = null;
+      _searchFocusObservationRequest = 0;
       _lists = const [];
       _tasks = const [];
       _habits = const [];
