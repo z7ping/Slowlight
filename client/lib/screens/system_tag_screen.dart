@@ -504,10 +504,12 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
 
   Future<void> _confirmDelete(ObservationTag tag) async {
     if (tag.isDefault || _deletingTag) return;
+    final version = _loadVersion;
     _deletingTag = true;
     try {
       final impact = await _repository.getDeletionImpact(tag);
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion ||
+          !_tags.any((item) => item.id == tag.id)) return;
       final detail = impact == null
           ? '云端未提供关联数量，无法在此核对影响条数。'
               '服务端删除只解除标签及对应关联，不删除任务、习惯和历史记录。'
@@ -523,7 +525,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         destructive: true,
         barrierDismissible: false,
       );
-      if (confirmed != true || !mounted) return;
+      if (confirmed != true || !mounted || version != _loadVersion) return;
       await _repository.delete(tag);
       if (mounted) await _load();
     } catch (error) {
