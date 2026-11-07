@@ -401,6 +401,7 @@ class CloudCacheRepository {
         'goal_period': row['goal_period'] ?? 'none',
         'goal_metric': row['goal_metric'] ?? 'events',
         'goal_value': row['goal_value'] ?? 0,
+        'goal_history': _jsonList(row['goal_history']),
         'goal_progress': goal,
         'goal_met': HabitGoalProgress.met(Map<String, dynamic>.from(row), goal),
         'target_days': row['target_days'] ?? 0,
@@ -857,6 +858,16 @@ class CloudCacheRepository {
   String? _dateKey(DateTime? value) => value == null
       ? null
       : '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  List<dynamic> _jsonList(Object? value) {
+    if (value is List) return value;
+    if (value is String && value.isNotEmpty) {
+      final decoded = jsonDecode(value);
+      if (decoded is List) return decoded;
+      throw const FormatException('历史目标版本格式不正确');
+    }
+    return const [];
+  }
 
   Map<String, dynamic> _jsonMap(Object? value) {
     if (value is Map) return Map<String, dynamic>.from(value);
