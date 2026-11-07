@@ -138,6 +138,58 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('今日回顾刷新失败保留事实、未保存草稿及重试入口', (tester) async {
+    var loads = 0;
+    tester.view.physicalSize = const Size(900, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TodayReviewScreen(
+        reflectionRepository: _ControlledReflections(),
+        habitRepository: _NoHabits(),
+        reviewLoader: () async {
+          loads++;
+          if (loads > 1) throw StateError('暂时离线');
+          return {
+            'facts': <String, dynamic>{'task_completed': 3},
+            'patterns': <String, dynamic>{},
+            'questions': <Map<String, dynamic>>[],
+          };
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('回顾数据加载失败'), findsNothing);
+
+    await tester.enterText(find.byType(FxInput).first, '未提交的今日草稿');
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(loads, 2);
+    expect(find.text('今日数据刷新未确认，以下仍为上次成功读取的记录。'),
+        findsOneWidget);
+    expect(find.text('重新加载'), findsOneWidget);
+    expect(find.text('回顾数据加载失败'), findsNothing);
+    expect(find.text('未提交的今日草稿'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('首次今日回顾加载失败仍显示错误与重试', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TodayReviewScreen(
+        reflectionRepository: _ControlledReflections(),
+        habitRepository: _NoHabits(),
+        reviewLoader: () async => throw StateError('离线'),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('回顾数据加载失败'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('回顾记录保存过程中连续点击只会创建一次', (tester) async {
     final repository = _ControlledReflections();
     tester.view.physicalSize = const Size(900, 950);

@@ -39,7 +39,9 @@ class TodayReviewScreen extends StatefulWidget {
 
 class _TodayReviewScreenState extends State<TodayReviewScreen> {
   bool _loading = true;
+  bool _hasConfirmedReview = false;
   String? _error;
+  String? _refreshError;
   List<String> _partialUnavailable = const [];
   Map<String, dynamic> _review = {};
   List<ReflectionEntry> _reflections = const [];
@@ -91,9 +93,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final version = ++_loadVersion;
     if (mounted) {
       setState(() {
-        _loading = true;
+        // A subsequent refresh must not hide confirmed facts or editor text.
+        _loading = !_hasConfirmedReview;
         _error = null;
-        _partialUnavailable = const [];
+        _refreshError = null;
+        if (!_hasConfirmedReview) _partialUnavailable = const [];
       });
     }
     try {
@@ -115,12 +119,18 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         _reflections = values[1] as List<ReflectionEntry>;
         _todayHabitFacts = values[2] as List<_TodayHabitFact>;
         _partialUnavailable = partialUnavailable;
+        _hasConfirmedReview = true;
+        _refreshError = null;
         _loading = false;
       });
     } catch (e) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
-        _error = e.toString();
+        if (_hasConfirmedReview) {
+          _refreshError = e.toString();
+        } else {
+          _error = e.toString();
+        }
         _loading = false;
       });
     }
@@ -365,6 +375,28 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_refreshError != null) ...[
+                    FxCard(
+                      expanded: true,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '今日数据刷新未确认，以下仍为上次成功读取的记录。',
+                              style: SlowlightTypography.caption(context),
+                            ),
+                          ),
+                          FxButton(
+                            label: '重新加载',
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _load,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: SlowlightSpacing.md),
+                  ],
                   if (_partialUnavailable.isNotEmpty) ...[
                     FxCard(
                       expanded: true,
