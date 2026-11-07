@@ -91,4 +91,35 @@ void main() {
     expect(slots, rule.nextAfter(DateTime(2026, 3, 7, 21, 59),count: 8));
   });
 
+  test('P05 every 24 months returns all eight actual future occurrences', () {
+    const rule = HabitScheduleRule(
+      anchorDate: '2026-01-01', kind: 'specific', unit: 'month',
+      every: 24, monthDays: [15],
+    );
+    final result = rule.nextAfter(DateTime(2025,12,31),count:8);
+    expect(result.map(HabitScheduleRule.dayKey).toList(), [
+      '2026-01-15','2028-01-15','2030-01-15','2032-01-15',
+      '2034-01-15','2036-01-15','2038-01-15','2040-01-15',
+    ]);
+    expect(rule.preview(8),result);
+  });
+
+  test('P05 monthly dates before anchor stay excluded, month end stays distinct', () {
+    const rule = HabitScheduleRule(
+      anchorDate: '2026-01-15', kind: 'specific', unit: 'month',
+      monthDays: [1,31], lastDay: true,
+    );
+    final result = rule.preview(4).map(HabitScheduleRule.dayKey).toList();
+    expect(result, ['2026-01-31','2026-02-01','2026-02-28','2026-03-01']);
+  });
+
+  test('P05 a February-only 31st never fabricates an occurrence', () {
+    const rule = HabitScheduleRule(
+      anchorDate: '2026-02-01', kind: 'specific', unit: 'month',
+      every: 24, monthDays: [31],
+    );
+    expect(rule.nextAfter(DateTime(2026,2,1),count:8), isEmpty);
+    expect(rule.preview(),isEmpty);
+  });
+
 }
