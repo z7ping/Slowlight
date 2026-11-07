@@ -603,7 +603,7 @@ void main() {
       home: Scaffold(body: DashboardBody(
         tasks: const [],
         habits: const [],
-        onRefresh: () => retries++,
+        onRefresh: () { retries++; },
         dimensionLoader: () async => {'dimensions': []},
         reviewLoader: () async => {'questions': [], 'facts': {}},
         timelineLoader: () async => throw StateError('test-only timeline failure'),
