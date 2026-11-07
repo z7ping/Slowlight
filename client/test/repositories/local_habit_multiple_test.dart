@@ -34,6 +34,22 @@ void main() {
     await repo.checkIn(legacy['id'] as int);
     expect((await repo.getLogs(legacy['id'] as int))['logs'], hasLength(1));
   });
+  test('P05 Local month filter returns real history and rejects wildcard', () async {
+    final repo = LocalHabitRepository();
+    final habit = await repo.create(name: '分月记录');
+    final id = habit['id'] as int;
+    final now = DateTime.now();
+    final month = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}';
+    await repo.checkIn(id);
+    expect((await repo.getLogs(id))['logs'], hasLength(1));
+    expect((await repo.getLogs(id, month: month))['logs'], hasLength(1));
+    await expectLater(repo.getLogs(id, month: '$month%'),
+        throwsFormatException);
+    await expectLater(repo.getLogs(id, month: ''),
+        throwsFormatException);
+  });
+
   test('P05 V3 达标后仍能继续记录，重试幂等且完整历史不截断', () async {
     final repo = LocalHabitRepository();
     const rule = <String, dynamic>{
