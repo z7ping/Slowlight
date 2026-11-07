@@ -77,7 +77,8 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 						habits[i].ID, policy.PeriodStart, policy.PeriodEnd).Count(&count)
 					habits[i].PeriodCount = int(count)
 					habits[i].PeriodTarget = policy.Target
-					can = count < int64(policy.Target) && (policy.SameDayMultiple || !habits[i].CheckedToday)
+					// Meeting a goal is a status, not a cap on truthful records.
+					can = policy.SameDayMultiple || !habits[i].CheckedToday
 				} else {
 					var count int64
 					h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND occurrence_key = ?",
@@ -518,13 +519,6 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 		return
 	}
 	if rule != nil && rule.Kind == "goal" {
-		var count int64
-		h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND date >= ? AND date < ?",
-			habit.ID, policy.PeriodStart, policy.PeriodEnd).Count(&count)
-		if count >= int64(policy.Target) {
-			c.JSON(http.StatusConflict, gin.H{"error": "本周期已完成目标次数"})
-			return
-		}
 		if !policy.SameDayMultiple {
 			var dayLog model.HabitLog
 			if h.DB.Where("habit_id = ? AND date = ?", habit.ID, checkDate).First(&dayLog).RowsAffected > 0 {
@@ -593,11 +587,10 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 		Period:      period,
 	}
 	if actualOccurredAt != nil { log.OccurredAt = actualOccurredAt }
-    // Lock the habit row so simultaneous devices cannot exceed a period target.
+    // Lock the habit row to serialize scheduled writes and day-slot deduplication.
 	// Create log + evidence in one transaction: never show a successful
 	// check-in whose BehaviorEvent was not committed (or vice versa).
 	var duplicate bool
-	var full bool
 	writeErr := h.DB.Transaction(func(tx *gorm.DB) error {
 		var locked model.Habit
 		lockedQuery := tx.Where("id = ? AND user_id = ?", habit.ID, userID)
@@ -618,11 +611,6 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 			return nil
 		}
 		if rule != nil && rule.Kind == "goal" {
-			var periodCount int64
-			if err := tx.Model(&model.HabitLog{}).
-				Where("habit_id = ? AND date >= ? AND date < ?", habit.ID, policy.PeriodStart, policy.PeriodEnd).
-				Count(&periodCount).Error; err != nil { return err }
-			if periodCount >= int64(policy.Target) { full = true; return nil }
 			if !policy.SameDayMultiple {
 				var dayCount int64
 				if err := tx.Model(&model.HabitLog{}).Where("habit_id = ? AND date = ?", habit.ID, checkDate).
@@ -646,10 +634,6 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 		if err := tx.Create(&event).Error; err != nil { return err }
 		return nil
 	})
-	if full {
-		c.JSON(http.StatusConflict, gin.H{"error": "本周期已完成目标次数"})
-		return
-	}
 	if duplicate || writeErr != nil {
 		query := h.DB.Where("habit_id = ?", habit.ID)
 		if rule == nil { query = query.Where("date = ?", checkDate) } else {
