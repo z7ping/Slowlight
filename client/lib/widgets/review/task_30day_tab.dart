@@ -174,7 +174,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                         ],
                       ),
                     )
-                  if (_trendDays.isNotEmpty) ...[
+                  if (_trendDays.isNotEmpty && hasData) ...[
                     const SizedBox(height: SlowlightSpacing.md),
                     _trendCard(),
                   ] else if (!_trendLoadFailed && hasData)
