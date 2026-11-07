@@ -82,6 +82,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Future<void> _loadReview() async {
+    if (_responseSaving) return;
     final version = ++_loadVersion;
     if (mounted) {
       setState(() {
@@ -136,6 +137,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Future<void> _loadWeekResponse(int version) async {
+    if (_responseSaving) return;
     final start = _review['week_start']?.toString() ?? '';
     final end = _review['week_end']?.toString() ?? '';
     if (start.isEmpty || end.isEmpty) return;
@@ -158,7 +160,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       }
       setState(() {
         _savedResponse = found;
-        _responseChecked = true;
+        // A full bounded page cannot prove absence of an older saved reply.
+        _responseChecked = found != null || entries.length < 100;
         _responseUnknown = false;
       });
     } catch (_) {
