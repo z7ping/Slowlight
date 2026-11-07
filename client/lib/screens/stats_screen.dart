@@ -7,8 +7,14 @@ import 'stats/stats_snapshot.dart';
 
 class StatsScreen extends StatefulWidget {
   final bool embedded;
+  /// Test seam; the real screen continues to use StatsSnapshot.load.
+  final Future<StatsSnapshot> Function()? snapshotLoader;
 
-  const StatsScreen({super.key, this.embedded = false});
+  const StatsScreen({
+    super.key,
+    this.embedded = false,
+    this.snapshotLoader,
+  });
 
   @override
   State<StatsScreen> createState() => _StatsScreenState();
@@ -18,6 +24,7 @@ class _StatsScreenState extends State<StatsScreen> {
   bool _loading = true;
   String? _error;
   StatsSnapshot? _snapshot;
+  int _loadVersion = 0;
 
   @override
   void initState() {
@@ -26,20 +33,22 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Future<void> _load() async {
+    final version = ++_loadVersion;
     setState(() {
-      _loading = true;
+      _loading = _snapshot == null;
       _error = null;
     });
     try {
-      final data = await StatsSnapshot.load();
-      if (!mounted) return;
+      final data = await (widget.snapshotLoader ?? StatsSnapshot.load)();
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _snapshot = data;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
+        // A failed refresh cannot erase already-confirmed facts.
         _error = e.toString();
         _loading = false;
       });
@@ -48,12 +57,11 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final body =
-        _loading
+    final body = _snapshot != null
+        ? _content(_snapshot!)
+        : _loading
             ? const Center(child: FxCircularProgress())
-            : _error != null
-            ? _errorView()
-            : _content(_snapshot!);
+            : _errorView();
     if (widget.embedded || !Navigator.of(context).canPop()) return body;
     return Scaffold(
       body: SafeArea(
@@ -74,11 +82,9 @@ class _StatsScreenState extends State<StatsScreen> {
     );
     final focusSeconds =
         (data.sessionStats['total_work_seconds'] as num?)?.toInt();
-    final focusMinutes =
-        focusSeconds == null
-            ? (data.sessionStats['total_minutes'] as num?)?.toInt() ??
-                data.todayFocusMinutes
-            : focusSeconds ~/ 60;
+    final focusMinutes = focusSeconds == null
+        ? (data.sessionStats['total_minutes'] as num?)?.toInt()
+        : focusSeconds ~/ 60;
     final observations = _observationCount(last7);
 
     return FxRefresh(
@@ -87,6 +93,33 @@ class _StatsScreenState extends State<StatsScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: [
+          if (_error != null || data.unavailableSources.isNotEmpty) ...[
+            FxCard(
+              padding: const EdgeInsets.all(12),
+              expanded: true,
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.triangleAlert, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _error != null
+                          ? '刷新未确认，以下仍是上次已确认的数据。'
+                          : '部分统计来源未读取，未确认的数据以「—」表示。',
+                      style: SlowlightTypography.secondary(context),
+                    ),
+                  ),
+                  FxButton(
+                    label: '重试',
+                    variant: FxButtonVariant.ghost,
+                    size: FxButtonSize.sm,
+                    onPressed: _load,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           LayoutBuilder(
             builder: (context, constraints) {
               final textScale = MediaQuery.textScalerOf(context).scale(1);
@@ -100,9 +133,20 @@ class _StatsScreenState extends State<StatsScreen> {
 
               final width = cellWidth(columns);
               final cells = [
-                FxStatCell(value: '${data.completedThisWeek}', label: '本周完成任务'),
-                FxStatCell(value: '$habitChecks', label: '习惯打卡次数'),
-                FxStatCell(value: _focusText(focusMinutes), label: '专注总时长'),
+                FxStatCell(
+                  value: data.hasSource('daily_trend')
+                      ? '${data.completedThisWeek}' : '—',
+                  label: '本周完成任务',
+                ),
+                FxStatCell(
+                  value: data.hasSource('daily_trend') ? '$habitChecks' : '—',
+                  label: '习惯打卡次数',
+                ),
+                FxStatCell(
+                  value: data.hasSource('session_stats') && focusMinutes != null
+                      ? _focusText(focusMinutes) : '—',
+                  label: '专注总时长',
+                ),
                 FxStatCell(
                   value: observations == null ? '—' : '$observations',
                   label: '记录观察',
@@ -172,20 +216,15 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _bars(StatsSnapshot data) {
-    final points = data.last7Trend;
-    if (points.isEmpty) {
+    final points = data.focusLast7;
+    if (!data.hasSource('session_stats') || points.isEmpty) {
       return const SizedBox(
         height: 132,
-        child: Center(child: Text('暂无近 7 天数据')),
+        child: Center(child: Text('近 7 天专注记录暂不可用')),
       );
     }
     final values = points
-        .map((row) {
-          return (row['focus_minutes'] as num?)?.toDouble() ??
-              (row['focus_min'] as num?)?.toDouble() ??
-              (row['task_completed'] as num?)?.toDouble() ??
-              0;
-        })
+        .map((row) => row.minutes.toDouble())
         .toList(growable: false);
     final max = values.fold<double>(1, (a, b) => b > a ? b : a);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -195,10 +234,7 @@ class _StatsScreenState extends State<StatsScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(values.length, (index) {
           final value = values[index];
-          final date = DateTime.tryParse(
-            points[index]['date']?.toString() ?? '',
-          );
-          final label = date == null ? '' : weekdays[date.weekday - 1];
+          final label = weekdays[points[index].day.weekday - 1];
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -240,9 +276,10 @@ class _StatsScreenState extends State<StatsScreen> {
 
   Widget _timeDistribution(StatsSnapshot data) {
     final raw = data.timeDistribution['tags'];
-    if (raw is! List || raw.isEmpty) {
+    if (!data.hasSource('time_distribution') || raw is! List || raw.isEmpty) {
       return Text(
-        '暂无时间分配数据',
+        data.hasSource('time_distribution')
+            ? '暂无时间分配数据' : '时间分配暂不可用',
         style: SlowlightTypography.secondary(
           context,
         ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -324,25 +361,17 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   String _factNote(StatsSnapshot data) {
-    final points = data.last7Trend;
-    if (points.isEmpty) return '↳ 暂无足够数据形成近 7 天事实';
-    var bestIndex = 0;
-    var best = -1;
-    for (var i = 0; i < points.length; i++) {
-      final value =
-          (points[i]['focus_minutes'] as num?)?.toInt() ??
-          (points[i]['task_completed'] as num?)?.toInt() ??
-          0;
-      if (value > best) {
-        best = value;
-        bestIndex = i;
-      }
+    final points = data.focusLast7;
+    if (!data.hasSource('session_stats') || points.isEmpty) {
+      return '↳ 专注事实尚未确认，不使用任务数代替专注时长';
     }
-    final date = DateTime.tryParse(points[bestIndex]['date']?.toString() ?? '');
+    var best = points.first;
+    for (final point in points.skip(1)) {
+      if (point.minutes > best.minutes) best = point;
+    }
+    if (best.minutes == 0) return '↳ 近 7 天没有已记录的专注时长';
     const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    return date == null
-        ? '↳ 近 7 天数据已更新'
-        : '↳ ${weekdays[date.weekday - 1]}是本周期记录高峰';
+    return '↳ ${weekdays[best.day.weekday - 1]}专注最多：${best.minutes} 分钟';
   }
 
   Widget _errorView() {

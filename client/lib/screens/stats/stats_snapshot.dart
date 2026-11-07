@@ -17,6 +17,7 @@ class StatsSnapshot {
   final Map<String, dynamic> reminderStats;
   final Map<String, dynamic> timeDistribution;
   final Map<String, dynamic> outputStats;
+  final Set<String> unavailableSources;
 
   const StatsSnapshot({
     required this.taskStats,
@@ -29,23 +30,40 @@ class StatsSnapshot {
     required this.reminderStats,
     required this.timeDistribution,
     required this.outputStats,
+    this.unavailableSources = const {},
   });
 
+  /// A failed source is unknown, never a confirmed zero. All calls still use
+  /// the existing Local/Cloud data providers and run in parallel.
   static Future<StatsSnapshot> load() async {
     final sessions = SessionRepository();
+    final unavailable = <String>{};
     final results = await Future.wait<dynamic>([
-      _map(() => AnalyticsApi.getTaskStats()),
-      _trend(() => AnalyticsApi.getDailyTrend(days: 30)),
-      _list(() => AnalyticsApi.getListStats()),
-      _list(() => AnalyticsApi.getTagStats()),
-      _habits(() => ApiService.getHabits()),
-      _map(() => sessions.getSessionStats(period: 'week')),
-      _map(() => sessions.getTodaySessionStats()),
-      _map(() => AnalyticsApi.getReminderStats(period: 'week')),
-      _map(() => AnalyticsApi.getTimeDistribution()),
-      _map(() => AnalyticsApi.getOutputStats(period: 'all')),
+      _read(() => AnalyticsApi.getTaskStats(), <String, dynamic>{},
+          'task_stats', unavailable),
+      _read(() => AnalyticsApi.getDailyTrend(days: 30),
+          <Map<String, dynamic>>[], 'daily_trend', unavailable),
+      _read(() => AnalyticsApi.getListStats(),
+          <dynamic>[], 'list_stats', unavailable),
+      _read(() => AnalyticsApi.getTagStats(),
+          <dynamic>[], 'tag_stats', unavailable),
+      _read(() => ApiService.getHabits(),
+          <Map<String, dynamic>>[], 'habits', unavailable),
+      _read(() => sessions.getSessionStats(period: 'week'),
+          <String, dynamic>{}, 'session_stats', unavailable),
+      _read(() => sessions.getTodaySessionStats(),
+          <String, dynamic>{}, 'today_session_stats', unavailable),
+      _read(() => AnalyticsApi.getReminderStats(period: 'week'),
+          <String, dynamic>{}, 'reminder_stats', unavailable),
+      _read(() => AnalyticsApi.getTimeDistribution(),
+          <String, dynamic>{}, 'time_distribution', unavailable),
+      _read(() => AnalyticsApi.getOutputStats(period: 'all'),
+          <String, dynamic>{}, 'output_stats', unavailable),
     ]);
 
+    if (unavailable.length == 10) {
+      throw StateError('所有统计数据来源均未确认');
+    }
     return StatsSnapshot(
       taskStats: results[0] as Map<String, dynamic>,
       dailyTrend: results[1] as List<Map<String, dynamic>>,
@@ -57,47 +75,46 @@ class StatsSnapshot {
       reminderStats: results[7] as Map<String, dynamic>,
       timeDistribution: results[8] as Map<String, dynamic>,
       outputStats: results[9] as Map<String, dynamic>,
+      unavailableSources: Set.unmodifiable(unavailable),
     );
   }
 
-  static Future<Map<String, dynamic>> _map(
-    Future<Map<String, dynamic>> Function() load,
+  static Future<T> _read<T>(
+    Future<T> Function() read,
+    T fallback,
+    String source,
+    Set<String> unavailable,
   ) async {
     try {
-      return await load();
+      return await read();
     } catch (_) {
-      return <String, dynamic>{};
+      unavailable.add(source);
+      return fallback;
     }
   }
 
-  static Future<List<dynamic>> _list(
-    Future<List<dynamic>> Function() load,
-  ) async {
-    try {
-      return await load();
-    } catch (_) {
-      return <dynamic>[];
-    }
-  }
+  bool hasSource(String source) => !unavailableSources.contains(source);
 
-  static Future<List<Map<String, dynamic>>> _trend(
-    Future<List<Map<String, dynamic>>> Function() load,
-  ) async {
-    try {
-      return await load();
-    } catch (_) {
-      return <Map<String, dynamic>>[];
+  /// Actual focus minutes come only from WorkSession daily facts.
+  /// Task counts are not a substitute for focus time.
+  List<({DateTime day, int minutes})> get focusLast7 {
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day)
+        .subtract(const Duration(days: 6));
+    final rows = sessionStats['daily'];
+    if (rows is! List) return const [];
+    final byDay = <String, int>{};
+    for (final raw in rows.whereType<Map>()) {
+      final date = raw['date']?.toString();
+      final seconds = raw['work_seconds'];
+      if (date != null && seconds is num) {
+        byDay[date] = seconds.toInt() ~/ 60;
+      }
     }
-  }
-
-  static Future<List<Map<String, dynamic>>> _habits(
-    Future<List<Map<String, dynamic>>> Function() load,
-  ) async {
-    try {
-      return await load();
-    } catch (_) {
-      return <Map<String, dynamic>>[];
-    }
+    return List.generate(7, (index) {
+      final day = start.add(Duration(days: index));
+      return (day: day, minutes: byDay[_date(day)] ?? 0);
+    });
   }
 
   int get totalTasks => (taskStats['total'] as num?)?.toInt() ?? 0;
