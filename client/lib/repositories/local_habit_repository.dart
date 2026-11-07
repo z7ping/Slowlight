@@ -48,7 +48,7 @@ class LocalHabitRepository {
   }
 
   static const _goalFields = <String>[
-    'goal_period', 'goal_metric', 'goal_value', 'record_type',
+    'goal_period', 'goal_metric', 'goal_value', 'record_type', 'record_unit',
     'schedule_rule',
   ];
 
