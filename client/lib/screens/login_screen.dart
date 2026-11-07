@@ -50,11 +50,13 @@ class _LoginScreenState extends State<LoginScreen> {
       // Leaving the form deliberately abandons the mode-switch recovery UI.
       _credentialsSavedForCloud = false;
       _credentialsCloudError = null;
+      _registrationNeedsVerification = false;
     });
   }
   bool _isLoading = false;
   bool _credentialsSavedForCloud = false;
   String? _credentialsCloudError;
+  bool _registrationNeedsVerification = false;
   bool _githubAuthorizing = false;
   bool _githubFinishing = false;
   int _githubAttempt = 0;
@@ -102,6 +104,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_isLoading) return;
     if (_credentialsSavedForCloud) {
       await _retryStoredCredentialsCloudMode();
+      return;
+    }
+    // A prior registration may have committed before the response was lost.
+    // Require an explicit login check instead of replaying /auth/register.
+    if (!_isLogin && _registrationNeedsVerification) {
+      _open(_LoginView.password);
       return;
     }
     final username = _usernameController.text.trim();
@@ -185,6 +193,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         // Registration may already have committed remotely when the response
         // or local credential persistence fails. Do not invite a blind retry.
+        if (!_isLogin) {
+          setState(() => _registrationNeedsVerification = true);
+        }
         FxNotice.errorWithDetails(
           context,
           _isLogin ? '登录失败' : '注册结果待核对',
@@ -248,6 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
       _view = _LoginView.github;
+      _registrationNeedsVerification = false;
       _githubAuthorizing = true;
       _githubFinishing = false;
       _githubStatus = resumePending ? '正在恢复上次 GitHub 授权…' : '等待 GitHub 完成授权…';
@@ -943,6 +955,16 @@ class _LoginScreenState extends State<LoginScreen> {
             placeholder: '如何称呼你？',
           ),
         ],
+        if (_registrationNeedsVerification && register) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          Text(
+            '注册结果尚未确认。请先登录核对账号是否已创建，避免重复注册。',
+            key: const ValueKey('login.registration_verify'),
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
         if (_credentialsCloudError != null) ...[
           const SizedBox(height: SlowlightSpacing.md),
           Text(
@@ -967,7 +989,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 : _credentialsSavedForCloud
                     ? '重试进入云端'
                     : register
-                        ? '创建账号'
+                        ? (_registrationNeedsVerification
+                            ? '前往登录核对'
+                            : '创建账号')
                         : '登录',
             expanded: true,
             size: FxButtonSize.lg,
