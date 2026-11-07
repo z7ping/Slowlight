@@ -160,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
             setState(() {
               _credentialsSavedForCloud = true;
               _credentialsCloudError = '云端身份已保存，但切换数据模式失败。'
-                  '请重试进入云端，不需要重新提交账号信息。\\n$error';
+                  '请重试进入云端，不需要重新提交账号信息。\n$error';
             });
           }
           return;
@@ -222,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _credentialsCloudError =
-              '云端身份已保存，数据模式仍未切换。请重试进入云端。\\n$error';
+              '云端身份已保存，数据模式仍未切换。请重试进入云端。\n$error';
         });
       }
     } finally {
@@ -992,7 +992,9 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: LucideIcons.gitFork,
           variant: FxButtonVariant.ghost,
           expanded: true,
-          onPressed: _isLoading ? null : () => _loginWithGitHub(),
+          onPressed: _isLoading || _credentialsSavedForCloud
+              ? null
+              : () => _loginWithGitHub(),
         ),
       ],
     );
