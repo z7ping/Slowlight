@@ -28,6 +28,8 @@ class TimeDistributionScreen extends StatefulWidget {
 class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   bool _loading = true;
   bool _loadError = false;
+  bool _hasLoaded = false;
+  int _loadVersion = 0;
   Map<String, dynamic> _data = {};
 
   @override
@@ -37,22 +39,26 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   }
 
   Future<void> _loadData() async {
+    final version = ++_loadVersion;
     if (mounted) {
       setState(() {
-        _loading = true;
+        // Keep confirmed time-allocation facts visible while refreshing.
+        _loading = !_hasLoaded;
         _loadError = false;
       });
     }
     try {
-      final data = await (widget.dataLoader?.call() ?? AnalyticsApi.getTimeDistribution());
-      if (!mounted) return;
+      final data = await (widget.dataLoader?.call() ??
+          AnalyticsApi.getTimeDistribution());
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _data = data;
+        _hasLoaded = true;
         _loading = false;
         _loadError = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _loading = false;
         _loadError = true;
@@ -62,8 +68,8 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: FxCircularProgress());
-    if (_loadError) {
+    if (_loading && !_hasLoaded) return const Center(child: FxCircularProgress());
+    if (_loadError && !_hasLoaded) {
       return Center(
         child: FxEmptyState(
           icon: LucideIcons.triangleAlert,
@@ -130,6 +136,29 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       ),
                     ],
                   ),
+                  if (_loadError) ...[
+                    FxCard(
+                      padding: const EdgeInsets.all(12),
+                      expanded: true,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '时间分配刷新未确认，以下为上次已载入记录。',
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
+                          FxButton(
+                            label: '重新加载',
+                            size: FxButtonSize.sm,
+                            variant: FxButtonVariant.ghost,
+                            onPressed: _loadData,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   const SizedBox(height: 14),
                   _stats(totalMin, tags.length),
                   const SizedBox(height: 14),
@@ -215,7 +244,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               padding: const EdgeInsets.symmetric(vertical: 36),
               child: Center(
                 child: Text(
-                  '暂无专注数据',
+                  _data['total_min'] is num && (_data['total_min'] as num) > 0
+                      ? '当前专注尚无可确认的分类'
+                      : '暂无专注数据',
                   style: SlowlightTypography.secondary(
                     context,
                   ).copyWith(color: theme.colorScheme.onSurfaceVariant),
