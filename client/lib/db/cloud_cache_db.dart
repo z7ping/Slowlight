@@ -43,7 +43,7 @@ class CloudCacheDb {
     final path = join(dbPath, 'slowlight_cloud_cache_user_$accountId.db');
     return openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -165,6 +165,7 @@ class CloudCacheDb {
         goal_period TEXT NOT NULL DEFAULT 'none',
         goal_metric TEXT NOT NULL DEFAULT 'events',
         goal_value INTEGER NOT NULL DEFAULT 0,
+        goal_history TEXT NOT NULL DEFAULT '[]',
         target_days INTEGER DEFAULT 0,
         streak_count INTEGER DEFAULT 0,
         preferred_period TEXT DEFAULT '',
@@ -255,6 +256,13 @@ class CloudCacheDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 8) {
+      final names = (await db.rawQuery('PRAGMA table_info(habits)'))
+          .map((row) => row['name'].toString()).toSet();
+      if (!names.contains('goal_history')) {
+        await db.execute("ALTER TABLE habits ADD COLUMN goal_history TEXT NOT NULL DEFAULT '[]'");
+      }
+    }
     if (oldVersion < 7) {
       final names = (await db.rawQuery('PRAGMA table_info(habits)'))
           .map((row) => row['name'].toString()).toSet();
