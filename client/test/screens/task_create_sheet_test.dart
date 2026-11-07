@@ -69,6 +69,7 @@ class _TwoListData implements DataService {
 }
 
 void main() {
+  setUpAll(() async { await initializeDateFormatting('zh_CN'); });
   testWidgets('X02 日程提醒只有选择到期日期后才可设置，包含提前10分钟',
       (tester) async {
     await tester.pumpWidget(buildFxTestHost(
@@ -172,7 +173,6 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  setUpAll(() async { await initializeDateFormatting('zh_CN'); });
   testWidgets('任务提交中返回、遮罩和关闭操作都不能丢失待确认结果', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     tester.view.physicalSize = const Size(360, 800);
