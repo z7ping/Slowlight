@@ -21,6 +21,8 @@ class HabitToolScreen extends StatefulWidget {
   final bool titleProvidedByShell;
   /// Open the existing editor once when the Today empty state requests create.
   final bool createOnOpen;
+  /// A search result may request opening one habit in the existing tool.
+  final int? focusHabitId;
   final Future<HabitEditorValue?> Function(BuildContext, {Habit? habit})?
       editor;
 
@@ -31,6 +33,7 @@ class HabitToolScreen extends StatefulWidget {
     this.editor,
     this.titleProvidedByShell = false,
     this.createOnOpen = false,
+    this.focusHabitId,
   });
 
   @override
@@ -43,6 +46,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   bool _editingHabit = false;
   Timer? _nextSlotRefresh;
   int? _expandedHabitId;
+  int? _pendingFocusHabitId;
+  final GlobalKey _focusedHabitKey = GlobalKey(debugLabel: '搜索习惯定位');
   int _filter = 0; // 全部 / 待记录 / 已记录
   // Keep same-width action slots across recorded and pending habits.
   static const double _todayActionWidth = 104;
@@ -59,6 +64,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     _tagLinks = widget.tagLinksRepository ?? TagLinksRepository();
     _controller = HabitController(repository: widget.repository)
       ..addListener(_onChanged);
+    _pendingFocusHabitId = widget.focusHabitId;
     _controller.load();
     if (widget.createOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -76,8 +82,45 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant HabitToolScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusHabitId != null &&
+        widget.focusHabitId != oldWidget.focusHabitId) {
+      _pendingFocusHabitId = widget.focusHabitId;
+      _focusRequestedHabit();
+    }
+  }
+
+  void _focusRequestedHabit() {
+    final id = _pendingFocusHabitId;
+    if (id == null || !_controller.habits.any((habit) => habit.id == id)) {
+      return;
+    }
+    _pendingFocusHabitId = null;
+    _filter = 0;
+    _expandedHabitId = id;
+    // Reuse the same logs and details as an ordinary card expansion.
+    unawaited(_controller.loadLogs(id).catchError((Object _) {
+      _message('近期记录暂时无法获取，可以稍后重试');
+    }));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final targetContext = _focusedHabitKey.currentContext;
+      if (!mounted || targetContext == null) return;
+      Scrollable.ensureVisible(
+        targetContext,
+        alignment: 0.12,
+        duration: MediaQuery.disableAnimationsOf(targetContext)
+            ? Duration.zero
+            : const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   void _onChanged() {
     if (!mounted) return;
+    _focusRequestedHabit();
     setState(() {});
     _refreshAtNextSlot();
   }
@@ -592,6 +635,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final color = _parseColor(habit.color);
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return Padding(
+      key: habit.id == widget.focusHabitId ? _focusedHabitKey : null,
       padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
       child: FxCard(
         key: ValueKey('habits.card.${habit.id}'),
