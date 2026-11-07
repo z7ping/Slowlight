@@ -590,4 +590,92 @@ void main() {
     expect(repository.calls, 1);
     await disposeFxTestHost(tester);
   });
+  testWidgets('P03 周/30天事件可逐页查看，失败保留当前页并可重试', (tester) async {
+    tester.view.physicalSize = const Size(900, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    for (final weekly in [true, false]) {
+      var attempts = 0;
+      final initial = ReviewPeriodTimeline(
+        observationCount: 42,
+        hasMore: true,
+        items: List.generate(40, (index) => TodayTimelineItem(
+          id: 'reflection:${100 - index}',
+          kind: 'observation',
+          title: '首批观察$index',
+          durationMinutes: 0,
+          occurredAt: DateTime.now(),
+        )),
+      );
+      Future<ReviewPeriodTimeline> loadPage({required int offset}) async {
+        expect(offset, 40);
+        if (++attempts == 1) throw StateError('temporary read failure');
+        return ReviewPeriodTimeline(
+          observationCount: 42,
+          items: List.generate(2, (index) => TodayTimelineItem(
+            id: 'reflection:${60 - index}',
+            kind: 'observation',
+            title: '下一页观察$index',
+            durationMinutes: 0,
+            occurredAt: DateTime.now().subtract(const Duration(hours: 1)),
+          )),
+        );
+      }
+
+      final view = weekly
+          ? WeeklyReviewScreen(
+              embedded: true,
+              reviewLoader: () async => <String, dynamic>{
+                'task_completed': 2,
+                'habit_checked': 1,
+                'focus_minutes': 0,
+                'time_distribution': <Map<String, dynamic>>[],
+              },
+              outputStatsLoader: () async => <String, dynamic>{},
+              dailyTrendLoader: () async => <Map<String, dynamic>>[],
+              periodTimelineLoader: () async => initial,
+              periodTimelinePageLoader: loadPage,
+            )
+          : TaskMonthTab(
+              tasksReviewLoader: () async => <String, dynamic>{
+                'summary': <String, dynamic>{
+                  'completed_count': 2, 'created_count': 2,
+                  'total_days': 30,
+                },
+                'distribution': <String, dynamic>{},
+                'completed_tasks': <Map<String, dynamic>>[],
+              },
+              dailyTrendLoader: () async => <Map<String, dynamic>>[],
+              periodTimelineLoader: () async => initial,
+              periodTimelinePageLoader: loadPage,
+            );
+      await tester.pumpWidget(buildFxTestHost(home: Scaffold(body: view)));
+      await tester.pumpAndSettle();
+      expect(find.text('观察记录 42 条'), findsOneWidget);
+      final open = find.widgetWithText(FxButton, '查看全部事件');
+      tester.widget<FxButton>(open).onPressed?.call();
+      await tester.pumpAndSettle();
+      expect(find.text('第 1 页 · 40 条事件'), findsOneWidget);
+
+      tester.widget<FxButton>(find.widgetWithText(FxButton, '下一页'))
+          .onPressed?.call();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('本页读取未完成'), findsOneWidget);
+      expect(find.text('第 1 页 · 40 条事件'), findsOneWidget);
+      tester.widget<FxButton>(find.widgetWithText(FxButton, '重试读取'))
+          .onPressed?.call();
+      await tester.pumpAndSettle();
+      expect(find.text('第 2 页 · 2 条事件'), findsOneWidget);
+      expect(find.text('下一页观察0'), findsOneWidget);
+      expect(find.text('观察记录 42 条'), findsOneWidget);
+      tester.widget<FxButton>(find.widgetWithText(FxButton, '上一页'))
+          .onPressed?.call();
+      await tester.pumpAndSettle();
+      expect(find.text('第 1 页 · 40 条事件'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    }
+  });
+
 }

@@ -19,6 +19,8 @@ class WeeklyReviewScreen extends StatefulWidget {
   final Future<Map<String, dynamic>> Function()? outputStatsLoader;
   final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
   final Future<ReviewPeriodTimeline> Function()? periodTimelineLoader;
+  final Future<ReviewPeriodTimeline> Function({required int offset})?
+      periodTimelinePageLoader;
 
   const WeeklyReviewScreen({
     super.key,
@@ -27,6 +29,7 @@ class WeeklyReviewScreen extends StatefulWidget {
     this.outputStatsLoader,
     this.dailyTrendLoader,
     this.periodTimelineLoader,
+    this.periodTimelinePageLoader,
   });
 
   @override
@@ -47,6 +50,11 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   List<Map<String, dynamic>> _dailyTrend = const [];
   ReviewPeriodTimeline? _periodTimeline;
   bool _periodTimelineFailed = false;
+  bool _showAllPeriodEvents = false;
+  ReviewPeriodTimeline? _periodPage;
+  int _periodPageOffset = 0;
+  bool _loadingPeriodPage = false;
+  int? _failedPeriodPageOffset;
   int _loadVersion = 0;
 
   @override
@@ -84,6 +92,11 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _dailyTrendFailed = false;
         _periodTimeline = null;
         _periodTimelineFailed = false;
+        _showAllPeriodEvents = false;
+        _periodPage = null;
+        _periodPageOffset = 0;
+        _loadingPeriodPage = false;
+        _failedPeriodPageOffset = null;
         _aiReport = null;
       });
       // The optional queries must never delay the confirmed weekly summary.
@@ -142,6 +155,10 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       setState(() {
         _periodTimeline = facts;
         _periodTimelineFailed = false;
+        _periodPage = facts;
+        _periodPageOffset = 0;
+        _showAllPeriodEvents = false;
+        _failedPeriodPageOffset = null;
       });
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
@@ -149,9 +166,53 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     }
   }
 
+  Future<void> _loadPeriodPage(int offset) async {
+    if (_loadingPeriodPage || _periodTimeline == null || offset < 0) return;
+    if (offset == 0) {
+      setState(() {
+        _periodPage = _periodTimeline;
+        _periodPageOffset = 0;
+        _failedPeriodPageOffset = null;
+      });
+      return;
+    }
+    final version = _loadVersion;
+    setState(() {
+      _loadingPeriodPage = true;
+      _failedPeriodPageOffset = null;
+    });
+    try {
+      final page = await (widget.periodTimelinePageLoader == null
+          ? ReviewApi.getPeriodTimeline(period: 'week', offset: offset)
+          : widget.periodTimelinePageLoader!(offset: offset));
+      if (!mounted || version != _loadVersion) return;
+      if (page.observationCount != _periodTimeline!.observationCount ||
+          page.items.isEmpty) {
+        setState(() {
+          _failedPeriodPageOffset = offset;
+          _loadingPeriodPage = false;
+        });
+        return;
+      }
+      setState(() {
+        _periodPage = page;
+        _periodPageOffset = offset;
+        _loadingPeriodPage = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _failedPeriodPageOffset = offset;
+        _loadingPeriodPage = false;
+      });
+    }
+  }
+
   Widget _periodEvidenceCard() {
     final facts = _periodTimeline;
-    final visible = facts?.items.take(20).toList(growable: false) ??
+    final page = _showAllPeriodEvents ? (_periodPage ?? facts) : facts;
+    final visible = page?.items.take(_showAllPeriodEvents ? 40 : 20)
+            .toList(growable: false) ??
         const <TodayTimelineItem>[];
     return FxCard(
       expanded: true,
@@ -178,8 +239,12 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             Text('本周还没有可追溯的行为记录。',
                 style: SlowlightTypography.secondary(context))
           else ...[
-            if (facts.items.length > visible.length)
-              Text('最近 ${visible.length} 条已载入事件',
+            if (!_showAllPeriodEvents &&
+                (facts.items.length > visible.length || facts.hasMore))
+              Text('先显示最近 ${visible.length} 条事件',
+                  style: SlowlightTypography.caption(context)),
+            if (_showAllPeriodEvents)
+              Text('第 ${_periodPageOffset ~/ 40 + 1} 页 · ${visible.length} 条事件',
                   style: SlowlightTypography.caption(context)),
             ...List.generate(visible.length, (index) {
               final entry = visible[index];
@@ -197,6 +262,61 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                 last: index == visible.length - 1,
               );
             }),
+            if (!_showAllPeriodEvents &&
+                (facts.items.length > 20 || facts.hasMore)) ...[
+              const SizedBox(height: 8),
+              FxButton(
+                label: '查看全部事件',
+                variant: FxButtonVariant.outline,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _showAllPeriodEvents = true),
+              ),
+            ],
+            if (_showAllPeriodEvents) ...[
+              if (_loadingPeriodPage)
+                Text('正在读取本页记录…',
+                    style: SlowlightTypography.secondary(context)),
+              if (_failedPeriodPageOffset != null)
+                Text('本页读取未完成，仍显示上一页；可重新读取。',
+                    style: SlowlightTypography.secondary(context)),
+              if (_periodPageOffset > 0 ||
+                  page?.hasMore == true ||
+                  _failedPeriodPageOffset != null) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                  if (_periodPageOffset > 0)
+                    FxButton(
+                      label: '上一页',
+                      variant: FxButtonVariant.outline,
+                      size: FxButtonSize.sm,
+                      onPressed: _loadingPeriodPage ? null
+                          : () => _loadPeriodPage(_periodPageOffset - 40),
+                    ),
+                  if (page?.hasMore == true &&
+                      _failedPeriodPageOffset == null)
+                    FxButton(
+                      label: '下一页',
+                      variant: FxButtonVariant.outline,
+                      size: FxButtonSize.sm,
+                      onPressed: _loadingPeriodPage ? null
+                          : () => _loadPeriodPage(_periodPageOffset +
+                              (page?.items.length ?? 0)),
+                    ),
+                  if (_failedPeriodPageOffset != null)
+                    FxButton(
+                      label: '重试读取',
+                      variant: FxButtonVariant.secondary,
+                      size: FxButtonSize.sm,
+                      onPressed: _loadingPeriodPage ? null
+                          : () => _loadPeriodPage(_failedPeriodPageOffset!),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ],
         ],
       ),

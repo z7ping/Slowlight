@@ -140,10 +140,23 @@ void main() {
     expect(weekly.observationCount, 45);
     expect(rolling.observationCount, 46);
     expect(daily.items.length, 40);
+    expect(daily.hasMore, isTrue);
     expect(rolling.items.length, 40);
+    expect(rolling.hasMore, isTrue);
     expect(rolling.items.first.kind, 'observation');
+    final next = await service.getPeriodTimeline(period: 'month', offset: 40);
+    expect(next.items.length, 7);
+    expect(next.observationCount, 46);
+    expect(next.hasMore, isFalse);
+    expect({...rolling.items.map((e) => e.id), ...next.items.map((e) => e.id)}.length, 47);
+    final beyond = await service.getPeriodTimeline(period: 'month', offset: 80);
+    expect(beyond.items, isEmpty);
+    expect(beyond.hasMore, isFalse);
     await expectLater(
       service.getPeriodTimeline(period: 'year'), throwsArgumentError,
+    );
+    await expectLater(
+      service.getPeriodTimeline(period: 'month', limit: 41), throwsRangeError,
     );
   });
 

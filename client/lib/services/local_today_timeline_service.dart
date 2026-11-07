@@ -11,10 +11,16 @@ class LocalTodayTimelineService {
 
   Future<ReviewPeriodTimeline> getPeriodTimeline({
     String period = 'today',
+    int offset = 0,
+    int limit = 40,
   }) async {
     if (period != 'today' && period != 'week' && period != 'month') {
       throw ArgumentError.value(period, 'period', 'Unsupported review period');
     }
+    if (offset < 0 || offset > 1000000 || limit < 1 || limit > 40) {
+      throw RangeError('Invalid review timeline page');
+    }
+    final sourceLimit = offset + limit + 1;
     await LocalProductCoreSchema.ensureReady();
     await LocalBehaviorEventSchema.ensureReady();
     final db = await LocalDb().database;
@@ -59,8 +65,8 @@ class LocalTodayTimelineService {
           OR be.event_type = 'session_ended'
         )
       ORDER BY be.occurred_at DESC, be.id DESC
-      LIMIT 60
-    ''', eventArgs);
+      LIMIT ?
+    ''', [...eventArgs, sourceLimit]);
 
     final reflections = await db.rawQuery('''
       SELECT 'reflection:' || id AS id, entry_type AS kind,
@@ -70,8 +76,8 @@ class LocalTodayTimelineService {
         AND entry_type IN ('observation', 'reflection')
         AND created_at >= ? AND created_at < ?
       ORDER BY created_at DESC, id DESC
-      LIMIT 60
-    ''', [range.startUtc, range.endUtc]);
+      LIMIT ?
+    ''', [range.startUtc, range.endUtc, sourceLimit]);
 
     final totals = await db.rawQuery('''
       SELECT COUNT(*) AS observation_count
@@ -83,12 +89,13 @@ class LocalTodayTimelineService {
     if (count is! int) {
       throw StateError('Invalid observation count');
     }
-    final items = [...events, ...reflections]
+    final items = TodayTimelineItem.sorted([...events, ...reflections]
         .map((row) => TodayTimelineItem.fromJson(Map<String, dynamic>.from(row)))
-        .whereType<TodayTimelineItem>();
+        .whereType<TodayTimelineItem>());
     return ReviewPeriodTimeline(
-      items: TodayTimelineItem.sorted(items).take(40).toList(growable: false),
+      items: items.skip(offset).take(limit).toList(growable: false),
       observationCount: count,
+      hasMore: items.length > offset + limit,
     );
   }
 }

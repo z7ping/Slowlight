@@ -29,14 +29,23 @@ class ReviewApi {
   /// 30 days. Observation count is not derived from the capped event list.
   static Future<ReviewPeriodTimeline> getPeriodTimeline({
     String period = 'today',
+    int offset = 0,
+    int limit = 40,
   }) async {
     if (period != 'today' && period != 'week' && period != 'month') {
       throw ArgumentError.value(period, 'period', 'Unsupported review period');
     }
-    if (DataModeManager().isLocal) {
-      return LocalTodayTimelineService().getPeriodTimeline(period: period);
+    if (offset < 0 || offset > 1000000 || limit < 1 || limit > 40) {
+      throw RangeError('Invalid review timeline page');
     }
-    final data = await _getJson('/review/today/timeline?period=$period');
+    if (DataModeManager().isLocal) {
+      return LocalTodayTimelineService().getPeriodTimeline(
+        period: period, offset: offset, limit: limit,
+      );
+    }
+    final data = await _getJson(
+      '/review/today/timeline?period=$period&offset=$offset&limit=$limit',
+    );
     return ReviewPeriodTimeline.fromJson(data);
   }
 
