@@ -10,6 +10,7 @@ import '../services/api/review_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
+import '../utils/local_time_boundary.dart';
 import '../widgets/reminder_review_body.dart';
 import '../widgets/review/review_timeline_item.dart';
 import '../widgets/review/task_30day_tab.dart';
@@ -302,12 +303,24 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         ],
       );
 
+  String _periodDateRange(DateTime now, int periodIndex) {
+    final start = periodIndex == 1
+        ? LocalTimeBoundary.weekStart(now)
+        : DateTime(now.year, now.month, now.day - 29);
+    final end = periodIndex == 1
+        ? DateTime(start.year, start.month, start.day + 6)
+        : now;
+    return '${start.month}月${start.day}日—${end.month}月${end.day}日';
+  }
+
   String _periodTitle() {
     final now = DateTime.now();
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return switch (_periodIndex) {
-      1 => '本周回顾',
-      2 => '近 30 天回顾',
+      1 => mobile ? _periodDateRange(now, 1) : '本周回顾',
+      2 => mobile
+          ? '近 30 天 · ${_periodDateRange(now, 2)}'
+          : '近 30 天回顾',
       _ => mobile
           ? '${now.month} 月 ${now.day} 日'
           : '${now.month} 月 ${now.day} 日 · 今天',
@@ -318,9 +331,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     if (SlowlightPlatformDensity.usesMobileTouchTargets) {
       return '回看事实，留下自己的理解';
     }
+    final now = DateTime.now();
     return switch (_periodIndex) {
-      1 => '看见一周的节奏与变化',
-      2 => '回看长期积累的行为轨迹',
+      1 => '${_periodDateRange(now, 1)} · 看见一周的节奏与变化',
+      2 => '${_periodDateRange(now, 2)} · 回看长期积累的行为轨迹',
       _ => '行为留下轨迹，时间让自我显影',
     };
   }
