@@ -13,7 +13,6 @@ import '../services/data_mode_manager.dart';
 import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
-import 'home_screen.dart';
 
 enum _LoginView { welcome, github, password, register, local }
 
@@ -264,14 +263,10 @@ class _LoginScreenState extends State<LoginScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final navigator = Navigator.of(context);
-      if (navigator.canPop()) {
-        navigator.pop(value);
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
+      // Settings/migration opens LoginScreen as a route and expects a result.
+      // The initial LoginScreen is AuthGate's child: the authStateNotifier
+      // already triggers its rebuild. Never replace AuthGate's root route.
+      if (navigator.canPop()) navigator.pop(value);
       if (successMessage != null) {
         notice!.show(
           successMessage,
