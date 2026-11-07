@@ -649,7 +649,15 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
                       child: _mobileQuickAddButton(
                       onPanUpdate: (details) {
                         setState(() {
-                          final current = _fabPosition ?? Offset(left, top);
+                          // A previous wider viewport can leave the stored
+                          // position outside the current layout. Clamp it
+                          // before applying the next drag delta, otherwise
+                          // the button appears stuck at the narrow edge.
+                          final stored = _fabPosition ?? Offset(left, top);
+                          final current = Offset(
+                            stored.dx.clamp(0.0, maxLeft).toDouble(),
+                            stored.dy.clamp(0.0, maxTop).toDouble(),
+                          );
                           _fabPosition = Offset(
                             (current.dx + details.delta.dx)
                                 .clamp(0.0, maxLeft)

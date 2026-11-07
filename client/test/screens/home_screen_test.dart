@@ -132,6 +132,26 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('Android 宽屏拖动后缩窄视口，FAB 下一次拖动不冻结', (tester) async {
+      await pumpAt(tester, size: const Size(412, 915));
+      final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
+
+      // Store a coordinate valid at 412dp but outside a 360dp body.
+      await tester.drag(fab, const Offset(1, 0));
+      await tester.pump();
+      tester.view.physicalSize = const Size(360, 800);
+      await tester.pump();
+
+      final before = tester.getCenter(fab);
+      expect(tester.getRect(fab).right, lessThanOrEqualTo(360));
+      await tester.drag(fab, const Offset(-28, 0));
+      await tester.pump();
+
+      expect(tester.getCenter(fab).dx, lessThan(before.dx - 14));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('悬浮按钮拖到边界后仍可点按', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
       final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
