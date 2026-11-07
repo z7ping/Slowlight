@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
+import '../models/habit_timezone_policy.dart';
+import '../ui/fx.dart';
 import '../utils/habit_record_key.dart';
 import 'habit_checkin_dialog.dart';
 
@@ -28,6 +30,12 @@ Future<bool> recordHabit(
     try {
       await save(value);
       return true;
+    } on HabitTimezoneMismatch catch (error) {
+      if (context.mounted) {
+        FxNotice.showContent(context, Text(error.message),
+            variant: FxNoticeVariant.warning);
+      }
+      return false;
     } catch (_) {
       if (!context.mounted) return false;
       return await HabitCheckinDialog.show(
