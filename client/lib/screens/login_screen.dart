@@ -37,9 +37,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _open(_LoginView next) {
     if (_isLoading || (widget.preserveDataMode && next == _LoginView.local)) return;
-    setState(() => _view = next);
+    setState(() {
+      _view = next;
+      // Leaving the form deliberately abandons the mode-switch recovery UI.
+      _credentialsSavedForCloud = false;
+      _credentialsCloudError = null;
+    });
   }
   bool _isLoading = false;
+  bool _credentialsSavedForCloud = false;
+  String? _credentialsCloudError;
   bool _githubAuthorizing = false;
   bool _githubFinishing = false;
   int _githubAttempt = 0;
@@ -85,6 +92,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (_isLoading) return;
+    if (_credentialsSavedForCloud) {
+      await _retryStoredCredentialsCloudMode();
+      return;
+    }
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
     final email = _emailController.text.trim();
@@ -140,7 +151,20 @@ class _LoginScreenState extends State<LoginScreen> {
         // 已完成的账号登录不应被临时授权清理失败撤销。
       }
       if (!widget.preserveDataMode) {
-        await DataModeManager().setCloud();
+        try {
+          await DataModeManager().setCloud();
+        } catch (error) {
+          unawaited(AppErrorLogger.instance.write(
+              source: 'password_cloud_mode', error: error));
+          if (mounted) {
+            setState(() {
+              _credentialsSavedForCloud = true;
+              _credentialsCloudError = '云端身份已保存，但切换数据模式失败。'
+                  '请重试进入云端，不需要重新提交账号信息。\\n$error';
+            });
+          }
+          return;
+        }
         authStateNotifier.value = !authStateNotifier.value;
       }
       if (mounted) {
@@ -160,6 +184,46 @@ class _LoginScreenState extends State<LoginScreen> {
               ? e.toString()
               : '若请求已送达云端，账号可能已经创建。请先尝试登录核对，避免重复注册。\n$e',
         );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _retryStoredCredentialsCloudMode() async {
+    if (_isLoading || !_credentialsSavedForCloud) return;
+    setState(() {
+      _isLoading = true;
+      _credentialsCloudError = null;
+    });
+    try {
+      if (!await AuthService.isLoggedIn()) {
+        if (mounted) {
+          setState(() {
+            // Registration may have already succeeded. Never offer to submit
+            // the registration again just because the saved JWT expired.
+            _credentialsSavedForCloud = false;
+            _view = _LoginView.password;
+            _credentialsCloudError = '已保存身份失效，请使用账号密码登录核对。';
+          });
+        }
+        return;
+      }
+      await DataModeManager().setCloud();
+      if (!mounted) return;
+      authStateNotifier.value = !authStateNotifier.value;
+      _finish(
+        true,
+        successMessage: _isLogin ? '登录成功' : '账号创建成功',
+      );
+    } catch (error) {
+      unawaited(AppErrorLogger.instance.write(
+          source: 'password_cloud_mode_retry', error: error));
+      if (mounted) {
+        setState(() {
+          _credentialsCloudError =
+              '云端身份已保存，数据模式仍未切换。请重试进入云端。\\n$error';
+        });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -815,7 +879,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: SlowlightSpacing.page),
         FxInput(
           controller: _usernameController,
-          enabled: !_isLoading,
+          enabled: !_isLoading && !_credentialsSavedForCloud,
           textInputAction: TextInputAction.next,
           label: '账号',
           placeholder: register ? '设置用户名' : '邮箱或用户名',
@@ -824,7 +888,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: SlowlightSpacing.xxxl),
           FxInput(
             controller: _emailController,
-            enabled: !_isLoading,
+            enabled: !_isLoading && !_credentialsSavedForCloud,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             label: '邮箱',
@@ -834,7 +898,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: SlowlightSpacing.xxxl),
         FxInput(
           controller: _passwordController,
-          enabled: !_isLoading,
+          enabled: !_isLoading && !_credentialsSavedForCloud,
           obscureText: _obscurePassword,
           textInputAction: register
               ? TextInputAction.next
@@ -846,7 +910,7 @@ class _LoginScreenState extends State<LoginScreen> {
           autocorrect: false,
           trailing: FxIconButton(
             tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-            onPressed: _isLoading
+            onPressed: _isLoading || _credentialsSavedForCloud
                 ? null
                 : () => setState(
                       () => _obscurePassword = !_obscurePassword,
@@ -859,11 +923,21 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: SlowlightSpacing.xxxl),
           FxInput(
             controller: _nicknameController,
-            enabled: !_isLoading,
+            enabled: !_isLoading && !_credentialsSavedForCloud,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
             label: '昵称（可选）',
             placeholder: '如何称呼你？',
+          ),
+        ],
+        if (_credentialsCloudError != null) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          Text(
+            _credentialsCloudError!,
+            key: const ValueKey('login.credentials_cloud_error'),
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.error,
+            ),
           ),
         ],
         const SizedBox(height: SlowlightSpacing.page),
@@ -877,9 +951,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: FxButton(
             label: _isLoading
                 ? '处理中…'
-                : register
-                    ? '创建账号'
-                    : '登录',
+                : _credentialsSavedForCloud
+                    ? '重试进入云端'
+                    : register
+                        ? '创建账号'
+                        : '登录',
             expanded: true,
             size: FxButtonSize.lg,
             onPressed: _isLoading ? null : _submit,
