@@ -44,6 +44,7 @@ class HabitController extends ChangeNotifier {
   bool isLoadingLogs(int habitId) => _loadingLogIds.contains(habitId);
   String? logErrorFor(int habitId) => _logErrors[habitId];
   List<HabitLog> logsFor(int habitId) => _logs[habitId] ?? const [];
+  bool hasLoadedLogs(int habitId) => _logs.containsKey(habitId);
 
   Future<void> load() async {
     _loading = true;

@@ -38,6 +38,7 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 	}
 	weekStart := now.AddDate(0, 0, -int(weekday-time.Monday))
 	weekStartStr := weekStart.Format("2006-01-02")
+	recentStartStr := now.AddDate(0, 0, -6).Format("2006-01-02")
 
 	var habits []model.Habit
 	h.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&habits)
@@ -46,6 +47,7 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
     from := weekStartStr
     monthStartStr := monthStart.Format("2006-01-02")
     if monthStartStr < from { from = monthStartStr }
+    if recentStartStr < from { from = recentStartStr }
     var windowLogs []model.HabitLog
     h.DB.Where("date >= ? AND date <= ?", from, today).Find(&windowLogs)
     byHabit := make(map[uint][]model.HabitLog)
@@ -60,7 +62,7 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
         if habit.GoalPeriod == "week" { goalFrom = weekStartStr }
         if habit.GoalPeriod == "month" { goalFrom = monthStartStr }
         for _, log := range byHabit[habit.ID] {
-            if log.Date >= weekStartStr { days[log.Date] = true }
+            if log.Date >= recentStartStr { days[log.Date] = true }
             if log.Date == today { habit.CheckedToday = true }
             if log.Date >= goalFrom { current = append(current, log) }
         }
@@ -77,7 +79,8 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 						habits[i].ID, policy.PeriodStart, policy.PeriodEnd).Count(&count)
 					habits[i].PeriodCount = int(count)
 					habits[i].PeriodTarget = policy.Target
-					can = count < int64(policy.Target) && (policy.SameDayMultiple || !habits[i].CheckedToday)
+					// Meeting a goal is a status, not a cap on truthful records.
+					can = policy.SameDayMultiple || !habits[i].CheckedToday
 				} else {
 					var count int64
 					h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND occurrence_key = ?",
@@ -518,13 +521,6 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 		return
 	}
 	if rule != nil && rule.Kind == "goal" {
-		var count int64
-		h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND date >= ? AND date < ?",
-			habit.ID, policy.PeriodStart, policy.PeriodEnd).Count(&count)
-		if count >= int64(policy.Target) {
-			c.JSON(http.StatusConflict, gin.H{"error": "本周期已完成目标次数"})
-			return
-		}
 		if !policy.SameDayMultiple {
 			var dayLog model.HabitLog
 			if h.DB.Where("habit_id = ? AND date = ?", habit.ID, checkDate).First(&dayLog).RowsAffected > 0 {
@@ -593,11 +589,10 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 		Period:      period,
 	}
 	if actualOccurredAt != nil { log.OccurredAt = actualOccurredAt }
-    // Lock the habit row so simultaneous devices cannot exceed a period target.
+    // Lock the habit row to serialize scheduled writes and day-slot deduplication.
 	// Create log + evidence in one transaction: never show a successful
 	// check-in whose BehaviorEvent was not committed (or vice versa).
 	var duplicate bool
-	var full bool
 	writeErr := h.DB.Transaction(func(tx *gorm.DB) error {
 		var locked model.Habit
 		lockedQuery := tx.Where("id = ? AND user_id = ?", habit.ID, userID)
@@ -618,11 +613,6 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 			return nil
 		}
 		if rule != nil && rule.Kind == "goal" {
-			var periodCount int64
-			if err := tx.Model(&model.HabitLog{}).
-				Where("habit_id = ? AND date >= ? AND date < ?", habit.ID, policy.PeriodStart, policy.PeriodEnd).
-				Count(&periodCount).Error; err != nil { return err }
-			if periodCount >= int64(policy.Target) { full = true; return nil }
 			if !policy.SameDayMultiple {
 				var dayCount int64
 				if err := tx.Model(&model.HabitLog{}).Where("habit_id = ? AND date = ?", habit.ID, checkDate).
@@ -646,10 +636,6 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 		if err := tx.Create(&event).Error; err != nil { return err }
 		return nil
 	})
-	if full {
-		c.JSON(http.StatusConflict, gin.H{"error": "本周期已完成目标次数"})
-		return
-	}
 	if duplicate || writeErr != nil {
 		query := h.DB.Where("habit_id = ?", habit.ID)
 		if rule == nil { query = query.Where("date = ?", checkDate) } else {

@@ -309,11 +309,21 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     }
   }
 
+  // The V3 schedule is authoritative for goal habits: the legacy flat
+  // allow_multiple_per_day field may differ after an older edit or sync.
+  bool _allowsMultipleToday(Habit habit) {
+    if (habit.scheduleRule.isEmpty) return habit.allowMultiplePerDay;
+    final rule = HabitScheduleRule.fromJson(
+      habit.scheduleRule, legacyFrequency: habit.frequency,
+    );
+    return rule.kind == 'goal' ? rule.sameDayMultiple : habit.allowMultiplePerDay;
+  }
+
   Future<void> _toggleToday(Habit habit) =>
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
   Future<void> _toggleTodayInternal(Habit habit) async {
-    if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
+    if (habit.checkedToday && !_allowsMultipleToday(habit) && habit.canCheckIn != true) {
       final confirmed = await FxDialog.confirm(
         context: context,
         title: '取消打卡',
@@ -330,7 +340,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       return;
     }
     if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
-      _message('当前没有可记录的计划时点，或本周期已达目标');
+      _message('当前没有可记录的计划时点，或今天已有记录');
       return;
     }
     await _record(habit);
@@ -339,7 +349,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   Future<void> _openDetailedCheckin(Habit habit) =>
       _runHabitAction(habit, () async {
         HapticFeedback.mediumImpact();
-        if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
+        if (habit.checkedToday && !_allowsMultipleToday(habit) && habit.canCheckIn != true) {
           _message('今天已记录；请在历史明细中查看');
           return;
         }
@@ -386,12 +396,25 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       habit.createdAt.month,
       habit.createdAt.day,
     );
+    final rule = habit.scheduleRule.isEmpty ? null : HabitScheduleRule.fromJson(
+      habit.scheduleRule, legacyFrequency: habit.frequency,
+    );
+    if (rule?.kind == 'interval' && rule?.unit == 'hour') {
+      _message('小时计划需要具体发生时点，不能只按日期补记');
+      return;
+    }
+    final anchor = rule?.anchor;
+    final earliest = anchor != null && anchor.isAfter(created) ? anchor : created;
+    if (earliest.isAfter(today)) {
+      _message('尚未到达习惯起算日期');
+      return;
+    }
     final yesterday = today.subtract(const Duration(days: 1));
-    final initial = yesterday.isBefore(created) ? created : yesterday;
+    final initial = yesterday.isBefore(earliest) ? earliest : yesterday;
     final date = await showFxDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: created.isAfter(today) ? today : created,
+      firstDate: earliest,
       lastDate: today,
       title: '选择补卡日期',
     );
@@ -864,8 +887,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   }
 
   Widget _todayButton(Habit habit, {bool expanded = false}) {
+    final canAppend = _allowsMultipleToday(habit);
     final completed = habit.checkedToday &&
-        !habit.allowMultiplePerDay &&
+        !canAppend &&
         habit.canCheckIn != true;
     final theme = Theme.of(context);
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
@@ -878,7 +902,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     )!;
     return FxButton(
       key: ValueKey('habits.today.${habit.id}'),
-      label: habit.allowMultiplePerDay
+      label: canAppend || (habit.checkedToday && habit.canCheckIn == true)
           ? '新增记录'
           : habit.checkedToday
               ? '已记录'
@@ -902,16 +926,22 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final lastSeven =
-        List.generate(7, (index) => today.subtract(Duration(days: index)));
+        List.generate(7, (index) => DateTime(today.year, today.month, today.day - index));
     final checked = habit.checkedDays.toSet();
     final recentCount = lastSeven
         .where((day) =>
             checked.contains('${day.year}-${_two(day.month)}-${_two(day.day)}'))
         .length;
+    // The summary API only supplies seven-day dots. All-time statistics
+    // must come from the actual untruncated history after it has loaded.
+    final historyKnown = _controller.hasLoadedLogs(habit.id);
+    final historyDays = historyKnown
+        ? _controller.logsFor(habit.id).map((log) => log.date).toSet().length
+        : null;
     // 记录事实，不把不同频率的习惯统一当作“完成率”评判。
     final values = [
       ('${habit.streakCount}', '当前连续'),
-      ('${habit.checkedDays.length}', '已记录天数'),
+      (historyDays?.toString() ?? '待核对', '已记录天数'),
       ('$recentCount / 7', '最近七天'),
     ];
     return FxResponsiveFormGrid(
@@ -956,13 +986,24 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   }
 
   Widget _heatmap(Habit habit, Color color) {
+    if (!_controller.hasLoadedLogs(habit.id)) {
+      return Text('本月记录待读取',
+          style: SlowlightTypography.caption(context));
+    }
     const labels = ['一', '二', '三', '四', '五', '六', '日'];
-    final checked = habit.checkedDays.toSet();
+    final checked = _controller.logsFor(habit.id)
+        .map((log) => log.date).toSet();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final first = DateTime(now.year, now.month, 1);
-    final start = first.subtract(Duration(days: first.weekday - 1));
-    final days = List.generate(35, (i) => start.add(Duration(days: i)));
+    final leadingDays = first.weekday - 1;
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    // Months requiring six calendar rows must not silently lose their
+    // final dates (e.g. November 2026 ends on a sixth-row Monday).
+    final gridLength = ((leadingDays + daysInMonth + 6) ~/ 7) * 7;
+    final start = DateTime(now.year, now.month, 1 - leadingDays);
+    final days = List.generate(gridLength,
+        (index) => DateTime(start.year, start.month, start.day + index));
     final largeText = MediaQuery.textScalerOf(
           context,
         ).scale(SlowlightTypography.captionSize) >=
@@ -1034,7 +1075,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(7, (index) {
-          final day = today.subtract(Duration(days: 6 - index));
+          final day = DateTime(today.year, today.month, today.day - (6 - index));
           final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
           final active = checked.contains(key) ||
               (_sameDay(day, today) && habit.checkedToday);
@@ -1135,14 +1176,17 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       });
 
   Widget _logs(Habit habit, Color color) {
-    if (_controller.isLoadingLogs(habit.id)) {
+    final loading = _controller.isLoadingLogs(habit.id);
+    final logs = _controller.logsFor(habit.id);
+    final error = _controller.logErrorFor(habit.id);
+    // A background refresh does not erase the confirmed history. Mark it
+    // as being checked until the coalesced post-write read has settled.
+    if (loading && logs.isEmpty) {
       return const SizedBox(
         height: 28,
         child: Center(child: FxCircularProgress(strokeWidth: 2)),
       );
     }
-    final logs = _controller.logsFor(habit.id);
-    final error = _controller.logErrorFor(habit.id);
     if (logs.isEmpty && error == null) {
       return Text(
         '还没有记录。',
@@ -1156,6 +1200,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (loading) ...[
+          Text('正在核对记录，以下为上次已读取的内容',
+              style: SlowlightTypography.caption(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+        ],
         if (error != null) ...[
           Text(logs.isEmpty ? '记录暂时无法加载，当前数量未知。' : '记录刷新失败，以下为上次加载的数据。'),
           FxButton(
@@ -1198,9 +1247,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       if (log.countValue != null) '${log.countValue} ${habit.recordUnit}',
       if (log.period.isNotEmpty) _periodText(log.period),
     ];
-    final today = DateTime.now();
-    final todayKey = '${today.year}-${_two(today.month)}-${_two(today.day)}';
-    final canCancel = log.date == todayKey;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1239,18 +1285,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                         context,
                       ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
-                    if (canCancel || habit.allowMultiplePerDay)
-                      FxInkWell(
-                        onTap: () => habit.allowMultiplePerDay
-                            ? _removeLog(habit, log)
-                            : _toggleToday(habit),
-                        child: Text(
-                          '取消',
-                          style: SlowlightTypography.caption(
-                            context,
-                          ).copyWith(color: theme.colorScheme.error),
-                        ),
-                      ),
+                    // An individual history row must cancel its own log ID,
+                    // never a day-level toggle that could add a new slot.
+                    FxButton(
+                      key: ValueKey('habits.logs.cancel.${log.id}'),
+                      label: '撤销',
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.ghost,
+                      onPressed: () => _removeLog(habit, log),
+                    ),
                   ],
                 ),
                 if (log.note.isNotEmpty) ...[

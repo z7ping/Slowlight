@@ -355,7 +355,11 @@ class CloudCacheRepository {
         whereArgs: [localId],
       );
       final days = logs.map((value) => value['date']?.toString() ?? '').toList();
-      final today = _dateKey(DateTime.now());
+      final now = DateTime.now();
+      final today = _dateKey(now);
+      final sevenStart = _dateKey(
+        DateTime(now.year, now.month, now.day - 6),
+      )!;
       final goalRows = logs.map((e) => Map<String, dynamic>.from(e));
       final goal = HabitGoalProgress.current(Map<String, dynamic>.from(row), goalRows);
       final rule = HabitOccurrence.rule(row['schedule_rule'],
@@ -373,7 +377,8 @@ class CloudCacheRepository {
                 d.compareTo(occurrence.periodEnd!) < 0;
             }).length;
             target=occurrence.target;
-            canCheckIn=count<target && (occurrence.sameDayMultiple || !days.contains(today));
+            // Achieving a target must not block independent later facts.
+            canCheckIn=occurrence.sameDayMultiple || !days.contains(today);
           } else {
             canCheckIn = !logs.any((log)=>log['occurrence_key']==occurrence.key);
           }
@@ -414,7 +419,8 @@ class CloudCacheRepository {
         if (canCheckIn != null) 'can_check_in': canCheckIn,
         'period_count':count,
         'period_target':target,
-        'checked_days': days.toSet().toList(),
+        'checked_days': days.where((day) => day.compareTo(sevenStart) >= 0 &&
+            day.compareTo(today!) <= 0).toSet().toList(),
         'created_at': row['created_at'],
       });
     }
@@ -551,9 +557,6 @@ class CloudCacheRepository {
       if (existing.isNotEmpty) return <String,dynamic>{
         'log_id':null,'result':{'log':existing.first,'already_checked':true}};
       if (event?.periodStart != null) {
-        final rows=await tx.rawQuery('SELECT COUNT(*) AS n FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
-          [hid,event!.periodStart,event.periodEnd]);
-        if((rows.first['n'] as int? ?? 0)>=event.target)throw StateError('本周期已完成目标次数');
         if(!event.sameDayMultiple){
           final old=await tx.query('habit_logs',where:'habit_id = ? AND date = ?',whereArgs:[hid,day],limit:1);
           if(old.isNotEmpty)return <String,dynamic>{'log_id':null,'result':{'log':old.first,'already_checked':true}};
