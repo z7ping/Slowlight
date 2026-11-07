@@ -8,11 +8,13 @@ class SessionRepository {
   Future<Map<String, dynamic>> startSession(
     String sessionType, {
     int? taskId,
+    int? targetMinutes,
     String device = 'desktop',
   }) =>
       SessionApi.startSession(
         sessionType,
         taskId: taskId,
+        targetMinutes: targetMinutes,
         device: device,
       );
 
