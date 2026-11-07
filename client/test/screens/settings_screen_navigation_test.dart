@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
+import 'package:slowlight/services/reminder_service.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -10,6 +11,51 @@ void main() {
   setUp(() {
     // 避免测试中触发真实云端账号请求，错误状态仍需正常渲染设置导航。
     SharedPreferences.setMockInitialValues({'user_data': 'invalid-data'});
+  });
+
+  testWidgets('P17 编辑外观时，休息时钟事件不重建整个设置页', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1250, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(initialSection: 'appearance'),
+    ));
+    await tester.pump();
+
+    const key = PageStorageKey('settings.overview');
+    final listBefore = tester.widget<ListView>(find.byKey(key));
+    final reminder = ReminderService();
+    reminder.updateConfig(notifyBeforeSec: reminder.notifyBeforeSec);
+    await tester.pump();
+    final listAfter = tester.widget<ListView>(find.byKey(key));
+    expect(identical(listBefore, listAfter), isTrue);
+    expect(find.byKey(const ValueKey('settings.category.appearance')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P17 移动设置二级详情返回分类，不另起设置路由', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('settings.category.privacy')));
+    await tester.pump();
+    expect(find.text('当前记录来源'), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.category.privacy')),
+        findsNothing);
+    await tester.tap(find.byTooltip('返回').first);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('settings.category.privacy')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 
   testWidgets('Android 设置为分类首页，隐藏桌面休息入口', (tester) async {
