@@ -439,3 +439,41 @@ func TestP05HabitWindowOnlyReadsLiveHabitsForCurrentUser(t *testing.T) {
         t.Fatalf("foreign account window changed: %+v",foreignLogs)
     }
 }
+
+
+func TestP05HabitFullHistoryAndStrictMonthFilter(t *testing.T) {
+    db,handler,userID := setupHabitTest(t)
+    router := newHabitRouter(handler,userID)
+    habit := model.Habit{UserID:userID,Name:"可查看完整历史"}
+    if err:=db.Create(&habit).Error;err!=nil{t.Fatal(err)}
+    for _,day := range []string{"2026-10-31","2026-11-01","2026-11-30"} {
+        if err:=db.Create(&model.HabitLog{HabitID:habit.ID,Date:day,Note:day}).Error;err!=nil{t.Fatal(err)}
+    }
+    get := func(query string) *httptest.ResponseRecorder {
+        w:=httptest.NewRecorder()
+        router.ServeHTTP(w,httptest.NewRequest(http.MethodGet,"/habits/"+itoa(habit.ID)+"/logs"+query,nil))
+        return w
+    }
+    for _,bad := range []string{"?month=2026-11%25","?month=2026-1","?month=2026-13","?month=2026"} {
+        w:=get(bad)
+        if w.Code!=http.StatusBadRequest {
+            t.Fatalf("invalid filter %s accepted: %d %s",bad,w.Code,w.Body.String())
+        }
+    }
+    for _,item := range []struct{query string; dates []string}{
+        {"",[]string{"2026-11-30","2026-11-01","2026-10-31"}},
+        {"?month=2026-11",[]string{"2026-11-30","2026-11-01"}},
+        {"?month=2026-10",[]string{"2026-10-31"}},
+    } {
+        w:=get(item.query)
+        if w.Code!=http.StatusOK {t.Fatalf("%s: %d %s",item.query,w.Code,w.Body.String())}
+        var payload struct{Logs []model.HabitLog `json:"logs"`}
+        if err:=json.Unmarshal(w.Body.Bytes(),&payload);err!=nil{t.Fatal(err)}
+        if len(payload.Logs)!=len(item.dates) {t.Fatalf("%s: got %+v",item.query,payload.Logs)}
+        for index,expected:=range item.dates {
+            if payload.Logs[index].Date!=expected {
+                t.Fatalf("%s index %d: %s want %s",item.query,index,payload.Logs[index].Date,expected)
+            }
+        }
+    }
+}
