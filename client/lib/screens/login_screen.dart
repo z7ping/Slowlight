@@ -263,14 +263,10 @@ class _LoginScreenState extends State<LoginScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final navigator = Navigator.of(context);
-      if (navigator.canPop()) {
-        // Settings/migration opens LoginScreen as a route and expects a result.
-        navigator.pop(value);
-      } else {
-        // The initial LoginScreen is a child of AuthGate, not a route.
-        // AuthGate already listens for authStateNotifier updates. Replacing
-        // the root route would destroy that listener and break later logout.
-      }
+      // Settings/migration opens LoginScreen as a route and expects a result.
+      // The initial LoginScreen is AuthGate's child: the authStateNotifier
+      // already triggers its rebuild. Never replace AuthGate's root route.
+      if (navigator.canPop()) navigator.pop(value);
       if (successMessage != null) {
         notice!.show(
           successMessage,
