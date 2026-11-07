@@ -377,20 +377,20 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           FxSeparator.horizontal(height: 1, color: fxDivider(context)),
           Flexible(
             fit: FlexFit.loose,
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(
-                  SlowlightSpacing.xl,
-                  SlowlightSpacing.md,
-                  SlowlightSpacing.xl,
-                  SlowlightSpacing.xl,
-                ),
-                child: _mobileMainForm(),
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(
+                SlowlightSpacing.xl,
+                SlowlightSpacing.md,
+                SlowlightSpacing.xl,
+                SlowlightSpacing.xl,
               ),
+              child: _mobileMainForm(),
             ),
           ),
+          // The primary action stays reachable while the body scrolls or
+          // the keyboard reduces the available viewport.
+          _mobileFooter(),
         ],
       ),
     );
@@ -507,7 +507,6 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   ),
                 ],
               ),
-              _mobileFooter(),
             ],
           ),
         ),
@@ -1121,22 +1120,38 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     final canSave = widget.isCreating
         ? _title.text.trim().isNotEmpty && !_creationResultUnknown
         : _mobileDirty;
-    return Padding(
-      padding: const EdgeInsets.only(top: SlowlightSpacing.md),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 110),
-          child: FxButton(
-          key: const ValueKey('task.detail.primaryAction'),
-          label: widget.isCreating
-              ? (_saving ? '添加中…' : '添加任务')
-              : (_saving ? '保存中…' : '保存修改'),
-          variant: !canSave
-              ? FxButtonVariant.secondary
-              : FxButtonVariant.primary,
-          size: FxButtonSize.sm,
-          onPressed: _saving || !canSave ? null : _save,
+    // The latest Android prototype places Save outside the scrolling task
+    // workbench. Reuse the existing FxButton and keep one stable action.
+    return SafeArea(
+      top: false,
+      child: Container(
+        key: const ValueKey('task.detail.fixedFooter'),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(
+          SlowlightSpacing.xxxl,
+          SlowlightSpacing.md,
+          SlowlightSpacing.xxxl,
+          SlowlightSpacing.xl,
+        ),
+        decoration: BoxDecoration(
+          color: fxSubtleSurface(context),
+          border: Border(top: BorderSide(color: fxDivider(context))),
+        ),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 110),
+            child: FxButton(
+              key: const ValueKey('task.detail.primaryAction'),
+              label: widget.isCreating
+                  ? (_saving ? '添加中…' : '添加任务')
+                  : (_saving ? '保存中…' : '保存修改'),
+              variant: !canSave
+                  ? FxButtonVariant.secondary
+                  : FxButtonVariant.primary,
+              size: FxButtonSize.sm,
+              onPressed: _saving || !canSave ? null : _save,
+            ),
           ),
         ),
       ),
