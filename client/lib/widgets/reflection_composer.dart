@@ -216,9 +216,12 @@ class ReflectionComposer {
         }
       }
 
+      final narrowMobileFooter = !_useDesktopObservationDialog &&
+          MediaQuery.sizeOf(entryContext).width <= 380;
       final saveButton = FxButton(
         label: saving ? '保存中…' : '保存观察',
         size: FxButtonSize.sm,
+        expanded: narrowMobileFooter,
         onPressed: saving || resultUnknown ? null : saveObservation,
       );
 
@@ -403,16 +406,32 @@ class ReflectionComposer {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  FxButton(
-                    key: const ValueKey('observation.mobile.cancel'),
-                    label: '取消',
-                    size: FxButtonSize.sm,
-                    variant: FxButtonVariant.outline,
-                    onPressed: saving ? null : () =>
-                        requestMobileClose(entryContext, setEntryState),
-                  ),
+                  if (narrowMobileFooter)
+                    Expanded(
+                      child: FxButton(
+                        key: const ValueKey('observation.mobile.cancel'),
+                        label: '取消',
+                        size: FxButtonSize.sm,
+                        expanded: true,
+                        variant: FxButtonVariant.outline,
+                        onPressed: saving ? null : () =>
+                            requestMobileClose(entryContext, setEntryState),
+                      ),
+                    )
+                  else
+                    FxButton(
+                      key: const ValueKey('observation.mobile.cancel'),
+                      label: '取消',
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.outline,
+                      onPressed: saving ? null : () =>
+                          requestMobileClose(entryContext, setEntryState),
+                    ),
                   const SizedBox(width: SlowlightSpacing.md),
-                  saveButton,
+                  if (narrowMobileFooter)
+                    Expanded(child: saveButton)
+                  else
+                    saveButton,
                 ],
               ),
         ],
@@ -424,6 +443,8 @@ class ReflectionComposer {
         context: context,
         title: '记录观察',
         width: 520,
+        // The footer already owns Cancel; avoid an extra corner close action.
+        showCloseButton: false,
         child: StatefulBuilder(
           builder: (dialogContext, setDialogState) => ConstrainedBox(
             constraints: BoxConstraints(
@@ -476,9 +497,11 @@ class ReflectionComposer {
                 child: SafeArea(
                   top: false,
                   child: Padding(
+                    // The shared grip already occupies the 44dp top zone.
+                    // Align the title directly below it, as in #mObs.
                     padding: const EdgeInsets.fromLTRB(
                       SlowlightSpacing.xxxl,
-                      SlowlightSpacing.xl,
+                      0,
                       SlowlightSpacing.xxxl,
                       SlowlightSpacing.xxxl,
                     ),
