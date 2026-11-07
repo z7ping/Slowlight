@@ -943,6 +943,42 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X02 每周选日切换到其他重复频率后清理旧星期', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('更多设置'));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    tester.widget<FxSelect<String>>(find.byType(FxSelect<String>))
+        .onChanged!('weekly');
+    await tester.pump();
+    final monday = find.byWidgetPredicate(
+      (widget) => widget is FxChoiceChip && widget.label == '一',
+    );
+    await tester.ensureVisible(monday);
+    await tester.tap(monday);
+    await tester.pump();
+    expect(tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields))
+        .selectedWeekdays, contains(1));
+
+    tester.widget<FxSelect<String>>(find.byType(FxSelect<String>))
+        .onChanged!('monthly');
+    await tester.pump();
+    final fields = tester.widget<TaskScheduleFields>(find.byType(TaskScheduleFields));
+    expect(fields.repeatType, 'monthly');
+    expect(fields.selectedWeekdays, isEmpty);
+    expect(formatTaskRepeatDays(fields.repeatType, fields.selectedWeekdays), '');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   test('快捷与完整表单复用相同的日程存储规则', () {
     expect(formatTaskDueTime(const TimeOfDay(hour: 9, minute: 5)), '09:05');
     expect(formatTaskRepeatDays('weekly', {3, 1}), '1,3');
