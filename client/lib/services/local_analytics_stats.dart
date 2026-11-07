@@ -1,6 +1,6 @@
-import 'local_analytics_service.dart';
 import '../db/local_db.dart';
 import '../utils/local_time_boundary.dart';
+import 'local_analytics_service.dart';
 
 /// StatsScreen 所需的基础统计，同样在 Local Data Mode 直接从 SQLite 计算。
 extension LocalAnalyticsStats on LocalAnalyticsService {
