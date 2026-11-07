@@ -601,6 +601,26 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     final theme = Theme.of(context);
     final mobile = theme.platform == TargetPlatform.android ||
         theme.platform == TargetPlatform.iOS;
+    final fontScale = MediaQuery.textScalerOf(context).scale(1);
+    // Keep V3's 5:7 footer at normal size. At accessibility font scales,
+    // stack actions rather than squeezing or truncating their labels.
+    final stackMobileActions = mobile &&
+        (fontScale >= 1.6 ||
+         (MediaQuery.sizeOf(context).width <= 340 && fontScale >= 1.3));
+    final mobileCancelAction = FxButton(
+      label: '取消',
+      expanded: true,
+      variant: FxButtonVariant.outline,
+      onPressed: _submitting ? null : _requestClose,
+    );
+    final mobileSubmitAction = FxButton(
+      key: const ValueKey('habit-editor-primary-action'),
+      label: _submitting
+          ? '保存中…'
+          : widget.habit == null ? '创建习惯' : '保存',
+      expanded: true,
+      onPressed: _submitting || _resultUnknown ? null : _submit,
+    );
     final editor = ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: mobile ? MediaQuery.sizeOf(context).height * .88 : 720,
@@ -959,38 +979,19 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                             ),
                             const SizedBox(height: SlowlightSpacing.md),
                           ],
-                          Row(
-                            children: [
-                              // V3 Android prototype: Cancel : Save = 1 : 1.4.
-                              // Keep the buttons aligned in one fixed footer.
-                              Expanded(
-                                flex: 5,
-                                child: FxButton(
-                                  label: '取消',
-                                  expanded: true,
-                                  variant: FxButtonVariant.outline,
-                                  onPressed: _submitting
-                                      ? null
-                                      : _requestClose,
-                                ),
-                              ),
-                              const SizedBox(width: SlowlightSpacing.md),
-                              Expanded(
-                                flex: 7,
-                                child: FxButton(
-                                  label: _submitting
-                                      ? '保存中…'
-                                      : widget.habit == null
-                                          ? '创建习惯'
-                                          : '保存',
-                                  expanded: true,
-                                  onPressed: _submitting || _resultUnknown
-                                      ? null
-                                      : _submit,
-                                ),
-                              ),
-                            ],
-                          ),
+                          if (stackMobileActions) ...[
+                            mobileCancelAction,
+                            const SizedBox(height: SlowlightSpacing.md),
+                            mobileSubmitAction,
+                          ] else
+                            Row(
+                              children: [
+                                // V3 Android prototype: Cancel : Save = 1 : 1.4.
+                                Expanded(flex: 5, child: mobileCancelAction),
+                                const SizedBox(width: SlowlightSpacing.md),
+                                Expanded(flex: 7, child: mobileSubmitAction),
+                              ],
+                            ),
                         ],
                       )
                     : Wrap(

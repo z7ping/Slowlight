@@ -306,6 +306,58 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 320dp/200% 字号习惯打卡按钮纵向退让且键盘可达',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final habit = Habit(
+      id: 5,
+      userId: 1,
+      name: '每天写一点阅读笔记',
+      icon: '📚',
+      color: '#1890ff',
+      frequency: 'daily',
+      checkedToday: false,
+      createdAt: DateTime(2026, 11, 7),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(2),
+        ),
+        child: child!,
+      ),
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开大字打卡',
+          onPressed: () => HabitCheckinDialog.show(context, habit: habit),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开大字打卡'));
+    await tester.pumpAndSettle();
+    final footer = find.byKey(const ValueKey('habit-checkin-mobile-footer'));
+    final cancel = find.descendant(
+      of: footer, matching: find.widgetWithText(FxButton, '取消'),
+    );
+    final submit = find.byKey(const ValueKey('habit-checkin-primary-action'));
+    expect(footer, findsOneWidget);
+    expect(cancel, findsOneWidget);
+    expect(submit, findsOneWidget);
+    expect(tester.getSize(cancel).width,
+        closeTo(tester.getSize(submit).width, 1));
+    expect(tester.getTopLeft(submit).dy,
+        greaterThan(tester.getBottomLeft(cancel).dy));
+    expect(tester.getSize(submit).height, greaterThanOrEqualTo(44));
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 250);
+    await tester.pumpAndSettle();
+    expect(tester.getBottomRight(submit).dy, lessThanOrEqualTo(800 - 250 + 1));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('短确认沿用紧凑对话框，不存在可拖动引导线', (tester) async {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: Builder(

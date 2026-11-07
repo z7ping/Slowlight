@@ -56,6 +56,50 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 200% 字号下习惯操作区改双行且主操作避让键盘',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(2),
+        ),
+        child: child!,
+      ),
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开习惯编辑大字',
+          onPressed: () => HabitEditorDialog.show(context),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开习惯编辑大字'));
+    await tester.pumpAndSettle();
+    final footer = find.byKey(const ValueKey('habit-editor-mobile-footer'));
+    final cancel = find.descendant(
+      of: footer, matching: find.widgetWithText(FxButton, '取消'),
+    );
+    final save = find.byKey(const ValueKey('habit-editor-primary-action'));
+    expect(footer, findsOneWidget);
+    expect(cancel, findsOneWidget);
+    expect(save, findsOneWidget);
+    expect(tester.getSize(cancel).width, closeTo(tester.getSize(save).width, 1));
+    expect(tester.getTopLeft(save).dy,
+        greaterThan(tester.getBottomLeft(cancel).dy));
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(save).height, greaterThanOrEqualTo(44));
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pumpAndSettle();
+    expect(tester.getBottomRight(save).dy, lessThanOrEqualTo(800 - 280 + 1));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows habit editor continues to use a dialog',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
