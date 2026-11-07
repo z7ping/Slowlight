@@ -309,11 +309,21 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     }
   }
 
+  // The V3 schedule is authoritative for goal habits: the legacy flat
+  // allow_multiple_per_day field may differ after an older edit or sync.
+  bool _allowsMultipleToday(Habit habit) {
+    if (habit.scheduleRule.isEmpty) return habit.allowMultiplePerDay;
+    final rule = HabitScheduleRule.fromJson(
+      habit.scheduleRule, legacyFrequency: habit.frequency,
+    );
+    return rule.kind == 'goal' ? rule.sameDayMultiple : habit.allowMultiplePerDay;
+  }
+
   Future<void> _toggleToday(Habit habit) =>
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
   Future<void> _toggleTodayInternal(Habit habit) async {
-    if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
+    if (habit.checkedToday && !_allowsMultipleToday(habit) && habit.canCheckIn != true) {
       final confirmed = await FxDialog.confirm(
         context: context,
         title: '取消打卡',
@@ -339,7 +349,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   Future<void> _openDetailedCheckin(Habit habit) =>
       _runHabitAction(habit, () async {
         HapticFeedback.mediumImpact();
-        if (habit.checkedToday && !habit.allowMultiplePerDay && habit.canCheckIn != true) {
+        if (habit.checkedToday && !_allowsMultipleToday(habit) && habit.canCheckIn != true) {
           _message('今天已记录；请在历史明细中查看');
           return;
         }
@@ -386,12 +396,25 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       habit.createdAt.month,
       habit.createdAt.day,
     );
+    final rule = habit.scheduleRule.isEmpty ? null : HabitScheduleRule.fromJson(
+      habit.scheduleRule, legacyFrequency: habit.frequency,
+    );
+    if (rule?.kind == 'interval' && rule?.unit == 'hour') {
+      _message('小时计划需要具体发生时点，不能只按日期补记');
+      return;
+    }
+    final anchor = rule?.anchor;
+    final earliest = anchor != null && anchor.isAfter(created) ? anchor : created;
+    if (earliest.isAfter(today)) {
+      _message('尚未到达习惯起算日期');
+      return;
+    }
     final yesterday = today.subtract(const Duration(days: 1));
-    final initial = yesterday.isBefore(created) ? created : yesterday;
+    final initial = yesterday.isBefore(earliest) ? earliest : yesterday;
     final date = await showFxDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: created.isAfter(today) ? today : created,
+      firstDate: earliest,
       lastDate: today,
       title: '选择补卡日期',
     );
@@ -864,8 +887,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   }
 
   Widget _todayButton(Habit habit, {bool expanded = false}) {
+    final canAppend = _allowsMultipleToday(habit);
     final completed = habit.checkedToday &&
-        !habit.allowMultiplePerDay &&
+        !canAppend &&
         habit.canCheckIn != true;
     final theme = Theme.of(context);
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
@@ -878,7 +902,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     )!;
     return FxButton(
       key: ValueKey('habits.today.${habit.id}'),
-      label: habit.allowMultiplePerDay
+      label: canAppend || (habit.checkedToday && habit.canCheckIn == true)
           ? '新增记录'
           : habit.checkedToday
               ? '已记录'
@@ -1135,14 +1159,17 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       });
 
   Widget _logs(Habit habit, Color color) {
-    if (_controller.isLoadingLogs(habit.id)) {
+    final loading = _controller.isLoadingLogs(habit.id);
+    final logs = _controller.logsFor(habit.id);
+    final error = _controller.logErrorFor(habit.id);
+    // A background refresh does not erase the confirmed history. Mark it
+    // as being checked until the coalesced post-write read has settled.
+    if (loading && logs.isEmpty) {
       return const SizedBox(
         height: 28,
         child: Center(child: FxCircularProgress(strokeWidth: 2)),
       );
     }
-    final logs = _controller.logsFor(habit.id);
-    final error = _controller.logErrorFor(habit.id);
     if (logs.isEmpty && error == null) {
       return Text(
         '还没有记录。',
@@ -1156,6 +1183,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (loading) ...[
+          Text('正在核对记录，以下为上次已读取的内容',
+              style: SlowlightTypography.caption(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+        ],
         if (error != null) ...[
           Text(logs.isEmpty ? '记录暂时无法加载，当前数量未知。' : '记录刷新失败，以下为上次加载的数据。'),
           FxButton(
@@ -1239,9 +1271,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                         context,
                       ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
-                    if (canCancel || habit.allowMultiplePerDay)
+                    if (canCancel || _allowsMultipleToday(habit))
                       FxInkWell(
-                        onTap: () => habit.allowMultiplePerDay
+                        onTap: () => _allowsMultipleToday(habit)
                             ? _removeLog(habit, log)
                             : _toggleToday(habit),
                         child: Text(
