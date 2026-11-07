@@ -367,6 +367,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _openSettings() async {
+    // Timer duration must not change while a persisted session is in progress.
+    if (_activeSession || _sessionTransitioning || _finalizingSession) return;
     var work = _workMinutes;
     var autoStart = _autoStartNext;
     var soundEnabled = _soundEnabled;
@@ -582,9 +584,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           children: [
             FxPageHeader(
               title: '专注',
-              actionIcon: LucideIcons.settings,
-              actionTooltip: '专注设置',
-              onAction: _openSettings,
+              trailing: FxIconButton(
+                icon: LucideIcons.settings,
+                tooltip: _activeSession
+                    ? '本轮结束后可修改设置'
+                    : '专注设置',
+                onPressed: _activeSession ||
+                        _sessionTransitioning ||
+                        _finalizingSession
+                    ? null
+                    : _openSettings,
+              ),
             ),
             Expanded(
               child: Stack(
