@@ -286,7 +286,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                children: [
+                  children: [
                   if (_periodPageOffset > 0)
                     FxButton(
                       label: '上一页',
@@ -313,7 +313,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                       onPressed: _loadingPeriodPage ? null
                           : () => _loadPeriodPage(_failedPeriodPageOffset!),
                     ),
-                ],
+                  ],
                 ),
               ],
             ],
