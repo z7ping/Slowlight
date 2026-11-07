@@ -258,7 +258,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       if (!mounted) return;
       setState(() {
         _requestError = error.toString();
-        _conflicts = Future.error(error);
+        _conflicts = Future<List<Map<String, dynamic>>>.error(error);
         _feedback = '核对失败，结果仍未确认；没有重新提交数据。';
       });
     } finally {
@@ -279,6 +279,18 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       _feedback = null;
     });
     try {
+      // Re-read immediately before sending: a previously closed conflict
+      // panel may have left a stale zero-conflicts snapshot on screen.
+      final before = await widget.sync.getAllConflicts();
+      if (!mounted) return;
+      if (before.isNotEmpty || widget.sync.status != SyncStatusEnum.idle ||
+          widget.sync.lastError != null) {
+        setState(() {
+          _conflicts = Future.value(before);
+          _feedback = '发现未核对的冲突或同步状态已变化，未重新提交数据。';
+        });
+        return;
+      }
       final completed = await CloudSyncCoordinator().syncNow();
       final conflicts = await widget.sync.getAllConflicts();
       if (!mounted) return;
