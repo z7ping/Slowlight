@@ -222,11 +222,17 @@ class ReflectionComposer {
         onPressed: saving || resultUnknown ? null : saveObservation,
       );
 
-      return SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
             FxInput(
               controller: controller,
               autofocus: true,
@@ -372,8 +378,14 @@ class ReflectionComposer {
                 ).copyWith(color: theme.colorScheme.error),
               ),
             ],
-            const SizedBox(height: SlowlightSpacing.xxxl),
-            if (_useDesktopObservationDialog)
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxSeparator.horizontal(height: 1, color: fxDivider(entryContext)),
+          const SizedBox(height: SlowlightSpacing.md),
+          if (_useDesktopObservationDialog)
               FxDialogActions(
                 actions: [
                   FxButton(
@@ -403,8 +415,7 @@ class ReflectionComposer {
                   saveButton,
                 ],
               ),
-          ],
-        ),
+        ],
       );
     }
 
