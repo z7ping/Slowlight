@@ -87,25 +87,36 @@ void main() {
     reviewData.complete({
       'facts': <String, dynamic>{'task_completed': 4},
       'patterns': <String, dynamic>{},
-      'questions': <Map<String, dynamic>>[],
+      'questions': <Map<String, dynamic>>[
+        {'id': 'review-q1', 'content': '先核对上次的回应'},
+      ],
     });
     await tester.pumpAndSettle();
     // The remaining reflection repository read is still pending.
     expect(responses.awaiting.isCompleted, isFalse);
     expect(find.text('4'), findsOneWidget);
     expect(find.text('留给今天的一句话'), findsOneWidget);
+    expect(find.text('先核对上次的回应'), findsOneWidget);
+    expect(find.text('正在核对已保存的回应…'), findsOneWidget);
+    final saveButton = find.ancestor(
+      of: find.text('保存回应'),
+      matching: find.byType(FxButton),
+    );
+    expect(tester.widget<FxButton>(saveButton).onPressed, isNull);
     expect(find.byType(FxCircularProgress), findsNothing);
 
     responses.awaiting.complete([
       ReflectionEntry(
         id: 501,
         entryType: 'reflection',
+        questionId: 'review-q1',
         content: '已确认的单独回应',
         createdAt: DateTime.now(),
       ),
     ]);
     await tester.pumpAndSettle();
     expect(find.text('已确认的单独回应'), findsOneWidget);
+    expect(find.text('先核对上次的回应'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
