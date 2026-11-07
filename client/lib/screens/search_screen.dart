@@ -35,12 +35,15 @@ class SearchScreen extends StatefulWidget {
   final SearchSourceLoaders? sourceLoaders;
   /// Only the app shell owns navigation to the canonical habit tool.
   final ValueChanged<Habit>? onOpenHabit;
+  /// Observation targets remain distinct from review responses.
+  final ValueChanged<ReflectionEntry>? onOpenReflection;
 
   const SearchScreen({
     super.key,
     this.dataLoader,
     this.sourceLoaders,
     this.onOpenHabit,
+    this.onOpenReflection,
   });
 
   @override
@@ -500,7 +503,14 @@ class _SearchScreenState extends State<SearchScreen> {
               _reflections
                   .take(20)
                   .map(
-                    (entry) => Padding(
+                    (entry) => FxInkWell(
+                      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                      onTap: widget.onOpenReflection == null
+                          ? null
+                          : () => widget.onOpenReflection!(entry),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 7),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,6 +545,8 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                           ),
                         ],
+                          ),
+                        ),
                       ),
                     ),
                   )
