@@ -154,13 +154,9 @@ class HabitRepository {
       _dataSource.uncheckInHabit(habitId);
 
   Future<List<HabitLog>> logs(int habitId, {String? month}) async {
+    HabitLog.validateMonth(month);
     final value = await _dataSource.getHabitLogs(habitId, month: month);
-    final raw = value['logs'];
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((item) => HabitLog.fromJson(Map<String, dynamic>.from(item)))
-        .toList(growable: false);
+    return HabitLog.parseHistory(value['logs']);
   }
 
   Future<void> delete(int habitId) => _dataSource.deleteHabit(habitId);
