@@ -236,8 +236,13 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     if (task != null && mounted) _openTask(task);
   }
 
-  Future<void> _openPrimary(HomePrimarySection section) =>
-      _navigate(_navigation.openPrimary(section));
+  Future<void> _openPrimary(HomePrimarySection section) {
+    // A search pin belongs only to that explicit deep link, not future visits.
+    if (_searchFocusObservation != null) {
+      setState(() => _searchFocusObservation = null);
+    }
+    return _navigate(_navigation.openPrimary(section));
+  }
 
   Future<void> _navigate(HomeNavigationState next) async {
     if (_navigating) return;
@@ -449,7 +454,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   }
 
   Future<void> _openSearchReflection(ReflectionEntry entry) async {
-    await _openPrimary(HomePrimarySection.review);
+    await _navigate(_navigation.openPrimary(HomePrimarySection.review));
     if (!mounted || !_navigation.isReview) return;
     setState(() {
       // The prototype pins observations only. Replies open the review page.
