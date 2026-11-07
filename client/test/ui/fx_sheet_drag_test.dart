@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
+import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/habit_editor_dialog.dart';
+import 'package:slowlight/widgets/habit_checkin_dialog.dart';
 import 'package:slowlight/widgets/reflection_composer.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 
@@ -175,6 +177,44 @@ void main() {
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
     expect(find.text('调整中的习惯'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('习惯打卡 Sheet 下拉保留未保存的备注', (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final habit = Habit(
+      id: 1,
+      userId: 1,
+      name: '每日阅读',
+      icon: '📚',
+      color: '#1890ff',
+      frequency: 'daily',
+      checkedToday: false,
+      createdAt: DateTime.now(),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '记录习惯',
+          onPressed: () => HabitCheckinDialog.show(context, habit: habit),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('记录习惯'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '未保存的打卡说明');
+    await tester.drag(
+      find.byKey(const ValueKey('fx.sheet.dragHandle')),
+      const Offset(0, 170),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的记录？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('未保存的打卡说明'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
