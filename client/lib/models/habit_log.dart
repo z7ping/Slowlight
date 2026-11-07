@@ -24,8 +24,7 @@ class HabitLog {
     required this.createdAt,
   });
 
-  /// An absent/malformed response cannot be interpreted as confirmed
-  /// zero history. The screen keeps its last authoritative snapshot on error.
+  /// Missing or damaged items must never become a confirmed empty history.
   static List<HabitLog> parseHistory(Object? raw) {
     if (raw is! List) {
       throw const FormatException('习惯记录响应缺少 logs 数组');
@@ -49,54 +48,18 @@ class HabitLog {
   }
 
   static bool _isValidDay(String value) {
-    if (!RegExp(r'^\\d{4}-\\d{2}-\\d{2}
-    return HabitLog(
-      id: json['id'] as int? ?? 0,
-      habitId: json['habit_id'] as int? ?? 0,
-      date: json['date'] as String? ?? '',
-      occurrenceKey: json['occurrence_key'] as String?,
-      period: json['period'] as String? ?? '',
-      durationMin: json['duration_min'] as int? ?? 0,
-      countValue: json['count_value'] as int?,
-      occurredAt: json['occurred_at'] == null || json['occurred_at'] == ''
-          ? null : DateTime.parse(json['occurred_at'].toString()).toLocal(),
-      note: json['note'] as String? ?? '',
-      createdAt: json['created_at'] == null
-          ? DateTime.now()
-          : DateTime.parse(json['created_at'].toString()).toLocal(),
-    );
-  }
-}
-).hasMatch(value)) return false;
+    if (!RegExp(r'^[0-9]{4}-[0-9]{2}-[0-9]{2}$').hasMatch(value)) {
+      return false;
+    }
     final parsed = DateTime.tryParse(value);
     return parsed != null &&
-        '${parsed.year.toString().padLeft(4, '0')}-'
-        '${parsed.month.toString().padLeft(2, '0')}-'
-        '${parsed.day.toString().padLeft(2, '0')}' == value;
+        parsed.toIso8601String().substring(0, 10) == value;
   }
 
-  /// All storage modes and the server use the same YYYY-MM filter contract.
+  /// All storage modes agree with the server's YYYY-MM month format.
   static void validateMonth(String? month) {
     if (month != null &&
-        !RegExp(r'^\\d{4}-(0[1-9]|1[0-2])
-    return HabitLog(
-      id: json['id'] as int? ?? 0,
-      habitId: json['habit_id'] as int? ?? 0,
-      date: json['date'] as String? ?? '',
-      occurrenceKey: json['occurrence_key'] as String?,
-      period: json['period'] as String? ?? '',
-      durationMin: json['duration_min'] as int? ?? 0,
-      countValue: json['count_value'] as int?,
-      occurredAt: json['occurred_at'] == null || json['occurred_at'] == ''
-          ? null : DateTime.parse(json['occurred_at'].toString()).toLocal(),
-      note: json['note'] as String? ?? '',
-      createdAt: json['created_at'] == null
-          ? DateTime.now()
-          : DateTime.parse(json['created_at'].toString()).toLocal(),
-    );
-  }
-}
-).hasMatch(month)) {
+        !RegExp(r'^[0-9]{4}-(0[1-9]|1[0-2])$').hasMatch(month)) {
       throw const FormatException('month 应为 YYYY-MM');
     }
   }
