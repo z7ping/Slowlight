@@ -814,8 +814,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                           focusedDay: _calendarFocusedDay,
                           selectedDay: _dueDate,
                           eventLoader: (_) => const <Object>[],
-                          onDaySelected: (day, focusedDay) =>
-                              _changeDueDate(
+                          onDaySelected: (day, _) => _changeDueDate(
                             DateTime(day.year, day.month, day.day),
                             closePicker: true,
                           ),
