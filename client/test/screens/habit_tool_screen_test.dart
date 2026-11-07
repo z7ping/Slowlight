@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:slowlight/controllers/habit_controller.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/habit_log.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
@@ -58,7 +61,51 @@ class _SampleHabitRepo extends HabitRepository {
   Future<List<HabitLog>> logs(int habitId, {String? month}) async => [];
 }
 
+class _DelayedLogsRepo extends HabitRepository {
+  final first = Completer<List<HabitLog>>();
+  final latest = Completer<List<HabitLog>>();
+  int reads = 0;
+
+  @override
+  Future<List<HabitLog>> logs(int habitId, {String? month}) {
+    return ++reads == 1 ? first.future : latest.future;
+  }
+}
+
 void main() {
+  test('P05 展开详情中途发生新打卡，旧请求不能覆盖最新记录', () async {
+    final repository = _DelayedLogsRepo();
+    final controller = HabitController(repository: repository);
+    final pending = controller.loadLogs(7);
+    final afterWrite = controller.loadLogs(7);
+    expect(repository.reads, 1);
+    expect(controller.isLoadingLogs(7), isTrue);
+
+    final now = DateTime.now();
+    HabitLog log(int id) => HabitLog(
+      id: id,
+      habitId: 7,
+      date: '2026-11-07',
+      period: 'morning',
+      durationMin: 0,
+      note: '记录 $id',
+      createdAt: now,
+    );
+    repository.first.complete([log(1)]);
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.reads, 2);
+    expect(controller.isLoadingLogs(7), isTrue);
+    expect(controller.logsFor(7), isEmpty); // stale response is never shown
+
+    repository.latest.complete([log(1), log(2)]);
+    await Future.wait([pending, afterWrite]);
+    expect(controller.isLoadingLogs(7), isFalse);
+    expect(controller.logsFor(7).map((item) => item.id), [1, 2]);
+    expect(controller.logErrorFor(7), isNull);
+    controller.dispose();
+  });
+
+
   testWidgets('今天的创建意图只打开一次既有习惯编辑器', (tester) async {
     var opens = 0;
     Future<HabitEditorValue?> editor(BuildContext context, {Habit? habit}) async {
