@@ -13,6 +13,7 @@ type HabitGoalRevision struct {
     GoalPeriod   string    `json:"goal_period" gorm:"size:10;not null"`
     GoalMetric   string    `json:"goal_metric" gorm:"size:12;not null"`
     GoalValue    int       `json:"goal_value" gorm:"not null"`
+    RecordUnit   string    `json:"record_unit" gorm:"size:20;not null"`
     RecordType   string    `json:"record_type" gorm:"size:20;not null"`
     ScheduleRule string    `json:"schedule_rule" gorm:"type:text;not null"`
     EffectiveAt  time.Time `json:"effective_at" gorm:"not null;index"`
