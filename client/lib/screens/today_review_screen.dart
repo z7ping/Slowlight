@@ -294,18 +294,26 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   String _periodTitle() {
     final now = DateTime.now();
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return switch (_periodIndex) {
       1 => '本周回顾',
       2 => '近 30 天回顾',
-      _ => '${now.month} 月 ${now.day} 日 · 今天',
+      _ => mobile
+          ? '${now.month} 月 ${now.day} 日'
+          : '${now.month} 月 ${now.day} 日 · 今天',
     };
   }
 
-  String _periodDescription() => switch (_periodIndex) {
-        1 => '看见一周的节奏与变化',
-        2 => '回看长期积累的行为轨迹',
-        _ => '行为留下轨迹，时间让自我显影',
-      };
+  String _periodDescription() {
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      return '回看事实，留下自己的理解';
+    }
+    return switch (_periodIndex) {
+      1 => '看见一周的节奏与变化',
+      2 => '回看长期积累的行为轨迹',
+      _ => '行为留下轨迹，时间让自我显影',
+    };
+  }
 
   Widget _overviewBody() {
     if (_loading) return const Center(child: FxCircularProgress());
