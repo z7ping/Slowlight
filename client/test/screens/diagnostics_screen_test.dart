@@ -7,10 +7,11 @@ import 'package:slowlight/services/app_error_logger.dart';
 import '../support/fx_test_host.dart';
 
 class _TestLogger extends AppErrorLogger {
-  _TestLogger(this.text, {this.readFails = false});
+  _TestLogger(this.text, {this.readFails = false, this.clearFails = false});
 
   String text;
   bool readFails;
+  bool clearFails;
   int reads = 0;
 
   @override
@@ -25,6 +26,7 @@ class _TestLogger extends AppErrorLogger {
 
   @override
   Future<void> clear() async {
+    if (clearFails) throw StateError('日志文件无法清空');
     text = '';
   }
 }
@@ -69,6 +71,24 @@ void main() {
     await tester.tap(find.text('取消'));
     await tester.pump();
     expect(logger.text, '保留的本机日志');
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X12 日志清空失败后保留原始记录与重试入口',
+      (tester) async {
+    final logger = _TestLogger('必须保留的原始日志', clearFails: true);
+    await tester.pumpWidget(buildFxTestHost(
+      home: DiagnosticsScreen(logger: logger),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('diagnostics.clear')));
+    await tester.pump();
+    await tester.tap(find.text('清空日志'));
+    await tester.pumpAndSettle();
+    expect(logger.text, '必须保留的原始日志');
+    expect(find.text('已有错误记录'), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics.clear')), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
