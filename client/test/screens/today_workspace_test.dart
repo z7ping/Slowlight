@@ -569,6 +569,58 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 空轨迹有原型说明与记录观察入口', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var opens = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: DashboardBody(
+        tasks: const [],
+        habits: const [],
+        onWriteObservation: () => opens++,
+        dimensionLoader: () async => {'dimensions': []},
+        reviewLoader: () async => {'questions': [], 'facts': {}},
+        timelineLoader: () async => <TodayTimelineItem>[],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('今天还没有留下记录'), findsOneWidget);
+    expect(find.text('先记住一件真实发生的事就好。'), findsOneWidget);
+    await tester.ensureVisible(find.text('记录观察'));
+    await tester.tap(find.text('记录观察'));
+    await tester.pump();
+    expect(opens, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('轨迹独立读取失败时提供重新加载，不阻断任务区', (tester) async {
+    var retries = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: DashboardBody(
+        tasks: const [],
+        habits: const [],
+        onRefresh: () { retries++; },
+        dimensionLoader: () async => {'dimensions': []},
+        reviewLoader: () async => {'questions': [], 'facts': {}},
+        timelineLoader: () async => throw StateError('test-only timeline failure'),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('轨迹暂时没有读到'), findsOneWidget);
+    expect(find.text('已有任务和习惯仍可使用，记录没有被清空。'), findsOneWidget);
+    expect(find.text('今日任务'), findsOneWidget);
+    await tester.ensureVisible(find.text('重新加载'));
+    await tester.tap(find.text('重新加载'));
+    await tester.pump();
+    expect(retries, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('时间轨迹请求卡住时，今日任务仍可使用', (tester) async {
     final pending = Completer<List<TodayTimelineItem>>();
     tester.view.physicalSize = const Size(1200, 800);
