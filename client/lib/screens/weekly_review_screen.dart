@@ -5,6 +5,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../ai/ai_service.dart';
 import '../models/today_timeline_item.dart';
+import '../models/reflection_entry.dart';
+import '../repositories/reflection_repository.dart';
 import '../services/api/analytics_api.dart';
 import '../services/api/review_api.dart';
 import '../widgets/review/review_timeline_item.dart';
@@ -14,6 +16,7 @@ import '../ui/fx.dart';
 /// 每周回顾：作为「更多工具」内容页嵌入主壳。
 class WeeklyReviewScreen extends StatefulWidget {
   final bool embedded;
+  final ReflectionRepository? reflectionRepository;
   /// Optional test seams; production always uses the existing AnalyticsApi.
   final Future<Map<String, dynamic>> Function()? reviewLoader;
   final Future<Map<String, dynamic>> Function()? outputStatsLoader;
@@ -25,6 +28,7 @@ class WeeklyReviewScreen extends StatefulWidget {
   const WeeklyReviewScreen({
     super.key,
     this.embedded = false,
+    this.reflectionRepository,
     this.reviewLoader,
     this.outputStatsLoader,
     this.dailyTrendLoader,
@@ -56,6 +60,20 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   bool _loadingPeriodPage = false;
   int? _failedPeriodPageOffset;
   int _loadVersion = 0;
+  late final ReflectionRepository _responseRepo =
+      widget.reflectionRepository ?? ReflectionRepository();
+  final TextEditingController _responseDraft = TextEditingController();
+  bool _responseChecked = false;
+  bool _responseLoading = false;
+  bool _responseSaving = false;
+  bool _responseUnknown = false;
+  ReflectionEntry? _savedResponse;
+
+  @override
+  void dispose() {
+    _responseDraft.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -103,6 +121,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       unawaited(_loadOutputStats(version));
       unawaited(_loadDailyTrend(version));
       unawaited(_loadPeriodTimeline(version));
+      unawaited(_loadWeekResponse(version));
     } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -114,6 +133,126 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         }
       });
     }
+  }
+
+  Future<void> _loadWeekResponse(int version) async {
+    final start = _review['week_start']?.toString() ?? '';
+    final end = _review['week_end']?.toString() ?? '';
+    if (start.isEmpty || end.isEmpty) return;
+    setState(() {
+      _responseLoading = true;
+      _responseChecked = false;
+    });
+    try {
+      final entries = await _responseRepo.recent(limit: 100);
+      if (!mounted || version != _loadVersion) return;
+      ReflectionEntry? found;
+      for (final entry in entries) {
+        if (entry.entryType == 'reflection' &&
+            entry.context['source'] == 'weekly_review' &&
+            entry.context['week_start'] == start &&
+            entry.context['week_end'] == end) {
+          found = entry;
+          break;
+        }
+      }
+      setState(() {
+        _savedResponse = found;
+        _responseChecked = true;
+        _responseUnknown = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() => _responseChecked = false);
+    } finally {
+      if (mounted && version == _loadVersion) {
+        setState(() => _responseLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveWeekResponse() async {
+    final start = _review['week_start']?.toString() ?? '';
+    final end = _review['week_end']?.toString() ?? '';
+    final content = _responseDraft.text.trim();
+    if (!_responseChecked || _responseSaving || _responseUnknown ||
+        _savedResponse != null || _refreshError != null ||
+        start.isEmpty || end.isEmpty || content.isEmpty) return;
+    final version = _loadVersion;
+    setState(() => _responseSaving = true);
+    try {
+      final saved = await _responseRepo.create(
+        content: content,
+        context: {
+          'source': 'weekly_review',
+          'week_start': start,
+          'week_end': end,
+        },
+      );
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _savedResponse = saved;
+        _responseUnknown = false;
+        _responseDraft.clear();
+      });
+      _message(saved.id < 0 ? '回应已保存在本机，等待云端同步' : '回应已保存');
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() => _responseUnknown = true);
+      _message('保存结果未确认，草稿已保留，请先核对记录');
+    } finally {
+      if (mounted) setState(() => _responseSaving = false);
+    }
+  }
+
+  Widget _weekResponseCard() {
+    return FxCard(
+      expanded: true,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const FxSectionHeader(title: '本周回应'),
+          const SizedBox(height: 10),
+          if (_responseLoading)
+            const FxCircularProgress()
+          else if (_savedResponse != null)
+            Text(_savedResponse!.content, style: SlowlightTypography.body(context))
+          else ...[
+            FxInput(
+              controller: _responseDraft,
+              placeholder: '写下这一周的感受与理解…',
+              maxLines: 4,
+            ),
+            const SizedBox(height: 8),
+            if (!_responseChecked || _responseUnknown)
+              Text(
+                _responseUnknown
+                    ? '保存结果尚未确认。核对已有回应后才能再次保存。'
+                    : '回应记录暂时无法核对，不能安全保存。',
+                style: SlowlightTypography.caption(context),
+              ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _responseUnknown || !_responseChecked
+                  ? FxButton(
+                      label: '核对回应',
+                      variant: FxButtonVariant.secondary,
+                      size: FxButtonSize.sm,
+                      onPressed: _responseLoading || _responseSaving
+                          ? null : () => _loadWeekResponse(_loadVersion),
+                    )
+                  : FxButton(
+                      label: _responseSaving ? '保存中…' : '保存回应',
+                      size: FxButtonSize.sm,
+                      onPressed: _responseSaving || _refreshError != null
+                          ? null : _saveWeekResponse,
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _loadOutputStats(int version) async {
@@ -479,6 +618,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                   _summary(),
                   const SizedBox(height: SlowlightSpacing.md),
                   _periodEvidenceCard(),
+                   const SizedBox(height: SlowlightSpacing.md),
+                   _weekResponseCard(),
                   if (_outputStatsFailed || _dailyTrendFailed) ...[
                     const SizedBox(height: 12),
                     FxCard(
