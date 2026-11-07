@@ -56,3 +56,32 @@ class TodayTimelineItem {
     });
   }
 }
+
+/// A bounded set of actual period events plus an independent, untruncated
+/// count of observations. Displayed events must never be counted as totals.
+class ReviewPeriodTimeline {
+  final List<TodayTimelineItem> items;
+  final int observationCount;
+
+  const ReviewPeriodTimeline({
+    required this.items,
+    required this.observationCount,
+  });
+
+  factory ReviewPeriodTimeline.fromJson(Map<String, dynamic> json) {
+    final entries = json['items'];
+    final count = json['observation_count'];
+    if (entries is! List || count is! num || count < 0) {
+      throw const FormatException('Invalid period timeline payload');
+    }
+    return ReviewPeriodTimeline(
+      items: TodayTimelineItem.sorted(entries
+          .whereType<Map>()
+          .map((value) => TodayTimelineItem.fromJson(
+                Map<String, dynamic>.from(value),
+              ))
+          .whereType<TodayTimelineItem>()),
+      observationCount: count.toInt(),
+    );
+  }
+}
