@@ -127,12 +127,9 @@ class HabitScheduleRule {
     if(kind=='interval'){
       for(var i=0;i<count;i++){
         if(unit=='hour'){
-          if(hourMode=='rolling'){
-            result.add(DateTime(start.year,start.month,start.day,hour,m).add(Duration(hours:i*every)));
-          }else{
-            // Handled above by the shared day-window slot generator.
-            continue;
-          }
+          // The window variant has already used _windowSlotsForDay.
+          result.add(DateTime(start.year,start.month,start.day,hour,m)
+              .add(Duration(hours:i*every)));
         }else if(unit=='day'||unit=='week'){
           result.add(DateTime(start.year,start.month,start.day+i*every*(unit=='week'?7:1),hour,m));
         }else{
