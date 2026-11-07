@@ -26,6 +26,20 @@ String syncDetailResultLabel({
 }
 
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
+/// Failed/unknown writes must be reconciled before any user-triggered replay.
+/// SyncService uses conflict status for ambiguous creates; one global error
+/// does not prove the entire failed batch is safe to submit again.
+bool syncMayStartUserRetry({
+  required SyncStatusEnum status,
+  required bool conflictsKnown,
+  required int conflictCount,
+  required bool hasRequestError,
+}) =>
+    status == SyncStatusEnum.idle &&
+    conflictsKnown &&
+    conflictCount == 0 &&
+    !hasRequestError;
+
 class SyncStatusBadge extends StatelessWidget {
   final bool showHealthy;
   final bool showLocal;
@@ -223,8 +237,42 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
     _conflicts = widget.sync.getAllConflicts();
   }
 
+  Future<void> _verifyOnly() async {
+    if (_retrying) return;
+    setState(() {
+      _retrying = true;
+      _feedback = null;
+    });
+    try {
+      // Both reads are observational: no syncNow(), no write queue replay.
+      final conflicts = await widget.sync.getAllConflicts();
+      await CloudSyncCoordinator().refreshStandalonePendingCount();
+      if (!mounted) return;
+      setState(() {
+        _conflicts = Future.value(conflicts);
+        _feedback = conflicts.isNotEmpty
+            ? '有同步冲突，请先核对并解决；未重新提交数据。'
+            : '已核对冲突与待处理数量。原始请求结果仍未确认时，不自动重新写入。';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _requestError = error.toString();
+        _conflicts = Future.error(error);
+        _feedback = '核对失败，结果仍未确认；没有重新提交数据。';
+      });
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
   Future<void> _retry() async {
     if (_retrying) return;
+    if (widget.sync.status != SyncStatusEnum.idle ||
+        _requestError != null || widget.sync.lastError != null) {
+      await _verifyOnly();
+      return;
+    }
     setState(() {
       _retrying = true;
       _requestError = null;
@@ -284,6 +332,13 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
             final hasRaw = raw != null && raw.trim().isNotEmpty;
             final failed = _requestError != null || status == SyncStatusEnum.error;
             final busy = _retrying || status == SyncStatusEnum.syncing;
+            final canSync = syncMayStartUserRetry(
+              status: status,
+              conflictsKnown: conflictsKnown,
+              conflictCount: count,
+              hasRequestError: _requestError != null ||
+                  widget.sync.lastError != null,
+            );
 
             return ConstrainedBox(
               constraints: BoxConstraints(
@@ -478,10 +533,13 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           onPressed: () => Navigator.of(context).pop(),
                         );
                         final retry = FxButton(
-                          label: busy ? '同步中…' : '重新同步',
+                          label: busy ? '核对中…'
+                              : canSync ? '立即同步' : '核对状态',
                           expanded: true,
-                          icon: busy ? Icons.hourglass_top : Icons.sync,
-                          onPressed: busy ? null : _retry,
+                          icon: busy ? Icons.hourglass_top
+                              : canSync ? Icons.sync : Icons.fact_check_outlined,
+                          onPressed: busy ? null
+                              : canSync ? _retry : _verifyOnly,
                         );
                         if (constraints.maxWidth < 360 ||
                             MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
