@@ -19,6 +19,58 @@ void main() {
   });
   tearDownAll(() { ReminderService().dispose(); });
   group('ReminderScreen 稳定契约', () {
+    testWidgets('P16 工作中延后只延长本轮，不触发休息或跳过',
+        (tester) async {
+      final service = ReminderService();
+      service.stopAll();
+      service.updateConfig(
+        workMinutes: 25,
+        microRestSeconds: 20,
+        lockScreenMode: 'window',
+        autoStartOnLaunch: false,
+        allowPostponeMicro: true,
+        microRestStrict: true,
+      );
+      await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));
+      service.startWork();
+      await tester.pump();
+      final initial = service.remainingSeconds;
+      expect(service.state, 'working');
+      expect(find.text('跳过本轮'), findsNothing);
+      await tester.tap(find.text('延后 5 分钟'));
+      await tester.pump();
+      expect(service.state, 'working');
+      expect(service.remainingSeconds, initial + 300);
+      expect(service.totalSeconds, 25 * 60 + 300);
+      expect(service.microRestCount, 0);
+      service.stopAll();
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('P16 不允许延后时，不能强制启动严格休息',
+        (tester) async {
+      final service = ReminderService();
+      service.stopAll();
+      service.updateConfig(
+        workMinutes: 25,
+        lockScreenMode: 'window',
+        allowPostponeMicro: false,
+        microRestStrict: true,
+        autoStartOnLaunch: false,
+      );
+      await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));
+      service.startWork();
+      await tester.pump();
+      final initial = service.remainingSeconds;
+      expect(service.canPostponeUpcomingRest, isFalse);
+      expect(service.postponeUpcomingRest(), isFalse);
+      expect(service.remainingSeconds, initial);
+      expect(service.state, 'working');
+      service.stopAll();
+      service.updateConfig(allowPostponeMicro: true, microRestStrict: false);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('开始工作后服务进入 working 状态', (tester) async {
       final service = ReminderService();
       await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));

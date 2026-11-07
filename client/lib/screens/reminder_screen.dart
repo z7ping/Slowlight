@@ -188,14 +188,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
                       label: '延后 5 分钟',
                       variant: FxButtonVariant.outline,
                       size: FxButtonSize.sm,
-                      onPressed: working ? _postponeUpcoming : null,
+                      onPressed: working && _service.canPostponeUpcomingRest
+                          ? _postponeUpcoming : null,
                     ),
-                    FxButton(
-                      label: '跳过本轮',
-                      variant: FxButtonVariant.ghost,
-                      size: FxButtonSize.sm,
-                      onPressed: working ? _skipUpcoming : null,
-                    ),
+
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -219,15 +215,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   void _postponeUpcoming() {
-    _service.forceRest();
-    _service.postponeRest();
-    _message('已延后 5 分钟');
-  }
-
-  void _skipUpcoming() {
-    _service.forceRest();
-    _service.skipRest();
-    _message('已跳过本轮');
+    if (_service.postponeUpcomingRest()) {
+      _message('已将本轮工作延长 5 分钟，休息提醒相应延后');
+    }
   }
 
   Widget _todayStats() {

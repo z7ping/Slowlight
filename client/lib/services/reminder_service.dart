@@ -425,6 +425,25 @@ class ReminderService extends ChangeNotifier {
     startWork();
   }
 
+  /// A pending rest is not an active rest. Postponing must not enter a
+  /// break or trigger a strict-mode screen lock.
+  bool postponeUpcomingRest() {
+    if (_state != 'working') return false;
+    final nextLong = _microRestCount >= _microRestsBeforeLong;
+    if (nextLong ? !_allowPostponeLong : !_allowPostponeMicro) return false;
+    _remainingSeconds += 5 * 60;
+    _totalSeconds += 5 * 60;
+    notifyListeners();
+    return true;
+  }
+
+  bool get canPostponeUpcomingRest {
+    if (_state != 'working') return false;
+    return _microRestCount >= _microRestsBeforeLong
+        ? _allowPostponeLong
+        : _allowPostponeMicro;
+  }
+
   void forceRest() {
     if (_state == 'micro_rest' || _state == 'long_rest') return;
     _timer?.cancel();
