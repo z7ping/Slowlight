@@ -1004,7 +1004,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         compact: !widget.desktopDialog,
         enabled: !_saving,
         dueDate: _dueDate,
-        onDateChanged: _changeDueDate,
+        onDateChanged: (date) => _changeDueDate(date),
         dueTime: _dueTime,
         onTimeChanged: (time) => setState(() => _dueTime = time),
         repeatType: _repeatType,
