@@ -102,6 +102,9 @@ class FxDialog {
       variant:
           destructive ? ShadDialogVariant.alert : ShadDialogVariant.primary,
       builder: (ctx) => ShadDialog(
+        // Short confirmations have a single explicit cancel action. Do not
+        // add ShadDialog's corner close button as a second exit affordance.
+        closeIcon: const SizedBox.shrink(),
         title: Text(title, style: _titleStyle(ctx)),
         description: Text(content, style: _descriptionStyle(ctx)),
         actions: [
