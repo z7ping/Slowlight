@@ -86,10 +86,41 @@ class HabitScheduleRule {
     return '每 $every $text';
   }
 
-  /// Calendar preview, not the DST/timezone-aware scheduler.
+  // Day windows restart on each local civil day. Advance by elapsed
+  // durations, but stop at the *actual* local end instant: a night with
+  // a DST change does not necessarily contain 24 elapsed hours.
+  List<DateTime> _windowSlotsForDay(DateTime day) {
+    final startMinute = minute(windowStart);
+    final endMinute = minute(windowEnd);
+    final begin = DateTime(day.year, day.month, day.day,
+        startMinute ~/ 60, startMinute % 60);
+    final end = DateTime(day.year, day.month,
+        day.day + (endMinute <= startMinute ? 1 : 0),
+        endMinute ~/ 60, endMinute % 60);
+    final slots = <DateTime>[];
+    final step = Duration(hours: every);
+    for (var slot = begin; !slot.isAfter(end); slot = slot.add(step)) {
+      slots.add(slot);
+    }
+    return slots;
+  }
+
+  /// Preview uses the same civil-day window and elapsed slot boundaries
+  /// as reminder generation; it is not a historical-goal simulation.
   List<DateTime> preview([int count=4]){
     final start=anchor;
-    if(start==null||validationError!=null||kind=='goal')return [];
+    if(start==null||validationError!=null||kind=='goal'||count<=0)return [];
+    if(kind=='interval'&&unit=='hour'&&hourMode=='window'){
+      final result=<DateTime>[];
+      for(var dayIndex=0;result.length<count;dayIndex++){
+        final day=DateTime(start.year,start.month,start.day+dayIndex);
+        for(final slot in _windowSlotsForDay(day)){
+          result.add(slot);
+          if(result.length==count)break;
+        }
+      }
+      return result;
+    }
     final minutes=minute(anchorTime);
     final hour=minutes~/60,m=minutes%60;
     final result=<DateTime>[];
@@ -99,11 +130,8 @@ class HabitScheduleRule {
           if(hourMode=='rolling'){
             result.add(DateTime(start.year,start.month,start.day,hour,m).add(Duration(hours:i*every)));
           }else{
-            final begin=minute(windowStart),end=minute(windowEnd);
-            final len=end>begin?end-begin:end+1440-begin;
-            final slots=len~/(every*60)+1;
-            result.add(DateTime(start.year,start.month,start.day+i~/slots)
-                .add(Duration(minutes:begin+(i%slots)*every*60)));
+            // Handled above by the shared day-window slot generator.
+            continue;
           }
         }else if(unit=='day'||unit=='week'){
           result.add(DateTime(start.year,start.month,start.day+i*every*(unit=='week'?7:1),hour,m));
@@ -151,14 +179,12 @@ class HabitScheduleRule {
           final n=after.isBefore(first)?0:after.difference(first).inMicroseconds~/interval.inMicroseconds+1;
           for(var i=0;i<count;i++)add(first.add(Duration(microseconds:(n+i)*interval.inMicroseconds)));
         }else{
-          final begin=minute(windowStart),end=minute(windowEnd);
-          final duration=end>begin?end-begin:end+1440-begin;
-          final candidate=days>1?days-1:0;
+          final candidate=max(0,days-1);
           for(var d=candidate;d<candidate+40&&result.length<count;d++){
             final day=DateTime(start.year,start.month,start.day+d);
-            for(var offset=0;offset<=duration&&result.length<count;offset+=every*60){
-              add(DateTime(day.year,day.month,day.day,
-                begin~/60,begin%60).add(Duration(minutes:offset)));
+            for(final slot in _windowSlotsForDay(day)){
+              add(slot);
+              if(result.length==count)break;
             }
           }
         }
