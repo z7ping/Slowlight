@@ -349,7 +349,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ).copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
-              '计划与实际 · 共 ${records.length} 条完整记录',
+              _hasCurrentMonth && _data!.unavailableTypes.isNotEmpty
+                  ? '计划与实际 · 已载入 ${records.length} 条记录（部分待核对）'
+                  : '计划与实际 · 共 ${records.length} 条完整记录',
               style: SlowlightTypography.caption(context).copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -452,7 +454,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 18),
             child: Text(
-              taskSection ? '当天没有任务计划。' : '当天还没有习惯、专注或观察记录。',
+              _hasCurrentMonth && _data!.unavailableTypes.isNotEmpty
+                  ? '部分数据源未读取成功，请重试后核对当天记录。'
+                  : taskSection
+                      ? '当天没有任务计划。'
+                      : '当天还没有习惯、专注或观察记录。',
               style: SlowlightTypography.secondary(
                 context,
               ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
