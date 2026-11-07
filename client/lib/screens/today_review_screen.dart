@@ -346,16 +346,17 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                             _patternsCard(patterns),
                             const SizedBox(height: 16),
                           ],
-                          if (questions.isNotEmpty) _questionsCard(questions),
+                          if (questions.isNotEmpty ||
+                              SlowlightPlatformDensity.usesMobileTouchTargets) ...[
+                            _questionsCard(questions),
+                            const SizedBox(height: SlowlightSpacing.xxxl),
+                          ],
                           if (hasReflections) ...[
-                            if (questions.isNotEmpty)
-                              const SizedBox(height: 16),
                             _reflectionsCard(),
+                            const SizedBox(height: SlowlightSpacing.xxxl),
                           ],
-                          if (questions.isEmpty) ...[
-                            if (hasReflections) const SizedBox(height: 16),
-                            _freeNoteCard(),
-                          ],
+                          // Free notes are independent of suggested questions.
+                          _freeNoteCard(),
                           const SizedBox(height: 8),
                           Align(
                             alignment: Alignment.centerLeft,
