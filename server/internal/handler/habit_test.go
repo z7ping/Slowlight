@@ -399,3 +399,81 @@ func TestUncheckInHabit_HabitNotFound(t *testing.T) {
 		t.Errorf("返回 %d, 期望 404", w.Code)
 	}
 }
+
+
+func TestP05HabitWindowOnlyReadsLiveHabitsForCurrentUser(t *testing.T) {
+    db, _, ownerID := setupHabitTest(t)
+    foreign := createTestUser(t, db)
+
+    own := model.Habit{UserID:ownerID, Name:"当前用户习惯"}
+    other := model.Habit{UserID:foreign.ID, Name:"其他用户习惯"}
+    deleted := model.Habit{UserID:ownerID, Name:"已删除习惯"}
+    for _, habit := range []*model.Habit{&own, &other, &deleted} {
+        if err:=db.Create(habit).Error;err!=nil{t.Fatal(err)}
+    }
+    for _, item := range []struct{id uint; day string}{
+        {own.ID,"2026-11-05"},
+        {own.ID,"2026-11-06"},
+        {other.ID,"2026-11-06"},
+        {deleted.ID,"2026-11-06"},
+        {own.ID,"2026-11-01"},
+    } {
+        log := model.HabitLog{HabitID:item.id,Date:item.day,Note:"独立事实"}
+        if err:=db.Create(&log).Error;err!=nil{t.Fatal(err)}
+    }
+    if err:=db.Delete(&deleted).Error;err!=nil{t.Fatal(err)}
+
+    logs,err := habitUserWindowLogs(db,ownerID,"2026-11-05","2026-11-07")
+    if err!=nil{t.Fatal(err)}
+    if len(logs)!=2 {
+        t.Fatalf("expected only 2 live owner logs, got %+v",logs)
+    }
+    for _, log := range logs {
+        if log.HabitID!=own.ID {
+            t.Fatalf("foreign or deleted habit log was read: habit %d",log.HabitID)
+        }
+    }
+    foreignLogs,err := habitUserWindowLogs(db,foreign.ID,"2026-11-05","2026-11-07")
+    if err!=nil{t.Fatal(err)}
+    if len(foreignLogs)!=1 || foreignLogs[0].HabitID!=other.ID {
+        t.Fatalf("foreign account window changed: %+v",foreignLogs)
+    }
+}
+
+
+func TestP05HabitFullHistoryAndStrictMonthFilter(t *testing.T) {
+    db,handler,userID := setupHabitTest(t)
+    router := newHabitRouter(handler,userID)
+    habit := model.Habit{UserID:userID,Name:"可查看完整历史"}
+    if err:=db.Create(&habit).Error;err!=nil{t.Fatal(err)}
+    for _,day := range []string{"2026-10-31","2026-11-01","2026-11-30"} {
+        if err:=db.Create(&model.HabitLog{HabitID:habit.ID,Date:day,Note:day}).Error;err!=nil{t.Fatal(err)}
+    }
+    get := func(query string) *httptest.ResponseRecorder {
+        w:=httptest.NewRecorder()
+        router.ServeHTTP(w,httptest.NewRequest(http.MethodGet,"/habits/"+itoa(habit.ID)+"/logs"+query,nil))
+        return w
+    }
+    for _,bad := range []string{"?month=2026-11%25","?month=2026-1","?month=2026-13","?month=2026"} {
+        w:=get(bad)
+        if w.Code!=http.StatusBadRequest {
+            t.Fatalf("invalid filter %s accepted: %d %s",bad,w.Code,w.Body.String())
+        }
+    }
+    for _,item := range []struct{query string; dates []string}{
+        {"",[]string{"2026-11-30","2026-11-01","2026-10-31"}},
+        {"?month=2026-11",[]string{"2026-11-30","2026-11-01"}},
+        {"?month=2026-10",[]string{"2026-10-31"}},
+    } {
+        w:=get(item.query)
+        if w.Code!=http.StatusOK {t.Fatalf("%s: %d %s",item.query,w.Code,w.Body.String())}
+        var payload struct{Logs []model.HabitLog `json:"logs"`}
+        if err:=json.Unmarshal(w.Body.Bytes(),&payload);err!=nil{t.Fatal(err)}
+        if len(payload.Logs)!=len(item.dates) {t.Fatalf("%s: got %+v",item.query,payload.Logs)}
+        for index,expected:=range item.dates {
+            if payload.Logs[index].Date!=expected {
+                t.Fatalf("%s index %d: %s want %s",item.query,index,payload.Logs[index].Date,expected)
+            }
+        }
+    }
+}
