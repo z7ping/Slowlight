@@ -486,6 +486,51 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('今天下拉刷新仅发起一轮辅助数据请求，独立组件仍可刷新', (tester) async {
+    var coreRefreshes = 0;
+    var dimensionLoads = 0;
+    var reviewLoads = 0;
+    var timelineLoads = 0;
+    var tick = 0;
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: StatefulBuilder(builder: (context, rebuild) {
+        return Scaffold(
+          body: DashboardBody(
+            tasks: const [],
+            habits: const [],
+            refreshTick: tick,
+            onRefresh: () async {
+              coreRefreshes++;
+              rebuild(() => tick++);
+            },
+            dimensionLoader: () async {
+              dimensionLoads++;
+              return <String, dynamic>{'dimensions': <dynamic>[]};
+            },
+            reviewLoader: () async {
+              reviewLoads++;
+              return <String, dynamic>{'questions': <dynamic>[], 'facts': <String, dynamic>{}};
+            },
+            timelineLoader: () async {
+              timelineLoads++;
+              return <TodayTimelineItem>[];
+            },
+          ),
+        );
+      }),
+    ));
+    await tester.pumpAndSettle();
+    expect([dimensionLoads, reviewLoads, timelineLoads], [1, 1, 1]);
+
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pumpAndSettle();
+    expect(coreRefreshes, 1);
+    expect([dimensionLoads, reviewLoads, timelineLoads], [2, 2, 2]);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('时间轨迹请求卡住时，今日任务仍可使用', (tester) async {
     final pending = Completer<List<TodayTimelineItem>>();
     tester.view.physicalSize = const Size(1200, 800);
