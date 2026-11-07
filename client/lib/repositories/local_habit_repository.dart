@@ -260,6 +260,7 @@ class LocalHabitRepository {
     String? occurredAt,
     String? clientKey,
   }) async {
+    HabitLog.validateDate(date);
     final db = await _db.database;
     final now = DateTime.now();
     final day = date ?? _dateStr(now);
@@ -350,6 +351,7 @@ class LocalHabitRepository {
     String? clientKey,
     String? occurrenceKey,
   }) async {
+    HabitLog.validateDate(date);
     final scheduledHabit = await getById(habitId);
     if (scheduledHabit != null && HabitOccurrence.rule(scheduledHabit['schedule_rule'],
         legacyFrequency: scheduledHabit['frequency']?.toString() ?? 'daily') != null) {
