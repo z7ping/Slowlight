@@ -18,6 +18,8 @@ class Habit {
   final String goalPeriod;
   final String goalMetric;
   final int goalValue;
+  /// Saved revisions only. Missing legacy versions never imply past targets.
+  final List<Map<String, dynamic>> goalHistory;
   final int goalProgress;
   final bool goalMet;
   final int targetDays;
@@ -51,6 +53,7 @@ class Habit {
     this.goalPeriod = 'none',
     this.goalMetric = 'events',
     this.goalValue = 0,
+    this.goalHistory = const [],
     this.goalProgress = 0,
     this.goalMet = false,
     this.targetDays = 0,
@@ -87,6 +90,7 @@ class Habit {
       goalPeriod: json['goal_period'] as String? ?? 'none',
       goalMetric: json['goal_metric'] as String? ?? 'events',
       goalValue: json['goal_value'] as int? ?? 0,
+      goalHistory: _parseGoalHistory(json['goal_history']),
       goalProgress: json['goal_progress'] as int? ?? 0,
       goalMet: json['goal_met'] == true || json['goal_met'] == 1,
       targetDays: json['target_days'] ?? 0,
@@ -112,6 +116,20 @@ class Habit {
           ? DateTime.parse(json['created_at']).toLocal()
           : DateTime.now(),
     );
+  }
+
+  static List<Map<String, dynamic>> _parseGoalHistory(dynamic raw) {
+    if (raw == null) return const [];
+    final value = raw is String ? jsonDecode(raw) : raw;
+    if (value is! List) {
+      throw const FormatException('历史目标版本格式不正确');
+    }
+    return value.map((item) {
+      if (item is! Map) {
+        throw const FormatException('历史目标版本包含无效记录');
+      }
+      return Map<String, dynamic>.from(item);
+    }).toList(growable: false);
   }
 
   static Map<String, dynamic> _parseReminderAt(dynamic value) {
