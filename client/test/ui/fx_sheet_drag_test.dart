@@ -14,6 +14,8 @@ import 'package:slowlight/widgets/task_detail_sheet.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
+  tearDown(() => debugDefaultTargetPlatformOverride = null);
 
   testWidgets('普通移动 Sheet 的显式引导线和 16dp 顶角与原型一致',
       (tester) async {
@@ -86,8 +88,6 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
-  tearDown(() => debugDefaultTargetPlatformOverride = null);
 
   testWidgets('统一引导线：轻拖回弹，长拖请求退出；内容滑动不能关闭',
       (tester) async {
