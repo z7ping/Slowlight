@@ -117,7 +117,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
     await tester.pumpAndSettle();
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
-    await tester.tap(find.text('高'));
+    await tester.tap(find.text('重要 · 紧急'));
     await tester.pumpAndSettle();
     expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
@@ -323,8 +323,8 @@ void main() {
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.text('设置优先级'), findsNothing);
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
-    expect(find.text('高'), findsOneWidget);
-    await tester.tap(find.text('高'));
+    expect(find.text('重要 · 紧急'), findsOneWidget);
+    await tester.tap(find.text('重要 · 紧急'));
     await tester.pumpAndSettle();
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.text('有未保存的修改'), findsOneWidget);
