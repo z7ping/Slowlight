@@ -1009,11 +1009,16 @@ class _DashboardBodyState extends State<DashboardBody> {
       HapticFeedback.lightImpact();
       await DataService().postponeTask(task.id, null);
       if (!mounted) return;
+      // The swipe row is already busy until this Future resolves. Wait for
+      // the owning workspace to refresh before reporting the new state.
+      await widget.onRefresh?.call();
+      if (!mounted) return;
       FxNotice.showContent(context, Text('已顺延到明天'));
-      widget.onRefresh?.call();
     } catch (_) {
       if (!mounted) return;
-      FxNotice.showContent(context, Text('顺延任务失败'));
+      // The server may have persisted the action before a timeout. Do not
+      // claim it failed and invite a second postpone of the same task.
+      FxNotice.showContent(context, Text('顺延结果未确认，请刷新任务核对'));
     }
   }
 
