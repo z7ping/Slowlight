@@ -735,6 +735,24 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   Widget _questionsCard(List<Map<String, dynamic>> questions) {
     final theme = Theme.of(context);
+    if (SlowlightPlatformDensity.usesMobileTouchTargets && questions.isEmpty) {
+      // An empty prompt list is a real quiet state, not a reason to remove
+      // the whole section or invent a suggested question.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FxSectionHeader(title: '值得想一想'),
+          const SizedBox(height: SlowlightSpacing.md),
+          Text(
+            '当前没有待回应的问题。',
+            key: const ValueKey('review.mobile.questions.quiet'),
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
     return FxCard(
       padding: const EdgeInsets.all(16),
       expanded: true,
