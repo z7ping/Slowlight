@@ -137,6 +137,24 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('迁移认证模式仅验证云端身份，不提供本地模式入口', (tester) async {
+      await tester.pumpWidget(buildFxTestHost(
+        home: const LoginScreen(preserveDataMode: true),
+      ));
+      await tester.pump();
+
+      expect(find.text('验证云端身份'), findsOneWidget);
+      expect(find.textContaining('仍使用本地数据'), findsOneWidget);
+      expect(find.byKey(const ValueKey('login.github_action')), findsOneWidget);
+      expect(find.byKey(const ValueKey('login.password_action')), findsOneWidget);
+      expect(find.byKey(const ValueKey('login.local_action')), findsNothing);
+      expect(find.byKey(const ValueKey('login.page_local')), findsNothing);
+      await openPassword(tester);
+      expect(find.byKey(const ValueKey('login.local_confirm')), findsNothing);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('本地数据先展示说明，返回不触发真实本地初始化', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();

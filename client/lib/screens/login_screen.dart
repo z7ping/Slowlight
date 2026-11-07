@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool get _isLogin => _view != _LoginView.register;
 
   void _open(_LoginView next) {
-    if (_isLoading) return;
+    if (_isLoading || (widget.preserveDataMode && next == _LoginView.local)) return;
     setState(() => _view = next);
   }
   bool _isLoading = false;
@@ -277,15 +277,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _useLocal() async {
+    if (_isLoading || widget.preserveDataMode) return;
     setState(() => _isLoading = true);
     try {
       // 用户主动进入本地模式，必须同步放弃待恢复 GitHub 会话。
       await GitHubSignIn.cancelPendingAuthorization();
-      if (!widget.preserveDataMode) {
-        await DataModeManager().setLocal();
-        await AuthService.initLocalUser();
-        authStateNotifier.value = !authStateNotifier.value;
-      }
+      await DataModeManager().setLocal();
+      await AuthService.initLocalUser();
+      authStateNotifier.value = !authStateNotifier.value;
       if (mounted) _finish(false);
     } catch (e) {
       if (mounted) FxNotice.errorWithDetails(context, '进入本地数据失败', e.toString());
@@ -381,9 +380,12 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         _brand(context),
         const SizedBox(height: SlowlightSpacing.page * 2),
-        Text('欢迎回来', style: SlowlightTypography.hero(context)),
+        Text(widget.preserveDataMode ? '验证云端身份' : '欢迎回来',
+            style: SlowlightTypography.hero(context)),
         const SizedBox(height: SlowlightSpacing.md),
-        Text('选择一种方式开始，让每段记录都有迹可循。',
+        Text(widget.preserveDataMode
+                ? '验证后继续迁移预览；当前仍使用本地数据。'
+                : '选择一种方式开始，让每段记录都有迹可循。',
             style: SlowlightTypography.secondary(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             )),
@@ -453,24 +455,26 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-        const SizedBox(height: SlowlightSpacing.page),
-        FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
-        const SizedBox(height: SlowlightSpacing.md),
-        FxButton(
-          key: const ValueKey('login.local_action'),
-          label: '不登录，使用本地数据',
-          icon: LucideIcons.smartphone,
-          variant: FxButtonVariant.ghost,
-          size: FxButtonSize.lg,
-          expanded: true,
-          onPressed: _isLoading ? null : () => _open(_LoginView.local),
-        ),
-        const SizedBox(height: SlowlightSpacing.xs),
-        Text('无需账号，记录仅保存在当前设备',
-            textAlign: TextAlign.center,
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            )),
+        if (!widget.preserveDataMode) ...[
+          const SizedBox(height: SlowlightSpacing.page),
+          FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            key: const ValueKey('login.local_action'),
+            label: '不登录，使用本地数据',
+            icon: LucideIcons.smartphone,
+            variant: FxButtonVariant.ghost,
+            size: FxButtonSize.lg,
+            expanded: true,
+            onPressed: _isLoading ? null : () => _open(_LoginView.local),
+          ),
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text('无需账号，记录仅保存在当前设备',
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              )),
+        ],
       ],
     );
   }
@@ -914,7 +918,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 _LoginView.github => _oauth(context),
                 _LoginView.password || _LoginView.register =>
                   _credentials(context),
-                _LoginView.local => _localIntro(context),
+                _LoginView.local => widget.preserveDataMode
+                    ? _home(context)
+                    : _localIntro(context),
               };
               final panel = ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 510),
