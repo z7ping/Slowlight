@@ -499,6 +499,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final theme = Theme.of(context);
     final total = _controller.habits.length;
     final done = _controller.habits.where((habit) => habit.checkedToday).length;
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      // Count recorded habits, not unverified individual log entries.
+      return FxActionBar(
+        stackBelow: 280,
+        leading: Text(
+          '$total 个习惯 · 今日 $done 个有记录',
+          style: SlowlightTypography.caption(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        actions: [if (widget.titleProvidedByShell) _addButton()],
+      );
+    }
     return FxActionBar(
       stackBelow: 560,
       leading: Wrap(
@@ -532,17 +545,23 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         label: '添加习惯',
         icon: LucideIcons.plus,
         size: FxButtonSize.sm,
+        variant: SlowlightPlatformDensity.usesMobileTouchTargets
+            ? FxButtonVariant.outline
+            : FxButtonVariant.primary,
         onPressed: _createHabit,
       );
 
   Widget _filters() {
     final total = _controller.habits.length;
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return Align(
       alignment: Alignment.centerLeft,
       child: total == 0
           ? const SizedBox.shrink()
           : FxSegmented(
-              labels: const ['全部', '待记录', '已记录'],
+              labels: mobile
+                   ? const ['全部', '今日未记录', '今日有记录']
+                   : const ['全部', '待记录', '已记录'],
               selectedIndex: _filter,
               onChanged: (index) => setState(() => _filter = index),
               itemKeys: const [
@@ -558,11 +577,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final theme = Theme.of(context);
     final expanded = _expandedHabitId == habit.id;
     final color = _parseColor(habit.color);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return Padding(
       padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
       child: FxCard(
         key: ValueKey('habits.card.${habit.id}'),
-        padding: const EdgeInsets.all(SlowlightSpacing.xl),
+        padding: EdgeInsets.symmetric(
+          horizontal: SlowlightSpacing.xl,
+          vertical: mobile ? SlowlightSpacing.md : SlowlightSpacing.xl,
+        ),
         color: fxSurface(context),
         borderRadius: SlowlightRadius.lg,
         border: Border.all(color: theme.colorScheme.outlineVariant),
