@@ -666,6 +666,40 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('首次轨迹读取失败后重试要显示进度，成功后恢复事实', (tester) async {
+    final waiting = Completer<List<TodayTimelineItem>>();
+    var calls = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: DashboardBody(
+        tasks: const [],
+        habits: const [],
+        timelineLoader: () {
+          calls++;
+          return calls == 1
+              ? Future<List<TodayTimelineItem>>.error(StateError('offline'))
+              : waiting.future;
+        },
+        dimensionLoader: () async => {'dimensions': []},
+        reviewLoader: () async => {'questions': [], 'facts': {}},
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('轨迹暂时没有读到'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('重新加载'));
+    await tester.tap(find.text('重新加载'));
+    await tester.pump();
+    expect(calls, 2);
+    expect(find.text('正在读取今天的轨迹…'), findsOneWidget);
+
+    waiting.complete(items);
+    await tester.pumpAndSettle();
+    expect(find.text('专注 25 分钟'), findsOneWidget);
+    expect(find.text('2 条记录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('时间轨迹请求卡住时，今日任务仍可使用', (tester) async {
     final pending = Completer<List<TodayTimelineItem>>();
     tester.view.physicalSize = const Size(1200, 800);
