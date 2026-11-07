@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/migration_history_dialog.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -35,6 +36,9 @@ void main() {
 
     expect(find.byType(MigrationHistoryDialog), findsOneWidget);
     expect(find.byType(ModalBarrier), findsNWidgets(barrierBaseline + 1));
+    // The explicit footer button is the sole visible exit.
+    expect(tester.widget<ShadDialog>(find.byType(ShadDialog)).closeIcon,
+        isA<SizedBox>());
 
     await tester.tap(find.text('关闭'));
     await tester.pumpAndSettle();
