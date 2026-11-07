@@ -2,6 +2,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/widgets/sync_status_badge.dart';
 
 void main() {
+  test('同步状态同时区分待同步、冲突、未知和已知无待处理', () {
+    String label({
+      bool busy = false,
+      bool failed = false,
+      bool known = true,
+      int conflicts = 0,
+      int pending = 0,
+    }) => syncDetailResultLabel(
+      busy: busy,
+      failed: failed,
+      conflictsKnown: known,
+      conflictCount: conflicts,
+      pendingCount: pending,
+    );
+    expect(label(busy: true), '同步中');
+    expect(label(failed: true), '同步未完成');
+    expect(label(known: false), '状态待确认');
+    expect(label(conflicts: 2, pending: 3), '冲突待处理');
+    expect(label(pending: 1), '待同步');
+    expect(label(), '无待处理项');
+  });
+
   test('SQLite 错误按真实错误代码描述，不把泛用代码冒充确定根因', () {
     const raw =
         'SqliteFfiException(sqlite_error: 1, SqliteException(1): while preparing statement)';
