@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
@@ -78,7 +80,9 @@ class HabitEditorDialog extends StatefulWidget {
       Future<void> Function(HabitEditorValue)? onSubmit,
       HabitEditorValue? initialValue,
       ValueChanged<HabitEditorValue>? onUnconfirmed}) {
+    final editorKey = GlobalKey<_HabitEditorDialogState>();
     Widget editor(BuildContext _) => HabitEditorDialog(
+          key: editorKey,
           habit: habit,
           onSubmit: onSubmit,
           initialValue: initialValue,
@@ -94,11 +98,16 @@ class HabitEditorDialog extends StatefulWidget {
         isDismissible: false,
         draggable: false,
         showCloseButton: false,
+        showDragHandle: true,
+        onDismissRequested: () async {
+          final editor = editorKey.currentState;
+          if (editor != null) await editor._requestClose();
+        },
         padding: EdgeInsets.zero,
         backgroundColor: fxSurface(context),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(SlowlightRadius.sheet),
+            top: Radius.circular(SlowlightRadius.xl),
           ),
         ),
         builder: editor,
@@ -132,6 +141,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   bool _submitting = false;
   bool _resultUnknown = false;
   bool _canonicalTagsReady = false;
+  bool _allowMobilePop = false;
+  bool _closePending = false;
+  late String _initialDraftFingerprint;
   List<Tag> _selectedTags = const [];
   late String _icon;
   late String _color;
@@ -303,6 +315,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       _resultUnknown = true;
       _validationError = '已恢复上次未确认的草稿。请核对列表；确认未保存后再允许重新保存。';
     }
+    _initialDraftFingerprint = _draftFingerprint();
   }
 
   @override
@@ -351,14 +364,101 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       final tags =
           await TagLinksRepository().getFor(TagLinkedEntity.habit, habit.id);
       if (!mounted) return;
+      final wasPristine = _draftFingerprint() == _initialDraftFingerprint;
       setState(() {
         _selectedTags = tags;
         _canonicalTagsReady = true;
+        // Loading linked tags does not count as user editing.
+        if (wasPristine) _initialDraftFingerprint = _draftFingerprint();
       });
     } catch (_) {
       // 编辑其他字段时不能把加载失败解释成“用户清空了标签”。
       // 当前模式下不提供多选编辑，提交时保持现有关联不动。
     }
+  }
+
+  String _draftFingerprint() => jsonEncode([
+    _name.text,
+    _targetDays.text,
+    _duration.text,
+    _recordUnit.text,
+    _recordTimeLabel.text,
+    _goalValue.text,
+    _icon,
+    _color,
+    _frequency,
+    _recordType,
+    _allowMultiplePerDay,
+    _goalPeriod,
+    _goalMetric,
+    _mode,
+    _unit,
+    _modeUnits,
+    _modeEvery,
+    _hourMode,
+    _reminderMode,
+    _monthLast,
+    _sameDayMultiple,
+    _weekdays,
+    _monthDays,
+    _every.text,
+    _targetCount.text,
+    _anchorDate.text,
+    _windowStart.toString(),
+    _windowEnd.toString(),
+    _systemTagId,
+    _preferredPeriod,
+    _specificTime?.toString(),
+    _generateTask,
+    _showCheckinDialog,
+    _reminder?.toString(),
+    (_selectedTags.map((tag) => tag.id).toList()..sort()),
+  ]);
+
+  Future<void> _requestClose() async {
+    if (_submitting || _closePending) return;
+    final changed = _draftFingerprint() != _initialDraftFingerprint;
+    if (changed || _resultUnknown) {
+      _closePending = true;
+      try {
+        final discard = await FxDialog.confirm(
+          context: context,
+          title: _resultUnknown
+              ? '习惯保存结果未确认'
+              : '放弃未保存的习惯？',
+          content: _resultUnknown
+              ? '保存可能已成功。请先核对习惯列表，避免重复创建。'
+              : '关闭后将丢失当前编辑的内容。',
+          confirmText: _resultUnknown ? '返回核对' : '放弃修改',
+          destructive: !_resultUnknown,
+        );
+        if (discard != true || !mounted) return;
+      } finally {
+        _closePending = false;
+      }
+    }
+    if (!mounted) return;
+    if (Theme.of(context).platform != TargetPlatform.android &&
+        Theme.of(context).platform != TargetPlatform.iOS) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() => _allowMobilePop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context);
+    });
+  }
+
+  void _complete(HabitEditorValue value) {
+    if (Theme.of(context).platform != TargetPlatform.android &&
+        Theme.of(context).platform != TargetPlatform.iOS) {
+      Navigator.pop(context, value);
+      return;
+    }
+    setState(() => _allowMobilePop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context, value);
+    });
   }
 
   void _applyTemplate(Map<String, String> template) {
@@ -476,7 +576,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             },
     );
     if (widget.onSubmit == null) {
-      Navigator.pop(context, value);
+      _complete(value);
       return;
     }
     setState(() => _submitting = true);
@@ -484,7 +584,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       await widget.onSubmit!(value);
       if (!mounted) return;
       setState(() => _submitting = false);
-      Navigator.pop(context, value);
+      _complete(value);
     } catch (error) {
       if (!mounted) return;
       widget.onUnconfirmed?.call(value);
@@ -866,7 +966,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                                 variant: FxButtonVariant.outline,
                                 onPressed: _submitting
                                     ? null
-                                    : () => Navigator.pop(context),
+                                    : _requestClose,
                               ),
                               const SizedBox(width: SlowlightSpacing.md),
                               Expanded(
@@ -923,7 +1023,10 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           ),
     );
     return PopScope(
-      canPop: !_submitting,
+      canPop: mobile ? _allowMobilePop : !_submitting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && mobile) _requestClose();
+      },
       child: mobile
           ? SafeArea(top: false, child: editor)
           : FxDialogSurface(
