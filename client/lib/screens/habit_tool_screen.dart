@@ -340,7 +340,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       return;
     }
     if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
-      _message('当前没有可记录的计划时点，或本周期已达目标');
+      _message('当前没有可记录的计划时点，或今天已有记录');
       return;
     }
     await _record(habit);
@@ -1281,15 +1281,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     ),
                     // An individual history row must cancel its own log ID,
                     // never a day-level toggle that could add a new slot.
-                    FxInkWell(
-                        onTap: () => _removeLog(habit, log),
-                        child: Text(
-                          '取消',
-                          style: SlowlightTypography.caption(
-                            context,
-                          ).copyWith(color: theme.colorScheme.error),
-                        ),
-                      ),
+                    FxButton(
+                      key: ValueKey('habits.logs.cancel.${log.id}'),
+                      label: '撤销',
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.ghost,
+                      onPressed: () => _removeLog(habit, log),
+                    ),
                   ],
                 ),
                 if (log.note.isNotEmpty) ...[
