@@ -538,13 +538,15 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     var opens = 0;
+    var listNavigations = 0;
 
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(
         body: DashboardBody(
           tasks: const [],
           habits: const [],
-          onViewAllHabits: () => opens++,
+          onViewAllHabits: () => listNavigations++,
+          onCreateHabit: () => opens++,
           dimensionLoader: () async => <String, dynamic>{'dimensions': []},
           reviewLoader: () async => <String, dynamic>{
             'questions': [],
@@ -565,6 +567,7 @@ void main() {
     await tester.tap(find.text('添加习惯'));
     await tester.pump();
     expect(opens, 1);
+    expect(listNavigations, 0);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
