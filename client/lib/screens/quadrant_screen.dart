@@ -102,7 +102,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
         final mobileGrid = !desktop &&
             constraints.maxWidth >= 320 &&
-            !(textScale >= 1.3 && constraints.maxWidth < 430);
+            textScale < 1.3;
         final cells = [
           _quadrant(
             '重要 · 紧急',
@@ -153,7 +153,13 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         if (mobileGrid) {
           const padding = 12.0;
           const gap = 12.0;
-          final cardHeight = textScale > 1.1 ? 324.0 : 300.0;
+          final minCardHeight = textScale > 1.1 ? 324.0 : 300.0;
+          final cardHeight = constraints.hasBoundedHeight
+              ? math.max(
+                  minCardHeight,
+                  (constraints.maxHeight - padding * 2 - gap) / 2,
+                )
+              : minCardHeight;
           final width = (constraints.maxWidth - 2 * padding - gap) / 2;
           return FxRefresh(
             onRefresh: _load,
@@ -193,13 +199,20 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
     final emptyState = Center(
-      child: Text(
-        '这里暂时没有任务',
-        textAlign: TextAlign.center,
-        style: SlowlightTypography.caption(
-          context,
-        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-      ),
+      child: desktop
+          ? Text(
+              '这里暂时没有任务',
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.caption(context)
+                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            )
+          : FxButton(
+              key: ValueKey('quadrant-add-$priority'),
+              label: '添加任务',
+              icon: LucideIcons.plus,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => _addTask(priority),
+            ),
     );
 
     Widget card = FxCard(
@@ -249,12 +262,14 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                         ],
                       ),
               ),
-              const SizedBox(width: 4),
-              FxIconButton(
-                tooltip: '在$title添加任务',
-                onPressed: () => _addTask(priority),
-                icon: LucideIcons.plus,
-              ),
+              if (desktop || items.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                FxIconButton(
+                  tooltip: '在$title添加任务',
+                  onPressed: () => _addTask(priority),
+                  icon: LucideIcons.plus,
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -479,7 +494,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                   style: SlowlightTypography.secondary(context),
                 ),
               ),
-              if (!desktop)
+              if (!desktop && !compact)
                 FxIconButton(
                   icon: LucideIcons.ellipsis,
                   tooltip: '移动到其他象限',
