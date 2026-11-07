@@ -253,6 +253,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       setState(() {
         _keyController.clear();
         _hasStoredKey = false;
+        // Any earlier "connection succeeded" result was obtained with
+        // credentials that no longer exist.
+        _testResult = null;
+        _saveError = null;
       });
       _message('已清除当前 AI 服务的访问密钥');
     } catch (_) {
@@ -319,13 +323,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                   label: '启用 AI',
                                   description: 'AI 服务与本地/云端数据模式互不绑定',
                                   value: _config.enabled,
-                                  onChanged:
-                                      (value) => setState(
-                                        () =>
-                                            _config = _config.copyWith(
-                                              enabled: value,
-                                            ),
-                                      ),
+                                  onChanged: (value) => setState(() {
+                                    _config = _config.copyWith(enabled: value);
+                                    // A different enabled state invalidates
+                                    // the previously displayed check/validation.
+                                    _testResult = null;
+                                    _saveError = null;
+                                  }),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
