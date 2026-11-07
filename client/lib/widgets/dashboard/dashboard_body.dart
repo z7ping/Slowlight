@@ -199,8 +199,14 @@ class _DashboardBodyState extends State<DashboardBody> {
     final desktop = ResponsiveLayout.isDesktopOrWider(context);
     return FxRefresh(
       onRefresh: () async {
-        await _load();
-        await widget.onRefresh?.call();
+        // The owning HomeScreen reloads core facts and advances refreshTick,
+        // which already refreshes auxiliary Today data in didUpdateWidget.
+        // Running _load here too would fetch all three sources twice.
+        if (widget.onRefresh != null) {
+          await widget.onRefresh!();
+        } else {
+          await _load();
+        }
       },
       child: ListView(
         key: const PageStorageKey('today.workspace.scroll'),
