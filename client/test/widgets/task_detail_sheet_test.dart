@@ -80,12 +80,27 @@ void main() {
       findsNothing,
     );
     final action = find.byKey(const ValueKey('task.detail.primaryAction'));
+    // The prototype keeps Save in a fixed footer, not inside the input
+    // workbench or its scrollable body.
+    expect(find.byKey(const ValueKey('task.detail.fixedFooter')),
+        findsOneWidget);
+    expect(
+      find.ancestor(
+        of: action,
+        matching: find.byKey(const ValueKey('task.detail.fixedFooter')),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.ancestor(
         of: action,
         matching: find.byKey(const ValueKey('task.detail.workspace')),
       ),
-      findsOneWidget,
+      findsNothing,
+    );
+    expect(
+      find.ancestor(of: action, matching: find.byType(SingleChildScrollView)),
+      findsNothing,
     );
     expect(find.text('添加任务'), findsNWidgets(2));
     expect(tester.widget<FxButton>(action).onPressed, isNull);
@@ -102,10 +117,45 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
     await tester.pumpAndSettle();
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
-    await tester.tap(find.text('高'));
+    await tester.tap(find.text('重要 · 紧急'));
     await tester.pumpAndSettle();
     expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 长任务表单滚动时保存操作留在固定位置',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 560);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: task,
+          lists: lists,
+          onChanged: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.pumpAndSettle();
+
+    final save = find.byKey(const ValueKey('task.detail.primaryAction'));
+    final before = tester.getTopLeft(save).dy;
+    await tester.drag(find.byType(SingleChildScrollView).first,
+        const Offset(0, -220));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(save).dy, closeTo(before, 1.0));
+    expect(
+      find.ancestor(of: save, matching: find.byType(SingleChildScrollView)),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -273,8 +323,8 @@ void main() {
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.text('设置优先级'), findsNothing);
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
-    expect(find.text('高'), findsOneWidget);
-    await tester.tap(find.text('高'));
+    expect(find.text('重要 · 紧急'), findsOneWidget);
+    await tester.tap(find.text('重要 · 紧急'));
     await tester.pumpAndSettle();
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.text('有未保存的修改'), findsOneWidget);
