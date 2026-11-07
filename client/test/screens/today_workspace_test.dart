@@ -531,6 +531,44 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 空习惯保留原型 0/0 状态与添加习惯入口', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var opens = 0;
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: DashboardBody(
+          tasks: const [],
+          habits: const [],
+          onViewAllHabits: () => opens++,
+          dimensionLoader: () async => <String, dynamic>{'dimensions': []},
+          reviewLoader: () async => <String, dynamic>{
+            'questions': [],
+            'facts': <String, dynamic>{},
+          },
+          timelineLoader: () async => <TodayTimelineItem>[],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final habitSection = find.byKey(const ValueKey('today.section.habits'));
+    expect(find.descendant(of: habitSection, matching: find.text('0/0 已打卡')),
+        findsOneWidget);
+    expect(find.text('还没有习惯记录'), findsOneWidget);
+    expect(find.text('想开始时，再添加一个习惯。'), findsOneWidget);
+    await tester.ensureVisible(find.text('添加习惯'));
+    await tester.tap(find.text('添加习惯'));
+    await tester.pump();
+    expect(opens, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('时间轨迹请求卡住时，今日任务仍可使用', (tester) async {
     final pending = Completer<List<TodayTimelineItem>>();
     tester.view.physicalSize = const Size(1200, 800);

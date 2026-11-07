@@ -1029,9 +1029,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         ? '读取中'
         : widget.habitsError
             ? (visible.isEmpty ? '数量未知' : '上次数据')
-            : widget.habits.isEmpty
-                ? '暂无习惯'
-                : '${checked}/${widget.habits.length} 已打卡';
+            : '${checked}/${widget.habits.length} 已打卡';
     final header = FxSectionHeader(
       title: '习惯',
       titleStyle: mobile
@@ -1062,12 +1060,37 @@ class _DashboardBodyState extends State<DashboardBody> {
           _coreStatus('习惯', widget.habitsLoading, widget.habitsError,
               visible.isNotEmpty),
         if (visible.isEmpty && !widget.habitsLoading && !widget.habitsError)
-          _emptyWithNext(
-            '还没有习惯记录',
-            '去创建第一个习惯',
-            widget.onViewAllHabits,
-            compact: mobile,
-          )
+          mobile
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: SlowlightSpacing.xs,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('还没有习惯记录',
+                          style: SlowlightTypography.secondary(context)
+                              .copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: SlowlightSpacing.xs),
+                      Text('想开始时，再添加一个习惯。',
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          )),
+                      if (widget.onViewAllHabits != null)
+                        FxButton(
+                          label: '添加习惯',
+                          variant: FxButtonVariant.ghost,
+                          size: FxButtonSize.sm,
+                          onPressed: widget.onViewAllHabits,
+                        ),
+                    ],
+                  ),
+                )
+              : _emptyWithNext(
+                  '找到想坚持的事时，再把它加入习惯。',
+                  '添加习惯',
+                  widget.onViewAllHabits,
+                )
         else
           for (var i = 0; i < visible.length; i++)
             _habitRow(
