@@ -238,40 +238,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _loadingAccount = false);
     }
 
-    // 服务端资料与两种认证方式的状态分别读取；一项失败不覆盖另一项。
-    try {
-      final remote = await AuthService.refreshCloudUser();
-      if (!current()) return;
-      setState(() => _accountUser = remote);
-    } catch (_) {
-      // 缓存仍可展示，不声称是刚从云端确认的资料。
-    }
-    if (!current()) return;
-    setState(() => _loadingAccount = false);
-
-    try {
-      final status = await AuthService.passwordStatus();
-      if (!current()) return;
-      if (status['password_login_enabled'] is! bool) {
-        throw const FormatException('密码登录状态无效');
+    // Cached identity is already visible. These three remote facts are
+    // independent: a slow profile API must not block password/GitHub status.
+    Future<void> refreshProfile() async {
+      try {
+        final remote = await AuthService.refreshCloudUser();
+        if (!current()) return;
+        setState(() => _accountUser = remote);
+      } catch (_) {
+        // Keep the confirmed local cache; don't claim cloud refresh.
       }
-      setState(() {
-        _passwordLoginReady = status['password_login_enabled'] as bool;
-        _loginUsername = status['login_username'] as String? ?? '';
-      });
-    } catch (_) {
-      // 未知 != 未设置，不显示会错误认领账号的操作。
     }
 
-    try {
-      final linked = await AuthService.isGitHubLinked();
-      if (!current()) return;
-      setState(() => _githubLinked = linked);
-    } catch (_) {
-      // 未知 != 未绑定。
-    } finally {
-      if (current()) setState(() => _checkingGitHub = false);
+    Future<void> readPasswordStatus() async {
+      try {
+        final status = await AuthService.passwordStatus();
+        if (!current()) return;
+        if (status['password_login_enabled'] is! bool) {
+          throw const FormatException('密码登录状态无效');
+        }
+        setState(() {
+          _passwordLoginReady = status['password_login_enabled'] as bool;
+          _loginUsername = status['login_username'] as String? ?? '';
+        });
+      } catch (_) {
+        // Unknown is not the same as password not configured.
+      }
     }
+
+    Future<void> readGitHubBinding() async {
+      try {
+        final linked = await AuthService.isGitHubLinked();
+        if (!current()) return;
+        setState(() => _githubLinked = linked);
+      } catch (_) {
+        // Unknown is not the same as unbound.
+      } finally {
+        if (current()) setState(() => _checkingGitHub = false);
+      }
+    }
+
+    await Future.wait<void>([
+      refreshProfile(),
+      readPasswordStatus(),
+      readGitHubBinding(),
+    ]);
   }
 
   String _accountSummary() {
