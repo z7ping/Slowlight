@@ -344,6 +344,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                             child: FxButton(
                               label: '取消',
                               expanded: true,
+                              size: FxButtonSize.lg,
                               variant: FxButtonVariant.outline,
                               onPressed: _submitting ? null : _requestClose,
                             ),
