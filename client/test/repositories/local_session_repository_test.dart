@@ -38,6 +38,28 @@ void main() {
     expect((active['config'] as Map<String, dynamic>)['sessions_before_long'], 4);
   });
 
+  test('P07 45/60 minute goal remains in stored active session after reopen',
+      () async {
+    for (final minutes in [45, 60]) {
+      final started = await repository.startSession(
+        'work',
+        targetMinutes: minutes,
+      );
+      final stored = started['session'] as Map<String, dynamic>;
+      expect(stored['target_minutes'], minutes);
+      await localDb.close();
+      final active = await repository.getActiveSession();
+      expect(active['active'], isTrue);
+      expect((active['session'] as Map<String, dynamic>)['target_minutes'],
+          minutes);
+      await repository.endSession();
+    }
+    await expectLater(
+      repository.startSession('work', targetMinutes: 181),
+      throwsArgumentError,
+    );
+  });
+
   test('starting another session automatically ends the previous session',
       () async {
     final first = await repository.startSession('work');
