@@ -186,10 +186,11 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建习惯及目标版本失败"})
 		return
 	}
-    if err := loadHabitGoalRevisions(h.DB,userID,[]model.Habit{habit}); err != nil {
-        // Creation committed. Never misreport it as a failed creation.
-        c.JSON(http.StatusCreated, habit)
-        return
+    // Never misreport a committed creation as a failed request when the
+    // optional version-list read is unavailable.
+    created := []model.Habit{habit}
+    if err := loadHabitGoalRevisions(h.DB,userID,created); err == nil {
+        habit = created[0]
     }
 	c.JSON(http.StatusCreated, habit)
 }
@@ -303,6 +304,10 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取更新结果失败"})
 		return
 	}
+    updated := []model.Habit{habit}
+    if err := loadHabitGoalRevisions(h.DB,userID,updated); err == nil {
+        habit = updated[0]
+    }
 	c.JSON(http.StatusOK, habit)
 }
 
