@@ -11,6 +11,7 @@ void main() {
   testWidgets('X10 专注设置保存后重新进入页面仍保留，取消不覆盖偏好',
       (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    addTearDown(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
     await tester.pumpWidget(buildFxTestHost(home: const PomodoroScreen()));
     await tester.pumpAndSettle();
 
