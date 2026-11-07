@@ -932,10 +932,16 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         .where((day) =>
             checked.contains('${day.year}-${_two(day.month)}-${_two(day.day)}'))
         .length;
+    // The summary API only supplies seven-day dots. All-time statistics
+    // must come from the actual untruncated history after it has loaded.
+    final historyKnown = _controller.hasLoadedLogs(habit.id);
+    final historyDays = historyKnown
+        ? _controller.logsFor(habit.id).map((log) => log.date).toSet().length
+        : null;
     // 记录事实，不把不同频率的习惯统一当作“完成率”评判。
     final values = [
       ('${habit.streakCount}', '当前连续'),
-      ('${habit.checkedDays.length}', '已记录天数'),
+      (historyDays?.toString() ?? '待核对', '已记录天数'),
       ('$recentCount / 7', '最近七天'),
     ];
     return FxResponsiveFormGrid(
@@ -980,8 +986,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   }
 
   Widget _heatmap(Habit habit, Color color) {
+    if (!_controller.hasLoadedLogs(habit.id)) {
+      return Text('本月记录待读取',
+          style: SlowlightTypography.caption(context));
+    }
     const labels = ['一', '二', '三', '四', '五', '六', '日'];
-    final checked = habit.checkedDays.toSet();
+    final checked = _controller.logsFor(habit.id)
+        .map((log) => log.date).toSet();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final first = DateTime(now.year, now.month, 1);
