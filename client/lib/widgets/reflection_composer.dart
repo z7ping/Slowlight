@@ -222,11 +222,17 @@ class ReflectionComposer {
         onPressed: saving || resultUnknown ? null : saveObservation,
       );
 
-      return SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
             FxInput(
               controller: controller,
               autofocus: true,
@@ -372,8 +378,14 @@ class ReflectionComposer {
                 ).copyWith(color: theme.colorScheme.error),
               ),
             ],
-            const SizedBox(height: SlowlightSpacing.xxxl),
-            if (_useDesktopObservationDialog)
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxSeparator.horizontal(height: 1, color: fxDivider(entryContext)),
+          const SizedBox(height: SlowlightSpacing.md),
+          if (_useDesktopObservationDialog)
               FxDialogActions(
                 actions: [
                   FxButton(
@@ -403,8 +415,7 @@ class ReflectionComposer {
                   saveButton,
                 ],
               ),
-          ],
-        ),
+        ],
       );
     }
 
@@ -424,13 +435,23 @@ class ReflectionComposer {
       );
     }
 
+    BuildContext? activeSheetContext;
+    StateSetter? activeSheetSetState;
+
     Future<bool?> showMobileSheet() {
       return FxSheet.show<bool>(
         context: context,
         isScrollControlled: true,
-        showDragHandle: false,
+        showDragHandle: true,
         showCloseButton: false,
         draggable: false,
+        onDismissRequested: () async {
+          final owner = activeSheetContext;
+          final update = activeSheetSetState;
+          if (owner != null && update != null && owner.mounted) {
+            await requestMobileClose(owner, update);
+          }
+        },
         isDismissible: false,
         padding: EdgeInsets.zero,
         backgroundColor: fxSurface(context),
@@ -441,6 +462,8 @@ class ReflectionComposer {
         ),
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
+            activeSheetContext = sheetContext;
+            activeSheetSetState = setSheetState;
             return PopScope(
               canPop: allowMobilePop,
               onPopInvokedWithResult: (didPop, _) {

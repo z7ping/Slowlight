@@ -93,19 +93,24 @@ class TaskDetailSheet extends StatefulWidget {
       );
     }
 
+    final editorKey = GlobalKey<TaskDetailSheetState>();
     return FxSheet.show<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: false,
+      showDragHandle: true,
       showCloseButton: false,
       draggable: false,
       isDismissible: false,
+      onDismissRequested: () async {
+        final editor = editorKey.currentState;
+        if (editor != null) await editor._requestMobileClose();
+      },
       padding: EdgeInsets.zero,
       backgroundColor: fxSurface(context),
       barrierColor: Colors.black.withValues(alpha: .45),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(SlowlightRadius.sheet),
+          top: Radius.circular(SlowlightRadius.xl),
         ),
       ),
       // FxSheet owns the surface and keyboard avoidance; avoid an additional
@@ -121,6 +126,7 @@ class TaskDetailSheet extends StatefulWidget {
             maxHeight: MediaQuery.sizeOf(sheetContext).height * .88,
           ),
           child: TaskDetailSheet(
+            key: editorKey,
             task: task,
             isCreating: isCreating,
             initialPriority: initialPriority,

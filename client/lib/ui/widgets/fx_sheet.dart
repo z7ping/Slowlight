@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../color_tokens.dart';
+import '../layout_tokens.dart';
 
 /// Slowlight 统一 Sheet 入口。
 ///
@@ -21,6 +22,9 @@ abstract final class FxSheet {
     bool draggable = true,
     bool? enableDrag,
     bool? showDragHandle,
+    /// Invoked by the 44dp grip only. The owner decides whether a dirty
+    /// draft may close; FxSheet must never pop an editor behind its back.
+    Future<void> Function()? onDismissRequested,
     bool showCloseButton = true,
     bool isScrollControlled = true,
     bool scrollable = false,
@@ -58,6 +62,16 @@ abstract final class FxSheet {
       routeSettings: routeSettings,
       anchorPoint: anchorPoint,
       builder: (sheetContext) {
+        final platform = Theme.of(sheetContext).platform;
+        final handleOnly = side == ShadSheetSide.bottom &&
+            onDismissRequested != null &&
+            (platform == TargetPlatform.android ||
+             platform == TargetPlatform.iOS);
+        // ShadSheet 0.26.x drags the entire surface, including scrollable
+        // forms. The approved Android behavior is a handle-only gesture.
+        double dragDistance = 0;
+        bool dragging = false;
+        final reduceMotion = MediaQuery.of(sheetContext).disableAnimations;
         final viewInsets = MediaQuery.viewInsetsOf(sheetContext);
         final insetPadding = switch (side) {
           ShadSheetSide.bottom => EdgeInsets.only(bottom: viewInsets.bottom),
@@ -69,24 +83,100 @@ abstract final class FxSheet {
         Widget content = builder(sheetContext);
         if (useSafeArea) content = SafeArea(child: content);
 
-        content = ShadSheet(
+        Widget buildSheet(Widget? grip) => ShadSheet(
           closeIcon: showCloseButton ? null : const SizedBox.shrink(),
-          title: title,
+          // The approved grip occupies its own hit area; editing content
+          // remains scrollable and cannot accidentally dismiss the sheet.
+          title: grip ?? title,
           description: description,
           actions: actions,
           constraints: constraints,
           padding: padding,
-          radius: radius,
+          radius: handleOnly
+              ? const BorderRadius.vertical(
+                  top: Radius.circular(SlowlightRadius.xl))
+              : radius,
           backgroundColor: backgroundColor,
-          draggable: effectiveDraggable,
+          draggable: handleOnly ? false : effectiveDraggable,
           isScrollControlled: isScrollControlled,
           scrollable: scrollable,
           child: content,
         );
 
+        Widget sheet;
+        if (!handleOnly) {
+          sheet = buildSheet(null);
+        } else {
+          sheet = StatefulBuilder(
+            builder: (context, setDragState) {
+              void reset() => setDragState(() {
+                dragging = false;
+                dragDistance = 0;
+              });
+              final grip = Semantics(
+                label: '下滑关闭弹窗',
+                button: true,
+                // TalkBack/VoiceOver can invoke dismissal explicitly. A
+                // single accidental touch on the grip never closes the form.
+                onTap: () {
+                  onDismissRequested?.call();
+                },
+                child: GestureDetector(
+                  key: const ValueKey('fx.sheet.dragHandle'),
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragStart: (_) {
+                    FocusScope.of(context).unfocus();
+                    setDragState(() {
+                      dragging = true;
+                      dragDistance = 0;
+                    });
+                  },
+                  onVerticalDragUpdate: (details) {
+                    setDragState(() {
+                      dragDistance =
+                          (dragDistance + details.delta.dy).clamp(0.0, 1000.0);
+                    });
+                  },
+                  onVerticalDragEnd: (details) async {
+                    final close = dragDistance > 120 ||
+                        (dragDistance > 40 &&
+                         (details.primaryVelocity ?? 0) > 750);
+                    reset();
+                    if (close) await onDismissRequested?.call();
+                  },
+                  onVerticalDragCancel: reset,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: SlowlightControlSize.minTouchTarget,
+                    child: Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const SizedBox(width: 36, height: 4),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              return AnimatedContainer(
+                duration: dragging || reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 190),
+                curve: Curves.easeOutCubic,
+                transform: Matrix4.translationValues(0, dragDistance, 0),
+                child: buildSheet(grip),
+              );
+            },
+          );
+        }
+
         // 键盘开合时保持相同的组件树，避免重新挂载输入框、丢失焦点。
         return AnimatedPadding(
-          duration: const Duration(milliseconds: 200),
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
           curve: Curves.linearToEaseOut,
           padding: insetPadding,
           child: MediaQuery.removeViewInsets(
@@ -95,7 +185,7 @@ abstract final class FxSheet {
             removeTop: side == ShadSheetSide.top,
             removeLeft: side == ShadSheetSide.left,
             removeRight: side == ShadSheetSide.right,
-            child: content,
+            child: sheet,
           ),
         );
       },
