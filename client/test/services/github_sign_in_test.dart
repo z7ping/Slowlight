@@ -274,6 +274,7 @@ void main() {
       http.Response('{"error":"rate limited"}', 429),
       http.Response('{"error":"upstream timeout"}', 500),
       http.Response('invalid JSON', 200),
+      http.Response('{"status":"future_state"}', 200),
     ]) {
       expect(
         () => GitHubSignIn.decodeReliablePollResponse(reply),
