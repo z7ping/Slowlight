@@ -201,7 +201,9 @@ class TaskDetailSheet extends StatefulWidget {
   }) async {
     List<TodoList> available;
     try {
-      available = lists ?? await DataService().getLists();
+      available = lists == null || lists.isEmpty
+          ? await DataService().getLists()
+          : lists;
     } catch (_) {
       if (context.mounted) {
         FxNotice.showContent(context, const Text('清单读取失败，请稍后重试'));
