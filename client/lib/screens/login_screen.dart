@@ -45,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
   int _githubAttempt = 0;
   String? _githubError;
   bool _githubCanResume = false;
+  bool _githubCancelFailed = false;
   String _githubStatus = "等待 GitHub 完成授权…";
   bool _deviceFlowEnabled = false;
   String? _githubDeviceCode;
@@ -154,6 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _githubVerificationUri = null;
       _githubError = null;
       _githubCanResume = false;
+      _githubCancelFailed = false;
     });
     try {
       final completed = await GitHubSignIn.signIn(
@@ -216,20 +218,35 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _stopGitHubWaiting() async {
-    if (_githubFinishing) return;
+    if (_githubFinishing || _isLoading && !_githubAuthorizing) return;
     final attempt = ++_githubAttempt;
     setState(() {
       _githubAuthorizing = false;
       _githubFinishing = false;
-      _view = _LoginView.welcome;
       _isLoading = true;
-      _githubError = null;
     });
     try {
       await GitHubSignIn.cancelPendingAuthorization();
+      if (mounted && attempt == _githubAttempt) {
+        setState(() {
+          _view = _LoginView.welcome;
+          _githubError = null;
+          _githubCanResume = false;
+          _githubCancelFailed = false;
+          _githubDeviceCode = null;
+          _githubVerificationUri = null;
+        });
+      }
     } catch (error) {
       unawaited(
           AppErrorLogger.instance.write(source: 'github_cancel', error: error));
+      if (mounted && attempt == _githubAttempt) {
+        setState(() {
+          _view = _LoginView.github;
+          _githubError = '取消未完成：无法清除本机待恢复的授权，请重试取消。';
+          _githubCancelFailed = true;
+        });
+      }
     } finally {
       if (mounted && attempt == _githubAttempt) {
         setState(() => _isLoading = false);
@@ -293,7 +310,15 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: Icons.arrow_back_rounded,
           variant: FxButtonVariant.ghost,
           size: FxButtonSize.sm,
-          onPressed: _isLoading ? null : () => _open(_LoginView.welcome),
+          onPressed: _isLoading
+              ? null
+              : () {
+                  if (_view == _LoginView.github) {
+                    _stopGitHubWaiting();
+                  } else {
+                    _open(_LoginView.welcome);
+                  }
+                },
         ),
       );
 
@@ -585,9 +610,17 @@ class _LoginScreenState extends State<LoginScreen> {
             key: const ValueKey('login.github_retry'),
             label: _githubCanResume ? '继续检查上次授权' : '重新授权',
             expanded: true,
-            onPressed: _isLoading
+            onPressed: _isLoading || _githubCancelFailed
                 ? null
                 : () => _loginWithGitHub(resumePending: _githubCanResume),
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            key: const ValueKey('login.github_cancel'),
+            label: _githubCancelFailed ? '重试取消授权' : '取消授权等待',
+            variant: FxButtonVariant.link,
+            expanded: true,
+            onPressed: _isLoading ? null : _stopGitHubWaiting,
           ),
         ],
         const SizedBox(height: SlowlightSpacing.md),
