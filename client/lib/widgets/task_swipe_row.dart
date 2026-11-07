@@ -197,7 +197,7 @@ class _TaskSwipeRowState extends State<TaskSwipeRow> {
             ),
           ),
           AnimatedContainer(
-            duration: _dragging
+            duration: _dragging || MediaQuery.of(context).disableAnimations
                 ? Duration.zero
                 : const Duration(milliseconds: 190),
             curve: Curves.easeOutCubic,
