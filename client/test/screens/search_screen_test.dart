@@ -11,6 +11,45 @@ import 'package:slowlight/screens/search_screen.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('P09 搜索观察/回应结果分别传递原始记录', (tester) async {
+    final observation = ReflectionEntry(
+      id: 912,
+      entryType: 'observation',
+      content: '观察今天的工作节奏',
+      createdAt: DateTime(2026, 10, 28, 14, 35),
+    );
+    final response = ReflectionEntry(
+      id: 913,
+      entryType: 'reflection',
+      content: '观察后决定提前休息',
+      createdAt: DateTime(2026, 10, 28, 15),
+    );
+    final selected = <ReflectionEntry>[];
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(
+        dataLoader: (_) async => (
+          tasks: <Task>[],
+          habits: <Habit>[],
+          reflections: [observation, response],
+          lists: <TodoList>[],
+        ),
+        onOpenReflection: selected.add,
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '观察');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('观察今天的工作节奏'));
+    await tester.tap(find.text('观察后决定提前休息'));
+    expect(selected.map((entry) => entry.id), [912, 913]);
+    expect(selected.first.entryType, 'observation');
+    expect(selected.last.entryType, 'reflection');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P09 搜索习惯命中通过唯一正式入口打开指定习惯', (tester) async {
     final habit = Habit(
       id: 86,
