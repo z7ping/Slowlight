@@ -218,6 +218,15 @@ class ReflectionComposer {
 
       final narrowMobileFooter = !_useDesktopObservationDialog &&
           MediaQuery.sizeOf(entryContext).width <= 380;
+      final mobileCancelButton = FxButton(
+        key: const ValueKey('observation.mobile.cancel'),
+        label: '取消',
+        size: FxButtonSize.sm,
+        expanded: narrowMobileFooter,
+        variant: FxButtonVariant.outline,
+        onPressed: saving ? null : () =>
+            requestMobileClose(entryContext, setEntryState),
+      );
       final saveButton = FxButton(
         label: saving ? '保存中…' : '保存观察',
         size: FxButtonSize.sm,
@@ -407,26 +416,9 @@ class ReflectionComposer {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   if (narrowMobileFooter)
-                    Expanded(
-                      child: FxButton(
-                        key: const ValueKey('observation.mobile.cancel'),
-                        label: '取消',
-                        size: FxButtonSize.sm,
-                        expanded: true,
-                        variant: FxButtonVariant.outline,
-                        onPressed: saving ? null : () =>
-                            requestMobileClose(entryContext, setEntryState),
-                      ),
-                    )
+                    Expanded(child: mobileCancelButton)
                   else
-                    FxButton(
-                      key: const ValueKey('observation.mobile.cancel'),
-                      label: '取消',
-                      size: FxButtonSize.sm,
-                      variant: FxButtonVariant.outline,
-                      onPressed: saving ? null : () =>
-                          requestMobileClose(entryContext, setEntryState),
-                    ),
+                    mobileCancelButton,
                   const SizedBox(width: SlowlightSpacing.md),
                   if (narrowMobileFooter)
                     Expanded(child: saveButton)
