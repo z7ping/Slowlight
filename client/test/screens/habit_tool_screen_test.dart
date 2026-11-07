@@ -100,7 +100,70 @@ class _P05HistoryRepo extends HabitRepository {
   }
 }
 
+class _P05SingleLogRepo extends HabitRepository {
+  int? deletedId;
+  final habit = Habit(
+    id: 79, userId: 1, name: '精确撤销记录', icon: '✅',
+    color: '#52c41a', frequency: 'custom', checkedToday: true,
+    canCheckIn: true,
+    scheduleRule: const {
+      'kind': 'interval', 'unit': 'hour', 'every': 2,
+      'anchor_date': '2026-01-01', 'anchor_time': '08:00',
+    },
+    createdAt: DateTime.now(),
+  );
+
+  @override
+  Future<List<Habit>> getAll() async => [habit];
+
+  @override
+  Future<List<HabitLog>> logs(int habitId, {String? month}) async =>
+      deletedId == null ? [
+        HabitLog(
+          id: 501, habitId: 79,
+          date: HabitScheduleRule.dayKey(DateTime.now()),
+          durationMin: 0, period: '', note: '独立事实',
+          createdAt: DateTime.now(),
+        ),
+      ] : [];
+
+  @override
+  Future<void> deleteLog(int habitId, int logId) async {
+    if (habitId != 79) throw StateError('wrong habit');
+    deletedId = logId;
+  }
+
+  @override
+  Future<Map<String, dynamic>> uncheckIn(int habitId) async =>
+      throw StateError('day-level cancel must never be called');
+}
+
 void main() {
+  testWidgets('P05 单条撤销按日志身份删除，不误用仍可打卡的日级 toggle', (tester) async {
+    tester.view.physicalSize = const Size(1100, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = _P05SingleLogRepo();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: repo)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('habits.details.79')));
+    await tester.pumpAndSettle();
+    final action = find.byKey(const ValueKey('habits.logs.cancel.501'));
+    expect(action, findsOneWidget);
+    await tester.ensureVisible(action);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(find.text('撤销这条记录'), findsOneWidget);
+    await tester.tap(find.text('撤销记录'));
+    await tester.pumpAndSettle();
+    expect(repo.deletedId, 501);
+    expect(find.byKey(const ValueKey('habits.logs.cancel.501')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P05 历史刷新保留已读记录与核对状态', (tester) async {
     tester.view.physicalSize = const Size(1100, 960);
     tester.view.devicePixelRatio = 1;
