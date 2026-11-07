@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit.dart';
+import 'package:slowlight/models/habit_log.dart';
 import 'package:slowlight/models/reflection_entry.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
 import 'package:slowlight/repositories/reflection_repository.dart';
@@ -18,6 +19,47 @@ import '../support/fx_test_host.dart';
 class _NoHabits extends HabitRepository {
   @override
   Future<List<Habit>> getAll() async => const [];
+}
+
+class _SameNameHabits extends HabitRepository {
+  final now = DateTime.now();
+  bool failFirst = false;
+
+  @override
+  Future<List<Habit>> getAll() async => [
+    Habit(
+      id: 21, userId: 1, name: '阅读', icon: '📘',
+      createdAt: now,
+    ),
+    Habit(
+      id: 22, userId: 1, name: '阅读', icon: '📘',
+      createdAt: now,
+    ),
+  ];
+
+  @override
+  Future<List<HabitLog>> logs(int habitId, {String? month}) async {
+    if (habitId == 21 && failFirst) throw StateError('log read failed');
+    final date = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+    final isFirst = habitId == 21;
+    return [
+      HabitLog(
+        id: isFirst ? 201 : failFirst ? 303 : 202,
+        habitId: habitId,
+        date: date,
+        period: '',
+        durationMin: 0,
+        note: isFirst ? '纸书旧事实'
+            : failFirst ? '电子书新事实' : '电子书旧事实',
+        // A log added later may have happened earlier than it was recorded.
+        occurredAt: DateTime(now.year, now.month, now.day,
+            isFirst ? 16 : 8, isFirst ? 30 : 10),
+        createdAt: DateTime(now.year, now.month, now.day,
+            isFirst ? 19 : 20, 55),
+      ),
+    ];
+  }
 }
 
 class _ControlledReflections extends ReflectionRepository {
@@ -110,6 +152,48 @@ void main() {
       },
     )),
   );
+
+  testWidgets('P03 同名习惯部分失败不重复成功行，补记按真实发生时间展示',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final habits = _SameNameHabits();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TodayReviewScreen(
+          habitRepository: habits,
+          reflectionRepository: _ControlledReflections(),
+          reviewLoader: () async => {
+            'facts': <String, dynamic>{'habit_checked': 2},
+            'patterns': <String, dynamic>{},
+            'questions': <Map<String, dynamic>>[],
+          },
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('📘 打卡「阅读」'), findsNWidgets(2));
+    expect(find.text('08:10'), findsOneWidget);
+    expect(find.text('16:30'), findsOneWidget);
+    expect(find.textContaining('纸书旧事实'), findsOneWidget);
+    expect(find.textContaining('电子书旧事实'), findsOneWidget);
+
+    // The two habits share a display name, but only ID=21 fails now.
+    // Keep ID=21's confirmed row; replace, never duplicate, ID=22.
+    habits.failFirst = true;
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('📘 打卡「阅读」'), findsNWidgets(2));
+    expect(find.textContaining('纸书旧事实'), findsOneWidget);
+    expect(find.textContaining('电子书新事实'), findsOneWidget);
+    expect(find.textContaining('电子书旧事实'), findsNothing);
+    expect(find.textContaining('部分记录暂时无法加载'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('P03 今日事实先展示，不等待挂起的历史回应读取', (tester) async {
     tester.view.physicalSize = const Size(900, 950);
