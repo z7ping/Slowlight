@@ -71,6 +71,10 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error":"读取习惯记录失败"})
         return
     }
+    if err := loadHabitGoalRevisions(h.DB, userID, habits); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"读取历史目标版本失败"})
+        return
+    }
     byHabit := make(map[uint][]model.HabitLog)
     for _, log := range windowLogs {
         byHabit[log.HabitID] = append(byHabit[log.HabitID], log)
@@ -175,10 +179,18 @@ func (h *HabitHandler) CreateHabit(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-	if err := h.DB.Create(&habit).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Create(&habit).Error; err != nil { return err }
+        return recordHabitGoalRevision(tx, habit)
+    }); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建习惯及目标版本失败"})
 		return
 	}
+    if err := loadHabitGoalRevisions(h.DB,userID,[]model.Habit{habit}); err != nil {
+        // Creation committed. Never misreport it as a failed creation.
+        c.JSON(http.StatusCreated, habit)
+        return
+    }
 	c.JSON(http.StatusCreated, habit)
 }
 
@@ -266,12 +278,27 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-	if len(updates) > 0 {
-		if err := h.DB.Model(&habit).Updates(updates).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "更新习惯失败"})
-			return
-		}
-	}
+    if len(updates) > 0 {
+        if err := h.DB.Transaction(func(tx *gorm.DB) error {
+            var current model.Habit
+            locked := tx.Where("id = ? AND user_id = ?", habit.ID, userID)
+            if tx.Dialector.Name() != "sqlite" {
+                locked = locked.Clauses(clause.Locking{Strength:"UPDATE"})
+            }
+            if err := locked.First(&current).Error; err != nil { return err }
+            if err := tx.Model(&current).Updates(updates).Error; err != nil {
+                return err
+            }
+            var next model.Habit
+            if err := tx.Where("id = ? AND user_id = ?", habit.ID, userID).
+                First(&next).Error; err != nil { return err }
+            if !habitGoalChanged(current,next) { return nil }
+            return recordHabitGoalRevision(tx,next)
+        }); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error":"更新习惯及目标版本失败"})
+            return
+        }
+    }
 	if err := h.DB.Where("id = ? AND user_id = ?", id, userID).First(&habit).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取更新结果失败"})
 		return
