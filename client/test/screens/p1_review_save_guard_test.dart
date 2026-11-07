@@ -7,6 +7,8 @@ import 'package:slowlight/models/reflection_entry.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
 import 'package:slowlight/repositories/reflection_repository.dart';
 import 'package:slowlight/screens/today_review_screen.dart';
+import 'package:slowlight/screens/weekly_review_screen.dart';
+import 'package:slowlight/widgets/review/task_30day_tab.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -51,6 +53,36 @@ void main() {
       },
     )),
   );
+
+  testWidgets('今日数据请求挂起时，本周与近30天仍可独立打开', (tester) async {
+    final pendingToday = Completer<Map<String, dynamic>>();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TodayReviewScreen(
+        reflectionRepository: _ControlledReflections(),
+        habitRepository: _NoHabits(),
+        reviewLoader: () => pendingToday.future,
+      )),
+    ));
+    await tester.pump();
+    expect(find.byType(FxCircularProgress), findsOneWidget);
+
+    await tester.tap(find.text('本周').first);
+    await tester.pump();
+    expect(find.byType(WeeklyReviewScreen), findsOneWidget);
+
+    await tester.tap(find.text('近 30 天').first);
+    await tester.pump();
+    expect(find.byType(TaskMonthTab), findsOneWidget);
+
+    pendingToday.complete({
+      'facts': <String, dynamic>{},
+      'patterns': <String, dynamic>{},
+      'questions': <Map<String, dynamic>>[],
+    });
+    await tester.pump();
+    expect(find.byType(TaskMonthTab), findsOneWidget);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('Android 回顾标题卡外展示，空问题保留且工具集中到底部',
       (tester) async {
