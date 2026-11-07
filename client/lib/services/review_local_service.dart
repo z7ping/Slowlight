@@ -20,8 +20,8 @@ class ReviewLocalService {
     final db = await LocalDb().database;
     final now = DateTime.now();
     final today = LocalTimeBoundary.dayStart(now);
-    final end = today.add(const Duration(days: 1));
-    final start = end.subtract(Duration(days: days));
+    final end = LocalTimeBoundary.dayEnd(today);
+    final start = LocalTimeBoundary.addCalendarDays(end, -days);
     final range = LocalTimeBoundary.range(start, end);
 
     final tasks = await db.rawQuery(
