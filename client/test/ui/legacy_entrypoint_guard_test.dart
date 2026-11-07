@@ -103,6 +103,56 @@ void main() {
     expect(login, contains("'前往登录核对'"));
   });
 
+  test('P01 首次使用主流程：启动失败可见、四入口同一根门禁收口', () async {
+    final main = await File('lib/main.dart').readAsString();
+    final login = await File('lib/screens/login_screen.dart').readAsString();
+    final github = await File('lib/services/github_sign_in.dart').readAsString();
+    final mode = await File('lib/services/data_mode_manager.dart').readAsString();
+
+    final bootStart = main.indexOf('Future<void> main() async');
+    final gateStart = main.indexOf('class _AuthGateState');
+    expect(bootStart, greaterThanOrEqualTo(0));
+    expect(gateStart, greaterThan(bootStart));
+    final boot = main.substring(bootStart, gateStart);
+    expect(boot, contains("source: 'startup_data_mode'"));
+    expect(boot, contains('runApp(const MyApp())'));
+
+    final gate = main.substring(gateStart);
+    expect(gate, contains('await DataModeManager().load()'));
+    expect(gate, contains('await AuthService.initLocalUser()'));
+    expect(gate, contains('await AuthService.isLoggedIn()'));
+    expect(gate, contains('GitHubSignIn.hasPendingAuthorization()'));
+    expect(gate, contains('returnToLocalOnCancel: _pendingGitHubLogin'));
+    expect(gate, contains("title: '身份状态检查失败'"));
+    expect(gate, contains('onPressed: _checkAuth'));
+    expect(gate, contains('const HomeScreen()'));
+
+    final submit = login.substring(
+      login.indexOf('Future<void> _submit() async'),
+      login.indexOf('Future<void> _retryStoredCredentialsCloudMode()'),
+    );
+    expect(submit, contains('await AuthService.login('));
+    expect(submit, contains('await AuthService.register('));
+    expect(submit, contains('await DataModeManager().setCloud()'));
+    expect(submit, contains('authStateNotifier.value'));
+
+    final local = login.substring(
+      login.indexOf('Future<void> _useLocal() async'),
+      login.indexOf('void _finish(', login.indexOf('Future<void> _useLocal() async')),
+    );
+    expect(local, contains('await DataModeManager().setLocal()'));
+    expect(local, contains('await AuthService.initLocalUser()'));
+    expect(local, contains('authStateNotifier.value'));
+
+    expect(login, contains('await GitHubSignIn.signIn('));
+    expect(login, contains('await _enterCloudAfterGitHub(isCurrent)'));
+    expect(github, contains('await GitHubOAuthPending.save(pending)'));
+    expect(github, contains('await AuthService.completeOAuthLogin('));
+    expect(github, contains("'mode': 'reliable'"));
+    expect(github, contains("'mode': 'ack'"));
+    expect(mode, contains("throw StateError('数据模式持久化失败')"));
+  });
+
   test('旧首页、侧栏与维度字段不得悄悄重返正式业务调用链', () async {
     const compatibilityFiles = {
       'lib/screens/home_drawer.dart': 'HomeDrawer',
