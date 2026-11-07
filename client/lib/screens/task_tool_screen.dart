@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -13,8 +15,16 @@ import 'task_create_sheet.dart';
 
 class TaskToolScreen extends StatefulWidget {
   final Future<List<dynamic>> Function()? dataLoader;
+  // Independent loaders are test seams; production still uses DataService.
+  final Future<List<dynamic>> Function()? taskDataLoader;
+  final Future<List<TodoList>> Function()? listsLoader;
 
-  const TaskToolScreen({super.key, this.dataLoader});
+  const TaskToolScreen({
+    super.key,
+    this.dataLoader,
+    this.taskDataLoader,
+    this.listsLoader,
+  });
 
   @override
   State<TaskToolScreen> createState() => TaskToolScreenState();
@@ -32,6 +42,8 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   List<TodoList> _lists = const [];
   bool _hasLoaded = false;
   bool _loadFailed = false;
+  bool _listsLoading = false;
+  bool _listLoadFailed = false;
   int _loadVersion = 0;
   Task? _selectedTask;
   GlobalKey<TaskDetailSheetState>? _selectedTaskEditorKey;
@@ -47,20 +59,28 @@ class TaskToolScreenState extends State<TaskToolScreen> {
 
   Future<void> _load() async {
     final request = ++_loadVersion;
+    final combinedLoader = widget.dataLoader != null;
     if (mounted) {
       setState(() {
-        _loading = true;
+        _loading = !_hasLoaded;
         _loadFailed = false;
+        if (!combinedLoader) {
+          _listsLoading = true;
+          _listLoadFailed = false;
+        }
       });
     }
+    // A missing/slow collection must not block browsing already saved tasks.
+    if (!combinedLoader) unawaited(_loadLists(request));
     try {
       final data = DataService();
-      final values = await (widget.dataLoader?.call() ?? Future.wait<dynamic>([
-        data.getTodayTasks(),
-        data.getAllTasks(),
-        data.getCompletedTasks(),
-        data.getLists(),
-      ]));
+      final values = await (widget.dataLoader?.call() ??
+          widget.taskDataLoader?.call() ??
+          Future.wait<dynamic>([
+            data.getTodayTasks(),
+            data.getAllTasks(),
+            data.getCompletedTasks(),
+          ]));
       if (!mounted || request != _loadVersion) return;
       setState(() {
         _today = values[0] as List<Task>;
@@ -70,7 +90,11 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         ];
         _all = values[1] as List<Task>;
         _completed = values[2] as List<Task>;
-        _lists = values[3] as List<TodoList>;
+        if (combinedLoader) {
+          _lists = values[3] as List<TodoList>;
+          _listsLoading = false;
+          _listLoadFailed = false;
+        }
         if (_selectedTask != null) {
           _selectedTask = _all.cast<Task?>().firstWhere(
             (task) => task?.id == _selectedTask!.id,
@@ -88,8 +112,32 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         _loading = false;
         _loadFailed = true;
       });
-      // 已加载过数据则保留，不能在刷新失败时把内容改成空任务。
     }
+  }
+
+  Future<void> _loadLists(int request) async {
+    try {
+      final lists = await (widget.listsLoader?.call() ??
+          DataService().getLists());
+      if (!mounted || request != _loadVersion) return;
+      setState(() {
+        _lists = lists;
+        _listsLoading = false;
+        _listLoadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || request != _loadVersion) return;
+      setState(() {
+        _listsLoading = false;
+        _listLoadFailed = true;
+      });
+    }
+  }
+
+  Future<void> _retryLists() async {
+    if (_listsLoading) return;
+    setState(() => _listsLoading = true);
+    await _loadLists(_loadVersion);
   }
 
   List<Task> get _visible => switch (_segment) {
@@ -240,6 +288,14 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Future<void> _create() async {
+    if (_listsLoading) {
+      _message('正在读取清单，请稍后再创建任务');
+      return;
+    }
+    if (_listLoadFailed) {
+      _message('清单读取失败，请先重试加载');
+      return;
+    }
     if (_lists.isEmpty) {
       _message('请先创建一个清单');
       return;
@@ -312,6 +368,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                   children: [
                     _taskActionBar(),
                     if (_loadFailed) _refreshErrorNotice(),
+                    if (_listLoadFailed) _listErrorNotice(),
                     const SizedBox(height: SlowlightSpacing.xl),
                   ],
                 );
@@ -417,6 +474,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                     const SizedBox(height: SlowlightSpacing.xl),
                     _mobileFilters(),
                     if (_loadFailed) _refreshErrorNotice(),
+                    if (_listLoadFailed) _listErrorNotice(),
                     const SizedBox(height: SlowlightSpacing.xl),
                     FxSectionHeader(
                       title: title,
@@ -544,6 +602,28 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     );
   }
 
+  Widget _listErrorNotice() => Padding(
+    padding: const EdgeInsets.only(top: SlowlightSpacing.xs),
+    child: FxCard(
+      padding: const EdgeInsets.all(SlowlightSpacing.md),
+      expanded: true,
+      child: Row(
+        children: [
+          Expanded(child: Text(
+            '清单读取失败，已有任务仍可浏览；创建和编辑请先重试。',
+            style: SlowlightTypography.secondary(context),
+          )),
+          FxButton(
+            label: _listsLoading ? '读取中…' : '重试清单',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.ghost,
+            onPressed: _listsLoading ? null : _retryLists,
+          ),
+        ],
+      ),
+    ),
+  );
+
   Widget _refreshErrorNotice() => Padding(
     padding: const EdgeInsets.only(top: 10),
     child: FxCard(
@@ -580,6 +660,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         children: [
           _taskActionBar(),
           if (_loadFailed) _refreshErrorNotice(),
+          if (_listLoadFailed) _listErrorNotice(),
           const SizedBox(height: SlowlightSpacing.xl),
           Expanded(
             child: Row(

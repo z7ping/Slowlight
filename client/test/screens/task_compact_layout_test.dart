@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,90 @@ import 'package:slowlight/ui/fx.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('P04 主任务先展示，不等待清单读取完成', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final lists = Completer<List<TodoList>>();
+    final now = DateTime.now();
+    final task = Task(
+      id: 91, listId: 1, title: '待处理的工作',
+      priority: 'none', isCompleted: false, createdAt: now,
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        taskDataLoader: () async => <dynamic>[
+          <Task>[task], <Task>[task], <Task>[],
+        ],
+        listsLoader: () => lists.future,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(lists.isCompleted, isFalse);
+    expect(find.text('待处理的工作'), findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    lists.complete([
+      TodoList(
+        id: 1, name: '收集箱', isInbox: true, color: '#8db5a0',
+        createdAt: now,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P04 清单读取失败不清空任务，重试后恢复新建', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final now = DateTime.now();
+    final task = Task(
+      id: 92, listId: 1, title: '已有任务保留',
+      priority: 'none', isCompleted: false, createdAt: now,
+    );
+    var reads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        taskDataLoader: () async => <dynamic>[
+          <Task>[task], <Task>[task], <Task>[],
+        ],
+        listsLoader: () async {
+          if (++reads == 1) throw StateError('清单暂时不可用');
+          return [
+            TodoList(
+              id: 1, name: '收集箱', isInbox: true, color: '#8db5a0',
+              createdAt: now,
+            ),
+          ];
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('已有任务保留'), findsOneWidget);
+    expect(find.textContaining('清单读取失败，已有任务仍可浏览'), findsOneWidget);
+    await tester.tap(find.text('重试清单'));
+    await tester.pumpAndSettle();
+    expect(reads, 2);
+    expect(find.text('已有任务保留'), findsOneWidget);
+    expect(find.textContaining('清单读取失败，已有任务仍可浏览'), findsNothing);
+    await tester.tap(find.text('新建'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   for (final create in [true, false]) {
     testWidgets('任务页${create ? '新建' : '查看详情'}打开同一任务编辑组件',
         (tester) async {
