@@ -563,8 +563,16 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         ),
       ),
     );
-    if (result == null || result == task.priority) return;
-    await _moveTask(task, result);
+    if (result == null || result == task.priority || !mounted) return;
+    // Mobile moves follow the shared task editor and require explicit Save.
+    // Desktop drag/drop intentionally keeps its existing direct move path.
+    await TaskDetailSheet.show(
+      context,
+      task: task,
+      lists: _lists,
+      initialPriority: result,
+      onChanged: _load,
+    );
   }
 
   Widget _moveOption(String label, String value, String current) {

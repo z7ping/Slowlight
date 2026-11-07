@@ -16,6 +16,8 @@ import 'task_schedule_fields.dart';
 class TaskDetailSheet extends StatefulWidget {
   final Task task;
   final bool isCreating;
+  /// Only edits the initial draft. The stored task is unchanged until Save.
+  final String? initialPriority;
   final List<TodoList> lists;
   final VoidCallback onChanged;
   final VoidCallback? onClose;
@@ -26,6 +28,7 @@ class TaskDetailSheet extends StatefulWidget {
     super.key,
     required this.task,
     this.isCreating = false,
+    this.initialPriority,
     required this.lists,
     required this.onChanged,
     this.onClose,
@@ -39,6 +42,7 @@ class TaskDetailSheet extends StatefulWidget {
     required List<TodoList> lists,
     required VoidCallback onChanged,
     bool isCreating = false,
+    String? initialPriority,
   }) {
     final desktop = !SlowlightPlatformDensity.usesMobileTouchTargets &&
         MediaQuery.sizeOf(context).width >= SlowlightBreakpoints.tabletMin;
@@ -67,6 +71,7 @@ class TaskDetailSheet extends StatefulWidget {
                     child: TaskDetailSheet(
                       task: task,
                       isCreating: isCreating,
+                      initialPriority: initialPriority,
                       lists: lists,
                       onChanged: onChanged,
                       sidePanel: true,
@@ -118,6 +123,7 @@ class TaskDetailSheet extends StatefulWidget {
           child: TaskDetailSheet(
             task: task,
             isCreating: isCreating,
+            initialPriority: initialPriority,
             lists: lists,
             onChanged: onChanged,
           ),
@@ -238,6 +244,14 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     _selectedTags = List<Tag>.from(task.tags);
     _mobileDirty = false;
     _initialMobileSnapshot = _mobileFormSnapshot();
+    // Moving a task is an unsaved edit, not an immediate data mutation.
+    // Take the snapshot before applying the requested target quadrant.
+    if (!widget.isCreating &&
+        widget.initialPriority != null &&
+        widget.initialPriority != task.priority) {
+      _priority = widget.initialPriority!;
+      _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot;
+    }
   }
 
   @override

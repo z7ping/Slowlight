@@ -90,6 +90,35 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 移动象限只预填编辑器，保存前不更改源任务', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final task = _task(10, '需要确认的事项', 'urgent_important');
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks([task])),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('需要确认的事项'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('重要 · 不紧急').last);
+    await tester.pumpAndSettle();
+
+    final editorFinder = find.byType(TaskDetailSheet);
+    expect(editorFinder, findsOneWidget);
+    final editor = tester.widget<TaskDetailSheet>(editorFinder);
+    expect(editor.initialPriority, 'important');
+    expect(editor.task.priority, 'urgent_important');
+    expect(task.priority, 'urgent_important');
+    expect(find.text('有未保存的修改'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 四象限填满可用高度且空格只有一个添加入口', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
