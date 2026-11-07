@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 20,
+        version: 21,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 20,
+      version: 21,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -198,6 +198,7 @@ class LocalDb {
       )
     ''');
 
+    await _createHabitGoalRevisions(db);
     await db.execute('CREATE INDEX idx_tasks_list_id ON tasks(list_id)');
     await db.execute('CREATE INDEX idx_tasks_due_date ON tasks(due_date)');
     await db.execute('CREATE INDEX idx_subtasks_task_id ON subtasks(task_id)');
@@ -538,6 +539,30 @@ class LocalDb {
         await db.execute('ALTER TABLE work_sessions ADD COLUMN target_minutes INTEGER NOT NULL DEFAULT 0');
       }
     }
+    if (oldVersion < 21) {
+      await _createHabitGoalRevisions(db);
+    }
+  }
+
+  Future<void> _createHabitGoalRevisions(Database db) async {
+    // New revisions are evidence from the time they were saved; migrating
+    // legacy habits must not fabricate past targets or redate real logs.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS habit_goal_revisions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        habit_id INTEGER NOT NULL,
+        revision INTEGER NOT NULL,
+        goal_period TEXT NOT NULL,
+        goal_metric TEXT NOT NULL,
+        goal_value INTEGER NOT NULL,
+        record_type TEXT NOT NULL,
+        schedule_rule TEXT NOT NULL,
+        effective_at TEXT NOT NULL,
+        UNIQUE (habit_id, revision),
+        FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_local_habit_goal_revisions ON habit_goal_revisions(habit_id, revision)');
   }
 
   Future<void> _upgradeHabitSchedules(Database db) async {
