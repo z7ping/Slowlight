@@ -355,3 +355,59 @@ func TestGetTodayTimeline_MixedFactsAndCorrections(t *testing.T) {
         t.Fatalf("timeline order mismatch: %#v", result.Items)
     }
 }
+
+func TestGetPeriodTimeline_ObservationCountAndWindow(t *testing.T) {
+    tx, handler, userID := setupReviewTest(t)
+    location := model.UserLocation("")
+    now := time.Now().In(location)
+    todayNoon := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, location)
+    older := todayNoon.AddDate(0, 0, -10)
+    for i := 0; i < 45; i++ {
+        entry := model.Reflection{
+            UserID: userID, EntryType: "observation",
+            Content: "当日观察", Context: "{}", CreatedAt: todayNoon,
+        }
+        if err := tx.Create(&entry).Error; err != nil { t.Fatal(err) }
+    }
+    if err := tx.Create(&model.Reflection{
+        UserID: userID, EntryType: "observation",
+        Content: "十天前", Context: "{}", CreatedAt: older,
+    }).Error; err != nil { t.Fatal(err) }
+    if err := tx.Create(&model.Reflection{
+        UserID: userID, EntryType: "reflection",
+        Content: "并非观察", Context: "{}", CreatedAt: todayNoon,
+    }).Error; err != nil { t.Fatal(err) }
+
+    router := newReviewRouter(handler, userID)
+    for _, tc := range []struct {
+        period string
+        wantCount int64
+        wantItems int
+    }{
+        {"today", 45, 40},
+        {"month", 46, 40},
+    } {
+        w := httptest.NewRecorder()
+        router.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+            "/review/today/timeline?period="+tc.period, nil))
+        if w.Code != http.StatusOK {
+            t.Fatalf("%s status=%d body=%s", tc.period, w.Code, w.Body.String())
+        }
+        var result struct {
+            Items []todayTimelineItem `json:"items"`
+            ObservationCount int64 `json:"observation_count"`
+        }
+        if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+        if result.ObservationCount != tc.wantCount || len(result.Items) != tc.wantItems {
+            t.Fatalf("%s count=%d items=%d want=%d/%d",
+                tc.period, result.ObservationCount, len(result.Items),
+                tc.wantCount, tc.wantItems)
+        }
+    }
+    w := httptest.NewRecorder()
+    router.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+        "/review/today/timeline?period=year", nil))
+    if w.Code != http.StatusBadRequest {
+        t.Fatalf("invalid period status=%d", w.Code)
+    }
+}
