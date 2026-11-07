@@ -28,6 +28,27 @@ void main() {
     );
   });
 
+  test('GitHub 凭据已保存时只重试本地切云端，不重复授权', () async {
+    final login = await File('lib/screens/login_screen.dart').readAsString();
+    final retryStart = login.indexOf('Future<void> _retryGitHubCloudMode()');
+    final retryEnd = login.indexOf('Future<void> _stopGitHubWaiting()', retryStart);
+    expect(retryStart, greaterThanOrEqualTo(0));
+    expect(retryEnd, greaterThan(retryStart));
+    final retryBody = login.substring(retryStart, retryEnd);
+    expect(retryBody, contains('await AuthService.isLoggedIn()'));
+    expect(retryBody, contains('_enterCloudAfterGitHub(isCurrent)'));
+    expect(retryBody, isNot(contains('GitHubSignIn.signIn(')));
+
+    final modeStart = login.indexOf('Future<void> _enterCloudAfterGitHub(');
+    expect(modeStart, greaterThanOrEqualTo(0));
+    final modeBody = login.substring(modeStart, retryStart);
+    expect(modeBody, contains('await DataModeManager().setCloud()'));
+    expect(modeBody, contains('authStateNotifier.value'));
+    expect(modeBody, contains('请重试进入云端，不需要重复授权'));
+    expect(login, contains('label: _githubCredentialsSaved'));
+    expect(login, contains('? _retryGitHubCloudMode'));
+  });
+
   test('旧首页、侧栏与维度字段不得悄悄重返正式业务调用链', () async {
     const compatibilityFiles = {
       'lib/screens/home_drawer.dart': 'HomeDrawer',
