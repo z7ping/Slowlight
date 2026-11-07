@@ -565,15 +565,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     _MobileTaskPage.priority => const [
       _QuickOption<Object>(value: 'none', label: '不重要 · 不紧急', icon: LucideIcons.flag),
       _QuickOption<Object>(
-        value: 'urgent_important', label: '高', icon: LucideIcons.flag,
+        value: 'urgent_important', label: '重要 · 紧急', icon: LucideIcons.flag,
         iconColor: AppTheme.priorityUrgentImportant,
       ),
       _QuickOption<Object>(
-        value: 'important', label: '中', icon: LucideIcons.flag,
+        value: 'important', label: '重要 · 不紧急', icon: LucideIcons.flag,
         iconColor: AppTheme.priorityImportant,
       ),
       _QuickOption<Object>(
-        value: 'urgent', label: '低', icon: LucideIcons.flag,
+        value: 'urgent', label: '不重要 · 紧急', icon: LucideIcons.flag,
         iconColor: AppTheme.priorityUrgent,
       ),
     ],
@@ -684,6 +684,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCalendar = _mobilePage == _MobileTaskPage.calendar;
+        final isPriority = _mobilePage == _MobileTaskPage.priority;
         final options = _mobileOptions();
         final showSearch = (_mobilePage == _MobileTaskPage.list ||
             _mobilePage == _MobileTaskPage.tag) && options.length >= 8;
@@ -707,7 +708,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
             (tagStatus ? 84.0 : 0);
         final gridRows = (visible.length + 1) ~/ 2;
         // 双列必须实际放得下；短屏、键盘及大字体回退到可滚动单列。
-        final twoColumns = !isCalendar && constraints.maxWidth >= 300 &&
+        // Full four-quadrant names must remain readable, not ellipsized in
+        // the two-column 48dp quick-option grid.
+        final twoColumns = !isCalendar && !isPriority &&
+            constraints.maxWidth >= 300 &&
             textScale < 1.4 && visible.length <= 8 &&
             commonHeight + gridRows * 56.0 <= availableHeight;
         final rows = twoColumns ? gridRows : visible.length;
