@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -8,7 +11,14 @@ import 'api_service.dart';
 import 'auth_service.dart';
 import 'data_mode_manager.dart';
 import 'github_oauth_pending.dart';
+import 'http_util.dart';
 import 'network_retry.dart';
+
+/// Reliable polling does not consume the result before its explicit ack.
+/// Temporary transport/proxy failures must not destroy a recoverable session.
+class _TemporaryOAuthPollFailure implements Exception {
+  const _TemporaryOAuthPollFailure();
+}
 
 /// OAuth 回调唤醒 Android 后，立即检查授权结果，而不是等下一轮定时轮询。
 class _OAuthResumeObserver extends WidgetsBindingObserver {
@@ -141,7 +151,8 @@ class GitHubSignIn {
   /// 旧协议只允许确认未送达时重试；reliable 模式直到 ack 前都可安全重读。
   @visibleForTesting
   static bool isTransientNetworkFailure(Object error) =>
-      NetworkRetry.isNetworkFailure(error);
+      NetworkRetry.isNetworkFailure(error) ||
+      error is _TemporaryOAuthPollFailure;
 
   @visibleForTesting
   static bool isSafeToRetryPoll(Object error) =>
@@ -169,6 +180,9 @@ class GitHubSignIn {
   }
 
   static String describeError(Object error) {
+    if (error is _TemporaryOAuthPollFailure) {
+      return '云端授权结果暂时无法确认，请等待服务恢复后继续检查上次授权。';
+    }
     if (!isTransientNetworkFailure(error)) {
       if (error is FormatException || error is TypeError) {
         return '云端授权响应无效，请稍后重试；若持续出现，请在应用诊断中检查服务兼容性。';
@@ -179,6 +193,48 @@ class GitHubSignIn {
     }
     final host = Uri.parse(ApiService.baseUrl).host;
     return '无法连接云端服务（$host）。请检查网络、DNS 或服务地址后重试。';
+  }
+
+  /// The generic ApiService.post intentionally exposes only the error text.
+  /// Reliable OAuth polling needs the HTTP status plus the server's terminal
+  /// `code` so that a proxy 502/503 never erases the pending authorization.
+  @visibleForTesting
+  static Map<String, dynamic> decodeReliablePollResponse(http.Response response) {
+    Map<String, dynamic>? data;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) data = decoded;
+    } on FormatException {
+      // Proxies can return HTML for temporary 5xx failures.
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (data == null) throw const _TemporaryOAuthPollFailure();
+      return data;
+    }
+    final code = data?['code'];
+    if ((response.statusCode == 429 || response.statusCode >= 500) &&
+        (code is! String || code.isEmpty)) {
+      throw const _TemporaryOAuthPollFailure();
+    }
+    // The backend's structured code means this session has already reached
+    // a terminal state; unlike infrastructure failure, a new OAuth is needed.
+    throw StateError(data?['error']?.toString() ?? 'GitHub 授权会话已失效');
+  }
+
+  static Future<Map<String, dynamic>> _pollReliable(
+      GitHubOAuthPending pending) async {
+    final response = await HttpUtil.post(
+      Uri.parse('${ApiService.baseUrl}/auth/github/poll'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'session_id': pending.sessionId,
+        'poll_token': pending.pollToken,
+        'mode': 'reliable',
+      }),
+      timeout: ApiService.postTimeout,
+    );
+    return decodeReliablePollResponse(response);
   }
 
   @visibleForTesting
@@ -317,11 +373,7 @@ class GitHubSignIn {
         Map<String, dynamic>? result;
         try {
           result = await pollWithNetworkRetry(
-            request: () => ApiService.post('/auth/github/poll', body: {
-              'session_id': pending!.sessionId,
-              'poll_token': pending.pollToken,
-              'mode': 'reliable',
-            }),
+            request: () => _pollReliable(pending),
             shouldContinue: shouldContinue,
             reliable: true,
           );
