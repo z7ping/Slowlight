@@ -460,7 +460,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         ? _timeline
         : _timeline.take(previewLimit).toList(growable: false);
     final status = _timelineLoadFailed
-        ? '读取失败'
+        ? (_timeline.isEmpty ? '读取失败' : '上次数据')
         : _timelineLoading
             ? '读取中'
             : '${_timeline.length} 条记录';
@@ -496,11 +496,14 @@ class _DashboardBodyState extends State<DashboardBody> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('轨迹暂时没有读到',
+                Text(_timeline.isEmpty ? '轨迹暂时没有读到' : '轨迹刷新未确认',
                     style: SlowlightTypography.secondary(context)
                         .copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: SlowlightSpacing.xs),
-                Text('已有任务和习惯仍可使用，记录没有被清空。',
+                Text(
+                    _timeline.isEmpty
+                        ? '已有任务和习惯仍可使用，记录没有被清空。'
+                        : '以下为上次成功读取的记录，请重新加载核对。',
                     style: SlowlightTypography.caption(context)),
                 FxButton(
                   label: '重新加载',
@@ -512,10 +515,10 @@ class _DashboardBodyState extends State<DashboardBody> {
                 ),
               ],
             ),
-          )
-        else if (_timelineLoading && _timeline.isEmpty)
+          ),
+        if (_timelineLoading && _timeline.isEmpty)
           _empty('正在读取今天的轨迹…', compact: mobile)
-        else if (_timeline.isEmpty)
+        else if (_timeline.isEmpty && !_timelineLoadFailed)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
             child: Column(
@@ -536,8 +539,8 @@ class _DashboardBodyState extends State<DashboardBody> {
                   ),
               ],
             ),
-          )
-        else ...[
+          ),
+        if (_timeline.isNotEmpty) ...[
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
             _timelineRow(items[i], mobile: mobile),
