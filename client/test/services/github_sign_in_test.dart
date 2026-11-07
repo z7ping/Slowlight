@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:slowlight/services/api_service.dart';
+import 'package:slowlight/services/github_oauth_pending.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:slowlight/services/github_sign_in.dart';
@@ -57,6 +60,25 @@ void main() {
       LaunchMode.inAppBrowserView,
       LaunchMode.externalApplication,
     ]);
+  });
+
+  test('Android 明确取消后清除安全存储，重启不可恢复旧授权', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    FlutterSecureStorage.setMockInitialValues({});
+
+    await GitHubOAuthPending.save(GitHubOAuthPending(
+      sessionId: 'pending-login',
+      pollToken: 'pending-secret',
+      expiresAt: DateTime.now().add(const Duration(minutes: 3)),
+      endpoint: ApiService.baseUrl,
+      authorizationUrl: 'https://github.com/login/oauth/authorize',
+    ));
+    expect(await GitHubSignIn.hasPendingAuthorization(), isTrue);
+
+    await GitHubSignIn.cancelPendingAuthorization();
+    expect(await GitHubSignIn.hasPendingAuthorization(), isFalse);
+    expect(await GitHubOAuthPending.load(), isNull);
   });
 
   test('Windows 不存在待核验会话时不误报授权已检查', () {
