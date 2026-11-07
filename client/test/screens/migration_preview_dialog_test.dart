@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/migration_preview_dialog.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -17,6 +18,25 @@ Widget _host() => buildFxTestHost(
     );
 
 void main() {
+  testWidgets('P18 Windows 迁移向导只有受状态机控制的关闭入口', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_host());
+    await tester.tap(find.text('打开'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    expect(dialog.closeIcon, isA<SizedBox>());
+    expect(find.byTooltip('关闭迁移'), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭迁移'));
+    await tester.pump();
+    expect(find.byType(MigrationPreviewDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('数据迁移预览保留不可破坏的安全语义', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
