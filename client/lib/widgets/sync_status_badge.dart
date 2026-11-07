@@ -177,13 +177,19 @@ class SyncStatusBadge extends StatelessWidget {
       FxSheet.show(
         context: context,
         useSafeArea: true,
+        showCloseButton: false,
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(context).height * 0.88,
         ),
         builder: content,
       );
     } else {
-      FxDialog.show(context: context, width: 480, child: content(context));
+      FxDialog.show(
+        context: context,
+        width: 480,
+        showCloseButton: false,
+        child: content(context),
+      );
     }
   }
 }
