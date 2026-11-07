@@ -93,7 +93,15 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       final result = await (widget.tasksReviewLoader ??
           () => ReviewApi.getTasksReview(days: 30))();
       if (!mounted || version != _loadVersion) return;
+      // The key follows the confirmed local rolling window, including today.
+      final now = DateTime.now();
+      final start = LocalTimeBoundary.dateKey(
+        LocalTimeBoundary.addCalendarDays(LocalTimeBoundary.dayStart(now), -29),
+      );
+      final end = LocalTimeBoundary.dateKey(now);
+      final periodKey = 'review-30d:$start:$end';
       setState(() {
+        _responsePeriodKey = periodKey;
         _data = result;
         _hasConfirmedReview = true;
         _loading = false;
@@ -107,14 +115,6 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _loadingPeriodPage = false;
         _failedPeriodPageOffset = null;
       });
-      // Bind replies to this rolling thirty-day window, not a calendar month.
-      final now = DateTime.now();
-      final start = LocalTimeBoundary.dateKey(
-        LocalTimeBoundary.addCalendarDays(LocalTimeBoundary.dayStart(now), -29),
-      );
-      final end = LocalTimeBoundary.dateKey(now);
-      final periodKey = 'review-30d:$start:$end';
-      setState(() => _responsePeriodKey = periodKey);
       if (!SlowlightPlatformDensity.usesMobileTouchTargets) {
         unawaited(_loadPeriodResponse(version, periodKey));
       }
