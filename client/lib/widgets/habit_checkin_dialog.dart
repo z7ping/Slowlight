@@ -194,6 +194,24 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     final theme = Theme.of(context);
     final mobile = theme.platform == TargetPlatform.android ||
         theme.platform == TargetPlatform.iOS;
+    final fontScale = MediaQuery.textScalerOf(context).scale(1);
+    final stackMobileActions = mobile &&
+        (fontScale >= 1.6 ||
+         (MediaQuery.sizeOf(context).width <= 340 && fontScale >= 1.3));
+    final mobileCancelAction = FxButton(
+      label: '取消',
+      expanded: true,
+      size: FxButtonSize.lg,
+      variant: FxButtonVariant.outline,
+      onPressed: _submitting ? null : _requestClose,
+    );
+    final mobileSubmitAction = FxButton(
+      key: const ValueKey('habit-checkin-primary-action'),
+      label: _submitLabel,
+      expanded: true,
+      size: FxButtonSize.lg,
+      onPressed: _submitting ? null : _submit,
+    );
     return PopScope(
       canPop: mobile ? _allowMobilePop : !_submitting,
       onPopInvokedWithResult: (didPop, _) {
@@ -336,32 +354,24 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                 padding: EdgeInsets.fromLTRB(
                   mobile ? 16 : 20, 12, mobile ? 16 : 20, 16),
                 child: mobile
-                    ? Row(
-                        key: const ValueKey('habit-checkin-mobile-footer'),
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: FxButton(
-                              label: '取消',
-                              expanded: true,
-                              size: FxButtonSize.lg,
-                              variant: FxButtonVariant.outline,
-                              onPressed: _submitting ? null : _requestClose,
-                            ),
-                          ),
-                          const SizedBox(width: SlowlightSpacing.md),
-                          Expanded(
-                            flex: 7,
-                            child: FxButton(
-                              key: const ValueKey('habit-checkin-primary-action'),
-                              label: _submitLabel,
-                              expanded: true,
-                              size: FxButtonSize.lg,
-                              onPressed: _submitting ? null : _submit,
-                            ),
-                          ),
-                        ],
-                      )
+                    ? stackMobileActions
+                        ? Column(
+                            key: const ValueKey('habit-checkin-mobile-footer'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              mobileCancelAction,
+                              const SizedBox(height: SlowlightSpacing.md),
+                              mobileSubmitAction,
+                            ],
+                          )
+                        : Row(
+                            key: const ValueKey('habit-checkin-mobile-footer'),
+                            children: [
+                              Expanded(flex: 5, child: mobileCancelAction),
+                              const SizedBox(width: SlowlightSpacing.md),
+                              Expanded(flex: 7, child: mobileSubmitAction),
+                            ],
+                          )
                     : Wrap(
                         alignment: WrapAlignment.end,
                         spacing: SlowlightSpacing.md,
