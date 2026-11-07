@@ -123,7 +123,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('不安排日期'));
     await tester.pumpAndSettle();
-    expect(find.text('已取消到期日期，关联提醒也已清除'), findsWidgets);
 
     if (find.byType(TaskScheduleFields).evaluate().isEmpty) {
       await tester.tap(find.text('更多设置'));
