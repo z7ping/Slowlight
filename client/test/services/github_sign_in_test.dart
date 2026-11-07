@@ -259,14 +259,25 @@ void main() {
   });
 
   test('reliable OAuth 轮询：服务端明确终止 code 不可重试', () async {
-    final reply = http.Response(
-      '{"code":"github_unavailable","error":"需要重新授权"}',
-      503,
-    );
-    expect(
-      () => GitHubSignIn.decodeReliablePollResponse(reply),
+    var attempts = 0;
+    await expectLater(
+      GitHubSignIn.pollWithNetworkRetry(
+        request: () async {
+          attempts++;
+          return GitHubSignIn.decodeReliablePollResponse(
+            http.Response(
+              '{"code":"github_unavailable","error":"需要重新授权"}',
+              503,
+            ),
+          );
+        },
+        shouldContinue: () => true,
+        reliable: true,
+        delay: (_) async {},
+      ),
       throwsA(isA<StateError>()),
     );
+    expect(attempts, 1);
   });
 
   test('reliable OAuth 轮询：临时 HTTP 429/500 和非 JSON 200 均不丢授权', () {
