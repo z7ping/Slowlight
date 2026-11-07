@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/controllers/habit_controller.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/habit_log.dart';
+import 'package:slowlight/models/habit_schedule_rule.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
 import 'package:slowlight/screens/habit_tool_screen.dart';
 import 'package:slowlight/widgets/habit_editor_dialog.dart';
@@ -72,7 +73,98 @@ class _DelayedLogsRepo extends HabitRepository {
   }
 }
 
+class _P05HistoryRepo extends HabitRepository {
+  _P05HistoryRepo(this.habit);
+  final Habit habit;
+  final next = Completer<List<HabitLog>>();
+  int reads = 0;
+
+  HabitLog fact(int id) => HabitLog(
+    id: id,
+    habitId: habit.id,
+    date: HabitScheduleRule.dayKey(DateTime.now()),
+    period: '',
+    durationMin: 0,
+    note: '记录 $id',
+    createdAt: DateTime.now(),
+  );
+
+  @override
+  Future<List<Habit>> getAll() async => [habit];
+
+  @override
+  Future<List<HabitLog>> logs(int habitId, {String? month}) async {
+    reads++;
+    if (reads == 1) return [fact(1), fact(2), fact(3), fact(4)];
+    return next.future;
+  }
+}
+
 void main() {
+  testWidgets('P05 历史刷新保留已读记录与核对状态', (tester) async {
+    tester.view.physicalSize = const Size(1100, 960);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = _P05HistoryRepo(Habit(
+      id: 77, userId: 1, name: '历史记录', icon: '📖',
+      color: '#1890ff', frequency: 'daily', createdAt: DateTime.now(),
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: repo)),
+    ));
+    await tester.pumpAndSettle();
+    final toggle = find.byKey(const ValueKey('habits.details.77'));
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('记录 1'), findsOneWidget);
+    expect(find.text('查看全部 4 条记录'), findsOneWidget);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(repo.reads, 2);
+    expect(find.textContaining('正在核对记录'), findsOneWidget);
+    expect(find.text('记录 1'), findsOneWidget);
+    repo.next.complete([repo.fact(5), repo.fact(4), repo.fact(3),
+      repo.fact(2), repo.fact(1)]);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('正在核对记录'), findsNothing);
+    expect(find.text('记录 5'), findsOneWidget);
+    expect(find.text('查看全部 5 条记录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P05 V3 目标达标不隐藏多次记录入口', (tester) async {
+    tester.view.physicalSize = const Size(1050, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = _P05HistoryRepo(Habit(
+      id: 78, userId: 1, name: '本期已经达标', icon: '✅',
+      color: '#52c41a', frequency: 'custom',
+      scheduleRule: const {
+        'version': 1, 'kind': 'goal', 'unit': 'week',
+        'every': 1, 'anchor_date': '2026-01-01',
+        'anchor_time': '08:00', 'target_count': 1,
+        'same_day_multiple': true,
+      },
+      checkedToday: true, canCheckIn: true,
+      allowMultiplePerDay: false, periodCount: 2, periodTarget: 1,
+      createdAt: DateTime.now(),
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: repo)),
+    ));
+    await tester.pumpAndSettle();
+    final button = tester.widget<FxButton>(
+      find.byKey(const ValueKey('habits.today.78')),
+    );
+    expect(button.label, '新增记录');
+    expect(button.onPressed, isNotNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P09 搜索定位命中习惯，复用正式卡片展开真实记录', (tester) async {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(
