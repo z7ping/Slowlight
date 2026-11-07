@@ -499,6 +499,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final theme = Theme.of(context);
     final total = _controller.habits.length;
     final done = _controller.habits.where((habit) => habit.checkedToday).length;
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      // Count recorded habits, not unverified individual log entries.
+      return FxActionBar(
+        stackBelow: 280,
+        leading: Text(
+          '$total 个习惯 · 今日 $done 个有记录',
+          style: SlowlightTypography.caption(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        actions: [if (widget.titleProvidedByShell) _addButton()],
+      );
+    }
     return FxActionBar(
       stackBelow: 560,
       leading: Wrap(
@@ -532,25 +545,36 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         label: '添加习惯',
         icon: LucideIcons.plus,
         size: FxButtonSize.sm,
+        variant: SlowlightPlatformDensity.usesMobileTouchTargets
+            ? FxButtonVariant.outline
+            : FxButtonVariant.primary,
         onPressed: _createHabit,
       );
 
   Widget _filters() {
     final total = _controller.habits.length;
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    if (total == 0) return const SizedBox.shrink();
+    final segments = FxSegmented(
+      labels: mobile
+          ? const ['全部', '今日未记录', '今日有记录']
+          : const ['全部', '待记录', '已记录'],
+      selectedIndex: _filter,
+      onChanged: (index) => setState(() => _filter = index),
+      itemKeys: const [
+        ValueKey('habits.filter_all'),
+        ValueKey('habits.filter_pending'),
+        ValueKey('habits.filter_done'),
+      ],
+    );
     return Align(
       alignment: Alignment.centerLeft,
-      child: total == 0
-          ? const SizedBox.shrink()
-          : FxSegmented(
-              labels: const ['全部', '待记录', '已记录'],
-              selectedIndex: _filter,
-              onChanged: (index) => setState(() => _filter = index),
-              itemKeys: const [
-                ValueKey('habits.filter_all'),
-                ValueKey('habits.filter_pending'),
-                ValueKey('habits.filter_done'),
-              ],
-            ),
+      child: mobile
+          ? SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: segments,
+            )
+          : segments,
     );
   }
 
@@ -558,11 +582,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final theme = Theme.of(context);
     final expanded = _expandedHabitId == habit.id;
     final color = _parseColor(habit.color);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return Padding(
       padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
       child: FxCard(
         key: ValueKey('habits.card.${habit.id}'),
-        padding: const EdgeInsets.all(SlowlightSpacing.xl),
+        padding: EdgeInsets.symmetric(
+          horizontal: SlowlightSpacing.xl,
+          vertical: mobile ? SlowlightSpacing.md : SlowlightSpacing.xl,
+        ),
         color: fxSurface(context),
         borderRadius: SlowlightRadius.lg,
         border: Border.all(color: theme.colorScheme.outlineVariant),
@@ -608,7 +636,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
             LayoutBuilder(builder: (context, constraints) {
               final details = FxButton(
                 key: ValueKey('habits.details.${habit.id}'),
-                label: expanded ? '收起详情' : '查看详情',
+                label: mobile
+                    ? (expanded ? '收起' : '详情')
+                    : (expanded ? '收起详情' : '查看详情'),
                 icon:
                     expanded ? LucideIcons.chevronUp : LucideIcons.chevronRight,
                 size: FxButtonSize.sm,
@@ -620,6 +650,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     color: theme.colorScheme.onSurfaceVariant,
                   ));
               final scale = MediaQuery.textScalerOf(context).scale(1);
+              if (mobile) {
+                // One compact line in the master prototype. Wrap at large
+                // accessibility scale rather than shrinking or clipping.
+                return Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: SlowlightSpacing.md,
+                  children: [label, _weekDots(habit, color), details],
+                );
+              }
               if (constraints.maxWidth >= 460 * scale) {
                 return Row(children: [
                   label,
@@ -721,6 +760,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Widget _habitHeading(Habit habit, Color color) {
     final theme = Theme.of(context);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return FxInkWell(
       key: ValueKey('habits.expand.${habit.id}'),
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -731,11 +771,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              key: ValueKey('habits.icon.${habit.id}'),
+              width: mobile ? 32 : 40,
+              height: mobile ? 32 : 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .12),
+                color: mobile ? fxSubtleSurface(context) : color.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(SlowlightRadius.md),
               ),
               child: Text(habit.icon,
@@ -775,6 +816,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         !habit.allowMultiplePerDay &&
         habit.canCheckIn != true;
     final theme = Theme.of(context);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     // Keep the action subtle in both themes while using the existing
     // success semantic color instead of a page-specific color constant.
     final actionColor = Color.lerp(
@@ -792,10 +834,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       icon: completed ? LucideIcons.circleCheck : LucideIcons.check,
       size: FxButtonSize.sm,
       expanded: expanded,
-      variant: FxButtonVariant.secondary,
-      foregroundColor: completed
-          ? theme.colorScheme.onSurfaceVariant
-          : actionColor,
+      variant: mobile ? FxButtonVariant.outline : FxButtonVariant.secondary,
+      foregroundColor: mobile
+          ? null
+          : completed
+              ? theme.colorScheme.onSurfaceVariant
+              : actionColor,
       onPressed: _pendingHabitActions.contains(habit.id)
           ? null
           : () => _toggleToday(habit),
@@ -929,6 +973,39 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Widget _weekDots(Habit habit, Color color) {
     final checked = habit.checkedDays.toSet();
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final scheme = Theme.of(context).colorScheme;
+      // The approved Android overview uses 7px read-only dots. Details
+      // remains the adjacent full-size action, never these fact markers.
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(7, (index) {
+          final day = today.subtract(Duration(days: 6 - index));
+          final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
+          final active = checked.contains(key) ||
+              (_sameDay(day, today) && habit.checkedToday);
+          return Padding(
+            padding: EdgeInsets.only(
+              right: index == 6 ? 0 : SlowlightSpacing.xs,
+            ),
+            child: Semantics(
+              label: '${day.month}月${day.day}日${active ? '有记录' : '无记录'}',
+              child: Container(
+                key: ValueKey('habits.week.${habit.id}.$index'),
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? scheme.primary : fxSubtleSurface(context),
+                ),
+              ),
+            ),
+          );
+        }),
+      );
+    }
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
