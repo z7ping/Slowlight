@@ -615,4 +615,46 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('P04 Windows 日期/时间清除更新相对提醒，不残留旧值', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final scheduled = Task(
+      id: 88, listId: 1, title: '带提醒的任务',
+      priority: 'none', isCompleted: false,
+      dueDate: DateTime(2026, 11, 9), dueTime: '16:20',
+      reminderAt: DateTime(2026, 11, 9, 16, 10),
+      reminderAdvanceMinutes: 10,
+      createdAt: DateTime(2026, 11, 5),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SizedBox(
+        width: 440, height: 850,
+        child: TaskDetailSheet(
+          task: scheduled, lists: lists, sidePanel: true, onChanged: () {},
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('2026-11-09 16:10'), findsOneWidget);
+    final clearTime = find.byWidgetPredicate((widget) =>
+        widget is FxIconButton && widget.tooltip == '清除时间');
+    expect(clearTime, findsOneWidget);
+    tester.widget<FxIconButton>(clearTime).onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(find.text('2026-11-09 08:50'), findsOneWidget);
+    final clearDate = find.byWidgetPredicate((widget) =>
+        widget is FxIconButton && widget.tooltip == '清除到期日期');
+    expect(clearDate, findsOneWidget);
+    tester.widget<FxIconButton>(clearDate).onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(find.text('2026-11-09 08:50'), findsNothing);
+    expect(find.text('不提醒'), findsOneWidget);
+    expect(find.text('清除提醒'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }

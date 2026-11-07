@@ -70,6 +70,46 @@ class _TwoListData implements DataService {
 
 void main() {
   setUpAll(() async { await initializeDateFormatting('zh_CN'); });
+
+  testWidgets('P04 统一日程字段可清除已回填的日期与时间', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    DateTime? clearedDate = DateTime(2026, 11, 7);
+    TimeOfDay? clearedTime = const TimeOfDay(hour: 14, minute: 20);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskScheduleFields(
+        enabled: true,
+        dueDate: clearedDate,
+        onDateChanged: (value) => clearedDate = value,
+        dueTime: clearedTime,
+        onTimeChanged: (value) => clearedTime = value,
+        repeatType: 'none',
+        onRepeatChanged: (_) {},
+        selectedWeekdays: const <int>{},
+        onWeekdayToggled: (_) {},
+        reminderAdvanceMinutes: 10,
+        onReminderChanged: (_) {},
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final clearDate = find.byWidgetPredicate(
+      (widget) => widget is FxIconButton &&
+          widget.tooltip == '清除到期日期',
+    );
+    final clearTime = find.byWidgetPredicate(
+      (widget) => widget is FxIconButton &&
+          widget.tooltip == '清除时间',
+    );
+    expect(clearDate, findsOneWidget);
+    expect(clearTime, findsOneWidget);
+    tester.widget<FxIconButton>(clearDate).onPressed?.call();
+    tester.widget<FxIconButton>(clearTime).onPressed?.call();
+    expect(clearedDate, isNull);
+    expect(clearedTime, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X02 日程提醒只有选择到期日期后才可设置，包含提前10分钟',
       (tester) async {
     await tester.pumpWidget(buildFxTestHost(

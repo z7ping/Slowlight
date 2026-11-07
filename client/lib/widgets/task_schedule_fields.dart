@@ -78,19 +78,32 @@ class TaskScheduleFields extends StatelessWidget {
   Widget _dateField(BuildContext context) {
     return FxFormField(
       label: '到期日期',
-      child: _picker(
-        context: context,
-        text: dueDate == null ? '未设置' : _dateLabel(dueDate!),
-        icon: LucideIcons.calendarDays,
-        onTap: () async {
-          final date = await showFxDatePicker(
+      child: Row(
+        children: [
+          Expanded(child: _picker(
             context: context,
-            initialDate: dueDate ?? DateTime.now(),
-            firstDate: DateTime.now().subtract(const Duration(days: 365)),
-            lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
-          );
-          if (date != null && context.mounted) onDateChanged(date);
-        },
+            text: dueDate == null ? '未设置' : _dateLabel(dueDate!),
+            icon: LucideIcons.calendarDays,
+            onTap: () async {
+              final date = await showFxDatePicker(
+                context: context,
+                initialDate: dueDate ?? DateTime.now(),
+                firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+              );
+              if (date != null && context.mounted) onDateChanged(date);
+            },
+          )),
+          if (dueDate != null) ...[
+            const SizedBox(width: 4),
+            FxIconButton(
+              icon: LucideIcons.x,
+              tooltip: '清除到期日期',
+              iconSize: 15,
+              onPressed: enabled ? () => onDateChanged(null) : null,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -98,17 +111,30 @@ class TaskScheduleFields extends StatelessWidget {
   Widget _timeField(BuildContext context) {
     return FxFormField(
       label: '时间',
-      child: _picker(
-        context: context,
-        text: dueTime == null ? '未设置' : formatTaskDueTime(dueTime)!,
-        icon: LucideIcons.clock3,
-        onTap: () async {
-          final time = await showFxTimePicker(
+      child: Row(
+        children: [
+          Expanded(child: _picker(
             context: context,
-            initialTime: dueTime ?? TimeOfDay.now(),
-          );
-          if (time != null && context.mounted) onTimeChanged(time);
-        },
+            text: dueTime == null ? '未设置' : formatTaskDueTime(dueTime)!,
+            icon: LucideIcons.clock3,
+            onTap: () async {
+              final time = await showFxTimePicker(
+                context: context,
+                initialTime: dueTime ?? TimeOfDay.now(),
+              );
+              if (time != null && context.mounted) onTimeChanged(time);
+            },
+          )),
+          if (dueTime != null) ...[
+            const SizedBox(width: 4),
+            FxIconButton(
+              icon: LucideIcons.x,
+              tooltip: '清除时间',
+              iconSize: 15,
+              onPressed: enabled ? () => onTimeChanged(null) : null,
+            ),
+          ],
+        ],
       ),
     );
   }

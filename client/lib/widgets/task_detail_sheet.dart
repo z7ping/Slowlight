@@ -43,7 +43,28 @@ class TaskDetailSheet extends StatefulWidget {
     required VoidCallback onChanged,
     bool isCreating = false,
     String? initialPriority,
-  }) {
+  }) async {
+    // Different tool routes may not have loaded lists yet. Resolve their
+    // canonical list options before opening an editor, never treat an empty
+    // source as a safe fallback to a guessed list ID.
+    late final List<TodoList> availableLists;
+    try {
+      availableLists = lists.isEmpty ? await DataService().getLists() : lists;
+    } catch (_) {
+      if (context.mounted) {
+        FxNotice.showContent(
+          context, const Text('清单读取失败，请重新打开任务详情'),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    if (availableLists.isEmpty) {
+      FxNotice.showContent(
+        context, const Text('清单暂不可用，请先创建或加载清单'),
+      );
+      return;
+    }
     final desktop = !SlowlightPlatformDensity.usesMobileTouchTargets &&
         MediaQuery.sizeOf(context).width >= SlowlightBreakpoints.tabletMin;
     if (desktop) {
@@ -95,7 +116,7 @@ class TaskDetailSheet extends StatefulWidget {
                         task: task,
                         isCreating: isCreating,
                         initialPriority: initialPriority,
-                        lists: lists,
+                        lists: availableLists,
                         onChanged: onChanged,
                         onClose: closeRoute,
                         sidePanel: true,
@@ -157,7 +178,7 @@ class TaskDetailSheet extends StatefulWidget {
             task: task,
             isCreating: isCreating,
             initialPriority: initialPriority,
-            lists: lists,
+            lists: availableLists,
             onChanged: onChanged,
           ),
         ),
@@ -180,7 +201,9 @@ class TaskDetailSheet extends StatefulWidget {
   }) async {
     List<TodoList> available;
     try {
-      available = lists ?? await DataService().getLists();
+      available = lists == null || lists.isEmpty
+          ? await DataService().getLists()
+          : lists;
     } catch (_) {
       if (context.mounted) {
         FxNotice.showContent(context, const Text('清单读取失败，请稍后重试'));
@@ -858,7 +881,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   void _mobileRecomputeRelativeReminder() {
-    if (_mobileReminderCustom || _reminderAt == null) return;
+    if (_mobileReminderCustom) return;
     if (_dueDate == null) {
       // Removing a due date also removes its relative reminder metadata.
       // Otherwise the saved task reports "no reminder" but retains an
@@ -867,6 +890,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       _reminderAdvanceMinutes = 0;
       return;
     }
+    if (_reminderAt == null) return;
     _reminderAt = buildTaskReminderAt(
       dueDate: _dueDate,
       dueTime: _dueTime,
@@ -1364,12 +1388,20 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               value: _dueDate == null ? '未设置' : _dateLabel(_dueDate!),
               icon: LucideIcons.calendarDays,
               onTap: _pickDate,
+              onClear: _dueDate == null ? null : () => setState(() {
+                _dueDate = null;
+                _mobileRecomputeRelativeReminder();
+              }),
             ),
             _pickerField(
               label: '时间',
               value: _dueTime == null ? '未设置' : _timeLabel(_dueTime!),
               icon: LucideIcons.clock3,
               onTap: _pickTime,
+              onClear: _dueTime == null ? null : () => setState(() {
+                _dueTime = null;
+                _mobileRecomputeRelativeReminder();
+              }),
             ),
           ],
         ),
@@ -1402,6 +1434,20 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           icon: LucideIcons.bell,
           onTap: _pickReminder,
         ),
+        if (_reminderAt != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: FxButton(
+              label: '清除提醒',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: _saving ? null : () => setState(() {
+                _reminderAt = null;
+                _reminderAdvanceMinutes = 0;
+                _mobileReminderCustom = false;
+              }),
+            ),
+          ),
         const SizedBox(height: 16),
         FxSeparator.horizontal(height: 1, color: fxDivider(context)),
         const SizedBox(height: 16),
@@ -1499,35 +1545,55 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     required String value,
     required IconData icon,
     required VoidCallback onTap,
+    VoidCallback? onClear,
   }) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _fieldLabel(label),
-        FxInkWell(
-          onTap: _saving ? null : onTap,
-          borderRadius: BorderRadius.circular(SlowlightRadius.md),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(SlowlightRadius.md),
-              border: Border.all(color: fxBorder(context)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    style: SlowlightTypography.secondary(context),
+        Row(
+          children: [
+            Expanded(
+              child: FxInkWell(
+                onTap: _saving ? null : onTap,
+                borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                    border: Border.all(color: fxBorder(context)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.secondary(context),
+                        ),
+                      ),
+                      Icon(icon, size: 15,
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ],
                   ),
                 ),
-                Icon(icon, size: 15, color: theme.colorScheme.onSurfaceVariant),
-              ],
+              ),
             ),
-          ),
+            if (onClear != null) ...[
+              const SizedBox(width: 4),
+              FxIconButton(
+                icon: LucideIcons.x,
+                tooltip: '清除$label',
+                iconSize: 15,
+                onPressed: _saving ? null : onClear,
+              ),
+            ],
+          ],
         ),
       ],
     );
@@ -1581,7 +1647,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
     );
-    if (result != null && mounted) setState(() => _dueDate = result);
+    if (result != null && mounted) setState(() {
+      _dueDate = result;
+      _mobileRecomputeRelativeReminder();
+    });
   }
 
   Future<void> _pickTime() async {
@@ -1589,7 +1658,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       context: context,
       initialTime: _dueTime ?? TimeOfDay.now(),
     );
-    if (result != null && mounted) setState(() => _dueTime = result);
+    if (result != null && mounted) setState(() {
+      _dueTime = result;
+      _mobileRecomputeRelativeReminder();
+    });
   }
 
   Future<void> _pickReminder() async {
@@ -1617,6 +1689,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         time.minute,
       );
       _reminderAdvanceMinutes = 0;
+      _mobileReminderCustom = true;
     });
   }
 
@@ -1625,10 +1698,13 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     final title = _title.text.trim();
     final listId =
         _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
-    if (title.isEmpty || listId == null) {
+    if (title.isEmpty || listId == null ||
+        !widget.lists.any((list) => list.id == listId)) {
       FxNotice.showContent(
         context,
-        Text(title.isEmpty ? '请输入任务名称' : '请选择清单后再保存'),
+        Text(title.isEmpty
+            ? '请输入任务名称'
+            : '请先选择已确认的清单后再保存'),
       );
       return;
     }

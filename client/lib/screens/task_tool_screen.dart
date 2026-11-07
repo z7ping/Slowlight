@@ -261,7 +261,24 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     }
   }
 
+  bool _canEditTask() {
+    if (_listsLoading) {
+      _message('正在读取清单，请核对后再编辑任务');
+      return false;
+    }
+    if (_listLoadFailed) {
+      _message('清单读取失败，请先重试后再编辑任务');
+      return false;
+    }
+    if (_lists.isEmpty) {
+      _message('清单暂时不可用，请先创建清单');
+      return false;
+    }
+    return true;
+  }
+
   void _open(Task task) {
+    if (!_canEditTask()) return;
     final availableWidth =
         context.size?.width ?? MediaQuery.sizeOf(context).width;
     if (availableWidth >= 860) {
@@ -288,18 +305,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Future<void> _create() async {
-    if (_listsLoading) {
-      _message('正在读取清单，请稍后再创建任务');
-      return;
-    }
-    if (_listLoadFailed) {
-      _message('清单读取失败，请先重试加载');
-      return;
-    }
-    if (_lists.isEmpty) {
-      _message('请先创建一个清单');
-      return;
-    }
+    if (!_canEditTask()) return;
     // Mobile creates and edits through one editor and the same property rows.
     // Keep the existing desktop create dialog untouched.
     if (SlowlightPlatformDensity.usesMobileTouchTargets) {
@@ -313,7 +319,8 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     final created = await TaskCreateSheet.showFullCreate(
       context,
       lists: _lists,
-      selectedListId: _lists.first.id,
+      // Use the existing inbox-first default in showFullCreate instead of
+      // accidentally selecting an arbitrary first collection.
       defaultDueDate: DateTime.now(),
     );
     if (created == true && mounted) await _load();
