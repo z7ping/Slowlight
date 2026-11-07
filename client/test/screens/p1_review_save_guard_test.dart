@@ -62,6 +62,7 @@ void main() {
     await tester.pumpWidget(review(_ControlledReflections()));
     await tester.pumpAndSettle();
 
+    expect(find.text('回看事实，留下自己的理解'), findsOneWidget);
     for (final title in ['今日概况', '发生过的事', '留给今天的一句话']) {
       expect(find.text(title), findsOneWidget);
       expect(find.descendant(
