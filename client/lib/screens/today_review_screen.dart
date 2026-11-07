@@ -107,11 +107,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         (widget.reviewLoader ?? ReviewApi.getTodayReview)(),
         _reflectionRepository.recent(limit: 30).catchError((_) {
           partialUnavailable.add('回应记录');
-          return <ReflectionEntry>[];
+          // This request is independent of the already confirmed response
+          // list; a transient read error must not make saved entries vanish.
+          return _reflections;
         }),
         _loadTodayHabitFacts(partialUnavailable).catchError((_) {
           partialUnavailable.add('习惯明细');
-          return <_TodayHabitFact>[];
+          return _todayHabitFacts;
         }),
       ]);
       if (!mounted || version != _loadVersion) return;
