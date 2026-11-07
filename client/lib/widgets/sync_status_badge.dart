@@ -230,6 +230,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
   bool _retrying = false;
   String? _feedback;
   String? _requestError;
+  bool _conflictReadFailed = false;
 
   @override
   void initState() {
@@ -250,6 +251,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       if (!mounted) return;
       setState(() {
         _conflicts = Future.value(conflicts);
+        _conflictReadFailed = false;
         _feedback = conflicts.isNotEmpty
             ? '有同步冲突，请先核对并解决；未重新提交数据。'
             : '已核对冲突与待处理数量。原始请求结果仍未确认时，不自动重新写入。';
@@ -258,7 +260,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       if (!mounted) return;
       setState(() {
         _requestError = error.toString();
-        _conflicts = Future<List<Map<String, dynamic>>>.error(error);
+        _conflictReadFailed = true;
         _feedback = '核对失败，结果仍未确认；没有重新提交数据。';
       });
     } finally {
@@ -287,6 +289,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
           widget.sync.lastError != null) {
         setState(() {
           _conflicts = Future.value(before);
+          _conflictReadFailed = false;
           _feedback = '发现未核对的冲突或同步状态已变化，未重新提交数据。';
         });
         return;
@@ -309,6 +312,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       }
       setState(() {
         _conflicts = Future.value(conflicts);
+        _conflictReadFailed = false;
         _feedback = widget.sync.status == SyncStatusEnum.error
             ? '本次同步仍未完成，请查看错误或冲突。'
             : '同步请求已执行，仍有待处理项或结果尚未确认。';
@@ -317,6 +321,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       if (!mounted) return;
       setState(() {
         _requestError = error.toString();
+        _conflictReadFailed = true;
         _feedback = '同步请求未完成，请查看技术详情。';
       });
     } finally {
@@ -338,6 +343,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
             final pending = widget.sync.pendingCount + standalone;
             final count = snapshot.data?.length ?? 0;
             final conflictsKnown =
+                !_conflictReadFailed &&
                 snapshot.connectionState == ConnectionState.done &&
                     !snapshot.hasError;
             final raw = _requestError ?? widget.sync.lastError;
