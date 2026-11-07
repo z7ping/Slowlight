@@ -14,12 +14,20 @@ void main() {
     expect(range.contains(localEnd), isFalse);
   });
 
-  test('calendar offsets keep midnight and date across month and leap-day boundaries', () {
+  test('calendar offsets across month, leap day and year boundaries', () {
     final leapDay = DateTime(2024, 2, 29, 12, 45);
-    expect(LocalTimeBoundary.addCalendarDays(leapDay, 1), DateTime(2024, 3, 1));
-    expect(LocalTimeBoundary.addCalendarDays(leapDay, -1), DateTime(2024, 2, 28));
-    expect(LocalTimeBoundary.addCalendarDays(DateTime(2026, 1, 1), -7),
-        DateTime(2025, 12, 25));
+    expect(
+      LocalTimeBoundary.addCalendarDays(leapDay, 1),
+      DateTime(2024, 3, 1),
+    );
+    expect(
+      LocalTimeBoundary.addCalendarDays(leapDay, -1),
+      DateTime(2024, 2, 28),
+    );
+    expect(
+      LocalTimeBoundary.addCalendarDays(DateTime(2026, 1, 1), -7),
+      DateTime(2025, 12, 25),
+    );
     expect(LocalTimeBoundary.dayEnd(leapDay), DateTime(2024, 3, 1));
   });
 
