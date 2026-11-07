@@ -92,6 +92,30 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('X15 降低动态效果时今天 FAB 的显示/隐藏动效立即完成',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(buildFxTestHost(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
+        home: const HomeScreen(),
+      ));
+      await tester.pump();
+
+      final fab = find.byKey(const ValueKey('today.fab.pointer'));
+      expect(fab, findsOneWidget);
+      final slide = find.descendant(of: fab, matching: find.byType(AnimatedSlide));
+      final opacity = find.descendant(of: fab, matching: find.byType(AnimatedOpacity));
+      expect(tester.widget<AnimatedSlide>(slide).duration, Duration.zero);
+      expect(tester.widget<AnimatedOpacity>(opacity).duration, Duration.zero);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('今天与回顾切换不销毁今天工作台状态', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
       final today = find.byType(DashboardBody, skipOffstage: false);
