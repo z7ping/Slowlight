@@ -368,7 +368,6 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                   children: [
                     _taskActionBar(),
                     if (_loadFailed) _refreshErrorNotice(),
-          if (_listLoadFailed) _listErrorNotice(),
                     if (_listLoadFailed) _listErrorNotice(),
                     const SizedBox(height: SlowlightSpacing.xl),
                   ],
@@ -475,7 +474,6 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                     const SizedBox(height: SlowlightSpacing.xl),
                     _mobileFilters(),
                     if (_loadFailed) _refreshErrorNotice(),
-          if (_listLoadFailed) _listErrorNotice(),
                     if (_listLoadFailed) _listErrorNotice(),
                     const SizedBox(height: SlowlightSpacing.xl),
                     FxSectionHeader(
