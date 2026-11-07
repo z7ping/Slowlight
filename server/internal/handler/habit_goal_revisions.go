@@ -9,6 +9,9 @@ import (
     "slowlight/internal/model"
 )
 
+var errHabitRecordContractUsed = errors.New("已有记录，不能修改记录类型或单位")
+var errHabitAnchorAfterHistory = errors.New("起算日不能晚于已有最早记录")
+
 func habitGoalChanged(old, next model.Habit) bool {
     return old.GoalPeriod != next.GoalPeriod ||
         old.GoalMetric != next.GoalMetric ||
