@@ -666,6 +666,48 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('轨迹刷新失败保留上次成功条目和重新加载入口', (tester) async {
+    var tick = 0;
+    var calls = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: StatefulBuilder(builder: (context, rebuild) {
+        return Scaffold(
+          body: DashboardBody(
+            tasks: const [],
+            habits: const [],
+            refreshTick: tick,
+            onRefresh: () async {
+              rebuild(() => tick++);
+            },
+            timelineLoader: () {
+              calls++;
+              return calls == 1
+                  ? Future.value(items)
+                  : Future<List<TodayTimelineItem>>.error(
+                      StateError('network temporarily unavailable'));
+            },
+            dimensionLoader: () async => {'dimensions': []},
+            reviewLoader: () async => {'questions': [], 'facts': {}},
+          ),
+        );
+      }),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('专注 25 分钟'), findsOneWidget);
+
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    expect(find.text('轨迹刷新未确认'), findsOneWidget);
+    expect(find.text('以下为上次成功读取的记录，请重新加载核对。'),
+        findsOneWidget);
+    expect(find.text('上次数据'), findsOneWidget);
+    expect(find.text('专注 25 分钟'), findsOneWidget);
+    expect(find.text('重新加载'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('首次轨迹读取失败后重试要显示进度，成功后恢复事实', (tester) async {
     final waiting = Completer<List<TodayTimelineItem>>();
     var calls = 0;
