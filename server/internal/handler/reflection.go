@@ -176,7 +176,41 @@ func (h *ReflectionHandler) List(c *gin.Context) {
 		}
 	}
 	var entries []model.Reflection
-	query := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Limit(limit)
+	query := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Order("id DESC").Limit(limit)
+	if questionID := strings.TrimSpace(c.Query("question_id")); questionID != "" {
+		if len(questionID) > 120 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "question_id 过长"})
+			return
+		}
+		start, end := c.Query("legacy_week_start"), c.Query("legacy_week_end")
+		if start != "" || end != "" {
+			if questionID != "review-week:"+start+":"+end || start == "" || end == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "周期参数不匹配"})
+				return
+			}
+			for _, day := range []string{start, end} {
+				date, err := time.Parse("2006-01-02", day)
+				if err != nil || date.Format("2006-01-02") != day {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "无效的周日期"})
+					return
+				}
+			}
+			// Pre-question-id weekly replies used JSON context only. The
+			// account filter remains outside the grouped OR.
+			query = query.Where(
+				`(question_id = ? OR ((question_id IS NULL OR question_id = '') AND entry_type = ? AND context LIKE ? AND context LIKE ? AND context LIKE ?))`,
+				questionID, "reflection",
+				`%"source":"weekly_review"%`,
+				`%"week_start":"`+start+`"%`,
+				`%"week_end":"`+end+`"%`,
+			)
+		} else {
+			query = query.Where("question_id = ?", questionID)
+		}
+	} else if c.Query("legacy_week_start") != "" || c.Query("legacy_week_end") != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 question_id"})
+		return
+	}
 	if key := model.DimensionKey(c.Query("dimension_key")); key != "" {
 		if !model.IsValidDimensionKey(key) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的 dimension_key"})
