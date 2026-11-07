@@ -373,7 +373,8 @@ class CloudCacheRepository {
                 d.compareTo(occurrence.periodEnd!) < 0;
             }).length;
             target=occurrence.target;
-            canCheckIn=count<target && (occurrence.sameDayMultiple || !days.contains(today));
+            // Achieving a target must not block independent later facts.
+            canCheckIn=occurrence.sameDayMultiple || !days.contains(today);
           } else {
             canCheckIn = !logs.any((log)=>log['occurrence_key']==occurrence.key);
           }
