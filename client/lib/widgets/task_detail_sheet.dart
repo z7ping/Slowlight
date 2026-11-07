@@ -859,6 +859,14 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
 
   void _mobileRecomputeRelativeReminder() {
     if (_mobileReminderCustom || _reminderAt == null) return;
+    if (_dueDate == null) {
+      // Removing a due date also removes its relative reminder metadata.
+      // Otherwise the saved task reports "no reminder" but retains an
+      // orphan reminderAdvanceMinutes value.
+      _reminderAt = null;
+      _reminderAdvanceMinutes = 0;
+      return;
+    }
     _reminderAt = buildTaskReminderAt(
       dueDate: _dueDate,
       dueTime: _dueTime,
