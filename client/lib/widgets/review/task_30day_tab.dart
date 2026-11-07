@@ -19,6 +19,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   String? _error;
   Map<String, dynamic> _data = {};
   List<Map<String, dynamic>> _trendDays = const [];
+  bool _trendLoadFailed = false;
 
   @override
   void initState() {
@@ -30,16 +31,24 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     setState(() {
       _loading = true;
       _error = null;
+      _trendLoadFailed = false;
     });
+    var trendLoadFailed = false;
     try {
+      // As in WeeklyReviewScreen, the trend is optional. A failed chart
+      // request must not invalidate a successful 30-day task summary.
       final results = await Future.wait<dynamic>([
         ReviewApi.getTasksReview(days: 30),
-        AnalyticsApi.getDailyTrend(days: 30),
+        AnalyticsApi.getDailyTrend(days: 30).catchError((Object _) {
+          trendLoadFailed = true;
+          return <Map<String, dynamic>>[];
+        }),
       ]);
       if (!mounted) return;
       setState(() {
         _data = results[0] as Map<String, dynamic>;
         _trendDays = results[1] as List<Map<String, dynamic>>;
+        _trendLoadFailed = trendLoadFailed;
         _loading = false;
       });
     } catch (e) {
@@ -89,7 +98,30 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                 children: [
                   _summaryCard(summary),
                   const SizedBox(height: 14),
-                  if (hasData)
+                  if (_trendLoadFailed)
+                    FxCard(
+                      padding: const EdgeInsets.all(16),
+                      expanded: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const FxSectionHeader(title: '每日完成趋势'),
+                          const SizedBox(height: 8),
+                          Text(
+                            '趋势暂时无法加载，已载入的任务统计仍可查看。',
+                            style: SlowlightTypography.secondary(context),
+                          ),
+                          const SizedBox(height: 8),
+                          FxButton(
+                            label: '重新加载',
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _load,
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (hasData)
                     _trendCard()
                   else
                     const FxEmptyState(
