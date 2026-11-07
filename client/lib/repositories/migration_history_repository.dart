@@ -20,7 +20,7 @@ class MigrationHistoryRepository {
           .map((item) => {
                 ...item,
                 'source': 'cloud',
-                'status': item['status'] ?? 'succeeded'
+                'status': item['status'] ?? 'unknown'
               })
           .toList();
 
