@@ -1,7 +1,27 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/widgets/sync_status_badge.dart';
+import 'package:slowlight/services/sync_service.dart';
 
 void main() {
+  test('X09 未确认或冲突状态只允许核对，不会触发普通同步', () {
+    bool safe(SyncStatusEnum status, {
+      bool known = true,
+      int conflicts = 0,
+      bool requestError = false,
+    }) => syncMayStartUserRetry(
+      status: status,
+      conflictsKnown: known,
+      conflictCount: conflicts,
+      hasRequestError: requestError,
+    );
+    expect(safe(SyncStatusEnum.idle), isTrue);
+    expect(safe(SyncStatusEnum.syncing), isFalse);
+    expect(safe(SyncStatusEnum.error), isFalse);
+    expect(safe(SyncStatusEnum.idle, known: false), isFalse);
+    expect(safe(SyncStatusEnum.idle, conflicts: 1), isFalse);
+    expect(safe(SyncStatusEnum.idle, requestError: true), isFalse);
+  });
+
   test('同步状态同时区分待同步、冲突、未知和已知无待处理', () {
     String label({
       bool busy = false,
