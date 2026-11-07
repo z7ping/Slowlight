@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'dart:io';
@@ -53,7 +54,8 @@ class FocusHomeScreen extends StatefulWidget {
   State<FocusHomeScreen> createState() => _FocusHomeScreenState();
 }
 
-class _FocusHomeScreenState extends State<FocusHomeScreen> {
+class _FocusHomeScreenState extends State<FocusHomeScreen>
+    with WidgetsBindingObserver {
   HomeNavigationState _navigation = const HomeNavigationState.today();
   List<TodoList> _lists = const [];
   List<Task> _tasks = const [];
@@ -80,10 +82,14 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
   Offset? _fabPosition;
   bool _fabAutoHidden = false;
   DateTime? _lastAndroidBackAt;
+  DateTime _knownToday = DateUtils.dateOnly(DateTime.now());
+  Timer? _nextDayTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleNextDayRefresh();
     _accountFuture = _loadAccountDisplay();
     authStateNotifier.addListener(_resetWorkspace);
     DataModeManager().addListener(_resetWorkspace);
@@ -95,10 +101,42 @@ class _FocusHomeScreenState extends State<FocusHomeScreen> {
 
   @override
   void dispose() {
+    _nextDayTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     authStateNotifier.removeListener(_resetWorkspace);
     DataModeManager().removeListener(_resetWorkspace);
     _shortcutFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    _refreshIfNewDay();
+    _scheduleNextDayRefresh();
+  }
+
+  void _refreshIfNewDay() {
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (DateUtils.isSameDay(_knownToday, today)) return;
+    _knownToday = today;
+    // Day-scoped tasks, habit check-ins, the Today date and timeline all
+    // need fresh facts after midnight, even without user navigation.
+    _reload();
+  }
+
+  void _scheduleNextDayRefresh() {
+    _nextDayTimer?.cancel();
+    final now = DateTime.now();
+    final nextDay = DateTime(now.year, now.month, now.day + 1);
+    _nextDayTimer = Timer(
+      nextDay.difference(now) + const Duration(milliseconds: 100),
+      () {
+        if (!mounted) return;
+        _refreshIfNewDay();
+        _scheduleNextDayRefresh();
+      },
+    );
   }
 
   bool _handleKeyboardShortcut(KeyEvent event) {
