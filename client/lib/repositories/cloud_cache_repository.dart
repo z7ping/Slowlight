@@ -551,9 +551,6 @@ class CloudCacheRepository {
       if (existing.isNotEmpty) return <String,dynamic>{
         'log_id':null,'result':{'log':existing.first,'already_checked':true}};
       if (event?.periodStart != null) {
-        final rows=await tx.rawQuery('SELECT COUNT(*) AS n FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
-          [hid,event!.periodStart,event.periodEnd]);
-        if((rows.first['n'] as int? ?? 0)>=event.target)throw StateError('本周期已完成目标次数');
         if(!event.sameDayMultiple){
           final old=await tx.query('habit_logs',where:'habit_id = ? AND date = ?',whereArgs:[hid,day],limit:1);
           if(old.isNotEmpty)return <String,dynamic>{'log_id':null,'result':{'log':old.first,'already_checked':true}};
