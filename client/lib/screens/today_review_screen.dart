@@ -170,8 +170,6 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         // Keep old entries only for habits whose logs were unavailable.
         if (unavailable.isEmpty) {
           _todayHabitFacts = facts;
-        } else if (unavailable.contains('习惯明细')) {
-          // Complete repository failure: use previous confirmed rows.
         } else {
           final failedNames = unavailable
               .where((value) => value.startsWith('习惯「') &&
@@ -1004,6 +1002,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                                   : '保存回应',
                               size: FxButtonSize.sm,
                               onPressed: !_reflectionsChecked ||
+                                      _refreshError != null ||
                                       _savingAnswers.contains(key) ||
                                       _unknownAnswers.contains(key)
                                   ? null
@@ -1134,6 +1133,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   Future<void> _saveAnswer(Map<String, dynamic> question) async {
     final key = _questionKey(question);
     if (!_reflectionsChecked ||
+        _refreshError != null ||
         _savingAnswers.contains(key) ||
         _unknownAnswers.contains(key) ||
         _answered.contains(key)) return;
