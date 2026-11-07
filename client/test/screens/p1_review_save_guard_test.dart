@@ -22,10 +22,15 @@ class _NoHabits extends HabitRepository {
 
 class _ControlledReflections extends ReflectionRepository {
   int calls = 0;
+  bool failRecent = false;
+  List<ReflectionEntry> recentEntries = const [];
   final Completer<ReflectionEntry> pending = Completer<ReflectionEntry>();
 
   @override
-  Future<List<ReflectionEntry>> recent({int limit = 20}) async => const [];
+  Future<List<ReflectionEntry>> recent({int limit = 20}) async {
+    if (failRecent) throw StateError('temporarily cannot read responses');
+    return recentEntries;
+  }
 
   @override
   Future<ReflectionEntry> create({
@@ -204,6 +209,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('回顾数据加载失败'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('辅助回应读取失败不抹掉上次确认的记录', (tester) async {
+    final repository = _ControlledReflections();
+    repository.recentEntries = [
+      ReflectionEntry(
+        id: 42,
+        entryType: 'reflection',
+        content: '已经保存的回顾记录',
+        createdAt: DateTime.now(),
+      ),
+    ];
+    tester.view.physicalSize = const Size(900, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(review(repository));
+    await tester.pumpAndSettle();
+    expect(find.text('已经保存的回顾记录'), findsOneWidget);
+
+    repository.failRecent = true;
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('已经保存的回顾记录'), findsOneWidget);
+    expect(find.textContaining('部分记录暂时无法加载：回应记录'),
+        findsOneWidget);
+    expect(find.text('重新加载'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
