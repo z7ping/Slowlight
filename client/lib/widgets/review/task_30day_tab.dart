@@ -16,7 +16,9 @@ class TaskMonthTab extends StatefulWidget {
 
 class _TaskMonthTabState extends State<TaskMonthTab> {
   bool _loading = true;
+  bool _hasConfirmedReview = false;
   String? _error;
+  String? _refreshError;
   Map<String, dynamic> _data = {};
   List<Map<String, dynamic>> _trendDays = const [];
   bool _trendLoadFailed = false;
@@ -31,9 +33,9 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   Future<void> _load() async {
     final version = ++_loadVersion;
     setState(() {
-      _loading = true;
+      _loading = !_hasConfirmedReview;
       _error = null;
-      _trendLoadFailed = false;
+      _refreshError = null;
     });
     var trendLoadFailed = false;
     try {
@@ -51,12 +53,17 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _data = results[0] as Map<String, dynamic>;
         _trendDays = results[1] as List<Map<String, dynamic>>;
         _trendLoadFailed = trendLoadFailed;
+        _hasConfirmedReview = true;
         _loading = false;
       });
     } catch (e) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
-        _error = e.toString();
+        if (_hasConfirmedReview) {
+          _refreshError = e.toString();
+        } else {
+          _error = e.toString();
+        }
         _loading = false;
       });
     }
@@ -98,6 +105,29 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
               constraints: const BoxConstraints(maxWidth: 820),
               child: Column(
                 children: [
+                  if (_refreshError != null) ...[
+                    FxCard(
+                      padding: const EdgeInsets.all(16),
+                      expanded: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '近 30 天数据刷新未确认，以下仍为上次成功读取的统计。',
+                            style: SlowlightTypography.secondary(context),
+                          ),
+                          const SizedBox(height: SlowlightSpacing.md),
+                          FxButton(
+                            label: '重新加载',
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _load,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _summaryCard(summary),
                   const SizedBox(height: 14),
                   if (_trendLoadFailed)
