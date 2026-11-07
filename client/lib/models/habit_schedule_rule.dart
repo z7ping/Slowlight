@@ -25,8 +25,17 @@ class HabitScheduleRule {
   factory HabitScheduleRule.fromJson(Map<String,dynamic> json,{String legacyFrequency='daily'}) {
     final legacyUnit=switch(legacyFrequency){'weekly'=>'week','monthly'=>'month','yearly'=>'year',_=>'day'};
     List<int> days(String field,int max,List<int> fallback){
-      final raw=json[field];if(raw is! List)return fallback;
-      return raw.whereType<int>().where((x)=>x>0&&x<=max).toSet().toList()..sort();
+      final raw=json[field];
+      if(raw==null)return fallback;
+      if(raw is! List)return [0];
+      final values=<int>[];
+      // Do not silently discard bad imported days and change the user's
+      // rule. Let validation report an invalid schedule instead.
+      for(final value in raw){
+        if(value is! int || value<1 || value>max)return [0];
+        values.add(value);
+      }
+      return values.toSet().toList()..sort();
     }
     return HabitScheduleRule(
       anchorDate:json['anchor_date'] as String? ?? dayKey(DateTime.now()),
@@ -36,7 +45,8 @@ class HabitScheduleRule {
       hourMode:json['hour_mode'] as String? ?? 'window',
       windowStart:json['window_start'] as String? ?? '08:00',
       windowEnd:json['window_end'] as String? ?? '22:00',
-      weekdays:days('weekdays',7,[1,3,5]),monthDays:days('month_days',31,[15]),
+      weekdays:days('weekdays',7,json['kind']=='specific'?[]:[1,3,5]),
+      monthDays:days('month_days',31,json['kind']=='specific'?[]:[15]),
       lastDay:json['last_day']==true,targetCount:json['target_count'] is int ? json['target_count'] as int : 3,
       sameDayMultiple:json['same_day_multiple']==true,
       reminderMode:json['reminder_mode'] as String? ?? 'off',
@@ -69,8 +79,10 @@ class HabitScheduleRule {
           (hourMode=='window'&&windowStart==windowEnd)))return '小时执行时段不正确';
     } else if(kind=='specific'){
       if(!['week','month'].contains(unit))return '指定日期仅支持周或月';
-      if(unit=='week'&&weekdays.isEmpty)return '至少选择一个星期';
-      if(unit=='month'&&monthDays.isEmpty&&!lastDay)return '至少选择一个日期';
+      if(unit=='week'&&(weekdays.isEmpty||
+          weekdays.any((day)=>day<1||day>7)))return '星期选择不正确';
+      if(unit=='month'&&(monthDays.any((day)=>day<1||day>31)||
+          monthDays.isEmpty&&!lastDay))return '月份日期选择不正确';
     } else if(!['week','month'].contains(unit)||targetCount<1||targetCount>99) {
       return '周期目标不正确';
     }
