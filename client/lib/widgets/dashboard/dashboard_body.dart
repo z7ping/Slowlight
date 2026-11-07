@@ -824,10 +824,30 @@ class _DashboardBodyState extends State<DashboardBody> {
                     ],
                   ),
                 )
-              : _emptyWithNext(
-                  '今天暂时没有任务',
-                  '先写下一件想做的事',
-                  widget.onQuickAdd,
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: SlowlightSpacing.md,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('先记下一件想做的事',
+                          style: SlowlightTypography.secondary(context)
+                              .copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: SlowlightSpacing.xs),
+                      Text('一个念头、一个小计划，都可以先放在这里。',
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          )),
+                      if (widget.onQuickAdd != null)
+                        FxButton(
+                          label: '添加任务',
+                          variant: FxButtonVariant.outline,
+                          size: FxButtonSize.sm,
+                          onPressed: widget.onQuickAdd,
+                        ),
+                    ],
+                  ),
                 )
         else
           for (var i = 0; i < visible.length; i++)
