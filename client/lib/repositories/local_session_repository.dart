@@ -14,10 +14,14 @@ class LocalSessionRepository {
   Future<Map<String, dynamic>> startSession(
     String sessionType, {
     int? taskId,
+    int? targetMinutes,
     String device = 'desktop',
   }) async {
     if (!const {'work', 'break', 'long_break'}.contains(sessionType)) {
       throw ArgumentError.value(sessionType, 'sessionType', '不支持的会话类型');
+    }
+    if (targetMinutes != null && (targetMinutes < 1 || targetMinutes > 180)) {
+      throw ArgumentError.value(targetMinutes, 'targetMinutes', '会话目标时长需在 1 到 180 分钟之间');
     }
 
     final db = await _db();
@@ -58,6 +62,7 @@ class LocalSessionRepository {
       id = await txn.insert('work_sessions', {
         'session_type': sessionType,
         'task_id': taskId,
+        'target_minutes': targetMinutes ?? 0,
         'started_at': now.toIso8601String(),
         'ended_at': null,
         'duration_sec': 0,
@@ -338,6 +343,7 @@ class LocalSessionRepository {
         'id': row['id'],
         'session_type': row['session_type'],
         'task_id': row['task_id'],
+        'target_minutes': row['target_minutes'] ?? 0,
         'started_at': row['started_at'],
         'ended_at': row['ended_at'],
         'duration_seconds': row['duration_sec'] ?? 0,
