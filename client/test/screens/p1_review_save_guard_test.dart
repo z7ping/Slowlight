@@ -46,6 +46,14 @@ class _ControlledReflections extends ReflectionRepository {
   }
 }
 
+class _DeferredReflections extends _ControlledReflections {
+  final Completer<List<ReflectionEntry>> awaiting =
+      Completer<List<ReflectionEntry>>();
+
+  @override
+  Future<List<ReflectionEntry>> recent({int limit = 20}) => awaiting.future;
+}
+
 void main() {
   Widget review(_ControlledReflections repository, {
     List<Map<String, dynamic>> questions = const [],
@@ -60,6 +68,135 @@ void main() {
       },
     )),
   );
+
+  testWidgets('P03 今日事实先展示，不等待挂起的历史回应读取', (tester) async {
+    tester.view.physicalSize = const Size(900, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final responses = _DeferredReflections();
+    final reviewData = Completer<Map<String, dynamic>>();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TodayReviewScreen(
+        reflectionRepository: responses,
+        habitRepository: _NoHabits(),
+        reviewLoader: () => reviewData.future,
+      )),
+    ));
+    await tester.pump();
+    expect(find.byType(FxCircularProgress), findsOneWidget);
+    reviewData.complete({
+      'facts': <String, dynamic>{'task_completed': 4},
+      'patterns': <String, dynamic>{},
+      'questions': <Map<String, dynamic>>[],
+    });
+    await tester.pumpAndSettle();
+    // The remaining reflection repository read is still pending.
+    expect(responses.awaiting.isCompleted, isFalse);
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('留给今天的一句话'), findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    responses.awaiting.complete([
+      ReflectionEntry(
+        id: 501,
+        entryType: 'reflection',
+        content: '已确认的单独回应',
+        createdAt: DateTime.now(),
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('已确认的单独回应'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P03 本周主统计先显示，输出与每日趋势稍后填充', (tester) async {
+    tester.view.physicalSize = const Size(900, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final outputs = Completer<Map<String, dynamic>>();
+    final trend = Completer<List<Map<String, dynamic>>>();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reviewLoader: () async => {
+          'task_completed': 8,
+          'habit_checked': 6,
+          'focus_minutes': 75,
+          'habit_last_week': 2,
+          'task_last_week': 3,
+          'focus_last_week': 60,
+          'time_distribution': <Map<String, dynamic>>[],
+        },
+        outputStatsLoader: () => outputs.future,
+        dailyTrendLoader: () => trend.future,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(outputs.isCompleted, isFalse);
+    expect(trend.isCompleted, isFalse);
+    expect(find.text('本周记录'), findsOneWidget);
+    expect(find.text('8'), findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    outputs.complete({'this_week': 2, 'total_count': 5});
+    trend.complete([
+      {'date': '2026-11-06', 'task_completed': 8, 'habit_checked': 6},
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('每日记录'), findsOneWidget);
+    expect(find.text('输出记录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P03 近30天先展示任务事实，习惯汇总随已确认趋势加载', (tester) async {
+    tester.view.physicalSize = const Size(900, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final trend = Completer<List<Map<String, dynamic>>>();
+    var trendReads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskMonthTab(
+        tasksReviewLoader: () async => {
+          'summary': {
+            'completed_count': 5,
+            'created_count': 7,
+            'total_days': 30,
+          },
+          'distribution': <String, dynamic>{},
+          'completed_tasks': <Map<String, dynamic>>[],
+        },
+        dailyTrendLoader: () {
+          if (++trendReads == 1) return trend.future;
+          throw StateError('趋势刷新失败');
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(trend.isCompleted, isFalse);
+    expect(find.text('近 30 天已载入记录'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('习惯记录'), findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    trend.complete([
+      {'date': '2026-11-05', 'task_completed': 2, 'habit_checked': 4},
+      {'date': '2026-11-06', 'task_completed': 3, 'habit_checked': 2},
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('6'), findsOneWidget);
+    expect(find.text('每日任务完成趋势'), findsOneWidget);
+
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pumpAndSettle();
+    expect(trendReads, 2);
+    expect(find.text('6'), findsOneWidget);
+    expect(find.text('趋势暂时无法加载，已载入的任务统计仍可查看。'), findsOneWidget);
+    expect(find.text('每日任务完成趋势'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('今日数据请求挂起时，本周与近30天仍可独立打开', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
