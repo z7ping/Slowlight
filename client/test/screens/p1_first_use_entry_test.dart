@@ -52,9 +52,10 @@ void main() {
       )),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('先写下一件想做的事'), findsOneWidget);
+    expect(find.text('先记下一件想做的事'), findsOneWidget);
+    expect(find.text('一个念头、一个小计划，都可以先放在这里。'), findsOneWidget);
     expect(find.text('添加习惯'), findsOneWidget);
-    await tester.tap(find.text('先写下一件想做的事'));
+    await tester.tap(find.text('添加任务'));
     await tester.pump();
     await tester.tap(find.text('添加习惯'));
     await tester.pump();
