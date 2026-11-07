@@ -358,8 +358,7 @@ class CloudCacheRepository {
       final now = DateTime.now();
       final today = _dateKey(now);
       final sevenStart = _dateKey(
-        DateTime(now.year, now.month, now.day)
-            .subtract(const Duration(days: 6)),
+        DateTime(now.year, now.month, now.day - 6),
       )!;
       final goalRows = logs.map((e) => Map<String, dynamic>.from(e));
       final goal = HabitGoalProgress.current(Map<String, dynamic>.from(row), goalRows);
