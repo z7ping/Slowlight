@@ -499,6 +499,56 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X04 Windows 独立任务详情防止遮罩和系统返回丢失修改',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '打开独立任务详情',
+            onPressed: () => TaskDetailSheet.show(
+              context, task: task, lists: lists, onChanged: () {},
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('打开独立任务详情'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '修改后的标题');
+    await tester.pump();
+
+    await tester.tapAt(const Offset(4, 80));
+    await tester.pump();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText).first)
+          .controller.text,
+      '修改后的标题',
+    );
+
+    await tester.tap(fxTooltipFinder('关闭'));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows 任务详情保留紧凑右侧面板操作区', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
