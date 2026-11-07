@@ -154,7 +154,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _reminderChanged() {
-    if (mounted) setState(() {});
+    // ReminderService ticks every second. Rebuilding the entire Settings
+    // workspace on Appearance/Account/Sync is expensive and can jank edits.
+    // Only the visible Rest panel needs live countdown/state notifications.
+    if (mounted && _open == 'rest') setState(() {});
   }
 
   void _syncStatusChanged() {
