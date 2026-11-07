@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit.dart';
@@ -9,6 +11,101 @@ import 'package:slowlight/screens/search_screen.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('P09 一个搜索来源失败仍展示其他真实任务结果', (tester) async {
+    final task = Task(
+      id: 71,
+      listId: 1,
+      title: '待处理的取回任务',
+      priority: 'none',
+      isCompleted: false,
+      createdAt: DateTime.now(),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(
+        sourceLoaders: (
+          tasks: (_) async => [task],
+          habits: () async => throw StateError('习惯来源临时失败'),
+          reflections: () async => <ReflectionEntry>[],
+          lists: () async => <TodoList>[],
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '取回任务');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('待处理的取回任务'), findsOneWidget);
+    expect(find.textContaining('部分搜索来源未读取：习惯'), findsOneWidget);
+    expect(find.text('搜索暂时不可用'), findsNothing);
+    expect(find.text('没有找到相关内容'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P09 部分来源未确认且没有匹配结果不显示完整空结果', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(
+        sourceLoaders: (
+          tasks: (_) async => throw StateError('任务来源失败'),
+          habits: () async => <Habit>[],
+          reflections: () async => <ReflectionEntry>[],
+          lists: () async => <TodoList>[],
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '测试关键词');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已读取来源没有匹配结果'), findsOneWidget);
+    expect(find.text('没有找到相关内容'), findsNothing);
+    expect(find.textContaining('部分搜索来源未读取：任务'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P09 输入新关键词后，上一查询在防抖期间返回也不得显示旧结果', (tester) async {
+    final pending = Completer<SearchResultData>();
+    Task task(int id, String title) => Task(
+      id: id,
+      listId: 1,
+      title: title,
+      priority: 'none',
+      isCompleted: false,
+      createdAt: DateTime.now(),
+    );
+    SearchResultData values(List<Task> tasks) => (
+      tasks: tasks,
+      habits: <Habit>[],
+      reflections: <ReflectionEntry>[],
+      lists: <TodoList>[],
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(
+        dataLoader: (query) =>
+            query == '旧关键词'
+                ? pending.future
+                : Future.value(values([task(2, '新结果')])),
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '旧关键词');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.enterText(find.byType(EditableText).first, '新关键词');
+    await tester.pump(const Duration(milliseconds: 50));
+    pending.complete(values([task(1, '旧结果')]));
+    await tester.pump();
+    expect(find.text('旧结果'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('新结果'), findsOneWidget);
+    expect(find.text('旧结果'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('02 查询失败展示重试，成功空结果才显示无记录', (tester) async {
     var attempts = 0;
     Future<SearchResultData> loader(String query) async {
