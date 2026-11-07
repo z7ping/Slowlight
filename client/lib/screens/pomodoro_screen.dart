@@ -34,6 +34,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Timer? _timer;
   int _remainingSeconds = 25 * 60;
+  // Immutable goal for the active session; restored from Local/Cloud storage.
+  int _sessionTargetMinutes = 25;
   String _sessionType = 'work';
   bool _running = false;
   bool _activeSession = false;
@@ -115,8 +117,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final activeSeconds =
         (until.difference(startedAt).inSeconds - _pausedDurationSeconds)
             .clamp(0, 1 << 31);
-    return (_durationFor(_sessionType) * 60 - activeSeconds)
-        .clamp(0, _durationFor(_sessionType) * 60).toInt();
+    final totalSeconds = _sessionTargetMinutes * 60;
+    return (totalSeconds - activeSeconds).clamp(0, totalSeconds).toInt();
   }
 
   void _applySession(Map<String, dynamic> session) {
@@ -137,6 +139,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _pausedDurationSeconds =
           (session['paused_duration_seconds'] as num?)?.toInt() ?? 0;
       _sessionType = session['session_type']?.toString() ?? 'work';
+      final storedTarget = (session['target_minutes'] as num?)?.toInt() ?? 0;
+      // Old sessions have no per-round snapshot; retain legacy defaults.
+      _sessionTargetMinutes = storedTarget > 0 && storedTarget <= 180
+          ? storedTarget
+          : _durationFor(_sessionType);
       _activeSession = true;
       _remainingSeconds = _remainingFromSession();
       _running = pausedAt == null && _remainingSeconds > 0;
@@ -187,6 +194,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ? await _sessions.startSession(
               _sessionType,
               taskId: _sessionType == 'work' ? _linkedTaskId : null,
+              targetMinutes: _durationFor(_sessionType),
             )
           : await _sessions.resumeSession(_sessionId!, _sessionRevision);
       if (!mounted) return;
@@ -292,11 +300,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!mounted) return;
     if (_sessionType == 'work') {
       _completedSessions++;
-      _showCompletion(tagsSaved ? '专注了 $_workMinutes 分钟' : '专注已结束，但标签未保存');
+      _showCompletion(tagsSaved ? '专注了 $_sessionTargetMinutes 分钟' : '专注已结束，但标签未保存');
       final longBreak = _completedSessions % _sessionsBeforeLong == 0;
       setState(() {
         _sessionType = longBreak ? 'long_break' : 'break';
-        _remainingSeconds = (longBreak ? _longBreakMinutes : _breakMinutes) * 60;
+        _sessionTargetMinutes = _durationFor(_sessionType);
+        _remainingSeconds = _sessionTargetMinutes * 60;
         _running = false;
         _finalizingSession = false;
       });
@@ -304,7 +313,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _showCompletion('休息结束');
       setState(() {
         _sessionType = 'work';
-        _remainingSeconds = _workMinutes * 60;
+        _sessionTargetMinutes = _workMinutes;
+        _remainingSeconds = _sessionTargetMinutes * 60;
         _running = false;
         _finalizingSession = false;
       });
@@ -324,8 +334,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!await _freezeBeforeEnding()) return;
     List<int>? tagIds;
     if (_activeSession && _sessionType == 'work') {
-      final elapsed = _workMinutes * 60 - _remainingSeconds;
-      if (elapsed >= _workMinutes * 30 && mounted) {
+      final elapsed = _sessionTargetMinutes * 60 - _remainingSeconds;
+      if (elapsed >= _sessionTargetMinutes * 30 && mounted) {
         tagIds = await SystemTagPicker.showMultiple(context);
       }
     }
@@ -350,7 +360,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _sessionPausedAt = null;
       _finalizingSession = false;
       _sessionType = 'work';
-      _remainingSeconds = _workMinutes * 60;
+      _sessionTargetMinutes = _workMinutes;
+      _remainingSeconds = _sessionTargetMinutes * 60;
       _running = false;
     });
     await _loadTodayStats();
@@ -513,7 +524,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _autoStartNext = autoStart;
       _soundEnabled = soundEnabled;
       _linkedTaskId = linkedTaskId;
-      if (atStart) _remainingSeconds = _durationFor(_sessionType) * 60;
+      if (atStart) {
+        _sessionTargetMinutes = _durationFor(_sessionType);
+        _remainingSeconds = _sessionTargetMinutes * 60;
+      }
     });
     _message('专注设置已更新');
   }
@@ -612,7 +626,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Widget _timerBody() {
     final theme = Theme.of(context);
-    final totalSeconds = _durationFor(_sessionType) * 60;
+    final totalSeconds = (_activeSession
+            ? _sessionTargetMinutes
+            : _durationFor(_sessionType)) * 60;
     final progress =
         totalSeconds == 0
             ? 0.0
