@@ -3,15 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../models/reflection_entry.dart';
 import '../../models/today_timeline_item.dart';
+import '../../repositories/reflection_repository.dart';
 import '../../services/api/analytics_api.dart';
 import '../../services/api/review_api.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
+import '../../utils/local_time_boundary.dart';
 import 'completed_task_item.dart';
 import 'review_timeline_item.dart';
 
 class TaskMonthTab extends StatefulWidget {
+  final ReflectionRepository? reflectionRepository;
+  final TextEditingController? responseDraftController;
   /// Test seams only. Production reuses the existing Review/Analytics APIs.
   final Future<Map<String, dynamic>> Function()? tasksReviewLoader;
   final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
@@ -21,6 +26,8 @@ class TaskMonthTab extends StatefulWidget {
 
   const TaskMonthTab({
     super.key,
+    this.reflectionRepository,
+    this.responseDraftController,
     this.tasksReviewLoader,
     this.dailyTrendLoader,
     this.periodTimelineLoader,
@@ -48,6 +55,22 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   bool _loadingPeriodPage = false;
   int? _failedPeriodPageOffset;
   int _loadVersion = 0;
+  late final ReflectionRepository _responseRepo =
+      widget.reflectionRepository ?? ReflectionRepository();
+  late final TextEditingController _responseDraft =
+      widget.responseDraftController ?? TextEditingController();
+  ReflectionEntry? _savedResponse;
+  String? _responsePeriodKey;
+  bool _responseChecked = false;
+  bool _responseLoading = false;
+  bool _responseSaving = false;
+  bool _responseUnknown = false;
+
+  @override
+  void dispose() {
+    if (widget.responseDraftController == null) _responseDraft.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -56,6 +79,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   }
 
   Future<void> _load() async {
+    if (_responseSaving) return;
     final version = ++_loadVersion;
     setState(() {
       _loading = !_hasConfirmedReview;
@@ -83,6 +107,17 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _loadingPeriodPage = false;
         _failedPeriodPageOffset = null;
       });
+      // Bind replies to this rolling thirty-day window, not a calendar month.
+      final now = DateTime.now();
+      final start = LocalTimeBoundary.dateKey(
+        LocalTimeBoundary.addCalendarDays(LocalTimeBoundary.dayStart(now), -29),
+      );
+      final end = LocalTimeBoundary.dateKey(now);
+      final periodKey = 'review-30d:$start:$end';
+      setState(() => _responsePeriodKey = periodKey);
+      if (!SlowlightPlatformDensity.usesMobileTouchTargets) {
+        unawaited(_loadPeriodResponse(version, periodKey));
+      }
       // Optional trend must not delay the confirmed primary task facts.
       unawaited(_loadTrend(version));
       unawaited(_loadPeriodTimeline(version));
@@ -98,6 +133,129 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       });
     }
   }
+
+  Future<void> _loadPeriodResponse(int version, String periodKey) async {
+    if (_responseSaving) return;
+    setState(() {
+      _responseLoading = true;
+      _responseChecked = false;
+    });
+    try {
+      final found = await _responseRepo.findPeriodResponse(periodKey);
+      if (!mounted || version != _loadVersion ||
+          periodKey != _responsePeriodKey) return;
+      setState(() {
+        _savedResponse = found;
+        _responseChecked = true;
+        _responseUnknown = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      // A failed authoritative read is not evidence of no saved reply.
+      setState(() => _responseChecked = false);
+    } finally {
+      if (mounted && version == _loadVersion) {
+        setState(() => _responseLoading = false);
+      }
+    }
+  }
+
+  Future<void> _savePeriodResponse() async {
+    final key = _responsePeriodKey;
+    final content = _responseDraft.text.trim();
+    if (!_responseChecked || _responseSaving || _responseUnknown ||
+        _savedResponse != null || _refreshError != null ||
+        key == null || content.isEmpty) return;
+    final version = _loadVersion;
+    setState(() => _responseSaving = true);
+    try {
+      final parts = key.split(':');
+      final saved = await _responseRepo.create(
+        content: content,
+        questionId: key,
+        context: {
+          'source': 'review',
+          'question_type': 'period',
+          'period': 'rolling30',
+          'period_start': parts[1],
+          'period_end': parts[2],
+        },
+      );
+      if (!mounted || version != _loadVersion || key != _responsePeriodKey) {
+        return;
+      }
+      setState(() {
+        _savedResponse = saved;
+        _responseUnknown = false;
+        _responseDraft.clear();
+      });
+      FxNotice.showContent(context, Text(saved.id < 0
+          ? '回应已保存在本机，等待云端同步' : '回应已保存'));
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() => _responseUnknown = true);
+      FxNotice.showContent(
+        context,
+        const Text('保存结果未确认，草稿已保留，请先核对记录'),
+        variant: FxNoticeVariant.warning,
+      );
+    } finally {
+      if (mounted) setState(() => _responseSaving = false);
+    }
+  }
+
+  Widget _periodResponseCard() => FxCard(
+    expanded: true,
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '近 30 天回应'),
+        const SizedBox(height: 10),
+        if (_responseLoading)
+          const FxCircularProgress()
+        else if (_savedResponse != null)
+          Text(_savedResponse!.content, style: SlowlightTypography.body(context))
+        else ...[
+          Text('这段时间有什么事，让你想多了解自己一点？',
+              style: SlowlightTypography.secondary(context)),
+          const SizedBox(height: 10),
+          FxInput(
+            controller: _responseDraft,
+            placeholder: '写下这段时间的感受与理解…',
+            maxLines: 4,
+          ),
+          const SizedBox(height: 8),
+          if (!_responseChecked || _responseUnknown)
+            Text(
+              _responseUnknown
+                  ? '保存结果尚未确认。核对已有回应后才能再次保存。'
+                  : '回应记录暂时无法核对，不能安全保存。',
+              style: SlowlightTypography.caption(context),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _responseUnknown || !_responseChecked
+                ? FxButton(
+                    label: '核对回应',
+                    variant: FxButtonVariant.secondary,
+                    size: FxButtonSize.sm,
+                    onPressed: _responseLoading || _responseSaving ||
+                            _responsePeriodKey == null
+                        ? null : () => _loadPeriodResponse(
+                            _loadVersion, _responsePeriodKey!),
+                  )
+                : FxButton(
+                    label: _responseSaving ? '保存中…' : '保存回应',
+                    size: FxButtonSize.sm,
+                    onPressed: _responseSaving || _refreshError != null
+                        ? null : _savePeriodResponse,
+                  ),
+          ),
+        ],
+      ],
+    ),
+  );
 
   Future<void> _loadTrend(int version) async {
     try {
@@ -358,6 +516,10 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                   _summaryCard(summary),
                   const SizedBox(height: 14),
                   _periodEvidenceCard(),
+                  if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
+                    const SizedBox(height: 14),
+                    _periodResponseCard(),
+                  ],
                   const SizedBox(height: 14),
                   if (_trendRefreshing && _trendDays.isNotEmpty)
                     Padding(
