@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
+import '../models/habit_log.dart';
 import '../models/habit_occurrence.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
@@ -608,6 +609,7 @@ class CloudCacheRepository {
   }
 
   Future<Map<String, dynamic>> getHabitLogs(int publicId, {String? month}) async {
+    HabitLog.validateMonth(month);
     final db = await _db;
     final habitLocalId = await _localId(db, 'habits', publicId);
     final rows = await db.query(
