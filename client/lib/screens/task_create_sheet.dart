@@ -77,6 +77,8 @@ class TaskCreateSheet extends StatefulWidget {
         context: context,
         title: '添加任务',
         showCloseButton: false,
+        // The editor decides whether a dirty draft may be discarded.
+        barrierDismissible: false,
         width: 520,
         child: editor,
       );
@@ -1071,11 +1073,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     FxButton(
       label: '取消',
       variant: FxButtonVariant.ghost,
-      onPressed: _saving
-          ? null
-          : widget.desktopDialog
-              ? () => Navigator.of(context).pop()
-              : _requestClose,
+      onPressed: _saving ? null : _requestClose,
     ),
     _submitButton(),
   ]);
@@ -1083,11 +1081,11 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: widget.desktopDialog
-          ? !_saving && _mobilePage == null
-          : _allowPop,
+      // Both the desktop Dialog and Android Sheet must wait for the same
+      // draft/unknown-result confirmation. Saving never dismisses the editor.
+      canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_saving && !widget.desktopDialog) _requestClose();
+        if (!didPop && !_saving) _requestClose();
       },
       child: _buildEditor(context),
     );
