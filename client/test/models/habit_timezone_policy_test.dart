@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit_timezone_policy.dart';
 import 'package:slowlight/models/user.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tzdata;
 
 void main() {
   test('P05 cloud account timezone survives auth cache round-trip', () {
@@ -29,6 +30,7 @@ void main() {
   });
 
   test('P05 matching account calendar stays recordable', () {
+    tzdata.initializeTimeZones();
     final location = tz.getLocation('America/Los_Angeles');
     expect(() => HabitTimezonePolicy.requireCompatibleDeviceCalendar(
       'America/Los_Angeles',
