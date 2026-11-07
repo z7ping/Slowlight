@@ -261,7 +261,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         TaskScheduleFields(
           enabled: !_isSaving,
           dueDate: _dueDate,
-          onDateChanged: (value) => setState(() => _dueDate = value),
+          onDateChanged: (value) => setState(() {
+            _dueDate = value;
+            // Clearing the schedule must not revive an old relative reminder
+            // when a different date is selected later.
+            if (value == null) _reminderAdvanceMinutes = -1;
+          }),
           dueTime: _dueTime,
           onTimeChanged: (value) => setState(() => _dueTime = value),
           repeatType: _repeatType,
