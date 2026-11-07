@@ -47,39 +47,66 @@ class TaskDetailSheet extends StatefulWidget {
     final desktop = !SlowlightPlatformDensity.usesMobileTouchTargets &&
         MediaQuery.sizeOf(context).width >= SlowlightBreakpoints.tabletMin;
     if (desktop) {
+      final editorKey = GlobalKey<TaskDetailSheetState>();
+      var allowRoutePop = false;
       return showGeneralDialog<void>(
         context: context,
-        barrierDismissible: true,
+        // The desktop editor, not a backdrop tap, owns draft dismissal.
+        barrierDismissible: false,
         barrierLabel: '关闭任务详情',
         barrierColor: Colors.black.withValues(alpha: .28),
         transitionDuration: const Duration(milliseconds: 180),
-        pageBuilder:
-            (dialogContext, _, __) => Align(
-              alignment: Alignment.centerRight,
-              child: Material(
-                color: fxSurface(dialogContext),
-                elevation: 18,
-                shadowColor: Colors.black.withValues(alpha: .18),
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(SlowlightRadius.xl),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: SizedBox(
-                  width: 420,
-                  height: MediaQuery.sizeOf(dialogContext).height,
-                  child: SafeArea(
-                    child: TaskDetailSheet(
-                      task: task,
-                      isCreating: isCreating,
-                      initialPriority: initialPriority,
-                      lists: lists,
-                      onChanged: onChanged,
-                      sidePanel: true,
+        pageBuilder: (dialogContext, _, __) => StatefulBuilder(
+          builder: (routeContext, setRouteState) {
+            void closeRoute() {
+              if (allowRoutePop) return;
+              setRouteState(() => allowRoutePop = true);
+              // Give PopScope one frame to update before popping the route.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (routeContext.mounted) Navigator.of(routeContext).pop();
+              });
+            }
+
+            return PopScope(
+              canPop: allowRoutePop,
+              onPopInvokedWithResult: (didPop, _) {
+                // Reuse the editor's one close path for header, Escape
+                // and Android-style system Back emulation on Windows.
+                if (!didPop && !allowRoutePop) {
+                  editorKey.currentState?._requestDesktopClose();
+                }
+              },
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Material(
+                  color: fxSurface(dialogContext),
+                  elevation: 18,
+                  shadowColor: Colors.black.withValues(alpha: .18),
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(SlowlightRadius.xl),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: SizedBox(
+                    width: 420,
+                    height: MediaQuery.sizeOf(dialogContext).height,
+                    child: SafeArea(
+                      child: TaskDetailSheet(
+                        key: editorKey,
+                        task: task,
+                        isCreating: isCreating,
+                        initialPriority: initialPriority,
+                        lists: lists,
+                        onChanged: onChanged,
+                        onClose: closeRoute,
+                        sidePanel: true,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            );
+          },
+        ),
         transitionBuilder:
             (_, animation, __, child) => SlideTransition(
               position: Tween<Offset>(
@@ -218,6 +245,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   bool _creationResultUnknown = false;
   bool _mobileExpanded = false;
   bool _allowMobilePop = false;
+  bool _desktopClosePending = false;
 
   @override
   void initState() {
@@ -310,8 +338,14 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _requestDesktopClose() async {
-    if (!await confirmLeaveSidePanel() || !mounted) return;
-    _close();
+    if (_desktopClosePending) return;
+    _desktopClosePending = true;
+    try {
+      if (!await confirmLeaveSidePanel() || !mounted) return;
+      _close();
+    } finally {
+      _desktopClosePending = false;
+    }
   }
 
   void _mobileChanged([String? _]) {

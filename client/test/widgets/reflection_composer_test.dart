@@ -7,6 +7,95 @@ import 'package:slowlight/widgets/reflection_composer.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('X07 Windows 观察草稿取消/系统返回必须确认，且放弃确认可撤回',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1000, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开桌面观察',
+          onPressed: () => ReflectionComposer.show(
+            context, entryType: 'observation',
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开桌面观察'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '暂时不保存的观察');
+    await tester.pump();
+
+    await tester.tapAt(const Offset(3, 3));
+    await tester.pump();
+    expect(find.text('记录观察'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的观察？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('记录观察'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText).first)
+          .controller.text,
+      '暂时不保存的观察',
+    );
+
+    await tester.tap(find.widgetWithText(FxButton, '取消').first);
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的观察？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.text('记录观察'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X07 Android 观察输入法开合后保留编辑器和焦点',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开观察键盘测试',
+          onPressed: () => ReflectionComposer.show(
+            context, entryType: 'observation',
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开观察键盘测试'));
+    await tester.pumpAndSettle();
+    final editable = find.byType(EditableText).first;
+    await tester.tap(editable);
+    await tester.enterText(editable, '键盘弹出仍保留观察草稿');
+    final input = tester.widget<EditableText>(editable);
+    final controller = input.controller;
+    final focusNode = input.focusNode;
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pumpAndSettle();
+    expect(tester.widget<EditableText>(editable).controller, same(controller));
+    expect(focusNode.hasFocus, isTrue);
+    expect(controller.text, '键盘弹出仍保留观察草稿');
+    expect(find.widgetWithText(FxButton, '保存观察'), findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding();
+    await tester.pumpAndSettle();
+    expect(tester.widget<EditableText>(editable).controller, same(controller));
+    expect(focusNode.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 360dp 观察 Sheet 引导线和底部操作与原型几何一致',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;

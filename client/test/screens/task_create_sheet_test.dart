@@ -122,6 +122,55 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X01 Windows 快捷新建的系统返回与取消均保护草稿',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1000, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '打开桌面快捷任务',
+            onPressed: () => TaskCreateSheet.showQuickCreate(context),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('打开桌面快捷任务'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '尚未保存的任务');
+    await tester.pump();
+
+    // Outside taps cannot silently dispose a Windows draft.
+    await tester.tapAt(const Offset(3, 3));
+    await tester.pump();
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的任务？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCreateSheet), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText).first)
+          .controller.text,
+      '尚未保存的任务',
+    );
+
+    await tester.tap(find.widgetWithText(FxButton, '取消').first);
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的任务？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskCreateSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('快捷任务在原弹窗展开高级设置并保持已输入标题', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
