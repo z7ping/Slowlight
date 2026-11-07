@@ -16,12 +16,14 @@ class SessionApi {
   static Future<Map<String, dynamic>> startSession(
     String sessionType, {
     int? taskId,
+    int? targetMinutes,
     String device = 'desktop',
   }) async {
     if (DataModeManager().isLocal) {
       return _local.startSession(
         sessionType,
         taskId: taskId,
+        targetMinutes: targetMinutes,
         device: device,
       );
     }
@@ -32,6 +34,7 @@ class SessionApi {
       'device': device,
     };
     if (taskId != null) body['task_id'] = taskId;
+    if (targetMinutes != null) body['target_minutes'] = targetMinutes;
     final response = await HttpUtil.post(
       Uri.parse('${ApiService.baseUrl}/sessions/start'),
       headers: headers,
