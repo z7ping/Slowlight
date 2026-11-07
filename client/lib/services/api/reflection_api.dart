@@ -37,11 +37,34 @@ class ReflectionApi {
     );
   }
 
-  static Future<List<ReflectionEntry>> recent({int limit = 20}) async {
+  /// Period submissions use one stable idempotency key across direct POST and
+  /// deferred cloud sync, including when the server committed but ACK was lost.
+  static String? periodClientRequestId(String? questionId) {
+    if (questionId == null ||
+        !(questionId.startsWith('review-week:') ||
+            questionId.startsWith('review-30d:'))) {
+      return null;
+    }
+    return 'period:$questionId';
+  }
+
+  static Future<List<ReflectionEntry>> recent({
+    int limit = 20,
+    String? questionId,
+    String? legacyWeekStart,
+    String? legacyWeekEnd,
+  }) async {
     final safeLimit = limit.clamp(1, 100).toInt();
     final headers = await ApiService.authHeaders();
     final response = await HttpUtil.get(
-      Uri.parse('${ApiService.baseUrl}/reflections?limit=$safeLimit'),
+      Uri.parse('${ApiService.baseUrl}/reflections').replace(
+        queryParameters: {
+          'limit': '$safeLimit',
+          if (questionId != null) 'question_id': questionId,
+          if (legacyWeekStart != null) 'legacy_week_start': legacyWeekStart,
+          if (legacyWeekEnd != null) 'legacy_week_end': legacyWeekEnd,
+        },
+      ),
       headers: headers,
     ).timeout(ApiService.getTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {

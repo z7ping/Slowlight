@@ -56,6 +56,7 @@ class ReflectionRepository {
         dimensionKey: key,
         context: context,
         tagIds: uniqueTagIds,
+        clientRequestId: ReflectionApi.periodClientRequestId(questionId),
       );
       await _cloudCache.cacheRemote([remote]);
       return remote;
@@ -88,6 +89,67 @@ class ReflectionRepository {
       if (!_isTransientNetworkError(error)) rethrow;
       return _cloudCache.recent(limit: safeLimit);
     }
+  }
+
+  /// Exact period lookup. Never infer absence from a recent(100) window.
+  /// A successful Cloud GET is required before an absent response is trusted.
+  Future<ReflectionEntry?> findPeriodResponse(
+    String questionId, {
+    String? legacyWeekStart,
+    String? legacyWeekEnd,
+  }) async {
+    if (questionId.trim().isEmpty) {
+      throw ArgumentError.value(questionId, 'questionId');
+    }
+    if (DataModeManager().isLocal) {
+      return _findLocalPeriodResponse(
+        questionId,
+        legacyWeekStart: legacyWeekStart,
+        legacyWeekEnd: legacyWeekEnd,
+      );
+    }
+    final remote = await ReflectionApi.recent(
+      limit: 1,
+      questionId: questionId,
+      legacyWeekStart: legacyWeekStart,
+      legacyWeekEnd: legacyWeekEnd,
+    );
+    await _cloudCache.cacheRemote(remote);
+    if (remote.isNotEmpty) return remote.first;
+    // The server returned no confirmed response, but an offline submission
+    // can still be pending in the account-scoped cache.
+    return _cloudCache.pendingByQuestionId(questionId);
+  }
+
+  Future<ReflectionEntry?> _findLocalPeriodResponse(
+    String questionId, {
+    String? legacyWeekStart,
+    String? legacyWeekEnd,
+  }) async {
+    await LocalProductCoreSchema.ensureReady();
+    final db = await LocalDb().database;
+    final legacy = legacyWeekStart != null && legacyWeekEnd != null;
+    final rows = await db.query(
+      'reflections',
+      where: legacy
+          ? 'deleted_at IS NULL AND entry_type = \'reflection\' AND (question_id = ? OR '
+              '((question_id IS NULL OR question_id = \'\') AND '
+              'entry_type = ? AND context_json LIKE ? AND '
+              'context_json LIKE ? AND context_json LIKE ?))'
+          : 'deleted_at IS NULL AND entry_type = \'reflection\' AND question_id = ?',
+      whereArgs: legacy
+          ? [
+              questionId,
+              'reflection',
+              '%"source":"weekly_review"%',
+              '%"week_start":"$legacyWeekStart"%',
+              '%"week_end":"$legacyWeekEnd"%',
+            ]
+          : [questionId],
+      orderBy: 'created_at DESC, id DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : _fromLocalRow(rows.first);
   }
 
   Future<ReflectionEntry> _createLocal({
@@ -148,22 +210,24 @@ class ReflectionRepository {
       orderBy: 'created_at DESC',
       limit: limit,
     );
-    return rows.map((row) {
-      Map<String, dynamic> context = const {};
-      try {
-        final decoded = jsonDecode(row['context_json'] as String? ?? '{}');
-        if (decoded is Map) context = Map<String, dynamic>.from(decoded);
-      } catch (_) {}
-      return ReflectionEntry(
-        id: row['id'] as int,
-        entryType: row['entry_type'] as String? ?? 'reflection',
-        questionId: row['question_id'] as String?,
-        dimensionKey: row['dimension_key'] as String?,
-        content: row['content'] as String? ?? '',
-        context: context,
-        createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
-      );
-    }).toList();
+    return rows.map(_fromLocalRow).toList();
+  }
+
+  ReflectionEntry _fromLocalRow(Map<String, Object?> row) {
+    Map<String, dynamic> context = const {};
+    try {
+      final decoded = jsonDecode(row['context_json'] as String? ?? '{}');
+      if (decoded is Map) context = Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return ReflectionEntry(
+      id: row['id'] as int,
+      entryType: row['entry_type'] as String? ?? 'reflection',
+      questionId: row['question_id'] as String?,
+      dimensionKey: row['dimension_key'] as String?,
+      content: row['content'] as String? ?? '',
+      context: context,
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
+    );
   }
 
   bool _isTransientNetworkError(Object error) {

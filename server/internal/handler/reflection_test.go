@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"slowlight/internal/model"
 
@@ -134,4 +135,58 @@ func TestReflection_ReplayRequestCreatesSingleEntry(t *testing.T) {
     var count int64
     db.Model(&model.Reflection{}).Where("user_id = ?", user.ID).Count(&count)
     if count != 1 { t.Fatalf("duplicate reflection: %d", count) }
+}
+
+ 
+func TestReflection_PeriodQueryFindsLegacyBeyondRecentHundred(t *testing.T) {
+    db := beginTx(t, setupTestDB(t))
+    owner := createTestUser(t, db)
+    other := createTestUser(t, db)
+    key := "review-week:2026-11-02:2026-11-08"
+    legacyContext := `{"source":"weekly_review","week_start":"2026-11-02","week_end":"2026-11-08"}`
+    old := model.Reflection{
+        UserID: owner.ID, EntryType: "reflection", Content: "早期本周回应",
+        Context: legacyContext,
+    }
+    if err := db.Create(&old).Error; err != nil { t.Fatal(err) }
+    if err := db.Model(&old).Update("created_at", time.Now().Add(-48*time.Hour)).Error; err != nil { t.Fatal(err) }
+    foreign := model.Reflection{
+        UserID: other.ID, EntryType: "reflection", Content: "其他账号不应出现",
+        Context: legacyContext,
+    }
+    if err := db.Create(&foreign).Error; err != nil { t.Fatal(err) }
+    for i := 0; i < 121; i++ {
+        entry := model.Reflection{UserID: owner.ID, EntryType: "reflection", Content: fmt.Sprintf("ordinary-%d", i), Context: "{}"}
+        if err := db.Create(&entry).Error; err != nil { t.Fatal(err) }
+    }
+    router := newTestGin()
+    router.Use(func(c *gin.Context) { withUser(c, owner.ID); c.Next() })
+    router.GET("/reflections", NewReflectionHandler(db).List)
+    query := "/reflections?limit=1&question_id=" + key +
+        "&legacy_week_start=2026-11-02&legacy_week_end=2026-11-08"
+    w := httptest.NewRecorder()
+    router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, query, nil))
+    if w.Code != http.StatusOK { t.Fatalf("period query: %d %s", w.Code, w.Body.String()) }
+    var result struct{ Items []reflectionResponse `json:"items"` }
+    if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+    if len(result.Items) != 1 || result.Items[0].ID != old.ID {
+        t.Fatalf("legacy weekly reply missing or cross-account: %+v", result.Items)
+    }
+
+    exact := model.Reflection{UserID: owner.ID, EntryType: "reflection",
+        QuestionID: "review-30d:2026-10-09:2026-11-07", Content: "30天回应", Context: "{}"}
+    if err := db.Create(&exact).Error; err != nil { t.Fatal(err) }
+    w = httptest.NewRecorder()
+    router.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+        "/reflections?limit=1&question_id=review-30d:2026-10-09:2026-11-07", nil))
+    if w.Code != http.StatusOK { t.Fatalf("exact query: %d", w.Code) }
+    if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+    if len(result.Items) != 1 || result.Items[0].ID != exact.ID {
+        t.Fatalf("30day exact query lost: %+v", result.Items)
+    }
+
+    w = httptest.NewRecorder()
+    router.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+        "/reflections?question_id="+key+"&legacy_week_start=2026-11-03&legacy_week_end=2026-11-08", nil))
+    if w.Code != http.StatusBadRequest { t.Fatalf("mismatched legacy week: %d", w.Code) }
 }

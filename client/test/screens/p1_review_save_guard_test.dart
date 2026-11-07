@@ -97,6 +97,61 @@ class _DeferredReflections extends _ControlledReflections {
   Future<List<ReflectionEntry>> recent({int limit = 20}) => awaiting.future;
 }
 
+class _PeriodReflections extends ReflectionRepository {
+  final List<ReflectionEntry> entries = [];
+  int lookupCalls = 0;
+  int createCalls = 0;
+  bool failLookup = false;
+  bool throwAfterCommit = false;
+  String? lastQuestionId;
+
+  @override
+  Future<ReflectionEntry?> findPeriodResponse(
+    String questionId, {
+    String? legacyWeekStart,
+    String? legacyWeekEnd,
+  }) async {
+    lookupCalls++;
+    lastQuestionId = questionId;
+    if (failLookup) throw StateError('read not confirmed');
+    for (final entry in entries.reversed) {
+      if (entry.questionId == questionId) return entry;
+      if (legacyWeekStart != null && legacyWeekEnd != null &&
+          entry.questionId == null &&
+          entry.context['source'] == 'weekly_review' &&
+          entry.context['week_start'] == legacyWeekStart &&
+          entry.context['week_end'] == legacyWeekEnd) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<ReflectionEntry> create({
+    required String content,
+    String entryType = 'reflection',
+    String? questionId,
+    String? dimensionKey,
+    Map<String, dynamic> context = const {},
+    List<int> tagIds = const [],
+  }) async {
+    createCalls++;
+    final saved = ReflectionEntry(
+      id: 800 + createCalls,
+      entryType: entryType,
+      questionId: questionId,
+      dimensionKey: dimensionKey,
+      content: content,
+      context: context,
+      createdAt: DateTime.now(),
+    );
+    entries.add(saved);
+    if (throwAfterCommit) throw StateError('ACK lost');
+    return saved;
+  }
+}
+
 void main() {
   testWidgets('P09 定位跨期观察保留原始日期，不冒充今日统计', (tester) async {
     tester.view.physicalSize = const Size(900, 950);
@@ -676,6 +731,143 @@ void main() {
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     }
+  });
+
+  testWidgets('P03 旧版周回应可精确重读，不依赖 recent(100)', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1100, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = _PeriodReflections();
+    repo.entries.add(ReflectionEntry(
+      id: 11,
+      entryType: 'reflection',
+      content: '已保存的旧版周回应',
+      context: const {
+        'source': 'weekly_review',
+        'week_start': '2026-11-02',
+        'week_end': '2026-11-08',
+      },
+      createdAt: DateTime(2026, 11, 2),
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reflectionRepository: repo,
+        reviewLoader: () async => {
+          'week_start': '2026-11-02',
+          'week_end': '2026-11-08',
+          'task_completed': 1,
+          'time_distribution': <Map<String, dynamic>>[],
+        },
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+            observationCount: 0, items: []),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(repo.lastQuestionId, 'review-week:2026-11-02:2026-11-08');
+    expect(find.text('已保存的旧版周回应'), findsOneWidget);
+    expect(find.widgetWithText(FxButton, '保存回应'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P03 桌面30天回应保存/重读并保留父级草稿控制器', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1100, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = _PeriodReflections();
+    final draft = TextEditingController();
+    final load = () async => <String, dynamic>{
+      'summary': {'completed_count': 2, 'created_count': 2,
+        'total_days': 30},
+      'distribution': <String, dynamic>{},
+      'completed_tasks': <Map<String, dynamic>>[],
+    };
+    Widget page(Key key) => buildFxTestHost(home: Scaffold(
+      body: TaskMonthTab(
+        key: key,
+        reflectionRepository: repo,
+        responseDraftController: draft,
+        tasksReviewLoader: load,
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+            observationCount: 0, items: []),
+      ),
+    ));
+    await tester.pumpWidget(page(const ValueKey('first')));
+    await tester.pumpAndSettle();
+    expect(find.text('近 30 天回应'), findsOneWidget);
+    await tester.enterText(find.byType(EditableText).first, '未提交的周期草稿');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(page(const ValueKey('second')));
+    await tester.pumpAndSettle();
+    expect(draft.text, '未提交的周期草稿');
+    tester.widget<FxButton>(find.widgetWithText(FxButton, '保存回应'))
+        .onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(repo.createCalls, 1);
+    expect(repo.lastQuestionId, startsWith('review-30d:'));
+    expect(repo.entries.single.questionId, startsWith('review-30d:'));
+    expect(find.text('未提交的周期草稿'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(page(const ValueKey('third')));
+    await tester.pumpAndSettle();
+    expect(find.text('未提交的周期草稿'), findsOneWidget);
+    expect(find.widgetWithText(FxButton, '保存回应'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+    draft.dispose();
+  });
+
+  testWidgets('P03 保存回执丢失先锁提交，核对失败仍锁，确认后不重复', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1100, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = _PeriodReflections()..throwAfterCommit = true;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskMonthTab(
+        reflectionRepository: repo,
+        tasksReviewLoader: () async => {
+          'summary': <String, dynamic>{'completed_count': 1,
+            'created_count': 1, 'total_days': 30},
+          'distribution': <String, dynamic>{},
+          'completed_tasks': <Map<String, dynamic>>[],
+        },
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+            observationCount: 0, items: []),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '已入库但回执丢失');
+    tester.widget<FxButton>(find.widgetWithText(FxButton, '保存回应'))
+        .onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(repo.createCalls, 1);
+    expect(find.textContaining('保存结果尚未确认'), findsOneWidget);
+    expect(find.widgetWithText(FxButton, '保存回应'), findsNothing);
+
+    repo.failLookup = true;
+    tester.widget<FxButton>(find.widgetWithText(FxButton, '核对回应'))
+        .onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FxButton, '保存回应'), findsNothing);
+    expect(repo.createCalls, 1);
+
+    repo.failLookup = false;
+    tester.widget<FxButton>(find.widgetWithText(FxButton, '核对回应'))
+        .onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(find.text('已入库但回执丢失'), findsOneWidget);
+    expect(find.widgetWithText(FxButton, '保存回应'), findsNothing);
+    expect(repo.createCalls, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
   });
 
 }

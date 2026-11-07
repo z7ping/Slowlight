@@ -263,7 +263,9 @@ class CloudSyncCoordinator {
           dimensionKey: row['dimension_key'] as String?,
           context: context,
           tagIds: pendingTagIds,
-          clientRequestId: '${SyncService().deviceId}:reflection:$localId',
+          clientRequestId: ReflectionApi.periodClientRequestId(
+                row['question_id'] as String?,
+              ) ?? '${SyncService().deviceId}:reflection:$localId',
         );
         if (!await _isRunValid(accountId: accountId, generation: generation)) return;
         await _reflectionCache.markCreateSynced(db, localId, remote);

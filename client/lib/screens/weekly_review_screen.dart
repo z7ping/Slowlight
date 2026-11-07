@@ -17,6 +17,7 @@ import '../ui/fx.dart';
 class WeeklyReviewScreen extends StatefulWidget {
   final bool embedded;
   final ReflectionRepository? reflectionRepository;
+  final TextEditingController? responseDraftController;
   /// Optional test seams; production always uses the existing AnalyticsApi.
   final Future<Map<String, dynamic>> Function()? reviewLoader;
   final Future<Map<String, dynamic>> Function()? outputStatsLoader;
@@ -29,6 +30,7 @@ class WeeklyReviewScreen extends StatefulWidget {
     super.key,
     this.embedded = false,
     this.reflectionRepository,
+    this.responseDraftController,
     this.reviewLoader,
     this.outputStatsLoader,
     this.dailyTrendLoader,
@@ -62,7 +64,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   int _loadVersion = 0;
   late final ReflectionRepository _responseRepo =
       widget.reflectionRepository ?? ReflectionRepository();
-  final TextEditingController _responseDraft = TextEditingController();
+  late final TextEditingController _responseDraft =
+      widget.responseDraftController ?? TextEditingController();
   bool _responseChecked = false;
   bool _responseLoading = false;
   bool _responseSaving = false;
@@ -71,7 +74,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   @override
   void dispose() {
-    _responseDraft.dispose();
+    if (widget.responseDraftController == null) _responseDraft.dispose();
     super.dispose();
   }
 
@@ -146,22 +149,15 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       _responseChecked = false;
     });
     try {
-      final entries = await _responseRepo.recent(limit: 100);
+      final found = await _responseRepo.findPeriodResponse(
+        'review-week:$start:$end',
+        legacyWeekStart: start,
+        legacyWeekEnd: end,
+      );
       if (!mounted || version != _loadVersion) return;
-      ReflectionEntry? found;
-      for (final entry in entries) {
-        if (entry.entryType == 'reflection' &&
-            entry.context['source'] == 'weekly_review' &&
-            entry.context['week_start'] == start &&
-            entry.context['week_end'] == end) {
-          found = entry;
-          break;
-        }
-      }
       setState(() {
         _savedResponse = found;
-        // A full bounded page cannot prove absence of an older saved reply.
-        _responseChecked = found != null || entries.length < 100;
+        _responseChecked = true;
         _responseUnknown = false;
       });
     } catch (_) {
@@ -186,6 +182,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     try {
       final saved = await _responseRepo.create(
         content: content,
+        questionId: 'review-week:$start:$end',
         context: {
           'source': 'weekly_review',
           'week_start': start,
