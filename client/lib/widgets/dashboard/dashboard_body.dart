@@ -108,19 +108,26 @@ class _DashboardBodyState extends State<DashboardBody> {
 
   Future<void> _load() async {
     final version = ++_loadVersion;
-    // After the initial load, leave the last confirmed facts visible while
-    // refreshing. FxRefresh owns the pull progress; resetting the three
-    // loading flags would flash stale panels on every task/habit action.
-    if (!_hasStartedInitialLoad) {
-      _hasStartedInitialLoad = true;
+    // Keep previously confirmed facts visible on refresh. Sources whose
+    // last attempt failed still need a visible loading state on retry.
+    final initial = !_hasStartedInitialLoad;
+    _hasStartedInitialLoad = true;
+    if (initial || _dimensionLoadFailed || _reviewLoadFailed ||
+        _timelineLoadFailed) {
       if (mounted) {
         setState(() {
-          _dimensionLoading = true;
-          _reviewLoading = true;
-          _dimensionLoadFailed = false;
-          _reviewLoadFailed = false;
-          _timelineLoading = true;
-          _timelineLoadFailed = false;
+          if (initial || _dimensionLoadFailed) {
+            _dimensionLoading = true;
+            _dimensionLoadFailed = false;
+          }
+          if (initial || _reviewLoadFailed) {
+            _reviewLoading = true;
+            _reviewLoadFailed = false;
+          }
+          if (initial || _timelineLoadFailed) {
+            _timelineLoading = true;
+            _timelineLoadFailed = false;
+          }
         });
       }
     }
