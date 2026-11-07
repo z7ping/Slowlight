@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:slowlight/screens/login_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
@@ -55,6 +57,36 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('本地切云端时失效的非本地 token 必须先登录，不能直接换数据源',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(const {});
+    await tester.runAsync(() => DataModeManager().setLocal());
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': 'expired-or-invalid-jwt',
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(initialSection: 'data'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('云端数据').first);
+    await tester.pump();
+    expect(find.text('切换为云端数据？'), findsOneWidget);
+    await tester.tap(find.text('确认切换'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(DataModeManager().isLocal, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows 双栏不重复内容页头，并使用 24px 外边距展开右侧内容',
       (tester) async {
     SharedPreferences.setMockInitialValues(const {});
