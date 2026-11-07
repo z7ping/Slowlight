@@ -274,6 +274,32 @@ class LocalHabitRepository {
           where: 'id = ? AND deleted_at IS NULL',
           whereArgs: [id], limit: 1));
       if (before.isEmpty) throw StateError('习惯不存在');
+      final old = before.single;
+      final changedType = updates.containsKey('record_type') &&
+          updates['record_type'] != old['record_type'];
+      final changedUnit = updates.containsKey('record_unit') &&
+          updates['record_unit'] != old['record_unit'];
+      if (changedType || changedUnit) {
+        final facts = await tx.query('habit_logs',
+            where: 'habit_id = ?', whereArgs: [id], limit: 1);
+        if (facts.isNotEmpty) {
+          throw StateError('已有记录，不能修改记录类型或单位');
+        }
+      }
+      if (updates.containsKey('schedule_rule') &&
+          updates['schedule_rule'] != old['schedule_rule']) {
+        final facts = await tx.query('habit_logs',
+            where: 'habit_id = ?', whereArgs: [id],
+            orderBy: 'date ASC', limit: 1);
+        if (facts.isNotEmpty) {
+          final rule = HabitOccurrence.rule(updates['schedule_rule'],
+              legacyFrequency: frequency ?? old['frequency']?.toString() ?? 'daily');
+          if (rule != null &&
+              rule.anchorDate.compareTo(facts.single['date'].toString()) > 0) {
+            throw StateError('起算日不能晚于已有最早记录');
+          }
+        }
+      }
       await tx.update('habits', updates, where: 'id = ?', whereArgs: [id]);
       final after = (await tx.query('habits',
           where: 'id = ?', whereArgs: [id], limit: 1)).single;
