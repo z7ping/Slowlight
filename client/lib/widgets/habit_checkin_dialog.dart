@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/habit.dart';
+import '../models/habit_timezone_policy.dart';
 import '../ui/fx.dart';
 
 /// 同一份记录表单：Android 底部弹层，Windows 居中对话框。
@@ -462,6 +463,13 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
       if (!mounted) return;
       setState(() => _submitting = false);
       _complete(value);
+    } on HabitTimezoneMismatch catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _pendingValue = null; // no write was attempted
+        _error = error.message;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
