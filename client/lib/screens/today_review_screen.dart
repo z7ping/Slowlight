@@ -247,6 +247,51 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     );
   }
 
+  Widget _mobileRelatedTools() => Wrap(
+        key: const ValueKey('review.mobile.related'),
+        spacing: SlowlightSpacing.md,
+        runSpacing: SlowlightSpacing.xs,
+        children: [
+          FxButton(
+            label: '统计',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() => _viewIndex = 1),
+          ),
+          FxButton(
+            label: '每周回顾',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() {
+              _viewIndex = 0;
+              _periodIndex = 1;
+            }),
+          ),
+          FxButton(
+            label: '近 30 天',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() {
+              _viewIndex = 0;
+              _periodIndex = 2;
+            }),
+          ),
+          FxButton(
+            label: '时间分配',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: () => setState(() => _viewIndex = 2),
+          ),
+          // Keep the existing formal rest-review route reachable.
+          FxButton(
+            label: '休息回顾',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            onPressed: _openRestReview,
+          ),
+        ],
+      );
+
   String _periodTitle() {
     final now = DateTime.now();
     return switch (_periodIndex) {
@@ -357,16 +402,19 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           ],
                           // Free notes are independent of suggested questions.
                           _freeNoteCard(),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FxButton(
-                              label: '查看休息回顾 →',
-                              variant: FxButtonVariant.link,
-                              size: FxButtonSize.sm,
-                              onPressed: _openRestReview,
+                          const SizedBox(height: SlowlightSpacing.md),
+                          if (SlowlightPlatformDensity.usesMobileTouchTargets)
+                            _mobileRelatedTools()
+                          else
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: FxButton(
+                                label: '查看休息回顾 →',
+                                variant: FxButtonVariant.link,
+                                size: FxButtonSize.sm,
+                                onPressed: _openRestReview,
+                              ),
                             ),
-                          ),
                         ],
                       );
                       if (constraints.maxWidth < 760) {
