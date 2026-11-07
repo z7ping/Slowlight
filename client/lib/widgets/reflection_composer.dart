@@ -424,13 +424,23 @@ class ReflectionComposer {
       );
     }
 
+    BuildContext? activeSheetContext;
+    StateSetter? activeSheetSetState;
+
     Future<bool?> showMobileSheet() {
       return FxSheet.show<bool>(
         context: context,
         isScrollControlled: true,
-        showDragHandle: false,
+        showDragHandle: true,
         showCloseButton: false,
         draggable: false,
+        onDismissRequested: () async {
+          final owner = activeSheetContext;
+          final update = activeSheetSetState;
+          if (owner != null && update != null && owner.mounted) {
+            await requestMobileClose(owner, update);
+          }
+        },
         isDismissible: false,
         padding: EdgeInsets.zero,
         backgroundColor: fxSurface(context),
@@ -441,6 +451,8 @@ class ReflectionComposer {
         ),
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
+            activeSheetContext = sheetContext;
+            activeSheetSetState = setSheetState;
             return PopScope(
               canPop: allowMobilePop,
               onPopInvokedWithResult: (didPop, _) {
