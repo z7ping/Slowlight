@@ -473,6 +473,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                       'urgent_important' => '重要 · 紧急',
                       'important' => '重要 · 不紧急',
                       'urgent' => '不重要 · 紧急',
+                      'none' => '不重要 · 不紧急',
                       _ => '未设置',
                     },
                     quick: true,
