@@ -631,7 +631,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
             LayoutBuilder(builder: (context, constraints) {
               final details = FxButton(
                 key: ValueKey('habits.details.${habit.id}'),
-                label: expanded ? '收起详情' : '查看详情',
+                label: mobile
+                    ? (expanded ? '收起' : '详情')
+                    : (expanded ? '收起详情' : '查看详情'),
                 icon:
                     expanded ? LucideIcons.chevronUp : LucideIcons.chevronRight,
                 size: FxButtonSize.sm,
@@ -643,6 +645,15 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     color: theme.colorScheme.onSurfaceVariant,
                   ));
               final scale = MediaQuery.textScalerOf(context).scale(1);
+              if (mobile) {
+                // One compact line in the master prototype. Wrap at large
+                // accessibility scale rather than shrinking or clipping.
+                return Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: SlowlightSpacing.md,
+                  children: [label, _weekDots(habit, color), details],
+                );
+              }
               if (constraints.maxWidth >= 460 * scale) {
                 return Row(children: [
                   label,
@@ -744,6 +755,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Widget _habitHeading(Habit habit, Color color) {
     final theme = Theme.of(context);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return FxInkWell(
       key: ValueKey('habits.expand.${habit.id}'),
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -754,11 +766,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: mobile ? 32 : 40,
+              height: mobile ? 32 : 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .12),
+                color: mobile ? fxSubtleSurface(context) : color.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(SlowlightRadius.md),
               ),
               child: Text(habit.icon,
@@ -798,6 +810,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         !habit.allowMultiplePerDay &&
         habit.canCheckIn != true;
     final theme = Theme.of(context);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     // Keep the action subtle in both themes while using the existing
     // success semantic color instead of a page-specific color constant.
     final actionColor = Color.lerp(
@@ -815,10 +828,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       icon: completed ? LucideIcons.circleCheck : LucideIcons.check,
       size: FxButtonSize.sm,
       expanded: expanded,
-      variant: FxButtonVariant.secondary,
-      foregroundColor: completed
-          ? theme.colorScheme.onSurfaceVariant
-          : actionColor,
+      variant: mobile ? FxButtonVariant.outline : FxButtonVariant.secondary,
+      foregroundColor: mobile
+          ? null
+          : completed
+              ? theme.colorScheme.onSurfaceVariant
+              : actionColor,
       onPressed: _pendingHabitActions.contains(habit.id)
           ? null
           : () => _toggleToday(habit),
