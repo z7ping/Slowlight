@@ -126,8 +126,8 @@ class HabitScheduleRule {
     // One recurrence path for specific dates: preview must use exactly
     // the same calendar semantics as upcoming reminders.
     if(kind=='specific'){
-      final anchorTime=DateTime(start.year,start.month,start.day,hour,m);
-      return nextAfter(anchorTime.subtract(const Duration(microseconds:1)),
+      final firstCandidate=DateTime(start.year,start.month,start.day,hour,m);
+      return nextAfter(firstCandidate.subtract(const Duration(microseconds:1)),
           count:count);
     }
     final result=<DateTime>[];
