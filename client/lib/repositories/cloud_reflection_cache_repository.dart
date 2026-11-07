@@ -101,8 +101,8 @@ class CloudReflectionCacheRepository {
     final db = await _cache.database;
     final rows = await db.query(
       'reflections',
-      where: 'question_id = ? AND sync_status = ?',
-      whereArgs: [questionId, 'pending'],
+      where: 'question_id = ? AND entry_type = ? AND sync_status = ?',
+      whereArgs: [questionId, 'reflection', 'pending'],
       orderBy: 'created_at DESC, id DESC',
       limit: 1,
     );
