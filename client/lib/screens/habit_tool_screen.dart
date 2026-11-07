@@ -967,6 +967,37 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Widget _weekDots(Habit habit, Color color) {
     final checked = habit.checkedDays.toSet();
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final scheme = Theme.of(context).colorScheme;
+      // The approved Android overview uses 7px read-only dots. Details
+      // remains the adjacent full-size action, never these fact markers.
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(7, (index) {
+          final day = today.subtract(Duration(days: 6 - index));
+          final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
+          final active = checked.contains(key) ||
+              (_sameDay(day, today) && habit.checkedToday);
+          return Semantics(
+            label: '${day.month}月${day.day}日${active ? '有记录' : '无记录'}',
+            child: Container(
+              key: ValueKey('habits.week.${habit.id}.$index'),
+              width: 7,
+              height: 7,
+              margin: EdgeInsets.only(
+                right: index == 6 ? 0 : SlowlightSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: active ? scheme.primary : fxSubtleSurface(context),
+              ),
+            ),
+          );
+        }),
+      );
+    }
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
