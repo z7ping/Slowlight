@@ -335,29 +335,51 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
               Padding(
                 padding: EdgeInsets.fromLTRB(
                   mobile ? 16 : 20, 12, mobile ? 16 : 20, 16),
-                child: Wrap(
-                alignment: WrapAlignment.end,
-                spacing: SlowlightSpacing.md,
-                runSpacing: SlowlightSpacing.md,
-                children: [
-                  FxButton(
-                      label: '取消',
-                      variant: FxButtonVariant.outline,
-                      onPressed: _submitting
-                          ? null
-                          : mobile ? _requestClose : () => Navigator.pop(context)),
-                  SizedBox(
-                    width: mobile ? double.infinity : null,
-                    child: FxButton(
-                      key: const ValueKey('habit-checkin-primary-action'),
-                      label: _submitLabel,
-                      expanded: mobile,
-                      size: mobile ? FxButtonSize.lg : FxButtonSize.md,
-                      onPressed: _submitting ? null : _submit,
-                    ),
-                  ),
-                ],
-              ),
+                child: mobile
+                    ? Row(
+                        key: const ValueKey('habit-checkin-mobile-footer'),
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: FxButton(
+                              label: '取消',
+                              expanded: true,
+                              variant: FxButtonVariant.outline,
+                              onPressed: _submitting ? null : _requestClose,
+                            ),
+                          ),
+                          const SizedBox(width: SlowlightSpacing.md),
+                          Expanded(
+                            flex: 7,
+                            child: FxButton(
+                              key: const ValueKey('habit-checkin-primary-action'),
+                              label: _submitLabel,
+                              expanded: true,
+                              size: FxButtonSize.lg,
+                              onPressed: _submitting ? null : _submit,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: SlowlightSpacing.md,
+                        runSpacing: SlowlightSpacing.md,
+                        children: [
+                          FxButton(
+                            label: '取消',
+                            variant: FxButtonVariant.outline,
+                            onPressed: _submitting
+                                ? null
+                                : () => Navigator.pop(context),
+                          ),
+                          FxButton(
+                            key: const ValueKey('habit-checkin-primary-action'),
+                            label: _submitLabel,
+                            onPressed: _submitting ? null : _submit,
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
