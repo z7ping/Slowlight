@@ -31,19 +31,26 @@ class HabitCheckinDialog extends StatefulWidget {
   }) {
     final platform = Theme.of(context).platform;
     if (platform == TargetPlatform.android || platform == TargetPlatform.iOS) {
+      final editorKey = GlobalKey<_HabitCheckinDialogState>();
       return FxSheet.show<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
         isDismissible: false,
         enableDrag: false,
+        showDragHandle: true,
+        onDismissRequested: () async {
+          final editor = editorKey.currentState;
+          if (editor != null) await editor._requestClose();
+        },
         showCloseButton: false,
         backgroundColor: Theme.of(context).colorScheme.surface,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(SlowlightRadius.sheet),
+            top: Radius.circular(SlowlightRadius.xl),
           ),
         ),
         builder: (_) => HabitCheckinDialog(
+            key: editorKey,
             habit: habit,
             recordDate: recordDate,
             onSubmit: onSubmit,
@@ -84,6 +91,9 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
   final _count = TextEditingController(text: '1');
   String? _error;
   bool _submitting = false;
+  bool _allowMobilePop = false;
+  bool _closePending = false;
+  late final String _initialDraft;
   Map<String, dynamic>? _pendingValue;
 
   static const _periods = <(String, String)>[
@@ -121,6 +131,55 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
         _occurredTime = TimeOfDay.fromDateTime(occurred.toLocal());
       }
     }
+    _initialDraft = _draftFingerprint();
+  }
+
+  String _draftFingerprint() => [
+    _note.text,
+    _count.text,
+    '$_durationMin',
+    _period,
+    _occurredTime.toString(),
+  ].join('\\u0000');
+
+  Future<void> _requestClose() async {
+    if (_submitting || _closePending) return;
+    final unknown = _pendingValue != null;
+    if (unknown || _draftFingerprint() != _initialDraft) {
+      _closePending = true;
+      try {
+        final confirmed = await FxDialog.confirm(
+          context: context,
+          title: unknown ? '打卡结果未确认' : '放弃未保存的记录？',
+          content: unknown
+              ? '保存可能已经成功。请先核对习惯明细，避免重复打卡。'
+              : '关闭后将丢失当前填写的习惯记录。',
+          confirmText: unknown ? '返回核对' : '放弃修改',
+          destructive: !unknown,
+        );
+        if (confirmed != true || !mounted) return;
+      } finally {
+        _closePending = false;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _allowMobilePop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context);
+    });
+  }
+
+  void _complete(Map<String, dynamic> value) {
+    final platform = Theme.of(context).platform;
+    if (platform != TargetPlatform.android &&
+        platform != TargetPlatform.iOS) {
+      Navigator.pop(context, value);
+      return;
+    }
+    setState(() => _allowMobilePop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context, value);
+    });
   }
 
   @override
@@ -136,7 +195,10 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     final mobile = theme.platform == TargetPlatform.android ||
         theme.platform == TargetPlatform.iOS;
     return PopScope(
-      canPop: !_submitting,
+      canPop: mobile ? _allowMobilePop : !_submitting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && mobile) _requestClose();
+      },
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -264,8 +326,9 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                   FxButton(
                       label: '取消',
                       variant: FxButtonVariant.outline,
-                      onPressed:
-                          _submitting ? null : () => Navigator.pop(context)),
+                      onPressed: _submitting
+                          ? null
+                          : mobile ? _requestClose : () => Navigator.pop(context)),
                   SizedBox(
                     width: mobile ? double.infinity : null,
                     child: FxButton(
@@ -336,7 +399,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
 
   Future<void> _save(Map<String, dynamic> value) async {
     if (widget.onSubmit == null) {
-      Navigator.pop(context, value);
+      _complete(value);
       return;
     }
     setState(() {
@@ -347,7 +410,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
       await widget.onSubmit!(value);
       if (!mounted) return;
       setState(() => _submitting = false);
-      Navigator.pop(context, value);
+      _complete(value);
     } catch (_) {
       if (!mounted) return;
       setState(() {
