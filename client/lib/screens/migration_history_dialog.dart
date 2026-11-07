@@ -9,6 +9,14 @@ import '../services/migration_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 
+/// An absent or unrecognized audit status is not proof of success.
+String migrationHistoryStatusLabel(Object? status) => switch (status) {
+  'succeeded' => '成功',
+  'failed' => '待核对',
+  'running' => '结果未确认',
+  _ => '状态待核对',
+};
+
 class MigrationHistoryDialog extends StatefulWidget {
   const MigrationHistoryDialog({super.key});
 
@@ -181,7 +189,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   }
 
   Widget _report(Map<String, dynamic> report) {
-    final status = report['status']?.toString() ?? 'succeeded';
+    final status = report['status']?.toString() ?? 'unknown';
     final local = report['source'] == 'local';
     final id = (report['id'] as num?)?.toInt();
     final canRetry = local &&
@@ -255,19 +263,13 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   Widget _statusBadge(String status) {
     final theme = Theme.of(context);
     final failed = status == 'failed';
-    final running = status == 'running';
-    final color =
-        failed
-            ? theme.colorScheme.error
-            : running
-            ? theme.colorScheme.tertiary
-            : theme.colorScheme.primary;
-    final label =
-        failed
-            ? '待核对'
-            : running
-            ? '结果未确认'
-            : '成功';
+    final succeeded = status == 'succeeded';
+    final color = failed
+        ? theme.colorScheme.error
+        : succeeded
+            ? theme.colorScheme.primary
+            : theme.colorScheme.tertiary;
+    final label = migrationHistoryStatusLabel(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
@@ -348,7 +350,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
     'local' => '保留本地，云端留备份',
     'cloud' => '保留云端',
     'both' => '两份都保留',
-    _ => '无冲突直接写入',
+    _ => '策略未确认',
   };
 
   String _counts(Object? value) {
@@ -368,7 +370,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
         'sessions': '专注',
       };
       return labels.entries
-          .map((item) => '${item.value} ${raw[item.key] ?? 0}')
+          .map((item) => '${item.value} ${raw[item.key] ?? '—'}')
           .join(' · ');
     } catch (_) {
       return '统计摘要不可用';
