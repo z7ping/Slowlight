@@ -49,6 +49,24 @@ void main() {
     expect(login, contains('? _retryGitHubCloudMode'));
   });
 
+  test('已保存的账号/注册凭据只重试云端模式，不重复登录或注册', () async {
+    final login = await File('lib/screens/login_screen.dart').readAsString();
+    final start = login.indexOf('Future<void> _retryStoredCredentialsCloudMode()');
+    final end = login.indexOf('Future<void> _loginWithGitHub(', start);
+    expect(start, greaterThanOrEqualTo(0));
+    expect(end, greaterThan(start));
+    final retry = login.substring(start, end);
+    expect(retry, contains('await AuthService.isLoggedIn()'));
+    expect(retry, contains('await DataModeManager().setCloud()'));
+    expect(retry, contains('authStateNotifier.value'));
+    expect(retry, isNot(contains('AuthService.register(')));
+    expect(retry, isNot(contains('AuthService.login(')));
+    expect(retry, contains('_view = _LoginView.password'));
+    expect(login, contains('if (_credentialsSavedForCloud)'));
+    expect(login, contains('login.credentials_cloud_error'));
+    expect(login, contains("'重试进入云端'"));
+  });
+
   test('旧首页、侧栏与维度字段不得悄悄重返正式业务调用链', () async {
     const compatibilityFiles = {
       'lib/screens/home_drawer.dart': 'HomeDrawer',
