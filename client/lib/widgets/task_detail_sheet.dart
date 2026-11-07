@@ -69,13 +69,11 @@ class TaskDetailSheet extends StatefulWidget {
 
             return PopScope(
               canPop: allowRoutePop,
-              onPopInvokedWithResult: (didPop, _) async {
-                if (didPop || allowRoutePop) return;
-                final editor = editorKey.currentState;
-                if (editor != null &&
-                    await editor.confirmLeaveSidePanel() &&
-                    routeContext.mounted) {
-                  closeRoute();
+              onPopInvokedWithResult: (didPop, _) {
+                // Reuse the editor's one close path for header, Escape
+                // and Android-style system Back emulation on Windows.
+                if (!didPop && !allowRoutePop) {
+                  editorKey.currentState?._requestDesktopClose();
                 }
               },
               child: Align(
@@ -247,6 +245,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   bool _creationResultUnknown = false;
   bool _mobileExpanded = false;
   bool _allowMobilePop = false;
+  bool _desktopClosePending = false;
 
   @override
   void initState() {
@@ -339,8 +338,14 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _requestDesktopClose() async {
-    if (!await confirmLeaveSidePanel() || !mounted) return;
-    _close();
+    if (_desktopClosePending) return;
+    _desktopClosePending = true;
+    try {
+      if (!await confirmLeaveSidePanel() || !mounted) return;
+      _close();
+    } finally {
+      _desktopClosePending = false;
+    }
   }
 
   void _mobileChanged([String? _]) {
