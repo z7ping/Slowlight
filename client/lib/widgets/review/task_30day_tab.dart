@@ -20,6 +20,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   Map<String, dynamic> _data = {};
   List<Map<String, dynamic>> _trendDays = const [];
   bool _trendLoadFailed = false;
+  int _loadVersion = 0;
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   }
 
   Future<void> _load() async {
+    final version = ++_loadVersion;
     setState(() {
       _loading = true;
       _error = null;
@@ -44,7 +46,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
           return <Map<String, dynamic>>[];
         }),
       ]);
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _data = results[0] as Map<String, dynamic>;
         _trendDays = results[1] as List<Map<String, dynamic>>;
@@ -52,7 +54,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _error = e.toString();
         _loading = false;
