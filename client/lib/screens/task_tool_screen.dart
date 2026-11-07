@@ -816,6 +816,12 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         task.dueTime!,
       if (task.isCompleted && task.completedAt != null)
         '${_two(task.completedAt!.hour)}:${_two(task.completedAt!.minute)} 完成',
+      // The task prototype retains priority semantics in row metadata on
+      // Android, where there is no desktop-only colored priority stripe.
+      if (task.priority == 'urgent_important' || task.priority == 'high')
+        '重要 · 紧急',
+      if (task.priority == 'important') '重要 · 不紧急',
+      if (task.priority == 'urgent') '不重要 · 紧急',
     ];
     final largeText =
         MediaQuery.textScalerOf(
@@ -851,7 +857,9 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                 width: 3,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: AppTheme.priorityColor(task.priority),
+                  color: task.priority == 'none'
+                      ? Colors.transparent
+                      : AppTheme.priorityColor(task.priority),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
