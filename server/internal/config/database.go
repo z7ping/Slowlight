@@ -110,6 +110,7 @@ func InitDB() (*gorm.DB, error) {
 		&model.ReflectionTag{},
 		&model.Habit{},
 		&model.HabitLog{},
+        &model.HabitGoalRevision{},
 		&model.UserConfig{},
 		&model.Webhook{},
 		&model.SystemTag{},
