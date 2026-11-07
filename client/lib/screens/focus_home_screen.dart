@@ -73,6 +73,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   bool _reviewOpened = false;
   bool _organizeToolsExpanded = false;
   bool _openHabitEditorOnEnter = false;
+  int? _searchFocusHabitId;
   late Future<Map<String, String>> _accountFuture;
   bool _shortcutModifierPressed = false;
   int _dashboardRefreshTick = 0;
@@ -445,9 +446,18 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   }
 
   Future<void> _openSearch() {
-    return Navigator.push(
+    return Navigator.push<void>(
       context,
-      MaterialPageRoute(builder: (_) => const SearchScreen()),
+      MaterialPageRoute(
+        builder: (searchContext) => SearchScreen(
+          onOpenHabit: (habit) {
+            Navigator.of(searchContext).pop();
+            if (!mounted) return;
+            setState(() => _searchFocusHabitId = habit.id);
+            unawaited(_openTool(HomeToolSection.habits));
+          },
+        ),
+      ),
     );
   }
 
@@ -827,6 +837,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       HabitToolScreen(
         titleProvidedByShell: true,
         createOnOpen: _openHabitEditorOnEnter,
+        focusHabitId: _searchFocusHabitId,
       ),
     HomeToolSection.quadrant => const QuadrantScreen(),
     HomeToolSection.calendar => const CalendarScreen(),
@@ -986,7 +997,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             padding: EdgeInsets.fromLTRB(10, showPanelBrand ? 0 : 10, 10, 10),
             child: _searchEntry(
               showShortcut: !closeDrawer,
-              onTap: () => openPage(const SearchScreen()),
+              onTap: () {
+                if (closeDrawer) Navigator.pop(context);
+                unawaited(_openSearch());
+              },
             ),
           ),
           Expanded(
