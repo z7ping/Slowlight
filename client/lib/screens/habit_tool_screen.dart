@@ -980,18 +980,20 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
           final active = checked.contains(key) ||
               (_sameDay(day, today) && habit.checkedToday);
-          return Semantics(
-            label: '${day.month}月${day.day}日${active ? '有记录' : '无记录'}',
-            child: Container(
-              key: ValueKey('habits.week.${habit.id}.$index'),
-              width: 7,
-              height: 7,
-              margin: EdgeInsets.only(
-                right: index == 6 ? 0 : SlowlightSpacing.xs,
-              ),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: active ? scheme.primary : fxSubtleSurface(context),
+          return Padding(
+            padding: EdgeInsets.only(
+              right: index == 6 ? 0 : SlowlightSpacing.xs,
+            ),
+            child: Semantics(
+              label: '${day.month}月${day.day}日${active ? '有记录' : '无记录'}',
+              child: Container(
+                key: ValueKey('habits.week.${habit.id}.$index'),
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? scheme.primary : fxSubtleSurface(context),
+                ),
               ),
             ),
           );
