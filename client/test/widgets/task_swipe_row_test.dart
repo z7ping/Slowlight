@@ -55,6 +55,40 @@ void main() {
     });
   }
 
+  testWidgets('系统开启减少动态效果后，任务滑动不执行回弹过渡', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: Center(
+            child: SizedBox(
+              width: 320,
+              child: TaskSwipeRow(
+                open: false,
+                onOpenChanged: (_) {},
+                onComplete: () async {},
+                onPostpone: () async {},
+                onMore: () {},
+                child: const SizedBox(
+                  height: 64,
+                  child: Text('减少动态效果'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    final foreground = tester.widget<AnimatedContainer>(
+      find.byType(AnimatedContainer),
+    );
+    expect(foreground.duration, Duration.zero);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('任务右滑完成一次，不依赖隐藏操作区按钮', (tester) async {
     var open = false;
     var completeCount = 0;
