@@ -99,8 +99,9 @@ class LocalHabitRepository {
             final count = countRows.first['total'] as int? ?? 0;
             mutable['period_count'] = count;
             mutable['period_target'] = occurrence.target;
-            mutable['can_check_in'] = count < occurrence.target &&
-              (occurrence.sameDayMultiple || todayRows.isEmpty);
+            // A reached period goal still accepts further real events.
+            mutable['can_check_in'] = occurrence.sameDayMultiple ||
+              todayRows.isEmpty;
           } else {
             final prior = await db.query('habit_logs',
               where:'habit_id = ? AND occurrence_key = ?',
@@ -295,11 +296,6 @@ class LocalHabitRepository {
           'log': existing.first, 'streak_count': habit['streak_count'] ?? 0};
       }
       if (event?.periodStart != null) {
-        final counts = await tx.rawQuery(
-          'SELECT COUNT(*) AS total FROM habit_logs WHERE habit_id = ? AND date >= ? AND date < ?',
-          [habitId, event!.periodStart, event.periodEnd]);
-        final count = counts.first['total'] as int? ?? 0;
-        if (count >= event.target) throw StateError('本周期已完成目标次数');
         if (!event.sameDayMultiple) {
           final sameDay = await tx.query('habit_logs',
             where: 'habit_id = ? AND date = ?',whereArgs:[habitId,day],limit:1);
@@ -489,7 +485,7 @@ class LocalHabitRepository {
       'habit_logs',
       where: where,
       whereArgs: whereArgs,
-      orderBy: 'date DESC',
+      orderBy: 'date DESC, created_at DESC, id DESC',
     );
     final todayStr = _dateStr(DateTime.now());
     return {
