@@ -122,4 +122,23 @@ void main() {
     expect(rule.preview(),isEmpty);
   });
 
+  test('P05 invalid imported specified days are reported, never normalized', () {
+    final invalidWeek = HabitScheduleRule.fromJson({
+      'kind': 'specific', 'unit': 'week', 'every': 1,
+      'anchor_date': '2026-01-01', 'weekdays': [8],
+    });
+    expect(invalidWeek.validationError, contains('星期'));
+    final missingWeek = HabitScheduleRule.fromJson({
+      'kind': 'specific', 'unit': 'week', 'every': 1,
+      'anchor_date': '2026-01-01',
+    });
+    expect(missingWeek.validationError, contains('星期'));
+    const invalidMonth = HabitScheduleRule(
+      anchorDate: '2026-01-01', kind: 'specific',
+      unit: 'month', monthDays: [0],
+    );
+    expect(invalidMonth.validationError, contains('月份'));
+    expect(invalidMonth.nextAfter(DateTime(2025,12,31)), isEmpty);
+  });
+
 }
