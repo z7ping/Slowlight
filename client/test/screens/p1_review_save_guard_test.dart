@@ -55,6 +55,48 @@ class _DeferredReflections extends _ControlledReflections {
 }
 
 void main() {
+  testWidgets('P09 定位跨期观察保留原始日期，不冒充今日统计', (tester) async {
+    tester.view.physicalSize = const Size(900, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _ControlledReflections();
+    final originalDate = DateTime.now().subtract(const Duration(days: 7));
+    final observation = ReflectionEntry(
+      id: 320,
+      entryType: 'observation',
+      content: '上周一次真实的工作观察',
+      createdAt: originalDate,
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TodayReviewScreen(
+          focusObservation: observation,
+          focusRequestId: 1,
+          reflectionRepository: repository,
+          habitRepository: _NoHabits(),
+          reviewLoader: () async => {
+            'facts': <String, dynamic>{},
+            'patterns': <String, dynamic>{},
+            'questions': <Map<String, dynamic>>[],
+          },
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('定位观察 · 原始记录'), findsOneWidget);
+    expect(find.text('上周一次真实的工作观察'), findsOneWidget);
+    expect(find.text('0 项'), findsOneWidget);
+    expect(
+      find.textContaining(
+        '${originalDate.year}-${originalDate.month.toString().padLeft(2, '0')}-${originalDate.day.toString().padLeft(2, '0')}',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   Widget review(_ControlledReflections repository, {
     List<Map<String, dynamic>> questions = const [],
   }) => buildFxTestHost(
