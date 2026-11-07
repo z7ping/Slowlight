@@ -59,6 +59,9 @@ class LocalHabitRepository {
     final weekStart = DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: now.weekday - 1));
     final weekStartStr = _dateStr(weekStart);
+    final recentStartStr = _dateStr(
+      DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6)),
+    );
 
     final enriched = <Map<String, dynamic>>[];
     for (final habit in maps) {
@@ -74,7 +77,7 @@ class LocalHabitRepository {
       final weekRows = await db.query(
         'habit_logs',
         where: 'habit_id = ? AND date >= ? AND date <= ?',
-        whereArgs: [hid, weekStartStr, todayStr],
+        whereArgs: [hid, recentStartStr, todayStr],
       );
       mutable['checked_days'] =
           weekRows.map((row) => row['date'] as String).toSet().toList();
