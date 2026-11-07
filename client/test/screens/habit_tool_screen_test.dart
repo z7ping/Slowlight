@@ -59,6 +59,40 @@ class _SampleHabitRepo extends HabitRepository {
 }
 
 void main() {
+  testWidgets('今天的创建意图只打开一次既有习惯编辑器', (tester) async {
+    var opens = 0;
+    Future<HabitEditorValue?> editor(BuildContext context, {Habit? habit}) async {
+      opens++;
+      return null;
+    }
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: HabitToolScreen(
+          repository: _EmptyHabitRepo(),
+          editor: editor,
+          createOnOpen: true,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(opens, 1);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: HabitToolScreen(
+          repository: _EmptyHabitRepo(),
+          editor: editor,
+          createOnOpen: false,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(opens, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('09 Android 360dp 首页同时可见习惯概况与添加操作', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
