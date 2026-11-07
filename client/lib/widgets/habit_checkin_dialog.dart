@@ -201,13 +201,23 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
       },
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding:
-              EdgeInsets.fromLTRB(mobile ? 16 : 20, 16, mobile ? 16 : 20, 20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .82,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    mobile ? 16 : 20, 16, mobile ? 16 : 20, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               Row(
                 children: [
                   Text(widget.habit.icon,
@@ -317,8 +327,15 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                 const SizedBox(height: 8),
                 Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
               ],
-              const SizedBox(height: 18),
-              Wrap(
+                    ],
+                  ),
+                ),
+              ),
+              FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  mobile ? 16 : 20, 12, mobile ? 16 : 20, 16),
+                child: Wrap(
                 alignment: WrapAlignment.end,
                 spacing: SlowlightSpacing.md,
                 runSpacing: SlowlightSpacing.md,
@@ -340,6 +357,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                     ),
                   ),
                 ],
+              ),
               ),
             ],
           ),
