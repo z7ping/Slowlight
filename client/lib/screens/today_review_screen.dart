@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -43,7 +45,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   bool _hasConfirmedReview = false;
   String? _error;
   String? _refreshError;
-  List<String> _partialUnavailable = const [];
+  List<String> _reflectionUnavailable = const [];
+  List<String> _habitUnavailable = const [];
+  List<String> get _partialUnavailable =>
+      [..._reflectionUnavailable, ..._habitUnavailable];
   Map<String, dynamic> _review = {};
   List<ReflectionEntry> _reflections = const [];
   List<_TodayHabitFact> _todayHabitFacts = const [];
@@ -94,48 +99,90 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final version = ++_loadVersion;
     if (mounted) {
       setState(() {
-        // A subsequent refresh must not hide confirmed facts or editor text.
+        // Main review facts are independent of recent responses and per-habit
+        // log queries. Keep confirmed facts and draft visible while refreshing.
         _loading = !_hasConfirmedReview;
         _error = null;
         _refreshError = null;
-        if (!_hasConfirmedReview) _partialUnavailable = const [];
+        if (!_hasConfirmedReview) {
+          _reflectionUnavailable = const [];
+          _habitUnavailable = const [];
+        }
       });
     }
+
+    // Do not wait for auxiliary repositories before rendering Today facts.
+    // Each task updates only its own state, and older results cannot win.
+    unawaited(_loadReflections(version));
+    unawaited(_loadHabitDetails(version));
+
     try {
-      final partialUnavailable = <String>[];
-      final values = await Future.wait<dynamic>([
-        (widget.reviewLoader ?? ReviewApi.getTodayReview)(),
-        _reflectionRepository.recent(limit: 30).catchError((_) {
-          partialUnavailable.add('回应记录');
-          // This request is independent of the already confirmed response
-          // list; a transient read error must not make saved entries vanish.
-          return _reflections;
-        }),
-        _loadTodayHabitFacts(partialUnavailable).catchError((_) {
-          partialUnavailable.add('习惯明细');
-          return _todayHabitFacts;
-        }),
-      ]);
+      final review = await (widget.reviewLoader ?? ReviewApi.getTodayReview)();
       if (!mounted || version != _loadVersion) return;
       setState(() {
-        _review = values[0] as Map<String, dynamic>;
-        _reflections = values[1] as List<ReflectionEntry>;
-        _todayHabitFacts = values[2] as List<_TodayHabitFact>;
-        _partialUnavailable = partialUnavailable;
+        _review = review;
         _hasConfirmedReview = true;
         _refreshError = null;
         _loading = false;
       });
-    } catch (e) {
+    } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
         if (_hasConfirmedReview) {
-          _refreshError = e.toString();
+          _refreshError = error.toString();
         } else {
-          _error = e.toString();
+          _error = error.toString();
         }
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadReflections(int version) async {
+    try {
+      final entries = await _reflectionRepository.recent(limit: 30);
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _reflections = entries;
+        _reflectionUnavailable = const [];
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      // Keep already confirmed saved responses; failure is not empty.
+      setState(() => _reflectionUnavailable = const ['回应记录']);
+    }
+  }
+
+  Future<void> _loadHabitDetails(int version) async {
+    final unavailable = <String>[];
+    try {
+      final facts = await _loadTodayHabitFacts(unavailable);
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        // Partial per-habit failures must not wipe confirmed fact rows.
+        // Keep old entries only for habits whose logs were unavailable.
+        if (unavailable.isEmpty) {
+          _todayHabitFacts = facts;
+        } else if (unavailable.contains('习惯明细')) {
+          // Complete repository failure: use previous confirmed rows.
+        } else {
+          final failedNames = unavailable
+              .where((value) => value.startsWith('习惯「') &&
+                  value.endsWith('」明细'))
+              .map((value) => value.substring(3, value.length - 3))
+              .toSet();
+          _todayHabitFacts = [
+            ...facts,
+            ..._todayHabitFacts.where(
+              (row) => failedNames.contains(row.habit.name),
+            ),
+          ]..sort((a, b) => a.log.createdAt.compareTo(b.log.createdAt));
+        }
+        _habitUnavailable = List<String>.unmodifiable(unavailable);
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() => _habitUnavailable = const ['习惯明细']);
     }
   }
 
