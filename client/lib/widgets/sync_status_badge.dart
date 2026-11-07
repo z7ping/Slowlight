@@ -8,7 +8,6 @@ import '../services/sync_service.dart';
 import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
 
-/// 同步状态指示器 — 显示在 AppBar 或 Drawer
 /// UI wording is deliberately weaker than a server-confirmed sync receipt.
 /// A cleared queue alone is not evidence that cloud writes succeeded.
 String syncDetailResultLabel({
@@ -26,6 +25,7 @@ String syncDetailResultLabel({
   return '无待处理项';
 }
 
+/// 同步状态指示器 — 显示在 AppBar 或 Drawer
 class SyncStatusBadge extends StatelessWidget {
   final bool showHealthy;
   final bool showLocal;
