@@ -60,7 +60,7 @@ class LocalHabitRepository {
         .subtract(Duration(days: now.weekday - 1));
     final weekStartStr = _dateStr(weekStart);
     final recentStartStr = _dateStr(
-      DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6)),
+      DateTime(now.year, now.month, now.day - 6),
     );
 
     final enriched = <Map<String, dynamic>>[];
