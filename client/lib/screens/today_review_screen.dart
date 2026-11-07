@@ -24,6 +24,9 @@ import 'weekly_review_screen.dart';
 /// 回顾页采用已确认的 Android / Windows 响应式信息结构；组件复用 Fx。
 class TodayReviewScreen extends StatefulWidget {
   final String initialReviewMode;
+  /// A verified search result to pin without changing today's statistics.
+  final ReflectionEntry? focusObservation;
+  final int focusRequestId;
   final ReflectionRepository? reflectionRepository;
   final HabitRepository? habitRepository;
   final Future<Map<String, dynamic>> Function()? reviewLoader;
@@ -31,6 +34,8 @@ class TodayReviewScreen extends StatefulWidget {
   const TodayReviewScreen({
     super.key,
     this.initialReviewMode = 'tasks',
+    this.focusObservation,
+    this.focusRequestId = 0,
     this.reflectionRepository,
     this.habitRepository,
     this.reviewLoader,
@@ -67,6 +72,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   ReflectionRepository get _reflectionRepository =>
       widget.reflectionRepository ?? ReflectionRepository();
   int _loadVersion = 0;
+  final GlobalKey _focusedObservationKey = GlobalKey();
+  int? _lastQueuedFocusRequest;
 
   @override
   void initState() {
@@ -74,6 +81,18 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     _load();
     if (widget.initialReviewMode == 'rest') {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openRestReview());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant TodayReviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusRequestId != oldWidget.focusRequestId) {
+      _lastQueuedFocusRequest = null;
+      if (widget.focusObservation != null) {
+        _viewIndex = 0;
+        _periodIndex = 0;
+      }
     }
   }
 
@@ -799,7 +818,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     for (final entry in _reflections
         .where((entry) =>
             entry.entryType == 'observation' &&
-            _sameDay(entry.createdAt, today))
+            _sameDay(entry.createdAt, today) &&
+            entry.id != widget.focusObservation?.id)
         .take(5)) {
       items.add(
         ReviewTimelineItem(
@@ -812,7 +832,42 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     }
 
     // 仅已知精确时间的记录参与时间排序；无时间的汇总置于末尾。
+    // A search result is independently verified. Do not count an older
+    // observation as today's fact or erase its original date.
+    final focused = widget.focusObservation;
+    final todayItemCount = items.length +
+        (focused != null && _sameDay(focused.createdAt, today) ? 1 : 0);
     items.sort(compareReviewTimelineItems);
+    if (focused != null) {
+      items.insert(
+        0,
+        ReviewTimelineItem(
+          key: _focusedObservationKey,
+          color: AppTheme.chartPurple,
+          time: '${focused.createdAt.year}-${_two(focused.createdAt.month)}-${_two(focused.createdAt.day)} ${_clockTime(focused.createdAt)}',
+          title: '定位观察 · 原始记录',
+          note: focused.content,
+        ),
+      );
+      if (_lastQueuedFocusRequest != widget.focusRequestId) {
+        _lastQueuedFocusRequest = widget.focusRequestId;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final targetContext = _focusedObservationKey.currentContext;
+          if (targetContext == null) return;
+          final reducedMotion =
+              MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+          Scrollable.ensureVisible(
+            targetContext,
+            alignment: 0.2,
+            duration: reducedMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          );
+        });
+      }
+    }
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     final card = FxCard(
       padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
@@ -846,6 +901,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             ...List.generate(
               items.length,
               (index) => ReviewTimelineItem(
+                key: items[index].key,
                 color: items[index].color,
                 time: items[index].time,
                 title: items[index].title,
@@ -864,7 +920,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           title: '发生过的事',
           trailing: _partialUnavailable.isNotEmpty
               ? '待核对'
-              : '${items.length} 项',
+              : '$todayItemCount 项',
         ),
         const SizedBox(height: SlowlightSpacing.md),
         card,
