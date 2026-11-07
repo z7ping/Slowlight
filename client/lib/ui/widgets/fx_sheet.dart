@@ -116,16 +116,21 @@ abstract final class FxSheet {
               final grip = Semantics(
                 label: '下滑关闭弹窗',
                 button: true,
+                // TalkBack/VoiceOver can invoke dismissal explicitly. A
+                // single accidental touch on the grip never closes the form.
+                onTap: () {
+                  onDismissRequested?.call();
+                },
                 child: GestureDetector(
                   key: const ValueKey('fx.sheet.dragHandle'),
                   behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    onDismissRequested?.call();
+                  onVerticalDragStart: (_) {
+                    FocusScope.of(context).unfocus();
+                    setDragState(() {
+                      dragging = true;
+                      dragDistance = 0;
+                    });
                   },
-                  onVerticalDragStart: (_) => setDragState(() {
-                    dragging = true;
-                    dragDistance = 0;
-                  }),
                   onVerticalDragUpdate: (details) {
                     setDragState(() {
                       dragDistance =
