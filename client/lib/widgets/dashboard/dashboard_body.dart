@@ -441,7 +441,9 @@ class _DashboardBodyState extends State<DashboardBody> {
           ),
           if (_reviewLoadFailed) ...[
             const SizedBox(height: 8),
-            _partialUnavailable('今日事实暂时无法读取'),
+            _partialUnavailable(_facts.isEmpty
+                ? '今日事实暂时无法读取'
+                : '今日事实刷新未确认，显示上次数据'),
           ],
         ],
       ),
@@ -450,7 +452,7 @@ class _DashboardBodyState extends State<DashboardBody> {
   }
 
   String _factNumber(String key) {
-    if (_reviewLoadFailed || _reviewLoading) return '—';
+    if ((_reviewLoadFailed || _reviewLoading) && _facts.isEmpty) return '—';
     return ((_facts[key] as num?)?.toInt() ?? 0).toString();
   }
 
@@ -680,21 +682,25 @@ class _DashboardBodyState extends State<DashboardBody> {
           ),
           const SizedBox(height: SlowlightSpacing.md),
           if (_dimensionLoadFailed)
-            _partialUnavailable('四维统计暂时不可用')
-          else if (_dimensionLoading && _dimensions.isEmpty)
+            _partialUnavailable(_dimensions.isEmpty
+                ? '四维统计暂时不可用'
+                : '四维统计刷新未确认，以下为上次数据'),
+          if (_dimensionLoadFailed && _dimensions.isNotEmpty)
+            const SizedBox(height: SlowlightSpacing.md),
+          if (_dimensionLoading && _dimensions.isEmpty && !_dimensionLoadFailed)
             _empty('正在读取四维统计…')
-          else if (_dimensions.isEmpty)
+          else if (_dimensions.isEmpty && !_dimensionLoadFailed)
             _empty('还没有四维行为记录')
-          else if (_dimensions.every(
-              (item) => (item['active_days'] as List? ?? const []).isEmpty))
+          else if (_dimensions.isNotEmpty &&
+              _dimensions.every(
+                (item) => (item['active_days'] as List? ?? const []).isEmpty,
+              ))
             _empty('最近 7 天还没有归属四维的行为足迹')
-          else
+          else if (_dimensions.isNotEmpty)
             LayoutBuilder(
               builder: (context, constraints) {
                 // 四维卡片只根据当前组件真实宽度决定列数；
-
                 // 字体放大通过内容自然增高处理，不在 130% 强制单列。
-
                 final columns = constraints.maxWidth >= 320 ? 2 : 1;
                 final gap = 8.0;
                 final width =
@@ -1431,11 +1437,13 @@ class _DashboardBodyState extends State<DashboardBody> {
         .where((item) => !_ignored.contains(item.id))
         .take(1)
         .toList(growable: false);
-    final insight = _reviewLoadFailed || visible.isEmpty ? null : visible.first;
+    final insight = visible.isEmpty ? null : visible.first;
     return _card(
       FxInkWell(
         borderRadius: BorderRadius.circular(SlowlightRadius.lg),
-        onTap: insight == null ? null : () => _respond(insight),
+        onTap: _reviewLoadFailed || insight == null
+            ? null
+            : () => _respond(insight),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1447,9 +1455,13 @@ class _DashboardBodyState extends State<DashboardBody> {
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             ),
             const SizedBox(height: 8),
-            if (_reviewLoadFailed)
-              _partialUnavailable('今日提问暂时无法读取')
-            else
+            if (_reviewLoadFailed) ...[
+              _partialUnavailable(insight == null
+                  ? '今日提问暂时无法读取'
+                  : '今日提问刷新未确认，以下为上次提问'),
+              if (insight != null) const SizedBox(height: SlowlightSpacing.xs),
+            ],
+            if (!_reviewLoadFailed || insight != null)
               Text(
                 insight?.content ??
                     (_reviewLoading ? '正在读取今日提问…' : '今天暂时没有特别需要关注的变化。'),
@@ -1460,7 +1472,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                       insight == null ? FontWeight.w400 : FontWeight.w600,
                 ),
               ),
-            if (insight != null) ...[
+            if (insight != null && !_reviewLoadFailed) ...[
               const SizedBox(height: 8),
               Text(
                 '点击去回应 →',

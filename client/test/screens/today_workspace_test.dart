@@ -33,8 +33,13 @@ void main() {
     VoidCallback? onReview,
     List<Task> tasks = const [],
     List<Habit> habits = const [],
+    ValueChanged<Task>? onTaskTap,
     ValueChanged<Task>? onTaskToggle,
     ValueChanged<Habit>? onHabitToggle,
+    VoidCallback? onViewAllTasks,
+    VoidCallback? onViewAllHabits,
+    VoidCallback? onCreateHabit,
+    VoidCallback? onWriteObservation,
     VoidCallback? onStartFocus,
     double textScale = 1,
   }) => buildFxTestHost(
@@ -46,8 +51,13 @@ void main() {
       child: DashboardBody(
         tasks: tasks,
         habits: habits,
+        onTaskTap: onTaskTap,
         onTaskToggle: onTaskToggle,
         onHabitToggle: onHabitToggle,
+        onViewAllTasks: onViewAllTasks,
+        onViewAllHabits: onViewAllHabits,
+        onCreateHabit: onCreateHabit,
+        onWriteObservation: onWriteObservation,
         onStartFocus: onStartFocus,
         reviewLoader: () async => {
           'questions': [],
@@ -70,6 +80,91 @@ void main() {
       ),
     )),
   );
+
+  testWidgets('P02 Android 今日任务详情、打卡、查看全部和专注入口可达', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final actions = <String>[];
+    await tester.pumpWidget(host(
+      width: 390,
+      tasks: [
+        Task(
+          id: 57,
+          listId: 1,
+          title: '今天要做的任务',
+          priority: 'none',
+          isCompleted: false,
+          createdAt: now,
+        ),
+      ],
+      habits: [
+        Habit(
+          id: 76,
+          userId: 1,
+          name: '今天要记录的习惯',
+          icon: '📖',
+          color: '#1890ff',
+          frequency: 'daily',
+          checkedToday: false,
+          createdAt: now,
+        ),
+      ],
+      onTaskTap: (_) => actions.add('task-detail'),
+      onTaskToggle: (_) => actions.add('task-toggle'),
+      onHabitToggle: (_) => actions.add('habit-record'),
+      onViewAllTasks: () => actions.add('tasks'),
+      onViewAllHabits: () => actions.add('habits'),
+      onStartFocus: () => actions.add('focus'),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('开始专注'));
+    await tester.ensureVisible(find.text('今天要做的任务'));
+    await tester.tap(find.text('今天要做的任务'));
+    await tester.ensureVisible(find.byKey(const ValueKey('today.habit.record.76')));
+    await tester.tap(find.byKey(const ValueKey('today.habit.record.76')));
+    await tester.pump();
+    final viewAll = find.text('查看全部 →');
+    expect(viewAll, findsNWidgets(2));
+    await tester.ensureVisible(viewAll.first);
+    await tester.tap(viewAll.first);
+    await tester.ensureVisible(viewAll.last);
+    await tester.tap(viewAll.last);
+    await tester.pump();
+
+    expect(actions, ['focus', 'task-detail', 'habit-record', 'tasks', 'habits']);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P02 Android 空习惯/空轨迹保持原位创建和记录观察入口', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final actions = <String>[];
+    await tester.pumpWidget(host(
+      width: 390,
+      timeline: () async => const [],
+      onCreateHabit: () => actions.add('create-habit'),
+      onWriteObservation: () => actions.add('observation'),
+    ));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('添加习惯'));
+    await tester.tap(find.text('添加习惯'));
+    await tester.ensureVisible(find.text('记录观察'));
+    await tester.tap(find.text('记录观察'));
+    await tester.pump();
+    expect(actions, ['create-habit', 'observation']);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('Android 今日前三条优先显示未完成，完成数仍包含全部记录',
       (tester) async {
