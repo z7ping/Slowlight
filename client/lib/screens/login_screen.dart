@@ -46,6 +46,8 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _githubError;
   bool _githubCanResume = false;
   bool _githubCancelFailed = false;
+  // Saved credentials must not be re-authorized when only the mode switch fails.
+  bool _githubCredentialsSaved = false;
   String _githubStatus = "等待 GitHub 完成授权…";
   bool _deviceFlowEnabled = false;
   String? _githubDeviceCode;
@@ -182,6 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _githubError = null;
       _githubCanResume = false;
       _githubCancelFailed = false;
+      _githubCredentialsSaved = false;
     });
     try {
       final completed = await GitHubSignIn.signIn(
@@ -205,15 +208,21 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         },
       );
-      if (!isCurrent() || !completed) return;
-      if (!widget.preserveDataMode) {
-        await DataModeManager().setCloud();
-      }
       if (!isCurrent()) return;
-      if (!widget.preserveDataMode) {
-        authStateNotifier.value = !authStateNotifier.value;
+      if (!completed) {
+        setState(() {
+          _githubError = '上次 GitHub 授权已失效，请重新授权。';
+          _githubCanResume = false;
+        });
+        return;
       }
-      if (mounted) _finish(true, successMessage: 'GitHub 登录成功');
+      if (widget.preserveDataMode) {
+        _finish(true, successMessage: 'GitHub 登录成功');
+        return;
+      }
+      // signIn only returns true after the JWT has been safely persisted.
+      _githubCredentialsSaved = true;
+      await _enterCloudAfterGitHub(isCurrent);
     } catch (e) {
       unawaited(
           AppErrorLogger.instance.write(source: 'github_login', error: e));
@@ -243,6 +252,63 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _enterCloudAfterGitHub(bool Function() isCurrent) async {
+    try {
+      await DataModeManager().setCloud();
+    } catch (error) {
+      unawaited(AppErrorLogger.instance.write(
+          source: 'github_cloud_mode', error: error));
+      if (isCurrent()) {
+        setState(() {
+          _githubError = 'GitHub 登录凭据已保存，但切换云端数据失败。'
+              '请重试进入云端，不需要重复授权。\n$error';
+          _githubCanResume = false;
+        });
+      }
+      return;
+    }
+    if (!isCurrent()) return;
+    authStateNotifier.value = !authStateNotifier.value;
+    _finish(true, successMessage: 'GitHub 登录成功');
+  }
+
+  Future<void> _retryGitHubCloudMode() async {
+    if (_isLoading || !_githubCredentialsSaved) return;
+    final attempt = ++_githubAttempt;
+    bool isCurrent() => mounted && attempt == _githubAttempt;
+    setState(() {
+      _isLoading = true;
+      _githubFinishing = true;
+      _githubError = null;
+    });
+    try {
+      // Never reuse an expired token, and never issue a second OAuth request.
+      if (!await AuthService.isLoggedIn()) {
+        if (isCurrent()) {
+          setState(() {
+            _githubCredentialsSaved = false;
+            _githubError = '已保存的云端身份无效，请重新进行 GitHub 授权。';
+          });
+        }
+        return;
+      }
+      if (isCurrent()) await _enterCloudAfterGitHub(isCurrent);
+    } catch (error) {
+      if (isCurrent()) {
+        setState(() {
+          _githubError = '读取已保存的云端身份失败，请重试。\n$error';
+        });
+      }
+    } finally {
+      if (isCurrent()) {
+        setState(() {
+          _isLoading = false;
+          _githubFinishing = false;
+        });
+      }
+    }
+  }
+
   Future<void> _stopGitHubWaiting() async {
     if (_githubFinishing || _isLoading && !_githubAuthorizing) return;
     final attempt = ++_githubAttempt;
@@ -259,6 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _githubError = null;
           _githubCanResume = false;
           _githubCancelFailed = false;
+          _githubCredentialsSaved = false;
           _githubDeviceCode = null;
           _githubVerificationUri = null;
         });
@@ -511,14 +578,25 @@ class _LoginScreenState extends State<LoginScreen> {
               color: theme.colorScheme.onSurface),
         ),
         const SizedBox(height: SlowlightSpacing.xxxl),
-        Text(isWaiting ? '等待 GitHub 授权' : 'GitHub 授权未完成',
+        Text(
+            isWaiting
+                ? '等待 GitHub 授权'
+                : _githubCredentialsSaved
+                    ? 'GitHub 身份已验证'
+                    : 'GitHub 授权未完成',
             style: SlowlightTypography.hero(context),
             textAlign: TextAlign.center),
         const SizedBox(height: SlowlightSpacing.md),
         Text(
           isWaiting
-              ? '请在浏览器完成授权，客户端会自动检查登录结果。'
-              : '你可以继续检查上次授权，或重新发起登录。',
+              ? (_githubDeviceCode == null
+                  ? '请在浏览器完成授权，客户端会自动检查登录结果。'
+                  : '请在 GitHub 验证页面输入下方验证码，客户端会自动检查结果。')
+              : _githubCredentialsSaved
+                  ? '登录凭据已安全保存，尚未切换到云端数据。重试不会再次请求授权。'
+                  : _githubCanResume
+                      ? '可以继续检查上次授权，或取消后重新登录。'
+                      : '这次授权未完成，可以重新发起登录。',
           textAlign: TextAlign.center,
           style: SlowlightTypography.secondary(context).copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -537,13 +615,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   active: isWaiting),
               const SizedBox(height: SlowlightSpacing.xxxl),
               _oauthStep(context,
-                  label: isWaiting ? _githubStatus : '等待授权结果',
-                  icon: Icons.sync_rounded,
-                  active: isWaiting,
+                  label: _githubCredentialsSaved
+                      ? '登录凭据已保存'
+                      : isWaiting
+                          ? _githubStatus
+                          : '等待授权结果',
+                  icon: _githubCredentialsSaved
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.sync_rounded,
+                  active: isWaiting || _githubCredentialsSaved,
                   loading: isWaiting),
               const SizedBox(height: SlowlightSpacing.xxxl),
               _oauthStep(context,
-                  label: '完成登录',
+                  label: _githubCredentialsSaved ? '进入云端数据（待重试）' : '完成登录',
                   icon: Icons.circle_outlined,
                   active: false),
             ],
@@ -638,23 +722,35 @@ class _LoginScreenState extends State<LoginScreen> {
         ] else ...[
           FxButton(
             key: const ValueKey('login.github_retry'),
-            label: _githubCanResume ? '继续检查上次授权' : '重新授权',
+            label: _githubCredentialsSaved
+                ? '重试进入云端'
+                : _githubCanResume
+                    ? '继续检查上次授权'
+                    : '重新授权',
             expanded: true,
             onPressed: _isLoading || _githubCancelFailed
                 ? null
-                : () => _loginWithGitHub(resumePending: _githubCanResume),
+                : _githubCredentialsSaved
+                    ? _retryGitHubCloudMode
+                    : () => _loginWithGitHub(resumePending: _githubCanResume),
           ),
           const SizedBox(height: SlowlightSpacing.md),
           FxButton(
             key: const ValueKey('login.github_cancel'),
-            label: _githubCancelFailed ? '重试取消授权' : '取消授权等待',
+            label: _githubCancelFailed
+                ? '重试取消授权'
+                : _githubCredentialsSaved
+                    ? '返回欢迎页'
+                    : '取消授权等待',
             variant: FxButtonVariant.link,
             expanded: true,
             onPressed: _isLoading ? null : _stopGitHubWaiting,
           ),
         ],
         const SizedBox(height: SlowlightSpacing.md),
-        Text('只有客户端完成确认后才算登录成功。',
+        Text(_githubCredentialsSaved
+                ? '云端身份已保存，但数据模式尚未切换。'
+                : '只有客户端完成确认后才算登录成功。',
             textAlign: TextAlign.center,
             style: SlowlightTypography.caption(context).copyWith(
               color: theme.colorScheme.onSurfaceVariant,
