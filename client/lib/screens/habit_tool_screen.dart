@@ -1319,7 +1319,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       final value = row['goal_value'] ?? '未知';
       final metric = row['goal_metric'] == 'duration'
           ? '分钟' : row['goal_metric'] == 'count'
-              ? habit.recordUnit : '次';
+              ? (row['record_unit']?.toString() ?? habit.recordUnit) : '次';
       return 'v${row['revision'] ?? '?'} $value$metric';
     }).join(' → ');
     return '保存的目标版本 ${habit.goalHistory.length} 条 · $summaries';
