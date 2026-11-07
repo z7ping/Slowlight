@@ -119,7 +119,9 @@ abstract final class FxSheet {
                 child: GestureDetector(
                   key: const ValueKey('fx.sheet.dragHandle'),
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => onDismissRequested(),
+                  onTap: () {
+                    onDismissRequested?.call();
+                  },
                   onVerticalDragStart: (_) => setDragState(() {
                     dragging = true;
                     dragDistance = 0;
@@ -135,7 +137,7 @@ abstract final class FxSheet {
                         (dragDistance > 40 &&
                          (details.primaryVelocity ?? 0) > 750);
                     reset();
-                    if (close) await onDismissRequested();
+                    if (close) await onDismissRequested?.call();
                   },
                   onVerticalDragCancel: reset,
                   child: SizedBox(
