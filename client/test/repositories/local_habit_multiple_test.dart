@@ -15,6 +15,25 @@ void main() {
   tearDown(() async {
     await LocalDb().close();
   });
+  test('P05 旧 SQLite v20 升级只建目标版本表，不倒填旧目标', () async {
+    final path = LocalDb.debugDatabasePathOverride!;
+    final legacy = await databaseFactory.openDatabase(path,
+      options: OpenDatabaseOptions(
+        version: 20,
+        onCreate: (db, _) async {
+          await db.execute('CREATE TABLE habits (id INTEGER PRIMARY KEY, name TEXT)');
+          await db.insert('habits', {'id': 7, 'name': '旧记录'});
+        },
+      ));
+    await legacy.close();
+    final upgraded = await LocalDb().database;
+    final columns = await upgraded.rawQuery(
+        'PRAGMA table_info(habit_goal_revisions)');
+    expect(columns.map((row) => row['name']), contains('revision'));
+    expect(await upgraded.query('habit_goal_revisions'), isEmpty);
+    expect((await upgraded.query('habits')).single['name'], '旧记录');
+  });
+
   test('P05 Local 历史目标版本只追加，不倒填旧记录', () async {
     final repo = LocalHabitRepository();
     final created = await repo.create(
