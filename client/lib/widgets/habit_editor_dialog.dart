@@ -552,7 +552,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       recordType: _recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,
-      allowMultiplePerDay: _allowMultiplePerDay,
+      // V3 goal same-day behavior is governed by the schedule rule. Keep
+      // the legacy field aligned for list actions and older clients.
+      allowMultiplePerDay: _mode == 'goal'
+          ? _sameDayMultiple
+          : _allowMultiplePerDay,
       goalPeriod: _goalPeriod,
       goalMetric: _goalMetric,
       goalValue: goalValue!,
