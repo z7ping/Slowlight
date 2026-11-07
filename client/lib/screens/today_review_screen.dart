@@ -402,46 +402,61 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final tasks = (facts['task_completed'] as num?)?.toInt() ?? 0;
     final habits = (facts['habit_checked'] as num?)?.toInt() ?? 0;
     final focus = (facts['focus_minutes'] as num?)?.toInt() ?? 0;
-    return FxCard(
-      padding: const EdgeInsets.all(16),
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final card = FxCard(
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '今日概况'),
-          const SizedBox(height: 8),
+          if (!mobile) ...[
+            const FxSectionHeader(title: '今日概况'),
+            const SizedBox(height: SlowlightSpacing.md),
+          ],
           FxResponsiveFormGrid(
             minColumnWidth: 96,
             maxColumns: 3,
-            horizontalGap: 8,
-            verticalGap: 8,
+            horizontalGap: SlowlightSpacing.md,
+            verticalGap: SlowlightSpacing.md,
             children: [
               FxStatCell(value: '$tasks', label: '完成任务'),
               FxStatCell(value: '$habits', label: '习惯打卡'),
               FxStatCell(value: '$focus', label: '专注分钟'),
             ],
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              FxButton(
-                label: '查看完整统计 →',
-                variant: FxButtonVariant.link,
-                size: FxButtonSize.sm,
-                onPressed: () => setState(() => _viewIndex = 1),
-              ),
-              FxButton(
-                label: '查看时间分配 →',
-                variant: FxButtonVariant.link,
-                size: FxButtonSize.sm,
-                onPressed: () => setState(() => _viewIndex = 2),
-              ),
-            ],
-          ),
+          if (!mobile) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            Wrap(
+              spacing: SlowlightSpacing.md,
+              runSpacing: SlowlightSpacing.xs,
+              children: [
+                FxButton(
+                  label: '查看完整统计 →',
+                  variant: FxButtonVariant.link,
+                  size: FxButtonSize.sm,
+                  onPressed: () => setState(() => _viewIndex = 1),
+                ),
+                FxButton(
+                  label: '查看时间分配 →',
+                  variant: FxButtonVariant.link,
+                  size: FxButtonSize.sm,
+                  onPressed: () => setState(() => _viewIndex = 2),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+    if (!mobile) return card;
+    // Section title lives outside the single facts panel in the master prototype.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '今日概况'),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
     );
   }
 
