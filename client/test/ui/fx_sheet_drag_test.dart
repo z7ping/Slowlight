@@ -291,6 +291,7 @@ void main() {
       closeTo(1.4, 0.02),
     );
     expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(cancel).height, tester.getSize(submit).height);
     await tester.enterText(find.byType(EditableText).first, '未保存的打卡说明');
     await tester.drag(
       find.byKey(const ValueKey('fx.sheet.dragHandle')),
