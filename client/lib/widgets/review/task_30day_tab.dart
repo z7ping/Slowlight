@@ -3,21 +3,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../models/today_timeline_item.dart';
 import '../../services/api/analytics_api.dart';
 import '../../services/api/review_api.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
 import 'completed_task_item.dart';
+import 'review_timeline_item.dart';
 
 class TaskMonthTab extends StatefulWidget {
   /// Test seams only. Production reuses the existing Review/Analytics APIs.
   final Future<Map<String, dynamic>> Function()? tasksReviewLoader;
   final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
+  final Future<ReviewPeriodTimeline> Function()? periodTimelineLoader;
 
   const TaskMonthTab({
     super.key,
     this.tasksReviewLoader,
     this.dailyTrendLoader,
+    this.periodTimelineLoader,
   });
 
   @override
@@ -33,6 +37,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   List<Map<String, dynamic>> _trendDays = const [];
   bool _trendLoadFailed = false;
   bool _trendRefreshing = false;
+  ReviewPeriodTimeline? _periodTimeline;
+  bool _periodTimelineFailed = false;
   int _loadVersion = 0;
 
   @override
@@ -61,9 +67,12 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _loading = false;
         _trendRefreshing = _trendDays.isNotEmpty;
         _trendLoadFailed = false;
+        _periodTimeline = null;
+        _periodTimelineFailed = false;
       });
       // Optional trend must not delay the confirmed primary task facts.
       unawaited(_loadTrend(version));
+      unawaited(_loadPeriodTimeline(version));
     } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -95,6 +104,73 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _trendLoadFailed = true;
       });
     }
+  }
+
+  Future<void> _loadPeriodTimeline(int version) async {
+    try {
+      final facts = await (widget.periodTimelineLoader ??
+          () => ReviewApi.getPeriodTimeline(period: 'month'))();
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _periodTimeline = facts;
+        _periodTimelineFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() => _periodTimelineFailed = true);
+    }
+  }
+
+  Widget _periodEvidenceCard() {
+    final facts = _periodTimeline;
+    final visible = facts?.items.take(20).toList(growable: false) ??
+        const <TodayTimelineItem>[];
+    return FxCard(
+      expanded: true,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FxSectionHeader(
+            title: '发生过的事',
+            trailing: facts == null
+                ? '待读取'
+                : '观察记录 ${facts.observationCount} 条',
+          ),
+          const SizedBox(height: 10),
+          if (_periodTimelineFailed)
+            Text('近 30 天轨迹读取未确认，已有任务统计不受影响。',
+                style: SlowlightTypography.secondary(context))
+          else if (facts == null)
+            Text('近 30 天轨迹读取中…',
+                style: SlowlightTypography.secondary(context))
+          else if (visible.isEmpty)
+            Text('近 30 天还没有可追溯的行为记录。',
+                style: SlowlightTypography.secondary(context))
+          else ...[
+            if (facts.items.length > visible.length)
+              Text('最近 ${visible.length} 条已载入事件',
+                  style: SlowlightTypography.caption(context)),
+            ...List.generate(visible.length, (index) {
+              final entry = visible[index];
+              return ReviewTimelineItem(
+                color: switch (entry.kind) {
+                  'task_completed' => AppTheme.chartGreen,
+                  'habit_checked' => AppTheme.chartYellow,
+                  'observation' => AppTheme.chartPurple,
+                  _ => AppTheme.info,
+                },
+                time: '${entry.occurredAt.month}/${entry.occurredAt.day} ${entry.timeLabel}',
+                title: entry.kind == 'observation'
+                    ? '记录观察' : entry.description,
+                note: entry.kind == 'observation' ? entry.title : null,
+                last: index == visible.length - 1,
+              );
+            }),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -160,6 +236,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                     const SizedBox(height: 14),
                   ],
                   _summaryCard(summary),
+                  const SizedBox(height: 14),
+                  _periodEvidenceCard(),
                   const SizedBox(height: 14),
                   if (_trendRefreshing && _trendDays.isNotEmpty)
                     Padding(

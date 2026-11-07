@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/habit_log.dart';
+import 'package:slowlight/models/today_timeline_item.dart';
 import 'package:slowlight/models/reflection_entry.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
 import 'package:slowlight/repositories/reflection_repository.dart';
@@ -267,6 +268,18 @@ void main() {
         },
         outputStatsLoader: () => outputs.future,
         dailyTrendLoader: () => trend.future,
+        periodTimelineLoader: () async => ReviewPeriodTimeline(
+          observationCount: 3,
+          items: [
+            TodayTimelineItem(
+              id: 'reflection:87',
+              kind: 'observation',
+              title: '本周真实观察',
+              durationMinutes: 0,
+              occurredAt: DateTime.now(),
+            ),
+          ],
+        ),
       )),
     ));
     await tester.pumpAndSettle();
@@ -274,6 +287,8 @@ void main() {
     expect(trend.isCompleted, isFalse);
     expect(find.text('本周记录'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
+    expect(find.text('观察记录 3 条'), findsOneWidget);
+    expect(find.text('本周真实观察'), findsOneWidget);
     expect(find.byType(FxCircularProgress), findsNothing);
 
     outputs.complete({'this_week': 2, 'total_count': 5});
@@ -308,12 +323,26 @@ void main() {
           if (++trendReads == 1) return trend.future;
           throw StateError('趋势刷新失败');
         },
+        periodTimelineLoader: () async => ReviewPeriodTimeline(
+          observationCount: 12,
+          items: [
+            TodayTimelineItem(
+              id: 'reflection:88',
+              kind: 'observation',
+              title: '近三十天真实观察',
+              durationMinutes: 0,
+              occurredAt: DateTime.now(),
+            ),
+          ],
+        ),
       )),
     ));
     await tester.pumpAndSettle();
     expect(trend.isCompleted, isFalse);
     expect(find.text('近 30 天已载入记录'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
+    expect(find.text('观察记录 12 条'), findsOneWidget);
+    expect(find.text('近三十天真实观察'), findsOneWidget);
     expect(find.text('习惯记录'), findsOneWidget);
     expect(find.byType(FxCircularProgress), findsNothing);
 

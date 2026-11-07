@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../ai/ai_service.dart';
+import '../models/today_timeline_item.dart';
 import '../services/api/analytics_api.dart';
+import '../services/api/review_api.dart';
+import '../widgets/review/review_timeline_item.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 
@@ -15,6 +18,7 @@ class WeeklyReviewScreen extends StatefulWidget {
   final Future<Map<String, dynamic>> Function()? reviewLoader;
   final Future<Map<String, dynamic>> Function()? outputStatsLoader;
   final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
+  final Future<ReviewPeriodTimeline> Function()? periodTimelineLoader;
 
   const WeeklyReviewScreen({
     super.key,
@@ -22,6 +26,7 @@ class WeeklyReviewScreen extends StatefulWidget {
     this.reviewLoader,
     this.outputStatsLoader,
     this.dailyTrendLoader,
+    this.periodTimelineLoader,
   });
 
   @override
@@ -40,6 +45,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   Map<String, dynamic> _review = {};
   Map<String, dynamic> _outputStats = {};
   List<Map<String, dynamic>> _dailyTrend = const [];
+  ReviewPeriodTimeline? _periodTimeline;
+  bool _periodTimelineFailed = false;
   int _loadVersion = 0;
 
   @override
@@ -75,11 +82,14 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _dailyTrend = const [];
         _outputStatsFailed = false;
         _dailyTrendFailed = false;
+        _periodTimeline = null;
+        _periodTimelineFailed = false;
         _aiReport = null;
       });
       // The optional queries must never delay the confirmed weekly summary.
       unawaited(_loadOutputStats(version));
       unawaited(_loadDailyTrend(version));
+      unawaited(_loadPeriodTimeline(version));
     } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -122,6 +132,75 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       if (!mounted || version != _loadVersion) return;
       setState(() => _dailyTrendFailed = true);
     }
+  }
+
+  Future<void> _loadPeriodTimeline(int version) async {
+    try {
+      final facts = await (widget.periodTimelineLoader ??
+          () => ReviewApi.getPeriodTimeline(period: 'week'))();
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _periodTimeline = facts;
+        _periodTimelineFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() => _periodTimelineFailed = true);
+    }
+  }
+
+  Widget _periodEvidenceCard() {
+    final facts = _periodTimeline;
+    final visible = facts?.items.take(20).toList(growable: false) ??
+        const <TodayTimelineItem>[];
+    return FxCard(
+      expanded: true,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FxSectionHeader(
+            title: '发生过的事',
+            trailing: facts == null
+                ? '待读取'
+                : '观察记录 ${facts.observationCount} 条',
+          ),
+          const SizedBox(height: 10),
+          if (_periodTimelineFailed)
+            Text(
+              '本周轨迹读取未确认，已有统计不受影响。',
+              style: SlowlightTypography.secondary(context),
+            )
+          else if (facts == null)
+            Text('本周轨迹读取中…',
+                style: SlowlightTypography.secondary(context))
+          else if (visible.isEmpty)
+            Text('本周还没有可追溯的行为记录。',
+                style: SlowlightTypography.secondary(context))
+          else ...[
+            if (facts.items.length > visible.length)
+              Text('最近 ${visible.length} 条已载入事件',
+                  style: SlowlightTypography.caption(context)),
+            ...List.generate(visible.length, (index) {
+              final entry = visible[index];
+              return ReviewTimelineItem(
+                color: switch (entry.kind) {
+                  'task_completed' => AppTheme.chartGreen,
+                  'habit_checked' => AppTheme.chartYellow,
+                  'observation' => AppTheme.chartPurple,
+                  _ => AppTheme.info,
+                },
+                time: '${entry.occurredAt.month}/${entry.occurredAt.day} ${entry.timeLabel}',
+                title: entry.kind == 'observation'
+                    ? '记录观察' : entry.description,
+                note: entry.kind == 'observation' ? entry.title : null,
+                last: index == visible.length - 1,
+              );
+            }),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmGenerateAiReport() async {
@@ -278,6 +357,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                   ),
                   if (!widget.embedded) const SizedBox(height: 14),
                   _summary(),
+                  const SizedBox(height: SlowlightSpacing.md),
+                  _periodEvidenceCard(),
                   if (_outputStatsFailed || _dailyTrendFailed) ...[
                     const SizedBox(height: 12),
                     FxCard(

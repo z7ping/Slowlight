@@ -98,4 +98,53 @@ void main() {
       'session_ended', 'observation',
     });
   });
+  test('周期观察总量不受40条可见事件截断，按本地日历跨期统计', () async {
+    final db = await LocalDb().database;
+    final now = DateTime.now();
+    final today = now.toUtc().toIso8601String();
+    for (var i = 0; i < 45; i++) {
+      await db.insert('reflections', {
+        'entry_type': 'observation',
+        'content': '今日观察$i',
+        'created_at': today,
+        'updated_at': today,
+      });
+    }
+    final older = DateTime(now.year, now.month, now.day - 10, 12)
+        .toUtc().toIso8601String();
+    await db.insert('reflections', {
+      'entry_type': 'observation',
+      'content': '十天前的观察',
+      'created_at': older,
+      'updated_at': older,
+    });
+    await db.insert('reflections', {
+      'entry_type': 'observation',
+      'content': '已删除',
+      'created_at': today,
+      'updated_at': today,
+      'deleted_at': today,
+    });
+    await db.insert('reflections', {
+      'entry_type': 'reflection',
+      'content': '反思不是观察',
+      'created_at': today,
+      'updated_at': today,
+    });
+
+    final service = LocalTodayTimelineService();
+    final daily = await service.getPeriodTimeline();
+    final weekly = await service.getPeriodTimeline(period: 'week');
+    final rolling = await service.getPeriodTimeline(period: 'month');
+    expect(daily.observationCount, 45);
+    expect(weekly.observationCount, 45);
+    expect(rolling.observationCount, 46);
+    expect(daily.items.length, 40);
+    expect(rolling.items.length, 40);
+    expect(rolling.items.first.kind, 'observation');
+    await expectLater(
+      service.getPeriodTimeline(period: 'year'), throwsArgumentError,
+    );
+  });
+
 }
