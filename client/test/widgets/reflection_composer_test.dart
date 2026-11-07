@@ -7,6 +7,51 @@ import 'package:slowlight/widgets/reflection_composer.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('Android 360dp 观察 Sheet 引导线和底部操作与原型几何一致',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开观察',
+          onPressed: () => ReflectionComposer.show(
+            context,
+            entryType: 'observation',
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开观察'));
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(const ValueKey('fx.sheet.dragHandle'));
+    final title = find.byKey(const ValueKey('observation.mobile.title'));
+    final cancel = find.byKey(const ValueKey('observation.mobile.cancel'));
+    final save = find.widgetWithText(FxButton, '保存观察');
+    expect(handle, findsOneWidget);
+    expect(title, findsOneWidget);
+    expect(cancel, findsOneWidget);
+    expect(save, findsOneWidget);
+    expect(tester.getSize(handle).height, 44);
+    expect(
+      tester.getTopLeft(title).dy >= tester.getBottomLeft(handle).dy,
+      isTrue,
+    );
+    expect(
+      (tester.getSize(cancel).width - tester.getSize(save).width).abs(),
+      lessThan(1.0),
+    );
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(save).height, greaterThanOrEqualTo(44));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 今天记录观察与原型的字段和草稿退出流程一致',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -75,6 +76,10 @@ void main() {
       tester.widget<Text>(find.text('删除')).style?.fontSize,
       SlowlightTypography.buttonSize,
     );
+
+    // A short confirmation uses its visible Cancel action, not a second X.
+    expect(tester.widget<ShadDialog>(find.byType(ShadDialog)).closeIcon,
+        isA<SizedBox>());
 
     await tester.tapAt(const Offset(4, 4));
     await tester.pumpAndSettle();
