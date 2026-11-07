@@ -385,6 +385,7 @@ func TestGetPeriodTimeline_ObservationCountAndWindow(t *testing.T) {
         wantItems int
     }{
         {"today", 45, 40},
+        {"week", 45, 40},
         {"month", 46, 40},
     } {
         w := httptest.NewRecorder()
