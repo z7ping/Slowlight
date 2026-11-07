@@ -18,8 +18,10 @@ class WeeklyReviewScreen extends StatefulWidget {
 
 class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   bool _loading = true;
+  bool _hasConfirmedReview = false;
   bool _generatingAi = false;
   String? _loadError;
+  String? _refreshError;
   bool _outputStatsFailed = false;
   bool _dailyTrendFailed = false;
   String? _aiReport;
@@ -38,8 +40,9 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final version = ++_loadVersion;
     if (mounted) {
       setState(() {
-        _loading = true;
+        _loading = !_hasConfirmedReview;
         _loadError = null;
+        _refreshError = null;
       });
     }
     var outputStatsFailed = false;
@@ -67,13 +70,18 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _dailyTrend = results[2] as List<Map<String, dynamic>>;
         _outputStatsFailed = outputStatsFailed;
         _dailyTrendFailed = dailyTrendFailed;
+        _hasConfirmedReview = true;
         _loading = false;
       });
     } catch (e) {
       if (mounted && version == _loadVersion) {
         setState(() {
           _loading = false;
-          _loadError = e.toString();
+          if (_hasConfirmedReview) {
+            _refreshError = e.toString();
+          } else {
+            _loadError = e.toString();
+          }
         });
       }
     }
@@ -158,6 +166,28 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_refreshError != null) ...[
+                    FxCard(
+                      expanded: true,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '本周数据刷新未确认，以下仍为上次成功读取的统计。',
+                              style: SlowlightTypography.caption(context),
+                            ),
+                          ),
+                          FxButton(
+                            label: '重新加载',
+                            variant: FxButtonVariant.outline,
+                            size: FxButtonSize.sm,
+                            onPressed: _loadReview,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: SlowlightSpacing.md),
+                  ],
                   if (!widget.embedded) Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
