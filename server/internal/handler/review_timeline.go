@@ -33,6 +33,17 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
     now := time.Now().In(loc)
     start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
     end := start.AddDate(0, 0, 1)
+    period := c.DefaultQuery("period", "today")
+    switch period {
+    case "today":
+    case "week":
+        start = start.AddDate(0, 0, -((int(now.Weekday()) + 6) % 7))
+    case "month":
+        start = start.AddDate(0, 0, -29)
+    default:
+        c.JSON(http.StatusBadRequest, gin.H{"error": "无效的回顾周期"})
+        return
+    }
 
     var events []struct {
         ID          uint
@@ -60,6 +71,15 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取今日观察记录"})
         return
     }
+    // The visible timeline is bounded, but the observation total is exact.
+    // Counting its 40 visible rows would misrepresent a busy 30-day period.
+    var observationCount int64
+    if err := h.DB.Model(&model.Reflection{}).
+        Where("user_id = ? AND entry_type = 'observation' AND created_at >= ? AND created_at < ?", userID, start, end).
+        Count(&observationCount).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取观察数量"})
+        return
+    }
     items := make([]todayTimelineItem, 0, len(events)+len(reflections))
     for _, e := range events {
         items = append(items, todayTimelineItem{
@@ -80,5 +100,5 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
         return items[i].OccurredAt.After(items[j].OccurredAt)
     })
     if len(items) > 40 { items = items[:40] }
-    c.JSON(http.StatusOK, gin.H{"items": items})
+    c.JSON(http.StatusOK, gin.H{"items": items, "observation_count": observationCount})
 }
