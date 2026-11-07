@@ -771,6 +771,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         child: Row(
           children: [
             Container(
+              key: ValueKey('habits.icon.${habit.id}'),
               width: mobile ? 32 : 40,
               height: mobile ? 32 : 40,
               alignment: Alignment.center,
