@@ -645,24 +645,35 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
     // 仅已知精确时间的记录参与时间排序；无时间的汇总置于末尾。
     items.sort(compareReviewTimelineItems);
-
-    return FxCard(
-      padding: const EdgeInsets.all(16),
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final card = FxCard(
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '行为轨迹'),
-          const SizedBox(height: 12),
+          if (!mobile) ...[
+            const FxSectionHeader(title: '行为轨迹'),
+            const SizedBox(height: SlowlightSpacing.xl),
+          ],
           if (items.isEmpty)
-            FxEmptyState(
-              icon: LucideIcons.footprints,
-              title: _partialUnavailable.isEmpty ? '今天还没有留下行为记录' : '行为轨迹暂不完整',
-              subtitle: _partialUnavailable.isEmpty
-                  ? '先记录一件真实发生的事，轨迹就会出现在这里。'
-                  : '部分记录读取失败，请重新加载后核对。',
-              padding: const EdgeInsets.symmetric(vertical: 24),
-            )
+            mobile
+                ? Text(
+                    _partialUnavailable.isEmpty
+                        ? '今天还没有留下记录'
+                        : '部分记录尚未读取成功，请稍后核对。',
+                    style: SlowlightTypography.secondary(context),
+                  )
+                : FxEmptyState(
+                    icon: LucideIcons.footprints,
+                    title: _partialUnavailable.isEmpty
+                        ? '今天还没有留下行为记录'
+                        : '行为轨迹暂不完整',
+                    subtitle: _partialUnavailable.isEmpty
+                        ? '先记录一件真实发生的事，轨迹就会出现在这里。'
+                        : '部分记录读取失败，请重新加载后核对。',
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                  )
           else
             ...List.generate(
               items.length,
@@ -676,6 +687,20 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             ),
         ],
       ),
+    );
+    if (!mobile) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FxSectionHeader(
+          title: '发生过的事',
+          trailing: _partialUnavailable.isNotEmpty
+              ? '待核对'
+              : '${items.length} 项',
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
     );
   }
 
