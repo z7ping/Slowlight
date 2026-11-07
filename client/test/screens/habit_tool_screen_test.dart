@@ -72,8 +72,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('习惯'), findsOneWidget);
-    expect(find.text('0 个习惯'), findsOneWidget);
-    expect(find.text('今日已记录 0/0'), findsOneWidget);
+    expect(find.text('0 个习惯 · 今日 0 个有记录'), findsOneWidget);
     expect(find.text('添加习惯'), findsOneWidget);
     expect(find.text('创建第一个习惯'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -125,8 +124,8 @@ void main() {
 
     final weekDay = find.byKey(const ValueKey('habits.week.1.0'));
     expect(weekDay, findsOneWidget);
-    expect(tester.getSize(weekDay).width, greaterThanOrEqualTo(44));
-    expect(tester.getSize(weekDay).height, closeTo(48, 1));
+    expect(tester.getSize(weekDay).width, closeTo(7, 1));
+    expect(tester.getSize(weekDay).height, closeTo(7, 1));
     final barriersBefore = find.byType(ModalBarrier).evaluate().length;
     await tester.tap(weekDay);
     await tester.pumpAndSettle();
@@ -181,8 +180,8 @@ void main() {
     const recordedKey = ValueKey('habits.today.2');
     final pending = find.byKey(pendingKey);
     final recorded = find.byKey(recordedKey);
-    expect(tester.widget<FxButton>(pending).variant, FxButtonVariant.secondary);
-    expect(tester.widget<FxButton>(recorded).variant, FxButtonVariant.secondary);
+    expect(tester.widget<FxButton>(pending).variant, FxButtonVariant.outline);
+    expect(tester.widget<FxButton>(recorded).variant, FxButtonVariant.outline);
     expect(tester.getTopRight(pending).dx,
         closeTo(tester.getTopRight(recorded).dx, 1));
     expect(find.descendant(
@@ -195,6 +194,44 @@ void main() {
     expect(find.byKey(const ValueKey('habits.week.1.6')), findsOneWidget);
     expect(find.byKey(const ValueKey('habits.details.1')), findsOneWidget);
     expect(find.text('当前连续'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 习惯页依原型显示紧凑图标、七日点阵和筛选语义',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: _SampleHabitRepo())),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 个习惯 · 今日 1 个有记录'), findsOneWidget);
+    expect(find.text('今日未记录'), findsOneWidget);
+    expect(find.text('今日有记录'), findsOneWidget);
+
+    final icon = find.text('📚');
+    final iconBox = find.ancestor(
+      of: icon,
+      matching: find.byType(Container),
+    ).first;
+    expect(tester.getSize(iconBox).width, closeTo(32, 1));
+    expect(tester.getSize(iconBox).height, closeTo(32, 1));
+
+    final week = find.byKey(const ValueKey('habits.week.1.0'));
+    final detail = find.byKey(const ValueKey('habits.details.1'));
+    expect(tester.getSize(week).width, closeTo(7, 1));
+    expect(tester.getSize(week).height, closeTo(7, 1));
+    expect(find.descendant(
+      of: find.byKey(const ValueKey('habits.card.1')),
+      matching: find.text('详情'),
+    ), findsOneWidget);
+    expect(tester.getSize(detail).height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
