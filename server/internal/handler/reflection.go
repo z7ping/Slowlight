@@ -178,6 +178,7 @@ func (h *ReflectionHandler) List(c *gin.Context) {
 	var entries []model.Reflection
 	query := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Order("id DESC").Limit(limit)
 	if questionID := strings.TrimSpace(c.Query("question_id")); questionID != "" {
+		query = query.Where("entry_type = ?", "reflection")
 		if len(questionID) > 120 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "question_id 过长"})
 			return
