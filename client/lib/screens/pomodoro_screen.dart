@@ -412,6 +412,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final saved = await FxDialog.show<bool>(
       context: context,
       title: '🍅 专注设置',
+      showCloseButton: false,
       child: StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           final theme = Theme.of(dialogContext);
