@@ -474,7 +474,28 @@ class _DashboardBodyState extends State<DashboardBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_timelineLoadFailed)
-          _partialUnavailable('今天的轨迹暂时无法读取')
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('轨迹暂时没有读到',
+                    style: SlowlightTypography.secondary(context)
+                        .copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text('已有任务和习惯仍可使用，记录没有被清空。',
+                    style: SlowlightTypography.caption(context)),
+                FxButton(
+                  label: '重新加载',
+                  variant: FxButtonVariant.outline,
+                  size: FxButtonSize.sm,
+                  onPressed: widget.onRefresh == null
+                      ? _load
+                      : () { widget.onRefresh!.call(); },
+                ),
+              ],
+            ),
+          )
         else if (_timelineLoading && _timeline.isEmpty)
           _empty('正在读取今天的轨迹…', compact: mobile)
         else if (_timeline.isEmpty)
@@ -483,12 +504,16 @@ class _DashboardBodyState extends State<DashboardBody> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('今天还没有行为记录。',
-                    style: SlowlightTypography.secondary(context)),
-                if (!mobile && widget.onWriteObservation != null)
+                Text('今天还没有留下记录',
+                    style: SlowlightTypography.secondary(context)
+                        .copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text('先记住一件真实发生的事就好。',
+                    style: SlowlightTypography.caption(context)),
+                if (widget.onWriteObservation != null)
                   FxButton(
-                    label: '记录此刻的想法',
-                    variant: FxButtonVariant.ghost,
+                    label: '记录观察',
+                    variant: FxButtonVariant.outline,
                     size: FxButtonSize.sm,
                     onPressed: widget.onWriteObservation,
                   ),
