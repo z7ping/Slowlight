@@ -926,7 +926,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final lastSeven =
-        List.generate(7, (index) => today.subtract(Duration(days: index)));
+        List.generate(7, (index) => DateTime(today.year, today.month, today.day - index));
     final checked = habit.checkedDays.toSet();
     final recentCount = lastSeven
         .where((day) =>
@@ -1069,7 +1069,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(7, (index) {
-          final day = today.subtract(Duration(days: 6 - index));
+          final day = DateTime(today.year, today.month, today.day - (6 - index));
           final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
           final active = checked.contains(key) ||
               (_sameDay(day, today) && habit.checkedToday);
@@ -1241,9 +1241,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       if (log.countValue != null) '${log.countValue} ${habit.recordUnit}',
       if (log.period.isNotEmpty) _periodText(log.period),
     ];
-    final today = DateTime.now();
-    final todayKey = '${today.year}-${_two(today.month)}-${_two(today.day)}';
-    final canCancel = log.date == todayKey;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1282,11 +1279,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                         context,
                       ).copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
-                    if (canCancel || _allowsMultipleToday(habit))
-                      FxInkWell(
-                        onTap: () => _allowsMultipleToday(habit)
-                            ? _removeLog(habit, log)
-                            : _toggleToday(habit),
+                    // An individual history row must cancel its own log ID,
+                    // never a day-level toggle that could add a new slot.
+                    FxInkWell(
+                        onTap: () => _removeLog(habit, log),
                         child: Text(
                           '取消',
                           style: SlowlightTypography.caption(
