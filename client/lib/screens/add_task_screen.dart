@@ -7,6 +7,7 @@ import '../repositories/tag_repository.dart';
 import '../services/task_dimension_assignment.dart';
 import '../widgets/tag_choice_field.dart';
 import '../services/data_service.dart';
+import '../services/api/task_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/task_schedule_fields.dart';
@@ -62,6 +63,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final Set<int> _selectedWeekdays = {};
   int _reminderAdvanceMinutes = -1;
   bool _isSaving = false;
+  bool _creationResultUnknown = false;
+  bool _allowPop = false;
+  bool _closing = false;
+  late final String _initialDraftSnapshot;
 
   @override
   void initState() {
@@ -75,6 +80,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _dueDate = widget.defaultDueDate;
     _selectedDimensionKey = widget.initialDimensionKey;
     _dimensionChanged = widget.dimensionChanged;
+    _initialDraftSnapshot = _draftSnapshot();
     // systemTagId 属于历史标签域，不可当成 canonical tags 的 id。
     _loadInitialDimension();
     _loadTags();
@@ -123,8 +129,59 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       ObservationTag(id: tag.id, name: tag.name, color: tag.color, icon: ''),
   ];
 
+  String _draftSnapshot() {
+    final days = _selectedWeekdays.toList()..sort();
+    final tags = _selectedTagIds.toList()..sort();
+    return [
+      _titleController.text,
+      _descController.text,
+      _selectedListId,
+      _priority,
+      _dueDate?.toIso8601String(),
+      _dueTime?.hour,
+      _dueTime?.minute,
+      _repeatType,
+      days.join(','),
+      _reminderAdvanceMinutes,
+      tags.join(','),
+    ].join('|');
+  }
+
+  Future<void> _requestClose() async {
+    if (_closing || _isSaving) return;
+    _closing = true;
+    try {
+      if (_creationResultUnknown || _draftSnapshot() != _initialDraftSnapshot) {
+        final confirmed = await FxDialog.confirm(
+          context: context,
+          title: _creationResultUnknown
+              ? '任务创建结果尚未确认'
+              : '放弃未保存的修改？',
+          content: _creationResultUnknown
+              ? '请求可能已成功，请关闭后先核对任务列表，不要直接重复创建。'
+              : '本次任务还没有保存，退出将丢弃已填写的内容。',
+          confirmText: _creationResultUnknown ? '结束编辑' : '放弃修改',
+          destructive: true,
+        );
+        if (confirmed != true || !mounted) return;
+      }
+      _finish(false);
+    } finally {
+      _closing = false;
+    }
+  }
+
+  // PopScope must observe canPop=true before the route is removed.
+  void _finish(bool result) {
+    if (_allowPop) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop(result);
+    });
+  }
+
   Future<void> _save() async {
-    if (_isSaving) return;
+    if (_isSaving || _creationResultUnknown) return;
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       _message('请输入任务标题');
@@ -137,6 +194,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
 
     setState(() => _isSaving = true);
+    var createAttempted = false;
     try {
       // 历史预设维度独立保存；新标签仅走 canonical task_tags。
       final systemTagId = await _dimensionAssignment.resolve(
@@ -152,6 +210,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       );
       final repeatDays = formatTaskRepeatDays(_repeatType, _selectedWeekdays);
 
+      createAttempted = true;
       await DataService().createTask(
         listId: listId,
         title: title,
@@ -172,11 +231,18 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         systemTagId: systemTagId,
         taskType: 'daily',
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) _finish(true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isSaving = false);
-      _message('保存失败：$e');
+      final uncertain = createAttempted &&
+          (e is! TaskCreateException || !e.confirmedNotCreated);
+      setState(() {
+        _isSaving = false;
+        _creationResultUnknown = uncertain;
+      });
+      _message(uncertain
+          ? '创建结果未确认，草稿已保留；请先核对任务列表'
+          : '创建失败，确认输入后可重试');
     }
   }
 
@@ -186,10 +252,17 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.embedded) return _editorShell(showBack: false);
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(child: _editorShell(showBack: true)),
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _requestClose();
+      },
+      child: widget.embedded
+          ? _editorShell(showBack: false)
+          : Scaffold(
+              resizeToAvoidBottomInset: true,
+              body: SafeArea(child: _editorShell(showBack: true)),
+            ),
     );
   }
 
@@ -198,7 +271,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showBack)
-          FxPageHeader(title: '新建任务', onBack: () => Navigator.maybePop(context))
+          FxPageHeader(title: '新建任务', onBack: _requestClose)
         else
           _dialogHeader(),
         Expanded(
@@ -382,12 +455,18 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           leading: widget.isEdit ? FxButton(
             label: '删除',
             variant: FxButtonVariant.ghost,
-            onPressed: _isSaving ? null : () => Navigator.pop(context, 'delete'),
+            onPressed: _isSaving ? null : _requestClose,
           ) : null,
           actions: [
             FxButton(
+              label: '取消',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: _isSaving ? null : _requestClose,
+            ),
+            FxButton(
               label: _isSaving ? '保存中…' : '保存',
-              onPressed: _isSaving ? null : _save,
+              onPressed: _isSaving || _creationResultUnknown ? null : _save,
             ),
           ],
         ),
