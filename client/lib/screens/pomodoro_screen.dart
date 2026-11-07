@@ -128,7 +128,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           if (auto is bool) _autoStartNext = auto;
           final sound = decoded['soundEnabled'];
           if (sound is bool) _soundEnabled = sound;
-          if (mounted && !_activeSession) {
+          if (mounted && !_activeSession && !_sessionTransitioning) {
             setState(() {
               _sessionTargetMinutes = _durationFor(_sessionType);
               _remainingSeconds = _sessionTargetMinutes * 60;
