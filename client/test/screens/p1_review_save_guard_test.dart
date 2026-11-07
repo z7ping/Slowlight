@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/reflection_entry.dart';
@@ -10,6 +11,7 @@ import 'package:slowlight/screens/today_review_screen.dart';
 import 'package:slowlight/screens/weekly_review_screen.dart';
 import 'package:slowlight/widgets/review/task_30day_tab.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/utils/local_time_boundary.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -55,6 +57,19 @@ void main() {
   );
 
   testWidgets('今日数据请求挂起时，本周与近30天仍可独立打开', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final now = DateTime.now();
+    final monday = LocalTimeBoundary.weekStart(now);
+    final sunday = DateTime(monday.year, monday.month, monday.day + 6);
+    final rollingStart = DateTime(now.year, now.month, now.day - 29);
+    final weekLabel =
+        '${monday.month}月${monday.day}日—${sunday.month}月${sunday.day}日';
+    final rollingLabel =
+        '近 30 天 · ${rollingStart.month}月${rollingStart.day}日—${now.month}月${now.day}日';
     final pendingToday = Completer<Map<String, dynamic>>();
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: TodayReviewScreen(
@@ -69,10 +84,12 @@ void main() {
     await tester.tap(find.text('本周').first);
     await tester.pump();
     expect(find.byType(WeeklyReviewScreen), findsOneWidget);
+    expect(find.text(weekLabel), findsOneWidget);
 
     await tester.tap(find.text('近 30 天').first);
     await tester.pump();
     expect(find.byType(TaskMonthTab), findsOneWidget);
+    expect(find.text(rollingLabel), findsOneWidget);
 
     pendingToday.complete({
       'facts': <String, dynamic>{},
