@@ -121,6 +121,35 @@ void main() {
     expect(titles, isNot(contains('Overdue completed')));
   });
 
+  test('P05 云缓存读取服务端目标历史，断网拒绝改写目标', () async {
+    final db = await CloudCacheDb().database;
+    final columns = await db.rawQuery('PRAGMA table_info(habits)');
+    expect(columns.map((row) => row['name']), contains('goal_history'));
+    final now = DateTime.now().toUtc().toIso8601String();
+    await db.insert('habits', {
+      'server_id': 701, 'name': '周期目标', 'goal_period': 'week',
+      'goal_value': 3, 'goal_metric': 'events',
+      'goal_history': jsonEncode([
+        {
+          'id': 4, 'habit_id': 701, 'revision': 1,
+          'goal_period': 'week', 'goal_metric': 'events', 'goal_value': 3,
+          'record_type': 'check', 'schedule_rule': '{}',
+          'effective_at': now,
+        },
+      ]),
+      'created_at': now, 'updated_at': now,
+    });
+    final loaded = (await CloudCacheRepository().getHabits()).single;
+    expect((loaded['goal_history'] as List), hasLength(1));
+    await expectLater(
+      CloudCacheRepository().updateHabit(701, {'goal_value': 5}),
+      throwsA(isA<Exception>()),
+    );
+    final rows = await db.query('habits', where: 'server_id = ?',
+        whereArgs: [701]);
+    expect(rows.single['goal_value'], 3);
+  });
+
   test('HabitLog 对外暴露 server id 及公开 Habit/Task 外键', () async {
     final db = await CloudCacheDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
