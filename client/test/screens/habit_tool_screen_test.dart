@@ -73,6 +73,26 @@ class _DelayedLogsRepo extends HabitRepository {
 }
 
 void main() {
+  testWidgets('P09 搜索定位命中习惯，复用正式卡片展开真实记录', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: HabitToolScreen(
+          repository: _SampleHabitRepo(),
+          focusHabitId: 2,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('habits.card.2')), findsOneWidget);
+    final details = tester.widget<FxButton>(
+      find.byKey(const ValueKey('habits.details.2')),
+    );
+    expect(details.label, contains('收起'));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   test('P05 展开详情中途发生新打卡，旧请求不能覆盖最新记录', () async {
     final repository = _DelayedLogsRepo();
     final controller = HabitController(repository: repository);
