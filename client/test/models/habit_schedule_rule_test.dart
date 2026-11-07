@@ -52,4 +52,43 @@ void main() {
       unit:'week', weekdays:[]);
     expect(bad.validationError, contains('星期'));
   });
+  test('P05 hourly window preview and reminder use identical slots', () {
+    const rule = HabitScheduleRule(anchorDate: '2026-10-23',
+      unit: 'hour', every: 2, hourMode: 'window',
+      windowStart: '22:00', windowEnd: '06:00');
+    final preview = rule.preview(8);
+    final reminders = rule.nextAfter(DateTime(2026, 10, 23, 21, 59),
+      count: 8);
+    expect(reminders, preview);
+    expect(preview.map((d) => '${HabitScheduleRule.dayKey(d)} ${d.hour}'),
+      ['2026-10-23 22', '2026-10-24 0', '2026-10-24 2',
+       '2026-10-24 4', '2026-10-24 6', '2026-10-24 22',
+       '2026-10-25 0', '2026-10-25 2']);
+  });
+
+  test('P05 next reminder after window ends is next local window start', () {
+    const rule = HabitScheduleRule(anchorDate: '2026-01-01',
+      unit: 'hour', every: 2, hourMode: 'window',
+      windowStart: '22:00', windowEnd: '06:00');
+    final found = rule.nextAfter(DateTime(2030, 6, 20, 6, 1),count: 2);
+    expect(found, [DateTime(2030, 6, 20, 22), DateTime(2030, 6, 21)]);
+  });
+
+  test('P05 DST crossing never proposes a slot after the real local end',
+      () {
+    const rule = HabitScheduleRule(anchorDate: '2026-03-07',
+      unit: 'hour', every: 2, hourMode: 'window',
+      windowStart: '22:00', windowEnd: '06:00');
+    final end = DateTime(2026, 3, 8, 6);
+    final slots = rule.preview(8);
+    final inFirstWindow = slots.where((slot) => !slot.isAfter(end)).toList();
+    expect(inFirstWindow, isNotEmpty);
+    expect(inFirstWindow.first, DateTime(2026, 3, 7, 22));
+    expect(inFirstWindow.last.isAfter(end), isFalse);
+    expect(slots[inFirstWindow.length], DateTime(2026, 3, 8, 22));
+    // Full preview and reminder paths must agree even if the host zone
+    // changes its UTC offset inside the overnight window.
+    expect(slots, rule.nextAfter(DateTime(2026, 3, 7, 21, 59),count: 8));
+  });
+
 }
