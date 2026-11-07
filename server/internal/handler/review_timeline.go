@@ -4,6 +4,7 @@ import (
     "net/http"
     "strconv"
     "sort"
+    "strings"
     "time"
 
     "slowlight/internal/model"
@@ -23,6 +24,13 @@ type todayTimelineItem struct {
 // GetTodayTimeline 保留既有路由，同时按账号时区支持 today/week/rolling month。
 // 软删除、取消打卡/完成的旧事件不能回到时间轨迹。
 func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
+    offset, offsetErr := strconv.Atoi(c.DefaultQuery("offset", "0"))
+    limit, limitErr := strconv.Atoi(c.DefaultQuery("limit", "40"))
+    if offsetErr != nil || limitErr != nil || offset < 0 || offset > 1000000 || limit < 1 || limit > 40 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "无效的轨迹分页参数"})
+        return
+    }
+    sourceLimit := offset + limit + 1
     userID := c.GetUint("userID")
     var user model.User
     if err := h.DB.Select("timezone").First(&user, userID).Error; err != nil {
@@ -58,7 +66,7 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
         Joins("LEFT JOIN habits AS h ON be.entity_type = 'habit' AND be.entity_id = h.id AND h.user_id = ? AND h.deleted_at IS NULL", userID).
         Where("be.user_id = ? AND be.is_deleted = false AND be.occurred_at >= ? AND be.occurred_at < ?", userID, start, end).
         Where("(be.event_type = 'task_completed' AND t.id IS NOT NULL) OR (be.event_type = 'habit_checked' AND h.id IS NOT NULL) OR be.event_type = 'session_ended'").
-        Order("be.occurred_at DESC, be.id DESC").Limit(60).Scan(&events).Error
+        Order("be.occurred_at DESC, be.id DESC").Limit(sourceLimit).Scan(&events).Error
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取周期行为记录"})
         return
@@ -66,7 +74,7 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
 
     var reflections []model.Reflection
     err = h.DB.Where("user_id = ? AND created_at >= ? AND created_at < ? AND entry_type IN ?", userID, start, end, []string{"observation", "reflection"}).
-        Order("created_at DESC, id DESC").Limit(60).Find(&reflections).Error
+        Order("created_at DESC, id DESC").Limit(sourceLimit).Find(&reflections).Error
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取周期观察记录"})
         return
@@ -95,10 +103,24 @@ func (h *ReviewHandler) GetTodayTimeline(c *gin.Context) {
     }
     sort.Slice(items, func(i, j int) bool {
         if items[i].OccurredAt.Equal(items[j].OccurredAt) {
-            return items[i].ID < items[j].ID
+            aSource, aID, _ := strings.Cut(items[i].ID, ":")
+            bSource, bID, _ := strings.Cut(items[j].ID, ":")
+            if aSource != bSource { return aSource < bSource }
+            aNumber, _ := strconv.ParseUint(aID, 10, 64)
+            bNumber, _ := strconv.ParseUint(bID, 10, 64)
+            return aNumber > bNumber
         }
         return items[i].OccurredAt.After(items[j].OccurredAt)
     })
-    if len(items) > 40 { items = items[:40] }
-    c.JSON(http.StatusOK, gin.H{"items": items, "observation_count": observationCount})
+    hasMore := len(items) > offset + limit
+    if offset >= len(items) {
+        items = items[:0]
+    } else {
+        endIndex := offset + limit
+        if endIndex > len(items) { endIndex = len(items) }
+        items = items[offset:endIndex]
+    }
+    c.JSON(http.StatusOK, gin.H{
+        "items": items, "observation_count": observationCount, "has_more": hasMore,
+    })
 }

@@ -48,11 +48,27 @@ class TodayTimelineItem {
   String get timeLabel =>
       '${occurredAt.hour.toString().padLeft(2, '0')}:${occurredAt.minute.toString().padLeft(2, '0')}';
 
+  // Match the database's numeric-ID DESC tie break for stable pagination.
+  static int _compareStableIds(String a, String b) {
+    final aColon = a.indexOf(':');
+    final bColon = b.indexOf(':');
+    final aSource = aColon < 0 ? a : a.substring(0, aColon);
+    final bSource = bColon < 0 ? b : b.substring(0, bColon);
+    final source = aSource.compareTo(bSource);
+    if (source != 0) return source;
+    final aNumber = aColon < 0 ? null : int.tryParse(a.substring(aColon + 1));
+    final bNumber = bColon < 0 ? null : int.tryParse(b.substring(bColon + 1));
+    if (aNumber != null && bNumber != null) {
+      return bNumber.compareTo(aNumber);
+    }
+    return b.compareTo(a);
+  }
+
   static List<TodayTimelineItem> sorted(Iterable<TodayTimelineItem> items) {
     final result = items.toList(growable: false);
     return result..sort((a, b) {
       final byTime = b.occurredAt.compareTo(a.occurredAt);
-      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      return byTime != 0 ? byTime : _compareStableIds(a.id, b.id);
     });
   }
 }
@@ -62,16 +78,20 @@ class TodayTimelineItem {
 class ReviewPeriodTimeline {
   final List<TodayTimelineItem> items;
   final int observationCount;
+  final bool hasMore;
 
   const ReviewPeriodTimeline({
     required this.items,
     required this.observationCount,
+    this.hasMore = false,
   });
 
   factory ReviewPeriodTimeline.fromJson(Map<String, dynamic> json) {
     final entries = json['items'];
     final count = json['observation_count'];
-    if (entries is! List || count is! num || count < 0) {
+    final hasMore = json['has_more'];
+    if (entries is! List || count is! num || count < 0 ||
+        (hasMore != null && hasMore is! bool)) {
       throw const FormatException('Invalid period timeline payload');
     }
     return ReviewPeriodTimeline(
@@ -82,6 +102,7 @@ class ReviewPeriodTimeline {
               ))
           .whereType<TodayTimelineItem>()),
       observationCount: count.toInt(),
+      hasMore: hasMore == true,
     );
   }
 }

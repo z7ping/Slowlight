@@ -397,18 +397,48 @@ func TestGetPeriodTimeline_ObservationCountAndWindow(t *testing.T) {
         var result struct {
             Items []todayTimelineItem `json:"items"`
             ObservationCount int64 `json:"observation_count"`
+            HasMore bool `json:"has_more"`
         }
         if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
-        if result.ObservationCount != tc.wantCount || len(result.Items) != tc.wantItems {
-            t.Fatalf("%s count=%d items=%d want=%d/%d",
+        if result.ObservationCount != tc.wantCount || len(result.Items) != tc.wantItems || !result.HasMore {
+            t.Fatalf("%s count=%d items=%d more=%v want=%d/%d/true",
                 tc.period, result.ObservationCount, len(result.Items),
-                tc.wantCount, tc.wantItems)
+                result.HasMore, tc.wantCount, tc.wantItems)
         }
+        next := httptest.NewRecorder()
+        router.ServeHTTP(next, httptest.NewRequest(http.MethodGet,
+            "/review/today/timeline?period="+tc.period+"&offset=40", nil))
+        if next.Code != http.StatusOK { t.Fatalf("next status=%d body=%s", next.Code, next.Body.String()) }
+        var page struct {
+            Items []todayTimelineItem `json:"items"`
+            ObservationCount int64 `json:"observation_count"`
+            HasMore bool `json:"has_more"`
+        }
+        if err := json.Unmarshal(next.Body.Bytes(), &page); err != nil { t.Fatal(err) }
+        if page.HasMore || page.ObservationCount != tc.wantCount {
+            t.Fatalf("invalid next page: %#v", page)
+        }
+        if (tc.period == "month" && len(page.Items) != 7) ||
+           (tc.period != "month" && len(page.Items) != 6) {
+            t.Fatalf("%s next page items=%d", tc.period, len(page.Items))
+        }
+        ids := map[string]bool{}
+        for _, item := range append(result.Items, page.Items...) {
+            if ids[item.ID] { t.Fatalf("duplicate paged record %s", item.ID) }
+            ids[item.ID] = true
+        }
+        if len(ids) != tc.wantItems+len(page.Items) { t.Fatal("missing records") }
     }
     w := httptest.NewRecorder()
     router.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
         "/review/today/timeline?period=year", nil))
     if w.Code != http.StatusBadRequest {
         t.Fatalf("invalid period status=%d", w.Code)
+    }
+    invalid := httptest.NewRecorder()
+    router.ServeHTTP(invalid, httptest.NewRequest(http.MethodGet,
+        "/review/today/timeline?period=week&offset=-1", nil))
+    if invalid.Code != http.StatusBadRequest {
+        t.Fatalf("invalid offset status=%d", invalid.Code)
     }
 }
