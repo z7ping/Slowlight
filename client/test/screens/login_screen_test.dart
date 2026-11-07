@@ -86,6 +86,57 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('注册用户名长度不合规时阻止提交，符合服务端 3–50 字符约束', (tester) async {
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
+      await tester.pump();
+      await openRegister(tester);
+
+      final fields = find.byType(FxInput);
+      await tester.enterText(fields.at(0), 'ab');
+      await tester.enterText(fields.at(1), 'demo@example.com');
+      await tester.enterText(fields.at(2), '123456');
+      await tester.ensureVisible(find.text('创建账号').last);
+      await tester.tap(find.text('创建账号').last);
+      await tester.pump();
+
+      expect(find.text('账号需为 3–50 个字符'), findsOneWidget);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('注册无效邮箱阻止提交，不产生云端请求', (tester) async {
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
+      await tester.pump();
+      await openRegister(tester);
+
+      final fields = find.byType(FxInput);
+      await tester.enterText(fields.at(0), 'testuser');
+      await tester.enterText(fields.at(1), 'not-an-email');
+      await tester.enterText(fields.at(2), '123456');
+      await tester.ensureVisible(find.text('创建账号').last);
+      await tester.tap(find.text('创建账号').last);
+      await tester.pump();
+
+      expect(find.text('请输入有效的邮箱地址'), findsOneWidget);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('注册密码少于六个字符时阻止提交', (tester) async {
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
+      await tester.pump();
+      await openRegister(tester);
+
+      final fields = find.byType(FxInput);
+      await tester.enterText(fields.at(0), 'testuser');
+      await tester.enterText(fields.at(1), 'demo@example.com');
+      await tester.enterText(fields.at(2), '12345');
+      await tester.ensureVisible(find.text('创建账号').last);
+      await tester.tap(find.text('创建账号').last);
+      await tester.pump();
+
+      expect(find.text('密码至少需要 6 个字符'), findsOneWidget);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('本地数据先展示说明，返回不触发真实本地初始化', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();

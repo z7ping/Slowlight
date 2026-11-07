@@ -82,14 +82,36 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    if (_usernameController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
+    if (_isLoading) return;
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+    final email = _emailController.text.trim();
+    if (username.isEmpty || password.trim().isEmpty) {
       _message('请填写完整信息');
       return;
     }
-    if (!_isLogin && _emailController.text.trim().isEmpty) {
-      _message('请填写邮箱');
-      return;
+    if (!_isLogin) {
+      // Mirror the existing /auth/register required/min/max constraints.
+      // Server validation remains the final authority for email addresses.
+      if (username.runes.length < 3 || username.runes.length > 50) {
+        _message('账号需为 3–50 个字符');
+        return;
+      }
+      if (email.isEmpty) {
+        _message('请填写邮箱');
+        return;
+      }
+      if (email.contains(RegExp(r'\s')) ||
+          email.split('@').length != 2 ||
+          email.startsWith('@') ||
+          email.endsWith('@')) {
+        _message('请输入有效的邮箱地址');
+        return;
+      }
+      if (password.runes.length < 6) {
+        _message('密码至少需要 6 个字符');
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
