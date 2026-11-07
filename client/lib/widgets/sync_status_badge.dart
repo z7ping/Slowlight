@@ -9,6 +9,23 @@ import '../ui/fx.dart';
 import '../ui/sync_status_text.dart';
 
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
+/// UI wording is deliberately weaker than a server-confirmed sync receipt.
+/// A cleared queue alone is not evidence that cloud writes succeeded.
+String syncDetailResultLabel({
+  required bool busy,
+  required bool failed,
+  required bool conflictsKnown,
+  required int conflictCount,
+  required int pendingCount,
+}) {
+  if (busy) return '同步中';
+  if (failed) return '同步未完成';
+  if (!conflictsKnown) return '状态待确认';
+  if (conflictCount > 0) return '冲突待处理';
+  if (pendingCount > 0) return '待同步';
+  return '无待处理项';
+}
+
 class SyncStatusBadge extends StatelessWidget {
   final bool showHealthy;
   final bool showLocal;
@@ -326,9 +343,18 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                       ),
                       child: Column(
                         children: [
-                          _row(context, '同步结果',
-                              busy ? '同步中' : failed ? '失败' : '待机',
-                              color: failed ? scheme.error : null),
+                          _row(
+                            context,
+                            '同步结果',
+                            syncDetailResultLabel(
+                              busy: busy,
+                              failed: failed,
+                              conflictsKnown: conflictsKnown,
+                              conflictCount: count,
+                              pendingCount: pending,
+                            ),
+                            color: failed ? scheme.error : null,
+                          ),
                           const SizedBox(height: SlowlightSpacing.xl),
                           _row(context, '待同步数据', '$pending 项'),
                           if (!conflictsKnown || count > 0) ...[
