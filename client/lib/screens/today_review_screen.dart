@@ -65,6 +65,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   final Set<String> _expanded = {};
   final Map<String, TextEditingController> _answerControllers = {};
   final TextEditingController _noteController = TextEditingController();
+  // Parent-owned drafts survive the child period pages being unmounted.
+  final TextEditingController _weekResponseDraft = TextEditingController();
+  final TextEditingController _monthResponseDraft = TextEditingController();
   bool _savingNote = false;
   bool _noteResultUnknown = false;
   final Set<String> _savingAnswers = <String>{};
@@ -99,6 +102,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   @override
   void dispose() {
     _noteController.dispose();
+    _weekResponseDraft.dispose();
+    _monthResponseDraft.dispose();
     for (final controller in _answerControllers.values) {
       controller.dispose();
     }
@@ -423,8 +428,19 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   Widget _overviewBody() {
     // WeeklyReviewScreen and TaskMonthTab load their own period data.
     // A slow/failed Today request must not block these independent periods.
-    if (_periodIndex == 1) return const WeeklyReviewScreen(embedded: true);
-    if (_periodIndex == 2) return const TaskMonthTab();
+    if (_periodIndex == 1) {
+      return WeeklyReviewScreen(
+        embedded: true,
+        reflectionRepository: _reflectionRepository,
+        responseDraftController: _weekResponseDraft,
+      );
+    }
+    if (_periodIndex == 2) {
+      return TaskMonthTab(
+        reflectionRepository: _reflectionRepository,
+        responseDraftController: _monthResponseDraft,
+      );
+    }
     if (_loading) return const Center(child: FxCircularProgress());
     if (_error != null) return _errorView();
     return _todayBody();
