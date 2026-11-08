@@ -8,8 +8,9 @@ import 'package:slowlight/services/data_service.dart';
 import 'package:slowlight/screens/habit_tool_screen.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
 import 'package:slowlight/screens/list_manage_screen.dart';
+import 'package:slowlight/screens/about_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/ui/fx.dart' show FxInkWell;
+import 'package:slowlight/ui/fx.dart' show FxInkWell, FxGestureDetector;
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -149,6 +150,39 @@ void main() {
       await tester.tap(fxTooltipFinder('关闭'));
       await tester.pumpAndSettle();
       expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 Android 320dp 大字号抽屉保留可达与滚动布局', (tester) async {
+      await pumpAt(tester, size: const Size(320, 640), textScale: 2);
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Drawer), findsOneWidget);
+      expect(find.text('清单'), findsOneWidget);
+      expect(find.text('标签'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 抽屉本地同步只读、关于二级路由可返回',
+        (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+      final localStatus = find.text('本地数据');
+      expect(localStatus, findsOneWidget);
+      // A local-mode status badge must not open a cloud sync sheet.
+      expect(find.ancestor(
+        of: localStatus,
+        matching: find.byType(FxGestureDetector),
+      ), findsNothing);
+      await tester.tap(fxTooltipFinder('关于'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AboutScreen), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
