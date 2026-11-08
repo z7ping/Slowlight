@@ -151,7 +151,9 @@ class _SearchScreenState extends State<SearchScreen> {
         // repository already searched both names and stored log notes.
         _habits = (widget.dataLoader != null || widget.sourceLoaders != null)
             ? values.habits
-                .where((habit) => habit.name.toLowerCase().contains(lower))
+                .where((habit) =>
+                    habit.name.toLowerCase().contains(lower) ||
+                    habit.searchNote.toLowerCase().contains(lower))
                 .toList(growable: false)
             : values.habits;
         _reflections = values.reflections
