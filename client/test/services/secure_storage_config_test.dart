@@ -10,8 +10,8 @@ import 'package:slowlight/ai/ai_models.dart';
 import 'package:slowlight/services/auth_service.dart';
 import 'package:slowlight/services/github_oauth_pending.dart';
 import 'package:slowlight/services/local_feishu_config_store.dart';
-import 'package:slowlight/services/secure_storage_config.dart';
 import 'package:slowlight/services/api_service.dart';
+import 'package:slowlight/services/secure_storage_config.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +72,7 @@ void main() {
       isNull,
     );
   });
+
   test('GitHub login survives AI/Feishu reads, OAuth cleanup and token rotation',
       () async {
     final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
