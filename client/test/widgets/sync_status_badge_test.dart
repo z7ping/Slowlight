@@ -3,6 +3,33 @@ import 'package:slowlight/services/sync_service.dart';
 import 'package:slowlight/widgets/sync_status_badge.dart';
 
 void main() {
+  test('X09 冲突读取中/失败不能隐藏为健康同步状态', () {
+    for (final status in SyncStatusEnum.values) {
+      expect(shouldShowCloudSyncBadge(
+        showHealthy: false,
+        conflictsKnown: false,
+        pendingCount: 0,
+        conflictCount: 0,
+        status: status,
+      ), isTrue);
+    }
+    expect(shouldShowCloudSyncBadge(
+      showHealthy: false,
+      conflictsKnown: true,
+      pendingCount: 0,
+      conflictCount: 0,
+      status: SyncStatusEnum.idle,
+    ), isFalse);
+    expect(shouldShowCloudSyncBadge(
+      showHealthy: false,
+      conflictsKnown: true,
+      pendingCount: 0,
+      conflictCount: 2,
+      status: SyncStatusEnum.idle,
+    ), isTrue);
+  });
+
+
   test('X09 未确认或冲突状态只允许核对，不会触发普通同步', () {
     bool safe(SyncStatusEnum status, {
       bool known = true,
