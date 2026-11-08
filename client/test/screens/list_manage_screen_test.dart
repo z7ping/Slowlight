@@ -214,4 +214,28 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P14 创建时先拒绝重复名称，不向真实仓储发送写入', (tester) async {
+    tester.view.physicalSize = const Size(950, 1250);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: ListManageScreen(
+        listsLoader: () async => [_list()],
+        tasksLoader: () async => <Task>[],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建清单'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).last, '客户清单');
+    await tester.tap(find.text('创建'));
+    await tester.pump();
+    expect(find.text('清单名称不能重复'), findsOneWidget);
+    expect(find.text('新建清单'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
