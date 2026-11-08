@@ -70,6 +70,35 @@ class _X03ToggleTaskService implements DataService {
 }
 
 void main() {
+  testWidgets('X03 当前仍完成时，通知撤销只执行一次恢复待办', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _X03ToggleTaskService();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataService: data)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('tasks.row.903')),
+      matching: find.byType(FxInkWell),
+    ).last);
+    await tester.pumpAndSettle();
+    final undo = tester.widget<FxNoticeAction>(
+      find.byType(FxNoticeAction),
+    );
+    undo.onPressed();
+    await tester.pumpAndSettle();
+
+    expect(data.completions, 1);
+    expect(data.undoCalls, 1);
+    expect(data.completed, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X03 旧撤销通知不能重新完成已经恢复待办的任务', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
