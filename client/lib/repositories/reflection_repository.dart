@@ -91,6 +91,94 @@ class ReflectionRepository {
     }
   }
 
+  /// Search first-party history, not just recent(100).
+  /// Bounded results are marked incomplete when more exist.
+  Future<({List<ReflectionEntry> entries, bool complete})> searchContent(
+      String keyword) async {
+    final term = keyword.trim();
+    if (term.isEmpty || term.runes.length > 200) {
+      throw ArgumentError.value(keyword, 'keyword', '关键词应为 1–200 字');
+    }
+    final literal = term.toLowerCase()
+        .replaceAll('!', '!!')
+        .replaceAll('%', '!%')
+        .replaceAll('_', '!_');
+    if (DataModeManager().isLocal) {
+      await LocalProductCoreSchema.ensureReady();
+      final db = await LocalDb().database;
+      final rows = await db.query(
+        'reflections',
+        where: "deleted_at IS NULL AND LOWER(content) LIKE ? ESCAPE '!'",
+        whereArgs: ['%$literal%'],
+        orderBy: 'created_at DESC, id DESC',
+        limit: 501,
+      );
+      return (
+        entries: rows.take(500).map(_fromLocalRow).toList(growable: false),
+        complete: rows.length <= 500,
+      );
+    }
+
+    final fetched = <ReflectionEntry>[];
+    try {
+      final ids = <int>{};
+      const pageSize = 100;
+      for (var offset = 0; offset <= 500; offset += pageSize) {
+        final page = await ReflectionApi.recent(
+          search: term,
+          offset: offset,
+          limit: pageSize,
+        );
+        // An old server may ignore the keyword and return unrelated data.
+        if (page.any((entry) =>
+            !entry.content.toLowerCase().contains(term.toLowerCase()) ||
+            !ids.add(entry.id))) {
+          throw const FormatException('服务端不支持完整历史检索');
+        }
+        fetched.addAll(page);
+        if (page.length < pageSize) {
+          await _cloudCache.cacheRemote(fetched);
+          final pending = await _cloudCache.searchContent(
+            term, pendingOnly: true,
+          );
+          final merged = <int, ReflectionEntry>{
+            for (final entry in fetched) entry.id: entry,
+            for (final entry in pending) entry.id: entry,
+          };
+          return (
+            entries: merged.values.take(500).toList(growable: false),
+            complete: merged.length <= 500,
+          );
+        }
+        if (fetched.length == 500) break;
+      }
+      final pending = await _cloudCache.searchContent(
+        term, pendingOnly: true,
+      );
+      final merged = <int, ReflectionEntry>{
+        for (final entry in fetched) entry.id: entry,
+        for (final entry in pending) entry.id: entry,
+      };
+      return (
+        entries: merged.values.take(500).toList(growable: false),
+        complete: false,
+      );
+    } catch (error) {
+      if (!_isTransientNetworkError(error) && error is! FormatException) {
+        rethrow;
+      }
+      final cached = await _cloudCache.searchContent(term);
+      final merged = <int, ReflectionEntry>{
+        for (final entry in cached) entry.id: entry,
+        for (final entry in fetched) entry.id: entry,
+      };
+      return (
+        entries: merged.values.take(500).toList(growable: false),
+        complete: false,
+      );
+    }
+  }
+
   /// Exact civil-calendar month rather than an unreliable recent(100)
   /// sample. A Cloud cache fallback is explicitly incomplete.
   Future<({List<ReflectionEntry> entries, bool complete})> month(
