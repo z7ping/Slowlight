@@ -24,7 +24,7 @@ void main() {
     await ReminderService().loadAll();
   });
   tearDownAll(() { ReminderService().dispose(); });
-  test('点击侧栏账号入口仅读缓存，不校验网络或广播退出登录', () async {
+  test('侧栏账号摘要读取不校验网络或广播退出登录', () async {
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({
       // Simulate a JWT that expired *after* AuthGate originally opened Home.
@@ -56,6 +56,7 @@ void main() {
       expect((await AuthService.getUser())?.id, 42);
     } finally {
       authStateNotifier.removeListener(countEvent);
+      FlutterSecureStorage.setMockInitialValues({});
     }
   });
 
