@@ -147,11 +147,28 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 		return
 	}
 
+	// Older clients still use DELETE /lists/:id without an explicit cascade.
+	// Never silently turn that request into destructive task deletion.
+	deleteTasks := c.Query("delete_tasks") == "true"
+	var taskCount int64
+	if err := h.DB.Model(&model.Task{}).
+		Where("list_id = ? AND user_id = ?", list.ID, userID).
+		Count(&taskCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法核对关联任务"})
+		return
+	}
+	if taskCount > 0 && !deleteTasks {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "清单下有任务，删除任务须明确确认"})
+		return
+	}
+
 	// 任务和清单必须同一事务软删除；任一操作失败都不提交。
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
-			Delete(&model.Task{}).Error; err != nil {
-			return err
+		if deleteTasks {
+			if err := tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
+				Delete(&model.Task{}).Error; err != nil {
+				return err
+			}
 		}
 		result := tx.Where("id = ? AND user_id = ? AND is_inbox = false", list.ID, userID).
 			Delete(&model.List{})
