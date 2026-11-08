@@ -54,11 +54,15 @@ void main() {
       expect(password, findsOneWidget);
       expect(tester.widget<FxInput>(password).obscureText, isTrue);
 
-      await tester.tap(find.byTooltip('显示密码'));
+      await tester.tap(find.byWidgetPredicate(
+        (widget) => widget is FxIconButton && widget.tooltip == '显示密码',
+      ));
       await tester.pump();
       expect(tester.widget<FxInput>(password).obscureText, isFalse);
 
-      await tester.tap(find.byTooltip('隐藏密码'));
+      await tester.tap(find.byWidgetPredicate(
+        (widget) => widget is FxIconButton && widget.tooltip == '隐藏密码',
+      ));
       await tester.pump();
       expect(tester.widget<FxInput>(password).obscureText, isTrue);
       await disposeFxTestHost(tester);
