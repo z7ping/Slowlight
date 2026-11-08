@@ -32,6 +32,8 @@ class ObservationTagRepository {
     if (DataModeManager().isLocal) return _getLocal();
     try {
       final value = await _cloudRequest('GET', '/system-tags');
+      // Older servers return JSON null for an empty nil Go slice.
+      if (value == null) return const [];
       if (value is! List) {
         throw const FormatException('标签列表响应格式错误');
       }
