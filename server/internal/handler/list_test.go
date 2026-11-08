@@ -221,16 +221,72 @@ func TestDeleteList_HasTasks(t *testing.T) {
 	handler := NewListHandler(tx)
 	user := createTestUser(t, tx)
 	list := createTestList(t, tx, user.ID, "有任务")
-	createTestTask(t, tx, user.ID, list.ID, "清单内任务")
+	other := createTestList(t, tx, user.ID, "其他清单")
+	active := createTestTask(t, tx, user.ID, list.ID, "清单内任务")
+	completed := createTestTask(t, tx, user.ID, list.ID, "已完成任务")
+	if err := tx.Model(&completed).Update("is_completed", true).Error; err != nil {
+		t.Fatal(err)
+	}
+	unrelated := createTestTask(t, tx, user.ID, other.ID, "其他任务")
 
 	r := newListRouter(handler, user.ID)
-
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("DELETE", "/lists/"+itoa(list.ID), nil)
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("有任务的清单不应被删除, 返回 %d, 期望 400", w.Code)
+	assertEqual(t, w.Code, http.StatusOK, "delete populated list")
+	var remaining int64
+	tx.Model(&model.Task{}).Where("list_id = ? AND user_id = ?", list.ID, user.ID).Count(&remaining)
+	assertEqual(t, remaining, int64(0), "list children soft deleted")
+	var tombstones []model.Task
+	if err := tx.Unscoped().Where("id IN ?", []uint{active.ID, completed.ID}).
+		Find(&tombstones).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, task := range tombstones {
+		if !task.DeletedAt.Valid {
+			t.Fatalf("任务 %d 未软删除", task.ID)
+		}
+	}
+	var retained model.Task
+	if err := tx.First(&retained, unrelated.ID).Error; err != nil {
+		t.Fatal("其他清单任务被误删: ", err)
+	}
+	var deletedList model.List
+	if err := tx.Unscoped().First(&deletedList, list.ID).Error; err != nil ||
+		!deletedList.DeletedAt.Valid {
+		t.Fatal("清单未软删除:", err)
+	}
+}
+
+func TestDeleteList_P14PreserveInboxAndOtherUsers(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	handler := NewListHandler(tx)
+	user := createTestUser(t, tx)
+	another := createTestUser(t, tx)
+	inbox := createTestList(t, tx, user.ID, "默认收集箱")
+	if err := tx.Model(&inbox).Update("is_inbox", true).Error; err != nil {
+		t.Fatal(err)
+	}
+	inboxTask := createTestTask(t, tx, user.ID, inbox.ID, "收集箱任务")
+	otherList := createTestList(t, tx, another.ID, "别人的清单")
+	otherTask := createTestTask(t, tx, another.ID, otherList.ID, "别人的任务")
+	r := newListRouter(handler, user.ID)
+	for _, test := range []struct{
+		id uint
+		want int
+	}{{inbox.ID, http.StatusBadRequest}, {otherList.ID, http.StatusNotFound}} {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("DELETE", "/lists/"+itoa(test.id), nil)
+		r.ServeHTTP(w, req)
+		assertEqual(t, w.Code, test.want, "protected list delete")
+	}
+	for _, id := range []uint{inboxTask.ID, otherTask.ID} {
+		var task model.Task
+		if err := tx.First(&task, id).Error; err != nil {
+			t.Fatal("受保护任务被误删: ", err)
+		}
 	}
 }
 
