@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/services/auth_service.dart';
+import 'package:slowlight/services/auth_storage_diagnostics.dart';
 import 'package:slowlight/services/api_service.dart';
 
 void main() {
@@ -15,7 +16,10 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
   });
-  tearDown(() => AuthService.debugAuthTraceSink = null);
+  tearDown(() {
+    AuthService.debugAuthTraceSink = null;
+    AuthStorageDiagnostics.debugTraceSink = null;
+  });
 
   test('正式云端地址只接受 HTTPS，开发/自托管可用本地 HTTP', () {
     expect(
@@ -61,6 +65,46 @@ void main() {
     );
     expect(events.join('\n'), isNot(contains(token)));
     expect(events.join('\n'), isNot(contains('Bearer ')));
+  });
+
+  test('Access 丢失只做一次 Refresh/Pending 存在性探测', () async {
+    final token = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+    );
+    const refresh = 'refresh-value-is-secret';
+    const pending = 'pending-value-is-secret';
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': token,
+      'auth_refresh_token': refresh,
+      'github_oauth_pending': pending,
+    });
+    final traces = <String>[];
+    AuthStorageDiagnostics.debugTraceSink = traces.add;
+
+    expect(await AuthService.getToken(source: 'sidebar'), token);
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_refresh_token': refresh,
+      'github_oauth_pending': pending,
+    });
+
+    expect(await AuthService.getToken(source: 'sidebar'), isNull);
+    expect(await AuthService.getToken(source: 'sidebar'), isNull);
+    final record = traces.join('\\n');
+    expect(record, contains(
+      'action=read slot=refresh '
+      'actor=access_missing.companion_refresh status=present',
+    ));
+    expect(record, contains(
+      'action=read slot=oauthPending '
+      'actor=access_missing.companion_pending status=present',
+    ));
+    expect(
+      traces.where((e) => e.contains('access_missing.companion_refresh')),
+      hasLength(1),
+    );
+    expect(record, isNot(contains(token)));
+    expect(record, isNot(contains(refresh)));
+    expect(record, isNot(contains(pending)));
   });
 
   test('OAuth login records safe save event and no secret material', () async {
@@ -120,6 +164,28 @@ void main() {
       return http.Response('{"error":"missing authorization"}', 401);
     }));
     expect((await AuthService.getUser())?.id, 42);
+    expect(await AuthService.getToken(), isNull);
+  });
+
+  test('退出时 Access 与 Refresh 的清理均有可关联的操作日志', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': _jwt(
+        exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+      ),
+    });
+    final traces = <String>[];
+    AuthStorageDiagnostics.debugTraceSink = traces.add;
+    await AuthService.logout();
+    final recorded = traces.join('\\n');
+    expect(recorded, contains(
+      'action=delete slot=access actor=logout phase=start',
+    ));
+    expect(recorded, contains(
+      'action=delete slot=access actor=logout phase=done',
+    ));
+    expect(recorded, contains(
+      'action=delete slot=refresh actor=logout phase=done',
+    ));
     expect(await AuthService.getToken(), isNull);
   });
 
