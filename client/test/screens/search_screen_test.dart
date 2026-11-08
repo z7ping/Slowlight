@@ -175,6 +175,62 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P09 各分类超过20条均可渐进查看且新关键词重置展开', (tester) async {
+    final tasks = [
+      for (var id=1; id<=25; id++)
+        Task(
+          id:id, listId:1, title:'命中任务$id',
+          priority:'none', isCompleted:false,
+          createdAt:DateTime(2026,11,8),
+        ),
+    ];
+    final habits = [
+      for (var id=1; id<=25; id++)
+        Habit(
+          id:id, userId:1, name:'命中习惯$id',
+          createdAt:DateTime(2026,11,8),
+        ),
+    ];
+    final reflections = [
+      for (var id=1; id<=25; id++)
+        ReflectionEntry(
+          id:id,entryType:'observation',content:'命中记录$id',
+          createdAt:DateTime(2026,11,8),
+        ),
+    ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(
+        dataLoader: (_) async => (
+          tasks:tasks, habits:habits, reflections:reflections,
+          lists:<TodoList>[],
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '命中');
+    await tester.pump(const Duration(milliseconds:350));
+    await tester.pumpAndSettle();
+    expect(find.text('任务 · 25 条'),findsOneWidget);
+    expect(find.text('习惯 · 25 条'),findsOneWidget);
+    expect(find.text('回顾与观察 · 25 条'),findsOneWidget);
+    expect(find.text('命中任务25'),findsNothing);
+    expect(find.text('命中习惯25'),findsNothing);
+    expect(find.text('命中记录25'),findsNothing);
+    for(final key in ['search-task-more','search-habit-more',
+        'search-reflection-more']) {
+      final button = find.byKey(ValueKey(key));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(button,findsNothing);
+    }
+    expect(find.text('命中任务25'),findsOneWidget);
+    expect(find.text('命中习惯25'),findsOneWidget);
+    expect(find.text('命中记录25'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('02 查询失败展示重试，成功空结果才显示无记录', (tester) async {
     var attempts = 0;
     Future<SearchResultData> loader(String query) async {
