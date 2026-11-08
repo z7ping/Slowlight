@@ -149,7 +149,10 @@ void main() {
     final text = await logger.readText();
     expect(text, contains('credential.read origin=none status=missing'));
     expect(text, contains('account.cache status=present'));
-    expect(text, contains('unauthorized endpoint=profile method=GET bearer=absent'));
+    expect(
+      text,
+      contains('unauthorized endpoint=profile method=GET bearer=absent'),
+    );
     expect(text, contains('state=[REDACTED]'));
     expect(text, isNot(contains('high-entropy-oauth-secret')));
   });
