@@ -86,28 +86,38 @@ class CalendarRepository {
       }
     }
 
-    try {
-      final scheduled = await (_taskLoader?.call(month.year, month.month) ??
-          ApiService.getTasksForMonth(month.year, month.month));
-      for (final task in scheduled) {
-        addTask(task);
+    Future<void> loadPlans() async {
+      try {
+        final scheduled = await (_taskLoader?.call(month.year, month.month) ??
+            ApiService.getTasksForMonth(month.year, month.month));
+        for (final task in scheduled) {
+          addTask(task);
+        }
+      } catch (_) {
+        unavailable.add(CalendarRecordType.task);
       }
-    } catch (_) {
-      unavailable.add(CalendarRecordType.task);
     }
-    // Use the existing completed-tasks endpoint rather than changing the
-    // shared task-month API owned by the P06 workstream. Injected calendar
-    // tests may supply an already complete task sample.
-    if (_taskLoader != null && _completedTaskLoader == null) return;
-    try {
-      final completed = await (_completedTaskLoader?.call() ??
-          ApiService.getCompletedTasks());
-      for (final task in completed) {
-        if (task.isCompleted) addTask(task);
+
+    Future<void> loadCompletions() async {
+      try {
+        final completed = await (_completedTaskLoader?.call() ??
+            ApiService.getCompletedTasks());
+        for (final task in completed) {
+          if (task.isCompleted) addTask(task);
+        }
+      } catch (_) {
+        unavailable.add(CalendarRecordType.task);
       }
-    } catch (_) {
-      unavailable.add(CalendarRecordType.task);
     }
+
+    // Independent requests run together, so all-time completion history
+    // doesn't serially delay due-date plans. This deliberately reuses the
+    // existing task endpoints without touching the P06-owned API.
+    await Future.wait([
+      loadPlans(),
+      if (_taskLoader == null || _completedTaskLoader != null)
+        loadCompletions(),
+    ]);
   }
 
   bool _sameCivilDay(DateTime a, DateTime b) =>
