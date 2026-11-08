@@ -13,6 +13,7 @@ import '../services/data_mode_manager.dart';
 import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
+import 'diagnostics_screen.dart';
 
 enum _LoginView { welcome, github, password, register }
 
@@ -1155,19 +1156,49 @@ class _LoginScreenState extends State<LoginScreen> {
                 _LoginView.password || _LoginView.register =>
                   _credentials(context),
               };
+              // Account loss must not hide the only in-app path to export
+              // persistent auth diagnostics; use the existing DiagnosticsScreen.
+              final loginContent = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  content,
+                  const SizedBox(height: SlowlightSpacing.md),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FxButton(
+                      key: const ValueKey('login.diagnostics'),
+                      label: '应用诊断',
+                      variant: FxButtonVariant.link,
+                      size: FxButtonSize.sm,
+                      onPressed: () {
+                        unawaited(AppErrorLogger.instance.write(
+                          source: 'AuthNavigation',
+                          error: 'login.diagnostics_opened',
+                        ));
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DiagnosticsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
               final panel = ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 510),
                 child: isDesktop
                     ? FxCard(
                         padding: const EdgeInsets.all(SlowlightSpacing.page),
                         borderRadius: SlowlightRadius.xl,
-                        child: content,
+                        child: loginContent,
                       )
                     : Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: SlowlightSpacing.page,
                         ),
-                        child: content,
+                        child: loginContent,
                       ),
               );
               return SingleChildScrollView(

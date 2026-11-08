@@ -319,7 +319,13 @@ class _AuthGateState extends State<AuthGate> {
     super.dispose();
   }
 
-  void _onAuthChanged() => _checkAuth();
+  void _onAuthChanged() {
+    unawaited(AppErrorLogger.instance.write(
+      source: 'AuthGate',
+      error: 'check.trigger reason=auth_notifier',
+    ));
+    _checkAuth();
+  }
 
   Future<void> _checkAuth() async {
     final generation = ++_authCheckGeneration;
@@ -374,10 +380,24 @@ class _AuthGateState extends State<AuthGate> {
           pendingGitHubLogin = false;
         }
       }
-    } catch (_) {
+    } catch (error) {
       checkFailed = true;
+      unawaited(AppErrorLogger.instance.write(
+        source: 'AuthGate',
+        error: 'check.failed kind=${error.runtimeType}',
+      ));
     }
     if (!mounted || generation != _authCheckGeneration) return;
+    final mode = DataModeManager().isLocal ? 'local' : 'cloud';
+    final outcome = checkFailed
+        ? 'unknown'
+        : hasAccess
+            ? 'accepted'
+            : 'login_required';
+    unawaited(AppErrorLogger.instance.write(
+      source: 'AuthGate',
+      error: 'check.result mode=$mode outcome=$outcome',
+    ));
     setState(() {
       _hasAccess = hasAccess;
       _pendingGitHubLogin = pendingGitHubLogin;

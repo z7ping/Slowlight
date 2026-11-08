@@ -37,7 +37,7 @@ void main() {
       home: DiagnosticsScreen(logger: _TestLogger('')),
     ));
     await tester.pump();
-    expect(find.text('暂无错误记录'), findsOneWidget);
+    expect(find.text('暂无诊断记录'), findsOneWidget);
     expect(find.text('清空本机日志'), findsNothing);
     expect(find.text('当前没有可导出的记录'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -49,7 +49,7 @@ void main() {
       home: DiagnosticsScreen(logger: _TestLogger('2026-10-21 exception: test')),
     ));
     await tester.pump();
-    expect(find.text('已有错误记录'), findsOneWidget);
+    expect(find.text('已有诊断记录'), findsOneWidget);
     expect(find.text('清空本机日志'), findsOneWidget);
     expect(find.text('2026-10-21 exception: test'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('diagnostics.raw_toggle')));
@@ -66,7 +66,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('diagnostics.clear')));
     await tester.pump();
-    expect(find.text('清空错误日志'), findsOneWidget);
+    expect(find.text('清空诊断日志'), findsOneWidget);
     expect(logger.text, '保留的本机日志');
     await tester.tap(find.text('取消'));
     await tester.pump();
@@ -86,7 +86,7 @@ void main() {
     await tester.tap(find.text('清空日志'));
     await tester.pumpAndSettle();
     expect(logger.text, '必须保留的原始日志');
-    expect(find.text('已有错误记录'), findsOneWidget);
+    expect(find.text('已有诊断记录'), findsOneWidget);
     expect(find.byKey(const ValueKey('diagnostics.clear')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -98,13 +98,13 @@ void main() {
       home: DiagnosticsScreen(logger: logger),
     ));
     await tester.pump();
-    expect(find.text('无法读取错误记录'), findsOneWidget);
-    expect(find.text('暂无错误记录'), findsNothing);
+    expect(find.text('无法读取诊断记录'), findsOneWidget);
+    expect(find.text('暂无诊断记录'), findsNothing);
     logger.readFails = false;
     await tester.tap(find.byKey(const ValueKey('diagnostics.retry')));
     await tester.pump();
     await tester.pump();
-    expect(find.text('暂无错误记录'), findsOneWidget);
+    expect(find.text('暂无诊断记录'), findsOneWidget);
     expect(logger.reads, 2);
     await disposeFxTestHost(tester);
   });

@@ -62,6 +62,22 @@ class HttpUtil {
     try {
       var response = await send(headers);
       if (response.statusCode == 401 && headers != null) {
+        // The original 401 can disappear behind a successful retry.
+        // Only known auth routes are recorded; never include query, host,
+        // Authorization headers or response bodies.
+        final endpoint = switch (url.path) {
+          '/api/auth/profile' => 'profile',
+          '/api/auth/providers' => 'providers',
+          '/api/auth/password/status' => 'password_status',
+          '/api/auth/refresh' => 'refresh',
+          _ => null,
+        };
+        if (endpoint != null) {
+          AppErrorLogger.instance.write(
+            source: 'AuthHttp',
+            error: 'unauthorized endpoint=$endpoint method=$method',
+          );
+        }
         final authorization = headers['Authorization'] ?? headers['authorization'];
         if (authorization != null && authorization.startsWith('Bearer ')) {
           // 401 中间件拒绝后才重试；仅重试当前账号 JWT，

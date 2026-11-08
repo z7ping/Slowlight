@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +11,7 @@ import '../ai/ai_models.dart';
 import '../models/user.dart';
 import '../main.dart' show AuthGate, authStateNotifier;
 import '../services/auth_service.dart';
+import '../services/app_error_logger.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
 import '../services/github_sign_in.dart';
@@ -240,6 +243,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadAccount() async {
     final version = ++_accountLoadVersion;
+    if (version == 1) {
+      unawaited(AppErrorLogger.instance.write(
+        source: 'AuthNavigation',
+        error: 'account.page_loaded',
+      ));
+    }
     if (mounted) {
       setState(() {
         _loadingAccount = true;
@@ -268,6 +277,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final cached = await AuthService.getUser();
       final method = await AuthService.getLastLoginMethod();
       if (!current()) return;
+      unawaited(AppErrorLogger.instance.write(
+        source: 'AuthNavigation',
+        error: cached == null
+            ? 'account.cache state=missing'
+            : 'account.cache state=present',
+      ));
       setState(() {
         _accountUser = cached;
         _lastLoginMethod = method;
