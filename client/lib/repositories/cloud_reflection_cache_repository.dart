@@ -103,8 +103,9 @@ class CloudReflectionCacheRepository {
     final db = await _cache.database;
     final rows = await db.query(
       'reflections',
-      where: 'created_at >= ? AND created_at < ?'
-          ${pendingOnly ? " AND sync_status = 'pending'" : ''},
+      where: pendingOnly
+          ? "created_at >= ? AND created_at < ? AND sync_status = 'pending'"
+          : 'created_at >= ? AND created_at < ?',
       whereArgs: [
         start.toUtc().toIso8601String(),
         end.toUtc().toIso8601String(),
