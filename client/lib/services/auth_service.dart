@@ -61,6 +61,9 @@ class AuthService {
       throw StateError('GitHub 登录结果缺少有效凭据');
     }
     final user = User.fromJson(Map<String, dynamic>.from(userJson));
+    // OAuth poll 的 complete 仅证明 GitHub 授权完成，不证明新 JWT
+    // 已被业务接口接受。先核验再替换，避免绑定/登录后把有效会话覆盖为 401。
+    await ApiService.verifyOAuthCredential(token, user.id);
     await _saveAuth(
       token,
       user,
