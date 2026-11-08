@@ -438,7 +438,7 @@ class AuthService {
         throw StateError('登录凭据保存后无法读回');
       }
       final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(_tokenKey);
+      await prefs.remove(_tokenKey);
       await prefs.setString(_userKey, json.encode(user.toJson()));
       if (loginMethod == null) {
         await prefs.remove(_loginMethodKey);
