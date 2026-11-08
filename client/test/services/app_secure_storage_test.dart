@@ -61,6 +61,19 @@ void main() {
       }),
     );
 
+    Future<void> verifyAccountRequest() => http.runWithClient(
+      () async {
+        final profile = await ApiService.get('/auth/profile');
+        expect(profile['id'], 42);
+      },
+      () => MockClient((request) async {
+        expect(request.url.path, '/api/auth/profile');
+        expect(request.headers['authorization'], 'Bearer $firstToken');
+        return http.Response(jsonEncode(user), 200);
+      }),
+    );
+    await verifyAccountRequest();
+
     final ai = AiConfigStore();
     await ai.saveApiKey(AiProviderType.openai, 'ai-private-key');
     expect(await ai.loadApiKey(AiProviderType.openai), 'ai-private-key');
@@ -76,6 +89,7 @@ void main() {
       endpoint: ApiService.baseUrl,
     ));
     await GitHubOAuthPending.clear(reason: 'login_saved');
+    await verifyAccountRequest();
 
     // A fresh storage wrapper must see the same keys after unrelated reads.
     final reopened = FlutterSecureStorage(
