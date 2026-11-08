@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-
+import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,7 +35,11 @@ class AuthService {
   static String? _lastTokenState;
 
   static void _trace(String event) {
-    debugAuthTraceSink?.call(event);
+    try {
+      debugAuthTraceSink?.call(event);
+    } catch (_) {
+      // Diagnostics must never interrupt sign-in or secure storage writes.
+    }
     unawaited(AppErrorLogger.instance.write(
       source: 'AuthSession',
       error: event,
@@ -343,7 +347,7 @@ class AuthService {
     }
     _trace('refresh.request');
     final epoch = _credentialEpoch;
-    final response;
+    late final http.Response response;
     try {
       response = await HttpUtil.post(
         Uri.parse('${ApiService.baseUrl}/auth/refresh'),
