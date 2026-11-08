@@ -34,6 +34,28 @@ void main() {
     expect((await upgraded.query('habits')).single['name'], '旧记录');
   });
 
+  test('P05 已有事实禁止修改计量口径及晚于事实的起算日', () async {
+    final repo = LocalHabitRepository();
+    final habit = await repo.create(name: '记录不可改');
+    final id = habit['id'] as int;
+    await repo.checkIn(id);
+    await expectLater(repo.update(id, recordType: 'count'),
+        throwsStateError);
+    await expectLater(repo.update(id, recordUnit: '杯'),
+        throwsStateError);
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    String two(int value) => value.toString().padLeft(2, '0');
+    final day = '${tomorrow.year}-${two(tomorrow.month)}-${two(tomorrow.day)}';
+    await expectLater(repo.update(id, scheduleRule: {
+      'version': 1, 'kind': 'interval', 'unit': 'day', 'every': 1,
+      'anchor_date': day, 'anchor_time': '08:00',
+      'reminder_mode': 'off', 'reminder_time': '09:00',
+    }), throwsStateError);
+    expect((await repo.getById(id))!['record_type'], 'check');
+    expect((await repo.getById(id))!['record_unit'], '次');
+    expect((await repo.getById(id))!['goal_history'], hasLength(1));
+  });
+
   test('P05 Local 历史目标版本只追加，不倒填旧记录', () async {
     final repo = LocalHabitRepository();
     final created = await repo.create(
