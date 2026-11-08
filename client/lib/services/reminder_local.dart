@@ -135,11 +135,11 @@ class ReminderLocal {
     }
   }
 
-  /// 结束工作
-  Future<void> endWork() async {
+  /// 结束工作。系统长时间挂起时，由服务提供最后确认的活跃时刻，
+  /// 避免将未运行计时器的睡眠时间算成真实工作。
+  Future<void> endWork({DateTime? lastObservedAt}) async {
     try {
       final db = await LocalDb().database;
-      final now = DateTime.now();
       final rows = await db.query(
         'reminder_sessions',
         where: 'type = ? AND ended_at IS NULL',
@@ -151,12 +151,17 @@ class ReminderLocal {
 
       final row = rows.first;
       final startedAt = DateTime.parse(row['started_at'] as String);
-      final duration = now.difference(startedAt).inSeconds;
+      final requestedEnd = lastObservedAt ?? DateTime.now();
+      // A delayed startWork insert may be newer than the last observed tick.
+      final closedAt = requestedEnd.isBefore(startedAt)
+          ? startedAt
+          : requestedEnd;
+      final duration = closedAt.difference(startedAt).inSeconds;
 
       await db.update(
         'reminder_sessions',
         {
-          'ended_at': now.toIso8601String(),
+          'ended_at': closedAt.toIso8601String(),
           'duration_seconds': duration,
         },
         where: 'id = ?',
