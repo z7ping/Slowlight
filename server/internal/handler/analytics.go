@@ -110,7 +110,7 @@ type TagTimeDistribution struct {
 	Name        string  `json:"name"`
 	Icon        string  `json:"icon"`
 	TotalMin    int     `json:"total_min"`
-	WorkSeconds int     `json:"work_seconds"`
+	WorkSeconds int     `json:"work_seconds,omitempty"`
 	SessionCnt  int     `json:"session_count"`
 	Percent     float64 `json:"percent"`
 }
