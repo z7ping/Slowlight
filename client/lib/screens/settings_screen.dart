@@ -67,7 +67,7 @@ class SettingsScreen extends StatefulWidget {
   // Explicit seams for validating the existing Settings data sources without
   // replacing the production AI store or cloud conflict repository.
   final Future<AiConfig> Function()? aiConfigLoader;
-  final Future<List<ConflictInfo>> Function()? conflictLoader;
+  final Future<List<Map<String, dynamic>>> Function()? conflictLoader;
 
   const SettingsScreen({
     super.key,
