@@ -101,7 +101,7 @@ class _RestOverlayState extends State<RestOverlay> {
         (service.state != 'micro_rest' && service.state != 'long_rest')) {
       return;
     }
-    _actionPending = true;
+    setState(() => _actionPending = true);
     service.skipRest();
     // The service will dismiss us only after its state actually changes.
   }
@@ -113,7 +113,7 @@ class _RestOverlayState extends State<RestOverlay> {
         (service.state != 'micro_rest' && service.state != 'long_rest')) {
       return;
     }
-    _actionPending = true;
+    setState(() => _actionPending = true);
     service.postponeRest();
   }
 
@@ -217,11 +217,11 @@ class _RestOverlayState extends State<RestOverlay> {
                         if (allowPostpone) ...[
                           const SizedBox(height: 14),
                           FxButton(
-                            label: '延后 5 分钟',
+                            label: _actionPending ? '处理中…' : '延后 5 分钟',
                             variant: FxButtonVariant.ghost,
                             size: FxButtonSize.sm,
                             foregroundColor: Colors.white54,
-                            onPressed: _postponeRest,
+                            onPressed: _actionPending ? null : _postponeRest,
                           ),
                         ],
                       ],
@@ -241,11 +241,11 @@ class _RestOverlayState extends State<RestOverlay> {
                           ),
                         )
                       : FxButton(
-                          label: '跳过',
+                          label: _actionPending ? '处理中…' : '跳过',
                           variant: FxButtonVariant.ghost,
                           size: FxButtonSize.sm,
                           foregroundColor: Colors.white38,
-                          onPressed: _skipRest,
+                          onPressed: _actionPending ? null : _skipRest,
                         ),
                 ),
               ],
