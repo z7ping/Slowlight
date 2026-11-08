@@ -128,6 +128,7 @@ func main() {
 
 		habitHandler := handler.NewHabitHandler(db)
 		api.GET("/habits", habitHandler.GetHabits)
+		api.GET("/habits/search", habitHandler.GetHabits)
 		api.POST("/habits", habitHandler.CreateHabit)
 		api.PUT("/habits/:id", habitHandler.UpdateHabit)
 		api.DELETE("/habits/:id", habitHandler.DeleteHabit)
