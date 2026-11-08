@@ -267,7 +267,9 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       _feedback = null;
     });
     try {
-      // Both reads are observational: no syncNow(), no write queue replay.
+      // Only remote GETs and local queue bookkeeping for provably applied
+      // writes. Never reissue a failed or ambiguous remote mutation.
+      final reconciliation = await widget.sync.reconcileFailedWrites();
       final conflicts = await widget.sync.getAllConflicts();
       final failures = await widget.sync.getPendingFailures();
       await CloudSyncCoordinator().refreshStandalonePendingCount();
@@ -276,9 +278,11 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _conflicts = Future.value(conflicts);
         _failures = Future.value(failures);
         _conflictReadFailed = false;
-        _feedback = conflicts.isNotEmpty
-            ? '有同步冲突，请先核对并解决；未重新提交数据。'
-            : '已尝试刷新当前可用的冲突与队列状态；原始请求结果仍未确认时，不自动重新写入。';
+        _feedback = '远端核对：${reconciliation.verified} 项已验证写入，'
+            '${reconciliation.conflicts} 项状态不一致，'
+            '${reconciliation.unknown} 项仍未知。'
+            '${conflicts.isNotEmpty ? '请先解决同步冲突。' : ''}'
+            '本次没有重复提交写入。';
       });
     } catch (error) {
       if (!mounted) return;
