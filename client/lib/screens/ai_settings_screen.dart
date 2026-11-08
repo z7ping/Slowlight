@@ -77,6 +77,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       content: 'AI 配置尚未保存，离开后这些修改不会生效。',
       confirmText: '放弃修改',
       destructive: true,
+      draftDiscard: true,
     );
     return confirmed == true;
   }
@@ -122,6 +123,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           content: '当前 AI 配置尚未保存。切换后会放弃本次编辑的内容。',
           confirmText: '放弃并切换',
           destructive: true,
+          draftDiscard: true,
         );
         if (confirmed != true || !mounted) return;
       }

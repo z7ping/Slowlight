@@ -447,6 +447,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
               : '关闭后将丢失当前编辑的内容。',
           confirmText: _resultUnknown ? '返回核对' : '放弃修改',
           destructive: !_resultUnknown,
+          draftDiscard: !_resultUnknown,
         );
         if (discard != true || !mounted) return;
       } finally {

@@ -65,6 +65,7 @@ class _NicknameFormState extends State<_NicknameForm> {
         cancelText: '继续编辑',
         confirmText: '放弃修改',
         destructive: true,
+        draftDiscard: true,
       );
       if (confirmed != true || !mounted) return;
     }
@@ -178,6 +179,7 @@ class _PasswordFormState extends State<_PasswordForm> {
         cancelText: '继续编辑',
         confirmText: '放弃修改',
         destructive: true,
+        draftDiscard: true,
       );
       if (confirmed != true || !mounted) return;
     }
