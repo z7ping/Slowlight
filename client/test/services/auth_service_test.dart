@@ -55,7 +55,7 @@ void main() {
     );
     expect(
       events.where(
-        (e) => e == 'credential.disappeared reason=no_observed_logout',
+        (e) => e == 'credential.disappeared previous=valid origin=none',
       ),
       hasLength(1),
     );
@@ -97,7 +97,7 @@ void main() {
     // sign-in: a verified, saved JWT vanished without a logout event.
     FlutterSecureStorage.setMockInitialValues({});
     expect(await AuthService.getToken(), isNull);
-    expect(events, contains('credential.disappeared reason=no_observed_logout'));
+    expect(events, contains('credential.disappeared previous=valid origin=none'));
   });
 
   test('缺失 JWT 时账号 GET 不附带 Bearer，401 不主动清理资料', () async {
