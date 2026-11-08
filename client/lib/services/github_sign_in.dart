@@ -102,7 +102,7 @@ class GitHubSignIn {
 
   static Future<void> cancelPendingAuthorization() async {
     _activeObserver?.wakeUp();
-    if (_isAndroid) await GitHubOAuthPending.clear();
+    if (_isAndroid) await GitHubOAuthPending.clear(reason: 'user_cancel');
   }
 
   /// 桌面端在浏览器授权后可以主动唤醒正在等待的 OAuth 轮询。
@@ -289,7 +289,7 @@ class GitHubSignIn {
             user == null ||
             user.id != pending.targetUserId) {
           // 绝不把旧设备上的授权绑定到当前其他用户。
-          await GitHubOAuthPending.clear();
+          await GitHubOAuthPending.clear(reason: 'account_changed');
           throw StateError('当前账号已变化，无法恢复 GitHub 绑定');
         }
       }
@@ -369,7 +369,9 @@ class GitHubSignIn {
           onStatus?.call('请前往 GitHub 输入验证码，等待确认…');
         } else {
           if (!await openAuthorization(authUrl!)) {
-            if (isAndroid) await GitHubOAuthPending.clear();
+            if (isAndroid) {
+              await GitHubOAuthPending.clear(reason: 'browser_open_failed');
+            }
             throw StateError('无法打开 GitHub 授权页面，请检查系统默认浏览器');
           }
           onStatus?.call('等待 GitHub 完成授权…');
@@ -393,7 +395,7 @@ class GitHubSignIn {
             onStatus?.call('网络连接暂时中断，正在继续确认授权…');
             continue;
           }
-          if (isAndroid) await GitHubOAuthPending.clear();
+          if (isAndroid) await GitHubOAuthPending.clear(reason: 'poll_failed');
           rethrow;
         }
         if (!shouldContinue() || result == null) return false;
@@ -423,17 +425,17 @@ class GitHubSignIn {
           }());
           if (isAndroid) {
             try {
-              await GitHubOAuthPending.clear();
+              await GitHubOAuthPending.clear(reason: 'login_saved');
             } catch (_) {
               // 登录凭据已经保存，暂存记录清理失败不能冒充登录失败。
             }
           }
           return true;
         }
-        if (isAndroid) await GitHubOAuthPending.clear();
+        if (isAndroid) await GitHubOAuthPending.clear(reason: 'poll_invalid');
         throw StateError('GitHub 登录状态异常，请重试');
       }
-      if (isAndroid) await GitHubOAuthPending.clear();
+      if (isAndroid) await GitHubOAuthPending.clear(reason: 'expired');
       throw StateError('GitHub 授权已超时，请重新发起登录');
     } finally {
       WidgetsBinding.instance.removeObserver(resumeObserver);
