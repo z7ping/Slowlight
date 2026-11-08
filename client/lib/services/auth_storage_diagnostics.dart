@@ -23,6 +23,7 @@ class AuthStorageDiagnostics {
 
   static int _sequence = 0;
   static bool _started = false;
+  static final Map<String, String> _readOutcomes = {};
 
   @visibleForTesting
   static void Function(String)? debugTraceSink;
@@ -58,16 +59,22 @@ class AuthStorageDiagnostics {
     final operation = ++_sequence;
     try {
       final value = await storage.read(key: slot.key);
-      if (logPresent || value == null || value.isEmpty) {
-        final status = value == null
-            ? 'missing'
-            : value.isEmpty
-                ? 'empty'
-                : 'present';
+      final status = value == null
+          ? 'missing'
+          : value.isEmpty
+              ? 'empty'
+              : 'present';
+      final outcomeKey = '${slot.name}.$actor';
+      // Repeated requests with the same missing value must not flood the
+      // app's bounded log file or add avoidable disk I/O.
+      if (logPresent ||
+          (status != 'present' && _readOutcomes[outcomeKey] != status)) {
         _recordEvent(
-          'op=$operation action=read slot=${slot.name} actor=$actor status=$status',
+          'op=$operation action=read slot=${slot.name} '
+          'actor=$actor status=$status',
         );
       }
+      _readOutcomes[outcomeKey] = status;
       return value;
     } catch (error) {
       _recordEvent(
@@ -88,6 +95,9 @@ class AuthStorageDiagnostics {
     _record('op=$operation action=write slot=${slot.name} actor=$actor phase=start');
     try {
       await storage.write(key: slot.key, value: value);
+      _readOutcomes.removeWhere(
+        (key, _) => key.startsWith('${slot.name}.'),
+      );
       _recordEvent(
         'op=$operation action=write slot=${slot.name} actor=$actor phase=done',
       );
@@ -109,6 +119,9 @@ class AuthStorageDiagnostics {
     _record('op=$operation action=delete slot=${slot.name} actor=$actor phase=start');
     try {
       await storage.delete(key: slot.key);
+      _readOutcomes.removeWhere(
+        (key, _) => key.startsWith('${slot.name}.'),
+      );
       _recordEvent(
         'op=$operation action=delete slot=${slot.name} actor=$actor phase=done',
       );
