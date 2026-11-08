@@ -115,6 +115,27 @@ class CloudReflectionCacheRepository {
     return rows.map(_fromRow).toList(growable: false);
   }
 
+  /// Keyword matches in account-scoped cache (including unsynced facts).
+  /// A cache result cannot prove remote search completeness.
+  Future<List<ReflectionEntry>> searchContent(String query, {
+    bool pendingOnly = false,
+  }) async {
+    final db = await _cache.database;
+    final literal = query.toLowerCase()
+        .replaceAll('!', '!!')
+        .replaceAll('%', '!%')
+        .replaceAll('_', '!_');
+    final rows = await db.query(
+      'reflections',
+      where: pendingOnly
+          ? "LOWER(content) LIKE ? ESCAPE '!' AND sync_status = 'pending'"
+          : "LOWER(content) LIKE ? ESCAPE '!'",
+      whereArgs: ['%$literal%'],
+      orderBy: 'created_at DESC, id DESC',
+    );
+    return rows.map(_fromRow).toList(growable: false);
+  }
+
   /// Local pending submissions remain visible even when the exact Cloud
   /// period lookup returns no confirmed record.
   Future<ReflectionEntry?> pendingByQuestionId(String questionId) async {
