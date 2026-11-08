@@ -468,12 +468,8 @@ class ObservationTagRepository {
       // overwritten. SQLite constraints and transaction roll back together.
       if (snap.canonical != null) {
         await txn.insert('tags', snap.canonical!);
-        for (final entry in snap.links.entries) {
-          for (final link in entry.value) {
-            await txn.insert(entry.key, link);
-          }
-        }
       }
+      await txn.insert('system_tags', snap.tag);
       if (snap.alias != null) {
         if (snap.canonical == null) {
           final existing = await txn.query('tags',
@@ -485,7 +481,12 @@ class ObservationTagRepository {
         }
         await txn.insert('legacy_system_tag_aliases', snap.alias!);
       }
-      await txn.insert('system_tags', snap.tag);
+      // Parent rows exist before restoring the original relationship rows.
+      for (final entry in snap.links.entries) {
+        for (final link in entry.value) {
+          await txn.insert(entry.key, link);
+        }
+      }
 
       Future<void> restoreIds(String table, List<int> ids) async {
         for (var start = 0; start < ids.length; start += 400) {
