@@ -443,7 +443,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!await _freezeBeforeEnding()) return;
 
     List<int>? tagIds;
-    if (_sessionType == 'work' && mounted) {
+    // Automatic mode cannot wait for an interactive tag modal. The related
+    // task's system tag is still inherited by SessionHandler/LocalRepository.
+    // Manual mode keeps the optional tag selection at completion.
+    if (_sessionType == 'work' && !_autoStartNext && mounted) {
       tagIds = await SystemTagPicker.showMultiple(context);
     }
     if (!mounted) return;
@@ -660,7 +663,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     _settingsLine(
                       dialogContext,
                       title: '自动开始下一轮',
-                      subtitle: '短休息后直接进入专注',
+                      subtitle: '完成后直接切换，不等待标签弹窗',
                       trailing: FxSwitch(
                         value: autoStart,
                         onChanged:
