@@ -147,9 +147,13 @@ class _SearchScreenState extends State<SearchScreen> {
       final lower = query.toLowerCase();
       setState(() {
         _tasks = values.tasks;
-        _habits = values.habits
-            .where((habit) => habit.name.toLowerCase().contains(lower))
-            .toList(growable: false);
+        // Injected legacy test loaders still supply all habits. Production
+        // repository already searched both names and stored log notes.
+        _habits = (widget.dataLoader != null || widget.sourceLoaders != null)
+            ? values.habits
+                .where((habit) => habit.name.toLowerCase().contains(lower))
+                .toList(growable: false)
+            : values.habits;
         _reflections = values.reflections
             .where((entry) => entry.content.toLowerCase().contains(lower))
             .toList(growable: false);
@@ -185,14 +189,19 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!result.complete) missing.add('回顾（部分）');
       return result.entries;
     }
+    Future<List<Habit>> loadHabits() async {
+      if (sources != null) return sources.habits();
+      final result = await HabitRepository().searchContent(query);
+      if (!result.complete) missing.add('习惯（部分）');
+      return result.habits;
+    }
     final values = await Future.wait<dynamic>([
       (sources?.tasks(query) ?? DataService().searchTasks(query))
           .catchError((Object _) {
         missing.add('任务');
         return <Task>[];
       }),
-      (sources?.habits() ?? HabitRepository().getAll())
-          .catchError((Object _) {
+      loadHabits().catchError((Object _) {
         missing.add('习惯');
         return <Habit>[];
       }),
@@ -211,7 +220,7 @@ class _SearchScreenState extends State<SearchScreen> {
       throw StateError('所有搜索来源均未读取成功');
     }
     onUnavailable(
-      ['任务', '习惯', '回顾', '回顾（部分）', '清单']
+      ['任务', '习惯', '习惯（部分）', '回顾', '回顾（部分）', '清单']
           .where(missing.contains)
           .toList(growable: false),
     );
@@ -534,10 +543,23 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                       const SizedBox(width: 9),
                       Expanded(
-                        child: _highlight(
-                          habit.name,
-                          _query,
-                          style: SlowlightTypography.body(context),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _highlight(
+                              habit.name,
+                              _query,
+                              style: SlowlightTypography.body(context),
+                            ),
+                            if (habit.searchNote.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              _highlight(
+                                '匹配备注：${habit.searchNote}',
+                                _query,
+                                style: SlowlightTypography.caption(context),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       if (habit.streakCount > 0)
