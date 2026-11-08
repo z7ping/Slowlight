@@ -275,15 +275,17 @@ class ReflectionComposer {
                 },
               ),
               const SizedBox(height: SlowlightSpacing.xl),
-            ] else ...[
-              Text(
+            ],
+            Text(
                 '归属维度（可选）',
                 style: SlowlightTypography.componentFieldLabel(entryContext)
                     .copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: SlowlightSpacing.md),
               Wrap(
-                key: const ValueKey('observation.mobile.dimensions'),
+                key: ValueKey(_useDesktopObservationDialog
+                    ? 'observation.desktop.dimensions'
+                    : 'observation.mobile.dimensions'),
                 spacing: SlowlightSpacing.md,
                 runSpacing: SlowlightSpacing.md,
                 children: [
@@ -304,7 +306,6 @@ class ReflectionComposer {
                 ],
               ),
               const SizedBox(height: SlowlightSpacing.xl),
-            ],
             TagPicker(
               label: '标签（可选）',
               enabled: !saving,
