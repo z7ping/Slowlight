@@ -680,7 +680,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onPressed: () async {
                             final changed = await editCloudNickname(context, user);
                             if (changed && mounted) {
-                              authStateNotifier.value = !authStateNotifier.value;
+                              // Editing a nickname is not a login/logout.
+                              // Refresh only this view; the sidebar rereads
+                              // the cached name when the page is closed.
+                              await _loadAccount();
                             }
                           },
                         ),
@@ -816,7 +819,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   username: _loginUsername,
                                 );
                                 if (changed && mounted) {
-                                  authStateNotifier.value = !authStateNotifier.value;
+                                  await _loadAccount();
                                 }
                               },
                             ),
@@ -1989,9 +1992,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       );
       if (current() && completed) {
-        // OAuth 回调已完成后仍需刷新本机身份和真实绑定状态。
-        // 侧栏可能已经存在，显式广播避免停留在旧的账户摘要。
-        authStateNotifier.value = !authStateNotifier.value;
+        // GitHub 绑定改变的是账号详情，不是本设备的登录身份；
+        // 不得借刷新侧栏触发 AuthGate 重新判定会话。
         await _loadAccount();
         if (!current()) return;
         if (_githubLinked == true) {
