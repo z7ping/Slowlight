@@ -2,6 +2,20 @@ import '../db/local_db.dart';
 import '../models/todo_list.dart';
 
 /// 本地清单仓储（内部实现，被 LocalApiService 使用）。
+/// Exact transaction receipt for the original list and its live task IDs.
+/// An expired toast cannot invent a restoration by creating replacement IDs.
+class LocalListDeletionReceipt {
+  final int listId;
+  final String deletedAt;
+  final List<int> taskIds;
+
+  const LocalListDeletionReceipt({
+    required this.listId,
+    required this.deletedAt,
+    required this.taskIds,
+  });
+}
+
 class LocalListRepository {
   final _db = LocalDb();
 
@@ -98,26 +112,51 @@ class LocalListRepository {
     return result;
   }
 
-  Future<void> delete(int id, {bool deleteTasks = false, int? expectedTaskCount}) async {
+  Future<void> delete(int id, {
+    bool deleteTasks = false,
+    int? expectedTaskCount,
+  }) async {
+    await _deleteInternal(id,
+      deleteTasks: deleteTasks,
+      expectedTaskCount: expectedTaskCount,
+      undoable: false);
+  }
+
+  Future<LocalListDeletionReceipt> deleteWithUndo(
+    int id, {required int expectedTaskCount}
+  ) async {
+    final receipt = await _deleteInternal(id,
+      deleteTasks: true,
+      expectedTaskCount: expectedTaskCount,
+      undoable: true);
+    return receipt!;
+  }
+
+  Future<LocalListDeletionReceipt?> _deleteInternal(int id, {
+    required bool deleteTasks,
+    required int? expectedTaskCount,
+    required bool undoable,
+  }) async {
     final db = await _db.database;
     final now = DateTime.now().toUtc().toIso8601String();
-    await db.transaction((txn) async {
+    return db.transaction<LocalListDeletionReceipt?>((txn) async {
       final rows = await txn.query(
         'lists',
         columns: ['id', 'is_inbox'],
         where: 'id = ? AND deleted_at IS NULL',
-        whereArgs: [id],
-        limit: 1,
+        whereArgs: [id], limit: 1,
       );
       if (rows.isEmpty) throw StateError('清单不存在，请刷新后重试');
       if (rows.single['is_inbox'] == 1) {
         throw StateError('默认收集箱不可删除');
       }
-      final countRows = await txn.rawQuery(
-        'SELECT COUNT(*) AS total FROM tasks WHERE list_id = ? AND deleted_at IS NULL',
-        [id],
+      final active = await txn.query(
+        'tasks', columns: ['id'],
+        where: 'list_id = ? AND deleted_at IS NULL',
+        whereArgs: [id],
+        orderBy: 'id ASC',
       );
-      final count = (countRows.single['total'] as num?)?.toInt() ?? 0;
+      final count = active.length;
       if (expectedTaskCount != null && expectedTaskCount != count) {
         throw StateError('清单任务范围已变化，请重新核对删除范围');
       }
@@ -125,21 +164,49 @@ class LocalListRepository {
         throw StateError('清单下有任务，删除任务须明确确认');
       }
       if (deleteTasks) {
-        await txn.update(
-          'tasks',
+        final changed = await txn.update('tasks',
           {'deleted_at': now, 'updated_at': now},
           where: 'list_id = ? AND deleted_at IS NULL',
-          whereArgs: [id],
-        );
+          whereArgs: [id]);
+        if (changed != count) throw StateError('清单任务范围已变化');
       }
-      final deleted = await txn.update(
-        'lists',
+      final deleted = await txn.update('lists',
         {'deleted_at': now, 'updated_at': now},
         where: 'id = ? AND deleted_at IS NULL AND is_inbox = 0',
-        whereArgs: [id],
-      );
-      if (deleted != 1) {
-        throw StateError('清单状态已变化，删除未确认');
+        whereArgs: [id]);
+      if (deleted != 1) throw StateError('清单状态已变化，删除未确认');
+      return undoable ? LocalListDeletionReceipt(
+        listId: id, deletedAt: now,
+        taskIds: active.map((row) => row['id'] as int).toList(growable: false),
+      ) : null;
+    });
+  }
+
+  /// Restore the very same IDs, only while their tombstone still matches
+  /// this deletion. A changed task/list causes full rollback, not partial undo.
+  Future<void> undoDelete(LocalListDeletionReceipt receipt) async {
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      final restoredList = await txn.update('lists',
+        {'deleted_at': null, 'updated_at': DateTime.now().toUtc().toIso8601String()},
+        where: 'id = ? AND deleted_at = ?',
+        whereArgs: [receipt.listId, receipt.deletedAt]);
+      if (restoredList != 1) {
+        throw StateError('清单已发生变化，原删除不能撤销');
+      }
+      for (var start = 0; start < receipt.taskIds.length; start += 400) {
+        final stop = start + 400 > receipt.taskIds.length
+            ? receipt.taskIds.length : start + 400;
+        final chunk = receipt.taskIds.sublist(start, stop);
+        final slots = List.filled(chunk.length, '?').join(',');
+        final restored = await txn.update('tasks',
+          {'deleted_at': null,
+           'updated_at': DateTime.now().toUtc().toIso8601String()},
+          where: 'id IN ($slots) AND list_id = ? AND deleted_at = ?',
+          whereArgs: [...chunk, receipt.listId, receipt.deletedAt]);
+        if (restored != chunk.length) {
+          throw StateError('部分任务已变化，原删除不能撤销');
+        }
       }
     });
   }
