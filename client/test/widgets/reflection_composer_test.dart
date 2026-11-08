@@ -7,6 +7,73 @@ import 'package:slowlight/widgets/reflection_composer.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('P18 写下想法弹窗：Windows 返回和取消不能静默丢失草稿',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1000, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开想法',
+          onPressed: () => ReflectionComposer.show(context),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开想法'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '暂存的想法');
+    await tester.pump();
+
+    await tester.tapAt(const Offset(3, 3));
+    await tester.pumpAndSettle();
+    expect(find.text('写下想法'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的想法？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('暂存的想法'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FxButton, '取消').first);
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的想法？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.text('写下想法'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P18 写下想法弹窗：Android 空草稿直接取消不弹多余确认',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开空想法',
+          onPressed: () => ReflectionComposer.show(context),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开空想法'));
+    await tester.pumpAndSettle();
+    expect(find.text('写下想法'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FxButton, '取消').first);
+    await tester.pumpAndSettle();
+    expect(find.text('写下想法'), findsNothing);
+    expect(find.text('放弃未保存的想法？'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X07 Windows 观察草稿取消/系统返回必须确认，且放弃确认可撤回',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
