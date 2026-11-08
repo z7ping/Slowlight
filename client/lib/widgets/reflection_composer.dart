@@ -722,15 +722,58 @@ class ReflectionComposer {
     final controller = TextEditingController();
     List<Tag> canonicalTags = [];
     var saving = false;
+    var resultUnknown = false;
+    var allowPop = false;
+    var closing = false;
     String? error;
+
+    Future<void> requestClose(
+      BuildContext dialogContext,
+      StateSetter setDialogState,
+    ) async {
+      if (saving || closing) return;
+      final dirty = controller.text.trim().isNotEmpty ||
+          canonicalTags.isNotEmpty;
+      if (dirty || resultUnknown) {
+        closing = true;
+        try {
+          final discard = await FxDialog.confirm(
+            context: dialogContext,
+            title: resultUnknown ? '想法保存结果未确认' : '放弃未保存的想法？',
+            content: resultUnknown
+                ? '这次保存可能已经成功，请先到回顾核对，避免再次创建重复记录。'
+                : '关闭后会丢失本次尚未保存的内容。',
+            confirmText: resultUnknown ? '返回核对' : '放弃修改',
+            destructive: !resultUnknown,
+          );
+          if (discard != true || !dialogContext.mounted) return;
+        } finally {
+          closing = false;
+        }
+      }
+      if (!dialogContext.mounted) return;
+      setDialogState(() => allowPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (dialogContext.mounted) {
+          Navigator.of(dialogContext, rootNavigator: true).pop(false);
+        }
+      });
+    }
 
     final saved = await FxDialog.show<bool>(
       context: context,
       title: '写下想法',
       width: 520,
+      barrierDismissible: false,
+      showCloseButton: false,
       child: StatefulBuilder(
         builder: (dialogContext, setState) {
-          return SingleChildScrollView(
+          return PopScope(
+            canPop: allowPop,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) requestClose(dialogContext, setState);
+            },
+            child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -781,14 +824,11 @@ class ReflectionComposer {
                       variant: FxButtonVariant.outline,
                       onPressed: saving
                           ? null
-                          : () => Navigator.of(
-                                dialogContext,
-                                rootNavigator: true,
-                              ).pop(false),
+                          : () => requestClose(dialogContext, setState),
                     ),
                     FxButton(
                       label: saving ? '保存中…' : '保存',
-                      onPressed: saving
+                      onPressed: saving || resultUnknown
                           ? null
                           : () async {
                               final value = controller.text.trim();
@@ -809,15 +849,22 @@ class ReflectionComposer {
                                   tagIds: canonicalTags.map((tag) => tag.id).toList(growable: false),
                                 );
                                 if (dialogContext.mounted) {
-                                  Navigator.of(
-                                    dialogContext,
-                                    rootNavigator: true,
-                                  ).pop(true);
+                                  setState(() => allowPop = true);
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (dialogContext.mounted) {
+                                      Navigator.of(dialogContext, rootNavigator: true)
+                                          .pop(true);
+                                    }
+                                  });
                                 }
-                              } catch (e) {
+                              } catch (_) {
+                                if (!dialogContext.mounted) return;
+                                // A Cloud write may succeed before its response
+                                // or local cache update fails. Never replay it.
                                 setState(() {
                                   saving = false;
-                                  error = e.toString();
+                                  resultUnknown = true;
+                                  error = '保存结果未确认，请先到回顾核对，避免重复记录。';
                                 });
                               }
                             },
@@ -825,6 +872,7 @@ class ReflectionComposer {
                   ],
                 ),
               ],
+            ),
             ),
           );
         },
