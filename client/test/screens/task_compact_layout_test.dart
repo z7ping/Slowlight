@@ -128,6 +128,60 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X03 筛选切换回到顶部并关闭上一个已展开的滑动行',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final tasks = List<Task>.generate(36, (index) => Task(
+      id: 1000 + index,
+      listId: 1,
+      title: '筛选任务 $index',
+      priority: 'none',
+      isCompleted: false,
+      createdAt: DateTime(2026, 11, 8),
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        dataLoader: () async => <dynamic>[
+          tasks, tasks, <Task>[], <TodoList>[],
+        ],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final firstSwipe = tester.widget<TaskSwipeRow>(
+      find.byKey(const ValueKey('tasks.swipe.1000')),
+    );
+    firstSwipe.onOpenChanged(true);
+    await tester.pump();
+    expect(tester.widget<TaskSwipeRow>(
+      find.byKey(const ValueKey('tasks.swipe.1000')),
+    ).open, isTrue);
+
+    final view = tester.widget<CustomScrollView>(
+      find.byKey(const ValueKey('tasks.mobile.list')),
+    );
+    final controller = view.controller!;
+    controller.jumpTo(90);
+    await tester.pump();
+    expect(controller.offset, greaterThan(0));
+
+    tester.widget<FxInkWell>(
+      find.byKey(const ValueKey('tasks.mobile.filter.1')),
+    ).onTap!();
+    await tester.pump();
+    expect(controller.offset, 0);
+    expect(tester.widget<TaskSwipeRow>(
+      find.byKey(const ValueKey('tasks.swipe.1000')),
+    ).open, isFalse);
+    expect(find.text('所有任务'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P04 主任务先展示，不等待清单读取完成', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
