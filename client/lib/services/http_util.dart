@@ -72,7 +72,8 @@ class HttpUtil {
           '/api/auth/refresh' => 'refresh',
           _ => null,
         };
-        final authorization = headers['Authorization'] ?? headers['authorization'];
+        final authorization =
+            headers['Authorization'] ?? headers['authorization'];
         final bearer = authorization == null || authorization.isEmpty
             ? 'absent'
             : authorization.startsWith('Bearer ') && authorization.length > 7
