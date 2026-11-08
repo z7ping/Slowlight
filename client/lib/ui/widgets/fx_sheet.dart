@@ -100,6 +100,8 @@ abstract final class FxSheet {
           title: grip ?? title,
           description: description,
           actions: actions,
+          // The 44dp handle is already its own header; no extra 8dp gap.
+          gap: grip != null ? 0 : null,
           constraints: constraints,
           padding: padding,
           radius: radius ?? (mobileBottom
@@ -107,6 +109,8 @@ abstract final class FxSheet {
                   top: Radius.circular(SlowlightRadius.xl))
               : null),
           backgroundColor: backgroundColor,
+          // ShadDialog otherwise strips the painted radius below 640dp.
+          removeBorderRadiusWhenTiny: mobileBottom ? false : null,
           draggable: hasDismissGuard && mobileBottom
               ? false
               : effectiveDraggable,

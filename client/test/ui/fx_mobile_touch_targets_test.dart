@@ -114,4 +114,41 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('FxButton 真实禁用态不丢失 Primary 主按钮语义', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    var taps = 0;
+    Widget host({required bool canSave}) => buildFxTestHost(
+      home: Scaffold(
+        body: Center(
+          child: FxButton(
+            label: '保存修改',
+            onPressed: canSave ? () => taps++ : null,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(host(canSave: false));
+    await tester.pump();
+    final buttonSurface = find.descendant(
+      of: find.byType(FxButton),
+      matching: find.byType(ShadButton),
+    );
+    expect(tester.widget<ShadButton>(buttonSurface).enabled, isFalse);
+    expect(tester.widget<ShadButton>(buttonSurface).variant,
+        ShadButtonVariant.primary);
+
+    await tester.pumpWidget(host(canSave: true));
+    await tester.pump();
+    expect(tester.widget<ShadButton>(buttonSurface).enabled, isTrue);
+    expect(tester.widget<ShadButton>(buttonSurface).variant,
+        ShadButtonVariant.primary);
+    await tester.tap(find.text('保存修改'));
+    await tester.pump();
+    expect(taps, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }

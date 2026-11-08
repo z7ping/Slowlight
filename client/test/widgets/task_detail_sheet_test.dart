@@ -104,6 +104,7 @@ void main() {
     );
     expect(find.text('添加任务'), findsNWidgets(2));
     expect(tester.widget<FxButton>(action).onPressed, isNull);
+    expect(tester.widget<FxButton>(action).variant, FxButtonVariant.primary);
     await tester.enterText(
       find.descendant(
         of: find.byKey(const ValueKey('task.detail.title')),
