@@ -117,10 +117,17 @@ class AppErrorLogger {
     }
     // The Android FileProvider copy is also a local diagnostic artifact.
     // Clearing logs must not silently leave a previous exported copy behind.
-    final export = File(
-      '${(await _exportDirectoryProvider()).path}${Platform.pathSeparator}slowlight-diagnostics.txt',
-    );
-    if (await export.exists()) await export.delete();
+    try {
+      final export = File(
+        '${(await _exportDirectoryProvider()).path}${Platform.pathSeparator}slowlight-diagnostics.txt',
+      );
+      if (await export.exists()) await export.delete();
+    } catch (_) {
+      // Only Android creates a FileProvider share copy. A missing platform
+      // channel in desktop/tests must not reclassify an already cleared log
+      // as a failed clear; Android must report a failed cache cleanup.
+      if (Platform.isAndroid) rethrow;
+    }
   }
 
   /// 在缓存目录创建供 Android FileProvider 分享的脱敏文本副本.
