@@ -775,3 +775,67 @@ func TestP07TargetedEndAndGuardedStartRejectConflictingDevices(t *testing.T) {
         t.Fatal("conflicting requests must not end or count the active session")
     }
 }
+
+func TestP07TodayWindowRespectsDSTCalendarBoundaries(t *testing.T) {
+    loc, err := time.LoadLocation("America/New_York")
+    if err != nil { t.Fatal(err) }
+    cases := []struct {
+        month time.Month
+        day int
+        want time.Duration
+    }{
+        {time.March, 8, 23*time.Hour},
+        {time.November, 1, 25*time.Hour},
+    }
+    for _, tc := range cases {
+        noon := time.Date(2026, tc.month, tc.day, 12, 0, 0, 0, loc)
+        start, end := sessionTodayWindow(noon, loc)
+        if end.Sub(start) != tc.want {
+            t.Fatalf("%v day lasted %v, want %v", tc.month, end.Sub(start), tc.want)
+        }
+        if start.In(loc).Hour() != 0 || end.In(loc).Hour() != 0 ||
+            end.In(loc).Day() != tc.day+1 {
+            // November 1 -> 2 and March 8 -> 9 are both ordinary dates.
+            t.Fatalf("wrong local day boundaries %v to %v", start, end)
+        }
+    }
+}
+
+func TestP07CloudSessionDailyBucketsUseAccountTimezone(t *testing.T) {
+    db, handler, userID := setupSessionTest(t)
+    loc, err := time.LoadLocation("America/Los_Angeles")
+    if err != nil { t.Fatal(err) }
+    if err := db.Model(&model.User{}).
+        Where("id = ?", userID).
+        Update("timezone", "America/Los_Angeles").Error; err != nil {
+        t.Fatal(err)
+    }
+    yesterday := time.Now().In(loc).AddDate(0, 0, -1)
+    started := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 23, 30, 0, 0, loc)
+    ended := started.Add(25*time.Minute)
+    if err := db.Create(&model.WorkSession{
+        UserID: userID,
+        SessionType: "work",
+        TargetMinutes: 25,
+        StartedAt: started,
+        EndedAt: &ended,
+        DurationSec: 1500,
+    }).Error; err != nil { t.Fatal(err) }
+
+    router := newSessionRouter(handler, userID)
+    w := httptest.NewRecorder()
+    req, _ := http.NewRequest("GET", "/sessions/stats?period=week", nil)
+    router.ServeHTTP(w, req)
+    if w.Code != http.StatusOK {
+        t.Fatalf("stats response %d: %s", w.Code, w.Body.String())
+    }
+    var payload map[string]interface{}
+    if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil { t.Fatal(err) }
+    days, ok := payload["daily"].([]interface{})
+    if !ok || len(days) == 0 { t.Fatalf("missing daily stats: %v", payload) }
+    first := days[0].(map[string]interface{})
+    want := started.In(loc).Format("2006-01-02")
+    if first["date"] != want {
+        t.Fatalf("account day = %v, want %s", first["date"], want)
+    }
+}

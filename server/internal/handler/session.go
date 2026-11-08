@@ -384,13 +384,28 @@ func (h *SessionHandler) GetActiveSession(c *gin.Context) {
     })
 }
 
+// sessionTodayWindow uses the account's calendar day, not a fixed 24 hours.
+// On DST transitions that day can last 23 or 25 hours.
+func sessionTodayWindow(now time.Time, loc *time.Location) (time.Time, time.Time) {
+    today := now.In(loc)
+    start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc)
+    return start, start.AddDate(0, 0, 1)
+}
+
 // GetStats 获取统计数据
 func (h *SessionHandler) GetStats(c *gin.Context) {
 	userID := c.GetUint("userID")
 	period := c.DefaultQuery("period", "week") // week, month, all
 
+    var tzUser model.User
+    if err := h.DB.Select("timezone").First(&tzUser, userID).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"无法核对用户专注统计时区"})
+        return
+    }
+    loc := model.UserLocation(tzUser.Timezone)
+
 	var since time.Time
-	now := time.Now()
+	now := time.Now().In(loc)
 	switch period {
 	case "month":
 		since = now.AddDate(0, -1, 0)
@@ -402,14 +417,17 @@ func (h *SessionHandler) GetStats(c *gin.Context) {
 
 	// 总体统计
 	var sessions []model.WorkSession
-	h.DB.Where("user_id = ? AND started_at >= ? AND ended_at IS NOT NULL", userID, since).
-		Order("started_at ASC").Find(&sessions)
+    if err := h.DB.Where("user_id = ? AND started_at >= ? AND ended_at IS NOT NULL", userID, since).
+        Order("started_at ASC").Find(&sessions).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"无法核对专注统计"})
+        return
+    }
 
 	stats := model.SessionStats{}
 	dailyMap := make(map[string]*model.DailyStats)
 
 	for _, s := range sessions {
-		dateKey := s.StartedAt.Format("2006-01-02")
+        dateKey := s.StartedAt.In(loc).Format("2006-01-02")
 		if _, ok := dailyMap[dateKey]; !ok {
 			dailyMap[dateKey] = &model.DailyStats{Date: dateKey}
 		}
@@ -442,15 +460,19 @@ func (h *SessionHandler) GetTodayStats(c *gin.Context) {
 
 	// 用用户时区算"今日"
 	var tzUser model.User
-	h.DB.Select("timezone").First(&tzUser, userID)
+    if err := h.DB.Select("timezone").First(&tzUser, userID).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"无法核对用户今日时区"})
+        return
+    }
 	loc := model.UserLocation(tzUser.Timezone)
-	today := time.Now().In(loc).Format("2006-01-02")
-	startOfDay, _ := time.ParseInLocation("2006-01-02", today, loc)
-	endOfDay := startOfDay.Add(24 * time.Hour)
+    startOfDay, endOfDay := sessionTodayWindow(time.Now(), loc)
 
 	var sessions []model.WorkSession
-	h.DB.Where("user_id = ? AND started_at >= ? AND started_at < ? AND ended_at IS NOT NULL",
-		userID, startOfDay, endOfDay).Find(&sessions)
+    if err := h.DB.Where("user_id = ? AND started_at >= ? AND started_at < ? AND ended_at IS NOT NULL",
+        userID, startOfDay, endOfDay).Find(&sessions).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"无法核对今日专注事实"})
+        return
+    }
 
 	stats := model.SessionStats{}
 	for _, s := range sessions {
