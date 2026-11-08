@@ -1,8 +1,15 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/services/api_service.dart';
+import 'package:slowlight/services/auth_storage_diagnostics.dart';
 import 'package:slowlight/services/github_oauth_pending.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+  tearDown(() => AuthStorageDiagnostics.debugTraceSink = null);
+
   test('有效的 Android 授权会话可序列化并恢复', () {
     final original = GitHubOAuthPending(
       sessionId: 'session-id',
@@ -55,6 +62,43 @@ void main() {
     expect(restored?.userCode, 'ABCD-1234');
     final bad = {...pending.toJson(), 'verification_uri': 'https://evil.example/steal'};
     expect(GitHubOAuthPending.fromJson(bad), isNull);
+  });
+
+  test('清理 GitHub 授权暂存只删 pending，前后记录 Access 存在性', () async {
+    const access = 'the-access-credential-must-remain-unchanged';
+    const poll = 'the-oauth-poll-credential-must-remain-private';
+    FlutterSecureStorage.setMockInitialValues({'auth_token': access});
+    final events = <String>[];
+    AuthStorageDiagnostics.debugTraceSink = events.add;
+    final pending = GitHubOAuthPending(
+      sessionId: 'pending-id', pollToken: poll,
+      expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+      endpoint: ApiService.baseUrl,
+    );
+
+    await GitHubOAuthPending.save(pending);
+    expect((await GitHubOAuthPending.load())?.pollToken, poll);
+    await GitHubOAuthPending.clear(reason: 'login_saved');
+
+    const storage = FlutterSecureStorage();
+    expect(await storage.read(key: 'auth_token'), access);
+    expect(await storage.read(key: GitHubOAuthPending.storageKey), isNull);
+    final text = events.join('\n');
+    expect(text, contains(
+      'action=read slot=access '
+      'actor=oauth.pending.before_clear.login_saved status=present',
+    ));
+    expect(text, contains(
+      'action=read slot=access '
+      'actor=oauth.pending.after_clear.login_saved status=present',
+    ));
+    expect(text, contains(
+      'action=delete slot=oauthPending '
+      'actor=oauth.pending.clear.login_saved phase=done',
+    ));
+    expect(text, isNot(contains(access)));
+    expect(text, isNot(contains(poll)));
+    expect(text, isNot(contains('pending-id')));
   });
 
   test('账号绑定恢复必须记录且匹配用户标识', () {
