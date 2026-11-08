@@ -95,7 +95,7 @@ void main() {
     expect(await export.exists(), isFalse);
   });
 
-  test('concurrent error writes are serialized',
+  test('concurrent error writes are serialized', () async {
     final logger = AppErrorLogger(directoryProvider: () async => tempDir);
     await Future.wait(
       List.generate(15, (i) => logger.write(
