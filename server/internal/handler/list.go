@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -152,7 +154,16 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 	// Older clients still use DELETE /lists/:id without an explicit cascade.
 	// Never silently turn that request into destructive task deletion.
 	deleteTasks := c.Query("delete_tasks") == "true"
+	undoable := c.Query("undoable") == "true"
+	if undoable && !deleteTasks {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "可撤销的清单删除必须明确确认子任务范围"})
+		return
+	}
 	expectedRaw, expectedProvided := c.GetQuery("expected_tasks")
+	if undoable && !expectedProvided {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "可撤销删除需要已核对的任务数量"})
+		return
+	}
 	var expectedCount int64
 	if expectedProvided {
 		var err error
@@ -175,8 +186,20 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 		return
 	}
 
-	// 任务和清单必须同一事务软删除；任一操作失败都不提交。
+	// 任务、清单与撤销证据同一事务提交；没有可恢复证据不删除。
+	var undoToken string
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		var taskIDs []uint
+		var stamp time.Time
+		if undoable {
+			if err := tx.Model(&model.Task{}).
+				Where("list_id = ? AND user_id = ?", list.ID, userID).
+				Pluck("id", &taskIDs).Error; err != nil { return err }
+			if int64(len(taskIDs)) != expectedCount {
+				return errImpactChanged
+			}
+			stamp = time.Now().UTC().Truncate(time.Microsecond)
+		}
 		if expectedProvided {
 			var current int64
 			if err := tx.Model(&model.Task{}).
@@ -189,20 +212,37 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 			}
 		}
 		if deleteTasks {
-			deleted := tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
-				Delete(&model.Task{})
+			var deleted *gorm.DB
+			if undoable {
+				deleted = tx.Model(&model.Task{}).
+					Where("list_id = ? AND user_id = ?", list.ID, userID).
+					Update("deleted_at", stamp)
+			} else {
+				deleted = tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
+					Delete(&model.Task{})
+			}
 			if deleted.Error != nil { return deleted.Error }
 			if expectedProvided && deleted.RowsAffected != expectedCount {
 				return errImpactChanged
 			}
 		}
-		result := tx.Where("id = ? AND user_id = ? AND is_inbox = false", list.ID, userID).
-			Delete(&model.List{})
-		if result.Error != nil {
-			return result.Error
+		var result *gorm.DB
+		if undoable {
+			result = tx.Model(&model.List{}).
+				Where("id = ? AND user_id = ? AND is_inbox = false", list.ID, userID).
+				Update("deleted_at", stamp)
+		} else {
+			result = tx.Where("id = ? AND user_id = ? AND is_inbox = false", list.ID, userID).
+				Delete(&model.List{})
 		}
-		if result.RowsAffected != 1 {
-			return gorm.ErrRecordNotFound
+		if result.Error != nil { return result.Error }
+		if result.RowsAffected != 1 { return gorm.ErrRecordNotFound }
+		if undoable {
+			token, err := saveDeletionUndo(tx, userID, "list", listDeletionSnapshot{
+				ListID: list.ID, TaskIDs: taskIDs, DeletedAt: stamp,
+			})
+			if err != nil { return err }
+			undoToken = token
 		}
 		return nil
 	})
@@ -214,7 +254,59 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除清单及关联任务失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "删除成功",
+		"undo_token": undoToken,
+	})
+}
+
+type listDeletionSnapshot struct {
+	ListID    uint      `json:"list_id"`
+	TaskIDs   []uint    `json:"task_ids"`
+	DeletedAt time.Time `json:"deleted_at"`
+}
+
+// POST /lists/undo — the original IDs and exact tombstone are restored
+// atomically. The one-use receipt is persisted in the existing user_config.
+func (h *ListHandler) UndoListDelete(c *gin.Context) {
+	userID := c.GetUint("userID")
+	var request struct {
+		Token string `json:"token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "撤销凭据不能为空"})
+		return
+	}
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		raw, stored, err := loadDeletionUndo(tx, userID, request.Token, "list")
+		if err != nil { return err }
+		var snap listDeletionSnapshot
+		if err := json.Unmarshal(raw, &snap); err != nil {
+			return errDeletionUndoUnavailable
+		}
+		restored := tx.Unscoped().Model(&model.List{}).
+			Where("id = ? AND user_id = ? AND deleted_at = ?",
+				snap.ListID, userID, snap.DeletedAt).
+			Update("deleted_at", nil)
+		if restored.Error != nil { return restored.Error }
+		if restored.RowsAffected != 1 { return errDeletionUndoUnavailable }
+		if len(snap.TaskIDs) > 0 {
+			children := tx.Unscoped().Model(&model.Task{}).
+				Where("user_id = ? AND list_id = ? AND id IN ? AND deleted_at = ?",
+					userID, snap.ListID, snap.TaskIDs, snap.DeletedAt).
+				Update("deleted_at", nil)
+			if children.Error != nil { return children.Error }
+			if children.RowsAffected != int64(len(snap.TaskIDs)) {
+				return errDeletionUndoUnavailable
+			}
+		}
+		return tx.Delete(stored).Error
+	})
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "撤销未执行：原记录已变化或凭据失效"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "原清单及任务已恢复"})
 }
 
 // GetStats 清单维度统计：每个清单的任务数和完成率
