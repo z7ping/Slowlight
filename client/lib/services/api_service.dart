@@ -341,11 +341,13 @@ class ApiService {
   }
 
   // 删除清单
-  static Future<void> deleteList(int id) async {
-    if (DataModeManager().isOffline) return _localApi.deleteList(id);
+  static Future<void> deleteList(int id, {bool deleteTasks = false}) async {
+    if (DataModeManager().isOffline) {
+      return _localApi.deleteList(id, deleteTasks: deleteTasks);
+    }
     final headers = await _authHeaders();
     final response = await HttpUtil.delete(
-      Uri.parse('$baseUrl/lists/$id'),
+      Uri.parse('$baseUrl/lists/$id${deleteTasks ? '?delete_tasks=true' : ''}'),
       headers: headers,
     ).timeout(_getTimeout);
     if (response.statusCode != 200) {
