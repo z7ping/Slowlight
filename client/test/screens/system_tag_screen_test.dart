@@ -251,7 +251,7 @@ void main() {
       7: (tasks: 999, habits: 0, sessions: 0, reflections: 0),
     });
     await tester.pumpAndSettle();
-    expect(find.textContaining('关联 999 条'), findsNothing);
+    expect(find.textContaining('关联影响 999 条'), findsNothing);
     expect(find.textContaining('关联影响 2 条'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
