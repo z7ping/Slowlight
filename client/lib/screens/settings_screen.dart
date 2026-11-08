@@ -91,6 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _switchingMode = false;
   bool _confirmingModeSwitch = false;
   bool _linkingGitHub = false;
+  int _githubBindAttempt = 0;
   bool _githubDeviceEnabled = false;
   String? _githubDeviceCode;
   Uri? _githubDeviceUri;
@@ -864,11 +865,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         size: FxButtonSize.sm,
                         variant: FxButtonVariant.ghost,
                         onPressed: () async {
+                          // Invalidate callbacks before clearing the pending
+                          // authorization. A late successful poll is not an
+                          // accepted binding after the user cancels.
+                          ++_githubBindAttempt;
                           setState(() => _linkingGitHub = false);
                           try {
                             await GitHubSignIn.cancelPendingAuthorization();
-                          } catch (_) {
-                            // 取消等待立即生效，不依赖存储。
+                          } catch (error) {
+                            if (mounted) {
+                              FxNotice.errorWithDetails(
+                                context,
+                                '取消授权结果未确认，请重新检查账号绑定状态',
+                                error.toString(),
+                              );
+                            }
                           }
                         },
                       ),
@@ -1905,7 +1916,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     bool resumePending = false,
     bool useDeviceCode = false,
   }) async {
-    if (DataModeManager().isLocal) return;
+    if (_linkingGitHub || DataModeManager().isLocal) return;
+    final attempt = ++_githubBindAttempt;
+    bool current() => mounted && _linkingGitHub &&
+        attempt == _githubBindAttempt && DataModeManager().isCloud;
     setState(() {
       _linkingGitHub = true;
       _githubLinkingStatus = "正在等待 GitHub 授权…";
@@ -1917,9 +1931,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         linkExisting: true,
         resumePending: resumePending,
         useDeviceCode: useDeviceCode,
-        shouldContinue: () => mounted && _linkingGitHub,
+        shouldContinue: current,
         onDeviceCode: (code, uri) {
-          if (mounted && _linkingGitHub) {
+          if (current()) {
             setState(() {
               _githubDeviceCode = code;
               _githubDeviceUri = uri;
@@ -1927,17 +1941,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
         },
         onStatus: (status) {
-          if (mounted && _linkingGitHub) {
+          if (current()) {
             setState(() => _githubLinkingStatus = status);
           }
         },
       );
-      if (mounted && completed) {
+      if (current() && completed) {
         // OAuth 回调已完成后仍需刷新本机身份和真实绑定状态。
         // 侧栏可能已经存在，显式广播避免停留在旧的账户摘要。
         authStateNotifier.value = !authStateNotifier.value;
         await _loadAccount();
-        if (!mounted) return;
+        if (!current()) return;
         if (_githubLinked == true) {
           _message('GitHub 已绑定到当前云端账号');
         } else {
@@ -1945,11 +1959,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (current()) {
         FxNotice.errorWithDetails(context, '绑定 GitHub 失败', e.toString());
       }
     } finally {
-      if (mounted) setState(() => _linkingGitHub = false);
+      if (mounted && attempt == _githubBindAttempt) {
+        setState(() => _linkingGitHub = false);
+      }
     }
   }
 
