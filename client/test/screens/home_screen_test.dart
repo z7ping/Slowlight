@@ -130,6 +130,8 @@ void main() {
       expect(find.text('标签'), findsOneWidget);
       expect(fxTooltipFinder('关闭'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('清单'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('清单'));
       await tester.pumpAndSettle();
       expect(find.byType(ListManageScreen), findsOneWidget);
