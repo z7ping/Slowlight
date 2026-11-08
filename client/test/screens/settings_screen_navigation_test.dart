@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
+import 'package:slowlight/screens/ai_settings_screen.dart';
+import 'package:slowlight/screens/diagnostics_screen.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/services/reminder_service.dart';
 
 import '../support/fx_test_host.dart';
@@ -194,4 +198,38 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('S17 本地隐私说明与真实 AI/诊断入口保持一致', (tester) async {
+    SharedPreferences.setMockInitialValues({'user_data': 'invalid-data'});
+    FlutterSecureStorage.setMockInitialValues({});
+    await tester.runAsync(() => DataModeManager().setLocal());
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(initialSection: 'privacy'),
+    ));
+    await tester.pump();
+    expect(find.textContaining('本地数据模式：读写本设备数据库'), findsOneWidget);
+    expect(find.textContaining('是否离开本设备取决于实际接口地址'), findsOneWidget);
+    expect(find.textContaining('仅保存在本机，用户主动导出前'), findsOneWidget);
+
+    await tester.tap(find.text('查看配置'));
+    await tester.pump();
+    expect(find.byType(AiSettingsScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(AiSettingsScreen))).pop();
+    await tester.pump();
+
+    await tester.tap(find.text('应用诊断'));
+    await tester.pump();
+    expect(find.byType(DiagnosticsScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }

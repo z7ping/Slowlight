@@ -163,4 +163,56 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('S14 已读取的冲突刷新失败后必须只读，直到重新核对成功', (tester) async {
+    var reads = 0;
+    var writes = 0;
+    final row = <String, dynamic>{
+      '_entity_type': 'tasks',
+      'id': 13,
+      'server_id': 24,
+      'title': '旧缓存冲突',
+    };
+    await tester.pumpWidget(buildFxTestHost(
+      home: ConflictScreen(
+        conflictsLoader: () async {
+          reads++;
+          if (reads == 2) throw StateError('network temporarily unavailable');
+          return [row];
+        },
+        remotePreviewLoader: (_, __) async => {'title': '服务端旧版本'},
+        conflictResolver: (_, {required entityType, required keepLocal}) async {
+          writes++;
+          return true;
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(reads, 1);
+
+    final refresh = tester.widget<FxRefresh>(find.byType(FxRefresh));
+    await refresh.onRefresh();
+    await tester.pump();
+    expect(reads, 2);
+    expect(find.textContaining('刷新失败，正在显示上次读取的冲突'), findsOneWidget);
+    expect(tester.widget<FxButton>(
+      find.widgetWithText(FxButton, '保留本地版本'),
+    ).onPressed, isNull);
+    expect(tester.widget<FxButton>(
+      find.widgetWithText(FxButton, '使用服务端版本'),
+    ).onPressed, isNull);
+    expect(writes, 0);
+
+    await tester.tap(find.byKey(const ValueKey('conflicts.recheck_unknown')));
+    await tester.pump();
+    await tester.pump();
+    expect(reads, 3);
+    expect(find.textContaining('刷新失败，正在显示上次读取的冲突'), findsNothing);
+    expect(tester.widget<FxButton>(
+      find.widgetWithText(FxButton, '保留本地版本'),
+    ).onPressed, isNotNull);
+    expect(writes, 0);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
