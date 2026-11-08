@@ -122,13 +122,18 @@ class _RestOverlayState extends State<RestOverlay> {
     final service = ReminderService();
     final active = service.state == 'micro_rest' ||
         service.state == 'long_rest';
-    final _remaining = active ? service.remainingSeconds : widget.restSeconds;
-    final m = _remaining ~/ 60;
-    final s = _remaining % 60;
-    final progress = widget.restSeconds <= 0
+    final remaining = active ? service.remainingSeconds : widget.restSeconds;
+    final total = active ? service.totalSeconds : widget.restSeconds;
+    final isMicro = active ? service.state == 'micro_rest' : widget.isMicroRest;
+    final strict = active ? service.isCurrentRestStrict : widget.strict;
+    final allowPostpone = active
+        ? service.isCurrentRestPostponeAllowed : widget.allowPostpone;
+    final m = remaining ~/ 60;
+    final s = remaining % 60;
+    final progress = total <= 0
         ? 0.0
-        : (_remaining / widget.restSeconds).clamp(0.0, 1.0).toDouble();
-    final modeLabel = widget.isMicroRest ? 'MICRO BREAK' : 'LONG BREAK';
+        : (remaining / total).clamp(0.0, 1.0).toDouble();
+    final modeLabel = isMicro ? 'MICRO BREAK' : 'LONG BREAK';
 
     return PopScope(
       canPop: false,
@@ -175,10 +180,10 @@ class _RestOverlayState extends State<RestOverlay> {
                           strokeWidth: 8,
                           color: SlowlightSemanticColor.successEmphasis,
                           backgroundColor: Colors.white.withValues(alpha: .14),
-                          semanticsLabel: widget.isMicroRest
+                          semanticsLabel: isMicro
                               ? '小憩剩余时间'
                               : '长休息剩余时间',
-                          semanticsValue: '$_remaining 秒',
+                          semanticsValue: '$remaining 秒',
                           child: Container(
                             width: 154,
                             height: 154,
@@ -209,7 +214,7 @@ class _RestOverlayState extends State<RestOverlay> {
                             height: 1.5,
                           ),
                         ),
-                        if (widget.allowPostpone) ...[
+                        if (allowPostpone) ...[
                           const SizedBox(height: 14),
                           FxButton(
                             label: '延后 5 分钟',
@@ -226,7 +231,7 @@ class _RestOverlayState extends State<RestOverlay> {
                 Positioned(
                   right: 18,
                   bottom: 14,
-                  child: widget.strict
+                  child: strict
                       ? const Text(
                           '严格模式 · 不可跳过',
                           style: TextStyle(
