@@ -23,4 +23,5 @@
 | `GITHUB_OAUTH_ENABLE_DEVICE_FLOW` | ✅ |
 | `JWT_SECRET` | ✅ |
 | `PORT` | ✅ |
+| `SLOWLIGHT_DEPLOYED_AT` | ✅ |
 | `TEST_DATABASE_URL` | ✅ |
