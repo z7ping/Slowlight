@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/task.dart';
@@ -32,6 +34,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   List<Task> _tasks = const [];
   List<TodoList> _lists = const [];
   String? _dragTarget;
+  bool _moveHintRequested = false;
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         _hasLoadedData = true;
         _initialLoadFailed = false;
       });
+      if (_tasks.isNotEmpty) _showMoveHintOnce();
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -65,6 +69,33 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         FxNotice.showContent(context, const Text('刷新失败，仍显示上次加载的任务'));
       }
     }
+  }
+
+  // Show the established move gesture once per device class, without
+  // reserving permanent space in the four-quadrant workspace.
+  void _showMoveHintOnce() {
+    if (_moveHintRequested) return;
+    _moveHintRequested = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final desktop = ResponsiveLayout.isDesktopOrWider(context);
+      final key = desktop
+          ? 'quadrant_move_hint_desktop_v1'
+          : 'quadrant_move_hint_mobile_v1';
+      try {
+        final preferences = await SharedPreferences.getInstance();
+        if (!mounted || preferences.getBool(key) == true) return;
+        FxNotice.show(
+          context,
+          desktop
+              ? '拖拽任务可移动象限；右键或 Shift+F10 也能选择'
+              : '长按任务可移动象限；菜单键或 Shift+F10 也能选择',
+        );
+        await preferences.setBool(key, true);
+      } catch (_) {
+        // Missing local preferences must never block the quadrant board.
+      }
+    });
   }
 
   Future<QuadrantData> _loadDefault() async {
@@ -463,7 +494,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     VoidCallback? onTap,
     VoidCallback? onMove,
   }) {
-    return FxInkWell(
+    final row = FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       // 安卓点击任务与其他任务列表一致：打开详情。
       // 移动象限使用右侧明确的“更多”操作，不隐藏在长按手势里。
@@ -511,6 +542,21 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         ),
       ),
     );
+    // Keep primary click/Enter on the existing task detail. Keyboard menu
+    // keys and secondary click only expose the existing move-and-save flow.
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.contextMenu):
+            () => _showMoveSheet(task),
+        const SingleActivator(LogicalKeyboardKey.f10, shift: true):
+            () => _showMoveSheet(task),
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapDown: (_) => _showMoveSheet(task),
+        child: row,
+      ),
+    );
   }
 
   void _openTask(Task task) {
@@ -528,49 +574,58 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Future<void> _showMoveSheet(Task task) async {
-    final result = await FxSheet.show<String>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(SlowlightRadius.xl),
-        ),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '「${task.title}」移动到…',
-              style: SlowlightTypography.secondary(
-                context,
-              ).copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            _moveOption('重要 · 紧急', 'urgent_important', task.priority),
-            _moveOption('重要 · 不紧急', 'important', task.priority),
-            _moveOption('不重要 · 紧急', 'urgent', task.priority),
-            _moveOption('不重要 · 不紧急', 'none', task.priority),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: double.infinity,
-              child: FxButton(
-                label: '取消',
-                variant: FxButtonVariant.ghost,
-                onPressed: () => Navigator.pop(context),
+    // All secondary actions share one four-choice selector and the same
+    // unsaved TaskDetailSheet priority draft. Only explicit Save writes.
+    Widget choices(BuildContext sheetContext) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '「${task.title}」移动到…',
+                style: SlowlightTypography.secondary(sheetContext)
+                    .copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              _moveOption('重要 · 紧急', 'urgent_important', task.priority),
+              _moveOption('重要 · 不紧急', 'important', task.priority),
+              _moveOption('不重要 · 紧急', 'urgent', task.priority),
+              _moveOption('不重要 · 不紧急', 'none', task.priority),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: FxButton(
+                  label: '取消',
+                  variant: FxButtonVariant.ghost,
+                  onPressed: () => Navigator.pop(sheetContext),
+                ),
+              ),
+            ],
+          ),
+        );
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
+    final result = desktop
+        ? await FxDialog.show<String>(
+            context: context,
+            width: 360,
+            showCloseButton: false,
+            child: choices(context),
+          )
+        : await FxSheet.show<String>(
+            context: context,
+            useSafeArea: true,
+            isScrollControlled: true,
+            showDragHandle: true,
+            showCloseButton: false,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(SlowlightRadius.xl),
               ),
             ),
-          ],
-        ),
-      ),
-    );
+            builder: choices,
+          );
     if (result == null || result == task.priority || !mounted) return;
-    // Mobile moves follow the shared task editor and require explicit Save.
-    // Desktop drag/drop intentionally keeps its existing direct move path.
     await TaskDetailSheet.show(
       context,
       task: task,
