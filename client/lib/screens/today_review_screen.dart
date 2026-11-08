@@ -25,6 +25,8 @@ import 'weekly_review_screen.dart';
 class TodayReviewScreen extends StatefulWidget {
   final String initialReviewMode;
   final ValueChanged<StatsDestination>? onStatsNavigate;
+  final Future<void> Function(TimeDistributionDestination)?
+      onTimeDistributionNavigate;
   /// A verified search result to pin without changing today's statistics.
   final ReflectionEntry? focusObservation;
   final int focusRequestId;
@@ -36,6 +38,7 @@ class TodayReviewScreen extends StatefulWidget {
     super.key,
     this.initialReviewMode = 'tasks',
     this.onStatsNavigate,
+    this.onTimeDistributionNavigate,
     this.focusObservation,
     this.focusRequestId = 0,
     this.reflectionRepository,
@@ -341,7 +344,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               embedded: true,
               onNavigate: widget.onStatsNavigate,
             ),
-            2 => const TimeDistributionScreen(),
+            2 => TimeDistributionScreen(
+              titleProvidedByShell: true,
+              onNavigate: widget.onTimeDistributionNavigate,
+            ),
             _ => _overviewBody(),
           },
         ),
