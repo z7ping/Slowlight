@@ -412,7 +412,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!mounted) return;
     if (_sessionType == 'work') {
       final longBreak = finishedSessionId != null &&
-          await _rememberNaturalWork(finishedSessionId);
+          (await _rememberNaturalWork(finishedSessionId));
       if (!mounted) return;
       _showCompletion(tagsSaved ? '专注了 $_sessionTargetMinutes 分钟' : '专注已结束，但标签未保存');
       setState(() {
