@@ -21,6 +21,7 @@ CloudSyncViewState cloudSyncViewState({
   required int pendingCount,
   SyncQueueRunEvidence? lastQueueRun,
   bool networkUnreachable = false,
+  bool standalonePendingUnknown = false,
 }) {
   if (isSyncing || status == SyncStatusEnum.syncing) {
     return CloudSyncViewState.syncing;
@@ -35,7 +36,9 @@ CloudSyncViewState cloudSyncViewState({
     if (networkUnreachable) return CloudSyncViewState.networkUnreachable;
     return CloudSyncViewState.failed;
   }
-  if (conflictCheckFailed) return CloudSyncViewState.unknown;
+  if (conflictCheckFailed || standalonePendingUnknown) {
+    return CloudSyncViewState.unknown;
+  }
   if (pendingCount > 0) return CloudSyncViewState.pending;
   return CloudSyncViewState.idle;
 }
@@ -49,6 +52,7 @@ String cloudSyncSummary({
   required int pendingCount,
   SyncQueueRunEvidence? lastQueueRun,
   bool networkUnreachable = false,
+  bool standalonePendingUnknown = false,
 }) {
   final phase = cloudSyncViewState(
     status: status,
@@ -58,6 +62,7 @@ String cloudSyncSummary({
     pendingCount: pendingCount,
     lastQueueRun: lastQueueRun,
     networkUnreachable: networkUnreachable,
+    standalonePendingUnknown: standalonePendingUnknown,
   );
   return switch (phase) {
     CloudSyncViewState.syncing => '云同步 · 同步中…',
@@ -68,7 +73,9 @@ String cloudSyncSummary({
     CloudSyncViewState.networkUnreachable =>
       '云同步 · 网络不可达（可能离线）',
     CloudSyncViewState.failed => '云同步 · 同步失败',
-    CloudSyncViewState.unknown => '云同步 · 冲突状态待确认',
+    CloudSyncViewState.unknown => conflictCheckFailed
+        ? '云同步 · 冲突状态待确认'
+        : '云同步 · 待同步数量待确认',
     CloudSyncViewState.pending => '云同步 · $pendingCount 项待同步',
     CloudSyncViewState.idle => '云同步 · 当前无待处理项',
   };
@@ -82,9 +89,11 @@ bool cloudSyncFullySettled({
   required bool conflictCheckFailed,
   required int conflictCount,
   required int pendingCount,
+  bool standalonePendingUnknown = false,
 }) =>
     requestSucceeded &&
     status == SyncStatusEnum.idle &&
     !conflictCheckFailed &&
     conflictCount == 0 &&
+    !standalonePendingUnknown &&
     pendingCount == 0;
