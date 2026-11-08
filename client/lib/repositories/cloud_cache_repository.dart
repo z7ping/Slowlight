@@ -106,12 +106,55 @@ class CloudCacheRepository {
     final db = await _db;
     final row = await _rowByPublicId(db, 'lists', publicId);
     final localId = row['id'] as int;
-    await db.update(
-      'lists',
-      {'deleted_at': _now()},
-      where: 'id = ?',
-      whereArgs: [localId],
-    );
+    if (row['is_inbox'] == 1) throw StateError('默认收集箱不可删除');
+    final now = _now();
+    await db.transaction((txn) async {
+      final current = await txn.query(
+        'lists',
+        columns: ['is_inbox'],
+        where: 'id = ? AND deleted_at IS NULL',
+        whereArgs: [localId],
+        limit: 1,
+      );
+      if (current.isEmpty || current.single['is_inbox'] == 1) {
+        throw StateError('清单已变化，请刷新后重新核对');
+      }
+      final tasks = await txn.query(
+        'tasks',
+        columns: ['id'],
+        where: 'list_id = ? AND deleted_at IS NULL',
+        whereArgs: [localId],
+      );
+      // The list tombstone is the single remote delete operation. Clearing
+      // child creates/updates prevents pending work from recreating tasks
+      // after the server has atomically removed their parent.
+      for (final task in tasks) {
+        final taskId = task['id'] as int;
+        await txn.delete(
+          'sync_queue',
+          where: 'entity_type = ? AND entity_local_id = ?',
+          whereArgs: ['tasks', taskId],
+        );
+        await txn.delete(
+          'sync_intents',
+          where: 'entity_type = ? AND entity_local_id = ?',
+          whereArgs: ['tasks', taskId],
+        );
+      }
+      await txn.update(
+        'tasks',
+        {'deleted_at': now, 'updated_at': now},
+        where: 'list_id = ? AND deleted_at IS NULL',
+        whereArgs: [localId],
+      );
+      final deleted = await txn.update(
+        'lists',
+        {'deleted_at': now, 'updated_at': now},
+        where: 'id = ? AND deleted_at IS NULL AND is_inbox = 0',
+        whereArgs: [localId],
+      );
+      if (deleted != 1) throw StateError('清单状态已变化，删除未确认');
+    });
     await SyncService().enqueue(
       entityType: 'lists',
       entityLocalId: localId,
