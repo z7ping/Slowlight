@@ -257,9 +257,16 @@ class CloudSyncCoordinator {
       // 待提交标签属于同步意图而非用户观察内容；兼容旧版本曾暂存在
       // context_json 中的 _pending_tag_ids，补交时不向服务器发送内部字段。
       dynamic rawTagIds;
+      String? pendingRequestId;
       try {
         final value = jsonDecode(intent['value']?.toString() ?? '{}');
-        if (value is Map) rawTagIds = value['tag_ids'];
+        if (value is Map) {
+          rawTagIds = value['tag_ids'];
+          final id = value['client_request_id'];
+          if (id is String && id.isNotEmpty && id.length <= 100) {
+            pendingRequestId = id;
+          }
+        }
       } catch (_) {}
       rawTagIds ??= context.remove('_pending_tag_ids');
       context.remove('_pending_tag_ids');
@@ -277,9 +284,14 @@ class CloudSyncCoordinator {
           dimensionKey: row['dimension_key'] as String?,
           context: context,
           tagIds: pendingTagIds,
-          clientRequestId: ReflectionApi.periodClientRequestId(
+          // Older pending intents have no stored identity; retain their
+          // existing stable fallback. New intents replay the *same* ID used
+          // for the initial direct POST, including after a lost ACK.
+          clientRequestId: pendingRequestId ??
+              ReflectionApi.periodClientRequestId(
                 row['question_id'] as String?,
-              ) ?? '${SyncService().deviceId}:reflection:$localId',
+              ) ??
+              '${SyncService().deviceId}:reflection:$localId',
         );
         if (!await _isRunValid(accountId: accountId, generation: generation)) return;
         await _reflectionCache.markCreateSynced(db, localId, remote);

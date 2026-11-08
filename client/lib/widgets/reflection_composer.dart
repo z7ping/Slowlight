@@ -74,6 +74,7 @@ class ReflectionComposer {
     var resultUnknown = false;
     var inlineTagOpen = false;
     var inlineTagSaving = false;
+    var inlineTagResultUnknown = false;
     var allowEditorPop = false;
     var closePending = false;
     String? inlineTagError;
@@ -123,7 +124,7 @@ class ReflectionComposer {
       BuildContext entryContext,
       StateSetter setEntryState,
     ) async {
-      if (inlineTagSaving) return;
+      if (inlineTagSaving || inlineTagResultUnknown) return;
       final name = inlineTagName.text.trim().replaceFirst(RegExp(r'^#'), '').trim();
       if (name.isEmpty) {
         setEntryState(() => inlineTagError = '请输入标签名称');
@@ -146,13 +147,55 @@ class ReflectionComposer {
           ];
           inlineTagOpen = false;
           inlineTagSaving = false;
+          inlineTagResultUnknown = false;
           inlineTagName.clear();
         });
       } catch (_) {
         if (!entryContext.mounted) return;
         setEntryState(() {
           inlineTagSaving = false;
-          inlineTagError = '标签创建失败，输入已保留';
+          inlineTagResultUnknown = true;
+          inlineTagError = '标签创建结果未确认，请先核对，避免重复创建';
+        });
+      }
+    }
+
+    // A create may have committed before its response was lost. Reconcile by
+    // the existing canonical tag read instead of blindly posting again.
+    Future<void> reconcileInlineTag(
+      BuildContext entryContext,
+      StateSetter setEntryState,
+    ) async {
+      if (inlineTagSaving || !inlineTagResultUnknown) return;
+      final name = inlineTagName.text.trim()
+          .replaceFirst(RegExp(r'^#'), '').trim();
+      setEntryState(() => inlineTagSaving = true);
+      try {
+        final existing = await ApiService.getTags();
+        if (!entryContext.mounted) return;
+        final matches = existing.where((tag) => tag.name == name).toList();
+        setEntryState(() {
+          inlineTagSaving = false;
+          if (matches.length == 1) {
+            final tag = matches.single;
+            canonicalTags = [
+              ...canonicalTags.where((value) => value.id != tag.id),
+              tag,
+            ];
+            inlineTagOpen = false;
+            inlineTagResultUnknown = false;
+            inlineTagError = null;
+            inlineTagName.clear();
+          } else {
+            // Not finding a tag is not evidence that a timed-out POST failed.
+            inlineTagError = '尚未核实创建结果，请稍后核对或到标签管理查看';
+          }
+        });
+      } catch (_) {
+        if (!entryContext.mounted) return;
+        setEntryState(() {
+          inlineTagSaving = false;
+          inlineTagError = '核对标签失败，输入已保留，请稍后核对';
         });
       }
     }
@@ -162,6 +205,10 @@ class ReflectionComposer {
 
       Future<void> saveObservation() async {
         if (saving || resultUnknown) return;
+        if (inlineTagResultUnknown) {
+          setEntryState(() => error = '请先核对新标签的创建结果');
+          return;
+        }
         final value = controller.text.trim();
         if (value.isEmpty) {
           setEntryState(() => error = '先写一点观察');
@@ -331,24 +378,29 @@ class ReflectionComposer {
                             key: const ValueKey('observation.mobile.tagName'),
                             controller: inlineTagName,
                             autofocus: true,
-                            enabled: !saving && !inlineTagSaving,
+                            enabled: !saving && !inlineTagSaving &&
+                                !inlineTagResultUnknown,
                             maxLength: 20,
                             placeholder: '输入标签名称',
                           ),
                         ),
                         FxButton(
-                          label: inlineTagSaving ? '添加中…' : '添加',
+                          label: inlineTagSaving
+                              ? (inlineTagResultUnknown ? '核对中…' : '添加中…')
+                              : (inlineTagResultUnknown ? '核对标签' : '添加'),
                           size: FxButtonSize.sm,
                           variant: FxButtonVariant.outline,
                           onPressed: saving || inlineTagSaving
                               ? null
-                              : () => createInlineTag(entryContext, setEntryState),
+                              : () => inlineTagResultUnknown
+                                  ? reconcileInlineTag(entryContext, setEntryState)
+                                  : createInlineTag(entryContext, setEntryState),
                         ),
                         FxButton(
                           label: '取消',
                           size: FxButtonSize.sm,
                           variant: FxButtonVariant.ghost,
-                          onPressed: inlineTagSaving
+                          onPressed: inlineTagSaving || inlineTagResultUnknown
                               ? null
                               : () => setEntryState(() {
                                     inlineTagOpen = false;

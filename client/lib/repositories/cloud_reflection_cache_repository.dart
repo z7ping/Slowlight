@@ -19,6 +19,7 @@ class CloudReflectionCacheRepository {
     String? dimensionKey,
     required Map<String, dynamic> context,
     List<int> tagIds = const [],
+    String? clientRequestId,
   }) async {
     final db = await _cache.database;
     final now = DateTime.now().toUtc().toIso8601String();
@@ -40,7 +41,10 @@ class CloudReflectionCacheRepository {
           'entity_type': 'reflections',
           'entity_local_id': localId,
           'intent': 'create',
-          'value': jsonEncode({'tag_ids': tagIds}),
+          'value': jsonEncode({
+            'tag_ids': tagIds,
+            if (clientRequestId != null) 'client_request_id': clientRequestId,
+          }),
           'created_at': now,
           'updated_at': now,
         },

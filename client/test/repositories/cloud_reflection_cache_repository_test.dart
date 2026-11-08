@@ -68,6 +68,25 @@ void main() {
     expect(intents.single['intent'], 'create');
   });
 
+  test('X07 离线观察补交保留最初云端请求的幂等标识', () async {
+    const requestId = 'reflection:0123456789abcdef0123456789abcdef';
+    final repo = CloudReflectionCacheRepository();
+    await repo.createPending(
+      content: '响应丢失后待核对的观察',
+      entryType: 'observation',
+      tagIds: const [31, 32],
+      context: const {'source': 'today'},
+      clientRequestId: requestId,
+    );
+
+    final db = await CloudCacheDb().database;
+    final intent = (await db.query('sync_intents')).single;
+    final value = jsonDecode(intent['value'] as String) as Map<String, dynamic>;
+    expect(value['client_request_id'], requestId);
+    expect(value['tag_ids'], [31, 32]);
+    expect((await db.query('reflections')).single['content'], '响应丢失后待核对的观察');
+  });
+
   test('P08 云缓存整月超过 100 条仍可读取，pending 按账号隔离', () async {
     final repo = CloudReflectionCacheRepository();
     final now = DateTime.now();
@@ -88,6 +107,7 @@ void main() {
     ]);
     final pending = await repo.createPending(
       content: '未同步的当月观察', entryType: 'observation',
+      context: const {},
     );
     final full = await repo.month(start, end);
     final pendingOnly = await repo.month(start, end, pendingOnly: true);
@@ -120,6 +140,7 @@ void main() {
     ]);
     final pending = await repo.createPending(
       content: '未同步的历史检索记录', entryType: 'observation',
+      context: const {},
     );
     final percent = await repo.searchContent('100%');
     expect(percent.map((r) => r.id), [701]);
