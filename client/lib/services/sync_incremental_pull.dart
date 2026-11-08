@@ -10,10 +10,7 @@ import 'sync_remote_api.dart';
 /// - ObservationTag.dimension_key：产品核心维度映射，不能在旧同步链路中丢失。
 class SyncIncrementalPull {
   static const cursorKey = 'slowlight_sync_pull_cursor';
-  static const _entityCollections = <String>{
-    'lists', 'tags', 'system_tags', 'habits', 'tasks', 'habit_logs',
-  };
-  static const _deletedCollections = <String>{
+  static const _collections = <String>{
     'lists', 'tags', 'system_tags', 'habits', 'tasks', 'habit_logs',
   };
 
@@ -46,7 +43,7 @@ class SyncIncrementalPull {
     if (nextTime == null) {
       throw const FormatException('同步变更缺少有效 server_time');
     }
-    for (final name in _entityCollections) {
+    for (final name in _collections) {
       if (changes[name] is! List) {
         throw FormatException('同步变更缺少完整 $name 列表');
       }
@@ -65,7 +62,7 @@ class SyncIncrementalPull {
     if (deleted is! Map) {
       throw const FormatException('同步变更缺少删除清单');
     }
-    for (final name in _deletedCollections) {
+    for (final name in _collections) {
       final ids = deleted[name];
       if (ids is! List ||
           ids.any((id) => id is! int || (id as int) <= 0)) {
@@ -86,7 +83,7 @@ class SyncIncrementalPull {
     // cursor update must not leak into an otherwise successful Cloud Pull.
     await db.transaction((txn) async {
       await _applyObservationTagDimensions(txn, rawTags);
-      for (final name in _deletedCollections) {
+      for (final name in _collections) {
         for (final id in deleted[name] as List) {
           await _applyDelete(txn, name, id as int);
         }
@@ -155,15 +152,7 @@ class SyncIncrementalPull {
   }
 
   Future<void> _applyDelete(DatabaseExecutor db, String table, int serverId) async {
-    const supported = {
-      'lists',
-      'tags',
-      'system_tags',
-      'habits',
-      'tasks',
-      'habit_logs',
-    };
-    if (!supported.contains(table)) return;
+    if (!_collections.contains(table)) return;
 
     final rows = await db.query(
       table,
