@@ -153,8 +153,19 @@ class CloudApiService implements ApiDataSource {
   }
 
   @override
-  Future<void> deleteList(int id, {bool deleteTasks = false}) {
+  Future<void> deleteList(int id, {
+    bool deleteTasks = false,
+    int? expectedTaskCount,
+  }) {
     if (id < 0) return _cache.deleteList(id, deleteTasks: deleteTasks);
+    if (expectedTaskCount != null) {
+      // A verified destructive operation is online-only. Offline fallback
+      // would lose the server's actual membership and invalidate approval.
+      return ApiService.deleteList(
+        id, deleteTasks: deleteTasks,
+        expectedTaskCount: expectedTaskCount,
+      ).then((_) => _refreshCacheSoon());
+    }
     return _writeThroughVoid(
       () => ApiService.deleteList(id, deleteTasks: deleteTasks),
       () => _cache.deleteList(id, deleteTasks: deleteTasks),
