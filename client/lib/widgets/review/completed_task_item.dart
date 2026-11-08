@@ -6,8 +6,13 @@ import '../../ui/fx.dart';
 
 class CompletedTaskItemWidget extends StatelessWidget {
   final Map<String, dynamic> task;
+  final bool showCompletionDate;
 
-  const CompletedTaskItemWidget({super.key, required this.task});
+  const CompletedTaskItemWidget({
+    super.key,
+    required this.task,
+    this.showCompletionDate = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +21,10 @@ class CompletedTaskItemWidget extends StatelessWidget {
     final title = task['title']?.toString() ?? '';
     final listName = task['list_name']?.toString() ?? '';
     final completedAt = _timeText(task['completed_at']?.toString() ?? '');
+    final day = _dateText(task['completed_date']?.toString() ?? '');
+    final completedLabel = showCompletionDate
+        ? "${day.isEmpty ? '日期未载入' : day}${completedAt.isEmpty ? '' : ' · $completedAt'}"
+        : completedAt;
     final levelColor = _levelColor(level);
 
     return Container(
@@ -50,7 +59,7 @@ class CompletedTaskItemWidget extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (level.isNotEmpty || listName.isNotEmpty || completedAt.isNotEmpty) ...[
+                if (level.isNotEmpty || listName.isNotEmpty || completedLabel.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Wrap(
                     spacing: 6,
@@ -69,9 +78,9 @@ class CompletedTaskItemWidget extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      if (completedAt.isNotEmpty)
+                      if (completedLabel.isNotEmpty)
                         Text(
-                          completedAt,
+                          completedLabel,
                           style: SlowlightTypography.caption(context).copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -103,6 +112,13 @@ class CompletedTaskItemWidget extends StatelessWidget {
         'C' => AppTheme.error,
         _ => AppTheme.warmGray400,
       };
+
+  String _dateText(String raw) {
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw)) return '';
+    final date = DateTime.tryParse(raw);
+    if (date == null) return '';
+    return '${date.month}/${date.day}';
+  }
 
   String _timeText(String raw) {
     if (raw.isEmpty) return '';

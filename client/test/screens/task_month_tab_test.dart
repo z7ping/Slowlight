@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:slowlight/models/today_timeline_item.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/review/task_30day_tab.dart';
 
@@ -65,4 +67,105 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('P12 历史 25 条完成任务全部可达，显示真实日期', (tester) async {
+    tester.view.physicalSize = const Size(1000, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final tasks = List.generate(25, (index) => <String, dynamic>{
+      'id': index + 1,
+      'title': '任务#${index + 1}',
+      'completed_date': index == 0 ? '2026-11-06' : null,
+      'completed_at': '15:20',
+      'list_name': '工作',
+    });
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskMonthTab(
+        tasksReviewLoader: () async => {
+          ..._month(completed: 25),
+          'completed_tasks': tasks,
+        },
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+          observationCount: 0, items: [],
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('任务#1'), findsOneWidget);
+    expect(find.text('任务#20'), findsOneWidget);
+    expect(find.text('任务#21'), findsNothing);
+    expect(find.text('11/6 · 15:20'), findsOneWidget);
+    expect(find.text('日期未载入 · 15:20'), findsNWidgets(19));
+    expect(find.text('已显示 20/25 条'), findsOneWidget);
+
+    tester.widget<FxButton>(find.widgetWithText(FxButton, '查看更多任务'))
+        .onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(find.text('任务#25'), findsOneWidget);
+    expect(find.text('25 条'), findsOneWidget);
+    expect(find.widgetWithText(FxButton, '查看更多任务'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P12 轨迹读取失败可以局部重试，不重新加载主任务事实', (tester) async {
+    tester.view.physicalSize = const Size(950, 1300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var primaryReads = 0;
+    var timelineReads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskMonthTab(
+        tasksReviewLoader: () async {
+          primaryReads++;
+          return _month(completed: 4, created: 1);
+        },
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async {
+          if (++timelineReads == 1) throw StateError('read unavailable');
+          return const ReviewPeriodTimeline(observationCount: 2, items: []);
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('近 30 天轨迹读取未确认'), findsOneWidget);
+    tester.widget<FxButton>(find.widgetWithText(FxButton, '重试轨迹'))
+        .onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(primaryReads, 1);
+    expect(timelineReads, 2);
+    expect(find.text('近 30 天有 2 条观察，事件明细尚未载入。'), findsOneWidget);
+    expect(find.textContaining('近 30 天轨迹读取未确认'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P12 Android 近 30 天使用现有回顾入口返回本周', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.reset();
+    });
+    var navigateCount = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskMonthTab(
+        tasksReviewLoader: () async => _month(),
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+          observationCount: 0, items: [],
+        ),
+        onOpenWeekly: () => navigateCount++,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final back = find.widgetWithText(FxButton, '查看本周回顾');
+    expect(back, findsOneWidget);
+    tester.widget<FxButton>(back).onPressed?.call();
+    expect(navigateCount, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }

@@ -55,6 +55,7 @@ type CompletedTaskItem struct {
 	TaskType    string `json:"task_type"`
 	OutputLevel string `json:"output_level"`
 	CompletedAt string `json:"completed_at"`
+	CompletedDate string `json:"completed_date,omitempty"`
 	IsMilestone bool   `json:"is_milestone"`
 }
 
@@ -122,17 +123,23 @@ func (h *ReviewHandler) GetTasksReview(c *gin.Context) {
 		CompletedAt *time.Time
 		IsMilestone bool
 	}
-	h.DB.Table("tasks").
+	if err := h.DB.Table("tasks").
 		Select("tasks.id, tasks.title, lists.name as list_name, tasks.task_type, tasks.output_level, tasks.completed_at, tasks.is_milestone").
 		Joins("LEFT JOIN lists ON lists.id = tasks.list_id").
-		Where("tasks.user_id = ? AND tasks.is_completed = true AND tasks.completed_at >= ? AND tasks.completed_at < ?", userID, start, endOfToday).
-		Order("tasks.completed_at DESC").
-		Scan(&tasks)
+		Where("tasks.user_id = ? AND tasks.deleted_at IS NULL AND tasks.is_completed = true AND tasks.completed_at >= ? AND tasks.completed_at < ?", userID, start, endOfToday).
+		Order("tasks.completed_at DESC, tasks.id DESC").
+		Scan(&tasks).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取近30天已完成任务失败"})
+		return
+	}
 
 	var createdCount int64
-	h.DB.Model(&model.Task{}).
+	if err := h.DB.Model(&model.Task{}).
 		Where("user_id = ? AND created_at >= ? AND created_at < ?", userID, start, endOfToday).
-		Count(&createdCount)
+		Count(&createdCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取近30天新建任务数量失败"})
+		return
+	}
 
 	response := TasksReviewResponse{
 		Summary: TasksSummary{
@@ -163,6 +170,7 @@ func (h *ReviewHandler) GetTasksReview(c *gin.Context) {
 			TaskType:    task.TaskType,
 			OutputLevel: task.OutputLevel,
 			CompletedAt: completedAt,
+			CompletedDate: dateKey,
 			IsMilestone: task.IsMilestone,
 		})
 

@@ -17,6 +17,7 @@ import 'review_timeline_item.dart';
 class TaskMonthTab extends StatefulWidget {
   final ReflectionRepository? reflectionRepository;
   final TextEditingController? responseDraftController;
+  final VoidCallback? onOpenWeekly;
   /// Test seams only. Production reuses the existing Review/Analytics APIs.
   final Future<Map<String, dynamic>> Function()? tasksReviewLoader;
   final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
@@ -28,6 +29,7 @@ class TaskMonthTab extends StatefulWidget {
     super.key,
     this.reflectionRepository,
     this.responseDraftController,
+    this.onOpenWeekly,
     this.tasksReviewLoader,
     this.dailyTrendLoader,
     this.periodTimelineLoader,
@@ -40,6 +42,7 @@ class TaskMonthTab extends StatefulWidget {
 
 class _TaskMonthTabState extends State<TaskMonthTab> {
   bool _loading = true;
+  bool _reviewRefreshing = false;
   bool _hasConfirmedReview = false;
   String? _error;
   String? _refreshError;
@@ -49,12 +52,14 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   bool _trendRefreshing = false;
   ReviewPeriodTimeline? _periodTimeline;
   bool _periodTimelineFailed = false;
+  bool _periodTimelineLoading = false;
   bool _showAllPeriodEvents = false;
   ReviewPeriodTimeline? _periodPage;
   int _periodPageOffset = 0;
   bool _loadingPeriodPage = false;
   int? _failedPeriodPageOffset;
   int _loadVersion = 0;
+  int _visibleTasks = 20;
   late final ReflectionRepository _responseRepo =
       widget.reflectionRepository ?? ReflectionRepository();
   late final TextEditingController _responseDraft =
@@ -80,8 +85,21 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
 
   Future<void> _load() async {
     if (_responseSaving) return;
+    if (_responseUnknown) {
+      FxNotice.showContent(
+        context,
+        const Text('上次回应保存结果尚未确认，请先核对回应再刷新'),
+        variant: FxNoticeVariant.warning,
+      );
+      return;
+    }
     final version = ++_loadVersion;
     setState(() {
+      _reviewRefreshing = true;
+      if (_responseLoading) _responseChecked = false;
+      _responseLoading = false;
+      _loadingPeriodPage = false;
+      _periodTimelineLoading = false;
       _loading = !_hasConfirmedReview;
       _error = null;
       _refreshError = null;
@@ -101,14 +119,22 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       final end = LocalTimeBoundary.dateKey(now);
       final periodKey = 'review-30d:$start:$end';
       setState(() {
+        if (_responsePeriodKey != periodKey) {
+          _savedResponse = null;
+          _responseChecked = false;
+          _responseUnknown = false;
+        }
         _responsePeriodKey = periodKey;
         _data = result;
         _hasConfirmedReview = true;
+        _reviewRefreshing = false;
         _loading = false;
+        _visibleTasks = 20;
         _trendRefreshing = _trendDays.isNotEmpty;
         _trendLoadFailed = false;
         _periodTimeline = null;
         _periodTimelineFailed = false;
+        _periodTimelineLoading = false;
         _showAllPeriodEvents = false;
         _periodPage = null;
         _periodPageOffset = 0;
@@ -124,6 +150,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
+        _reviewRefreshing = false;
         if (_hasConfirmedReview) {
           _refreshError = error.toString();
         } else {
@@ -164,7 +191,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     final key = _responsePeriodKey;
     final content = _responseDraft.text.trim();
     if (!_responseChecked || _responseSaving || _responseUnknown ||
-        _savedResponse != null || _refreshError != null ||
+        _reviewRefreshing || _savedResponse != null || _refreshError != null ||
         key == null || content.isEmpty) return;
     final version = _loadVersion;
     setState(() => _responseSaving = true);
@@ -241,14 +268,15 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                     variant: FxButtonVariant.secondary,
                     size: FxButtonSize.sm,
                     onPressed: _responseLoading || _responseSaving ||
-                            _responsePeriodKey == null
+                            _reviewRefreshing || _responsePeriodKey == null
                         ? null : () => _loadPeriodResponse(
                             _loadVersion, _responsePeriodKey!),
                   )
                 : FxButton(
                     label: _responseSaving ? '保存中…' : '保存回应',
                     size: FxButtonSize.sm,
-                    onPressed: _responseSaving || _refreshError != null
+                    onPressed: _responseSaving || _refreshError != null ||
+                            _reviewRefreshing
                         ? null : _savePeriodResponse,
                   ),
           ),
@@ -278,6 +306,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   }
 
   Future<void> _loadPeriodTimeline(int version) async {
+    if (_periodTimelineLoading || _reviewRefreshing) return;
+    setState(() {
+      _periodTimelineLoading = true;
+      _periodTimelineFailed = false;
+    });
     try {
       final facts = await (widget.periodTimelineLoader ??
           () => ReviewApi.getPeriodTimeline(period: 'month'))();
@@ -285,6 +318,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       setState(() {
         _periodTimeline = facts;
         _periodTimelineFailed = false;
+        _periodTimelineLoading = false;
         _periodPage = facts;
         _periodPageOffset = 0;
         _showAllPeriodEvents = false;
@@ -292,12 +326,16 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       });
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
-      setState(() => _periodTimelineFailed = true);
+      setState(() {
+        _periodTimelineFailed = true;
+        _periodTimelineLoading = false;
+      });
     }
   }
 
   Future<void> _loadPeriodPage(int offset) async {
-    if (_loadingPeriodPage || _periodTimeline == null || offset < 0) return;
+    if (_reviewRefreshing || _loadingPeriodPage ||
+        _periodTimeline == null || offset < 0) return;
     if (offset == 0) {
       setState(() {
         _periodPage = _periodTimeline;
@@ -357,15 +395,28 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                 : '观察记录 ${facts.observationCount} 条',
           ),
           const SizedBox(height: 10),
-          if (_periodTimelineFailed)
+          if (_periodTimelineFailed) ...[
             Text('近 30 天轨迹读取未确认，已有任务统计不受影响。',
-                style: SlowlightTypography.secondary(context))
+                style: SlowlightTypography.secondary(context)),
+            const SizedBox(height: 8),
+            FxButton(
+              label: '重试轨迹',
+              variant: FxButtonVariant.secondary,
+              size: FxButtonSize.sm,
+              onPressed: _reviewRefreshing
+                  ? null : () => _loadPeriodTimeline(_loadVersion),
+            ),
+          ]
           else if (facts == null)
             Text('近 30 天轨迹读取中…',
                 style: SlowlightTypography.secondary(context))
           else if (visible.isEmpty)
-            Text('近 30 天还没有可追溯的行为记录。',
-                style: SlowlightTypography.secondary(context))
+            Text(
+              facts.observationCount > 0
+                  ? '近 30 天有 ${facts.observationCount} 条观察，事件明细尚未载入。'
+                  : '近 30 天还没有可追溯的行为记录。',
+              style: SlowlightTypography.secondary(context),
+            )
           else ...[
             if (!_showAllPeriodEvents &&
                 (facts.items.length > visible.length || facts.hasMore))
@@ -462,11 +513,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     final dist = Map<String, dynamic>.from(
       _data['distribution'] as Map? ?? const {},
     );
-    final tasks = (_data['completed_tasks'] as List? ?? const [])
+    final allTasks = (_data['completed_tasks'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
-        .take(20)
         .toList(growable: false);
+    final tasks = allTasks.take(_visibleTasks).toList(growable: false);
 
     // Habit check-ins alone do not establish a task-completion history.
     final hasTaskData =
@@ -575,7 +626,20 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                   ],
                   if (tasks.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _taskList(tasks),
+                    _taskList(tasks, total: allTasks.length),
+                  ],
+                  if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+                      widget.onOpenWeekly != null) ...[
+                    const SizedBox(height: SlowlightSpacing.md),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FxButton(
+                        label: '查看本周回顾',
+                        variant: FxButtonVariant.link,
+                        size: FxButtonSize.sm,
+                        onPressed: widget.onOpenWeekly,
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -792,16 +856,33 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     );
   }
 
-  Widget _taskList(List<Map<String, dynamic>> tasks) {
+  Widget _taskList(List<Map<String, dynamic>> tasks, {required int total}) {
     return FxCard(
       padding: const EdgeInsets.all(16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(title: '最近完成任务', trailing: '${tasks.length} 条'),
+          FxSectionHeader(
+            title: '最近完成任务',
+            trailing: total > tasks.length
+                ? '已显示 ${tasks.length}/$total 条'
+                : '$total 条',
+          ),
           const SizedBox(height: 8),
-          ...tasks.map((task) => CompletedTaskItemWidget(task: task)),
+          ...tasks.map((task) => CompletedTaskItemWidget(
+            task: task,
+            showCompletionDate: true,
+          )),
+          if (tasks.length < total) ...[
+            const SizedBox(height: 8),
+            FxButton(
+              label: '查看更多任务',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: () => setState(() => _visibleTasks += 20),
+            ),
+          ],
         ],
       ),
     );
