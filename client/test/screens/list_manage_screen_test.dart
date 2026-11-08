@@ -190,7 +190,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final inbox = TodoList(
-      id: 2, name: '收集箱', icon: '📥', isInbox: true,
+      id: 2, name: '收集箱', icon: '📥', color: '#909399', isInbox: true,
       createdAt: DateTime(2026, 11, 1),
     );
     await tester.pumpWidget(buildFxTestHost(
