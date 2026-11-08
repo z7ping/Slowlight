@@ -306,6 +306,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   }
 
   Future<void> _loadPeriodTimeline(int version) async {
+    if (_periodTimelineLoading || _reviewRefreshing) return;
+    setState(() {
+      _periodTimelineLoading = true;
+      _periodTimelineFailed = false;
+    });
     try {
       final facts = await (widget.periodTimelineLoader ??
           () => ReviewApi.getPeriodTimeline(period: 'month'))();
@@ -313,6 +318,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       setState(() {
         _periodTimeline = facts;
         _periodTimelineFailed = false;
+        _periodTimelineLoading = false;
         _periodPage = facts;
         _periodPageOffset = 0;
         _showAllPeriodEvents = false;
@@ -320,12 +326,16 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       });
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
-      setState(() => _periodTimelineFailed = true);
+      setState(() {
+        _periodTimelineFailed = true;
+        _periodTimelineLoading = false;
+      });
     }
   }
 
   Future<void> _loadPeriodPage(int offset) async {
-    if (_loadingPeriodPage || _periodTimeline == null || offset < 0) return;
+    if (_reviewRefreshing || _loadingPeriodPage ||
+        _periodTimeline == null || offset < 0) return;
     if (offset == 0) {
       setState(() {
         _periodPage = _periodTimeline;
@@ -385,15 +395,28 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                 : '观察记录 ${facts.observationCount} 条',
           ),
           const SizedBox(height: 10),
-          if (_periodTimelineFailed)
+          if (_periodTimelineFailed) ...[
             Text('近 30 天轨迹读取未确认，已有任务统计不受影响。',
-                style: SlowlightTypography.secondary(context))
+                style: SlowlightTypography.secondary(context)),
+            const SizedBox(height: 8),
+            FxButton(
+              label: '重试轨迹',
+              variant: FxButtonVariant.secondary,
+              size: FxButtonSize.sm,
+              onPressed: _reviewRefreshing
+                  ? null : () => _loadPeriodTimeline(_loadVersion),
+            ),
+          ]
           else if (facts == null)
             Text('近 30 天轨迹读取中…',
                 style: SlowlightTypography.secondary(context))
           else if (visible.isEmpty)
-            Text('近 30 天还没有可追溯的行为记录。',
-                style: SlowlightTypography.secondary(context))
+            Text(
+              facts.observationCount > 0
+                  ? '近 30 天有 ${facts.observationCount} 条观察，事件明细尚未载入。'
+                  : '近 30 天还没有可追溯的行为记录。',
+              style: SlowlightTypography.secondary(context),
+            )
           else ...[
             if (!_showAllPeriodEvents &&
                 (facts.items.length > visible.length || facts.hasMore))
@@ -490,11 +513,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     final dist = Map<String, dynamic>.from(
       _data['distribution'] as Map? ?? const {},
     );
-    final tasks = (_data['completed_tasks'] as List? ?? const [])
+    final allTasks = (_data['completed_tasks'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
-        .take(20)
         .toList(growable: false);
+    final tasks = allTasks.take(_visibleTasks).toList(growable: false);
 
     // Habit check-ins alone do not establish a task-completion history.
     final hasTaskData =
@@ -603,7 +626,20 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                   ],
                   if (tasks.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _taskList(tasks),
+                    _taskList(tasks, total: allTasks.length),
+                  ],
+                  if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+                      widget.onOpenWeekly != null) ...[
+                    const SizedBox(height: SlowlightSpacing.md),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FxButton(
+                        label: '查看本周回顾',
+                        variant: FxButtonVariant.link,
+                        size: FxButtonSize.sm,
+                        onPressed: widget.onOpenWeekly,
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -820,16 +856,33 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     );
   }
 
-  Widget _taskList(List<Map<String, dynamic>> tasks) {
+  Widget _taskList(List<Map<String, dynamic>> tasks, {required int total}) {
     return FxCard(
       padding: const EdgeInsets.all(16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(title: '最近完成任务', trailing: '${tasks.length} 条'),
+          FxSectionHeader(
+            title: '最近完成任务',
+            trailing: total > tasks.length
+                ? '已显示 ${tasks.length}/$total 条'
+                : '$total 条',
+          ),
           const SizedBox(height: 8),
-          ...tasks.map((task) => CompletedTaskItemWidget(task: task)),
+          ...tasks.map((task) => CompletedTaskItemWidget(
+            task: task,
+            showCompletionDate: true,
+          )),
+          if (tasks.length < total) ...[
+            const SizedBox(height: 8),
+            FxButton(
+              label: '查看更多任务',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: () => setState(() => _visibleTasks += 20),
+            ),
+          ],
         ],
       ),
     );
