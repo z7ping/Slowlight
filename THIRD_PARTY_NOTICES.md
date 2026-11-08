@@ -25,6 +25,15 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+## GitHub 品牌标记（Simple Icons）
+
+登录按钮使用本地内嵌的 GitHub 品牌标记 `client/assets/github_mark.png`，由
+[Simple Icons GitHub SVG](https://github.com/simple-icons/simple-icons/blob/develop/icons/github.svg)
+栅格化生成，避免登录页面依赖外网加载图标。
+
+- Simple Icons 项目许可证：[CC0 1.0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md)。
+- 品牌图标、商标权利与使用限制仍以 GitHub 品牌政策为准；该标记仅用作 GitHub 登录入口的身份识别，不表示 GitHub 对 Slowlight 的认可。
+
 ## 其它第三方依赖
 
 Flutter / Dart、Go 与其余包管理器依赖仍保留各自上游许可证。发布二进制时如增加需要额外归属、NOTICE 或再分发文本的组件，应同步更新本文件或应用内统一的“开源许可证”页面。

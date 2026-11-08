@@ -14,7 +14,21 @@ import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
 import '../ui/widgets/slowlight_logo.dart';
 
-enum _LoginView { welcome, github, password, register, local }
+enum _LoginView { welcome, github, password, register }
+
+// Only fully implemented identity providers appear here. Additional providers
+// must provide an authorization handler before they can be enabled.
+enum _LoginProvider {
+  github('GitHub', brandAsset: 'assets/github_mark.png');
+
+  const _LoginProvider(this.label, {this.brandAsset});
+  final String label;
+  final String? brandAsset;
+}
+
+const _availableLoginProviders = <_LoginProvider>[
+  _LoginProvider.github,
+];
 
 class LoginScreen extends StatefulWidget {
   /// Auth-only mode for data migration: never switch the active data source.
@@ -44,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool get _isLogin => _view != _LoginView.register;
 
   void _open(_LoginView next) {
-    if (_isLoading || (widget.preserveDataMode && next == _LoginView.local)) return;
+    if (_isLoading || next == _LoginView.register) return;
     setState(() {
       _view = next;
       // Leaving the form deliberately abandons the mode-switch recovery UI.
@@ -536,108 +550,176 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _home(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      key: const ValueKey('login.page_welcome'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _brand(context),
-        const SizedBox(height: SlowlightSpacing.page * 2),
-        Text(widget.preserveDataMode ? '验证云端身份' : '欢迎回来',
-            style: SlowlightTypography.hero(context)),
-        const SizedBox(height: SlowlightSpacing.md),
-        Text(widget.preserveDataMode
-                ? '验证后继续迁移预览；当前仍使用本地数据。'
-                : '选择一种方式开始，让每段记录都有迹可循。',
-            style: SlowlightTypography.secondary(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            )),
-        const SizedBox(height: SlowlightSpacing.page),
-        if (_githubError != null) ...[
-          Text(_githubError!,
-              key: const ValueKey('login.github_error'),
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.error,
-              )),
-          const SizedBox(height: SlowlightSpacing.md),
-        ],
-        SizedBox(
-          width: double.infinity,
-          child: FxButton(
-            key: const ValueKey('login.github_action'),
-            label: _githubError == null ? '使用 GitHub 继续' : '继续 GitHub 授权',
-            icon: LucideIcons.gitFork,
-            size: FxButtonSize.lg,
-            expanded: true,
-            onPressed: _isLoading
-                ? null
-                : () => _loginWithGitHub(
-                    resumePending: _githubError != null && _githubCanResume),
-          ),
+
+  Widget _home(BuildContext context) => _credentials(context, landing: true);
+
+  Future<void> _confirmLocalMode() async {
+    if (_isLoading || widget.preserveDataMode) return;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '使用本地模式？',
+      content: '记录只保存在当前设备，不会自动上传或合并到云端。'
+          '以后如需跨设备使用，可以在设置中主动迁移数据。',
+      cancelText: '取消',
+      confirmText: '继续本地使用',
+    );
+    if (confirmed == true && mounted) await _useLocal();
+  }
+
+  Future<void> _selectLoginProvider(_LoginProvider provider) async {
+    if (_isLoading || _credentialsSavedForCloud) return;
+    // Exhaustive enum dispatch: a newly added provider cannot compile until
+    // its authorization flow is implemented.
+    final Future<void> authorization = switch (provider) {
+      _LoginProvider.github => _loginWithGitHub(
+          resumePending: _githubError != null && _githubCanResume,
         ),
-        if (_deviceFlowEnabled) ...[
-          const SizedBox(height: SlowlightSpacing.xs),
-          Align(
-            alignment: Alignment.center,
-            child: FxButton(
-              key: const ValueKey('login.github_device_action'),
-              label: '验证码登录（备用）',
-              size: FxButtonSize.sm,
-              variant: FxButtonVariant.link,
-              onPressed: _isLoading
-                  ? null
-                  : () => _loginWithGitHub(useDeviceCode: true),
+    };
+    await authorization;
+  }
+
+  Widget _loginProviderButton(BuildContext context, _LoginProvider provider,
+      {FutureOr<void> Function()? onSelected}) {
+    final asset = provider.brandAsset;
+    return FxButton(
+      key: ValueKey('login.provider.${provider.name}'),
+      label: provider == _LoginProvider.github && _githubCanResume
+          ? '继续 GitHub 授权'
+          : provider.label,
+      variant: FxButtonVariant.outline,
+      expanded: true,
+      leading: asset == null
+          ? null
+          : Image.asset(
+              asset,
+              color: Theme.of(context).colorScheme.onSurface,
+              filterQuality: FilterQuality.high,
             ),
-          ),
-        ],
-        const SizedBox(height: SlowlightSpacing.xl),
-        FxButton(
-          key: const ValueKey('login.password_action'),
-          label: '使用账号密码登录',
-          icon: LucideIcons.userRound,
-          variant: FxButtonVariant.outline,
-          size: FxButtonSize.lg,
-          expanded: true,
-          onPressed: _isLoading ? null : () => _open(_LoginView.password),
-        ),
-        const SizedBox(height: SlowlightSpacing.md),
-        Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
+      onPressed: _isLoading || _credentialsSavedForCloud
+          ? null
+          : onSelected ?? () => _selectLoginProvider(provider),
+    );
+  }
+
+  Future<void> _showMoreProviders(BuildContext context) async {
+    final selected = await FxDialog.show<_LoginProvider>(
+      context: context,
+      title: '更多登录方式',
+      showCloseButton: false,
+      child: Builder(
+        builder: (dialogContext) => Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text('还没有账号？',
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                )),
+            for (final provider in _availableLoginProviders.skip(2)) ...[
+              _loginProviderButton(
+                dialogContext,
+                provider,
+                onSelected: () => Navigator.of(dialogContext).pop(provider),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+            ],
             FxButton(
-              key: const ValueKey('login.switch_mode'),
-              label: '创建账号',
-              variant: FxButtonVariant.link,
-              size: FxButtonSize.sm,
-              onPressed: _isLoading ? null : () => _open(_LoginView.register),
+              label: '返回',
+              variant: FxButtonVariant.ghost,
+              expanded: true,
+              onPressed: () => Navigator.of(dialogContext).pop(),
             ),
           ],
         ),
+      ),
+    );
+    if (mounted && selected != null) await _selectLoginProvider(selected);
+  }
+
+  Widget _loginAlternatives(BuildContext context) {
+    final outline = Theme.of(context).colorScheme.outlineVariant;
+    final providers = _availableLoginProviders;
+    final visible =
+        providers.length > 2 ? providers.take(2).toList() : providers;
+    final count = visible.length + (providers.length > 2 ? 1 : 0);
+    const gap = SlowlightSpacing.md;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: FxSeparator.horizontal(color: outline)),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: SlowlightSpacing.xl,
+              ),
+              child: Text(
+                '其他登录方式',
+                style: SlowlightTypography.caption(context).copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Expanded(child: FxSeparator.horizontal(color: outline)),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final largeText = MediaQuery.textScalerOf(context).scale(14) >= 19;
+            final columns = count == 3 &&
+                    (largeText || constraints.maxWidth < 340)
+                ? 2
+                : count;
+            final width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final provider in visible)
+                  SizedBox(
+                    width: width,
+                    child: _loginProviderButton(context, provider),
+                  ),
+                if (providers.length > 2)
+                  SizedBox(
+                    width: width,
+                    child: FxButton(
+                      key: const ValueKey('login.more_providers'),
+                      label: '更多',
+                      icon: Icons.more_horiz,
+                      variant: FxButtonVariant.outline,
+                      expanded: true,
+                      onPressed: _isLoading || _credentialsSavedForCloud
+                          ? null
+                          : () => _showMoreProviders(context),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        if (_deviceFlowEnabled) ...[
+          const SizedBox(height: SlowlightSpacing.xs),
+          FxButton(
+            key: const ValueKey('login.github_device_action'),
+            label: '设备码授权（备用）',
+            variant: FxButtonVariant.link,
+            size: FxButtonSize.sm,
+            expanded: true,
+            onPressed: _isLoading || _credentialsSavedForCloud
+                ? null
+                : () => _loginWithGitHub(useDeviceCode: true),
+          ),
+        ],
         if (!widget.preserveDataMode) ...[
-          const SizedBox(height: SlowlightSpacing.page),
-          FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
           const SizedBox(height: SlowlightSpacing.md),
           FxButton(
             key: const ValueKey('login.local_action'),
-            label: '不登录，使用本地数据',
+            label: '不登录，直接在本机使用',
             icon: LucideIcons.smartphone,
             variant: FxButtonVariant.ghost,
-            size: FxButtonSize.lg,
             expanded: true,
-            onPressed: _isLoading ? null : () => _open(_LoginView.local),
+            onPressed: _isLoading || _credentialsSavedForCloud
+                ? null
+                : _confirmLocalMode,
           ),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Text('无需账号，记录仅保存在当前设备',
-              textAlign: TextAlign.center,
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              )),
         ],
       ],
     );
@@ -883,25 +965,53 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _credentials(BuildContext context) {
+  Widget _credentials(BuildContext context, {bool landing = false}) {
     final theme = Theme.of(context);
     final register = !_isLogin;
     return Column(
-      key: ValueKey(register ? 'login.page_register' : 'login.page_password'),
+      key: ValueKey(landing
+          ? 'login.page_welcome'
+          : register
+              ? 'login.page_register'
+              : 'login.page_password'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backButton(),
-        const SizedBox(height: SlowlightSpacing.page),
-        Text(register ? '创建云端账号' : '账号密码登录',
-            style: SlowlightTypography.hero(context)),
+        if (landing) _brand(context) else _backButton(),
+        SizedBox(height: landing ? SlowlightSpacing.page * 2 : SlowlightSpacing.page),
+        Text(
+          landing
+              ? widget.preserveDataMode
+                  ? '验证云端身份'
+                  : '欢迎回来'
+              : register
+                  ? '创建云端账号'
+                  : '账号密码登录',
+          style: SlowlightTypography.hero(context),
+        ),
         const SizedBox(height: SlowlightSpacing.md),
-        Text(register
-                ? '创建账号，在不同设备查看自己的记录。'
-                : '登录后，在不同设备间延续记录。',
-            style: SlowlightTypography.secondary(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            )),
+        Text(
+          landing
+              ? widget.preserveDataMode
+                  ? '验证后继续迁移预览；当前仍使用本地数据。'
+                  : '登录账号，继续你的记录。'
+              : register
+                  ? '创建账号，在不同设备查看自己的记录。'
+                  : '登录后，在不同设备间延续记录。',
+          style: SlowlightTypography.secondary(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: SlowlightSpacing.page),
+        if (landing && _githubError != null) ...[
+          Text(
+            _githubError!,
+            key: const ValueKey('login.github_error'),
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+        ],
         FxInput(
           controller: _usernameController,
           enabled: !_isLoading && !_credentialsSavedForCloud,
@@ -998,115 +1108,22 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: _isLoading ? null : _submit,
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.md),
-        Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(register ? '已经有账号？' : '还没有账号？',
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                )),
-            FxButton(
-              key: const ValueKey('login.switch_mode'),
-              label: register ? '返回登录' : '创建账号',
-              variant: FxButtonVariant.link,
-              size: FxButtonSize.sm,
-              onPressed: _isLoading
-                  ? null
-                  : () => _open(register
-                      ? _LoginView.password
-                      : _LoginView.register),
-            ),
-          ],
-        ),
-        const SizedBox(height: SlowlightSpacing.page),
-        FxSeparator.horizontal(color: theme.colorScheme.outlineVariant),
-        const SizedBox(height: SlowlightSpacing.md),
-        FxButton(
-          key: const ValueKey('login.github_from_password'),
-          label: '使用 GitHub 继续',
-          icon: LucideIcons.gitFork,
-          variant: FxButtonVariant.ghost,
-          expanded: true,
-          onPressed: _isLoading || _credentialsSavedForCloud
-              ? null
-              : () => _loginWithGitHub(),
-        ),
-      ],
-    );
-  }
-
-  Widget _localIntro(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      key: const ValueKey('login.page_local'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _backButton(),
-        const SizedBox(height: SlowlightSpacing.page),
-        Align(
-          child: Icon(LucideIcons.smartphone,
-              size: SlowlightIconSize.heroGlyph,
-              color: theme.colorScheme.onSurface),
-        ),
-        const SizedBox(height: SlowlightSpacing.xxxl),
-        Text('无需登录，直接开始',
-            style: SlowlightTypography.hero(context),
-            textAlign: TextAlign.center),
-        const SizedBox(height: SlowlightSpacing.md),
-        Text('所有记录保存在当前设备，不会自动上传或合并到云端。',
-            textAlign: TextAlign.center,
-            style: SlowlightTypography.secondary(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            )),
-        const SizedBox(height: SlowlightSpacing.page),
-        FxCard(
-          padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
-          color: fxSubtleSurface(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _localFact(context, '使用任务、习惯与回顾'),
-              const SizedBox(height: SlowlightSpacing.xl),
-              _localFact(context, '不需要网络或云端账号'),
-              const SizedBox(height: SlowlightSpacing.xl),
-              _localFact(context, '迁移云端需要主动预览并确认'),
-            ],
+        if (register) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          FxButton(
+            label: '返回登录',
+            variant: FxButtonVariant.link,
+            expanded: true,
+            onPressed: _isLoading ? null : () => _open(_LoginView.welcome),
           ),
-        ),
-        const SizedBox(height: SlowlightSpacing.page),
-        FxButton(
-          key: const ValueKey('login.local_confirm'),
-          label: _isLoading ? '正在准备本地数据…' : '开始使用本地数据',
-          expanded: true,
-          size: FxButtonSize.lg,
-          onPressed: _isLoading ? null : _useLocal,
-        ),
-        const SizedBox(height: SlowlightSpacing.md),
-        FxButton(
-          key: const ValueKey('login.local_cancel'),
-          label: '返回登录',
-          variant: FxButtonVariant.ghost,
-          expanded: true,
-          onPressed: _isLoading ? null : () => _open(_LoginView.welcome),
-        ),
-      ],
-    );
-  }
-
-  Widget _localFact(BuildContext context, String label) => Row(
-        children: [
-          Icon(Icons.check_circle_outline,
-              size: SlowlightIconSize.md,
-              color: Theme.of(context).colorScheme.onSurfaceVariant),
-          const SizedBox(width: SlowlightSpacing.xl),
-          Expanded(
-            child: Text(label,
-                style: SlowlightTypography.secondary(context)),
-          ),
+        ] else ...[
+          const SizedBox(height: SlowlightSpacing.page),
+          _loginAlternatives(context),
         ],
-      );
+
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1137,9 +1154,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 _LoginView.github => _oauth(context),
                 _LoginView.password || _LoginView.register =>
                   _credentials(context),
-                _LoginView.local => widget.preserveDataMode
-                    ? _home(context)
-                    : _localIntro(context),
               };
               final panel = ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 510),

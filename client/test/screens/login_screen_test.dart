@@ -6,138 +6,89 @@ import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
-Future<void> openPassword(WidgetTester tester) async {
-  await tester.ensureVisible(find.byKey(const ValueKey('login.password_action')));
-  await tester.tap(find.byKey(const ValueKey('login.password_action')));
-  await tester.pump();
-}
-
-Future<void> openRegister(WidgetTester tester) async {
-  await tester.ensureVisible(find.byKey(const ValueKey('login.switch_mode')));
-  await tester.tap(find.byKey(const ValueKey('login.switch_mode')));
-  await tester.pump();
-}
-
 void main() {
-  group('LoginScreen 五阶段流程', () {
-    testWidgets('默认只展示入口，不抢先展示账号密码输入框', (tester) async {
+  group('LoginScreen 密码优先与其他登录方式', () {
+    testWidgets('默认展示账号密码，GitHub 是次级入口，注册暂时隐藏', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
 
       expect(find.byKey(const ValueKey('login.page_welcome')), findsOneWidget);
-      expect(find.byKey(const ValueKey('login.github_action')), findsOneWidget);
-      expect(find.byKey(const ValueKey('login.password_action')), findsOneWidget);
+      expect(find.byType(FxInput), findsNWidgets(2));
+      expect(find.byKey(const ValueKey('login.primary_action')), findsOneWidget);
+      expect(find.byKey(const ValueKey('login.provider.github')), findsOneWidget);
+      expect(find.byKey(const ValueKey('login.more_providers')), findsNothing);
       expect(find.byKey(const ValueKey('login.local_action')), findsOneWidget);
-      expect(find.byType(FxInput), findsNothing);
-      expect(find.byKey(const ValueKey('login.primary_action')), findsNothing);
+      expect(find.text('创建账号'), findsNothing);
+      expect(find.byKey(const ValueKey('login.page_register')), findsNothing);
+      expect(find.byKey(const ValueKey('login.password_action')), findsNothing);
+      expect(
+        find.byWidgetPredicate((widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == 'assets/github_mark.png'),
+        findsOneWidget,
+      );
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('密码登录为独立页面，空凭据阻止提交，支持返回首页', (tester) async {
+    testWidgets('空凭据禁止登录，原位保留表单', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
-      await openPassword(tester);
 
-      expect(find.byKey(const ValueKey('login.page_password')), findsOneWidget);
-      expect(find.byType(FxInput), findsNWidgets(2));
-      expect(find.byKey(const ValueKey('login.github_action')), findsNothing);
-      await tester.ensureVisible(find.text('登录'));
-      await tester.tap(find.text('登录'));
+      await tester.tap(find.byKey(const ValueKey('login.primary_action')));
       await tester.pump();
+
       expect(find.text('请填写完整信息'), findsOneWidget);
-
-      await tester.ensureVisible(find.byKey(const ValueKey('login.back')));
-      await tester.tap(find.byKey(const ValueKey('login.back')));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('login.page_welcome')), findsOneWidget);
-      expect(find.byType(FxInput), findsNothing);
-      await disposeFxTestHost(tester);
-    });
-
-    testWidgets('注册使用四字段，返回密码登录不清除输入草稿', (tester) async {
-      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
-      await tester.pump();
-      await openRegister(tester);
-
-      expect(find.byKey(const ValueKey('login.page_register')), findsOneWidget);
-      expect(find.byType(FxInput), findsNWidgets(4));
-      await tester.enterText(find.byType(FxInput).first, 'testuser');
-      await tester.ensureVisible(find.byKey(const ValueKey('login.switch_mode')));
-      await tester.tap(find.byKey(const ValueKey('login.switch_mode')));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('login.page_password')), findsOneWidget);
       expect(find.byType(FxInput), findsNWidgets(2));
-      expect(find.text('testuser'), findsOneWidget);
+      expect(find.byKey(const ValueKey('login.page_welcome')), findsOneWidget);
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('注册缺少邮箱不会请求服务端', (tester) async {
+    testWidgets('密码眼睛位于 FxInput 内并可切换显隐', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
-      await openRegister(tester);
 
-      final fields = find.byType(FxInput);
-      await tester.enterText(fields.at(0), 'testuser');
-      await tester.enterText(fields.at(2), 'password123');
-      await tester.ensureVisible(find.text('创建账号').last);
-      await tester.tap(find.text('创建账号').last);
+      final password = find.byWidgetPredicate(
+        (widget) => widget is FxInput && widget.label == '密码',
+      );
+      expect(password, findsOneWidget);
+      expect(tester.widget<FxInput>(password).obscureText, isTrue);
+
+      await tester.tap(find.byWidgetPredicate(
+        (widget) => widget is FxIconButton && widget.tooltip == '显示密码',
+      ));
       await tester.pump();
-      expect(find.text('请填写邮箱'), findsOneWidget);
+      expect(tester.widget<FxInput>(password).obscureText, isFalse);
+
+      await tester.tap(find.byWidgetPredicate(
+        (widget) => widget is FxIconButton && widget.tooltip == '隐藏密码',
+      ));
+      await tester.pump();
+      expect(tester.widget<FxInput>(password).obscureText, isTrue);
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('注册用户名长度不合规时阻止提交，符合服务端 3–50 字符约束', (tester) async {
+    testWidgets('本地入口先确认，取消不触发数据模式切换', (tester) async {
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
-      await openRegister(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('login.local_action')));
+      await tester.tap(find.byKey(const ValueKey('login.local_action')));
+      await tester.pumpAndSettle();
 
-      final fields = find.byType(FxInput);
-      await tester.enterText(fields.at(0), 'ab');
-      await tester.enterText(fields.at(1), 'demo@example.com');
-      await tester.enterText(fields.at(2), '123456');
-      await tester.ensureVisible(find.text('创建账号').last);
-      await tester.tap(find.text('创建账号').last);
-      await tester.pump();
+      expect(find.text('使用本地模式？'), findsOneWidget);
+      expect(find.textContaining('不会自动上传或合并到云端'), findsOneWidget);
+      expect(find.text('继续本地使用'), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
 
-      expect(find.text('账号需为 3–50 个字符'), findsOneWidget);
+      expect(find.byKey(const ValueKey('login.page_welcome')), findsOneWidget);
+      expect(find.text('使用本地模式？'), findsNothing);
+      expect(find.byType(FxInput), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('注册无效邮箱阻止提交，不产生云端请求', (tester) async {
-      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
-      await tester.pump();
-      await openRegister(tester);
-
-      final fields = find.byType(FxInput);
-      await tester.enterText(fields.at(0), 'testuser');
-      await tester.enterText(fields.at(1), 'not-an-email');
-      await tester.enterText(fields.at(2), '123456');
-      await tester.ensureVisible(find.text('创建账号').last);
-      await tester.tap(find.text('创建账号').last);
-      await tester.pump();
-
-      expect(find.text('请输入有效的邮箱地址'), findsOneWidget);
-      await disposeFxTestHost(tester);
-    });
-
-    testWidgets('注册密码少于六个字符时阻止提交', (tester) async {
-      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
-      await tester.pump();
-      await openRegister(tester);
-
-      final fields = find.byType(FxInput);
-      await tester.enterText(fields.at(0), 'testuser');
-      await tester.enterText(fields.at(1), 'demo@example.com');
-      await tester.enterText(fields.at(2), '12345');
-      await tester.ensureVisible(find.text('创建账号').last);
-      await tester.tap(find.text('创建账号').last);
-      await tester.pump();
-
-      expect(find.text('密码至少需要 6 个字符'), findsOneWidget);
-      await disposeFxTestHost(tester);
-    });
-
-    testWidgets('迁移认证模式仅验证云端身份，不提供本地模式入口', (tester) async {
+    testWidgets('迁移身份验证仍展示密码/GitHub，绝不提供本地模式切换', (tester) async {
       await tester.pumpWidget(buildFxTestHost(
         home: const LoginScreen(preserveDataMode: true),
       ));
@@ -145,34 +96,15 @@ void main() {
 
       expect(find.text('验证云端身份'), findsOneWidget);
       expect(find.textContaining('仍使用本地数据'), findsOneWidget);
-      expect(find.byKey(const ValueKey('login.github_action')), findsOneWidget);
-      expect(find.byKey(const ValueKey('login.password_action')), findsOneWidget);
+      expect(find.byType(FxInput), findsNWidgets(2));
+      expect(find.byKey(const ValueKey('login.provider.github')), findsOneWidget);
       expect(find.byKey(const ValueKey('login.local_action')), findsNothing);
-      expect(find.byKey(const ValueKey('login.page_local')), findsNothing);
-      await openPassword(tester);
-      expect(find.byKey(const ValueKey('login.local_confirm')), findsNothing);
-      expect(tester.takeException(), isNull);
+      expect(find.text('创建账号'), findsNothing);
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('本地数据先展示说明，返回不触发真实本地初始化', (tester) async {
-      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('login.local_action')));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('login.page_local')), findsOneWidget);
-      expect(find.textContaining('不会自动上传或合并到云端'), findsOneWidget);
-      expect(find.byKey(const ValueKey('login.local_confirm')), findsOneWidget);
-      await tester.ensureVisible(find.byKey(const ValueKey('login.local_cancel')));
-      await tester.tap(find.byKey(const ValueKey('login.local_cancel')));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('login.page_welcome')), findsOneWidget);
-      await disposeFxTestHost(tester);
-    });
-
-    testWidgets('授权等待在独立视图，不和密码表单共存（源码契约）',
-        (tester) async {
-      // GitHubSignIn 由平台浏览器驱动。此测试不伪造授权成功或请求外网。
+    testWidgets('独立 GitHub 状态页不会和首页表单混杂', (tester) async {
+      // OAuth is browser-driven: do not mock a successful identity here.
       await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
       await tester.pump();
       expect(find.byKey(const ValueKey('login.page_github')), findsNothing);
@@ -183,7 +115,7 @@ void main() {
 
   for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
     for (final scale in [1.0, 1.3, 2.0]) {
-      testWidgets('Windows / Android $platform 字体 $scale：页面切换、输入高度与滚动',
+      testWidgets('$platform / text scale $scale: 表单高度/布局保持完整',
           (tester) async {
         debugDefaultTargetPlatformOverride = platform;
         addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -202,26 +134,21 @@ void main() {
           home: const LoginScreen(),
         ));
         await tester.pump();
-        expect(find.byKey(const ValueKey('login.page_welcome')), findsOneWidget);
-        expect(find.byType(FxInput), findsNothing);
 
-        await openPassword(tester);
+        expect(find.byKey(const ValueKey('login.page_welcome')), findsOneWidget);
         final inputs = find.byType(FxInput);
         expect(inputs, findsNWidgets(2));
-        final normal = tester.getSize(inputs.at(0)).height;
-        final password = tester.getSize(inputs.at(1)).height;
-        expect(password, closeTo(normal, 0.1));
-        expect(normal, greaterThanOrEqualTo(
+        final usernameHeight = tester.getSize(inputs.at(0)).height;
+        final passwordHeight = tester.getSize(inputs.at(1)).height;
+        expect(passwordHeight, closeTo(usernameHeight, 0.1));
+        expect(usernameHeight, greaterThanOrEqualTo(
             platform == TargetPlatform.android ? 44 : 36));
-        expect(tester.getSize(find.byKey(const ValueKey('login.primary_action'))).width,
-            closeTo(tester.getSize(inputs.first).width, 1));
-
-        await openRegister(tester);
-        expect(find.byType(FxInput), findsNWidgets(4));
-        for (var i = 0; i < 4; i++) {
-          expect(tester.getSize(find.byType(FxInput).at(i)).height,
-              closeTo(normal, 0.1));
-        }
+        expect(
+          tester.getSize(find.byKey(const ValueKey('login.primary_action'))).width,
+          closeTo(tester.getSize(inputs.first).width, 1),
+        );
+        await tester.ensureVisible(find.byKey(const ValueKey('login.local_action')));
+        await tester.pump();
         expect(tester.takeException(), isNull);
         await disposeFxTestHost(tester);
       });

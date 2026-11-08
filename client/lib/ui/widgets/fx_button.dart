@@ -23,6 +23,8 @@ class FxButton extends StatefulWidget {
   final FxButtonVariant variant;
   final FxButtonSize size;
   final IconData? icon;
+  /// Brand marks and other non-font icons share the existing FxButton geometry.
+  final Widget? leading;
   final bool expanded;
   final Color? foregroundColor;
 
@@ -33,6 +35,7 @@ class FxButton extends StatefulWidget {
     this.variant = FxButtonVariant.primary,
     this.size = FxButtonSize.md,
     this.icon,
+    this.leading,
     this.expanded = false,
     this.foregroundColor,
   });
@@ -86,18 +89,22 @@ class _FxButtonState extends State<FxButton> {
   Widget _buildChild(BuildContext context) {
     final text = Text(widget.label,
         style: _textMetrics(context), textAlign: TextAlign.center);
-    if (widget.icon != null) {
+    if (widget.icon != null || widget.leading != null) {
+      final iconSize = _isCompactAction
+          ? SlowlightIconSize.compactAction
+          : SlowlightIconSize.sm;
       return Row(
         mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            widget.icon,
-            size: _isCompactAction
-                ? SlowlightIconSize.compactAction
-                : SlowlightIconSize.sm,
-            color: widget.foregroundColor,
-          ),
+          if (widget.leading != null)
+            SizedBox(width: iconSize, height: iconSize, child: widget.leading!)
+          else
+            Icon(
+              widget.icon,
+              size: iconSize,
+              color: widget.foregroundColor,
+            ),
           SizedBox(
             width: _isCompactAction ? _compactIconGap : SlowlightSpacing.md,
           ),
@@ -132,7 +139,7 @@ class _FxButtonState extends State<FxButton> {
         FxButtonSize.md => mobile ? 16.0 : 14.0,
         FxButtonSize.lg => mobile ? 20.0 : 18.0,
       };
-      final iconWidth = widget.icon == null
+      final iconWidth = widget.icon == null && widget.leading == null
           ? 0.0
           : (_isCompactAction
               ? SlowlightIconSize.compactAction + _compactIconGap
