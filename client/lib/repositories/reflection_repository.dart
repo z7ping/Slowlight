@@ -91,6 +91,71 @@ class ReflectionRepository {
     }
   }
 
+  /// Exact civil-calendar month rather than an unreliable recent(100)
+  /// sample. A Cloud cache fallback is explicitly incomplete.
+  Future<({List<ReflectionEntry> entries, bool complete})> month(
+      DateTime month) async {
+    final start = DateTime(month.year, month.month).toUtc();
+    final end = DateTime(month.year, month.month + 1).toUtc();
+    if (DataModeManager().isLocal) {
+      await LocalProductCoreSchema.ensureReady();
+      final db = await LocalDb().database;
+      final rows = await db.query(
+        'reflections',
+        where: 'deleted_at IS NULL AND created_at >= ? AND created_at < ?',
+        whereArgs: [
+          start.toIso8601String(),
+          end.toIso8601String(),
+        ],
+        orderBy: 'created_at DESC, id DESC',
+      );
+      return (
+        entries: rows.map(_fromLocalRow).toList(growable: false),
+        complete: true,
+      );
+    }
+
+    try {
+      final fetched = <ReflectionEntry>[];
+      const pageSize = 100;
+      for (var offset = 0; ; offset += pageSize) {
+        if (offset >= 100000) {
+          throw StateError('单月观察记录数量超出安全分页范围');
+        }
+        final page = await ReflectionApi.recent(
+          limit: pageSize,
+          offset: offset,
+          startAt: start,
+          endAt: end,
+        );
+        // Detect older Cloud endpoints which do not recognize ranges.
+        if (page.any((item) =>
+            item.createdAt.isBefore(start) ||
+            !item.createdAt.isBefore(end))) {
+          throw const FormatException('服务器未返回指定月份的观察记录');
+        }
+        fetched.addAll(page);
+        if (page.length < pageSize) break;
+      }
+      await _cloudCache.cacheRemote(fetched);
+      final pending = await _cloudCache.month(
+        start, end, pendingOnly: true,
+      );
+      final byId = <int, ReflectionEntry>{
+        for (final entry in fetched) entry.id: entry,
+        for (final entry in pending) entry.id: entry,
+      };
+      return (entries: byId.values.toList(growable: false), complete: true);
+    } catch (error) {
+      if (!_isTransientNetworkError(error)) rethrow;
+      // The cache can show real facts, but is never proof of complete history.
+      return (
+        entries: await _cloudCache.month(start, end),
+        complete: false,
+      );
+    }
+  }
+
   /// Exact period lookup. Never infer absence from a recent(100) window.
   /// A successful Cloud GET is required before an absent response is trusted.
   Future<ReflectionEntry?> findPeriodResponse(
