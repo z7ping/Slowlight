@@ -21,6 +21,7 @@ class AuthService {
   static const Duration _refreshAhead = Duration(minutes: 5);
   static Future<String?>? _refreshInFlight;
   static int _credentialEpoch = 0;
+  static String? _serverRejectedToken;
   static const String _userKey = 'user_data';
   static const String _loginMethodKey = 'auth_login_method';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
@@ -189,10 +190,9 @@ class AuthService {
   // 凭据是唯一身份事实；读存储失败或网络故障不能冒充“未登录”。
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
-    if (token == null || token.isEmpty || token.startsWith('local:')) {
-      return false;
-    }
-    if (!_isJwtExpired(token)) return true;
+    if (token != null && token.startsWith('local:')) return false;
+    if (token != null && token == _serverRejectedToken) return false;
+    if (token != null && !_isJwtExpired(token)) return true;
     if (await _secureStorage.read(key: _refreshKey) == null) return false;
     try {
       final renewed = await refreshAccessToken();
@@ -231,8 +231,8 @@ class AuthService {
   // 业务请求在剩余五分钟内提前续期；同进程只轮换一次。
   static Future<String?> getTokenForRequest() async {
     final token = await getToken();
-    if (token == null || token.startsWith('local:') ||
-        !_jwtExpiresWithin(token, _refreshAhead)) return token;
+    if (token != null && (token.startsWith('local:') ||
+        !_jwtExpiresWithin(token, _refreshAhead))) return token;
     if (await _secureStorage.read(key: _refreshKey) == null) return token;
     try {
       return await refreshAccessToken() ?? token;
@@ -252,6 +252,9 @@ class AuthService {
     try {
       final renewed = await refreshAccessToken();
       return renewed != attemptedToken ? renewed : null;
+    } on SessionRefreshRejected {
+      _serverRejectedToken = attemptedToken;
+      return null;
     } catch (_) {
       return null;
     }
@@ -305,11 +308,13 @@ class AuthService {
       throw StateError('更新登录凭据失败');
     }
     _credentialEpoch++;
+    _serverRejectedToken = null;
     return newToken;
   }
 
   static Future<void> logout() async {
     _credentialEpoch++;
+    _serverRejectedToken = null;
     final refresh = await _secureStorage.read(key: _refreshKey);
     await _secureStorage.delete(key: _tokenKey);
     await _secureStorage.delete(key: _refreshKey);
@@ -434,6 +439,7 @@ class AuthService {
         throw StateError('登录凭据保存后无法读回');
       }
       final prefs = await SharedPreferences.getInstance();
+      _serverRejectedToken = null;
       await prefs.remove(_tokenKey);
       await prefs.setString(_userKey, json.encode(user.toJson()));
       if (loginMethod == null) {
