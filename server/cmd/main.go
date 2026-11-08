@@ -146,6 +146,7 @@ func main() {
 		api.POST("/system-tags", systemTagHandler.CreateSystemTag)
 		api.PUT("/system-tags/:id", systemTagHandler.UpdateSystemTag)
 		api.DELETE("/system-tags/:id", systemTagHandler.DeleteSystemTag)
+		api.POST("/system-tags/undo", systemTagHandler.UndoSystemTagDelete)
 
 		syncChangesHandler := handler.NewSyncChangesHandler(db)
 		api.GET("/sync/changes", syncChangesHandler.GetChanges)
