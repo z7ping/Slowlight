@@ -223,6 +223,12 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Future<void> _toggle(Task task) async {
+    // A previously failed refresh leaves stale completion flags on screen.
+    // Do not call the toggle endpoint again until the list is confirmed.
+    if (_loadFailed) {
+      _message('任务列表刷新未确认，请先重试刷新再操作');
+      return;
+    }
     if (!_pendingTaskIds.add(task.id)) return;
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     final wasCompleted = task.isCompleted;
@@ -297,6 +303,10 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Future<void> _postpone(Task task) async {
+    if (_loadFailed) {
+      _message('任务列表刷新未确认，请先重试刷新再操作');
+      return;
+    }
     if (!_pendingTaskIds.add(task.id)) return;
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     try {
