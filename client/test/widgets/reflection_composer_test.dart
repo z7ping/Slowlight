@@ -36,7 +36,11 @@ void main() {
     expect(find.text('放弃未保存的想法？'), findsOneWidget);
     await tester.tap(find.text('取消').last);
     await tester.pumpAndSettle();
-    expect(find.text('暂存的想法'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText).first)
+          .controller.text,
+      '暂存的想法',
+    );
 
     await tester.tap(find.widgetWithText(FxButton, '取消').first);
     await tester.pumpAndSettle();
