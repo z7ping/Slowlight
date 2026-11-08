@@ -98,6 +98,32 @@ class HabitController extends ChangeNotifier {
     if (_logs.containsKey(habit.id)) await loadLogs(habit.id);
   }
 
+  /// Verify one deleted row with a fresh authoritative read. The normal
+  /// history refresh may fall back to cloud cache and is not sufficient to
+  /// claim that a remote delete took effect.
+  Future<bool?> verifyLogRemoval(int habitId, int logId) async {
+    await loadLogs(habitId); // wait for any ongoing post-write refresh
+    _loadingLogIds.add(habitId);
+    notifyListeners();
+    try {
+      final confirmed = await _repository.logsForVerification(habitId);
+      if (_disposed) return null;
+      _logs[habitId] = confirmed;
+      _logErrors.remove(habitId);
+      notifyListeners();
+      return !confirmed.any((log) => log.id == logId);
+    } catch (error) {
+      if (!_disposed) {
+        _logErrors[habitId] = '无法核对最新记录：$error';
+        notifyListeners();
+      }
+      return null;
+    } finally {
+      _loadingLogIds.remove(habitId);
+      notifyListeners();
+    }
+  }
+
   Future<Map<String, dynamic>> uncheckIn(Habit habit) async {
     final result = await _repository.uncheckIn(habit.id);
     await load();

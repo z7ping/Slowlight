@@ -666,6 +666,16 @@ class CloudApiService implements ApiDataSource {
     return ApiService.uncheckInHabit(habitId);
   }
 
+  // Deletion verification must never interpret an offline cached snapshot
+  // as proof that the server has accepted a write. Temporary local habit IDs
+  // are authoritative only for their own unsynced local log history.
+  Future<Map<String, dynamic>> getHabitLogsForVerification(
+    int habitId, {
+    String? month,
+  }) => habitId < 0
+      ? _cache.getHabitLogs(habitId, month: month)
+      : ApiService.getHabitLogs(habitId, month: month);
+
   @override
   Future<Map<String, dynamic>> getHabitLogs(int habitId, {String? month}) {
     if (habitId < 0) return _cache.getHabitLogs(habitId, month: month);

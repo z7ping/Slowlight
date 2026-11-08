@@ -1180,12 +1180,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           // A lost deletion ACK is not proof that the record still exists.
           // Read history instead of issuing another destructive request.
         }
-        await _controller.loadLogs(habit.id);
+        final removed = await _controller.verifyLogRemoval(habit.id, log.id);
         if (!mounted) return;
-        if (!_controller.hasLoadedLogs(habit.id) ||
-            _controller.logErrorFor(habit.id) != null) {
-          _message('撤销结果未确认，请重试加载记录核对');
-        } else if (_controller.logsFor(habit.id).any((item) => item.id == log.id)) {
+        if (removed == null) {
+          _message('撤销结果未确认，无法核对最新记录，请稍后重试');
+        } else if (!removed) {
           _message(writeAcknowledged
               ? '撤销请求已提交，记录仍在列表中，请稍后核对'
               : '撤销未确认，记录仍在列表中');

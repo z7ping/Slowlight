@@ -324,6 +324,40 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X07 Android 新标签名未添加时不能静默保存并丢失草稿', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开草稿观察',
+          onPressed: () => ReflectionComposer.show(
+            context, entryType: 'observation',
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开草稿观察'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '今天看到了新变化');
+    await tester.tap(find.text('＋ 新建标签'));
+    await tester.pumpAndSettle();
+    final tagName = find.byKey(const ValueKey('observation.mobile.tagName'));
+    await tester.enterText(find.descendant(
+      of: tagName, matching: find.byType(EditableText)), '还没创建的标签');
+    await tester.tap(find.widgetWithText(FxButton, '保存观察'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('请先添加或取消正在编辑的新标签'), findsOneWidget);
+    expect(find.text('记录观察'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X07 Android 仅填写新标签名也是需要确认的观察草稿', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
