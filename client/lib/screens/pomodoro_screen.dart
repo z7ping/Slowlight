@@ -66,6 +66,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   int? _confirmedNaturalWorkRounds;
   int _todayWorkSeconds = 0;
   int _todayWorkCount = 0;
+  bool _todayStatsKnown = false;
   String? _completionMessage;
   late final AnimationController _ripple;
 
@@ -107,8 +108,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       setState(() {
         _todayWorkSeconds = (stats['total_work_seconds'] as num?)?.toInt() ?? 0;
         _todayWorkCount = (stats['work_count'] as num?)?.toInt() ?? 0;
+        _todayStatsKnown = true;
       });
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _todayStatsKnown = false);
+    }
   }
 
   Future<void> _loadTodayTasks() async {
@@ -167,6 +171,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     setState(() => _restoringSession = true);
     try {
       await _restoreActiveSession();
+      if (mounted && !_sessionStatusUnknown) await _loadTodayStats();
     } finally {
       if (mounted) {
         setState(() => _restoringSession = false);
@@ -1056,7 +1061,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               opacity: quietOpacity,
               duration: const Duration(milliseconds: 180),
               child: Text(
-                '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟${_confirmedNaturalWorkRounds == null ? '' : ' · 本周期 ${_confirmedNaturalWorkRounds! % _sessionsBeforeLong}/$_sessionsBeforeLong'}',
+                '${_todayStatsKnown ? '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟' : '今日专注统计暂不可用'}${_confirmedNaturalWorkRounds == null ? '' : ' · 本周期 ${_confirmedNaturalWorkRounds! % _sessionsBeforeLong}/$_sessionsBeforeLong'}',
                 style: TextStyle(
                   fontSize: SlowlightTypography.secondarySize,
                   color: theme.colorScheme.onSurfaceVariant,
