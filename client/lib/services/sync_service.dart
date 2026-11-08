@@ -11,6 +11,7 @@ import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import 'api/task_api.dart';
+import 'auth_service.dart';
 import 'api_service.dart';
 import 'data_mode_manager.dart';
 import 'sync_incremental_pull.dart';
@@ -202,13 +203,22 @@ class SyncService extends ChangeNotifier {
     _requireCloudMode();
     if (isSyncing) throw StateError('同步进行中，请完成后核对远端');
     final db = await _db.database;
+    final accountId = _db.currentAccountId;
+    if (accountId == null) throw StateError('云端账号未确认');
     final queued = await db.query('sync_queue',
       where: "retry_count > 0 OR (last_error IS NOT NULL AND last_error != '')",
       orderBy: 'created_at ASC');
     var verified = 0;
     var conflicts = 0;
     var unknown = 0;
+    Future<bool> accountUnchanged() async =>
+        DataModeManager().isCloud &&
+        _db.currentAccountId == accountId &&
+        (await AuthService.getUser())?.id == accountId;
     for (final item in queued) {
+      if (!await accountUnchanged()) {
+        throw StateError('同步期间账号已变化，停止核对旧账号队列');
+      }
       final table = item['entity_type'] as String;
       final operation = item['operation'] as String;
       final id = item['entity_local_id'] as int;
@@ -236,6 +246,9 @@ class SyncService extends ChangeNotifier {
         final remote = debugRemoteRead == null
             ? await _fetchRemote(db, table, serverId, local)
             : await debugRemoteRead!(db, table, serverId, local);
+        if (!await accountUnchanged()) {
+          throw StateError('同步期间账号已变化，停止核对旧账号队列');
+        }
         bool applied = false;
         if (operation == 'delete' && remote == null) {
           // For read-by-list APIs a successful complete listing with no ID
@@ -307,7 +320,10 @@ class SyncService extends ChangeNotifier {
           }
           conflicts++;
         }
-      } catch (_) {
+      } catch (error) {
+        if (!await accountUnchanged()) {
+          throw StateError('云端账号已变化，原核对结果已作废');
+        }
         // Network errors, 404 without a trusted complete listing, and
         // JSON mismatch are inconclusive; never retry here.
         unknown++;
