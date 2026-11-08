@@ -9,9 +9,9 @@ import '../db/local_product_core_schema.dart';
 import '../models/dimension.dart';
 import '../models/reflection_entry.dart';
 import '../services/api/reflection_api.dart';
-import '../utils/habit_record_key.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
+import '../utils/habit_record_key.dart';
 import 'cloud_reflection_cache_repository.dart';
 
 /// Reflection / Observation 的统一数据边界。
