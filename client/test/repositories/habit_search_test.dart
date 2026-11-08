@@ -61,6 +61,7 @@ void main() {
         'id': userId,
         'username': 'p09_test',
         'email': 'p09@example.com',
+        'created_at': '2026-11-08T00:00:00Z',
       }),
     });
     await DataModeManager().setCloud();
