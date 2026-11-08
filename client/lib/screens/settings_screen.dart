@@ -68,12 +68,15 @@ class SettingsScreen extends StatefulWidget {
   // replacing the production AI store or cloud conflict repository.
   final Future<AiConfig> Function()? aiConfigLoader;
   final Future<List<Map<String, dynamic>>> Function()? conflictLoader;
+  // Production uses AuthService.logout; injected only for failure-path tests.
+  final Future<void> Function()? logoutAction;
 
   const SettingsScreen({
     super.key,
     this.initialSection = 'appearance',
     this.aiConfigLoader,
     this.conflictLoader,
+    this.logoutAction,
   });
 
   @override
@@ -99,6 +102,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _githubLinkingStatus = "正在等待 GitHub 授权…";
   bool _loadingAccount = true;
   bool _checkingGitHub = true;
+  bool _loggingOut = false;
   int _accountLoadVersion = 0;
   int _aiLoadVersion = 0;
   int _conflictLoadVersion = 0;
@@ -937,11 +941,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               trailing: FxButton(
                 key: const ValueKey('settings.account.logout'),
-                label: '退出登录',
+                label: _loggingOut ? '退出中…' : '退出登录',
                 icon: LucideIcons.logOut,
                 size: FxButtonSize.sm,
                 variant: FxButtonVariant.destructive,
-                onPressed: _linkingGitHub ? null : _logoutAccount,
+                onPressed: _linkingGitHub || _loggingOut ? null : _logoutAccount,
               ),
             ),
           ),
@@ -950,22 +954,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _logoutAccount() async {
-    final confirmed = await FxDialog.confirm(
-      context: context,
-      title: '退出登录',
-      content: '确认退出当前云端账号？本机未同步的记录请先检查同步状态。',
-    );
-    if (confirmed != true) return;
-    await AuthService.logout();
-    CloudSyncCoordinator().stop();
-    authStateNotifier.value = !authStateNotifier.value;
-    if (!mounted) return;
-    // The root of the app must remain an AuthGate after logout.
-    // A standalone LoginScreen would never hear the next auth change.
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AuthGate()),
-      (route) => false,
-    );
+    // Confirmation and storage clearing share one guard. A second tap while
+    // confirmation is open must not start another logout or erase session data.
+    if (_loggingOut || _linkingGitHub || DataModeManager().isLocal) return;
+    setState(() => _loggingOut = true);
+    try {
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '退出登录',
+        content: '确认退出当前云端账号？本机未同步的记录请先检查同步状态。',
+      );
+      if (confirmed != true || !mounted || DataModeManager().isLocal) return;
+      await (widget.logoutAction?.call() ?? AuthService.logout());
+      CloudSyncCoordinator().stop();
+      authStateNotifier.value = !authStateNotifier.value;
+      if (!mounted) return;
+      // The root must remain an AuthGate after a confirmed local logout.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthGate()),
+        (route) => false,
+      );
+    } catch (error) {
+      // Secure storage and legacy preference cleanup can fail independently.
+      // Do not navigate to login or declare logout complete on a partial write.
+      if (mounted) {
+        FxNotice.errorWithDetails(
+          context,
+          '退出结果未确认，请核对当前登录状态后重试',
+          error.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loggingOut = false);
+    }
   }
 
   Future<void> _loadConflictCount() async {
