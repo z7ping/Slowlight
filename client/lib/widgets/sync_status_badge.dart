@@ -708,7 +708,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                                 Expanded(flex: 2, child: retry),
                               ],
                             );
-                              },
+                          },
                         );
                       },
                     ),
