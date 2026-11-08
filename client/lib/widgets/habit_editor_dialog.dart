@@ -1282,7 +1282,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         const SizedBox(height: 12),
         _timeField(
           title: '起算／执行时间',
-          value: _specificTime,
+          // Reflect effective V3 schedule time without overwriting an empty
+          // legacy specific_time field during an unrelated edit.
+          value: _specificTime ?? _parseTime(_anchorTimeFallback),
           onChanged: (v) => setState(() {
             _specificTime = v;
             _anchorTimeFallback = v == null ? '08:00' : _formatTime(v);
@@ -1310,7 +1312,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           const SizedBox(height: 12),
           _timeField(
             title: '每天提醒时间',
-            value: _reminder,
+            value: _reminder ?? _parseTime(_reminderTimeFallback),
             onChanged: (v) => setState(() {
               _reminder = v;
               _reminderTimeFallback = v == null ? '09:00' : _formatTime(v);
