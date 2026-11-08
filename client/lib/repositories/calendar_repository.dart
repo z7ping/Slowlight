@@ -166,13 +166,17 @@ class CalendarRepository {
               kind: CalendarRecordKind.actual,
               date: DateTime(date.year, date.month, date.day),
               title: '${habit.icon} ${habit.name}',
-              timeLabel: habit.specificTime.isNotEmpty
-                  ? habit.specificTime
+              // The scheduled clock is a plan, not when a check-in
+              // actually occurred. Never present it as observed time.
+              timeLabel: log.occurredAt != null
+                  ? DateFormat('HH:mm').format(log.occurredAt!.toLocal())
                   : _periodLabel(log.period),
               description: log.note,
               colorHex: habit.color,
-              durationMin:
-                  log.durationMin > 0 ? log.durationMin : habit.durationMin,
+              durationMin: log.durationMin,
+              amountLabel: log.countValue == null
+                  ? ''
+                  : '${log.countValue} ${habit.recordUnit}',
               completed: true,
             ));
           }
