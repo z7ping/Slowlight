@@ -1183,7 +1183,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         final removed = await _controller.verifyLogRemoval(habit.id, log.id);
         if (!mounted) return;
         if (removed == null) {
-          _message('撤销结果未确认，未能读取最新记录，请联网核对');
+          _message('撤销结果未确认，无法核对最新记录，请稍后重试');
         } else if (!removed) {
           _message(writeAcknowledged
               ? '撤销请求已提交，记录仍在列表中，请稍后核对'
