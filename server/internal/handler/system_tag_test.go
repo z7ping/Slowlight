@@ -33,6 +33,7 @@ func newSystemTagRouter(h *SystemTagHandler, userID uint) *gin.Engine {
 	r.PUT("/system-tags/:id", h.UpdateSystemTag)
 	r.DELETE("/system-tags/:id", h.DeleteSystemTag)
 	r.POST("/system-tags/undo", h.UndoSystemTagDelete)
+	r.GET("/undo-receipt", GetDeletionUndoReceipt(h.DB))
 	return r
 }
 
