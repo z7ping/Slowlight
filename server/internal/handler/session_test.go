@@ -664,3 +664,114 @@ func TestEndSessionPausedAtStartDoesNotInventWorkMinute(t *testing.T) {
     if err := db.First(&session,session.ID).Error; err != nil {t.Fatal(err)}
     if session.DurationSec != 0 {t.Fatalf("有效时长应为 0: %d",session.DurationSec)}
 }
+
+func TestP07NaturalCompletionsAreVerifiedAndAccountScoped(t *testing.T) {
+    db, handler, userID := setupSessionTest(t)
+    router := newSessionRouter(handler, userID)
+    other := createTestUser(t, db)
+    db.Create(&model.WorkSession{
+        UserID: other.ID,
+        SessionType: "work",
+        TargetMinutes: 25,
+        NaturallyCompleted: true,
+        StartedAt: pastTime(70),
+        EndedAt: func() *time.Time { v := time.Now().Add(-45*time.Minute); return &v }(),
+        DurationSec: 1500,
+    })
+
+    finish := func(kind string, target int, age int, natural bool) map[string]interface{} {
+        t.Helper()
+        session := model.WorkSession{
+            UserID: userID,
+            SessionType: kind,
+            TargetMinutes: target,
+            StartedAt: pastTime(age),
+        }
+        if err := db.Create(&session).Error; err != nil { t.Fatal(err) }
+        body, _ := json.Marshal(map[string]interface{}{
+            "session_id": session.ID,
+            "expected_revision": 0,
+            "naturally_completed": natural,
+        })
+        w := httptest.NewRecorder()
+        req, _ := http.NewRequest("POST", "/sessions/end", bytes.NewReader(body))
+        req.Header.Set("Content-Type", "application/json")
+        router.ServeHTTP(w, req)
+        if w.Code != http.StatusOK {
+            t.Fatalf("end %s: %d %s", kind, w.Code, w.Body.String())
+        }
+        var result map[string]interface{}
+        if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+        return result
+    }
+
+    full := finish("work", 25, 26, true)
+    if full["completed_work_rounds"] != float64(1) {
+        t.Fatalf("natural completion count = %v", full["completed_work_rounds"])
+    }
+    var marked model.WorkSession
+    if err := db.First(&marked, uint(full["session"].(map[string]interface{})["id"].(float64))).Error; err != nil { t.Fatal(err) }
+    if !marked.NaturallyCompleted { t.Fatal("finished work should persist true") }
+
+    // Work that ended manually, lacked a valid goal, or was unfinished, and
+    // even a complete break, must not count.
+    finish("work", 25, 26, false)
+    finish("work", 25, 2, true)
+    finish("work", 0, 26, true)
+    last := finish("break", 5, 6, true)
+    if last["completed_work_rounds"] != float64(1) {
+        t.Fatalf("manual/legacy/break rounds were counted: %v", last["completed_work_rounds"])
+    }
+    w := httptest.NewRecorder()
+    req, _ := http.NewRequest("GET", "/sessions/active", nil)
+    router.ServeHTTP(w, req)
+    if w.Code != http.StatusOK { t.Fatalf("active: %d", w.Code) }
+    var active map[string]interface{}
+    if err := json.Unmarshal(w.Body.Bytes(), &active); err != nil { t.Fatal(err) }
+    if active["active"] != false || active["completed_work_rounds"] != float64(1) {
+        t.Fatalf("account-scoped count = %v", active)
+    }
+}
+
+func TestP07TargetedEndAndGuardedStartRejectConflictingDevices(t *testing.T) {
+    db, handler, userID := setupSessionTest(t)
+    router := newSessionRouter(handler, userID)
+    active := model.WorkSession{
+        UserID: userID,
+        SessionType: "work",
+        TargetMinutes: 25,
+        StartedAt: pastTime(5),
+        Revision: 2,
+    }
+    if err := db.Create(&active).Error; err != nil { t.Fatal(err) }
+
+    request := func(method string, path string, body map[string]interface{}) *httptest.ResponseRecorder {
+        t.Helper()
+        payload, _ := json.Marshal(body)
+        w := httptest.NewRecorder()
+        req, _ := http.NewRequest(method, path, bytes.NewReader(payload))
+        req.Header.Set("Content-Type", "application/json")
+        router.ServeHTTP(w, req)
+        return w
+    }
+    guarded := request("POST", "/sessions/start", map[string]interface{}{
+        "session_type":"break", "target_minutes":5, "require_inactive":true,
+    })
+    if guarded.Code != http.StatusConflict {
+        t.Fatalf("guarded start should return conflict, got %d: %s", guarded.Code, guarded.Body.String())
+    }
+    for _, payload := range []map[string]interface{}{
+        {"session_id":active.ID + 100, "expected_revision":2, "naturally_completed":true},
+        {"session_id":active.ID, "expected_revision":1, "naturally_completed":true},
+    } {
+        w := request("POST", "/sessions/end", payload)
+        if w.Code != http.StatusConflict {
+            t.Fatalf("stale end must fail, got %d: %s", w.Code, w.Body.String())
+        }
+    }
+    var current model.WorkSession
+    if err := db.First(&current, active.ID).Error; err != nil { t.Fatal(err) }
+    if current.EndedAt != nil || current.NaturallyCompleted {
+        t.Fatal("conflicting requests must not end or count the active session")
+    }
+}
