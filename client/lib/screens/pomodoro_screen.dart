@@ -117,8 +117,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _loadTodayTasks() async {
     try {
+      final requestedScope = await _cycleStorageKey();
       final tasks = await DataService().getTodayTasks();
-      if (!mounted) return;
+      if (!mounted || requestedScope != await _cycleStorageKey()) return;
       setState(() {
         _todayTasks = tasks.where((task) => !task.isCompleted).toList();
         // An active session may be linked to a task no longer in today's
@@ -140,6 +141,26 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (!mounted) return;
       if (requestedScope != await _cycleStorageKey()) {
         throw StateError('账号或数据模式已切换');
+      }
+      if (requestedScope != _cyclePrefsKey) {
+        // An in-place account switch must not reuse the previous account's
+        // local cycle, task choice, or verified remote round count.
+        final prefs = await SharedPreferences.getInstance();
+        final cycle = PomodoroCycleProgress.decode(
+          requestedScope == null ? null : prefs.getString(requestedScope),
+          cycleSize: _sessionsBeforeLong,
+        );
+        if (!mounted || requestedScope != await _cycleStorageKey()) {
+          throw StateError('账号或数据模式已切换');
+        }
+        setState(() {
+          _cyclePrefsKey = requestedScope;
+          _cycle = cycle;
+          _linkedTaskId = null;
+          _todayTasks = const [];
+          _confirmedNaturalWorkRounds = null;
+        });
+        unawaited(_loadTodayTasks());
       }
       final active = data['active'];
       if (active == true) {
