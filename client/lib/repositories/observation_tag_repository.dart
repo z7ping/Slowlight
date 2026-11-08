@@ -212,6 +212,11 @@ class ObservationTagRepository {
     }
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
+    return _localDeletionImpact(tag, db);
+  }
+
+  Future<ObservationTagUsage> _localDeletionImpact(
+      ObservationTag tag, DatabaseExecutor db) async {
     final aliases = await db.query(
       'legacy_system_tag_aliases',
       columns: ['tag_id'],
@@ -268,12 +273,23 @@ class ObservationTagRepository {
     );
   }
 
-  Future<void> delete(ObservationTag tag) async {
+  /// The user-approved association counts are checked again inside the
+  /// deletion transaction, before any link is removed. Missing evidence
+  /// preserves legacy callers; the X08 screen always sends its preview.
+  Future<void> delete(
+    ObservationTag tag, {ObservationTagUsage? expectedImpact}
+  ) async {
     if (tag.isDefault) throw StateError('默认观察标签不可删除');
     if (DataModeManager().isLocal) {
       await LocalProductCoreSchema.ensureReady();
       final db = await LocalDb().database;
       await db.transaction((txn) async {
+        if (expectedImpact != null) {
+          final current = await _localDeletionImpact(tag, txn);
+          if (current != expectedImpact) {
+            throw StateError('标签关联已发生变化，请重新核对删除范围');
+          }
+        }
         await txn.update(
           'tasks',
           {'system_tag_id': null},
@@ -316,7 +332,12 @@ class ObservationTagRepository {
       });
       return;
     }
-    await _cloudRequest('DELETE', '/system-tags/${tag.id}');
+    final query = expectedImpact == null ? '' :
+        '?expected_tasks=${expectedImpact.tasks}'
+        '&expected_habits=${expectedImpact.habits}'
+        '&expected_sessions=${expectedImpact.sessions}'
+        '&expected_reflections=${expectedImpact.reflections}';
+    await _cloudRequest('DELETE', '/system-tags/${tag.id}$query');
   }
 
   Future<List<ObservationTag>> _getLocal() async {
