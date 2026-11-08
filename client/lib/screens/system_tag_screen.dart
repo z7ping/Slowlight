@@ -277,7 +277,6 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   }
 
   Widget _tagGroup(_ObservationTagGroup group) {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
