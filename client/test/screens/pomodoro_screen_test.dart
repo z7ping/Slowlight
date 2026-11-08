@@ -10,6 +10,58 @@ import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
+class _VerifiedCycleRepository extends SessionRepository {
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {
+        'active': false,
+        'completed_work_rounds': 3,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+}
+
+class _GuardedStartRepository extends SessionRepository {
+  bool? receivedRequireInactive;
+
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {
+        'active': false,
+        'completed_work_rounds': 0,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+
+  @override
+  Future<Map<String, dynamic>> startSession(
+    String sessionType, {
+    int? taskId,
+    int? targetMinutes,
+    String device = 'desktop',
+    bool requireInactive = false,
+  }) async {
+    receivedRequireInactive = requireInactive;
+    return {
+      'session': {
+        'id': 101,
+        'session_type': sessionType,
+        'target_minutes': targetMinutes ?? 25,
+        'started_at': DateTime.now().toUtc().toIso8601String(),
+        'paused_at': null,
+        'paused_duration_seconds': 0,
+        'revision': 0,
+      }
+    };
+  }
+}
+
 class _InactiveSessionRepository extends SessionRepository {
   @override
   Future<Map<String, dynamic>> getActiveSession() async => {'active': false};
@@ -40,6 +92,41 @@ class _ControlledSessionRepository extends SessionRepository {
 }
 
 void main() {
+  testWidgets('P07 只展示来源确认的连续轮次，退出页面后可恢复', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final repository = _VerifiedCycleRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('本周期 3/4'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('本周期 3/4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 新轮请求携带禁止覆盖其他设备活动会话的条件', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final repository = _GuardedStartRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始专注'));
+    await tester.pump();
+    expect(repository.receivedRequireInactive, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P07 还没核对当前活跃会话时不允许开始或更改设置', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final sessions = _ControlledSessionRepository();
