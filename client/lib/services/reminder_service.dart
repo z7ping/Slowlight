@@ -554,6 +554,10 @@ class ReminderService extends ChangeNotifier {
     }
   }
 
+  /// Native startup/runtime failure must keep the current rest and display
+  /// the already-shared Flutter overlay, never silently skip the interval.
+  void reportNativeOverlayFailure() => _fallbackToInAppRest();
+
   void _fallbackToInAppRest() {
     if (!Platform.isWindows || _lockScreenMode != 'fullscreen' ||
         (_state != 'micro_rest' && _state != 'long_rest') ||
