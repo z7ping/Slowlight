@@ -517,6 +517,135 @@ func TestCompleteTask(t *testing.T) {
 	}
 }
 
+// Two clients may both see pending. Only the first explicit completion
+// commits; stale requests must not create a second event or repeat occurrence.
+func TestCompleteTask_ConditionalCASAndRepeatSideEffects(t *testing.T) {
+	db, handler, user, list := setupTaskTest(t)
+	r := newTaskRouter(handler, user.ID)
+	task := model.Task{
+		UserID: user.ID, ListID: list.ID, Title: "并发重复任务",
+		RepeatType: "daily", RepeatInterval: 1,
+	}
+	if err := db.Create(&task).Error; err != nil {
+		t.Fatal(err)
+	}
+	request := func(body string) *httptest.ResponseRecorder {
+		t.Helper()
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPatch,
+			"/tasks/"+itoa(task.ID)+"/complete", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(w, req)
+		return w
+	}
+	completeBody := `{"is_completed":true,"expected_completed":false}`
+	first := request(completeBody)
+	if first.Code != http.StatusOK {
+		t.Fatalf("首次完成失败: %d %s", first.Code, first.Body.String())
+	}
+	second := request(completeBody)
+	if second.Code != http.StatusConflict {
+		t.Fatalf("第二设备旧状态应冲突: %d %s", second.Code, second.Body.String())
+	}
+	var count int64
+	db.Model(&model.Task{}).Where(
+		"user_id = ? AND title = ?", user.ID, task.Title,
+	).Count(&count)
+	if count != 2 {
+		t.Fatalf("重复周期不得再次创建: got %d tasks", count)
+	}
+	db.Model(&model.BehaviorEvent{}).Where(
+		"user_id = ? AND entity_type = ? AND entity_id = ? AND event_type = ?",
+		user.ID, "task", task.ID, "task_completed",
+	).Count(&count)
+	if count != 1 {
+		t.Fatalf("完成行为事件不得重复: got %d", count)
+	}
+
+	var completed model.Task
+	if err := json.Unmarshal(first.Body.Bytes(), &completed); err != nil {
+		t.Fatal(err)
+	}
+	if completed.CompletedAt == nil {
+		t.Fatal("条件完成必须返回 completed_at")
+	}
+	undoJSON, _ := json.Marshal(map[string]interface{}{
+		"is_completed": false,
+		"expected_completed": true,
+		"expected_completed_at": completed.CompletedAt.Format(time.RFC3339Nano),
+	})
+	undo := request(string(undoJSON))
+	if undo.Code != http.StatusOK {
+		t.Fatalf("条件撤销失败: %d %s", undo.Code, undo.Body.String())
+	}
+	db.Model(&model.BehaviorEvent{}).Where(
+		"user_id = ? AND entity_type = ? AND entity_id = ? AND event_type = ?",
+		user.ID, "task", task.ID, "task_completed",
+	).Count(&count)
+	if count != 0 {
+		t.Fatalf("撤销后完成事件必须同步清空: got %d", count)
+	}
+	// An old undo is not idempotent toggle: it must fail, not re-complete.
+	stale := request(string(undoJSON))
+	if stale.Code != http.StatusConflict {
+		t.Fatalf("过期撤销应409: %d %s", stale.Code, stale.Body.String())
+	}
+}
+
+func TestCompleteTask_RejectsOldUndoAfterRecompletion(t *testing.T) {
+	db, handler, user, list := setupTaskTest(t)
+	r := newTaskRouter(handler, user.ID)
+	task := createTestTask(t, db, user.ID, list.ID, "二次完成周期")
+
+	request := func(body string) (int, model.Task) {
+		t.Helper()
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPatch,
+			"/tasks/"+itoa(task.ID)+"/complete", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(w, req)
+		var result model.Task
+		if w.Code == http.StatusOK {
+			if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return w.Code, result
+	}
+	complete := `{"is_completed":true,"expected_completed":false}`
+	status, first := request(complete)
+	if status != http.StatusOK || first.CompletedAt == nil {
+		t.Fatalf("首次完成状态/时间错误: %d %+v", status, first.CompletedAt)
+	}
+	oldUndo, _ := json.Marshal(map[string]interface{}{
+		"is_completed": false, "expected_completed": true,
+		"expected_completed_at": first.CompletedAt.Format(time.RFC3339Nano),
+	})
+	if status, _ = request(string(oldUndo)); status != http.StatusOK {
+		t.Fatalf("首次撤销失败: %d", status)
+	}
+
+	// Guarantee a different completion token across rapid cycles.
+	time.Sleep(2 * time.Millisecond)
+	status, second := request(complete)
+	if status != http.StatusOK || second.CompletedAt == nil {
+		t.Fatalf("再次完成失败: %d", status)
+	}
+	if status, _ = request(string(oldUndo)); status != http.StatusConflict {
+		t.Fatalf("旧 toast 不得取消新的完成记录: %d", status)
+	}
+	var stored model.Task
+	db.First(&stored, task.ID)
+	if !stored.IsCompleted || stored.CompletedAt == nil ||
+		!stored.CompletedAt.Equal(*second.CompletedAt) {
+		t.Fatalf("新完成记录被旧撤销覆盖: %+v", stored)
+	}
+	if status, _ = request(`{"is_completed":false,"expected_completed":true}`);
+		status != http.StatusBadRequest {
+		t.Fatalf("缺少原完成时间应拒绝: %d", status)
+	}
+}
+
 func TestCompleteTask_NotFound(t *testing.T) {
 	_, handler, user, _ := setupTaskTest(t)
 	r := newTaskRouter(handler, user.ID)
