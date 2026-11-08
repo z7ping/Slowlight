@@ -35,7 +35,7 @@ class LocalDb {
     if (debugDatabasePathOverride != null) {
       return await openDatabase(
         debugDatabasePathOverride!,
-        version: 21,
+        version: 22,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -45,7 +45,7 @@ class LocalDb {
 
     return await openDatabase(
       path,
-      version: 21,
+      version: 22,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -542,6 +542,14 @@ class LocalDb {
     if (oldVersion < 21) {
       await _createHabitGoalRevisions(db);
     }
+    if (oldVersion < 22) {
+      final columns = await db.rawQuery('PRAGMA table_info(work_sessions)');
+      if (!columns.any((column) => column['name'] == 'naturally_completed')) {
+        await db.execute(
+          'ALTER TABLE work_sessions ADD COLUMN naturally_completed INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+    }
   }
 
   Future<void> _createHabitGoalRevisions(Database db) async {
@@ -632,6 +640,7 @@ class LocalDb {
         session_type TEXT NOT NULL,
         task_id INTEGER,
         target_minutes INTEGER NOT NULL DEFAULT 0,
+        naturally_completed INTEGER NOT NULL DEFAULT 0,
         started_at TEXT NOT NULL,
         ended_at TEXT,
         duration_sec INTEGER DEFAULT 0,
