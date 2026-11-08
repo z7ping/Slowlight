@@ -141,6 +141,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     authStateNotifier.addListener(_authenticationChanged);
     DataModeManager().addListener(_authenticationChanged);
     SyncService().addListener(_syncStatusChanged);
+    CloudSyncCoordinator().standalonePendingCount.addListener(_standaloneSyncChanged);
+    CloudSyncCoordinator().standalonePendingUnknown.addListener(_standaloneSyncChanged);
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
     _loadAccount();
@@ -168,6 +170,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     authStateNotifier.removeListener(_authenticationChanged);
     DataModeManager().removeListener(_authenticationChanged);
     SyncService().removeListener(_syncStatusChanged);
+    CloudSyncCoordinator().standalonePendingCount.removeListener(_standaloneSyncChanged);
+    CloudSyncCoordinator().standalonePendingUnknown.removeListener(_standaloneSyncChanged);
     super.dispose();
   }
 
@@ -176,6 +180,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadAccount();
     _loadConflictCount();
     setState(() {});
+  }
+
+  void _standaloneSyncChanged() {
+    // 独立意图的计数或读取失败不会变更普通队列的 SyncService.status。
+    if (mounted) setState(() {});
   }
 
   void _reminderChanged() {
@@ -1220,6 +1229,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           CloudSyncCoordinator().standalonePendingCount.value,
       lastQueueRun: sync.lastQueueRun,
       networkUnreachable: sync.lastNetworkUnreachable,
+      standalonePendingUnknown: CloudSyncCoordinator().standalonePendingUnknown.value,
     );
   }
 
@@ -2081,6 +2091,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         conflictCount: _conflictCount,
         pendingCount: sync.pendingCount +
             CloudSyncCoordinator().standalonePendingCount.value,
+        standalonePendingUnknown:
+            CloudSyncCoordinator().standalonePendingUnknown.value,
       );
       _message(settled
           ? '同步已完成'
