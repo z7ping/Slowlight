@@ -151,6 +151,62 @@ void main() {
     expect(SyncService().pendingCount, 1);
   });
 
+  test('X09 失败范围读取保留完整原错误，不重播、不丢已入队记录', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final longError = '完整原始异常：' + List.filled(80, 'network-reset').join('|');
+    await db.insert('sync_queue', {
+      'entity_type': 'tasks', 'entity_local_id': 701,
+      'operation': 'update', 'retry_count': 2,
+      'last_error': longError,
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'habits', 'entity_local_id': 702,
+      'operation': 'create', 'retry_count': 1,
+      'last_error': 'timeout: 尚待核对远端是否已提交',
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': 703,
+      'operation': 'update', 'retry_count': 0,
+      'last_error': '',
+      'created_at': now, 'updated_at': now,
+    });
+    final before = await db.query('sync_queue');
+    final failures = await SyncService().getPendingFailures();
+    expect(failures, hasLength(2));
+    expect(failures.map((item) => item.entityLocalId),
+        containsAll(<int>[701, 702]));
+    final error = failures.singleWhere((item) => item.entityLocalId == 701);
+    expect(error.entityType, 'tasks');
+    expect(error.operation, 'update');
+    expect(error.retryCount, 2);
+    expect(error.error, longError);
+    expect(await db.query('sync_queue'), before);
+    expect(SyncService().status, isNot(SyncStatusEnum.syncing));
+  });
+
+  test('X09 部分同步失败返回准确的本轮尝试/失败数量', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    await addQueuedUnsupportedOperation(db);
+    await db.insert('sync_queue', {
+      'entity_type': 'another_unsupported_entity',
+      'entity_local_id': 998,
+      'operation': 'update',
+      'retry_count': 0,
+      'last_error': '',
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    expect(await SyncService().manualSync(), isFalse);
+    expect(SyncService().lastError, contains('本轮处理 2 项，其中 2 项未完成'));
+    expect((await SyncService().getPendingFailures()).length, 2);
+    expect((await db.query('sync_queue')).length, 2);
+  });
+
   test('单条上传失败时 manualSync 返回 false 且保留队列', () async {
     await prepareCloud();
     final db = await CloudCacheDb().database;

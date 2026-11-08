@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -113,6 +112,24 @@ class SyncOperation {
       };
 }
 
+/// A failed queue item, read from the actual pending Cloud Cache rows.
+/// This is not a claim that another item was verified on the server.
+class SyncPendingFailure {
+  final String entityType;
+  final int entityLocalId;
+  final String operation;
+  final int retryCount;
+  final String error;
+
+  const SyncPendingFailure({
+    required this.entityType,
+    required this.entityLocalId,
+    required this.operation,
+    required this.retryCount,
+    required this.error,
+  });
+}
+
 /// Cloud Data Mode 的离线缓存 / 同步可靠性层。
 ///
 /// Local Data 的普通 CRUD 不进入本队列；Local → Cloud 属于显式迁移能力。
@@ -137,6 +154,28 @@ class SyncService extends ChangeNotifier {
   int get pendingCount => _pendingCount;
   bool get isSyncing => _status == SyncStatusEnum.syncing;
   String get deviceId => _deviceId;
+
+  /// Read-only failure scope for X09. Never clears or replays queued writes.
+  /// The queue is per-account through CloudCacheDb.
+  Future<List<SyncPendingFailure>> getPendingFailures() async {
+    final db = await _db.database;
+    final rows = await db.query(
+      'sync_queue',
+      columns: [
+        'entity_type', 'entity_local_id', 'operation',
+        'retry_count', 'last_error',
+      ],
+      where: "retry_count > 0 OR (last_error IS NOT NULL AND last_error != '')",
+      orderBy: 'updated_at DESC, id DESC',
+    );
+    return rows.map((row) => SyncPendingFailure(
+      entityType: row['entity_type'] as String? ?? 'unknown',
+      entityLocalId: row['entity_local_id'] as int? ?? 0,
+      operation: row['operation'] as String? ?? 'unknown',
+      retryCount: row['retry_count'] as int? ?? 0,
+      error: row['last_error'] as String? ?? '',
+    )).toList(growable: false);
+  }
 
   Future<void> init({bool startPeriodic = true}) async {
     await _db.database;
@@ -229,14 +268,19 @@ class SyncService extends ChangeNotifier {
     try {
       final db = await _db.database;
       String? firstFailure;
+      var attempted = 0;
+      var failed = 0;
       for (final item in await _orderedQueue(db, 50)) {
+        attempted++;
         final failure = await _processQueueItem(db, item);
+        if (failure != null) failed++;
         firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
       if (firstFailure != null) {
         _status = SyncStatusEnum.error;
-        _lastError = '部分记录未同步：$firstFailure';
+        _lastError = '本轮处理 $attempted 项，其中 $failed 项未完成；'
+            '剩余 $_pendingCount 项待处理。首项：$firstFailure';
         notifyListeners();
         return false;
       }
@@ -309,7 +353,7 @@ class SyncService extends ChangeNotifier {
         'sync_queue',
         {
           'retry_count': retries,
-          'last_error': text.substring(0, min(200, text.length)),
+          'last_error': text,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         },
         where: 'id = ?',
@@ -721,13 +765,20 @@ class SyncService extends ChangeNotifier {
     try {
       final db = await _db.database;
       String? firstFailure;
+      var attempted = 0;
+      var failed = 0;
       for (final item in await _orderedQueue(db, batchSize)) {
+        attempted++;
         final failure = await _processQueueItem(db, item);
+        if (failure != null) failed++;
         firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
       _status = firstFailure == null ? SyncStatusEnum.idle : SyncStatusEnum.error;
-      if (firstFailure != null) _lastError = '部分记录未同步：$firstFailure';
+      if (firstFailure != null) {
+        _lastError = '本轮处理 $attempted 项，其中 $failed 项未完成；'
+            '剩余 $_pendingCount 项待处理。首项：$firstFailure';
+      }
     } catch (e) {
       _status = SyncStatusEnum.error;
       _lastError = e.toString();
