@@ -32,7 +32,7 @@ class CloudCacheRepository {
     final rows = await db.query(
       'lists',
       where: 'deleted_at IS NULL',
-      orderBy: 'sort_order ASC, created_at ASC',
+      orderBy: 'sort_order ASC, created_at ASC, id ASC',
     );
     return [for (final row in rows) _listFromRow(row)];
   }
