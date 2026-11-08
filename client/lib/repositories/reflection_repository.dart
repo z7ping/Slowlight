@@ -131,6 +131,7 @@ class ReflectionRepository {
         );
         // An old server may ignore the keyword and return unrelated data.
         if (page.any((entry) =>
+            entry.id <= 0 ||
             !entry.content.toLowerCase().contains(term.toLowerCase()) ||
             !ids.add(entry.id))) {
           throw const FormatException('服务端不支持完整历史检索');
@@ -142,8 +143,10 @@ class ReflectionRepository {
             term, pendingOnly: true,
           );
           final merged = <int, ReflectionEntry>{
-            for (final entry in fetched) entry.id: entry,
+            // Local unsynced observations must remain reachable even when
+            // the remote 500-entry result cap is hit.
             for (final entry in pending) entry.id: entry,
+            for (final entry in fetched) entry.id: entry,
           };
           return (
             entries: merged.values.take(500).toList(growable: false),
@@ -156,8 +159,8 @@ class ReflectionRepository {
         term, pendingOnly: true,
       );
       final merged = <int, ReflectionEntry>{
-        for (final entry in fetched) entry.id: entry,
         for (final entry in pending) entry.id: entry,
+        for (final entry in fetched) entry.id: entry,
       };
       return (
         entries: merged.values.take(500).toList(growable: false),
