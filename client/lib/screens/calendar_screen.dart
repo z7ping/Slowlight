@@ -4,7 +4,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/calendar_record.dart';
 import '../models/todo_list.dart';
 import '../repositories/calendar_repository.dart';
-import '../services/data_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/calendar_month_grid.dart';
@@ -557,12 +556,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     await _selectDate(record.date);
     if (!mounted) return;
     if (record.task != null) {
-      final lists = await DataService().getLists();
-      if (!mounted) return;
+      // The canonical editor already loads and validates real lists with
+      // failure feedback; a second pre-read here could throw uncaught.
       await TaskDetailSheet.show(
         context,
         task: record.task!,
-        lists: lists,
+        lists: const <TodoList>[],
         onChanged: _load,
       );
       return;
