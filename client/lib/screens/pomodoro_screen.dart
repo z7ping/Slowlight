@@ -28,7 +28,7 @@ class PomodoroScreen extends StatefulWidget {
 }
 
 class _PomodoroScreenState extends State<PomodoroScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _settingsPrefsKey = 'slowlight_pomodoro_settings_v1';
   late final SessionRepository _sessions =
       widget.sessionRepository ?? SessionRepository();
@@ -63,14 +63,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   String? _cyclePrefsKey;
   bool _restoringSession = true;
   bool _sessionStatusUnknown = false;
+  int? _confirmedNaturalWorkRounds;
   int _todayWorkSeconds = 0;
   int _todayWorkCount = 0;
+  bool _todayStatsKnown = false;
   String? _completionMessage;
   late final AnimationController _ripple;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ripple = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -82,9 +85,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _ripple.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        !_restoringSession && !_finalizingSession && !_sessionTransitioning) {
+      // A second device may have changed or ended this session. Reconcile
+      // before allowing any additional write after the app was backgrounded.
+      unawaited(_retrySessionRestore());
+    }
   }
 
   Future<void> _loadTodayStats() async {
@@ -94,8 +108,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       setState(() {
         _todayWorkSeconds = (stats['total_work_seconds'] as num?)?.toInt() ?? 0;
         _todayWorkCount = (stats['work_count'] as num?)?.toInt() ?? 0;
+        _todayStatsKnown = true;
       });
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _todayStatsKnown = false);
+    }
   }
 
   Future<void> _loadTodayTasks() async {
@@ -119,9 +136,28 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       final active = data['active'];
       if (active == true) {
         _applySession(Map<String, dynamic>.from(data['session'] as Map));
-      } else if (active != false) {
+      } else if (active == false) {
+        // Another device can end an earlier session while this view sleeps.
+        if (_activeSession) {
+          _timer?.cancel();
+          setState(() {
+            _activeSession = false;
+            _running = false;
+            _sessionId = null;
+            _sessionStartedAt = null;
+            _sessionPausedAt = null;
+            _sessionType = 'work';
+            _sessionTargetMinutes = _workMinutes;
+            _remainingSeconds = _workMinutes * 60;
+          });
+        }
+      } else {
         throw const FormatException('活跃会话查询没有可靠状态');
       }
+      final count = data['completed_work_rounds'];
+      _confirmedNaturalWorkRounds =
+          count is num && count.toInt() >= 0 ? count.toInt() : null;
+      if (mounted) setState(() => _finishError = null);
       if (mounted) setState(() => _sessionStatusUnknown = false);
     } catch (_) {
       if (!mounted) return;
@@ -135,8 +171,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     setState(() => _restoringSession = true);
     try {
       await _restoreActiveSession();
+      if (mounted && !_sessionStatusUnknown) await _loadTodayStats();
     } finally {
-      if (mounted) setState(() => _restoringSession = false);
+      if (mounted) {
+        setState(() => _restoringSession = false);
+        _completeExpiredRoundOnReturn();
+      }
     }
   }
 
@@ -213,8 +253,27 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (mounted) _message('专注偏好读取失败，已使用默认设置');
     } finally {
       if (mounted) await _restoreActiveSession();
-      if (mounted) setState(() => _restoringSession = false);
+      if (mounted) {
+        setState(() => _restoringSession = false);
+        _completeExpiredRoundOnReturn();
+      }
     }
+  }
+
+  void _completeExpiredRoundOnReturn() {
+    // If the app was suspended when the round expired, settle its persisted
+    // session first. Automatic mode never waits for the optional tag picker.
+    if (!_autoStartNext || !_activeSession || _sessionStatusUnknown ||
+        _restoringSession || _finalizingSession || _remainingSeconds > 0) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _autoStartNext && _activeSession &&
+          !_sessionStatusUnknown && !_restoringSession &&
+          !_finalizingSession && _remainingSeconds <= 0) {
+        unawaited(_finishNaturally());
+      }
+    });
   }
 
   int _remainingFromSession() {
@@ -258,7 +317,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _remainingSeconds = _remainingFromSession();
       _running = pausedAt == null && _remainingSeconds > 0;
       final taskId = session['task_id'];
-      if (taskId is num && taskId.toInt() > 0) _linkedTaskId = taskId.toInt();
+      _linkedTaskId = taskId is num && taskId.toInt() > 0
+          ? taskId.toInt()
+          : null;
     });
     if (_running) _startTicker();
   }
@@ -276,6 +337,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         _timer?.cancel();
         return;
       }
+      if (_restoringSession || _sessionStatusUnknown) return;
       // 不以 Timer.periodic 调用次数为事实来源：系统挂起、后台恢复后按
       // 已持久化开始时间与暂停累计重新计算，避免跨端倒计时漂移。
       final remaining = _remainingFromSession();
@@ -306,26 +368,36 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               _sessionType,
               taskId: _sessionType == 'work' ? _linkedTaskId : null,
               targetMinutes: _durationFor(_sessionType),
+              requireInactive: true,
             )
           : await _sessions.resumeSession(_sessionId!, _sessionRevision);
       if (!mounted) return;
       _applySession(Map<String, dynamic>.from(response['session'] as Map));
     } catch (_) {
-      if (mounted) _message(_activeSession ? '继续专注失败，请重试' : '开始专注失败，请重试');
+      if (mounted) {
+        _timer?.cancel();
+        setState(() => _sessionStatusUnknown = true);
+        _message('开始或继续的结果未确认，请先核对当前会话');
+      }
     } finally {
       if (mounted) setState(() => _sessionTransitioning = false);
     }
   }
 
   Future<void> _pause() async {
-    if (_finalizingSession || _sessionTransitioning || _sessionId == null) return;
+    if (_restoringSession || _sessionStatusUnknown ||
+        _finalizingSession || _sessionTransitioning || _sessionId == null) return;
     setState(() => _sessionTransitioning = true);
     try {
       final response = await _sessions.pauseSession(_sessionId!, _sessionRevision);
       if (!mounted) return;
       _applySession(Map<String, dynamic>.from(response['session'] as Map));
     } catch (_) {
-      if (mounted) _message('无法确认暂停状态，请刷新或重试');
+      if (mounted) {
+        _timer?.cancel();
+        setState(() => _sessionStatusUnknown = true);
+        _message('无法确认暂停状态，请先重新核对');
+      }
     } finally {
       if (mounted) setState(() => _sessionTransitioning = false);
     }
@@ -342,18 +414,34 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (mounted) {
         setState(() {
           _finalizingSession = false;
-          _finishError = '无法确认停止计时，结束记录未保存，请重试。';
+          _sessionStatusUnknown = true;
+          _finishError = '停止状态未确认，请核对会话后重试。';
         });
       }
       return false;
     }
   }
 
-  /// 结束会话是核心写入；标签是附加写入。两者状态必须分别反馈，
-  /// 否则标签保存失败时会把已结束的专注误当成整轮失败。
-  Future<bool> _endSessionWithTags(List<int>? tagIds) async {
-    final result = await _sessions.endSession();
-    if (tagIds == null || tagIds.isEmpty) return true;
+  /// Ending the persisted session and attaching tags are separate writes.
+  /// The verified natural-round count comes from the same Local/Cloud source
+  /// as the session, rather than summing manual endings from today's stats.
+  Future<({bool tagsSaved, int? naturalRounds})> _endSessionWithTags(
+    List<int>? tagIds, {
+    required bool naturallyCompleted,
+  }) async {
+    final result = await _sessions.endSession(
+      sessionId: _sessionId,
+      expectedRevision: _sessionRevision,
+      naturallyCompleted: naturallyCompleted,
+    );
+    final rawRounds = result['completed_work_rounds'];
+    final naturalRounds = rawRounds is num && rawRounds.toInt() >= 0
+        ? rawRounds.toInt()
+        : null;
+    if (naturalRounds != null) _confirmedNaturalWorkRounds = naturalRounds;
+    if (tagIds == null || tagIds.isEmpty) {
+      return (tagsSaved: true, naturalRounds: naturalRounds);
+    }
     try {
       final session = result['session'];
       final rawId = session is Map ? session['id'] : null;
@@ -365,9 +453,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         rawId.toInt(),
         tagIds,
       );
-      return true;
+      return (tagsSaved: true, naturalRounds: naturalRounds);
     } catch (_) {
-      return false;
+      return (tagsSaved: false, naturalRounds: naturalRounds);
     }
   }
 
@@ -382,19 +470,31 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!await _freezeBeforeEnding()) return;
 
     List<int>? tagIds;
-    if (_sessionType == 'work' && mounted) {
+    // Automatic mode cannot wait for an interactive tag modal. The related
+    // task's system tag is still inherited by SessionHandler/LocalRepository.
+    // Manual mode keeps the optional tag selection at completion.
+    if (_sessionType == 'work' && !_autoStartNext && mounted) {
       tagIds = await SystemTagPicker.showMultiple(context);
     }
     if (!mounted) return;
 
     var tagsSaved = true;
+    int? naturalRounds;
     try {
-      if (_activeSession) tagsSaved = await _endSessionWithTags(tagIds);
+      if (_activeSession) {
+        final result = await _endSessionWithTags(
+          tagIds,
+          naturallyCompleted: true,
+        );
+        tagsSaved = result.tagsSaved;
+        naturalRounds = result.naturalRounds;
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _finalizingSession = false;
-        _finishError = '结束记录未能保存，请重试。';
+        _sessionStatusUnknown = true;
+        _finishError = '本轮保存结果未确认，请先核对当前会话。';
       });
       return;
     }
@@ -411,8 +511,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     if (!mounted) return;
     if (_sessionType == 'work') {
-      final longBreak = finishedSessionId != null &&
-          (await _rememberNaturalWork(finishedSessionId));
+      // Older servers may omit the new count; preserve the previous
+      // device-scoped fallback without claiming cross-device consistency.
+      final longBreak = naturalRounds != null
+          ? naturalRounds > 0 && naturalRounds % _sessionsBeforeLong == 0
+          : finishedSessionId != null &&
+              (await _rememberNaturalWork(finishedSessionId));
       if (!mounted) return;
       _showCompletion(tagsSaved ? '专注了 $_sessionTargetMinutes 分钟' : '专注已结束，但标签未保存');
       setState(() {
@@ -437,7 +541,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _stop() async {
-    if (_finalizingSession || _sessionTransitioning ||
+    if (_restoringSession || _sessionStatusUnknown ||
+        _finalizingSession || _sessionTransitioning ||
         _endConfirmationOpen || !_activeSession) return;
     // Do not stop the persisted timer before the user confirms. The timer
     // may also finish naturally while the confirmation is on screen.
@@ -478,12 +583,19 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!mounted) return;
     var tagsSaved = true;
     try {
-      if (_activeSession) tagsSaved = await _endSessionWithTags(tagIds);
+      if (_activeSession) {
+        final result = await _endSessionWithTags(
+          tagIds,
+          naturallyCompleted: false,
+        );
+        tagsSaved = result.tagsSaved;
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _finalizingSession = false;
-        _finishError = '结束记录未能保存，请重试结束。';
+        _sessionStatusUnknown = true;
+        _finishError = '结束结果未确认，请先重新核对当前会话。';
       });
       return;
     }
@@ -578,7 +690,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     _settingsLine(
                       dialogContext,
                       title: '自动开始下一轮',
-                      subtitle: '短休息后直接进入专注',
+                      subtitle: '完成后直接切换，不等待标签弹窗',
                       trailing: FxSwitch(
                         value: autoStart,
                         onChanged:
@@ -799,7 +911,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ? '正在核对专注状态'
         : _sessionStatusUnknown
             ? '当前会话状态待核对'
-            : isWork
+            : _activeSession && _remainingSeconds <= 0
+                ? '本轮到时 · 待保存'
+                : isWork
             ? (_running
                 ? '专注中'
                 : _activeSession
@@ -904,7 +1018,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   else if (!_running)
                     FxButton(
                       label: _remainingSeconds == 0 && _activeSession
-                          ? '重试保存本轮'
+                          ? '完成并保存本轮'
                           : _activeSession
                               ? '继续'
                               : isWork ? '开始专注' : '开始休息',
@@ -918,14 +1032,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       variant: FxButtonVariant.outline,
                       onPressed: _finalizingSession || _sessionTransitioning ? null : _pause,
                     ),
-                  if (_activeSession)
+                  if (_activeSession && _remainingSeconds > 0 &&
+                      !_sessionStatusUnknown)
                     FxButton(
                       label: _finalizingSession
                           ? '保存中…'
                           : isWork ? '结束专注' : '结束休息',
                       size: FxButtonSize.lg,
                       variant: FxButtonVariant.destructive,
-                      onPressed: _finalizingSession || _sessionTransitioning ? null : _stop,
+                      onPressed: _restoringSession || _finalizingSession || _sessionTransitioning ? null : _stop,
                     ),
                 ],
               ),
@@ -946,7 +1061,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               opacity: quietOpacity,
               duration: const Duration(milliseconds: 180),
               child: Text(
-                '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟',
+                '${_todayStatsKnown ? '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟' : '今日专注统计暂不可用'}${_confirmedNaturalWorkRounds == null ? '' : ' · 本周期 ${_confirmedNaturalWorkRounds! % _sessionsBeforeLong}/$_sessionsBeforeLong'}',
                 style: TextStyle(
                   fontSize: SlowlightTypography.secondarySize,
                   color: theme.colorScheme.onSurfaceVariant,

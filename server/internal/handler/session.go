@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+    "io"
 	"time"
 	"errors"
 
@@ -9,10 +10,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+    "gorm.io/gorm/clause"
 )
 
 type SessionHandler struct {
 	DB *gorm.DB
+}
+
+// completedWorkRounds counts only sessions whose natural completion was
+// durably confirmed. Manual ends, old/unknown targets and forced replacement
+// do not count. This is scoped to the authenticated user across devices.
+func (h *SessionHandler) completedWorkRounds(userID uint) (int64, error) {
+    var count int64
+    err := h.DB.Model(&model.WorkSession{}).
+        Where("user_id = ? AND session_type = ? AND naturally_completed = ? AND ended_at IS NOT NULL",
+            userID, "work", true).Count(&count).Error
+    return count, err
 }
 
 func NewSessionHandler(db *gorm.DB) *SessionHandler {
@@ -81,6 +94,7 @@ func finishSessionTiming(session *model.WorkSession, now time.Time) {
 }
 
 var errSessionRevisionConflict = errors.New("stale session revision")
+var errSessionAlreadyActive = errors.New("another active session exists")
 
 // transitionSession 以会话 ID 限定操作目标，避免多端重试误修改后来开启的新会话。
 // 条件写保证连续暂停/继续的重试幂等，同一暂停区间不会被重复累计。
@@ -148,6 +162,7 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 		TargetMinutes int    `json:"target_minutes"`
 		TaskID        *uint  `json:"task_id"`
 		Device      string `json:"device"`
+        RequireInactive bool `json:"require_inactive"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
@@ -171,9 +186,22 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 	// 用事务保证“自动结束旧会话 + 记录行为事件 + 创建新会话”原子性。
 	var session model.WorkSession
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if req.RequireInactive {
+            // Serialize guarded starts per account; without this lock two
+            // concurrent devices could both observe no active session.
+            var user model.User
+            if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+                Select("id").First(&user, userID).Error; err != nil {
+                return err
+            }
+        }
 		var existing model.WorkSession
 		result := tx.Where("user_id = ? AND ended_at IS NULL", userID).First(&existing)
+        if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            return result.Error
+        }
 		if result.Error == nil {
+            if req.RequireInactive { return errSessionAlreadyActive }
 			now := time.Now()
 			finishSessionTiming(&existing, now)
 			existing.SystemTagID = h.resolveSessionSystemTag(tx, &existing)
@@ -207,6 +235,10 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 		return tx.Create(&session).Error
 	})
 	if err != nil {
+        if errors.Is(err, errSessionAlreadyActive) {
+            c.JSON(http.StatusConflict, gin.H{"error":"其他设备已有活动专注，请重新核对"})
+            return
+        }
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建会话失败"})
 		return
 	}
@@ -223,9 +255,25 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
 
 	var req struct {
 		SystemTagID *uint `json:"system_tag_id"`
+        SessionID *uint `json:"session_id"`
+        ExpectedRevision *int `json:"expected_revision"`
+        NaturallyCompleted bool `json:"naturally_completed"`
 	}
-	// body 可以为空，所以不校验 binding
-	_ = c.ShouldBindJSON(&req)
+    // Keep legacy empty bodies, but malformed JSON must not accidentally
+    // end a different active session with an all-zero request.
+    if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+        c.JSON(http.StatusBadRequest, gin.H{"error":"结束会话参数无效"})
+        return
+    }
+    if req.ExpectedRevision != nil && req.SessionID == nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error":"指定版本时必须提供会话 ID"})
+        return
+    }
+    if req.NaturallyCompleted &&
+        (req.SessionID == nil || req.ExpectedRevision == nil) {
+        c.JSON(http.StatusBadRequest, gin.H{"error":"自然完成需提供已确认的会话 ID 和版本"})
+        return
+    }
 	if req.SystemTagID != nil {
 		var count int64
 		h.DB.Model(&model.SystemTag{}).
@@ -240,13 +288,23 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
 	var session model.WorkSession
 	now := time.Now()
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		result := tx.Where("user_id = ? AND ended_at IS NULL", userID).
-			Order("started_at DESC").First(&session)
+        query := tx.Where("user_id = ? AND ended_at IS NULL", userID)
+        if req.SessionID != nil {
+            query = query.Where("id = ?", *req.SessionID)
+        }
+        result := query.Order("started_at DESC").First(&session)
 		if result.Error != nil {
 			return result.Error
 		}
+        if req.ExpectedRevision != nil && session.Revision != *req.ExpectedRevision {
+            return errSessionRevisionConflict
+        }
 
 		finishSessionTiming(&session, now)
+        session.NaturallyCompleted = req.NaturallyCompleted &&
+            session.SessionType == "work" &&
+            session.TargetMinutes > 0 &&
+            session.DurationSec >= session.TargetMinutes*60
 
 		// 有关联任务时优先继承任务标签；否则使用客户端显式选择。
 		systemTagID := h.resolveSessionSystemTag(tx, &session)
@@ -256,16 +314,16 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
 		session.SystemTagID = systemTagID
 
 		result = tx.Model(&model.WorkSession{}).Where("id = ? AND user_id = ? AND ended_at IS NULL",session.ID,userID).
-            Updates(map[string]interface{}{"ended_at":session.EndedAt,"paused_at":nil,"paused_duration_sec":session.PausedDurationSec,"duration_sec":session.DurationSec,"system_tag_id":session.SystemTagID})
+            Updates(map[string]interface{}{"ended_at":session.EndedAt,"paused_at":nil,"paused_duration_sec":session.PausedDurationSec,"duration_sec":session.DurationSec,"system_tag_id":session.SystemTagID,"naturally_completed":session.NaturallyCompleted})
         if result.Error != nil { return result.Error }
         if result.RowsAffected == 0 { return gorm.ErrRecordNotFound }
         return h.createSessionEndedBehaviorEvent(tx, &session, now)
 	})
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "没有进行中的会话"})
-			return
-		}
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, errSessionRevisionConflict) {
+            c.JSON(http.StatusConflict, gin.H{"error":"目标会话不存在、已变更或已结束，请核对当前状态"})
+            return
+        }
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "结束会话失败"})
 		return
 	}
@@ -280,35 +338,50 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
 		"ended_at":     now.Unix(),
 	})
 
+    rounds, countErr := h.completedWorkRounds(userID)
+    if countErr != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"会话已结束，但完成轮次核对失败，请重新查询"})
+        return
+    }
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "会话已结束",
 		"session":  session,
 		"duration": session.DurationSec,
+        "completed_work_rounds": rounds,
 	})
 }
 
 // GetActiveSession 获取当前活跃会话
 func (h *SessionHandler) GetActiveSession(c *gin.Context) {
-	userID := c.GetUint("userID")
+    userID := c.GetUint("userID")
+    rounds, err := h.completedWorkRounds(userID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"无法核对专注完成轮次"})
+        return
+    }
 
-	var session model.WorkSession
-	result := h.DB.Where("user_id = ? AND ended_at IS NULL", userID).Order("started_at DESC").First(&session)
-
-	config := model.DefaultConfig()
-
-	if result.Error != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"active": false,
-			"config": config,
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"active":  true,
-		"session": session,
-		"config":  config,
-	})
+    var session model.WorkSession
+    result := h.DB.Where("user_id = ? AND ended_at IS NULL", userID).
+        Order("started_at DESC").First(&session)
+    config := model.DefaultConfig()
+    if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+        c.JSON(http.StatusOK, gin.H{
+            "active": false,
+            "config": config,
+            "completed_work_rounds": rounds,
+        })
+        return
+    }
+    if result.Error != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error":"获取活跃会话失败"})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{
+        "active": true,
+        "session": session,
+        "config": config,
+        "completed_work_rounds": rounds,
+    })
 }
 
 // GetStats 获取统计数据

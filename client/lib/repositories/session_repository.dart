@@ -10,16 +10,27 @@ class SessionRepository {
     int? taskId,
     int? targetMinutes,
     String device = 'desktop',
+    bool requireInactive = false,
   }) =>
       SessionApi.startSession(
         sessionType,
         taskId: taskId,
         targetMinutes: targetMinutes,
         device: device,
+        requireInactive: requireInactive,
       );
 
-  Future<Map<String, dynamic>> endSession({int? systemTagId}) =>
-      SessionApi.endSession(systemTagId: systemTagId);
+  Future<Map<String, dynamic>> endSession({
+    int? systemTagId,
+    int? sessionId,
+    int? expectedRevision,
+    bool naturallyCompleted = false,
+  }) => SessionApi.endSession(
+        systemTagId: systemTagId,
+        sessionId: sessionId,
+        expectedRevision: expectedRevision,
+        naturallyCompleted: naturallyCompleted,
+      );
 
   Future<Map<String, dynamic>> pauseSession(int sessionId, int revision) =>
       SessionApi.pauseSession(sessionId, revision);

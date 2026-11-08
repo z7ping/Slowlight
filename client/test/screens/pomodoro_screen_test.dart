@@ -10,6 +10,157 @@ import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
+class _ExpiredWorkSessionRepository extends SessionRepository {
+  final DateTime startedAt =
+      DateTime.now().toUtc().subtract(const Duration(minutes: 26));
+  bool naturalEndReceived = false;
+  bool startedBreak = false;
+
+  Map<String, dynamic> get expiredWork => {
+        'id': 311,
+        'session_type': 'work',
+        'target_minutes': 25,
+        'started_at': startedAt.toIso8601String(),
+        'paused_at': null,
+        'paused_duration_seconds': 0,
+        'revision': 0,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {
+        'active': true,
+        'session': expiredWork,
+        'completed_work_rounds': 0,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+
+  @override
+  Future<Map<String, dynamic>> pauseSession(int sessionId, int revision) async {
+    if (sessionId != 311 || revision != 0) {
+      throw StateError('pause target changed');
+    }
+    return {
+      'session': {
+        ...expiredWork,
+        'revision': 1,
+        'paused_at': DateTime.now().toUtc().toIso8601String(),
+      }
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> endSession({
+    int? systemTagId,
+    int? sessionId,
+    int? expectedRevision,
+    bool naturallyCompleted = false,
+  }) async {
+    if (sessionId != 311 || expectedRevision != 1 || !naturallyCompleted) {
+      throw StateError('unverified natural end request');
+    }
+    naturalEndReceived = true;
+    return {
+      'session': {'id': 311},
+      'completed_work_rounds': 1,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> startSession(
+    String sessionType, {
+    int? taskId,
+    int? targetMinutes,
+    String device = 'desktop',
+    bool requireInactive = false,
+  }) async {
+    if (sessionType != 'break' || targetMinutes != 5 || !requireInactive) {
+      throw StateError('next round must be an inactive-only short break');
+    }
+    startedBreak = true;
+    return {
+      'session': {
+        'id': 312,
+        'session_type': 'break',
+        'target_minutes': 5,
+        'started_at': DateTime.now().toUtc().toIso8601String(),
+        'paused_at': null,
+        'paused_duration_seconds': 0,
+        'revision': 0,
+      }
+    };
+  }
+}
+
+class _UnavailableStatsSessionRepository extends SessionRepository {
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {
+        'active': false,
+        'completed_work_rounds': 3,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async {
+    throw StateError('统计读取失败');
+  }
+}
+
+class _VerifiedCycleRepository extends SessionRepository {
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {
+        'active': false,
+        'completed_work_rounds': 3,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+}
+
+class _GuardedStartRepository extends SessionRepository {
+  bool? receivedRequireInactive;
+
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {
+        'active': false,
+        'completed_work_rounds': 0,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+
+  @override
+  Future<Map<String, dynamic>> startSession(
+    String sessionType, {
+    int? taskId,
+    int? targetMinutes,
+    String device = 'desktop',
+    bool requireInactive = false,
+  }) async {
+    receivedRequireInactive = requireInactive;
+    return {
+      'session': {
+        'id': 101,
+        'session_type': sessionType,
+        'target_minutes': targetMinutes ?? 25,
+        'started_at': DateTime.now().toUtc().toIso8601String(),
+        'paused_at': null,
+        'paused_duration_seconds': 0,
+        'revision': 0,
+      }
+    };
+  }
+}
+
 class _InactiveSessionRepository extends SessionRepository {
   @override
   Future<Map<String, dynamic>> getActiveSession() async => {'active': false};
@@ -40,6 +191,96 @@ class _ControlledSessionRepository extends SessionRepository {
 }
 
 void main() {
+  testWidgets('P07 自动下一轮不被标签弹窗阻断且经过服务端确认', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final repository = _ExpiredWorkSessionRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    // App re-entered after the persisted target expired; auto mode settles
+    // the old round and starts its short break without extra user action.
+    expect(repository.naturalEndReceived, isTrue);
+    expect(repository.startedBreak, isTrue);
+    expect(find.text('开始休息'), findsNothing);
+    expect(find.textContaining('本周期 1/4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 关闭自动下一轮后过期会话等待明确保存', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'slowlight_pomodoro_settings_v1': jsonEncode({
+        'workMinutes': 25,
+        'autoStartNext': false,
+        'soundEnabled': false,
+      }),
+    });
+    final repository = _ExpiredWorkSessionRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    expect(repository.naturalEndReceived, isFalse);
+    expect(repository.startedBreak, isFalse);
+    expect(find.text('完成并保存本轮'), findsOneWidget);
+    expect(find.text('本轮到时 · 待保存'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 今日统计失败不伪报零，保留可确认的自然轮次', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(
+        sessionRepository: _UnavailableStatsSessionRepository(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('今日专注统计暂不可用'), findsOneWidget);
+    expect(find.textContaining('本周期 3/4'), findsOneWidget);
+    expect(find.textContaining('今日第 0 轮'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 只展示来源确认的连续轮次，退出页面后可恢复', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final repository = _VerifiedCycleRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('本周期 3/4'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('本周期 3/4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 新轮请求携带禁止覆盖其他设备活动会话的条件', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final repository = _GuardedStartRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始专注'));
+    await tester.pump();
+    expect(repository.receivedRequireInactive, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P07 还没核对当前活跃会话时不允许开始或更改设置', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final sessions = _ControlledSessionRepository();

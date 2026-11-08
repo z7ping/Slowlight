@@ -152,6 +152,139 @@ void main() {
     expect(rows.single['paused_at'], isNull);
   });
 
+  test('P07 v22 persists only verified natural work, not manual/legacy breaks',
+      () async {
+    final db = await localDb.database;
+    Future<int> begin(String type, {int? minutes}) async {
+      final response = await repository.startSession(
+        type,
+        targetMinutes: minutes,
+        requireInactive: true,
+      );
+      return (response['session'] as Map<String, dynamic>)['id'] as int;
+    }
+    Future<void> age(int id, int minutes) async {
+      await db.update('work_sessions', {
+        'started_at': DateTime.now().toUtc()
+            .subtract(Duration(minutes: minutes)).toIso8601String(),
+      }, where: 'id = ?', whereArgs: [id]);
+    }
+
+    final first = await begin('work', minutes: 25);
+    await age(first, 26);
+    final natural = await repository.endSession(
+      sessionId: first,
+      expectedRevision: 0,
+      naturallyCompleted: true,
+    );
+    expect(natural['completed_work_rounds'], 1);
+    expect((natural['session'] as Map)['naturally_completed'], isTrue);
+
+    final manual = await begin('work', minutes: 25);
+    await age(manual, 26);
+    final earlyExit = await repository.endSession(
+      sessionId: manual,
+      expectedRevision: 0,
+      naturallyCompleted: false,
+    );
+    expect(earlyExit['completed_work_rounds'], 1);
+
+    final unfinished = await begin('work', minutes: 25);
+    await age(unfinished, 2);
+    final premature = await repository.endSession(
+      sessionId: unfinished,
+      expectedRevision: 0,
+      naturallyCompleted: true,
+    );
+    expect(premature['completed_work_rounds'], 1);
+    expect((premature['session'] as Map)['naturally_completed'], isFalse);
+
+    final old = await begin('work');
+    await age(old, 26);
+    expect((await repository.endSession(
+      sessionId: old,
+      expectedRevision: 0,
+      naturallyCompleted: true,
+    ))['completed_work_rounds'], 1);
+
+    final resting = await begin('break', minutes: 5);
+    await age(resting, 6);
+    expect((await repository.endSession(
+      sessionId: resting,
+      expectedRevision: 0,
+      naturallyCompleted: true,
+    ))['completed_work_rounds'], 1);
+
+    await localDb.close();
+    final reloaded = await repository.getActiveSession();
+    expect(reloaded['active'], isFalse);
+    expect(reloaded['completed_work_rounds'], 1);
+  });
+
+  test('P07 stale or foreign end cannot close the current local session',
+      () async {
+    final created = await repository.startSession(
+      'work',
+      targetMinutes: 25,
+      requireInactive: true,
+    );
+    final id = (created['session'] as Map)['id'] as int;
+    await expectLater(
+      repository.startSession('break', requireInactive: true),
+      throwsStateError,
+    );
+    await expectLater(
+      repository.endSession(
+        sessionId: id + 100,
+        expectedRevision: 0,
+        naturallyCompleted: true,
+      ),
+      throwsStateError,
+    );
+    await expectLater(
+      repository.endSession(
+        sessionId: id,
+        expectedRevision: 8,
+        naturallyCompleted: true,
+      ),
+      throwsStateError,
+    );
+    final active = await repository.getActiveSession();
+    expect(active['active'], isTrue);
+    expect((active['session'] as Map)['id'], id);
+    expect(active['completed_work_rounds'], 0);
+  });
+
+  test('P07 upgrade v21 to v22 adds natural marker without rewriting history',
+      () async {
+    await resetDatabase();
+    final legacy = await openDatabase(dbPath, version: 21, onCreate: (db, _) async {
+      await db.execute('''
+        CREATE TABLE work_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          session_type TEXT NOT NULL,
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          duration_sec INTEGER,
+          created_at TEXT
+        )
+      ''');
+      await db.insert('work_sessions', {
+        'session_type': 'work',
+        'started_at': '2026-01-01T00:00:00Z',
+        'ended_at': '2026-01-01T00:25:00Z',
+        'duration_sec': 1500,
+        'created_at': '2026-01-01T00:00:00Z',
+      });
+    });
+    await legacy.close();
+    final upgraded = await localDb.database;
+    final rows = await upgraded.query('work_sessions');
+    expect(rows, hasLength(1));
+    expect(rows.single['naturally_completed'], 0);
+    expect(rows.single['duration_sec'], 1500);
+  });
+
   test('endSession inherits system tag from related task before explicit tag',
       () async {
     final db = await localDb.database;
