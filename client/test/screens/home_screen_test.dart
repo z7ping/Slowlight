@@ -159,7 +159,15 @@ void main() {
       await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
       expect(find.byType(Drawer), findsOneWidget);
-      expect(find.text('清单'), findsOneWidget);
+      final scrollable = find.descendant(
+        of: find.byType(Drawer),
+        matching: find.byType(Scrollable),
+      ).first;
+      await tester.scrollUntilVisible(
+        find.text('标签'),
+        120,
+        scrollable: scrollable,
+      );
       expect(find.text('标签'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
