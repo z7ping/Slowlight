@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/ai/ai_models.dart';
+import 'package:slowlight/screens/ai_settings_screen.dart';
 import 'package:slowlight/screens/settings_screen.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 
@@ -101,6 +102,42 @@ void main() {
     await tester.pump();
     expect(find.text('2 条记录需要选择保留版本'), findsOneWidget);
     expect(find.text('无待处理冲突'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P17 S03 旧 AI 配置迟到回执不能覆盖关闭编辑页后的新配置',
+      (tester) async {
+    desktop(tester);
+    final older = Completer<AiConfig>();
+    final latest = Completer<AiConfig>();
+    var reads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: SettingsScreen(
+        initialSection: 'privacy',
+        aiConfigLoader: () => ++reads == 1 ? older.future : latest.future,
+      ),
+    ));
+    await tester.pump();
+    expect(reads, 1);
+
+    await tester.tap(find.text('查看配置'));
+    await tester.pump();
+    expect(find.byType(AiSettingsScreen), findsOneWidget);
+    Navigator.of(tester.element(find.byType(AiSettingsScreen))).pop();
+    await tester.pump();
+    expect(reads, 2);
+
+    latest.complete(
+      const AiConfig(enabled: true, provider: AiProviderType.openai),
+    );
+    await tester.pump();
+    older.complete(const AiConfig(provider: AiProviderType.ollama));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('settings.category.ai')));
+    await tester.pump();
+    expect(find.textContaining('当前服务商：OpenAI'), findsOneWidget);
+    expect(find.textContaining('当前服务商：Ollama'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
