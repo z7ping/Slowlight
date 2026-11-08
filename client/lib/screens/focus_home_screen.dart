@@ -78,6 +78,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   ReflectionEntry? _searchFocusObservation;
   int _searchFocusObservationRequest = 0;
   late Future<Map<String, String>> _accountFuture;
+  bool _cloudSessionWasValid = true;
   bool _shortcutModifierPressed = false;
   int _dashboardRefreshTick = 0;
   final FocusNode _shortcutFocusNode = FocusNode(
@@ -941,8 +942,19 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       return {'name': '本地使用', 'status': '记录保存在本机'};
     }
     if (!await AuthService.isLoggedIn()) {
-      return {'name': '未登录', 'status': '点击查看账号'};
+      // 侧边栏与 AuthGate 不能对同一账号得出互相矛盾的身份结论。
+      // 只广播一次实际失效；避免 FutureBuilder / AuthGate 互相触发循环。
+      if (_cloudSessionWasValid) {
+        _cloudSessionWasValid = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && DataModeManager().isCloud) {
+            authStateNotifier.value = !authStateNotifier.value;
+          }
+        });
+      }
+      return {'name': '会话已失效', 'status': '请重新登录'};
     }
+    _cloudSessionWasValid = true;
     final User? user = await AuthService.getUser();
     // 侧边栏始终优先显示本机已确认的账号信息，不等待网络查询。
     // 最近登录方式并不等于绑定状态，绑定详情只在账号页向服务端确认。
