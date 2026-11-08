@@ -14,6 +14,13 @@ import '../services/data_mode_manager.dart';
 import '../services/http_util.dart';
 import 'cloud_reference_cache_repository.dart';
 
+typedef ObservationTagUsage = ({
+  int tasks,
+  int habits,
+  int sessions,
+  int reflections,
+});
+
 /// 用户可编辑的观察标签数据边界。
 ///
 /// ObservationTag 可以选择归属某个固定 Dimension，但它本身不是 Dimension。
@@ -150,11 +157,55 @@ class ObservationTagRepository {
     return ObservationTag.fromJson(Map<String, dynamic>.from(value as Map));
   }
 
-  /// Counts only the Local associations the existing delete() will remove.
-  /// Cloud exposes no scoped usage endpoint; null means unverified, not zero.
-  Future<({int tasks, int habits, int sessions, int reflections})?>
-      getDeletionImpact(ObservationTag tag) async {
-    if (!DataModeManager().isLocal) return null;
+  /// Verified links that would be detached by deleting each managed label.
+  /// A missing entry means not confirmed, never zero. Cloud is a single HTTP
+  /// request; Local reuses its existing ID-aware, transactional link evidence.
+  Future<Map<int, ObservationTagUsage>> getAssociationUsage(
+      List<ObservationTag> tags) async {
+    if (tags.isEmpty) return {};
+    if (DataModeManager().isLocal) {
+      final result = await Future.wait(tags.map(getDeletionImpact));
+      return {
+        for (var i = 0; i < tags.length; i++)
+          if (result[i] != null) tags[i].id: result[i]!,
+      };
+    }
+    final payload = await _cloudRequest('GET', '/system-tags/usage');
+    if (payload is! Map || payload['counts'] is! Map) {
+      throw const FormatException('标签关联响应格式错误');
+    }
+    final counts = payload['counts'] as Map;
+    final result = <int, ObservationTagUsage>{};
+    int? asCount(dynamic value) {
+      if (value is! num || value < 0 || value % 1 != 0) return null;
+      return value.toInt();
+    }
+    for (final tag in tags) {
+      final raw = counts[tag.id.toString()];
+      if (raw is! Map) continue;
+      final tasks = asCount(raw['tasks']);
+      final habits = asCount(raw['habits']);
+      final sessions = asCount(raw['sessions']);
+      final reflections = asCount(raw['reflections']);
+      if (tasks == null || habits == null ||
+          sessions == null || reflections == null) continue;
+      result[tag.id] = (
+        tasks: tasks,
+        habits: habits,
+        sessions: sessions,
+        reflections: reflections,
+      );
+    }
+    return result;
+  }
+
+  /// Counts only associations that the existing delete() actually detaches.
+  /// Shared canonical tags survive; soft-deleted sources do not count.
+  Future<ObservationTagUsage?> getDeletionImpact(ObservationTag tag) async {
+    if (!DataModeManager().isLocal) {
+      final usage = await getAssociationUsage([tag]);
+      return usage[tag.id];
+    }
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final aliases = await db.query(
@@ -183,7 +234,8 @@ class ObservationTagRepository {
         {String? legacyTable}) async {
       final rows = await db.rawQuery(
         legacyTable == null
-            ? 'SELECT COUNT(*) AS total FROM $table WHERE tag_id = ?'
+            ? 'SELECT COUNT(*) AS total FROM $table '
+                'WHERE tag_id = ?'
             : 'SELECT COUNT(*) AS total FROM ('
                 'SELECT id AS entity_id FROM $legacyTable '
                 'WHERE system_tag_id = ? '
