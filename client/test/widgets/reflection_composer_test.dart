@@ -190,4 +190,67 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('X07 Windows 提供四维选择且不依赖历史分类标签', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开四维观察',
+          onPressed: () => ReflectionComposer.show(
+            context, entryType: 'observation',
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开四维观察'));
+    await tester.pumpAndSettle();
+    final dimensions =
+        find.byKey(const ValueKey('observation.desktop.dimensions'));
+    expect(dimensions, findsOneWidget);
+    expect(find.descendant(of: dimensions, matching: find.byType(FxChoiceChip)),
+        findsNWidgets(5));
+    expect(find.text('归属维度（可选）'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X07 Android 仅填写新标签名也是需要确认的观察草稿', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开新标签观察',
+          onPressed: () => ReflectionComposer.show(
+            context, entryType: 'observation',
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开新标签观察'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('＋ 新建标签'));
+    await tester.pumpAndSettle();
+    final tagName = find.byKey(const ValueKey('observation.mobile.tagName'));
+    expect(tagName, findsOneWidget);
+    await tester.enterText(find.descendant(
+      of: tagName, matching: find.byType(EditableText)), '专注片刻');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('observation.mobile.cancel')));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的观察？'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
