@@ -118,4 +118,40 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('P1-8 切到周期目标再返回固定间隔保留原按计划提醒草稿',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1100, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: HabitEditorDialog()),
+    ));
+    await tester.pumpAndSettle();
+
+    FxSegmented segment(String label) => tester.widgetList<FxSegmented>(
+      find.byType(FxSegmented),
+    ).firstWhere((item) => item.labels.contains(label));
+
+    segment('按计划').onChanged(1);
+    await tester.pump();
+    expect(segment('按计划').selectedIndex, 1);
+
+    segment('周期目标').onChanged(2);
+    await tester.pump();
+    // A goal has no fixed planned instant. Do not persist an invalid mode.
+    final goalReminder = segment('每天定时');
+    expect(goalReminder.labels, ['不提醒', '每天定时']);
+    expect(goalReminder.selectedIndex, 1);
+
+    segment('周期目标').onChanged(0);
+    await tester.pump();
+    // Returning to the original mode restores the user's unsaved choice.
+    expect(segment('按计划').selectedIndex, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
