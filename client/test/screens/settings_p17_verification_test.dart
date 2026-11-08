@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/ai/ai_models.dart';
 import 'package:slowlight/screens/settings_screen.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
-import 'package:slowlight/services/sync_service.dart';
 
 import '../helpers/isolated_test_db.dart';
 import '../support/fx_test_host.dart';
@@ -43,12 +42,7 @@ void main() {
         conflictLoader: () async {
           if (++reads == 1) throw StateError('cloud unavailable');
           return [
-            ConflictInfo(
-              local: {'id': 1},
-              remote: {'id': 1},
-              table: 'tasks',
-              recordId: 1,
-            ),
+            {'id': 1, '_entity_type': 'tasks'},
           ];
         },
       ),
@@ -77,7 +71,7 @@ void main() {
   testWidgets('P17 S13 旧账号/模式的迟到冲突结果不能覆盖较新查询',
       (tester) async {
     desktop(tester);
-    final stale = Completer<List<ConflictInfo>>();
+    final stale = Completer<List<Map<String, dynamic>>>();
     var reads = 0;
     await tester.pumpWidget(buildFxTestHost(
       home: SettingsScreen(
@@ -85,8 +79,8 @@ void main() {
         conflictLoader: () {
           if (++reads == 1) return stale.future;
           return Future.value([
-            ConflictInfo(local: 1, remote: 2, table: 'tasks', recordId: 1),
-            ConflictInfo(local: 3, remote: 4, table: 'tasks', recordId: 2),
+            {'id': 1, '_entity_type': 'tasks'},
+            {'id': 2, '_entity_type': 'tasks'},
           ]);
         },
       ),
