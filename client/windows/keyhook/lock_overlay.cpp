@@ -10,10 +10,12 @@
 #include <vector>
 #include <thread>
 #include <atomic>
+#include <mutex>
 
 static const wchar_t* OVERLAY_CLASS_NAME = L"SlowlightLockOverlay";
 
 static std::vector<HWND> g_overlay_windows;
+static std::mutex g_windows_mutex;
 static std::thread g_overlay_thread;
 static std::atomic<bool> g_running{false};
 static std::atomic<int32_t> g_remaining_seconds{0};
@@ -54,6 +56,9 @@ static void FormatTime(int32_t totalSec, wchar_t* buf, int bufSize) {
 }
 
 static void InvalidateAll() {
+    // Countdown updates arrive on Dart's thread during window creation or
+    // teardown; never iterate the native window vector concurrently.
+    std::lock_guard<std::mutex> guard(g_windows_mutex);
     for (HWND h : g_overlay_windows) InvalidateRect(h, NULL, FALSE);
 }
 
@@ -275,11 +280,18 @@ static BOOL CALLBACK MonitorEnumProc(HMONITOR hMon, HDC hdc,
         x, y, w, h,
         NULL, NULL, md->hInstance, NULL);
 
-    if (hwnd) md->windows->push_back(hwnd);
+    if (hwnd) {
+        std::lock_guard<std::mutex> guard(g_windows_mutex);
+        md->windows->push_back(hwnd);
+    }
     return TRUE;
 }
 
 static void ThreadProc(HINSTANCE hInst) {
+    // Create this thread's message queue before overlay_start can request
+    // a cancellation: PostThreadMessage(WM_QUIT) must never race startup.
+    MSG msg;
+    PeekMessageW(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(wc);
     wc.lpfnWndProc = OverlayWndProc;
@@ -287,51 +299,83 @@ static void ThreadProc(HINSTANCE hInst) {
     wc.lpszClassName = OVERLAY_CLASS_NAME;
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    RegisterClassExW(&wc);
-
-    MonitorData data = {hInst, &g_overlay_windows};
-    EnumDisplayMonitors(NULL, NULL, MonitorEnumProc,
-                        reinterpret_cast<LPARAM>(&data));
-
-    for (HWND h : g_overlay_windows) {
-        SetTimer(h, TIMER_ID, 1000, NULL);
+    const bool registered = RegisterClassExW(&wc) != 0;
+    bool allCovered = false;
+    if (registered && g_running.load()) {
+        MonitorData data = {hInst, &g_overlay_windows};
+        const BOOL enumerated = EnumDisplayMonitors(
+            NULL, NULL, MonitorEnumProc, reinterpret_cast<LPARAM>(&data));
+        std::lock_guard<std::mutex> guard(g_windows_mutex);
+        const int monitors = GetSystemMetrics(SM_CMONITORS);
+        allCovered = enumerated && monitors > 0 &&
+            g_overlay_windows.size() == static_cast<size_t>(monitors);
+        if (allCovered) {
+            for (HWND h : g_overlay_windows) {
+                if (!SetTimer(h, TIMER_ID, 1000, NULL)) allCovered = false;
+            }
+        }
     }
-
-    MSG msg;
-    while (g_running && GetMessage(&msg, NULL, 0, 0)) {
+    // Do not report successful startup merely because std::thread started.
+    // The Flutter main window may be hidden only after every monitor exists.
+    g_startup_status.store(allCovered ? 1 : -1);
+    while (allCovered && g_running.load() && GetMessageW(&msg, NULL, 0, 0) > 0) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-
-    for (HWND hwnd : g_overlay_windows) {
-        KillTimer(hwnd, TIMER_ID);
-        DestroyWindow(hwnd);
+    g_startup_status.store(-1);
+    {
+        std::lock_guard<std::mutex> guard(g_windows_mutex);
+        for (HWND hwnd : g_overlay_windows) {
+            KillTimer(hwnd, TIMER_ID);
+            DestroyWindow(hwnd);
+        }
+        g_overlay_windows.clear();
     }
-    g_overlay_windows.clear();
-    UnregisterClassW(OVERLAY_CLASS_NAME, hInst);
+    if (registered) UnregisterClassW(OVERLAY_CLASS_NAME, hInst);
 }
 
 extern "C" {
 
 __declspec(dllexport) int32_t overlay_start() {
-    if (g_running) return 1;
+    if (g_running.exchange(true)) return g_startup_status.load() == 1 ? 1 : -1;
+    g_startup_status.store(0);
     g_pending_action.store(0);
     g_btn_hover.store(0);
     g_btn_pressed.store(0);
-    g_running = true;
     HINSTANCE hInst = GetModuleHandleW(NULL);
-    g_overlay_thread = std::thread(ThreadProc, hInst);
-    return 0;
+    try {
+        g_overlay_thread = std::thread(ThreadProc, hInst);
+    } catch (...) {
+        g_startup_status.store(-1);
+        g_running.store(false);
+        return -1;
+    }
+    // Bounded cold-start handshake: no hidden main window without actual
+    // native surfaces on all monitors. Fail back to the Flutter rest view.
+    for (int attempt = 0; attempt < 100; attempt++) {
+        const int state = g_startup_status.load();
+        if (state == 1 && g_running.load()) return 0;
+        if (state < 0) break;
+        Sleep(10);
+    }
+    g_running.store(false);
+    if (g_overlay_thread.joinable()) {
+        PostThreadMessageW(GetThreadId(g_overlay_thread.native_handle()),
+                           WM_QUIT, 0, 0);
+        g_overlay_thread.join();
+    }
+    g_startup_status.store(-1);
+    return -1;
 }
 
 __declspec(dllexport) void overlay_stop() {
-    if (!g_running) return;
-    g_running = false;
+    g_running.store(false);
     if (g_overlay_thread.joinable()) {
-        PostThreadMessage(GetThreadId(g_overlay_thread.native_handle()),
-                          WM_QUIT, 0, 0);
+        PostThreadMessageW(GetThreadId(g_overlay_thread.native_handle()),
+                           WM_QUIT, 0, 0);
         g_overlay_thread.join();
     }
+    g_startup_status.store(-1);
 }
 
 __declspec(dllexport) void overlay_set_remaining(int32_t seconds) {
@@ -345,6 +389,14 @@ __declspec(dllexport) int32_t overlay_consume_action() {
 
 __declspec(dllexport) void overlay_set_strict(int32_t strict) {
     g_strict.store(strict != 0);
+}
+
+__declspec(dllexport) void overlay_set_postpone_allowed(int32_t allowed) {
+    g_allow_postpone.store(allowed != 0);
+}
+
+__declspec(dllexport) int32_t overlay_is_ready() {
+    return g_running.load() && g_startup_status.load() == 1 ? 1 : 0;
 }
 
 __declspec(dllexport) int32_t overlay_monitor_count() {
