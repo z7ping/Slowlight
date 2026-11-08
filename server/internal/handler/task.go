@@ -2,11 +2,11 @@ package handler
 
 import (
 	"bytes"
-	"errors"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
