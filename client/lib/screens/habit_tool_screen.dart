@@ -87,16 +87,23 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   final Map<int, HabitEditorValue> _editDrafts = {};
   int? _todayLogCount;
   int _todayLogRevision = 0;
+  int _habitReloadRevision = 0;
 
   Future<int> _readTodayLogCount() async {
+    final int count;
     if (widget.todayLogCountLoader != null) {
-      return widget.todayLogCountLoader!();
+      count = await widget.todayLogCountLoader!();
+    } else {
+      final review = await ReviewApi.getTodayReview();
+      final facts = review['facts'];
+      final value = facts is Map ? facts['habit_checked'] : null;
+      if (value is! int) {
+        throw const FormatException('今日习惯日志计数不可用');
+      }
+      count = value;
     }
-    final review = await ReviewApi.getTodayReview();
-    final facts = review['facts'];
-    final count = facts is Map ? facts['habit_checked'] : null;
-    if (count is! int || count < 0) {
-      throw const FormatException('今日习惯日志计数不可用');
+    if (count < 0) {
+      throw const FormatException('今日习惯日志计数无效');
     }
     return count;
   }
@@ -119,8 +126,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   }
 
   Future<void> _reloadHabitsAndSummary() async {
+    final revision = ++_habitReloadRevision;
     await _controller.load();
-    if (!mounted) return;
+    if (!mounted || revision != _habitReloadRevision) return;
     if (_controller.error != null) {
       ++_todayLogRevision;
       setState(() => _todayLogCount = null);
@@ -150,6 +158,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   @override
   void dispose() {
+    ++_todayLogRevision;
+    ++_habitReloadRevision;
     WidgetsBinding.instance.removeObserver(this);
     _nextSlotRefresh?.cancel();
     _controller.removeListener(_onChanged);
