@@ -405,7 +405,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     ).copyWith(color: Colors.white),
                   ),
                   const SizedBox(height: 18),
-                  if (!strict)
+                  if (_service.isCurrentRestPostponeAllowed || !strict)
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -418,12 +418,13 @@ class _ReminderScreenState extends State<ReminderScreen> {
                             size: FxButtonSize.sm,
                             onPressed: _service.postponeRest,
                           ),
-                        FxButton(
-                          label: '跳过',
-                          variant: FxButtonVariant.ghost,
-                          size: FxButtonSize.sm,
-                          onPressed: _service.skipRest,
-                        ),
+                        if (!strict)
+                          FxButton(
+                            label: '跳过',
+                            variant: FxButtonVariant.ghost,
+                            size: FxButtonSize.sm,
+                            onPressed: _service.skipRest,
+                          ),
                       ],
                     ),
                 ],
