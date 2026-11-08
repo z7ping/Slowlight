@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/habit.dart';
 import '../models/reflection_entry.dart';
@@ -10,6 +11,8 @@ import '../models/todo_list.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../services/data_service.dart';
+import '../services/auth_service.dart';
+import '../services/data_mode_manager.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
@@ -67,13 +70,15 @@ class _SearchScreenState extends State<SearchScreen> {
   int _habitVisible = 20;
   int _reflectionVisible = 20;
 
-  static final List<String> _recentSearches = <String>[];
+  List<String> _recentSearches = const [];
+  String? _recentKey;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadRecentSearches());
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _focusNode.requestFocus(),
+      (_) { if (mounted) _focusNode.requestFocus(); },
     );
   }
 
@@ -218,10 +223,44 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  Future<void> _loadRecentSearches() async {
+    try {
+      final scope = DataModeManager().isLocal
+          ? 'local'
+          : 'cloud:${(await AuthService.getUser())?.id ?? 0}';
+      // Never share an anonymous cloud history with another account.
+      if (scope == 'cloud:0') return;
+      final key = 'slowlight.search.recent.v1.$scope';
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _recentKey = key;
+        _recentSearches = (prefs.getStringList(key) ?? const <String>[])
+            .where((item) => item.trim().isNotEmpty)
+            .take(5)
+            .toList(growable: true);
+      });
+    } catch (_) {
+      // Search must remain usable if preferences are unavailable.
+    }
+  }
+
+  Future<void> _persistRecent(String key, List<String> values) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(key, values);
+    } catch (_) {
+      // Recent history is optional; failed persistence must not block search.
+    }
+  }
+
   void _remember(String query) {
+    final key = _recentKey;
+    if (key == null) return;
     _recentSearches.remove(query);
     _recentSearches.insert(0, query);
     if (_recentSearches.length > 5) _recentSearches.removeLast();
+    unawaited(_persistRecent(key, List<String>.from(_recentSearches)));
   }
 
   void _useRecent(String value) {
