@@ -15,6 +15,7 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
   });
+  tearDown(() => AuthService.debugAuthTraceSink = null);
 
   test('正式云端地址只接受 HTTPS，开发/自托管可用本地 HTTP', () {
     expect(
@@ -35,6 +36,56 @@ void main() {
       ),
       returnsNormally,
     );
+  });
+
+  test('credential diagnostics record state transitions once without JWT values', () async {
+    final events = <String>[];
+    AuthService.debugAuthTraceSink = events.add;
+    final token = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+    );
+    FlutterSecureStorage.setMockInitialValues({'auth_token': token});
+    expect(await AuthService.getToken(), token);
+    FlutterSecureStorage.setMockInitialValues({});
+    expect(await AuthService.getToken(), isNull);
+    expect(await AuthService.getToken(), isNull);
+    expect(
+      events.where((e) => e == 'credential.read origin=none state=missing'),
+      hasLength(1),
+    );
+    expect(events.join('\n'), isNot(contains(token)));
+    expect(events.join('\n'), isNot(contains('Bearer ')));
+  });
+
+  test('OAuth login records safe save event and no secret material', () async {
+    final events = <String>[];
+    AuthService.debugAuthTraceSink = events.add;
+    final token = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+    );
+    final response = {
+      'token': token,
+      'refresh_token': 'test-refresh-credential',
+      'user': {
+        'id': 40, 'username': 'github_40', 'nickname': '观察用例',
+        'email': '', 'created_at': '2026-10-21T00:00:00Z',
+      },
+    };
+    await http.runWithClient(
+      () => AuthService.completeOAuthLogin(response),
+      () => MockClient((request) async {
+        expect(request.url.path, '/api/auth/profile');
+        return http.Response(jsonEncode(response['user']), 200);
+      }),
+    );
+    expect(events, contains(
+      'credential.save_completed method=github refresh=present',
+    ));
+    final recorded = events.join('\n');
+    expect(recorded, isNot(contains(token)));
+    expect(recorded, isNot(contains('test-refresh-credential')));
+    expect(recorded, isNot(contains('github_40')));
+    expect(await AuthService.getToken(), token);
   });
 
   test('Cloud auth rejects local token', () async {
@@ -208,6 +259,8 @@ void main() {
     expect(await const FlutterSecureStorage().read(key: 'auth_token'), token);
   });
   test('过期 Access Token 刷新一次，侧栏重新读取仍是已登录', () async {
+    final events = <String>[];
+    AuthService.debugAuthTraceSink = events.add;
     final expired = _jwt(exp:
         DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - 60);
     final renewed = _jwt(exp:
@@ -229,6 +282,10 @@ void main() {
         'token': renewed, 'refresh_token': 'second-refresh'}), 200);
     }));
     expect(calls, 1);
+    expect(events, contains('refresh.request'));
+    expect(events, contains('refresh.response status=200'));
+    expect(events, contains('refresh.committed'));
+    expect(events.join('\n'), isNot(contains('first-refresh')));
   });
 
   test('GitHub 候选凭据 401 不以现有账号自动续期', () async {
