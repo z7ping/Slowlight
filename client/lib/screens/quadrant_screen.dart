@@ -553,7 +553,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       },
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onSecondaryTapDown: (_) => _showMoveSheet(task),
+        onSecondaryTapUp: (_) => _showMoveSheet(task),
         child: row,
       ),
     );
