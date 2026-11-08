@@ -1,5 +1,6 @@
 import '../models/habit.dart';
 import '../models/habit_log.dart';
+import 'local_habit_repository.dart';
 import '../utils/habit_record_key.dart';
 import '../services/cloud_api_service.dart';
 import '../services/data_mode_manager.dart';
@@ -21,6 +22,39 @@ class HabitRepository {
   Future<List<Habit>> getAll() async {
     final values = await _dataSource.getHabits();
     return values.map(Habit.fromJson).toList();
+  }
+
+  /// Server-first / Local SQLite search of names and recorded notes.
+  /// A fallback cache is explicitly marked incomplete for the search UI.
+  Future<({List<Habit> habits, bool complete})> searchContent(
+    String keyword,
+  ) async {
+    final term = keyword.trim();
+    if (term.isEmpty || term.runes.length > 200) {
+      throw ArgumentError.value(keyword, 'keyword', '关键词应为 1–200 字');
+    }
+    if (_fixedDataSource != null) {
+      // Custom data sources in tests have no note-index contract.
+      final values = await getAll();
+      return (
+        habits: values.where((habit) =>
+          habit.name.toLowerCase().contains(term.toLowerCase()))
+          .toList(growable: false),
+        complete: true,
+      );
+    }
+    if (DataModeManager().isLocal) {
+      final values = await LocalHabitRepository().getAll(search: term);
+      return (
+        habits: values.map(Habit.fromJson).toList(growable: false),
+        complete: true,
+      );
+    }
+    final result = await CloudApiService().searchHabits(term);
+    return (
+      habits: result.habits.map(Habit.fromJson).toList(growable: false),
+      complete: result.complete,
+    );
   }
 
   Future<Habit> create({

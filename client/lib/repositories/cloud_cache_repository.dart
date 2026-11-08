@@ -8,6 +8,7 @@ import '../models/habit_timezone_policy.dart';
 import '../models/habit_occurrence.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
+import '../utils/search_sql_like.dart';
 import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -339,13 +340,45 @@ class CloudCacheRepository {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getHabits() async {
+  Future<List<Map<String, dynamic>>> getHabits({
+    String? search,
+    bool pendingOnly = false,
+  }) async {
+    if (pendingOnly && search == null) {
+      throw ArgumentError('pendingOnly requires a search term');
+    }
     final db = await _db;
-    final rows = await db.query(
-      'habits',
-      where: 'deleted_at IS NULL',
-      orderBy: 'created_at ASC',
-    );
+    final pattern = search == null ? null : searchSqlLikePattern(search);
+    final pendingClause = pendingOnly
+        ? """AND (habits.sync_status != 'synced' OR EXISTS (
+            SELECT 1 FROM habit_logs p WHERE p.habit_id = habits.id
+              AND p.sync_status NOT IN ('synced', 'pending_delete')))"""
+        : '';
+    final rows = pattern == null
+        ? await db.query(
+            'habits',
+            where: 'deleted_at IS NULL',
+            orderBy: 'created_at ASC',
+          )
+        : await db.rawQuery('''
+            SELECT habits.*,
+              (SELECT l.note FROM habit_logs l
+                WHERE l.habit_id = habits.id AND l.sync_status != 'pending_delete'
+                  AND LOWER(l.note) LIKE ? ESCAPE '!'
+                ORDER BY l.created_at DESC, l.id DESC LIMIT 1) AS search_note,
+              (SELECT l.created_at FROM habit_logs l
+                WHERE l.habit_id = habits.id AND l.sync_status != 'pending_delete'
+                  AND LOWER(l.note) LIKE ? ESCAPE '!'
+                ORDER BY l.created_at DESC, l.id DESC LIMIT 1) AS search_note_at
+            FROM habits
+            WHERE habits.deleted_at IS NULL
+              AND (LOWER(habits.name) LIKE ? ESCAPE '!' OR EXISTS (
+                SELECT 1 FROM habit_logs l WHERE l.habit_id = habits.id
+                  AND l.sync_status != 'pending_delete'
+                  AND LOWER(l.note) LIKE ? ESCAPE '!'))
+              $pendingClause
+            ORDER BY habits.created_at ASC
+          ''', [pattern, pattern, pattern, pattern]);
     final user = await AuthService.getUser();
     final result = <Map<String, dynamic>>[];
     for (final row in rows) {
@@ -390,6 +423,8 @@ class CloudCacheRepository {
         'id': publicId,
         'user_id': user?.id ?? 0,
         'name': row['name'] ?? '',
+        if (pattern != null) 'search_note': row['search_note'] ?? '',
+        if (pattern != null) 'search_note_at': row['search_note_at'],
         'icon': row['icon'] ?? '✅',
         'color': row['color'] ?? '#52c41a',
         'frequency': row['frequency'] ?? 'daily',

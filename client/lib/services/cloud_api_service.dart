@@ -416,6 +416,52 @@ class CloudApiService implements ApiDataSource {
   Future<List<Map<String, dynamic>>> getHabits() =>
       _readThrough(ApiService.getHabits, _cache.getHabits);
 
+  /// Cloud truth plus unsynced account-local notes, never all cached stale hits.
+  /// When the server cannot answer, only confirmed cache hits are available.
+  Future<({List<Map<String, dynamic>> habits, bool complete})> searchHabits(
+    String keyword,
+  ) async {
+    try {
+      final remote = await ApiService.searchHabits(keyword);
+      final byId = <int, Map<String, dynamic>>{
+        for (final item in remote) item['id'] as int: item,
+      };
+      var cacheComplete = true;
+      try {
+        final pending = await _cache.getHabits(
+          search: keyword, pendingOnly: true,
+        );
+        for (final item in pending) {
+          final id = item['id'] as int;
+          final server = byId[id];
+          byId[id] = server == null ? item : {
+            ...server,
+            if ((item['search_note'] as String? ?? '').isNotEmpty)
+              'search_note': item['search_note'],
+            if ((item['search_note'] as String? ?? '').isNotEmpty)
+              'search_note_at': item['search_note_at'],
+          };
+        }
+      } catch (_) {
+        // Remote results remain usable, but pending notes are unconfirmed.
+        cacheComplete = false;
+      }
+      return (
+        habits: byId.values.toList(growable: false),
+        complete: cacheComplete,
+      );
+    } catch (error) {
+      if (error is! UnsupportedError && !_isTransientNetworkError(error)) {
+        rethrow;
+      }
+      return (
+        habits: await _cache.getHabits(search: keyword),
+        complete: false,
+      );
+    }
+  }
+
+
   @override
   Future<Map<String, dynamic>> createHabit({
     required String name,

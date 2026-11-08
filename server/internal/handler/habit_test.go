@@ -25,6 +25,7 @@ func newHabitRouter(h *HabitHandler, userID uint) *gin.Engine {
 	r := newTestGin()
 	r.Use(func(c *gin.Context) { withUser(c, userID); c.Next() })
 	r.GET("/habits", h.GetHabits)
+	r.GET("/habits/search", h.GetHabits)
 	r.POST("/habits", h.CreateHabit)
 	r.PUT("/habits/:id", h.UpdateHabit)
 	r.DELETE("/habits/:id", h.DeleteHabit)

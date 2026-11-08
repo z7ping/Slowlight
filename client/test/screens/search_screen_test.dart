@@ -83,6 +83,38 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P09 习惯名称不匹配但备注命中仍展示并可进入正式详情', (tester) async {
+    final habit = Habit(
+      id: 99,
+      userId: 1,
+      name: '晨间阅读',
+      searchNote: '摘录三条，作周报素材',
+      createdAt: DateTime(2026, 11, 8),
+    );
+    int? opened;
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(
+        dataLoader: (_) async => (
+          tasks: <Task>[],
+          habits: <Habit>[habit],
+          reflections: <ReflectionEntry>[],
+          lists: <TodoList>[],
+        ),
+        onOpenHabit: (selected) => opened = selected.id,
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).first, '周报');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('匹配备注：'), findsWidgets);
+    await tester.tap(find.text('晨间阅读'));
+    expect(opened, 99);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P09 一个搜索来源失败仍展示其他真实任务结果', (tester) async {
     final task = Task(
       id: 71,
