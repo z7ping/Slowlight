@@ -155,16 +155,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     GitHubSignIn.deviceFlowAvailable().then((enabled) {
       if (mounted) setState(() => _githubDeviceEnabled = enabled);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        if (mounted && !_linkingGitHub &&
-            await GitHubSignIn.hasPendingBindingAuthorization()) {
-          await _bindGitHub(resumePending: true);
-        }
-      } catch (_) {
-        // 恢复失败不阻断账号设置。
-      }
-    });
+    // Opening the account page must not read or mutate OAuth pending
+    // storage. On affected Android devices that lookup immediately precedes
+    // the loss of both access and refresh credentials. A user can start a
+    // new GitHub binding explicitly from the account panel instead.
+    // Normal login's pending-authorization resume path is unchanged.
   }
 
   @override
