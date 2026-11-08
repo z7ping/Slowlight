@@ -97,7 +97,10 @@ void main() {
     // sign-in: a verified, saved JWT vanished without a logout event.
     FlutterSecureStorage.setMockInitialValues({});
     expect(await AuthService.getToken(), isNull);
-    expect(events, contains('credential.disappeared previous=valid origin=none'));
+    expect(
+      events,
+      contains('credential.disappeared previous=valid origin=none'),
+    );
   });
 
   test('缺失 JWT 时账号 GET 不附带 Bearer，401 不主动清理资料', () async {
