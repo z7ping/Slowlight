@@ -104,7 +104,9 @@ func TestGetTimeDistribution_WithSessions(t *testing.T) {
 	tags := createDefaultSystemTags(t, tx, userID)
 	r := newAnalyticsRouter(handler, userID)
 
-	now := time.Now()
+	if err := tx.Model(&model.User{}).Where("id = ?", userID).
+		Update("timezone", "UTC").Error; err != nil { t.Fatal(err) }
+	now := time.Now().UTC()
 	ended := now
 	started := now.Add(-25 * time.Minute)
 	// Count WorkSessions, not a BehaviorEvent that might be missing or stale.
@@ -149,6 +151,7 @@ func TestGetTimeDistribution_WithSessions(t *testing.T) {
 	}
 	assertEqual(t, dist.TotalMin, 80, "TotalMin")
 	assertEqual(t, dist.TotalWorkSeconds, 80*60, "TotalSeconds")
+	assertEqual(t, dist.TodayDate, now.Format("2006-01-02"), "TodayCivilDate")
 	assertEqual(t, dist.UnclassifiedWorkSeconds, 5*60, "UnclassifiedSeconds")
 	assertEqual(t, len(dist.Tags), 2, "TagCount")
 	assertEqual(t, len(dist.ByDay), 7, "CalendarDays")
