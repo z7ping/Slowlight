@@ -345,7 +345,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
               onNavigate: widget.onStatsNavigate,
             ),
             2 => TimeDistributionScreen(
-              titleProvidedByShell: true,
+              titleProvidedByShell: !ResponsiveLayout.isDesktopOrWider(context),
               onNavigate: widget.onTimeDistributionNavigate,
             ),
             _ => _overviewBody(),
