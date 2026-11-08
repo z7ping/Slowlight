@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
+import 'package:slowlight/services/data_service.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
@@ -12,7 +13,212 @@ import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
+/// Deterministic Cloud-like toggle source for X03 stale Undo verification.
+class _X03ToggleTaskService implements DataService {
+  bool completed = false;
+  bool failReadAfterWrite = false;
+  int completions = 0;
+  int undoCalls = 0;
+
+  Task get current => Task(
+    id: 903,
+    listId: 1,
+    title: '撤销状态测试任务',
+    priority: 'none',
+    isCompleted: completed,
+    createdAt: DateTime(2026, 11, 8),
+    completedAt: completed ? DateTime(2026, 11, 8) : null,
+  );
+
+  @override
+  Future<List<Task>> getTodayTasks() async => [current];
+
+  @override
+  Future<List<Task>> getAllTasks() async {
+    if (failReadAfterWrite && completions > 0) {
+      throw StateError('任务列表本轮读取失败');
+    }
+    return [current];
+  }
+
+  @override
+  Future<List<Task>> getCompletedTasks() async =>
+      completed ? [current] : <Task>[];
+
+  @override
+  Future<List<TodoList>> getLists() async => [
+    TodoList(id: 1, name: '收集箱', color: '#808080',
+      isInbox: true, createdAt: DateTime(2026, 11, 8)),
+  ];
+
+  @override
+  Future<Task> completeTask(int localId, int? serverId) async {
+    completions++;
+    completed = !completed;
+    return current;
+  }
+
+  @override
+  Future<Task> uncompleteTask(int localId, int? serverId) async {
+    undoCalls++;
+    completed = !completed; // Matches the current Cloud toggle endpoint.
+    return current;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  testWidgets('X03 当前仍完成时，通知撤销只执行一次恢复待办', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _X03ToggleTaskService();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataService: data)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('tasks.row.903')),
+      matching: find.byType(FxInkWell),
+    ).last);
+    await tester.pumpAndSettle();
+    final undo = tester.widget<FxNoticeAction>(
+      find.byType(FxNoticeAction),
+    );
+    undo.onPressed();
+    await tester.pumpAndSettle();
+
+    expect(data.completions, 1);
+    expect(data.undoCalls, 1);
+    expect(data.completed, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X03 旧撤销通知不能重新完成已经恢复待办的任务', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _X03ToggleTaskService();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataService: data)),
+    ));
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(const ValueKey('tasks.row.903'));
+    final toggles = find.descendant(
+      of: row, matching: find.byType(FxInkWell),
+    );
+    await tester.tap(toggles.last);
+    await tester.pumpAndSettle();
+    expect(data.completions, 1);
+    expect(data.completed, isTrue);
+    final undoAction = find.byType(FxNoticeAction);
+    expect(undoAction, findsOneWidget);
+
+    // A second device or route has already uncompleted this task.
+    data.completed = false;
+    tester.widget<FxNoticeAction>(undoAction).onPressed();
+    await tester.pumpAndSettle();
+    expect(data.undoCalls, 0);
+    expect(data.completed, isFalse);
+    expect(find.textContaining('任务已是待办状态'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X03 完成写入后列表刷新失败不误报成功或提供撤销', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _X03ToggleTaskService()..failReadAfterWrite = true;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataService: data)),
+    ));
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('tasks.row.903'));
+    await tester.tap(find.descendant(
+      of: row, matching: find.byType(FxInkWell),
+    ).last);
+    await tester.pumpAndSettle();
+    expect(data.completions, 1);
+    expect(find.byType(FxNoticeAction), findsNothing);
+    expect(find.textContaining('列表状态尚未确认'), findsWidgets);
+    // The cached row still shows pending; a second tap must not toggle it.
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('tasks.row.903')),
+      matching: find.byType(FxInkWell),
+    ).last);
+    await tester.pumpAndSettle();
+    expect(data.completions, 1);
+    expect(find.textContaining('请先重试刷新再操作'), findsWidgets);
+    expect(data.undoCalls, 0);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X03 筛选切换回到顶部并关闭上一个已展开的滑动行',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final tasks = List<Task>.generate(36, (index) => Task(
+      id: 1000 + index,
+      listId: 1,
+      title: '筛选任务 $index',
+      priority: 'none',
+      isCompleted: false,
+      createdAt: DateTime(2026, 11, 8),
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        dataLoader: () async => <dynamic>[
+          tasks, tasks, <Task>[], <TodoList>[],
+        ],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final firstSwipe = tester.widget<TaskSwipeRow>(
+      find.byKey(const ValueKey('tasks.swipe.1000')),
+    );
+    firstSwipe.onOpenChanged(true);
+    await tester.pump();
+    expect(tester.widget<TaskSwipeRow>(
+      find.byKey(const ValueKey('tasks.swipe.1000')),
+    ).open, isTrue);
+
+    final view = tester.widget<CustomScrollView>(
+      find.byKey(const ValueKey('tasks.mobile.list')),
+    );
+    final controller = view.controller!;
+    controller.jumpTo(90);
+    await tester.pump();
+    expect(controller.offset, greaterThan(0));
+
+    tester.widget<FxInkWell>(
+      find.byKey(const ValueKey('tasks.mobile.filter.1')),
+    ).onTap!();
+    await tester.pump();
+    expect(controller.offset, 0);
+    expect(tester.widget<TaskSwipeRow>(
+      find.byKey(const ValueKey('tasks.swipe.1000')),
+    ).open, isFalse);
+    expect(find.text('所有任务'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P04 主任务先展示，不等待清单读取完成', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

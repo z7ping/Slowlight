@@ -218,7 +218,12 @@ class _TaskSwipeRowState extends State<TaskSwipeRow> {
                     _offset = widget.open ? -_revealWidth : 0;
                   });
                 },
-                child: widget.child,
+                // While the write is in flight, suppress child taps as well
+                // as new swipes. The spinner must not mask a live editor tap.
+                child: AbsorbPointer(
+                  absorbing: _running,
+                  child: widget.child,
+                ),
               ),
             ),
           ),
