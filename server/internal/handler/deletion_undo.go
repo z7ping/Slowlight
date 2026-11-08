@@ -5,7 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	"gorm.io/gorm"
 
@@ -27,6 +30,7 @@ type deletionUndoEnvelope struct {
 
 func saveDeletionUndo(
 	tx *gorm.DB, userID uint, kind string, payload interface{},
+	requestedToken ...string,
 ) (string, error) {
 	// Expired receipts are not recovery data; prune older user-scoped rows
 	// opportunistically. substr avoids SQL LIKE underscore wildcards.
@@ -39,9 +43,17 @@ func saveDeletionUndo(
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil { return "", err }
-	var random [16]byte
-	if _, err := rand.Read(random[:]); err != nil { return "", err }
-	token := hex.EncodeToString(random[:])
+	token := ""
+	if len(requestedToken) > 0 {
+		token = requestedToken[0]
+		if !validDeletionUndoToken(token) {
+			return "", errDeletionUndoUnavailable
+		}
+	} else {
+		var random [16]byte
+		if _, err := rand.Read(random[:]); err != nil { return "", err }
+		token = hex.EncodeToString(random[:])
+	}
 	envelope, err := json.Marshal(deletionUndoEnvelope{
 		Kind: kind,
 		ExpiresAt: time.Now().UTC().Add(2 * time.Minute),
@@ -60,10 +72,7 @@ func saveDeletionUndo(
 func loadDeletionUndo(
 	tx *gorm.DB, userID uint, token, kind string,
 ) (json.RawMessage, *model.UserConfig, error) {
-	if len(token) != 32 {
-		return nil, nil, errDeletionUndoUnavailable
-	}
-	if _, err := hex.DecodeString(token); err != nil {
+	if !validDeletionUndoToken(token) {
 		return nil, nil, errDeletionUndoUnavailable
 	}
 	var stored model.UserConfig
@@ -77,4 +86,30 @@ func loadDeletionUndo(
 		return nil, nil, errDeletionUndoUnavailable
 	}
 	return envelope.Payload, &stored, nil
+}
+
+func validDeletionUndoToken(token string) bool {
+	if len(token) != 32 { return false }
+	_, err := hex.DecodeString(token)
+	return err == nil
+}
+
+// GET /undo-receipt?kind=list|system_tag&token=...
+// A successful read proves the destructive write and its undo receipt
+// committed in the same transaction, even if the DELETE response was lost.
+// This endpoint is read-only, account scoped and does not consume the token.
+func GetDeletionUndoReceipt(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		kind := c.Query("kind")
+		if kind != "list" && kind != "system_tag" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "无效撤销类型"})
+			return
+		}
+		if _, _, err := loadDeletionUndo(db, c.GetUint("userID"),
+			c.Query("token"), kind); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "未找到已提交的撤销凭据"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"confirmed": true})
+	}
 }
