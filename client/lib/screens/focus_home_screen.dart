@@ -931,7 +931,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     HomeToolSection.stats => StatsScreen(onNavigate: _navigateFromStats),
     HomeToolSection.weeklyReview => const WeeklyReviewScreen(),
     HomeToolSection.timeDistribution => TimeDistributionScreen(
-      titleProvidedByShell: true,
+      titleProvidedByShell: !ResponsiveLayout.isDesktopOrWider(context),
       onNavigate: _navigateFromTimeDistribution,
     ),
   };
