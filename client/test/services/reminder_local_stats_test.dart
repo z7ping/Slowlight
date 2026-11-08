@@ -90,4 +90,44 @@ void main() {
     expect(stats['work_count'], 0);
     expect(stats['skip_count'], 0);
   });
+  test('P16 系统挂起后工作只计算最后一次确认的时间，不把睡眠计入统计', () async {
+    final db = await LocalDb().database;
+    final now = DateTime.now();
+    final started = DateTime(now.year, now.month, now.day, 12);
+    final observed = started.add(const Duration(minutes: 4));
+    final rowId = await db.insert('reminder_sessions', {
+      'type': 'work',
+      'started_at': started.toIso8601String(),
+      'synced': 0,
+      'created_at': started.toIso8601String(),
+    });
+
+    await reminderLocal.endWork(lastObservedAt: observed);
+
+    final rows = await db.query('reminder_sessions',
+        where: 'id = ?', whereArgs: [rowId]);
+    expect(rows.single['ended_at'], observed.toIso8601String());
+    expect(rows.single['duration_seconds'], 240);
+    final stats = await reminderLocal.getTodayStats();
+    expect(stats['total_work_seconds'], 240);
+  });
+
+  test('P16 如果本地开始写入迟到，工作截止时间不会早于开始时间', () async {
+    final db = await LocalDb().database;
+    final started = DateTime.now();
+    final rowId = await db.insert('reminder_sessions', {
+      'type': 'work',
+      'started_at': started.toIso8601String(),
+      'synced': 0,
+      'created_at': started.toIso8601String(),
+    });
+    await reminderLocal.endWork(
+      lastObservedAt: started.subtract(const Duration(minutes: 2)),
+    );
+    final rows = await db.query('reminder_sessions',
+        where: 'id = ?', whereArgs: [rowId]);
+    expect(rows.single['duration_seconds'], 0);
+    expect(rows.single['ended_at'], started.toIso8601String());
+  });
+
 }
