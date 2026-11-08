@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +13,8 @@ import '../support/fx_test_host.dart';
 class _Secrets implements AiSecretStore {
   bool failOnce = false;
   bool failWrite = false;
+  Completer<void>? deleteGate;
+  int deleteAttempts = 0;
   final values = <AiProviderType, String>{};
 
   @override
@@ -30,6 +34,8 @@ class _Secrets implements AiSecretStore {
 
   @override
   Future<void> delete(AiProviderType provider) async {
+    deleteAttempts++;
+    if (deleteGate != null) await deleteGate!.future;
     values.remove(provider);
   }
 }
@@ -166,4 +172,74 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('S04 清除密钥在确认至持久化期间锁住编辑与其他提交', (tester) async {
+    final gate = Completer<void>();
+    final secrets = _Secrets()
+      ..values[AiProviderType.deepseek] = 'existing-key'
+      ..deleteGate = gate;
+    final store = AiConfigStore(secrets: secrets);
+    await store.save(const AiConfig(
+      enabled: true,
+      provider: AiProviderType.deepseek,
+      model: 'test-model',
+    ));
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: AiSettingsScreen(store: store),
+    ));
+    await tester.pumpAndSettle();
+
+    final clear = find.widgetWithText(FxButton, '清除已保存密钥');
+    await tester.ensureVisible(clear);
+    await tester.tap(clear);
+    await tester.pump();
+    expect(tester.widget<FxButton>(clear).onPressed, isNull);
+
+    await tester.tap(find.text('清除密钥').last);
+    await tester.pump();
+    expect(secrets.deleteAttempts, 1);
+    expect(tester.widget<FxButton>(clear).onPressed, isNull);
+
+    final save = find.widgetWithText(FxButton, '保存');
+    final testConnection = find.widgetWithText(FxButton, '测试连接');
+    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    expect(tester.widget<FxButton>(testConnection).onPressed, isNull);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(secrets.values[AiProviderType.deepseek], isNull);
+    expect(secrets.deleteAttempts, 1);
+    expect(find.text('清除已保存密钥'), findsNothing);
+    expect(tester.widget<FxButton>(save).onPressed, isNotNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('S04 取消清除后操作锁立即释放且已保存密钥不变', (tester) async {
+    final secrets = _Secrets()..values[AiProviderType.openai] = 'original-key';
+    final store = AiConfigStore(secrets: secrets);
+    await store.save(const AiConfig(
+      enabled: true,
+      provider: AiProviderType.openai,
+      model: 'test-model',
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: AiSettingsScreen(store: store),
+    ));
+    await tester.pumpAndSettle();
+
+    final clear = find.widgetWithText(FxButton, '清除已保存密钥');
+    await tester.ensureVisible(clear);
+    await tester.tap(clear);
+    await tester.pump();
+    await tester.tap(find.text('取消').last);
+    await tester.pump();
+
+    expect(secrets.deleteAttempts, 0);
+    expect(secrets.values[AiProviderType.openai], 'original-key');
+    expect(tester.widget<FxButton>(clear).onPressed, isNotNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
