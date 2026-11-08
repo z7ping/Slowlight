@@ -307,6 +307,75 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X15 同关键词刷新失败保留上次成功结果并标明非实时',
+      (tester) async {
+    var attempts = 0;
+    final task = Task(
+      id: 1, listId: 1, title: '项目排期任务',
+      priority: 'none', isCompleted: false, createdAt: DateTime.now(),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(dataLoader: (query) async {
+        attempts++;
+        if (attempts > 1) throw StateError('服务暂不可用');
+        return (
+          tasks: [task], habits: <Habit>[],
+          reflections: <ReflectionEntry>[], lists: <TodoList>[],
+        );
+      }),
+    ));
+    await tester.pump();
+    final search = find.byType(EditableText).first;
+    await tester.enterText(search, '排期');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('项目排期任务'), findsOneWidget);
+    await tester.enterText(search, '排期未发起');
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.enterText(search, '排期');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.text('项目排期任务'), findsOneWidget);
+    expect(find.textContaining('以下是上次成功查询的记录'), findsOneWidget);
+    expect(find.text('没有找到相关内容'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X15 新关键词读取失败不得显示另一查询的旧结果',
+      (tester) async {
+    final task = Task(
+      id: 2, listId: 1, title: '任务 A 的已确认结果',
+      priority: 'none', isCompleted: false, createdAt: DateTime.now(),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: SearchScreen(dataLoader: (query) async {
+        if (query == '任务 A') {
+          return (
+            tasks: [task], habits: <Habit>[],
+            reflections: <ReflectionEntry>[], lists: <TodoList>[],
+          );
+        }
+        throw StateError('数据源失败');
+      }),
+    ));
+    await tester.pump();
+    final search = find.byType(EditableText).first;
+    await tester.enterText(search, '任务 A');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('任务 A 的已确认结果'), findsOneWidget);
+    await tester.enterText(search, '任务 B');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('任务 A 的已确认结果'), findsNothing);
+    expect(find.text('搜索暂时不可用'), findsOneWidget);
+    expect(find.text('没有找到相关内容'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('02 查询失败展示重试，成功空结果才显示无记录', (tester) async {
     var attempts = 0;
     Future<SearchResultData> loader(String query) async {
