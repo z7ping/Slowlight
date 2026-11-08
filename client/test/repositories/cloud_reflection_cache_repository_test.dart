@@ -97,6 +97,40 @@ void main() {
     expect(pendingOnly.map((item) => item.id), [pending.id]);
   });
 
+  test('P09 Cloud 历史关键词命中早期记录、字面通配符与待同步', () async {
+    final repo = CloudReflectionCacheRepository();
+    final old = DateTime(2024, 1, 1, 9);
+    await repo.cacheRemote([
+      ReflectionEntry(
+        id: 701, entryType: 'observation',
+        content: '旧记录 包含100%原样', createdAt: old,
+      ),
+      ReflectionEntry(
+        id: 702, entryType: 'observation',
+        content: '旧记录 包含100x原样', createdAt: old,
+      ),
+      ReflectionEntry(
+        id: 703, entryType: 'observation',
+        content: '旧记录 a_b', createdAt: old,
+      ),
+      ReflectionEntry(
+        id: 704, entryType: 'observation',
+        content: '旧记录 aXb', createdAt: old,
+      ),
+    ]);
+    final pending = await repo.createPending(
+      content: '未同步的历史检索记录', entryType: 'observation',
+    );
+    final percent = await repo.searchContent('100%');
+    expect(percent.map((r) => r.id), [701]);
+    final underscore = await repo.searchContent('a_b');
+    expect(underscore.map((r) => r.id), [703]);
+    final pendingOnly = await repo.searchContent(
+      '检索记录', pendingOnly: true,
+    );
+    expect(pendingOnly.map((r) => r.id), [pending.id]);
+  });
+
   test('recent 同时保留服务端 Reflection 与尚未补交的本地 Reflection', () async {
     final repo = CloudReflectionCacheRepository();
     final pending = await repo.createPending(
