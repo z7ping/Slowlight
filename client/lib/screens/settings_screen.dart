@@ -64,8 +64,17 @@ String accountEmailLabel(String email) {
 
 class SettingsScreen extends StatefulWidget {
   final String initialSection;
+  // Explicit seams for validating the existing Settings data sources without
+  // replacing the production AI store or cloud conflict repository.
+  final Future<AiConfig> Function()? aiConfigLoader;
+  final Future<List<ConflictInfo>> Function()? conflictLoader;
 
-  const SettingsScreen({super.key, this.initialSection = 'appearance'});
+  const SettingsScreen({
+    super.key,
+    this.initialSection = 'appearance',
+    this.aiConfigLoader,
+    this.conflictLoader,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -88,6 +97,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loadingAccount = true;
   bool _checkingGitHub = true;
   int _accountLoadVersion = 0;
+  int _aiLoadVersion = 0;
+  int _conflictLoadVersion = 0;
+  bool _checkingConflicts = false;
   User? _accountUser;
   bool? _githubLinked;
   bool? _passwordLoginReady;
@@ -122,6 +134,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
     _loadAccount();
+    // S13 must read the actual conflict state on entry. An unchecked count is
+    // unknown, not a confirmed "no conflicts" badge.
+    _loadConflictCount();
     GitHubSignIn.deviceFlowAvailable().then((enabled) {
       if (mounted) setState(() => _githubDeviceEnabled = enabled);
     });
@@ -168,21 +183,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
+    final version = ++_aiLoadVersion;
     setState(() {
       _loadingAi = true;
       _aiLoadError = null;
     });
     try {
-      final ai = await _aiStore.load();
-      final key = await _aiStore.loadApiKey(ai.provider);
-      if (!mounted) return;
+      final ai = await (widget.aiConfigLoader?.call() ?? _aiStore.load());
+      final key = widget.aiConfigLoader == null
+          ? await _aiStore.loadApiKey(ai.provider)
+          : null;
+      if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _ai = ai;
         _hasKey = key?.isNotEmpty == true;
         _loadingAi = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _loadingAi = false;
         _aiLoadError = '读取 AI 配置失败';
@@ -924,30 +942,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadConflictCount() async {
+    final version = ++_conflictLoadVersion;
     if (DataModeManager().isLocal) {
-      if (mounted && (_conflictCount != 0 || _conflictCheckFailed)) {
+      if (mounted) {
         setState(() {
           _conflictCount = 0;
           _conflictCheckFailed = false;
+          _checkingConflicts = false;
         });
       }
       return;
     }
+    if (mounted) setState(() => _checkingConflicts = true);
+    bool current() =>
+        mounted && DataModeManager().isCloud &&
+        version == _conflictLoadVersion;
     try {
-      final conflicts = await SyncService().getAllConflicts();
-      if (mounted && DataModeManager().isCloud) {
-        setState(() {
-          _conflictCount = conflicts.length;
-          _conflictCheckFailed = false;
-        });
-      }
+      final conflicts = await (widget.conflictLoader?.call() ??
+          SyncService().getAllConflicts());
+      if (!current()) return;
+      setState(() {
+        _conflictCount = conflicts.length;
+        _conflictCheckFailed = false;
+        _checkingConflicts = false;
+      });
     } catch (_) {
-      if (mounted && DataModeManager().isCloud) {
-        setState(() => _conflictCheckFailed = true);
-      }
+      if (!current()) return;
+      // Retain the previous count for diagnostics, but never present it as
+      // current confirmation after a failed query.
+      setState(() {
+        _conflictCheckFailed = true;
+        _checkingConflicts = false;
+      });
     }
   }
-
 
   String _sectionTitle(String id) => switch (id) {
     'appearance' => '外观',
@@ -1488,18 +1516,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _settingLine(
                 '同步冲突',
-                _conflictCheckFailed
-                    ? '暂时无法读取冲突，请检查云端连接'
-                    : _conflictCount == 0
-                        ? '无待处理冲突'
-                        : '$_conflictCount 条记录需要选择保留版本',
-                trailing: FxButton(
-                  label: '查看冲突',
-                  size: FxButtonSize.sm,
-                  variant: FxButtonVariant.outline,
-                  onPressed: _conflictCount == 0 && !_conflictCheckFailed
-                      ? null
-                      : _openConflicts,
+                _checkingConflicts
+                    ? '正在核对同步冲突…'
+                    : _conflictCheckFailed
+                        ? '冲突状态未确认，请重新检查'
+                        : _conflictCount == 0
+                            ? '无待处理冲突'
+                            : '$_conflictCount 条记录需要选择保留版本',
+                trailing: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (_conflictCheckFailed)
+                      FxButton(
+                        key: const ValueKey('settings.sync.recheck_conflicts'),
+                        label: _checkingConflicts ? '检查中…' : '重新检查',
+                        size: FxButtonSize.sm,
+                        variant: FxButtonVariant.ghost,
+                        onPressed: _checkingConflicts ? null : _loadConflictCount,
+                      ),
+                    FxButton(
+                      key: const ValueKey('settings.sync.open_conflicts'),
+                      label: '查看冲突',
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.outline,
+                      onPressed: _conflictCount == 0 && !_conflictCheckFailed
+                          ? null
+                          : _openConflicts,
+                    ),
+                  ],
                 ),
               ),
             ],
