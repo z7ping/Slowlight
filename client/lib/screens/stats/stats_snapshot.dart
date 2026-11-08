@@ -99,8 +99,7 @@ class StatsSnapshot {
   /// Task counts are not a substitute for focus time.
   List<({DateTime day, int minutes})> get focusLast7 {
     final today = DateTime.now();
-    final start = DateTime(today.year, today.month, today.day)
-        .subtract(const Duration(days: 6));
+    final start = DateTime(today.year, today.month, today.day - 6);
     final rows = sessionStats['daily'];
     if (rows is! List) return const [];
     final byDay = <String, int>{};
@@ -115,6 +114,54 @@ class StatsSnapshot {
       final day = start.add(Duration(days: index));
       return (day: day, minutes: byDay[_date(day)] ?? 0);
     });
+  }
+
+  /// Null is an unconfirmed count, not an empty day. Analytics DailyTrend
+  /// returns a point for each calendar day in Local and Cloud modes.
+  int? countOn(DateTime day, String field) {
+    if (!hasSource('daily_trend')) return null;
+    final key = _date(day);
+    for (final point in dailyTrend) {
+      if (point['date'] == key) {
+        final count = point[field];
+        return count is num ? count.toInt() : null;
+      }
+    }
+    return null;
+  }
+
+  int? countInDays(String field, int days) {
+    final today = DateTime.now();
+    var total = 0;
+    for (var offset = 0; offset < days; offset++) {
+      final count = countOn(
+        DateTime(today.year, today.month, today.day - offset),
+        field,
+      );
+      if (count == null) return null;
+      total += count;
+    }
+    return total;
+  }
+
+  int? observationCountInDays(int days) {
+    // Older analytics responses do not provide observation counts. Never
+    // mislabel the absence of this field as zero observations.
+    final direct = countInDays('reflection_count', days);
+    return direct ?? countInDays('observation_count', days);
+  }
+
+  int? focusMinutesInDays(int days) {
+    if (days == 1) {
+      if (!hasSource('today_session_stats')) return null;
+      final seconds = todaySessionStats['total_work_seconds'];
+      if (seconds is num) return seconds.toInt() ~/ 60;
+      final minutes = todaySessionStats['total_minutes'];
+      return minutes is num ? minutes.toInt() : null;
+    }
+    if (days != 7 || !hasSource('session_stats') ||
+        sessionStats['daily'] is! List) return null;
+    return focusLast7.fold<int>(0, (sum, day) => sum + day.minutes);
   }
 
   int get totalTasks => (taskStats['total'] as num?)?.toInt() ?? 0;
