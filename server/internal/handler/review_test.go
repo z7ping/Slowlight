@@ -235,6 +235,55 @@ func TestGetTasksReview_WithCompletedTasks(t *testing.T) {
 	assertEqual(t, resp.Distribution.ByQuality["S"], 1, "ByQuality S")
 }
 
+func TestGetTasksReview_P12CompletedDayAndDeletedTasks(t *testing.T) {
+	tx, handler, userID := setupReviewTest(t)
+	if err := tx.Model(&model.User{}).Where("id = ?", userID).
+		Update("timezone", "UTC").Error; err != nil {
+		t.Fatal(err)
+	}
+	r := newReviewRouter(handler, userID)
+	list := createTestList(t, tx, userID, "工作")
+	now := time.Now().UTC()
+
+	active := createTestTask(t, tx, userID, list.ID, "有效完成")
+	if err := tx.Model(&active).Updates(map[string]interface{}{
+		"is_completed": true,
+		"completed_at": now,
+		"task_type": "main",
+		"output_level": "A",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	deleted := createTestTask(t, tx, userID, list.ID, "已删除完成")
+	if err := tx.Model(&deleted).Updates(map[string]interface{}{
+		"is_completed": true,
+		"completed_at": now,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Delete(&deleted).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/review/tasks?days=30", nil)
+	r.ServeHTTP(w, req)
+	assertEqual(t, w.Code, http.StatusOK, "StatusCode")
+	var resp TasksReviewResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(t, resp.Summary.CompletedCount, 1, "only live task completed")
+	assertEqual(t, resp.Summary.CreatedCount, 1, "only live task created")
+	assertEqual(t, len(resp.CompletedTasks), 1, "only live task visible")
+	assertEqual(t, resp.CompletedTasks[0].Title, "有效完成", "completion title")
+	assertEqual(t, resp.CompletedTasks[0].CompletedDate,
+		now.Format("2006-01-02"), "UTC completion civil date")
+	assertEqual(t, resp.CompletedTasks[0].CompletedAt,
+		now.Format("15:04"), "UTC completion clock")
+	assertEqual(t, resp.Distribution.ByTaskType["main"], 1, "live distribution")
+}
+
 func TestGetTasksReview_TodayOnly(t *testing.T) {
 	tx, handler, userID := setupReviewTest(t)
 	r := newReviewRouter(handler, userID)
