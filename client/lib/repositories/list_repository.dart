@@ -51,5 +51,6 @@ class ListRepository {
   }) => _dataSource.updateList(id: id, name: name, icon: icon, color: color);
 
   /// 删除清单
-  Future<void> deleteList(int id) => _dataSource.deleteList(id);
+  Future<void> deleteList(int id, {bool deleteTasks = false}) =>
+      _dataSource.deleteList(id, deleteTasks: deleteTasks);
 }
