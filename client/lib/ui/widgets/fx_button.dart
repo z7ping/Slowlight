@@ -6,6 +6,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../layout_tokens.dart';
 import '../typography_tokens.dart';
+import 'fx_spinner.dart';
 
 /// FxButton — 按钮组件。
 ///
@@ -189,7 +190,34 @@ class _FxButtonState extends State<FxButton> {
         (SlowlightPlatformDensity.usesMobileTouchTargets
             ? _mobileButtonHeight(context)
             : null);
-    final child = _buildChild(context);
+    // Keep the original label's layout while an async write is pending.
+    // Only the content changes; ShadButton retains its width, hit target,
+    // variant/foreground and built-in disabled state. No second button.
+    final baseChild = _buildChild(context);
+    final child = !_running ? baseChild : Stack(
+      alignment: Alignment.center,
+      children: [
+        Visibility(
+          visible: false,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: baseChild,
+        ),
+        Positioned.fill(
+          child: Center(
+            child: Builder(
+              builder: (buttonContext) => FxSpinner(
+                size: widget.size == FxButtonSize.sm ? 14 : 18,
+                color: widget.foregroundColor ??
+                    DefaultTextStyle.of(buttonContext).style.color,
+                semanticsLabel: '处理中',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
     final Widget button;
     switch (widget.variant) {
       case FxButtonVariant.primary:
