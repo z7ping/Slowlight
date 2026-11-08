@@ -54,6 +54,9 @@ class MigrationService {
       throw StateError('请先登录云端账号，再预览迁移');
     }
     final preview = await ApiService.previewMigration(snapshot);
+    if (token != await AuthService.getToken()) {
+      throw StateError('预览期间云端账号已变化，请重新检查');
+    }
     if (preview['preview_version'] is! String ||
         (preview['preview_version'] as String).isEmpty) {
       throw const FormatException('服务端迁移预览版本缺失，请升级服务端');
@@ -99,7 +102,7 @@ class MigrationService {
       ..['preview_version'] = plan.preview['preview_version']
       ..['conflict_choices'] = normalized
       ..['conflict_policy'] = 'reject';
-    return _executeSnapshot(payload, 'reject');
+    return _executeSnapshot(payload, 'reject', expectedToken: plan.authToken!);
   }
 
   Future<Map<String, dynamic>?> latestReport() =>
@@ -120,13 +123,54 @@ class MigrationService {
     return recoverReport(reportID);
   }
 
+  // Recovery is safe only for the same cloud account. Legacy report rows
+  // without a stored account must not map another user's remote IDs locally.
+  static void requireRecoveryAccount(int? recordedId, int? currentId) {
+    if (recordedId == null || recordedId <= 0) {
+      throw StateError('旧迁移记录缺少原云端账号，不能自动恢复 ID 映射');
+    }
+    if (currentId == null || currentId <= 0 || currentId != recordedId) {
+      throw StateError('当前云端账号与原迁移账号不同，请切回原账号核对');
+    }
+  }
+
+  Future<({String token, int userId})> _cloudIdentity() async {
+    final token = await AuthService.getToken();
+    final user = await AuthService.getUser();
+    if (token == null || token.startsWith('local:') ||
+        user == null || user.id <= 0) {
+      throw StateError('云端账号未确认，请先登录原云端账号');
+    }
+    return (token: token, userId: user.id);
+  }
+
+  Future<void> _verifyCloudIdentity(
+      ({String token, int userId}) expected) async {
+    final current = await _cloudIdentity();
+    requireRecoveryAccount(expected.userId, current.userId);
+    if (current.token != expected.token) {
+      throw StateError('云端登录凭据已变化，请重新核对迁移回执');
+    }
+  }
+
   Future<Map<String, dynamic>> _executeSnapshot(
-      Map<String, dynamic> snapshot, String conflictPolicy) async {
+      Map<String, dynamic> snapshot, String conflictPolicy,
+      {required String expectedToken}) async {
+    final identity = await _cloudIdentity();
+    if (identity.token != expectedToken) {
+      throw StateError('云端账号已变化，请重新预览迁移');
+    }
     snapshot['conflict_policy'] = conflictPolicy;
     final store = LocalMigrationReportStore();
-    final localID = await store.start(snapshot, conflictPolicy);
+    final localID = await store.start(
+      snapshot, conflictPolicy, cloudAccountId: identity.userId,
+    );
     try {
+      await _verifyCloudIdentity(identity);
       final result = await ApiService.executeMigration(snapshot);
+      // If another login was used mid-request, the remote commit may have
+      // succeeded; retain the receipt as unknown but never apply its ID map.
+      await _verifyCloudIdentity(identity);
       _verifyIdMap(snapshot, result['id_map']);
       await _applyIdMap(result['id_map']);
       await store.succeed(localID, result);
@@ -148,11 +192,15 @@ class MigrationService {
   /// Query the receipt without re-executing an import, then restore local IDs.
   Future<Map<String, dynamic>> recoverReport(int localReportId) async {
     final store = LocalMigrationReportStore();
-    final snapshot = await store.retrySnapshot(localReportId);
-    if (snapshot == null) {
+    final pending = await store.retryRecord(localReportId);
+    if (pending == null) {
       throw StateError('没有可恢复的迁移快照，或迁移记录已经完成');
     }
+    final identity = await _cloudIdentity();
+    requireRecoveryAccount(pending.cloudAccountId, identity.userId);
+    final snapshot = pending.snapshot;
     final result = await ApiService.recoverMigration(snapshot);
+    await _verifyCloudIdentity(identity);
     _verifyIdMap(snapshot, result['id_map']);
     await _applyIdMap(result['id_map']);
     await store.succeed(localReportId, result);
