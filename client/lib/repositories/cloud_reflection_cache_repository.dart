@@ -132,6 +132,7 @@ class CloudReflectionCacheRepository {
           : "LOWER(content) LIKE ? ESCAPE '!'",
       whereArgs: ['%$literal%'],
       orderBy: 'created_at DESC, id DESC',
+      limit: 501,
     );
     return rows.map(_fromRow).toList(growable: false);
   }
