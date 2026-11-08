@@ -271,6 +271,11 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "待撤销日期无效"})
 			return
 		}
+		if task.DueDate == nil || !task.DueDate.Valid ||
+			!task.DueDate.Time.Equal(expected.Time) {
+			c.JSON(http.StatusConflict, gin.H{"error": "任务日期已变化，无法撤销顺延"})
+			return
+		}
 		result := h.DB.Model(&model.Task{}).
 			Where("id = ? AND user_id = ? AND due_date = ? AND is_completed = ?",
 				task.ID, userID, expected.Time, false).
