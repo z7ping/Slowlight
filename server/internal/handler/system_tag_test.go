@@ -27,6 +27,7 @@ func newSystemTagRouter(h *SystemTagHandler, userID uint) *gin.Engine {
 	r := newTestGin()
 	r.Use(func(c *gin.Context) { withUser(c, userID); c.Next() })
 	r.GET("/system-tags", h.GetSystemTags)
+	r.GET("/system-tags/usage", h.GetSystemTagUsage)
 	r.POST("/system-tags", h.CreateSystemTag)
 	r.PUT("/system-tags/:id", h.UpdateSystemTag)
 	r.DELETE("/system-tags/:id", h.DeleteSystemTag)
