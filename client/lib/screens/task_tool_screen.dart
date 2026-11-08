@@ -48,6 +48,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   bool _listLoadFailed = false;
   int _loadVersion = 0;
   Task? _selectedTask;
+  bool _selectedTaskStale = false;
   GlobalKey<TaskDetailSheetState>? _selectedTaskEditorKey;
   bool _switchingDesktopTask = false;
   int? _revealedTaskId;
@@ -65,6 +66,35 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  // Compare the fields this editor can write; timestamps/versions are not
+  // always populated by every Local/Cloud API response.
+  bool _sameTaskFields(Task a, Task b) {
+    final aTags = a.tags.map((tag) => tag.id).toList()..sort();
+    final bTags = b.tags.map((tag) => tag.id).toList()..sort();
+    return a.id == b.id &&
+        a.listId == b.listId && a.title == b.title &&
+        a.description == b.description && a.priority == b.priority &&
+        a.dueDate == b.dueDate && a.dueTime == b.dueTime &&
+        a.repeatType == b.repeatType &&
+        a.repeatInterval == b.repeatInterval &&
+        a.repeatDays == b.repeatDays &&
+        a.reminderAt == b.reminderAt &&
+        a.reminderAdvanceMinutes == b.reminderAdvanceMinutes &&
+        a.isCompleted == b.isCompleted &&
+        a.completedAt == b.completedAt &&
+        a.systemTagId == b.systemTagId &&
+        a.taskType == b.taskType &&
+        a.moodBefore == b.moodBefore &&
+        a.moodAfter == b.moodAfter &&
+        a.isMilestone == b.isMilestone &&
+        a.relatedQuestId == b.relatedQuestId &&
+        a.obsidianLink == b.obsidianLink &&
+        a.outputLevel == b.outputLevel &&
+        aTags.length == bTags.length &&
+        List.generate(aTags.length, (index) => index)
+            .every((index) => aTags[index] == bTags[index]);
   }
 
   Future<void> _load() async {
@@ -105,11 +135,29 @@ class TaskToolScreenState extends State<TaskToolScreen> {
           _listsLoading = false;
           _listLoadFailed = false;
         }
-        if (_selectedTask != null) {
-          _selectedTask = _all.cast<Task?>().firstWhere(
-            (task) => task?.id == _selectedTask!.id,
+        final selected = _selectedTask;
+        if (selected != null) {
+          final latest = _all.cast<Task?>().firstWhere(
+            (task) => task?.id == selected.id,
             orElse: () => null,
           );
+          final hasDraft = _selectedTaskEditorKey?.currentState
+                  ?.hasUncommittedWork ?? false;
+          if (latest == null || !_sameTaskFields(selected, latest)) {
+            if (hasDraft) {
+              // A background refresh must never silently destroy or submit a
+              // desktop draft based on a task that changed elsewhere.
+              _selectedTaskStale = true;
+            } else {
+              _selectedTask = latest;
+              _selectedTaskStale = false;
+              _selectedTaskEditorKey = latest == null
+                  ? null : GlobalKey<TaskDetailSheetState>();
+            }
+          } else {
+            _selectedTask = latest;
+            _selectedTaskStale = false;
+          }
         }
         _revealedTaskId = null;
         _hasLoaded = true;
@@ -184,6 +232,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         _revealedTaskId = null;
         // A filtered list must not keep editing an unrelated selected task.
         _selectedTask = null;
+        _selectedTaskStale = false;
         _selectedTaskEditorKey = null;
       });
     } finally {
@@ -450,6 +499,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
       if (!mounted) return;
       setState(() {
         _selectedTask = task;
+        _selectedTaskStale = false;
         // A different task must receive a fresh form state and initial snapshot.
         _selectedTaskEditorKey = GlobalKey<TaskDetailSheetState>();
       });
@@ -859,16 +909,45 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                   flex: 11,
                   child: _selectedTask == null
                       ? _desktopEmptyDetail()
-                      : TaskDetailSheet(
-                          key: _selectedTaskEditorKey,
-                          task: _selectedTask!,
-                          lists: _lists,
-                          sidePanel: true,
-                          onClose: () => setState(() {
-                            _selectedTask = null;
-                            _selectedTaskEditorKey = null;
-                          }),
-                          onChanged: _load,
+                      : Column(
+                          children: [
+                            if (_selectedTaskStale)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    const Icon(LucideIcons.triangleAlert, size: 16),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        '任务已在其他位置变更，草稿已保留；请核对后再编辑',
+                                      ),
+                                    ),
+                                    FxButton(
+                                      label: '重试',
+                                      variant: FxButtonVariant.ghost,
+                                      size: FxButtonSize.sm,
+                                      onPressed: _load,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            Expanded(
+                              child: TaskDetailSheet(
+                                key: _selectedTaskEditorKey,
+                                task: _selectedTask!,
+                                lists: _lists,
+                                sidePanel: true,
+                                writeBlocked: _selectedTaskStale,
+                                onClose: () => setState(() {
+                                  _selectedTask = null;
+                                  _selectedTaskStale = false;
+                                  _selectedTaskEditorKey = null;
+                                }),
+                                onChanged: _load,
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               ],

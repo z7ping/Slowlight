@@ -794,6 +794,129 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X04 Windows 刷新中任务消失时草稿保留但禁止陈旧写入', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final now = DateTime(2026, 11, 8);
+    final old = Task(id: 404, listId: 1, title: '原任务',
+        priority: 'none', isCompleted: false, createdAt: now);
+    final lists = [TodoList(id: 1, name: '收集箱',
+        color: '#808080', isInbox: true, createdAt: now)];
+    var sourceHasTask = true;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        dataLoader: () async => <dynamic>[
+          <Task>[if (sourceHasTask) old],
+          <Task>[if (sourceHasTask) old],
+          <Task>[],
+          lists,
+        ],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tasks.row.404')));
+    await tester.pumpAndSettle();
+    final detail = find.byType(TaskDetailSheet);
+    final title = find.descendant(
+        of: detail, matching: find.byType(EditableText)).first;
+    await tester.enterText(title, '本机未保存的修改');
+    await tester.pump();
+    sourceHasTask = false;
+    tester.widget<TaskDetailSheet>(detail).onChanged();
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(tester.widget<EditableText>(title).controller.text,
+        '本机未保存的修改');
+    expect(find.textContaining('草稿已保留'), findsOneWidget);
+    expect(tester.widget<TaskDetailSheet>(detail).writeBlocked, isTrue);
+    final save = find.ancestor(
+      of: find.text('保存修改'),
+      matching: find.byType(FxButton),
+    ).last;
+    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X04 Windows 无草稿时刷新同任务可重新加载最新字段', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final now = DateTime(2026, 11, 8);
+    var name = '旧名称';
+    final lists = [TodoList(id: 1, name: '收集箱',
+        color: '#808080', isInbox: true, createdAt: now)];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        dataLoader: () async {
+          final task = Task(id: 405, listId: 1, title: name,
+            priority: 'none', isCompleted: false, createdAt: now);
+          return <dynamic>[<Task>[task], <Task>[task], <Task>[], lists];
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tasks.row.405')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TaskDetailSheet>(
+      find.byType(TaskDetailSheet)).task.title, '旧名称');
+    name = '远端更新后的名称';
+    tester.widget<TaskDetailSheet>(
+      find.byType(TaskDetailSheet)).onChanged();
+    await tester.pumpAndSettle();
+    final detail = find.byType(TaskDetailSheet);
+    expect(tester.widget<TaskDetailSheet>(detail).task.title, name);
+    expect(tester.widget<EditableText>(
+      find.descendant(of: detail, matching: find.byType(EditableText)).first,
+    ).controller.text, name);
+    expect(tester.widget<TaskDetailSheet>(detail).writeBlocked, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X04 Windows 刷新发现任务字段变化不覆盖本机草稿', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final now = DateTime(2026, 11, 8);
+    var remoteTitle = '旧名称';
+    final lists = [TodoList(id: 1, name: '收集箱',
+      color: '#808080', isInbox: true, createdAt: now)];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(
+        dataLoader: () async {
+          final task = Task(id: 406, listId: 1, title: remoteTitle,
+            priority: 'none', isCompleted: false, createdAt: now);
+          return <dynamic>[<Task>[task], <Task>[task], <Task>[], lists];
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tasks.row.406')));
+    await tester.pumpAndSettle();
+    final detail = find.byType(TaskDetailSheet);
+    final title = find.descendant(of: detail,
+      matching: find.byType(EditableText)).first;
+    await tester.enterText(title, '尚未保存的本机草稿');
+    await tester.pump();
+    remoteTitle = '另一台设备的新名称';
+    tester.widget<TaskDetailSheet>(detail).onChanged();
+    await tester.pumpAndSettle();
+    expect(tester.widget<EditableText>(title).controller.text,
+      '尚未保存的本机草稿');
+    expect(tester.widget<TaskDetailSheet>(detail).writeBlocked, isTrue);
+    expect(find.textContaining('草稿已保留'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows 筛选切换先保护详情草稿，不直接卸载编辑器', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
