@@ -309,6 +309,20 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P08 点击月格记录同时切换当日明细选中日期', (tester) async {
+    await pumpCalendar(tester);
+    final nextDay = find.byKey(
+        const ValueKey('calendar-grid-record-task-next-day'));
+    await tester.ensureVisible(nextDay);
+    await tester.tap(nextDay);
+    await tester.pumpAndSettle();
+    expect(find.text('8 月 22 日 · 周六'), findsOneWidget);
+    expect(find.text('计划与实际 · 共 1 条完整记录'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('点击足迹记录打开详情', (tester) async {
     await pumpCalendar(tester);
 
