@@ -247,6 +247,14 @@ static LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
             }
             return 0;
         }
+        case WM_DISPLAYCHANGE:
+        case WM_DPICHANGED:
+        case WM_DESTROY:
+            // The monitor arrangement or DPI changed, or a native window was
+            // unexpectedly destroyed. Exit instead of claiming full coverage.
+            // Dart's readiness poll restores the Flutter fallback.
+            if (g_startup_status.exchange(-1) == 1) PostQuitMessage(0);
+            return 0;
         case WM_ERASEBKGND:
             return 1;
         case WM_CLOSE:
