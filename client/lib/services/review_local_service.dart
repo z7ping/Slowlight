@@ -107,6 +107,8 @@ class ReviewLocalService {
       'priority': row['priority'],
       'task_type': row['task_type'],
       'completed_at': formatted,
+      'completed_date': completedAt == null
+          ? null : LocalTimeBoundary.dateKey(completedAt),
       'list_name': row['list_name'] as String? ?? '',
       'is_milestone': (row['is_milestone'] as int? ?? 0) == 1,
     };
