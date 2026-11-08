@@ -44,6 +44,7 @@ void main() {
 
   tearDown(() async {
     SyncService().debugRemoteRead = null;
+    SyncService().debugQueuePush = null;
     SyncService().dispose2();
     await CloudCacheDb().close();
     await LocalDb().close();
@@ -255,6 +256,103 @@ void main() {
     expect(evidence?.partiallyProcessed, isFalse);
     expect((await SyncService().getPendingFailures()).length, 2);
     expect((await db.query('sync_queue')).length, 2);
+  });
+
+  test('P0-4 旧推送成功不能删除请求期间更新的同 ID 队列', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '最新草稿', 'sync_status': 'pending',
+      'created_at': now, 'updated_at': now,
+    });
+    final queueId = await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'operation': 'update', 'retry_count': 0, 'last_error': '',
+      'created_at': now, 'updated_at': now,
+    });
+    SyncService().debugQueuePush = (database, item) async {
+      expect(item['id'], queueId);
+      // A user action replaces the same queue row while HTTP is in flight.
+      await database.update('sync_queue', {
+        'operation': 'delete',
+        'updated_at': DateTime.now().add(const Duration(seconds: 1))
+            .toUtc().toIso8601String(),
+      }, where: 'id = ?', whereArgs: [queueId]);
+    };
+
+    await SyncService().syncBatch(batchSize: 50);
+    final queued = (await db.query('sync_queue')).single;
+    expect(queued['id'], queueId);
+    expect(queued['operation'], 'delete');
+    expect(queued['retry_count'], 0);
+    expect((await db.query('lists', where: 'id = ?', whereArgs: [listId]))
+        .single['sync_status'], 'pending');
+    expect(SyncService().status, SyncStatusEnum.error);
+    expect(SyncService().lastError, contains('旧回执未清除新队列'));
+    expect(SyncService().lastQueueRun?.failed, 1);
+  });
+
+  test('P0-4 迟到的旧超时不能覆盖新操作回执或盲重试', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '新操作待核对', 'sync_status': 'pending',
+      'created_at': now, 'updated_at': now,
+    });
+    final queueId = await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'operation': 'update', 'retry_count': 0, 'last_error': '',
+      'created_at': now, 'updated_at': now,
+    });
+    SyncService().debugQueuePush = (database, _) async {
+      await database.update('sync_queue', {
+        'operation': 'delete',
+        'updated_at': DateTime.now().add(const Duration(seconds: 1))
+            .toUtc().toIso8601String(),
+      }, where: 'id = ?', whereArgs: [queueId]);
+      throw TimeoutException('旧请求可能已经写入');
+    };
+
+    await SyncService().syncBatch(batchSize: 50);
+    final queued = (await db.query('sync_queue')).single;
+    expect(queued['operation'], 'delete');
+    expect(queued['retry_count'], 0);
+    expect(queued['last_error'], '');
+    expect((await db.query('lists', where: 'id = ?', whereArgs: [listId]))
+        .single['sync_status'], 'conflict');
+    expect(SyncService().status, SyncStatusEnum.error);
+    expect(SyncService().lastError, contains('旧操作回执已过期'));
+    expect(await SyncService().getConflicts('lists'), hasLength(1));
+    // The next automatic batch is blocked by the conflict gate.
+    var retried = 0;
+    SyncService().debugQueuePush = (database, _) async { retried++; };
+    await SyncService().syncBatch(batchSize: 50);
+    expect(retried, 0);
+    expect(await db.query('sync_queue'), hasLength(1));
+  });
+
+  test('P0-4 无并发修改时 ACK 原子清队列并标记已同步', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '已确认的清单', 'sync_status': 'pending',
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'operation': 'update', 'retry_count': 0, 'last_error': '',
+      'created_at': now, 'updated_at': now,
+    });
+    SyncService().debugQueuePush = (database, _) async {};
+    await SyncService().syncBatch(batchSize: 50);
+    expect(await db.query('sync_queue'), isEmpty);
+    expect((await db.query('lists', where: 'id = ?', whereArgs: [listId]))
+        .single['sync_status'], 'synced');
+    expect(SyncService().status, SyncStatusEnum.idle);
+    expect(SyncService().lastQueueRun?.processed, 1);
   });
 
   test('P1-11 不支持的习惯日志操作不能冒充成功后被清队列', () async {
