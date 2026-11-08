@@ -209,6 +209,10 @@ class ReflectionComposer {
           setEntryState(() => error = '请先核对新标签的创建结果');
           return;
         }
+        if (inlineTagOpen && inlineTagName.text.trim().isNotEmpty) {
+          setEntryState(() => error = '请先添加或取消正在编辑的新标签');
+          return;
+        }
         final value = controller.text.trim();
         if (value.isEmpty) {
           setEntryState(() => error = '先写一点观察');
