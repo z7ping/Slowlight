@@ -62,7 +62,10 @@ func (h *SystemTagHandler) usageForTag(userID, tagID uint) (systemTagUsage, erro
 			args = append(args, userID, tagID)
 		}
 		sql += ") linked"
-		return total, h.DB.Raw(sql, args...).Scan(&total).Error
+		if err := h.DB.Raw(sql, args...).Scan(&total).Error; err != nil {
+			return 0, err
+		}
+		return total, nil
 	}
 
 	tasks, err := count("tasks", "task_tags", "task_id", true, true)
