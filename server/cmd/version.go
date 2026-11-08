@@ -52,7 +52,7 @@ func currentVersion() versionDetails {
 	revision, timestamp := commitHash, commitTime
 	// Native go build records VCS metadata when it has access to a clean Git
 	// checkout. Docker builds deliberately do not copy .git into the image.
-	if (revision == "" || timestamp == "") {
+	if revision == "" || timestamp == "" {
 		if info, ok := debug.ReadBuildInfo(); ok {
 			values := map[string]string{}
 			for _, setting := range info.Settings {
