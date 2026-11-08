@@ -146,6 +146,7 @@ class LocalAnalyticsService {
   }
 
   Future<List<Map<String, dynamic>>> getDailyTrend({int days = 7}) async {
+    await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final today = LocalTimeBoundary.dayStart(DateTime.now());
     final habitTotal = await _countActiveHabits(db);
@@ -160,6 +161,18 @@ class LocalAnalyticsService {
       final actualCompleted = await _countCompletedBetween(db, start, end);
       final focus = await _focusEvents(db, start, end);
       final date = LocalTimeBoundary.dateKey(start);
+      // Instant timestamps are stored as UTC; query each local civil day
+      // using its actual boundaries (23/25h on DST changes).
+      final observationRows = await db.rawQuery(
+        "SELECT COUNT(*) AS total FROM reflections "
+        "WHERE deleted_at IS NULL AND entry_type = 'observation' "
+        "AND created_at >= ? AND created_at < ?",
+        [LocalTimeBoundary.instant(start), LocalTimeBoundary.instant(end)],
+      );
+      final observationCount = (observationRows.first['total'] as num?)?.toInt();
+      if (observationCount == null) {
+        throw const FormatException('观察记录数量未确认');
+      }
       result.add({
         'date': date,
         'task_completed': actualCompleted,
@@ -167,6 +180,7 @@ class LocalAnalyticsService {
         'focus_minutes':
             focus.fold<int>(0, (sum, event) => sum + event.durationMin),
         'habit_checked': await _countHabitLogsByDate(db, date),
+        'reflection_count': observationCount,
         'habit_total': habitTotal,
         'completion_rate':
             created == 0 ? 0 : cohortCompleted * 100 ~/ created,
