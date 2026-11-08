@@ -255,6 +255,30 @@ class LocalTaskRepository {
     return result;
   }
 
+  /// Only revert a postpone while its resulting calendar date is still present.
+  /// One-row compare-and-set avoids overwriting concurrent date edits.
+  Future<Task> restorePostponedDueDate(int id, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  }) async {
+    final db = await _db.database;
+    final affected = await db.update(
+      'tasks',
+      {
+        'due_date': _calendarDate(originalDueDate),
+        'updated_at': _nowUtc(),
+      },
+      where: 'id = ? AND deleted_at IS NULL AND due_date = ? AND is_completed = 0',
+      whereArgs: [id, _calendarDate(expectedDueDate)],
+    );
+    if (affected != 1) {
+      throw StateError('任务日期已变化，无法撤销顺延');
+    }
+    final result = await getById(id);
+    if (result == null) throw StateError('任务已不可读取，撤销结果待核对');
+    return result;
+  }
+
   Future<Task> postpone(int id) async {
     final db = await _db.database;
     final now = DateTime.now();
