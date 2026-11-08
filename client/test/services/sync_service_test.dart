@@ -41,6 +41,7 @@ void main() {
   });
 
   tearDown(() async {
+    SyncService().debugRemoteRead = null;
     SyncService().dispose2();
     await CloudCacheDb().close();
     await LocalDb().close();
@@ -205,6 +206,140 @@ void main() {
     expect(SyncService().lastError, contains('本轮处理 2 项，其中 2 项未完成'));
     expect((await SyncService().getPendingFailures()).length, 2);
     expect((await db.query('sync_queue')).length, 2);
+  });
+
+  test('X09 远端已写入的旧失败队列被确认后精确清理', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '云端已写入', 'icon': '📋', 'color': '#112233',
+      'server_id': 120, 'is_inbox': 0, 'sync_status': 'conflict',
+      'last_modified': 'revision-1',
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'entity_server_id': 120, 'operation': 'update',
+      'retry_count': 1, 'last_error': 'TimeoutException: no receipt',
+      'created_at': now, 'updated_at': now,
+    });
+    var reads = 0;
+    SyncService().debugRemoteRead = (database, table, id, local) async {
+      reads++;
+      expect(table, 'lists');
+      expect(id, 120);
+      return {
+        'name': '云端已写入', 'icon': '📋',
+        'color': '#112233', 'is_inbox': false,
+      };
+    };
+    final result = await SyncService().reconcileFailedWrites();
+    expect(result.verified, 1);
+    expect(result.conflicts, 0);
+    expect(result.unknown, 0);
+    expect(reads, 1);
+    expect(await db.query('sync_queue'), isEmpty);
+    expect((await db.query('lists', where: 'id = ?',
+      whereArgs: [listId])).single['sync_status'], 'synced');
+  });
+
+  test('X09 远端不一致时保留原始失败请求交给冲突界面', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '本地计划', 'icon': '📋',
+      'color': '#112233', 'server_id': 121, 'is_inbox': 0,
+      'sync_status': 'pending',
+      'last_modified': 'revision-2',
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'entity_server_id': 121, 'operation': 'update',
+      'retry_count': 1, 'last_error': 'connection reset',
+      'created_at': now, 'updated_at': now,
+    });
+    SyncService().debugRemoteRead = (_, __, ___, ____) async => {
+      'name': '另一设备的版本', 'icon': '📋',
+      'color': '#112233', 'is_inbox': false,
+    };
+    final result = await SyncService().reconcileFailedWrites();
+    expect(result.conflicts, 1);
+    expect(result.verified, 0);
+    expect(await db.query('sync_queue'), hasLength(1));
+    expect((await db.query('lists', where: 'id = ?',
+      whereArgs: [listId])).single['sync_status'], 'conflict');
+  });
+
+  test('X09 远端读取期间本地再次更改不会丢掉新决定', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '原本地名', 'icon': '📋',
+      'color': '#112233', 'server_id': 122, 'is_inbox': 0,
+      'sync_status': 'pending',
+      'last_modified': 'before',
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'entity_server_id': 122, 'operation': 'update',
+      'retry_count': 1, 'last_error': 'timeout',
+      'created_at': now, 'updated_at': now,
+    });
+    SyncService().debugRemoteRead = (database, _, __, ___) async {
+      await database.update('lists',
+        {'name': '新本地草稿', 'last_modified': 'after'},
+        where: 'id = ?', whereArgs: [listId]);
+      return {'name': '原本地名', 'icon': '📋',
+        'color': '#112233', 'is_inbox': false};
+    };
+    final result = await SyncService().reconcileFailedWrites();
+    expect(result.verified, 0);
+    expect(result.unknown, 1);
+    expect(await db.query('sync_queue'), hasLength(1));
+    expect((await db.query('lists', where: 'id = ?',
+      whereArgs: [listId])).single['name'], '新本地草稿');
+  });
+
+  test('X09 历史 timeout 回执先隔离，不因后台周期重放', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '禁止盲重发', 'server_id': 123,
+      'sync_status': 'pending',
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'entity_server_id': 123, 'operation': 'update',
+      'retry_count': 1, 'last_error': 'TimeoutException: response unknown',
+      'created_at': now, 'updated_at': now,
+    });
+    expect(await SyncService().manualSync(), isFalse);
+    expect((await db.query('lists', where: 'id = ?',
+      whereArgs: [listId])).single['sync_status'], 'conflict');
+    expect(await db.query('sync_queue'), hasLength(1));
+  });
+
+  test('X09 未分配远端 ID 的 create 保留未知，不通过普通读取假确认', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': 300,
+      'operation': 'create', 'retry_count': 1,
+      'last_error': 'timeout',
+      'created_at': now, 'updated_at': now,
+    });
+    final result = await SyncService().reconcileFailedWrites();
+    expect(result.unknown, 1);
+    expect(result.verified, 0);
+    expect(await db.query('sync_queue'), hasLength(1));
   });
 
   test('单条上传失败时 manualSync 返回 false 且保留队列', () async {
