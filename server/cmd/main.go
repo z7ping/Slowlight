@@ -65,6 +65,7 @@ func main() {
 		api.POST("/auth/password/setup", authHandler.SetupPassword)
 		api.POST("/auth/password/change", authHandler.ChangePassword)
 		api.GET("/auth/providers", authHandler.GetLinkedProviders)
+		api.GET("/undo-receipt", handler.GetDeletionUndoReceipt(db))
 
 		taskHandler := handler.NewTaskHandler(db)
 		listHandler := handler.NewListHandler(db)
