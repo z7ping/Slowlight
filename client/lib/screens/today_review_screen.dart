@@ -438,6 +438,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         embedded: true,
         reflectionRepository: _reflectionRepository,
         responseDraftController: _weekResponseDraft,
+        onOpenStats: () => setState(() => _viewIndex = 1),
+        onOpenTimeDistribution: () => setState(() => _viewIndex = 2),
+        onOpenThirtyDays: () => setState(() => _periodIndex = 2),
       );
     }
     if (_periodIndex == 2) {
