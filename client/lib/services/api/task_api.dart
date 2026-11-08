@@ -335,6 +335,43 @@ class TaskApi {
     throw Exception('完成任务失败');
   }
 
+  /// Atomic conditional completion through the existing /complete endpoint.
+  /// No-body PATCH is legacy toggle; these explicit requests cannot invert
+  /// an already-changed task.
+  static Future<Task> setTaskCompletion(int taskId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) async {
+    if (DataModeManager().isLocal) {
+      return _localApi.setTaskCompletion(
+        taskId,
+        completed: completed,
+        expectedCompleted: expectedCompleted,
+        expectedCompletedAt: expectedCompletedAt,
+      );
+    }
+    final headers = await ApiService.authHeaders();
+    final response = await HttpUtil.patch(
+      Uri.parse('${ApiService.baseUrl}/tasks/$taskId/complete'),
+      headers: headers,
+      body: json.encode({
+        'is_completed': completed,
+        'expected_completed': expectedCompleted,
+        if (expectedCompletedAt != null)
+          'expected_completed_at':
+              expectedCompletedAt.toUtc().toIso8601String(),
+      }),
+    ).timeout(ApiService.postTimeout);
+    if (response.statusCode == 200) {
+      return Task.fromJson(json.decode(response.body));
+    }
+    if (response.statusCode == 409) {
+      throw StateError('任务状态已变化，请刷新后重试');
+    }
+    throw Exception('任务完成状态更新失败：${response.statusCode}');
+  }
+
   /// 顺延任务
   static Future<Task> postponeTask(int taskId) async {
     if (DataModeManager().isLocal) return _localApi.postponeTask(taskId);
