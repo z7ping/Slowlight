@@ -192,7 +192,12 @@ class CloudSyncCoordinator {
       final remote = await TaskApi.getTask(serverId);
       if (!await _isRunValid(accountId: accountId, generation: generation)) return;
       if (remote.isCompleted != desiredCompleted) {
-        await TaskApi.completeTask(serverId);
+        await TaskApi.setTaskCompletion(
+          serverId,
+          completed: desiredCompleted,
+          expectedCompleted: remote.isCompleted,
+          expectedCompletedAt: remote.completedAt,
+        );
       }
       if (!await _isRunValid(accountId: accountId, generation: generation)) return;
       await _deleteTaskIntent(db, entityLocalId);
