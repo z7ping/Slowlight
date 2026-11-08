@@ -78,6 +78,39 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P18 写下想法弹窗：Android 草稿取消确认后继续编辑',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开移动想法',
+          onPressed: () => ReflectionComposer.show(context),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开移动想法'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '手机端未保存草稿');
+    await tester.tap(find.widgetWithText(FxButton, '取消').first);
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的想法？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText).first)
+          .controller.text,
+      '手机端未保存草稿',
+    );
+    expect(find.widgetWithText(FxButton, '保存'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X07 Windows 观察草稿取消/系统返回必须确认，且放弃确认可撤回',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
