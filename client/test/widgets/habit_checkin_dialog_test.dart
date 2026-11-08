@@ -40,7 +40,8 @@ void main() {
     expect(find.text('放弃未保存的记录？'), findsOneWidget);
     await tester.tap(find.text('取消').last);
     await tester.pumpAndSettle();
-    expect(find.text('今天读完了一章'), findsOneWidget);
+    expect(tester.widget<EditableText>(find.byType(EditableText).last)
+        .controller.text, '今天读完了一章');
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
