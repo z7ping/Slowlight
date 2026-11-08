@@ -1172,11 +1172,25 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           destructive: true,
         );
         if (confirmed != true) return;
+        var writeAcknowledged = false;
         try {
           await _controller.deleteLog(habit, log.id);
+          writeAcknowledged = true;
+        } catch (_) {
+          // A lost deletion ACK is not proof that the record still exists.
+          // Read history instead of issuing another destructive request.
+        }
+        await _controller.loadLogs(habit.id);
+        if (!mounted) return;
+        if (!_controller.hasLoadedLogs(habit.id) ||
+            _controller.logErrorFor(habit.id) != null) {
+          _message('撤销结果未确认，请重试加载记录核对');
+        } else if (_controller.logsFor(habit.id).any((item) => item.id == log.id)) {
+          _message(writeAcknowledged
+              ? '撤销请求已提交，记录仍在列表中，请稍后核对'
+              : '撤销未确认，记录仍在列表中');
+        } else {
           _message('记录已撤销');
-        } catch (error) {
-          _message('撤销结果未确认，请重新加载核对：$error');
         }
       });
 
