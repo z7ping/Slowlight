@@ -52,7 +52,7 @@ func syncSystemTagToCanonical(tx *gorm.DB, legacy model.SystemTag) error {
 
 func (h *SystemTagHandler) GetSystemTags(c *gin.Context) {
 	userID := c.GetUint("userID")
-	var tags []model.SystemTag
+	tags := make([]model.SystemTag, 0)
 	if err := h.DB.Where("user_id = ?", userID).
 		Order("sort_order ASC, id ASC").Find(&tags).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取观察标签失败"})
