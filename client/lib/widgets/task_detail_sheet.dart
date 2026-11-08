@@ -380,6 +380,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       content: '切换任务或关闭详情后，当前未保存的修改将丢失。',
       confirmText: '放弃修改',
       destructive: true,
+      draftDiscard: true,
     );
     return mounted && discard == true;
   }
@@ -443,6 +444,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                 : '本次编辑尚未保存，关闭后不会写入任务。',
         confirmText: _writeResultUnknown ? '关闭并核对' : '放弃修改',
         destructive: true,
+        draftDiscard: !_writeResultUnknown,
       );
       if (discard != true || !mounted) return;
     }
