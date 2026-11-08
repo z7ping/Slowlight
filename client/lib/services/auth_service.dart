@@ -167,9 +167,13 @@ class AuthService {
     final user = User.fromJson(Map<String, dynamic>.from(userJson));
     // OAuth poll 的 complete 仅证明 GitHub 授权完成，不证明新 JWT
     // 已被业务接口接受。先核验再替换，避免绑定/登录后把有效会话覆盖为 401。
+    final candidateRefresh = result['refresh_token'];
+    final refreshStatus =
+        candidateRefresh is String && candidateRefresh.isNotEmpty
+            ? 'present'
+            : 'absent';
     _trace('oauth.complete_received mode=${linkingExisting ? 'binding' : 'signin'} '
-        'access=present refresh=${result['refresh_token'] is String &&
-                (result['refresh_token'] as String).isNotEmpty ? 'present' : 'absent'}');
+        'access=present refresh=$refreshStatus');
     await ApiService.verifyOAuthCredential(token, user.id);
     await _saveAuth(
       token,
