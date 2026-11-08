@@ -211,11 +211,11 @@ void main() {
       home: Scaffold(body: SystemTagScreen(repository: repository)),
     ));
     await tester.pumpAndSettle();
-    expect(find.textContaining('关联 10 条'), findsOneWidget);
+    expect(find.textContaining('关联影响 10 条'), findsOneWidget);
     await tester.tap(find.text('#阅读'));
     await tester.pumpAndSettle();
     expect(find.text('编辑标签'), findsOneWidget);
-    expect(find.textContaining('关联 10 条'), findsWidgets);
+    expect(find.textContaining('关联影响 10 条'), findsWidgets);
     expect(find.byType(FxInput), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
