@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/calendar_record.dart';
@@ -161,6 +163,49 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P08 部分来源重试保留原月格直到新结果确认', (tester) async {
+    tester.view.physicalSize = const Size(1100, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final retry = Completer<CalendarMonthData>();
+    var calls = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: CalendarScreen(
+        initialMonth: month,
+        initialSelectedDate: selected,
+        monthLoader: (requested) {
+          calls++;
+          if (calls == 1) {
+            return Future.value(CalendarMonthData(
+              month: requested,
+              records: [records.first],
+              unavailableTypes: const {CalendarRecordType.reflection},
+            ));
+          }
+          return retry.future;
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-record-task-plan')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-partial-retry')),
+        findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('calendar-partial-retry')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('calendar-record-task-plan')),
+        findsOneWidget);
+    expect(find.textContaining('已载入 1 条记录（部分待核对）'),
+        findsOneWidget);
+    retry.complete(CalendarMonthData(month: month, records: records));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-partial-retry')),
+        findsNothing);
+    expect(find.text('计划与实际 · 共 4 条完整记录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('还原高密度月历与当日完整记录', (tester) async {
     await pumpCalendar(tester);
 
@@ -261,6 +306,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(createdFor, DateTime(2026, 8, 21));
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P08 点击月格记录同时切换当日明细选中日期', (tester) async {
+    await pumpCalendar(tester);
+    final nextDay = find.byKey(
+        const ValueKey('calendar-grid-record-task-next-day'));
+    await tester.ensureVisible(nextDay);
+    await tester.tap(nextDay);
+    await tester.pumpAndSettle();
+    expect(find.text('8 月 22 日 · 周六'), findsOneWidget);
+    expect(find.text('计划与实际 · 共 1 条完整记录'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 

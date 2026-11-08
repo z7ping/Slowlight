@@ -20,6 +20,8 @@ class CalendarRecord {
   final String colorHex;
   final String dimensionLabel;
   final int durationMin;
+  /// Recorded quantity only, never the habit's configured target.
+  final String amountLabel;
   final bool completed;
   final String priority;
   final Task? task;
@@ -35,6 +37,7 @@ class CalendarRecord {
     this.colorHex = '',
     this.dimensionLabel = '',
     this.durationMin = 0,
+    this.amountLabel = '',
     this.completed = false,
     this.priority = 'none',
     this.task,

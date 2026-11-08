@@ -50,6 +50,9 @@ class ReflectionApi {
 
   static Future<List<ReflectionEntry>> recent({
     int limit = 20,
+    int offset = 0,
+    DateTime? startAt,
+    DateTime? endAt,
     String? questionId,
     String? legacyWeekStart,
     String? legacyWeekEnd,
@@ -60,6 +63,9 @@ class ReflectionApi {
       Uri.parse('${ApiService.baseUrl}/reflections').replace(
         queryParameters: {
           'limit': '$safeLimit',
+          if (startAt != null) 'start_at': startAt.toUtc().toIso8601String(),
+          if (endAt != null) 'end_at': endAt.toUtc().toIso8601String(),
+          if (offset > 0) 'offset': '$offset',
           if (questionId != null) 'question_id': questionId,
           if (legacyWeekStart != null) 'legacy_week_start': legacyWeekStart,
           if (legacyWeekEnd != null) 'legacy_week_end': legacyWeekEnd,
@@ -72,6 +78,12 @@ class ReflectionApi {
     }
     final decoded = jsonDecode(response.body);
     final values = decoded is Map ? decoded['items'] : decoded;
+    if (startAt != null || endAt != null) {
+      // A malformed paged month must not masquerade as a complete month.
+      if (values is! List || values.any((item) => item is! Map)) {
+        throw const FormatException('日历观察记录页格式错误');
+      }
+    }
     if (values is! List) return const [];
     return values
         .whereType<Map>()

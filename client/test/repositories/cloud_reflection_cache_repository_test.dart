@@ -68,6 +68,35 @@ void main() {
     expect(intents.single['intent'], 'create');
   });
 
+  test('P08 云缓存整月超过 100 条仍可读取，pending 按账号隔离', () async {
+    final repo = CloudReflectionCacheRepository();
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month);
+    final end = DateTime(now.year, now.month + 1);
+    final inside = DateTime(now.year, now.month, 2, 13);
+    final before = start.subtract(const Duration(days: 1));
+    await repo.cacheRemote([
+      for (var id = 1; id <= 110; id++)
+        ReflectionEntry(
+          id: id, entryType: 'observation', content: '月内观察$id',
+          createdAt: inside,
+        ),
+      ReflectionEntry(
+        id: 999, entryType: 'observation',
+        content: '上月观察', createdAt: before,
+      ),
+    ]);
+    final pending = await repo.createPending(
+      content: '未同步的当月观察', entryType: 'observation',
+    );
+    final full = await repo.month(start, end);
+    final pendingOnly = await repo.month(start, end, pendingOnly: true);
+    expect(full, hasLength(111));
+    expect(full.map((item) => item.id), contains(pending.id));
+    expect(full.map((item) => item.id), isNot(contains(999)));
+    expect(pendingOnly.map((item) => item.id), [pending.id]);
+  });
+
   test('recent 同时保留服务端 Reflection 与尚未补交的本地 Reflection', () async {
     final repo = CloudReflectionCacheRepository();
     final pending = await repo.createPending(

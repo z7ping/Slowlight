@@ -95,6 +95,26 @@ class CloudReflectionCacheRepository {
     return rows.map(_fromRow).toList(growable: false);
   }
 
+  /// Month-scoped cache reads are always account-scoped by CloudCacheDb.
+  /// An offline result is not proof that all remote records are present.
+  Future<List<ReflectionEntry>> month(DateTime start, DateTime end, {
+    bool pendingOnly = false,
+  }) async {
+    final db = await _cache.database;
+    final rows = await db.query(
+      'reflections',
+      where: pendingOnly
+          ? "created_at >= ? AND created_at < ? AND sync_status = 'pending'"
+          : 'created_at >= ? AND created_at < ?',
+      whereArgs: [
+        start.toUtc().toIso8601String(),
+        end.toUtc().toIso8601String(),
+      ],
+      orderBy: 'created_at DESC, id DESC',
+    );
+    return rows.map(_fromRow).toList(growable: false);
+  }
+
   /// Local pending submissions remain visible even when the exact Cloud
   /// period lookup returns no confirmed record.
   Future<ReflectionEntry?> pendingByQuestionId(String questionId) async {

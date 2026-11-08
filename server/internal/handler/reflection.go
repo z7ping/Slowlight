@@ -175,8 +175,39 @@ func (h *ReflectionHandler) List(c *gin.Context) {
 			limit = parsed
 		}
 	}
+    offset := 0
+    if value := c.Query("offset"); value != "" {
+        parsed, err := strconv.Atoi(value)
+        if err != nil || parsed < 0 || parsed > 1000000 {
+            c.JSON(http.StatusBadRequest, gin.H{"error":"offset 不合法"})
+            return
+        }
+        offset = parsed
+    }
+    startText,endText := c.Query("start_at"),c.Query("end_at")
+    var startAt,endAt time.Time
+    if startText != "" || endText != "" {
+        if startText == "" || endText == "" {
+            c.JSON(http.StatusBadRequest,gin.H{"error":"必须同时提供 start_at 和 end_at"})
+            return
+        }
+        var err error
+        startAt,err=time.Parse(time.RFC3339Nano,startText)
+        if err!=nil {
+            c.JSON(http.StatusBadRequest,gin.H{"error":"start_at 不合法"})
+            return
+        }
+        endAt,err=time.Parse(time.RFC3339Nano,endText)
+        if err!=nil || !startAt.Before(endAt) || endAt.Sub(startAt)>62*24*time.Hour {
+            c.JSON(http.StatusBadRequest,gin.H{"error":"end_at 不合法"})
+            return
+        }
+    }
 	var entries []model.Reflection
-	query := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Order("id DESC").Limit(limit)
+	query := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Order("id DESC").Limit(limit).Offset(offset)
+    if startText != "" {
+        query = query.Where("created_at >= ? AND created_at < ?",startAt,endAt)
+    }
 	if questionID := strings.TrimSpace(c.Query("question_id")); questionID != "" {
 		query = query.Where("entry_type = ?", "reflection")
 		if len(questionID) > 120 {

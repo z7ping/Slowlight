@@ -197,7 +197,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     selectedDate: _selected,
                     records: _records,
                     displayMode: _displayMode,
-                    loading: _loading,
+                    // A same-month refresh must not blank confirmed cells.
+                    loading: _loading && !_hasCurrentMonth,
                     onSelectDate: _selectDate,
                     onAddTask: _addTask,
                     onOpenRecord: _openRecord,
@@ -310,16 +311,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
         CalendarRecordType.reflection => '观察',
       },
     );
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.warning.withValues(alpha: .09),
-        borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      ),
-      child: Text(
-        '${labels.join('、')}记录暂时不可用，其他数据仍可浏览。',
-        style: SlowlightTypography.caption(context),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: FxCard(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        expanded: true,
+        child: Row(children: [
+          const Icon(LucideIcons.triangleAlert, size: 16),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            '${labels.join('、')}记录暂时不可用，其他数据仍可浏览。',
+            style: SlowlightTypography.caption(context),
+          )),
+          const SizedBox(width: 8),
+          FxButton(
+            key: const ValueKey('calendar-partial-retry'),
+            label: '重试',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.ghost,
+            onPressed: _loading ? null : _load,
+          ),
+        ]),
       ),
     );
   }
@@ -476,6 +488,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (record.timeLabel.isNotEmpty) record.timeLabel,
       if (record.dimensionLabel.isNotEmpty) record.dimensionLabel,
       if (record.durationMin > 0) '${record.durationMin}min',
+      if (record.amountLabel.isNotEmpty) record.amountLabel,
     ].join(' · ');
     final scaledSecondary = MediaQuery.textScalerOf(
       context,
@@ -527,7 +540,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              record.completed ? '已记录 ›' : '待完成 ›',
+              record.kind == CalendarRecordKind.plan ? '计划 ›' : '已记录 ›',
               style: SlowlightTypography.caption(
                 context,
               ).copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -539,6 +552,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _openRecord(CalendarRecord record) async {
+    // Clicking a month chip must also drive the selected-day detail,
+    // matching the prototype; opening a dialog alone left a stale day panel.
+    await _selectDate(record.date);
+    if (!mounted) return;
     if (record.task != null) {
       final lists = await DataService().getLists();
       if (!mounted) return;
@@ -584,6 +601,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   _detailLine('时间', record.timeLabel),
                 if (record.durationMin > 0)
                   _detailLine('时长', '${record.durationMin} 分钟'),
+                if (record.amountLabel.isNotEmpty)
+                  _detailLine('数量', record.amountLabel),
                 if (record.dimensionLabel.isNotEmpty)
                   _detailLine('历史分类', record.dimensionLabel),
                 const SizedBox(height: 12),
