@@ -62,6 +62,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   PomodoroCycleProgress _cycle = const PomodoroCycleProgress();
   String? _cyclePrefsKey;
   bool _restoringSession = true;
+  bool _sessionStatusUnknown = false;
   int _todayWorkSeconds = 0;
   int _todayWorkCount = 0;
   String? _completionMessage;
@@ -114,10 +115,28 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Future<void> _restoreActiveSession() async {
     try {
       final data = await _sessions.getActiveSession();
-      if (data['active'] != true || !mounted) return;
-      _applySession(Map<String, dynamic>.from(data['session'] as Map));
+      if (!mounted) return;
+      final active = data['active'];
+      if (active == true) {
+        _applySession(Map<String, dynamic>.from(data['session'] as Map));
+      } else if (active != false) {
+        throw const FormatException('活跃会话查询没有可靠状态');
+      }
+      if (mounted) setState(() => _sessionStatusUnknown = false);
     } catch (_) {
-      if (mounted) _message('恢复专注状态失败，请检查连接');
+      if (!mounted) return;
+      setState(() => _sessionStatusUnknown = true);
+      _message('专注状态未核对，先重新查询再开始新的一轮');
+    }
+  }
+
+  Future<void> _retrySessionRestore() async {
+    if (_restoringSession) return;
+    setState(() => _restoringSession = true);
+    try {
+      await _restoreActiveSession();
+    } finally {
+      if (mounted) setState(() => _restoringSession = false);
     }
   }
 
@@ -269,7 +288,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _start() async {
-    if (_restoringSession || _finalizingSession || _sessionTransitioning) return;
+    if (_restoringSession || _sessionStatusUnknown ||
+        _finalizingSession || _sessionTransitioning) return;
     if (_activeSession && _remainingSeconds <= 0) {
       await _finishNaturally();
       return;
@@ -493,8 +513,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _openSettings() async {
     // Timer duration must not change while a persisted session is in progress.
-    if (_restoringSession || _activeSession || _sessionTransitioning ||
-        _finalizingSession) return;
+    if (_restoringSession || _sessionStatusUnknown || _activeSession ||
+        _sessionTransitioning || _finalizingSession) return;
     var work = _workMinutes;
     var autoStart = _autoStartNext;
     var soundEnabled = _soundEnabled;
@@ -734,10 +754,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 icon: LucideIcons.settings,
                 tooltip: _restoringSession
                     ? '正在核对本轮专注'
-                    : _activeSession
+                    : _sessionStatusUnknown
+                        ? '请先核对当前专注会话'
+                        : _activeSession
                         ? '本轮结束后可修改设置'
                         : '专注设置',
                 onPressed: _restoringSession ||
+                        _sessionStatusUnknown ||
                         _activeSession ||
                         _sessionTransitioning ||
                         _finalizingSession
@@ -772,7 +795,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final color = isWork ? activePalette.accent : AppTheme.success;
     final stateLabel = _restoringSession
         ? '正在核对专注状态'
-        : isWork
+        : _sessionStatusUnknown
+            ? '当前会话状态待核对'
+            : isWork
             ? (_running
                 ? '专注中'
                 : _activeSession
@@ -869,7 +894,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 runSpacing: 10,
                 alignment: WrapAlignment.center,
                 children: [
-                  if (!_running)
+                  if (_sessionStatusUnknown)
+                    FxButton(
+                      label: '重新核对当前会话',
+                      onPressed: _restoringSession ? null : _retrySessionRestore,
+                    )
+                  else if (!_running)
                     FxButton(
                       label: _remainingSeconds == 0 && _activeSession
                           ? '重试保存本轮'
