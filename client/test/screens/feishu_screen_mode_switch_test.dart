@@ -73,6 +73,30 @@ class _TemplateRepository implements FeishuIntegrationRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _CalendarRepository implements FeishuIntegrationRepository {
+  final oldCalendar = Completer<List<dynamic>>();
+  int calendarReads = 0;
+
+  @override
+  Future<Map<String, dynamic>> config() async => {
+        'configured': true,
+        'app_id': 'verified_app',
+        'table_url': 'https://example.com/base',
+        'tables': const {},
+      };
+
+  @override
+  Future<List<dynamic>> calendars() {
+    if (++calendarReads == 1) return oldCalendar.future;
+    return Future.value([
+      {'id': 'fresh', 'name': '当前账号日历', 'is_primary': true},
+    ]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   setUpAll(() async {
     await useIsolatedTestDb('feishu_screen_mode_switch');
@@ -105,6 +129,40 @@ void main() {
     await tester.pump();
     final appId = tester.widget<FxInput>(find.byType(FxInput).first);
     expect(appId.controller!.text, 'cloud_app');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P17 S16 旧云端日历回执不能覆盖新会话日历',
+      (tester) async {
+    final fake = _CalendarRepository();
+    await tester.pumpWidget(buildFxTestHost(
+      home: FeishuScreen(repository: fake),
+    ));
+    await tester.pump();
+
+    await tester.runAsync(() => DataModeManager().setCloud());
+    await tester.pump();
+    await tester.pump();
+    expect(fake.calendarReads, 1);
+
+    await tester.runAsync(() => DataModeManager().setLocal());
+    await tester.pump();
+    await tester.runAsync(() => DataModeManager().setCloud());
+    await tester.pump();
+    await tester.pump();
+    expect(fake.calendarReads, 2);
+
+    fake.oldCalendar.complete([
+      {'id': 'stale', 'name': '上次会话日历', 'is_primary': true},
+    ]);
+    await tester.pump();
+    final selector = tester.widget<FxSelect<String>>(
+      find.byType(FxSelect<String>).last,
+    );
+    expect(selector.value, 'fresh');
+    expect(selector.options.map((option) => option.value), contains('fresh'));
+    expect(selector.options.map((option) => option.value), isNot(contains('stale')));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
