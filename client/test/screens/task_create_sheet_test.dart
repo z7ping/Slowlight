@@ -68,6 +68,33 @@ class _TwoListData implements DataService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _ReminderCaptureData extends _TwoListData {
+  DateTime? savedDueDate;
+  DateTime? savedReminderAt;
+  int? savedAdvanceMinutes;
+  int creates = 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #createTask) {
+      creates++;
+      savedDueDate = invocation.namedArguments[#dueDate] as DateTime?;
+      savedReminderAt = invocation.namedArguments[#reminderAt] as DateTime?;
+      savedAdvanceMinutes =
+          invocation.namedArguments[#reminderAdvanceMinutes] as int?;
+      return Future<Task>.value(Task(
+        id: 42,
+        listId: 11,
+        title: '独立提醒任务',
+        priority: 'none',
+        isCompleted: false,
+        createdAt: DateTime(2026, 11, 8),
+      ));
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
 void main() {
   setUpAll(() async { await initializeDateFormatting('zh_CN'); });
 
@@ -134,7 +161,103 @@ void main() {
     expect(reminder.value, -1);
     expect(reminder.options.map((option) => option.label),
         contains('提前 10 分钟'));
-    expect(find.text('提醒（先设置到期日期）'), findsOneWidget);
+    expect(find.text('提醒（提前提醒需到期日期）'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X02 无到期日期仍可独立指定提醒，提交传递原始指定时间',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _ReminderCaptureData();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开独立提醒任务',
+          onPressed: () => FxSheet.show<void>(
+            context: context,
+            showCloseButton: false,
+            padding: EdgeInsets.zero,
+            builder: (_) => TaskCreateSheet(
+              quickMode: true,
+              defaultDueToday: false,
+              dataService: data,
+              tagRepository: TagRepository(dataSource: _CanonicalTagSource()),
+            ),
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开独立提醒任务'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '独立提醒任务');
+    await tester.tap(find.text('更多设置'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final initial = tester.widget<TaskScheduleFields>(
+      find.byType(TaskScheduleFields),
+    );
+    expect(initial.dueDate, isNull);
+    expect(initial.onCustomReminderChanged, isNotNull);
+    expect(find.byKey(const ValueKey('task-reminder-custom-picker')),
+        findsOneWidget);
+    final expected = DateTime(2026, 12, 20, 15, 35);
+    initial.onCustomReminderChanged!(expected);
+    await tester.pump();
+    final updated = tester.widget<TaskScheduleFields>(
+      find.byType(TaskScheduleFields),
+    );
+    expect(updated.customReminderAt, expected);
+    expect(updated.dueDate, isNull);
+    final relative = tester.widget<FxSelect<int>>(
+      find.byType(FxSelect<int>),
+    );
+    expect(relative.value, -2);
+    expect(relative.enabled, isFalse);
+
+    await tester.tap(find.widgetWithText(FxButton, '添加任务'));
+    await tester.pumpAndSettle();
+    expect(data.creates, 1);
+    expect(data.savedDueDate, isNull);
+    expect(data.savedReminderAt, expected);
+    expect(data.savedAdvanceMinutes, 0);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X02 指定提醒独立于到期日期，清除后可恢复为相对提醒',
+      (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskScheduleFields(
+        enabled: true,
+        dueDate: null,
+        onDateChanged: (_) {},
+        dueTime: null,
+        onTimeChanged: (_) {},
+        repeatType: 'none',
+        onRepeatChanged: (_) {},
+        selectedWeekdays: const <int>{},
+        onWeekdayToggled: (_) {},
+        reminderAdvanceMinutes: -1,
+        onReminderChanged: (_) {},
+        customReminderAt: DateTime(2026, 12, 20, 15, 35),
+        onCustomReminderChanged: (value) {
+          expect(value, isNull);
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxSelect<int>>(
+      find.byType(FxSelect<int>),
+    ).value, -2);
+    final clear = find.byWidgetPredicate((widget) =>
+        widget is FxIconButton && widget.tooltip == '清除指定提醒');
+    expect(clear, findsOneWidget);
+    tester.widget<FxIconButton>(clear).onPressed?.call();
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
