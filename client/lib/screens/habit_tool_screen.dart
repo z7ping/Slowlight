@@ -860,9 +860,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     _weekDots(habit, color),
                   ]);
             }),
-            if (expanded) ...[
-              const SizedBox(height: SlowlightSpacing.xl),
-              FxSeparator.horizontal(
+            AnimatedSize(
+              key: ValueKey('habits.motion.${habit.id}'),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: expanded
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: SlowlightSpacing.xl),
+                        FxSeparator.horizontal(
                   margin: EdgeInsets.zero,
                   color: theme.colorScheme.outlineVariant),
               const SizedBox(height: SlowlightSpacing.xl),
@@ -941,7 +951,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                   ),
                 ],
               ),
-            ],
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
