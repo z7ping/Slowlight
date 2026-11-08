@@ -117,6 +117,7 @@ class ReflectionRepository {
 
     try {
       final fetched = <ReflectionEntry>[];
+      final fetchedIds = <int>{};
       const pageSize = 100;
       for (var offset = 0; ; offset += pageSize) {
         if (offset >= 100000) {
@@ -134,6 +135,9 @@ class ReflectionRepository {
             !item.createdAt.isBefore(end))) {
           throw const FormatException('服务器未返回指定月份的观察记录');
         }
+        if (page.any((item) => !fetchedIds.add(item.id))) {
+          throw const FormatException('日历观察分页未推进，不能确认完整历史');
+        }
         fetched.addAll(page);
         if (page.length < pageSize) break;
       }
@@ -147,8 +151,11 @@ class ReflectionRepository {
       };
       return (entries: byId.values.toList(growable: false), complete: true);
     } catch (error) {
-      if (!_isTransientNetworkError(error)) rethrow;
-      // The cache can show real facts, but is never proof of complete history.
+      if (!_isTransientNetworkError(error) && error is! FormatException) {
+        rethrow;
+      }
+      // Old or malformed pagination cannot prove a complete month. Keep
+      // confirmed cache facts but mark the calendar source as incomplete.
       return (
         entries: await _cloudCache.month(start, end),
         complete: false,
