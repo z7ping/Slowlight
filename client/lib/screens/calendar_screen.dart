@@ -311,16 +311,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
         CalendarRecordType.reflection => '观察',
       },
     );
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.warning.withValues(alpha: .09),
-        borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      ),
-      child: Text(
-        '${labels.join('、')}记录暂时不可用，其他数据仍可浏览。',
-        style: SlowlightTypography.caption(context),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: FxCard(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        expanded: true,
+        child: Row(children: [
+          const Icon(LucideIcons.triangleAlert, size: 16),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            '${labels.join('、')}记录暂时不可用，其他数据仍可浏览。',
+            style: SlowlightTypography.caption(context),
+          )),
+          const SizedBox(width: 8),
+          FxButton(
+            key: const ValueKey('calendar-partial-retry'),
+            label: '重试',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.ghost,
+            onPressed: _loading ? null : _load,
+          ),
+        ]),
       ),
     );
   }
