@@ -54,8 +54,23 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 	weekStartStr := weekStart.Format("2006-01-02")
 	recentStartStr := now.AddDate(0, 0, -6).Format("2006-01-02")
 
+	search := strings.TrimSpace(c.Query("search"))
+	if len([]rune(search)) > 200 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "搜索关键词不能超过 200 字"})
+		return
+	}
+	pattern := "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(strings.ToLower(search)) + "%"
+	query := h.DB.Where("user_id = ?", userID)
+	if search != "" {
+		// Log ownership is constrained by the selected, live user habits.
+		// EXISTS avoids N+1 HTTP calls and never loads another user's notes.
+		query = query.Where("(LOWER(habits.name) LIKE ? ESCAPE '!' OR EXISTS (" +
+			"SELECT 1 FROM habit_logs WHERE habit_logs.habit_id = habits.id " +
+			"AND habit_logs.deleted_at IS NULL AND LOWER(habit_logs.note) LIKE ? ESCAPE '!'))",
+			pattern, pattern)
+	}
 	var habits []model.Habit
-    if err := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&habits).Error; err != nil {
+    if err := query.Order("created_at DESC").Find(&habits).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error":"读取习惯失败"})
         return
     }
@@ -118,6 +133,49 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 		}
     }
 
+
+	if search != "" {
+		// Return a matching note alongside the normal, fully enriched Habit.
+		// One window query yields at most one note per habit.
+		type noteMatch struct {
+			HabitID   uint      `gorm:"column:habit_id"`
+			Note      string    `gorm:"column:note"`
+			CreatedAt time.Time `gorm:"column:created_at"`
+		}
+		type searchHabit struct {
+			model.Habit
+			SearchNote   string     `json:"search_note,omitempty"`
+			SearchNoteAt *time.Time `json:"search_note_at,omitempty"`
+		}
+		results := make([]searchHabit, 0, len(habits))
+		matches := make(map[uint]noteMatch)
+		if len(habits) > 0 {
+			ids := make([]uint, 0, len(habits))
+			for _, habit := range habits { ids = append(ids, habit.ID) }
+			var rows []noteMatch
+			err := h.DB.Raw(`SELECT habit_id, note, created_at FROM (
+				SELECT habit_id, note, created_at,
+				ROW_NUMBER() OVER (PARTITION BY habit_id ORDER BY created_at DESC, id DESC) AS rn
+				FROM habit_logs WHERE habit_id IN ? AND deleted_at IS NULL
+				AND LOWER(note) LIKE ? ESCAPE '!'
+			) AS ranked WHERE rn = 1`, ids, pattern).Scan(&rows).Error
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "读取匹配习惯备注失败"})
+				return
+			}
+			for _, row := range rows { matches[row.HabitID] = row }
+		}
+		for _, habit := range habits {
+			item := searchHabit{Habit: habit}
+			if note, ok := matches[habit.ID]; ok {
+				item.SearchNote = note.Note
+				item.SearchNoteAt = &note.CreatedAt
+			}
+			results = append(results, item)
+		}
+		c.JSON(http.StatusOK, results)
+		return
+	}
 	c.JSON(http.StatusOK, habits)
 }
 
