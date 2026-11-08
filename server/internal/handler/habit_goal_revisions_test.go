@@ -41,6 +41,30 @@ func TestP05HabitGoalRevisionIsAppendOnlyAndAccountScoped(t *testing.T) {
     }
     retried:=send(http.MethodPut,route,map[string]interface{}{"goal_value":5},http.StatusOK)
     if len(retried.GoalHistory)!=2 {t.Fatalf("replay made extra revision: %+v",retried.GoalHistory)}
+    if err:=db.Create(&model.HabitLog{
+        HabitID:created.ID,Date:"2026-11-05",Note:"不可修改的真实记录",
+    }).Error;err!=nil{t.Fatal(err)}
+    for _,payload:=range []map[string]interface{}{
+        {"record_type":"count"},
+        {"record_unit":"杯"},
+        {"schedule_rule":map[string]interface{}{
+            "version":1,"kind":"interval","unit":"day","every":1,
+            "anchor_date":"2026-12-01","anchor_time":"08:00",
+            "reminder_mode":"off","reminder_time":"09:00",
+        }},
+    }{
+        body,_:=json.Marshal(payload)
+        response:=httptest.NewRecorder()
+        req:=httptest.NewRequest(http.MethodPut,route,bytes.NewReader(body))
+        req.Header.Set("Content-Type","application/json")
+        router.ServeHTTP(response,req)
+        if response.Code!=http.StatusConflict{
+            t.Fatalf("history contract mutated: %d %s",response.Code,response.Body.String())
+        }
+    }
+    var revisions []model.HabitGoalRevision
+    if err:=db.Where("habit_id = ?",created.ID).Find(&revisions).Error;err!=nil{t.Fatal(err)}
+    if len(revisions)!=2 {t.Fatalf("rejected edits changed goal history: %+v",revisions)}
     legacy:=model.Habit{UserID:userID,Name:"旧目标",GoalPeriod:"day",GoalMetric:"events",GoalValue:1}
     if err:=db.Create(&legacy).Error;err!=nil{t.Fatal(err)}
     saved:=send(http.MethodPut,"/habits/"+itoa(legacy.ID),
