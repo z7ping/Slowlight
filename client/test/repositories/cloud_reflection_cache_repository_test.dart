@@ -107,6 +107,7 @@ void main() {
     ]);
     final pending = await repo.createPending(
       content: '未同步的当月观察', entryType: 'observation',
+      context: const {},
     );
     final full = await repo.month(start, end);
     final pendingOnly = await repo.month(start, end, pendingOnly: true);
@@ -139,6 +140,7 @@ void main() {
     ]);
     final pending = await repo.createPending(
       content: '未同步的历史检索记录', entryType: 'observation',
+      context: const {},
     );
     final percent = await repo.searchContent('100%');
     expect(percent.map((r) => r.id), [701]);
