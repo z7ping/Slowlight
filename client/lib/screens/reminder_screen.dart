@@ -150,7 +150,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
                           const SizedBox(height: 2),
                           Text(
                             working
-                                ? '距小憩 · 小憩 ${_service.microRestCount}/${_service.microRestsBeforeLong}'
+                                ? (_service.microRestCount >=
+                                        _service.microRestsBeforeLong
+                                    ? '距长休息 · 已完成 ${_service.microRestCount} 次小憩'
+                                    : '距小憩 · 小憩 ${_service.microRestCount}/${_service.microRestsBeforeLong}')
                                 : '还未开始',
                             textAlign: TextAlign.center,
                             style: SlowlightTypography.caption(
