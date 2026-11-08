@@ -89,7 +89,7 @@ void main() {
 
     expect(await AuthService.getToken(source: 'sidebar'), isNull);
     expect(await AuthService.getToken(source: 'sidebar'), isNull);
-    final record = traces.join('\\n');
+    final record = traces.join('\n');
     expect(record, contains(
       'action=read slot=refresh '
       'actor=access_missing.companion_refresh status=present',
@@ -176,7 +176,7 @@ void main() {
     final traces = <String>[];
     AuthStorageDiagnostics.debugTraceSink = traces.add;
     await AuthService.logout();
-    final recorded = traces.join('\\n');
+    final recorded = traces.join('\n');
     expect(recorded, contains(
       'action=delete slot=access actor=logout phase=start',
     ));
