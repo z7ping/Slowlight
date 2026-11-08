@@ -62,6 +62,33 @@ class _SampleHabitRepo extends HabitRepository {
   Future<List<HabitLog>> logs(int habitId, {String? month}) async => [];
 }
 
+class _OverviewHabitRepo extends HabitRepository {
+  @override
+  Future<List<Habit>> getAll() async => [
+    Habit(
+      id: 11, userId: 1, name: '每天阅读', createdAt: DateTime(2026),
+      checkedToday: true, goalPeriod: 'week', goalValue: 3, goalMet: true,
+    ),
+    Habit(
+      id: 12, userId: 1, name: '每周散步', createdAt: DateTime(2026),
+      checkedToday: true, goalPeriod: 'week', goalValue: 4, goalMet: false,
+    ),
+    Habit(
+      id: 13, userId: 1, name: '练习写字', createdAt: DateTime(2026),
+      checkedToday: false, periodTarget: 2, periodCount: 2,
+    ),
+  ];
+}
+
+class _DelayedHabitsRepo extends HabitRepository {
+  final first = Completer<List<Habit>>();
+  final second = Completer<List<Habit>>();
+  int reads = 0;
+
+  @override
+  Future<List<Habit>> getAll() => ++reads == 1 ? first.future : second.future;
+}
+
 class _DelayedLogsRepo extends HabitRepository {
   final first = Completer<List<HabitLog>>();
   final latest = Completer<List<HabitLog>>();
@@ -401,6 +428,127 @@ void main() {
     expect(find.text('0 个习惯 · 今日 0 个有记录'), findsOneWidget);
     expect(find.text('添加习惯'), findsOneWidget);
     expect(find.text('创建第一个习惯'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  test('P1-7 旧习惯列表迟到不会覆盖已经读取的新目标状态', () async {
+    final repo = _DelayedHabitsRepo();
+    final controller = HabitController(repository: repo);
+    final initial = controller.load();
+    final newer = controller.load();
+    repo.second.complete([
+      Habit(
+        id: 2, userId: 1, name: '更新后的习惯',
+        createdAt: DateTime(2026),
+        goalPeriod: 'week', goalValue: 2, goalMet: true,
+      ),
+    ]);
+    await newer;
+    repo.first.complete([
+      Habit(
+        id: 1, userId: 1, name: '旧响应',
+        createdAt: DateTime(2026),
+        checkedToday: true,
+      ),
+    ]);
+    await initial;
+    expect(controller.habits.single.name, '更新后的习惯');
+    expect(habitOverviewCounts(controller.habits).met, 1);
+    expect(controller.error, isNull);
+    controller.dispose();
+  });
+
+  test('P1-7 习惯数、今天有记录的习惯数与本期达标分别计算', () {
+    final habits = [
+      Habit(id: 1, userId: 1, name: '阅读', createdAt: DateTime(2026),
+        checkedToday: true, goalPeriod: 'week', goalValue: 3,
+        goalMet: true),
+      Habit(id: 2, userId: 1, name: '行走', createdAt: DateTime(2026),
+        checkedToday: true, goalPeriod: 'week', goalValue: 2,
+        goalMet: false),
+      Habit(id: 3, userId: 1, name: '运动', createdAt: DateTime(2026),
+        periodTarget: 2, periodCount: 2),
+      Habit(id: 4, userId: 1, name: '无目标', createdAt: DateTime(2026)),
+    ];
+    final result = habitOverviewCounts(habits);
+    expect(result.total, 4);
+    expect(result.recordedToday, 2);
+    expect(result.targets, 3);
+    expect(result.met, 2);
+  });
+
+  testWidgets('P1-7 Android 概况分别展示习惯、今日日志条数与周期达标',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(
+        repository: _OverviewHabitRepo(),
+        todayLogCountLoader: () async => 4,
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    // Two distinct habits have logs today; four actual events, not two.
+    expect(find.text('3 个习惯 · 今日 2 个有记录'), findsOneWidget);
+    expect(find.text('今日日志 4 条 · 本期达标 2/3'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P1-7 今日日志读取失败不能展示伪造的零条',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(
+        repository: _OverviewHabitRepo(),
+        todayLogCountLoader: () => Future<int>.error(StateError('offline')),
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日日志待核对'), findsOneWidget);
+    expect(find.text('本期达标 2/3'), findsOneWidget);
+    expect(find.text('今日日志 0 条'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P1-7 后发的刷新成功不得被更早日志统计结果覆盖',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final first = Completer<int>();
+    final second = Completer<int>();
+    var reads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(
+        repository: _OverviewHabitRepo(),
+        todayLogCountLoader: () => ++reads == 1 ? first.future : second.future,
+      )),
+    ));
+    await tester.pump();
+    await tester.pump();
+    expect(reads, 1);
+
+    final refresh = tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pump();
+    await tester.pump();
+    expect(reads, 2);
+    second.complete(5);
+    await refresh;
+    await tester.pump();
+    first.complete(99);
+    await tester.pump();
+
+    expect(find.text('今日日志 5 条'), findsOneWidget);
+    expect(find.text('今日日志 99 条'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });

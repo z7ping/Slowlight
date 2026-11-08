@@ -10,13 +10,41 @@ import '../models/habit_schedule_rule.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/tag_links_repository.dart';
 import '../services/notification_service.dart';
+import '../services/api/review_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/habit_checkin_flow.dart';
 import '../widgets/habit_editor_dialog.dart';
 
+/// Distinguish a habit with a record from the number of log events.
+({int total, int recordedToday, int targets, int met}) habitOverviewCounts(
+    Iterable<Habit> habits) {
+  var total = 0;
+  var recordedToday = 0;
+  var targets = 0;
+  var met = 0;
+  for (final habit in habits) {
+    total++;
+    if (habit.checkedToday) recordedToday++;
+    final explicitGoal = habit.goalValue > 0 &&
+        const {'day', 'week', 'month'}.contains(habit.goalPeriod);
+    final scheduledTarget = !explicitGoal && habit.periodTarget > 0;
+    if (!explicitGoal && !scheduledTarget) continue;
+    targets++;
+    if (explicitGoal
+        ? habit.goalMet
+        : habit.periodCount >= habit.periodTarget) {
+      met++;
+    }
+  }
+  return (total: total, recordedToday: recordedToday,
+      targets: targets, met: met);
+}
+
 class HabitToolScreen extends StatefulWidget {
   final HabitRepository? repository;
+  /// Existing Review API returns a source-backed count of today's log rows.
+  final Future<int> Function()? todayLogCountLoader;
   final TagLinksRepository? tagLinksRepository;
   final bool titleProvidedByShell;
   /// Open the existing editor once when the Today empty state requests create.
@@ -29,6 +57,7 @@ class HabitToolScreen extends StatefulWidget {
   const HabitToolScreen({
     super.key,
     this.repository,
+    this.todayLogCountLoader,
     this.tagLinksRepository,
     this.editor,
     this.titleProvidedByShell = false,
@@ -56,6 +85,60 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   final Set<int> _allLogsVisible = <int>{};
   HabitEditorValue? _creationDraft;
   final Map<int, HabitEditorValue> _editDrafts = {};
+  int? _todayLogCount;
+  int _todayLogRevision = 0;
+  int _habitReloadRevision = 0;
+
+  Future<int> _readTodayLogCount() async {
+    final int count;
+    if (widget.todayLogCountLoader != null) {
+      count = await widget.todayLogCountLoader!();
+    } else {
+      final review = await ReviewApi.getTodayReview();
+      final facts = review['facts'];
+      final value = facts is Map ? facts['habit_checked'] : null;
+      if (value is! int) {
+        throw const FormatException('今日习惯日志计数不可用');
+      }
+      count = value;
+    }
+    if (count < 0) {
+      throw const FormatException('今日习惯日志计数无效');
+    }
+    return count;
+  }
+
+  Future<void> _refreshTodayLogCount() async {
+    final revision = ++_todayLogRevision;
+    if (!mounted) return;
+    setState(() => _todayLogCount = null);
+    try {
+      final count = await _readTodayLogCount();
+      if (mounted && revision == _todayLogRevision) {
+        setState(() => _todayLogCount = count);
+      }
+    } catch (_) {
+      // Unknown is not zero; do not reuse an earlier count after a failed read.
+      if (mounted && revision == _todayLogRevision) {
+        setState(() => _todayLogCount = null);
+      }
+    }
+  }
+
+  Future<void> _reloadHabitsAndSummary() async {
+    final revision = ++_habitReloadRevision;
+    await _controller.load();
+    if (!mounted || revision != _habitReloadRevision) return;
+    if (_controller.error != null) {
+      ++_todayLogRevision;
+      setState(() => _todayLogCount = null);
+    } else if (_controller.habits.isEmpty) {
+      ++_todayLogRevision;
+      setState(() => _todayLogCount = 0);
+    } else {
+      await _refreshTodayLogCount();
+    }
+  }
 
   @override
   void initState() {
@@ -65,7 +148,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     _controller = HabitController(repository: widget.repository)
       ..addListener(_onChanged);
     _pendingFocusHabitId = widget.focusHabitId;
-    _controller.load();
+    unawaited(_reloadHabitsAndSummary());
     if (widget.createOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _createHabit();
@@ -75,6 +158,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   @override
   void dispose() {
+    ++_todayLogRevision;
+    ++_habitReloadRevision;
     WidgetsBinding.instance.removeObserver(this);
     _nextSlotRefresh?.cancel();
     _controller.removeListener(_onChanged);
@@ -128,7 +213,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _controller.load();
+      unawaited(_reloadHabitsAndSummary());
       NotificationService().scheduleHabitReminders().catchError((Object _) {});
     }
   }
@@ -148,7 +233,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     }
     if(next==null)return;
     final delay=next.difference(now)+const Duration(seconds:2);
-    _nextSlotRefresh=Timer(delay, () { if(mounted)_controller.load(); });
+    _nextSlotRefresh=Timer(delay, () { if(mounted) unawaited(_reloadHabitsAndSummary()); });
   }
 
 
@@ -333,8 +418,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       if (confirmed != true) return;
       try {
         await _controller.uncheckIn(habit);
+        unawaited(_refreshTodayLogCount());
         _message('已取消今天的打卡');
       } catch (_) {
+        // The write may have committed before the response was lost.
+        unawaited(_refreshTodayLogCount());
         _message('取消打卡失败');
       }
       return;
@@ -362,12 +450,14 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Future<void> _record(Habit habit,
       {bool detailed = false, DateTime? date}) async {
+    var attempted = false;
     final saved = await recordHabit(
       context,
       habit: habit,
       detailed: detailed,
       recordDate: date,
       submit: (value) async {
+        attempted = true;
         await _controller.checkIn(
           habit,
           date: date == null
@@ -382,7 +472,14 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         );
       },
     );
-    if (saved) _message(date == null ? '已记录「${habit.name}」' : '补卡已记录');
+    if (attempted) {
+      // Even a failed ACK may have committed remotely. Re-read the source
+      // instead of retaining an old count as though no write happened.
+      unawaited(_refreshTodayLogCount());
+    }
+    if (saved) {
+      _message(date == null ? '已记录「${habit.name}」' : '补卡已记录');
+    }
   }
 
   Future<void> _backfill(Habit habit) =>
@@ -470,7 +567,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
             })
         .toList(growable: false);
     return FxRefresh(
-      onRefresh: _controller.load,
+      onRefresh: _reloadHabitsAndSummary,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: SlowlightPageInsets.scroll(context, bottom: 88),
@@ -499,7 +596,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                             icon: LucideIcons.refreshCw,
                             variant: FxButtonVariant.outline,
                             size: FxButtonSize.sm,
-                            onPressed: _controller.load,
+                            onPressed: _reloadHabitsAndSummary,
                           ),
                         ],
                       ),
@@ -571,17 +668,35 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Widget _summaryBar() {
     final theme = Theme.of(context);
-    final total = _controller.habits.length;
-    final done = _controller.habits.where((habit) => habit.checkedToday).length;
-    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
-      // Count recorded habits, not unverified individual log entries.
+    final caption = SlowlightTypography.caption(context).copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    if (_controller.error != null) {
       return FxActionBar(
         stackBelow: 280,
-        leading: Text(
-          '$total 个习惯 · 今日 $done 个有记录',
-          style: SlowlightTypography.caption(context).copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        leading: Text('习惯概况待核对', style: caption),
+        actions: [if (widget.titleProvidedByShell) _addButton()],
+      );
+    }
+    final counts = habitOverviewCounts(_controller.habits);
+    final records = _todayLogCount == null
+        ? '今日日志待核对'
+        : '今日日志 ${_todayLogCount} 条';
+    final period = counts.targets == 0
+        ? '本期达标 —'
+        : '本期达标 ${counts.met}/${counts.targets}';
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      return FxActionBar(
+        stackBelow: 280,
+        leading: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${counts.total} 个习惯 · 今日 ${counts.recordedToday} 个有记录',
+                style: caption),
+            const SizedBox(height: SlowlightSpacing.xs),
+            Text('$records · $period', style: caption),
+          ],
         ),
         actions: [if (widget.titleProvidedByShell) _addButton()],
       );
@@ -594,24 +709,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         runSpacing: SlowlightSpacing.md,
         children: [
           FxChip(
-            label: '$total 个习惯',
+            label: '${counts.total} 个习惯',
             variant: FxChipVariant.outline,
             backgroundColor: fxSubtleSurface(context),
             foregroundColor: theme.colorScheme.onSurfaceVariant,
             borderColor: theme.colorScheme.outline,
             borderRadius: SlowlightRadius.pill,
           ),
-          Text(
-            '今日已记录 $done/$total',
-            style: SlowlightTypography.caption(context).copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+          Text('今日 ${counts.recordedToday} 个有记录', style: caption),
+          Text(records, style: caption),
+          Text(period, style: caption),
         ],
       ),
-      actions: [
-        if (widget.titleProvidedByShell) _addButton(),
-      ],
+      actions: [if (widget.titleProvidedByShell) _addButton()],
     );
   }
 
@@ -1182,6 +1292,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         }
         final removed = await _controller.verifyLogRemoval(habit.id, log.id);
         if (!mounted) return;
+        unawaited(_refreshTodayLogCount());
         if (removed == null) {
           _message('撤销结果未确认，无法核对最新记录，请稍后重试');
         } else if (!removed) {
