@@ -76,6 +76,35 @@ class ApiService {
     return data;
   }
 
+  /// OAuth 结果先经受保护接口核验，再允许覆盖设备上的现有 JWT。
+  /// 只检查新 JWT，不读取或修改当前登录态；失败时可靠轮询仍可再次领取结果。
+  static Future<void> verifyOAuthCredential(
+    String candidateToken,
+    int expectedUserId,
+  ) async {
+    validateCloudEndpoint();
+    if (candidateToken.isEmpty || expectedUserId <= 0) {
+      throw StateError('GitHub 登录凭据或账号无效');
+    }
+    final response = await HttpUtil.get(
+      Uri.parse('$baseUrl/auth/profile'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $candidateToken',
+      },
+    ).timeout(_getTimeout);
+    if (response.statusCode != 200) {
+      if (response.statusCode == 401) {
+        throw StateError('GitHub 已授权，但云端拒绝新登录凭据（HTTP 401）；原登录状态未被覆盖，请重新检查授权');
+      }
+      throw StateError('核验 GitHub 登录凭据失败（HTTP ${response.statusCode}），请重试检查授权');
+    }
+    final data = json.decode(response.body);
+    if (data is! Map<String, dynamic> || data['id'] != expectedUserId) {
+      throw StateError('GitHub 登录账号校验失败，原登录状态未被覆盖');
+    }
+  }
+
   /// 认证资料更新（PATCH）；沿用统一网络日志脱敏与超时。
   static Future<Map<String, dynamic>> patchAccountProfile(
     Map<String, dynamic> body,
