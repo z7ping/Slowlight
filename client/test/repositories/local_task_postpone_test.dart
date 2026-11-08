@@ -25,6 +25,42 @@ void main() {
     await databaseFactory.deleteDatabase(dbPath);
   });
 
+  test('本地顺延撤销只恢复原日期；重复撤销不会覆盖新修改', () async {
+    await LocalProductCoreSchema.ensureReady();
+    final db = await LocalDb().database;
+    final now = DateTime.now();
+    final listId = await db.insert('lists', {
+      'name': '日常',
+      'created_at': now.toUtc().toIso8601String(),
+      'updated_at': now.toUtc().toIso8601String(),
+    });
+    final repo = LocalTaskRepository();
+    final originalDue = DateTime(now.year, now.month, now.day);
+    final created = await repo.create(
+      listId: listId, title: '不可覆盖标题',
+      dueDate: originalDue, description: '保留原描述',
+    );
+    final postponed = await repo.postpone(created.id);
+    final undone = await repo.restorePostponedDueDate(
+      created.id,
+      expectedDueDate: postponed.dueDate!,
+      originalDueDate: created.dueDate,
+    );
+    expect(undone.dueDate?.day, originalDue.day);
+    expect(undone.title, '不可覆盖标题');
+    expect(undone.description, '保留原描述');
+    await expectLater(
+      repo.restorePostponedDueDate(
+        created.id,
+        expectedDueDate: postponed.dueDate!,
+        originalDueDate: null,
+      ),
+      throwsStateError,
+    );
+    final reloaded = await repo.getById(created.id);
+    expect(reloaded?.dueDate?.day, originalDue.day);
+  });
+
   test('本地顺延真实指向明天，而不是仍落在今天', () async {
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;

@@ -76,6 +76,11 @@ abstract class ApiDataSource {
   Future<List<Task>> getTodayTasks();
   Future<List<Task>> searchTasks(String query);
   Future<Task> postponeTask(int taskId);
+  /// Restore a postponed due date only if the date is still unchanged.
+  Future<Task> restorePostponedDueDate(int taskId, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  });
   Future<List<Task>> getTasksForMonth(int year, int month);
   Future<List<Task>> getCompletedTasks();
   Future<List<Task>> getAllTasks();

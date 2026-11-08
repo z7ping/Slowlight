@@ -368,6 +368,23 @@ class CloudApiService implements ApiDataSource {
   Future<Task> postponeTask(int taskId) => TaskApi.postponeTask(taskId);
 
   @override
+  Future<Task> restorePostponedDueDate(int taskId, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  }) {
+    // Postpone itself requires the server; never queue a conditional undo
+    // against an offline snapshot or a temporary local identifier.
+    if (taskId < 0) {
+      throw StateError('尚未同步的任务不能撤销云端顺延');
+    }
+    return TaskApi.restorePostponedDueDate(
+      taskId,
+      expectedDueDate: expectedDueDate,
+      originalDueDate: originalDueDate,
+    );
+  }
+
+  @override
   Future<List<Task>> getTasksForMonth(int year, int month) => _readThrough(
         () => TaskApi.getTasksForMonth(year, month),
         () => _cache.getTasksForMonth(year, month),

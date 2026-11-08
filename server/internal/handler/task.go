@@ -255,6 +255,48 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 		return
 	}
 
+	// The task postpone toast uses a due-date-only conditional PUT. Never
+	// apply an old undo over a newer task date, or write unrelated fields.
+	if expectedJSON, conditional := raw["expected_due_date"]; conditional {
+		if len(raw) != 2 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "条件撤销仅允许修改任务日期"})
+			return
+		}
+		if _, present := raw["due_date"]; !present {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "条件撤销缺少原日期"})
+			return
+		}
+		var expected model.FlexibleTime
+		if err := json.Unmarshal(expectedJSON, &expected); err != nil || !expected.Valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "待撤销日期无效"})
+			return
+		}
+		if task.DueDate == nil || !task.DueDate.Valid ||
+			!task.DueDate.Time.Equal(expected.Time) {
+			c.JSON(http.StatusConflict, gin.H{"error": "任务日期已变化，无法撤销顺延"})
+			return
+		}
+		result := h.DB.Model(&model.Task{}).
+			Where("id = ? AND user_id = ? AND due_date = ? AND is_completed = ?",
+				task.ID, userID, expected.Time, false).
+			Update("due_date", updateData.DueDate)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "任务日期恢复失败"})
+			return
+		}
+		if result.RowsAffected != 1 {
+			c.JSON(http.StatusConflict, gin.H{"error": "任务日期已变化，无法撤销顺延"})
+			return
+		}
+		h.DB.Preload("List").Preload("Tags").First(&task, task.ID)
+		triggerWebhooks(h.DB, userID, model.EventTaskUpdated, map[string]interface{}{
+			"id": task.ID, "title": task.Title, "list_id": task.ListID,
+			"is_completed": task.IsCompleted,
+		})
+		c.JSON(http.StatusOK, task)
+		return
+	}
+
 	updates := map[string]interface{}{}
 	mutableFields := map[string]interface{}{
 		"list_id": updateData.ListID, "title": updateData.Title,

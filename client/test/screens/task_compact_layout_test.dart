@@ -19,6 +19,9 @@ class _X03ToggleTaskService implements DataService {
   bool failReadAfterWrite = false;
   int completions = 0;
   int undoCalls = 0;
+  int postpones = 0;
+  int postponeUndos = 0;
+  DateTime? dueDate;
 
   Task get current => Task(
     id: 903,
@@ -28,6 +31,7 @@ class _X03ToggleTaskService implements DataService {
     isCompleted: completed,
     createdAt: DateTime(2026, 11, 8),
     completedAt: completed ? DateTime(2026, 11, 8) : null,
+    dueDate: dueDate,
   );
 
   @override
@@ -66,10 +70,89 @@ class _X03ToggleTaskService implements DataService {
   }
 
   @override
+  Future<Task> postponeTask(int localId, int? serverId) async {
+    postpones++;
+    final now = DateTime.now();
+    dueDate = DateTime(now.year, now.month, now.day + 1);
+    return current;
+  }
+
+  @override
+  Future<Task> restorePostponedDueDate(
+    int localId,
+    int? serverId, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  }) async {
+    if (dueDate == null ||
+        !dueDate!.isAtSameMomentAs(expectedDueDate) || completed) {
+      throw StateError('任务日期已变化，无法撤销顺延');
+    }
+    postponeUndos++;
+    dueDate = originalDueDate;
+    return current;
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
+  testWidgets('X03 左滑顺延后可撤销原始无日期任务', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _X03ToggleTaskService();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataService: data)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('撤销状态测试任务'), const Offset(-110, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('顺延'));
+    await tester.pumpAndSettle();
+
+    expect(data.postpones, 1);
+    expect(data.dueDate, isNotNull);
+    final undo = tester.widget<FxNoticeAction>(find.byType(FxNoticeAction));
+    undo.onPressed();
+    await tester.pumpAndSettle();
+    expect(data.postponeUndos, 1);
+    expect(data.dueDate, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X03 顺延后日期被其他操作改变，旧撤销不会覆盖它', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _X03ToggleTaskService();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataService: data)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('撤销状态测试任务'), const Offset(-110, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('顺延'));
+    await tester.pumpAndSettle();
+
+    final undo = tester.widget<FxNoticeAction>(find.byType(FxNoticeAction));
+    final changedDate = DateTime(2030, 5, 21);
+    data.dueDate = changedDate;
+    undo.onPressed();
+    await tester.pumpAndSettle();
+    expect(data.postponeUndos, 0);
+    expect(data.dueDate, changedDate);
+    expect(find.textContaining('任务日期已变化'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X03 当前仍完成时，通知撤销只执行一次恢复待办', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

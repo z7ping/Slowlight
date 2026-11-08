@@ -71,6 +71,73 @@ func TestPostponeTaskMovesToTomorrowInUserTimezone(t *testing.T) {
 	}
 }
 
+func TestPostponeUndoOnlyRestoresUnchangedDate(t *testing.T) {
+  db, handler, user, list := setupTaskTest(t)
+  r := newTaskRouter(handler, user.ID)
+  task := createTestTask(t, db, user.ID, list.ID, "顺延前标题")
+
+  id := "/tasks/" + itoa(task.ID)
+  postpone := httptest.NewRecorder()
+  req := httptest.NewRequest(http.MethodPatch, id + "/postpone", nil)
+  r.ServeHTTP(postpone, req)
+  if postpone.Code != http.StatusOK {
+    t.Fatalf("顺延失败: %d %s", postpone.Code, postpone.Body.String())
+  }
+  var postponed model.Task
+  if err := json.Unmarshal(postpone.Body.Bytes(), &postponed); err != nil {
+    t.Fatal(err)
+  }
+  if postponed.DueDate == nil || !postponed.DueDate.Valid {
+    t.Fatal("顺延没有返回待恢复日期")
+  }
+
+  undo := func(expected string) *httptest.ResponseRecorder {
+    t.Helper()
+    body, _ := json.Marshal(map[string]interface{}{
+      "expected_due_date": expected,
+      "due_date": nil,
+    })
+    w := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodPut, id, bytes.NewReader(body))
+    req.Header.Set("Content-Type", "application/json")
+    r.ServeHTTP(w, req)
+    return w
+  }
+  expected := postponed.DueDate.Time.Format(time.RFC3339)
+  restored := undo(expected)
+  if restored.Code != http.StatusOK {
+    t.Fatalf("恢复原无日期失败: %d %s", restored.Code, restored.Body.String())
+  }
+  var current model.Task
+  if err := db.First(&current, task.ID).Error; err != nil {
+    t.Fatal(err)
+  }
+  if current.DueDate != nil || current.Title != "顺延前标题" {
+    t.Fatalf("撤销不能修改其他字段: %+v", current)
+  }
+
+  // The same old toast cannot overwrite another edit or restore twice.
+  stale := undo(expected)
+  if stale.Code != http.StatusConflict {
+    t.Fatalf("旧撤销应返回409，实际 %d: %s", stale.Code, stale.Body.String())
+  }
+  var after model.Task
+  db.First(&after, task.ID)
+  if after.DueDate != nil {
+    t.Fatal("重复撤销污染了到期日期")
+  }
+
+  // A conditional undo cannot write title/list/completion or any other field.
+  unsafe := httptest.NewRecorder()
+  bad := []byte(`{"expected_due_date":"` + expected + `","due_date":null,"title":"覆盖了其他修改"}`)
+  badReq := httptest.NewRequest(http.MethodPut, id, bytes.NewReader(bad))
+  badReq.Header.Set("Content-Type", "application/json")
+  r.ServeHTTP(unsafe, badReq)
+  if unsafe.Code != http.StatusBadRequest {
+    t.Fatalf("带其他字段的条件写应拒绝，实际 %d", unsafe.Code)
+  }
+}
+
 func TestCreateTask(t *testing.T) {
 	_, handler, user, list := setupTaskTest(t)
 	r := newTaskRouter(handler, user.ID)
