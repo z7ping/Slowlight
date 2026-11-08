@@ -79,6 +79,7 @@ func main() {
 		api.POST("/lists", listHandler.CreateList)
 		api.PUT("/lists/:id", listHandler.UpdateList)
 		api.DELETE("/lists/:id", listHandler.DeleteList)
+		api.POST("/lists/undo", listHandler.UndoListDelete)
 
 		api.GET("/tags", tagHandler.GetTags)
 		api.GET("/tags/stats", tagHandler.GetStats)
