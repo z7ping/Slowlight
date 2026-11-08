@@ -115,8 +115,8 @@ class ReflectionRepository {
       );
     }
 
+    final fetched = <ReflectionEntry>[];
     try {
-      final fetched = <ReflectionEntry>[];
       final fetchedIds = <int>{};
       const pageSize = 100;
       for (var offset = 0; ; offset += pageSize) {
@@ -156,8 +156,14 @@ class ReflectionRepository {
       }
       // Old or malformed pagination cannot prove a complete month. Keep
       // confirmed cache facts but mark the calendar source as incomplete.
+      final cached = await _cloudCache.month(start, end);
+      final confirmed = <int, ReflectionEntry>{
+        for (final entry in cached) entry.id: entry,
+        // Preserve valid pages fetched before the failed network request.
+        for (final entry in fetched) entry.id: entry,
+      };
       return (
-        entries: await _cloudCache.month(start, end),
+        entries: confirmed.values.toList(growable: false),
         complete: false,
       );
     }
