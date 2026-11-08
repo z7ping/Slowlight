@@ -7,7 +7,7 @@ import '../services/app_error_logger.dart';
 import '../services/app_info_service.dart';
 import '../ui/fx.dart';
 
-/// 错误记录只在用户主动触发导出时离开本设备。
+/// 诊断记录只在用户主动触发导出时离开本设备。
 class DiagnosticsScreen extends StatefulWidget {
   const DiagnosticsScreen({super.key, this.logger});
 
@@ -85,7 +85,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     if (_busy) return;
     final confirmed = await FxDialog.confirm(
       context: context,
-      title: '清空错误日志',
+      title: '清空诊断日志',
       content: '确定删除本设备上的当前日志及轮转备份吗？删除后无法恢复。',
       confirmText: '清空日志',
       destructive: true,
@@ -269,7 +269,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  '最新记录在底部 · 展示最近日志，导出包含完整记录',
+                  '仅记录应用异常与必要的认证状态 · 导出包含完整记录',
                   style: SlowlightTypography.caption(context).copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -331,7 +331,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             FxPageHeader(
               title: '应用诊断',
               actionIcon: LucideIcons.refreshCw,
-              actionTooltip: '刷新错误记录',
+              actionTooltip: '刷新诊断记录',
               onAction: _busy ? null : _reload,
             ),
             Expanded(
@@ -344,7 +344,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _sectionTitle('错误记录'),
+                          _sectionTitle('诊断记录'),
                           FutureBuilder<String>(
                             future: _logs,
                             builder: (context, snapshot) {
@@ -360,13 +360,13 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                                   if (!loaded)
                                     _recordState(
                                       icon: LucideIcons.fileText,
-                                      title: '正在读取错误记录',
+                                      title: '正在读取诊断记录',
                                       description: '正在检查此设备保存的日志…',
                                     )
                                   else if (snapshot.hasError)
                                     _recordState(
                                       icon: LucideIcons.triangleAlert,
-                                      title: '无法读取错误记录',
+                                      title: '无法读取诊断记录',
                                       description: '日志文件暂时无法访问，请重新尝试。',
                                       action: FxButton(
                                         key: const ValueKey('diagnostics.retry'),
@@ -378,14 +378,14 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                                   else if (!hasLogs)
                                     _recordState(
                                       icon: LucideIcons.fileText,
-                                      title: '暂无错误记录',
+                                      title: '暂无诊断记录',
                                       description:
-                                          '本设备没有已保存的错误日志。遇到异常时可在这里查看。',
+                                          '本设备没有已保存的诊断日志。遇到异常时可在这里查看。',
                                     )
                                   else ...[
                                     _recordState(
                                       icon: LucideIcons.fileText,
-                                      title: '已有错误记录',
+                                      title: '已有诊断记录',
                                       description:
                                           '可查看日志原文，或导出完整记录用于排查。',
                                     ),
@@ -423,7 +423,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text('导出错误日志',
+                                            Text('导出诊断日志',
                                               style: SlowlightTypography.secondary(context)),
                                             const SizedBox(height: 4),
                                             Text(
@@ -481,7 +481,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    '错误日志默认不会上传。主动分享前，请检查其中是否包含个人信息。',
+                                    '诊断日志默认不会上传。主动分享前，请检查其中是否包含个人信息。',
                                     style: SlowlightTypography.caption(context).copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
