@@ -83,7 +83,8 @@ class ReflectionComposer {
         controller.text.trim().isNotEmpty ||
         selectedDimension != dimensionKey ||
         selectedTagId != null ||
-        canonicalTags.isNotEmpty;
+        canonicalTags.isNotEmpty ||
+        inlineTagName.text.trim().isNotEmpty;
 
     Future<void> requestEntryClose(
       BuildContext sheetContext,
@@ -160,6 +161,7 @@ class ReflectionComposer {
       final theme = Theme.of(entryContext);
 
       Future<void> saveObservation() async {
+        if (saving || resultUnknown) return;
         final value = controller.text.trim();
         if (value.isEmpty) {
           setEntryState(() => error = '先写一点观察');
@@ -201,14 +203,12 @@ class ReflectionComposer {
           }
         } catch (_) {
           if (!entryContext.mounted) return;
-          // Keep Windows' existing recoverable failure contract. Android
-          // treats uncertain creates as non-idempotent and blocks replay.
+          // A remote create might have committed before its response or
+          // cache update failed. Neither platform may replay that write.
           setEntryState(() {
             saving = false;
-            resultUnknown = !_useDesktopObservationDialog;
-            error = _useDesktopObservationDialog
-                ? '保存失败，请检查网络后重试'
-                : '保存结果未确认。请先到回顾核对，避免重复记录。';
+            resultUnknown = true;
+            error = '保存结果未确认。请先到回顾核对，避免重复记录。';
           });
         }
       }
@@ -275,15 +275,17 @@ class ReflectionComposer {
                 },
               ),
               const SizedBox(height: SlowlightSpacing.xl),
-            ] else ...[
-              Text(
+            ],
+            Text(
                 '归属维度（可选）',
                 style: SlowlightTypography.componentFieldLabel(entryContext)
                     .copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: SlowlightSpacing.md),
               Wrap(
-                key: const ValueKey('observation.mobile.dimensions'),
+                key: ValueKey(_useDesktopObservationDialog
+                    ? 'observation.desktop.dimensions'
+                    : 'observation.mobile.dimensions'),
                 spacing: SlowlightSpacing.md,
                 runSpacing: SlowlightSpacing.md,
                 children: [
@@ -304,7 +306,6 @@ class ReflectionComposer {
                 ],
               ),
               const SizedBox(height: SlowlightSpacing.xl),
-            ],
             TagPicker(
               label: '标签（可选）',
               enabled: !saving,
