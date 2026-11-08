@@ -117,6 +117,32 @@ void main() {
     expect((point['completion_rate'] as int) <= 100, isTrue);
   });
 
+  test('DailyTrend 按本地自然日只计观察、不计回应或删除项', () async {
+    final db = await LocalDb().database;
+    final now = DateTime.now();
+    final yesterday = DateTime(now.year, now.month, now.day - 1, 12);
+    final records = [
+      (date: now, type: 'observation', deleted: false),
+      (date: now, type: 'reflection', deleted: false),
+      (date: yesterday, type: 'observation', deleted: false),
+      (date: now, type: 'observation', deleted: true),
+    ];
+    for (final record in records) {
+      await db.insert('reflections', {
+        'entry_type': record.type,
+        'content': '统计测试',
+        'created_at': record.date.toUtc().toIso8601String(),
+        'updated_at': record.date.toUtc().toIso8601String(),
+        'deleted_at': record.deleted
+            ? record.date.toUtc().toIso8601String()
+            : null,
+      });
+    }
+    final trend = await LocalAnalyticsService().getDailyTrend(days: 2);
+    expect(trend[0]['reflection_count'], 1);
+    expect(trend[1]['reflection_count'], 1);
+  });
+
   test('DimensionSummary 把 session_ended 纳入维度活动', () async {
     final db = await LocalDb().database;
     final now = DateTime.now();

@@ -24,6 +24,7 @@ import 'weekly_review_screen.dart';
 /// 回顾页采用已确认的 Android / Windows 响应式信息结构；组件复用 Fx。
 class TodayReviewScreen extends StatefulWidget {
   final String initialReviewMode;
+  final ValueChanged<StatsDestination>? onStatsNavigate;
   /// A verified search result to pin without changing today's statistics.
   final ReflectionEntry? focusObservation;
   final int focusRequestId;
@@ -34,6 +35,7 @@ class TodayReviewScreen extends StatefulWidget {
   const TodayReviewScreen({
     super.key,
     this.initialReviewMode = 'tasks',
+    this.onStatsNavigate,
     this.focusObservation,
     this.focusRequestId = 0,
     this.reflectionRepository,
@@ -335,7 +337,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         ),
         Expanded(
           child: switch (_viewIndex) {
-            1 => const StatsScreen(embedded: true),
+            1 => StatsScreen(
+              embedded: true,
+              onNavigate: widget.onStatsNavigate,
+            ),
             2 => const TimeDistributionScreen(),
             _ => _overviewBody(),
           },

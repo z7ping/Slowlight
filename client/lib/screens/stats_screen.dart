@@ -5,14 +5,19 @@ import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import 'stats/stats_snapshot.dart';
 
+/// Targets mirror the established mobile prototype's KPI actions.
+enum StatsDestination { tasks, habits, focus, review, timeDistribution }
+
 class StatsScreen extends StatefulWidget {
   final bool embedded;
+  final ValueChanged<StatsDestination>? onNavigate;
   /// Test seam; the real screen continues to use StatsSnapshot.load.
   final Future<StatsSnapshot> Function()? snapshotLoader;
 
   const StatsScreen({
     super.key,
     this.embedded = false,
+    this.onNavigate,
     this.snapshotLoader,
   });
 
@@ -25,6 +30,7 @@ class _StatsScreenState extends State<StatsScreen> {
   String? _error;
   StatsSnapshot? _snapshot;
   int _loadVersion = 0;
+  int _periodDays = 7;
 
   @override
   void initState() {
@@ -75,17 +81,16 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget _content(StatsSnapshot data) {
     final theme = Theme.of(context);
     final desktop = ResponsiveLayout.isDesktopOrWider(context);
-    final last7 = data.last7Trend;
-    final habitChecks = last7.fold<int>(
-      0,
-      (sum, row) => sum + ((row['habit_checked'] as num?)?.toInt() ?? 0),
-    );
-    final focusSeconds =
-        (data.sessionStats['total_work_seconds'] as num?)?.toInt();
-    final focusMinutes = focusSeconds == null
-        ? (data.sessionStats['total_minutes'] as num?)?.toInt()
-        : focusSeconds ~/ 60;
-    final observations = _observationCount(last7);
+    // Android has the prototype's Today / last-7-calendar-days switch.
+    // Windows retains the established 7-day compact dashboard.
+    final days = desktop ? 7 : _periodDays;
+    // Desktop titles use the current calendar week; mobile toggles a
+    // rolling 7-day window or today, as specified by the prototype.
+    final countDays = desktop ? DateTime.now().weekday : days;
+    final completed = data.countInDays('task_completed', countDays);
+    final habitChecks = data.countInDays('habit_checked', countDays);
+    final focusMinutes = data.focusMinutesInDays(days);
+    final observations = data.observationCountInDays(days);
 
     return FxRefresh(
       onRefresh: _load,
@@ -93,6 +98,19 @@ class _StatsScreenState extends State<StatsScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: [
+          if (!desktop) ...[
+            Text('记录概况', style: SlowlightTypography.cardTitle(context)),
+            const SizedBox(height: 10),
+            FxSegmented(
+              labels: const ['近 7 天', '今天'],
+              selectedIndex: _periodDays == 7 ? 0 : 1,
+              onChanged: (index) => setState(
+                () => _periodDays = index == 0 ? 7 : 1,
+              ),
+              expanded: true,
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_error != null || data.unavailableSources.isNotEmpty) ...[
             FxCard(
               padding: const EdgeInsets.all(12),
@@ -132,32 +150,55 @@ class _StatsScreenState extends State<StatsScreen> {
               if (columns == 2 && cellWidth(2) < minCellWidth) columns = 1;
 
               final width = cellWidth(columns);
-              final cells = [
-                FxStatCell(
-                  value: data.hasSource('daily_trend')
-                      ? '${data.completedThisWeek}' : '—',
-                  label: '本周完成任务',
+              final cells = <({StatsDestination target, FxStatCell cell})>[
+                (
+                  target: StatsDestination.tasks,
+                  cell: FxStatCell(
+                    value: completed?.toString() ?? '—',
+                    label: desktop ? '本周完成任务' : '完成任务',
+                  ),
                 ),
-                FxStatCell(
-                  value: data.hasSource('daily_trend') ? '$habitChecks' : '—',
-                  label: '习惯打卡次数',
+                (
+                  target: StatsDestination.habits,
+                  cell: FxStatCell(
+                    value: habitChecks?.toString() ?? '—',
+                    label: desktop ? '习惯打卡次数' : '习惯记录',
+                  ),
                 ),
-                FxStatCell(
-                  value: data.hasSource('session_stats') && focusMinutes != null
-                      ? _focusText(focusMinutes) : '—',
-                  label: '专注总时长',
+                (
+                  target: StatsDestination.focus,
+                  cell: FxStatCell(
+                    value: focusMinutes == null ? '—' : _focusText(focusMinutes),
+                    label: desktop ? '专注总时长'
+                        : days == 7 ? '近 7 天专注' : '今日专注',
+                  ),
                 ),
-                FxStatCell(
-                  value: observations == null ? '—' : '$observations',
-                  label: '记录观察',
+                (
+                  target: StatsDestination.review,
+                  cell: FxStatCell(
+                    value: observations?.toString() ?? '—',
+                    label: desktop ? '记录观察' : '观察记录',
+                  ),
                 ),
               ];
               return Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: cells
-                    .map((cell) => SizedBox(width: width, child: cell))
-                    .toList(growable: false),
+                children: cells.map((item) {
+                  final cell = widget.onNavigate == null
+                      ? item.cell
+                      : FxInkWell(
+                          key: ValueKey('stats.kpi.${item.target.name}'),
+                          borderRadius:
+                              BorderRadius.circular(SlowlightRadius.lg),
+                          onTap: () => widget.onNavigate!(item.target),
+                          child: Semantics(
+                            button: true,
+                            child: item.cell,
+                          ),
+                        );
+                  return SizedBox(width: width, child: cell);
+                }).toList(growable: false),
               );
             },
           ),
@@ -172,7 +213,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   children: [
                     const FxSectionHeader(title: '每日专注时长', trailing: '分钟'),
                     const SizedBox(height: 18),
-                    _bars(data),
+                    desktop ? _bars(data) : _focusHistory(data),
                     const SizedBox(height: 10),
                     Text(
                       _factNote(data),
@@ -192,12 +233,36 @@ class _StatsScreenState extends State<StatsScreen> {
                     const FxSectionHeader(title: '时间分配', trailing: '近 7 天'),
                     const SizedBox(height: 12),
                     _timeDistribution(data),
+                    if (widget.onNavigate != null) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FxButton(
+                          label: '查看详细时间分配',
+                          variant: FxButtonVariant.link,
+                          size: FxButtonSize.sm,
+                          onPressed: () => widget.onNavigate!(
+                            StatsDestination.timeDistribution,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               );
               if (!desktop) {
                 return Column(
-                  children: [chart, const SizedBox(height: 14), distribution],
+                  children: [
+                    chart,
+                    const SizedBox(height: 14),
+                    distribution,
+                    const SizedBox(height: 14),
+                    FxCard(
+                      padding: const EdgeInsets.all(16),
+                      expanded: true,
+                      child: _recordFacts(data, days),
+                    ),
+                  ],
                 );
               }
               return Row(
@@ -212,6 +277,140 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _focusHistory(StatsSnapshot data) {
+    final points = data.focusLast7;
+    if (!data.hasSource('session_stats') || points.isEmpty) {
+      return const SizedBox(
+        height: 132,
+        child: Center(child: Text('近 7 天专注记录暂不可用')),
+      );
+    }
+    final maximum = points.fold<int>(
+      1, (value, point) => point.minutes > value ? point.minutes : value,
+    );
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    return Column(
+      children: points.map((point) {
+        final day = point.day;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 82,
+                child: Text(
+                  '${day.month}/${day.day} · 周${weekdays[day.weekday - 1]}',
+                  style: SlowlightTypography.caption(context),
+                ),
+              ),
+              Expanded(
+                child: FxProgress(
+                  value: point.minutes / maximum,
+                  height: 7,
+                  color: AppTheme.chartBlue,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 48,
+                child: Text(
+                  '${point.minutes} 分',
+                  textAlign: TextAlign.end,
+                  style: SlowlightTypography.caption(context),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(growable: false),
+    );
+  }
+
+  Widget _recordFacts(StatsSnapshot data, int days) {
+    final now = DateTime.now();
+    final dates = List.generate(days, (index) =>
+        DateTime(now.year, now.month, now.day - days + index + 1));
+    final hasObservations = dates.every((day) =>
+        data.countOn(day, 'reflection_count') != null ||
+        data.countOn(day, 'observation_count') != null);
+    final values = dates.map((day) {
+      final tasks = data.countOn(day, 'task_completed');
+      final habits = data.countOn(day, 'habit_checked');
+      if (tasks == null || habits == null) return null;
+      final observations = hasObservations
+          ? (data.countOn(day, 'reflection_count') ??
+              data.countOn(day, 'observation_count')!)
+          : 0;
+      return tasks + habits + observations;
+    }).toList(growable: false);
+    final known = values.whereType<int>().toList(growable: false);
+    final maximum = known.fold<int>(1,
+        (largest, current) => current > largest ? current : largest);
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FxSectionHeader(
+          title: hasObservations ? '记录事实' : '任务与习惯记录',
+          trailing: days == 7 ? '近 7 天' : '今天',
+        ),
+        const SizedBox(height: 12),
+        if (known.isEmpty)
+          Text('记录来源暂不可用',
+              style: SlowlightTypography.secondary(context))
+        else if (known.every((value) => value == 0))
+          Text(
+            hasObservations ? '这段时间还没有记录' : '暂无任务或习惯记录',
+            style: SlowlightTypography.secondary(context),
+          )
+        else
+          ...List.generate(dates.length, (index) {
+            final day = dates[index];
+            final count = values[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 82,
+                    child: Text(
+                      '${day.month}/${day.day} · 周${weekdays[day.weekday - 1]}',
+                      style: SlowlightTypography.caption(context),
+                    ),
+                  ),
+                  Expanded(
+                    child: count == null
+                        ? const SizedBox(height: 7)
+                        : FxProgress(
+                            value: count / maximum,
+                            height: 7,
+                            color: AppTheme.chartBlue,
+                          ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      count?.toString() ?? '—',
+                      textAlign: TextAlign.end,
+                      style: SlowlightTypography.caption(context),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        if (!hasObservations) ...[
+          const SizedBox(height: 8),
+          Text(
+            '观察数量未纳入趋势（当前来源未提供每日观察事实）',
+            style: SlowlightTypography.caption(context),
+          ),
+        ],
+      ],
     );
   }
 
@@ -277,9 +476,16 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget _timeDistribution(StatsSnapshot data) {
     final raw = data.timeDistribution['tags'];
     if (!data.hasSource('time_distribution') || raw is! List || raw.isEmpty) {
+      final total = data.timeDistribution['total_min'];
+      final fallback = !data.hasSource('time_distribution') || raw is! List
+          ? '时间分配暂不可用'
+          : total is num && total > 0
+              ? '已记录 ${_focusText(total.toInt())} · 暂无分类'
+              : total == 0
+                  ? '暂无时间分配记录'
+                  : '时间分配统计待核对';
       return Text(
-        data.hasSource('time_distribution')
-            ? '暂无时间分配数据' : '时间分配暂不可用',
+        fallback,
         style: SlowlightTypography.secondary(
           context,
         ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -338,19 +544,6 @@ class _StatsScreenState extends State<StatsScreen> {
         );
       }),
     );
-  }
-
-  int? _observationCount(List<Map<String, dynamic>> rows) {
-    var seen = false;
-    var sum = 0;
-    for (final row in rows) {
-      final raw = row['reflection_count'] ?? row['observation_count'];
-      if (raw is num) {
-        seen = true;
-        sum += raw.toInt();
-      }
-    }
-    return seen ? sum : null;
   }
 
   String _focusText(int minutes) {

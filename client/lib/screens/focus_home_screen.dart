@@ -292,6 +292,27 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   Future<void> _openTool(HomeToolSection tool) =>
       _navigate(_navigation.openTool(tool));
 
+  /// KPI destinations use the existing shell navigation (and its draft guard).
+  void _navigateFromStats(StatsDestination destination) {
+    switch (destination) {
+      case StatsDestination.tasks:
+        unawaited(_openTool(HomeToolSection.tasks));
+        break;
+      case StatsDestination.habits:
+        unawaited(_openTool(HomeToolSection.habits));
+        break;
+      case StatsDestination.focus:
+        unawaited(_startFocus());
+        break;
+      case StatsDestination.review:
+        unawaited(_openPrimary(HomePrimarySection.review));
+        break;
+      case StatsDestination.timeDistribution:
+        unawaited(_openTool(HomeToolSection.timeDistribution));
+        break;
+    }
+  }
+
   Future<void> _createHabitFromToday() async {
     if (_navigating) return;
     setState(() => _openHabitEditorOnEnter = true);
@@ -848,6 +869,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             ? TodayReviewScreen(
                 focusObservation: _searchFocusObservation,
                 focusRequestId: _searchFocusObservationRequest,
+                onStatsNavigate: _navigateFromStats,
               )
             : const SizedBox.shrink(),
         tool == null ? const SizedBox.shrink() : _buildToolContent(tool),
@@ -893,7 +915,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     HomeToolSection.calendar => const CalendarScreen(),
     HomeToolSection.lists => const ListManageScreen(),
     HomeToolSection.observationTags => const SystemTagScreen(),
-    HomeToolSection.stats => const StatsScreen(),
+    HomeToolSection.stats => StatsScreen(onNavigate: _navigateFromStats),
     HomeToolSection.weeklyReview => const WeeklyReviewScreen(),
     HomeToolSection.timeDistribution => const TimeDistributionScreen(),
   };
