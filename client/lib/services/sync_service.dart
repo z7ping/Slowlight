@@ -1019,6 +1019,8 @@ class SyncService extends ChangeNotifier {
   Future<void> retryFailed({int maxRetries = 3}) async {
     if (!DataModeManager().isCloud ||
         _status == SyncStatusEnum.syncing || _reconciling) return;
+    _lastQueueRun = null;
+    _lastNetworkUnreachable = false;
     try {
       // A read-only remote comparison can remove only confirmed applied
       // writes; ambiguous or conflicting rows remain intact in sync_queue.
