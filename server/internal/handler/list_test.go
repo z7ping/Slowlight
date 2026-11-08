@@ -251,7 +251,9 @@ func TestDeleteList_X08UndoRestoresOriginalListAndChildren(t *testing.T) {
 	}
 	if err := tx.First(&model.List{}, list.ID).Error; err != nil { t.Fatal("原清单ID未恢复:", err) }
 	w = httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	repeated := httptest.NewRequest(http.MethodPost, "/lists/undo", bytes.NewReader(data))
+	repeated.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, repeated)
 	if w.Code != http.StatusConflict { t.Fatalf("重复撤销应409: %d", w.Code) }
 }
 
