@@ -98,7 +98,7 @@ class LocalListRepository {
     return result;
   }
 
-  Future<void> delete(int id, {bool deleteTasks = false}) async {
+  Future<void> delete(int id, {bool deleteTasks = false, int? expectedTaskCount}) async {
     final db = await _db.database;
     final now = DateTime.now().toUtc().toIso8601String();
     await db.transaction((txn) async {
@@ -118,6 +118,9 @@ class LocalListRepository {
         [id],
       );
       final count = (countRows.single['total'] as num?)?.toInt() ?? 0;
+      if (expectedTaskCount != null && expectedTaskCount != count) {
+        throw StateError('清单任务范围已变化，请重新核对删除范围');
+      }
       if (count > 0 && !deleteTasks) {
         throw StateError('清单下有任务，删除任务须明确确认');
       }
