@@ -162,6 +162,11 @@ class SyncService extends ChangeNotifier {
   bool _initialized = false;
   int? _initializedAccountId;
 
+  @visibleForTesting
+  Future<Map<String, dynamic>?> Function(
+    Database, String, int, Map<String, Object?>,
+  )? debugRemoteRead;
+
   SyncStatusEnum get status => _status;
   String? get lastError => _lastError;
   int get pendingCount => _pendingCount;
@@ -228,7 +233,9 @@ class SyncService extends ChangeNotifier {
           continue;
         }
         final local = rows.single;
-        final remote = await _fetchRemote(db, table, serverId, local);
+        final remote = await (debugRemoteRead?.call(
+              db, table, serverId, local,
+            ) ?? _fetchRemote(db, table, serverId, local));
         bool applied = false;
         if (operation == 'delete' && remote == null) {
           // For read-by-list APIs a successful complete listing with no ID
