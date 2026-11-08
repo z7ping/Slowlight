@@ -204,6 +204,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   String _repeatType = 'none';
   final Set<int> _selectedWeekdays = {};
   int _reminderAdvanceMinutes = -1;
+  DateTime? _customReminderAt;
   late String _selectedPriority;
   bool _loadingLists = true;
   bool _listLoadFailed = false;
@@ -384,7 +385,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   /// Date-dependent reminders cannot survive an unassigned due date.
   /// Keep this in one place for quick chips, calendar and advanced fields.
   void _changeDueDate(DateTime? next, {bool closePicker = false}) {
-    final removedReminder = next == null && _reminderAdvanceMinutes >= 0;
+    final removedReminder = next == null &&
+        _customReminderAt == null && _reminderAdvanceMinutes >= 0;
     setState(() {
       _dueDate = next;
       if (next != null) _calendarFocusedDay = next;
@@ -1019,7 +1021,15 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           if (!_selectedWeekdays.add(day)) _selectedWeekdays.remove(day);
         }),
         reminderAdvanceMinutes: _reminderAdvanceMinutes,
-        onReminderChanged: (value) => setState(() => _reminderAdvanceMinutes = value),
+        onReminderChanged: (value) => setState(() {
+          _customReminderAt = null;
+          _reminderAdvanceMinutes = value;
+        }),
+        customReminderAt: _customReminderAt,
+        onCustomReminderChanged: (value) => setState(() {
+          _customReminderAt = value;
+          _reminderAdvanceMinutes = -1;
+        }),
       ),
     ],
   );
@@ -1056,6 +1066,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         _repeatType != 'none' ||
         _selectedWeekdays.isNotEmpty ||
         _reminderAdvanceMinutes != -1 ||
+        _customReminderAt != null ||
         _selectedPriority != _initialPriority ||
         (_initialListId != null && _selectedListId != _initialListId);
   }
@@ -1188,7 +1199,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     }
     // Even if an old widget state bypassed the picker guard, never send an
     // apparently enabled reminder without a schedulable due date.
-    if (_dueDate == null && _reminderAdvanceMinutes >= 0) {
+    if (_dueDate == null && _customReminderAt == null &&
+        _reminderAdvanceMinutes >= 0) {
       setState(() => _error = '请先安排到期日期，再保存提醒');
       return;
     }
@@ -1202,7 +1214,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     final description = _descriptionController.text.trim();
     final dueTime = formatTaskDueTime(_dueTime);
     final repeatDays = formatTaskRepeatDays(_repeatType, _selectedWeekdays);
-    final reminderAt = buildTaskReminderAt(
+    final reminderAt = _customReminderAt ?? buildTaskReminderAt(
       dueDate: _dueDate,
       dueTime: _dueTime,
       advanceMinutes: _reminderAdvanceMinutes,
@@ -1226,7 +1238,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         }
         if (_selectedPriority != 'none' || _dueDate != null ||
             description.isNotEmpty || tagIds.isNotEmpty || dueTime != null ||
-            _repeatType != 'none' || _reminderAdvanceMinutes > 0) {
+            _repeatType != 'none' || _reminderAdvanceMinutes > 0 ||
+            _customReminderAt != null) {
           task = await _dataService.updateTask(
             localId: task.id,
             listId: listId ?? task.listId,

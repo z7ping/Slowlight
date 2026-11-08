@@ -20,6 +20,8 @@ class TaskScheduleFields extends StatelessWidget {
     required this.onWeekdayToggled,
     required this.reminderAdvanceMinutes,
     required this.onReminderChanged,
+    this.customReminderAt,
+    this.onCustomReminderChanged,
   });
 
   final bool enabled;
@@ -35,6 +37,9 @@ class TaskScheduleFields extends StatelessWidget {
   final ValueChanged<int> onWeekdayToggled;
   final int reminderAdvanceMinutes;
   final ValueChanged<int> onReminderChanged;
+  /// Independent reminder instant; does not depend on a task due date.
+  final DateTime? customReminderAt;
+  final ValueChanged<DateTime?>? onCustomReminderChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +54,41 @@ class TaskScheduleFields extends StatelessWidget {
             _dateField(context),
             _timeField(context),
             _repeatField(),
-            _reminderField(),
+            _reminderField(context),
           ],
         ),
+        if (onCustomReminderChanged != null) ...[
+          SizedBox(height: compact ? 8 : 12),
+          FxFormField(
+            label: '指定提醒日期和时间',
+            child: Row(
+              children: [
+                Expanded(
+                  child: _picker(
+                    key: const ValueKey('task-reminder-custom-picker'),
+                    context: context,
+                    text: customReminderAt == null
+                        ? '选择日期和时间'
+                        : _customReminderLabel(customReminderAt!),
+                    icon: LucideIcons.bell,
+                    onTap: () => _pickCustomReminder(context),
+                  ),
+                ),
+                if (customReminderAt != null) ...[
+                  const SizedBox(width: 4),
+                  FxIconButton(
+                    icon: LucideIcons.x,
+                    tooltip: '清除指定提醒',
+                    iconSize: 15,
+                    onPressed: enabled
+                        ? () => onCustomReminderChanged!(null)
+                        : null,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
         if (repeatType == 'weekly') ...[
           const SizedBox(height: 12),
           FxFormField(
@@ -166,7 +203,7 @@ class TaskScheduleFields extends StatelessWidget {
     );
   }
 
-  Widget _reminderField() {
+  Widget _reminderField(BuildContext context) {
     const values = <int, String>{
       -1: '不提醒',
       0: '准时',
@@ -177,26 +214,65 @@ class TaskScheduleFields extends StatelessWidget {
       60: '提前 1 小时',
     };
     return FxFormField(
-      label: dueDate == null ? '提醒（先设置到期日期）' : '提醒',
-      child: SizedBox(
-        width: double.infinity,
-        child: FxSelect<int>(
-          // A relative reminder without a date creates no actual reminderAt.
-          value: dueDate == null ? -1 : reminderAdvanceMinutes,
-          enabled: enabled && dueDate != null,
-          options: values.entries
-              .map((entry) => FxSelectOption<int>(
-                value: entry.key,
-                label: entry.value,
-              ))
-              .toList(growable: false),
-          onChanged: (value) => onReminderChanged(value ?? -1),
-        ),
+      label: dueDate == null ? '相对提醒（需到期日期）' : '提醒',
+      child: FxSelect<int>(
+        // Custom reminders are still valid without a task due date.
+        value: customReminderAt != null
+            ? -2
+            : dueDate == null ? -1 : reminderAdvanceMinutes,
+        enabled: enabled && dueDate != null,
+        options: [
+          if (customReminderAt != null)
+            const FxSelectOption<int>(
+              value: -2,
+              label: '指定提醒日期和时间',
+            ),
+          ...values.entries.map((entry) => FxSelectOption<int>(
+            value: entry.key,
+            label: entry.value,
+          )),
+        ],
+        onChanged: (value) {
+          if (value == -2) {
+            _pickCustomReminder(context);
+          } else {
+            onReminderChanged(value ?? -1);
+          }
+        },
       ),
     );
   }
 
+  Future<void> _pickCustomReminder(BuildContext context) async {
+    if (!enabled || onCustomReminderChanged == null) return;
+    final date = await showFxDatePicker(
+      context: context,
+      initialDate: customReminderAt ?? dueDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+    );
+    if (date == null || !context.mounted) return;
+    final time = await showFxTimePicker(
+      context: context,
+      initialTime: customReminderAt == null
+          ? (dueTime ?? TimeOfDay.now())
+          : TimeOfDay.fromDateTime(customReminderAt!),
+    );
+    if (time == null || !context.mounted) return;
+    onCustomReminderChanged!(DateTime(
+      date.year, date.month, date.day, time.hour, time.minute,
+    ));
+  }
+
+  String _customReminderLabel(DateTime value) {
+    final date = value.year.toString() + '-' +
+        value.month.toString().padLeft(2, '0') + '-' +
+        value.day.toString().padLeft(2, '0');
+    return date + ' ' + formatTaskDueTime(TimeOfDay.fromDateTime(value))!;
+  }
+
   Widget _picker({
+    Key? key,
     required BuildContext context,
     required String text,
     required IconData icon,
@@ -204,6 +280,7 @@ class TaskScheduleFields extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
     return FxInkWell(
+      key: key,
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
       hoverColor: theme.colorScheme.onSurface.withValues(alpha: .04),
