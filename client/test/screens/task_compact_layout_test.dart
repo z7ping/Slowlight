@@ -16,6 +16,7 @@ import '../support/fx_test_host.dart';
 /// Deterministic Cloud-like toggle source for X03 stale Undo verification.
 class _X03ToggleTaskService implements DataService {
   bool completed = false;
+  int completedRevision = 0;
   bool failReadAfterWrite = false;
   int completions = 0;
   int undoCalls = 0;
@@ -30,7 +31,9 @@ class _X03ToggleTaskService implements DataService {
     priority: 'none',
     isCompleted: completed,
     createdAt: DateTime(2026, 11, 8),
-    completedAt: completed ? DateTime(2026, 11, 8) : null,
+    completedAt: completed
+        ? DateTime(2026, 11, 8).add(Duration(seconds: completedRevision))
+        : null,
     dueDate: dueDate,
   );
 
@@ -56,16 +59,38 @@ class _X03ToggleTaskService implements DataService {
   ];
 
   @override
-  Future<Task> completeTask(int localId, int? serverId) async {
-    completions++;
-    completed = !completed;
-    return current;
-  }
+  Future<Task> completeTask(int localId, int? serverId) async =>
+      setTaskCompletion(localId, serverId,
+        completed: true, expectedCompleted: false);
 
   @override
-  Future<Task> uncompleteTask(int localId, int? serverId) async {
-    undoCalls++;
-    completed = !completed; // Matches the current Cloud toggle endpoint.
+  Future<Task> uncompleteTask(int localId, int? serverId) async =>
+      setTaskCompletion(localId, serverId,
+        completed: false, expectedCompleted: true,
+        expectedCompletedAt: current.completedAt);
+
+  @override
+  Future<Task> setTaskCompletion(
+    int localId,
+    int? serverId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) async {
+    if (this.completed != expectedCompleted ||
+        (expectedCompleted &&
+         (expectedCompletedAt == null ||
+          current.completedAt == null ||
+          !current.completedAt!.isAtSameMomentAs(expectedCompletedAt)))) {
+      throw StateError('任务状态已变化');
+    }
+    if (completed) {
+      completions++;
+      completedRevision++;
+    } else {
+      undoCalls++;
+    }
+    this.completed = completed;
     return current;
   }
 
@@ -212,6 +237,39 @@ void main() {
     expect(data.undoCalls, 0);
     expect(data.completed, isFalse);
     expect(find.textContaining('任务已是待办状态'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X03 旧撤销无法撤销另一次完成周期', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final data = _X03ToggleTaskService();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskToolScreen(dataService: data)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('tasks.row.903')),
+      matching: find.byType(FxInkWell),
+    ).last);
+    await tester.pumpAndSettle();
+
+    final staleUndo = tester.widget<FxNoticeAction>(
+      find.byType(FxNoticeAction),
+    );
+    // Another device uncompletes and then completes the same task again.
+    data.completed = false;
+    data.completedRevision++;
+    data.completed = true;
+    staleUndo.onPressed();
+    await tester.pumpAndSettle();
+    expect(data.undoCalls, 0);
+    expect(data.completed, isTrue);
+    expect(find.textContaining('新的完成记录'), findsWidgets);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
