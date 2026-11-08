@@ -130,6 +130,19 @@ class SyncPendingFailure {
   });
 }
 
+/// Result of reading remote evidence. No cloud write is sent by reconciliation.
+class SyncReconciliationReport {
+  final int verified;
+  final int conflicts;
+  final int unknown;
+
+  const SyncReconciliationReport({
+    required this.verified,
+    required this.conflicts,
+    required this.unknown,
+  });
+}
+
 /// Cloud Data Mode 的离线缓存 / 同步可靠性层。
 ///
 /// Local Data 的普通 CRUD 不进入本队列；Local → Cloud 属于显式迁移能力。
@@ -148,6 +161,11 @@ class SyncService extends ChangeNotifier {
   String _deviceId = '';
   bool _initialized = false;
   int? _initializedAccountId;
+
+  @visibleForTesting
+  Future<Map<String, dynamic>?> Function(
+    Database, String, int, Map<String, Object?>,
+  )? debugRemoteRead;
 
   SyncStatusEnum get status => _status;
   String? get lastError => _lastError;
@@ -175,6 +193,130 @@ class SyncService extends ChangeNotifier {
       retryCount: row['retry_count'] as int? ?? 0,
       error: row['last_error'] as String? ?? '',
     )).toList(growable: false);
+  }
+
+  /// Reconcile only failed/uncertain queue entries against authoritative
+  /// remote GETs. Never replay an ambiguous request. A verified record is
+  /// removed only if its queue row is still the same as when we read it.
+  Future<SyncReconciliationReport> reconcileFailedWrites() async {
+    _requireCloudMode();
+    if (isSyncing) throw StateError('同步进行中，请完成后核对远端');
+    final db = await _db.database;
+    final queued = await db.query('sync_queue',
+      where: "retry_count > 0 OR (last_error IS NOT NULL AND last_error != '')",
+      orderBy: 'created_at ASC');
+    var verified = 0;
+    var conflicts = 0;
+    var unknown = 0;
+    for (final item in queued) {
+      final table = item['entity_type'] as String;
+      final operation = item['operation'] as String;
+      final id = item['entity_local_id'] as int;
+      final serverId = item['entity_server_id'] as int?;
+      // Unknown create outcomes without a server-assigned ID cannot be
+      // deduplicated through an ordinary read. Keep them for manual review.
+      if (serverId == null || serverId <= 0) {
+        unknown++;
+        continue;
+      }
+      if (operation != 'delete' &&
+          !(operation == 'update' &&
+            const {'lists', 'tags', 'system_tags'}.contains(table))) {
+        unknown++;
+        continue;
+      }
+      try {
+        final rows = await db.query(table,
+          where: 'id = ?', whereArgs: [id], limit: 1);
+        if (rows.isEmpty) {
+          unknown++;
+          continue;
+        }
+        final local = rows.single;
+        final remote = debugRemoteRead == null
+            ? await _fetchRemote(db, table, serverId, local)
+            : await debugRemoteRead!(db, table, serverId, local);
+        bool applied = false;
+        if (operation == 'delete' && remote == null) {
+          // For read-by-list APIs a successful complete listing with no ID
+          // is proof the requested deletion already took effect.
+          applied = const {'lists', 'tags', 'system_tags', 'habits'}
+              .contains(table);
+        } else if (operation == 'update' && remote != null) {
+          final normalized = await _normalizeRemote(
+              db, table, remote);
+          final fields = table == 'lists'
+              ? const ['name', 'icon', 'color', 'is_inbox']
+              : table == 'tags'
+                  ? const ['name', 'color']
+                  : const ['name', 'icon', 'color', 'dimension_key'];
+          applied = fields.every((key) =>
+              normalized[key] == local[key]);
+        }
+
+        if (applied) {
+          final hasStatus = await _hasColumn(db, table, 'sync_status');
+          final confirmed = await db.transaction<bool>((txn) async {
+            final fresh = await txn.query(table,
+              columns: ['last_modified'],
+              where: 'id = ?', whereArgs: [id], limit: 1);
+            if (fresh.isEmpty ||
+                fresh.single['last_modified'] != local['last_modified']) {
+              return false;
+            }
+            final changed = await txn.delete('sync_queue',
+              where: 'id = ? AND updated_at = ? AND operation = ?',
+              whereArgs: [item['id'], item['updated_at'], operation]);
+            if (changed != 1) return false;
+            final stillPending = await txn.query('sync_queue',
+              columns: ['id'],
+              where: 'entity_type = ? AND entity_local_id = ?',
+              whereArgs: [table, id], limit: 1);
+            if (hasStatus && stillPending.isEmpty) {
+              await txn.update(table, {'sync_status': 'synced'},
+                where: 'id = ? AND last_modified = ?',
+                whereArgs: [id, local['last_modified']]);
+            }
+            return true;
+          });
+          if (confirmed) {
+            verified++;
+          } else {
+            unknown++;
+          }
+        } else {
+          // If the queue or local record changed during the remote read,
+          // do not assign an old conflict result to a newer user decision.
+          final current = await db.query('sync_queue',
+            columns: ['updated_at', 'operation'],
+            where: 'id = ?', whereArgs: [item['id']], limit: 1);
+          final fresh = await db.query(table,
+            columns: ['last_modified'],
+            where: 'id = ?', whereArgs: [id], limit: 1);
+          if (current.isEmpty || fresh.isEmpty ||
+              current.single['updated_at'] != item['updated_at'] ||
+              current.single['operation'] != operation ||
+              fresh.single['last_modified'] != local['last_modified']) {
+            unknown++;
+            continue;
+          }
+          if (await _hasColumn(db, table, 'sync_status')) {
+            await db.update(table, {'sync_status': 'conflict'},
+              where: 'id = ? AND last_modified = ?',
+              whereArgs: [id, local['last_modified']]);
+          }
+          conflicts++;
+        }
+      } catch (_) {
+        // Network errors, 404 without a trusted complete listing, and
+        // JSON mismatch are inconclusive; never retry here.
+        unknown++;
+      }
+    }
+    _pendingCount = await _getQueueCount();
+    if (verified > 0 || conflicts > 0) notifyListeners();
+    return SyncReconciliationReport(
+      verified: verified, conflicts: conflicts, unknown: unknown);
   }
 
   Future<void> init({bool startPeriodic = true}) async {
@@ -315,12 +457,33 @@ class SyncService extends ChangeNotifier {
       );
 
   /// 返回单项错误供外层汇总；真正冲突必须由用户确认，禁止自动推送。
+  bool _isAmbiguousSyncError(String error) {
+    final value = error.toLowerCase();
+    return value.contains('timeoutexception') ||
+        value.contains('timeout') ||
+        value.contains('connection reset') ||
+        value.contains('connection closed') ||
+        value.contains('connection terminated');
+  }
+
   Future<String?> _processQueueItem(
     Database db,
     Map<String, Object?> item,
   ) async {
     final table = item['entity_type'] as String;
     final localId = item['entity_local_id'] as int;
+    final operation = item['operation'] as String;
+    // Old failed queues may predate the ambiguity guard. Do not replay a
+    // timeout/reset write just because the application restarted.
+    final previousError = (item['last_error'] as String? ?? '').toLowerCase();
+    if ((item['retry_count'] as int? ?? 0) > 0 &&
+        _isAmbiguousSyncError(previousError) &&
+        table != 'habit_logs' &&
+        await _hasColumn(db, table, 'sync_status')) {
+      await db.update(table, {'sync_status': 'conflict'},
+          where: 'id = ?', whereArgs: [localId]);
+      return '$table #$localId 的历史 $operation 回执未知，已阻止自动重发';
+    }
     if (await _hasColumn(db, table, 'sync_status')) {
       final rows = await db.query(table,
           columns: ['sync_status'],
@@ -363,15 +526,12 @@ class SyncService extends ChangeNotifier {
       // automatically would duplicate server entities. Keep queue for explicit
       // reconciliation instead of silently replaying an uncertain create.
       final ambiguous = e is TimeoutException ||
-          text.toLowerCase().contains('connection reset') ||
-          text.toLowerCase().contains('connection closed') ||
-          text.toLowerCase().contains('connection terminated');
-      if (item['operation'] == 'create' && ambiguous &&
-          table != 'habit_logs' &&
+          _isAmbiguousSyncError(text);
+      if (ambiguous && table != 'habit_logs' &&
           await _hasColumn(db, table, 'sync_status')) {
         await db.update(table, {'sync_status': 'conflict'},
             where: 'id = ?', whereArgs: [localId]);
-        return '$table #$localId 的创建结果未知，请先核对云端记录再处理';
+        return '$table #$localId 的 $operation 结果未知，请先核对云端记录再处理';
       }
       // 暂时无法同步不等于版本冲突，必须保留原始操作和 pending。
       return '$table #$localId: $text';
