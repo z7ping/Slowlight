@@ -69,7 +69,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
         _loadFailed = true;
       });
       if (_hasLoaded) {
-        FxNotice.showContent(context, const Text('冲突列表刷新失败，仍显示上次读取的记录'));
+        FxNotice.showContent(context, const Text('冲突列表刷新失败，仍显示上次读取的记录；重新核对前不能处理'));
       }
       return;
     }
@@ -188,7 +188,9 @@ class _ConflictScreenState extends State<ConflictScreen> {
                     child: Text(
                       _resolutionNeedsRecheck
                           ? '上次处理结果未确认。请重新读取冲突状态，核对后才能继续选择。'
-                          : '本地与服务端记录存在冲突。请比较版本并选择保留哪一侧；无法读取服务端时不会自动覆盖。',
+                          : _loadFailed
+                              ? '刷新失败，正在显示上次读取的冲突。请先重新核对，避免对过期记录做选择。'
+                              : '本地与服务端记录存在冲突。请比较版本并选择保留哪一侧；无法读取服务端时不会自动覆盖。',
                       style: SlowlightTypography.secondary(
                         context,
                       ).copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -196,7 +198,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   ),
                 ],
               ),
-              if (_resolutionNeedsRecheck) ...[
+              if (_resolutionNeedsRecheck || _loadFailed) ...[
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -328,7 +330,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                     label: _resolving ? '处理中…' : '保留本地版本',
                     variant: FxButtonVariant.outline,
                     onPressed:
-                        _resolving || _refreshing || _resolutionNeedsRecheck || id == null || !canKeepLocal
+                        _resolving || _refreshing || _resolutionNeedsRecheck || _loadFailed || id == null || !canKeepLocal
                             ? null
                             : () => _resolveConflict(
                                 id, entityType: entityType, keepLocal: true,
@@ -337,7 +339,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   FxButton(
                     label: '使用服务端版本',
                     onPressed:
-                        _resolving || _refreshing || _resolutionNeedsRecheck || id == null || remote == null
+                        _resolving || _refreshing || _resolutionNeedsRecheck || _loadFailed || id == null || remote == null
                             ? null
                             : () => _resolveConflict(
                                 id, entityType: entityType, keepLocal: false,
@@ -489,7 +491,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     // Both choices modify the same conflict. Lock every resolution action
     // synchronously before awaiting the source; overlapping writes could
     // otherwise accept two contradictory user decisions.
-    if (_resolving || _refreshing || _resolutionNeedsRecheck) return;
+    if (_resolving || _refreshing || _resolutionNeedsRecheck || _loadFailed) return;
     setState(() => _resolving = true);
     try {
       final resolved = await (widget.conflictResolver?.call(
