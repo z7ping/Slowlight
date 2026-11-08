@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/widgets/task_swipe_row.dart';
@@ -7,6 +8,51 @@ import 'package:slowlight/ui/theme_manager.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('X03 滑动提交期间不允许点击行进入编辑或重复触发操作',
+      (tester) async {
+    final pending = Completer<void>();
+    var childTaps = 0;
+    var completes = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Center(child: SizedBox(
+        width: 320,
+        child: TaskSwipeRow(
+          open: false,
+          onOpenChanged: (_) {},
+          onComplete: () async {
+            completes++;
+            await pending.future;
+          },
+          onPostpone: () async {},
+          onMore: () {},
+          child: FxInkWell(
+            onTap: () => childTaps++,
+            child: const SizedBox(
+              height: 64,
+              child: Center(child: Text('提交中的行')),
+            ),
+          ),
+        ),
+      ))),
+    ));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('提交中的行'), const Offset(110, 0));
+    await tester.pump();
+    expect(completes, 1);
+    expect(find.byType(FxSpinner), findsOneWidget);
+
+    await tester.tap(find.text('提交中的行'));
+    await tester.pump();
+    expect(childTaps, 0);
+    expect(completes, 1);
+
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
   for (final dark in [false, true]) {
     testWidgets('滑动前景在${dark ? '深色' : '浅色'}主题保持完整不透明背景',
         (tester) async {
