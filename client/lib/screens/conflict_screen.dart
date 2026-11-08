@@ -40,6 +40,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
   bool _loadFailed = false;
   int _loadVersion = 0;
   bool _resolving = false;
+  bool _refreshing = false;
   bool _resolutionNeedsRecheck = false;
 
   @override
@@ -50,7 +51,12 @@ class _ConflictScreenState extends State<ConflictScreen> {
 
   Future<void> _loadConflicts() async {
     final version = ++_loadVersion;
-    if (mounted && !_hasLoaded) setState(() => _loading = true);
+    if (mounted) {
+      setState(() {
+        _refreshing = true;
+        if (!_hasLoaded) _loading = true;
+      });
+    }
     late final List<Map<String, dynamic>> rows;
     try {
       rows = await (widget.conflictsLoader?.call() ?? _sync.getAllConflicts());
@@ -59,6 +65,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
       if (!mounted || version != _loadVersion) return;
       setState(() {
         _loading = false;
+        _refreshing = false;
         _loadFailed = true;
       });
       if (_hasLoaded) {
@@ -93,6 +100,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     setState(() {
       _conflicts = previews;
       _loading = false;
+      _refreshing = false;
       _hasLoaded = true;
       _loadFailed = false;
       _resolutionNeedsRecheck = false;
@@ -194,10 +202,10 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   alignment: Alignment.centerRight,
                   child: FxButton(
                     key: const ValueKey('conflicts.recheck_unknown'),
-                    label: _loading ? '检查中…' : '重新核对冲突',
+                    label: _refreshing ? '检查中…' : '重新核对冲突',
                     size: FxButtonSize.sm,
                     variant: FxButtonVariant.outline,
-                    onPressed: _loading ? null : _loadConflicts,
+                    onPressed: _refreshing ? null : _loadConflicts,
                   ),
                 ),
               ],
@@ -320,7 +328,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                     label: _resolving ? '处理中…' : '保留本地版本',
                     variant: FxButtonVariant.outline,
                     onPressed:
-                        _resolving || _resolutionNeedsRecheck || id == null || !canKeepLocal
+                        _resolving || _refreshing || _resolutionNeedsRecheck || id == null || !canKeepLocal
                             ? null
                             : () => _resolveConflict(
                                 id, entityType: entityType, keepLocal: true,
@@ -329,7 +337,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   FxButton(
                     label: '使用服务端版本',
                     onPressed:
-                        _resolving || _resolutionNeedsRecheck || id == null || remote == null
+                        _resolving || _refreshing || _resolutionNeedsRecheck || id == null || remote == null
                             ? null
                             : () => _resolveConflict(
                                 id, entityType: entityType, keepLocal: false,
@@ -481,7 +489,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
     // Both choices modify the same conflict. Lock every resolution action
     // synchronously before awaiting the source; overlapping writes could
     // otherwise accept two contradictory user decisions.
-    if (_resolving) return;
+    if (_resolving || _refreshing || _resolutionNeedsRecheck) return;
     setState(() => _resolving = true);
     try {
       final resolved = await (widget.conflictResolver?.call(
@@ -494,7 +502,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
         context,
         Text(resolved
             ? (keepLocal ? '已保留本地版本，等待同步' : '已使用服务端版本')
-            : '处理失败，数据已保留，请稍后重试'),
+             : '处理未完成，请先重新核对冲突状态'),
       );
       if (resolved) {
         await _loadConflicts();
