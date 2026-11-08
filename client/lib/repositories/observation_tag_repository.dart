@@ -32,7 +32,9 @@ class ObservationTagRepository {
     if (DataModeManager().isLocal) return _getLocal();
     try {
       final value = await _cloudRequest('GET', '/system-tags');
-      if (value is! List) return const [];
+      if (value is! List) {
+        throw const FormatException('标签列表响应格式错误');
+      }
       return value
           .whereType<Map>()
           .map((item) => ObservationTag.fromJson(
