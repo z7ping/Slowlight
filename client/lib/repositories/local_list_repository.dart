@@ -10,7 +10,7 @@ class LocalListRepository {
     final maps = await db.query(
       'lists',
       where: 'deleted_at IS NULL',
-      orderBy: 'sort_order ASC, created_at ASC',
+      orderBy: 'sort_order ASC, created_at ASC, id ASC',
     );
     return maps.map(_fromMap).toList();
   }
