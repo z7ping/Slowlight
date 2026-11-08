@@ -201,6 +201,7 @@ void main() {
         service.endRest();
         await waitForWork();
         expect(service.microRestCount, 2);
+        expect(find.textContaining('距长休息'), findsOneWidget);
 
         await tester.pump(const Duration(seconds: 1));
         expect(service.state, 'long_rest');
