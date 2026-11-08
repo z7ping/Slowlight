@@ -320,6 +320,45 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P06 Windows 取消右键菜单只关闭选择，不关闭四象限',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'quadrant_move_hint_desktop_v1': true,
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final task = _task(89, '可取消的任务', 'urgent_important');
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks([task])),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('可取消的任务')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('「可取消的任务」移动到…'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byType(QuadrantScreen), findsOneWidget);
+    expect(find.text('可取消的任务'), findsOneWidget);
+    expect(find.text('「可取消的任务」移动到…'), findsNothing);
+    expect(find.byType(TaskDetailSheet), findsNothing);
+    expect(task.priority, 'urgent_important');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P06 菜单键与 Shift+F10 在任务焦点上复用同一移动选择',
       (tester) async {
     SharedPreferences.setMockInitialValues({
