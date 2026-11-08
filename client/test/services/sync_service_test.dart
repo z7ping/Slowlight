@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/cloud_cache_db.dart';
 import 'package:slowlight/db/local_db.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
+import 'package:slowlight/services/cloud_sync_coordinator.dart';
 import 'package:slowlight/services/sync_service.dart';
 
 import '../helpers/isolated_test_db.dart';
@@ -70,6 +71,26 @@ void main() {
     final db = await LocalDb().database;
     final queue = await db.query('sync_queue');
     expect(queue, isEmpty);
+  });
+
+  test('独立同步意图计数读取失败保持未知，恢复读取才可标已确认', () async {
+    await DataModeManager().setCloud();
+    final coordinator = CloudSyncCoordinator();
+    coordinator.standalonePendingCount.value = 5;
+    coordinator.standalonePendingUnknown.value = false;
+
+    // No authenticated cloud user => CloudCacheDb cannot identify a source.
+    await coordinator.refreshStandalonePendingCount();
+    expect(coordinator.standalonePendingCount.value, 0);
+    expect(coordinator.standalonePendingUnknown.value, isTrue);
+
+    await signInCloudUser();
+    await coordinator.refreshStandalonePendingCount();
+    expect(coordinator.standalonePendingCount.value, 0);
+    expect(coordinator.standalonePendingUnknown.value, isFalse);
+
+    coordinator.stop();
+    expect(coordinator.standalonePendingUnknown.value, isFalse);
   });
 
   test('Cloud Sync deviceId 会持久化到本地设置', () async {

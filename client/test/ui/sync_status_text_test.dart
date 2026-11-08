@@ -11,6 +11,7 @@ void main() {
     int pending = 0,
     SyncQueueRunEvidence? queueRun,
     bool networkUnreachable = false,
+    bool standalonePendingUnknown = false,
   }) =>
       cloudSyncSummary(
         status: status,
@@ -20,6 +21,7 @@ void main() {
         pendingCount: pending,
         lastQueueRun: queueRun,
         networkUnreachable: networkUnreachable,
+        standalonePendingUnknown: standalonePendingUnknown,
       );
 
   test('云同步冲突显示全实体合计数量', () {
@@ -45,6 +47,30 @@ void main() {
     expect(label(pending: 3), '云同步 · 3 项待同步');
     expect(label(syncing: true), '云同步 · 同步中…');
     expect(label(status: SyncStatusEnum.syncing), '云同步 · 同步中…');
+  });
+
+  test('独立意图计数读取失败不伪报无待处理项或同步完成', () {
+    expect(
+      label(standalonePendingUnknown: true),
+      '云同步 · 待同步数量待确认',
+    );
+    expect(
+      label(standalonePendingUnknown: true, pending: 2),
+      '云同步 · 待同步数量待确认',
+    );
+    expect(
+      cloudSyncFullySettled(
+        requestSucceeded: true,
+        status: SyncStatusEnum.idle,
+        conflictCheckFailed: false,
+        conflictCount: 0,
+        pendingCount: 0,
+        standalonePendingUnknown: true,
+      ),
+      isFalse,
+    );
+    expect(label(unknown: true, standalonePendingUnknown: true),
+        '云同步 · 冲突状态待确认');
   });
 
   test('P1-11 仅确证部分写入才显示部分成功，不把未知项算成功', () {

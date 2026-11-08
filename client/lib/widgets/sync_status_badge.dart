@@ -18,6 +18,7 @@ String syncDetailResultLabel({
   required int pendingCount,
   SyncQueueRunEvidence? lastQueueRun,
   bool networkUnreachable = false,
+  bool standalonePendingUnknown = false,
 }) {
   final phase = cloudSyncViewState(
     status: failed ? SyncStatusEnum.error : SyncStatusEnum.idle,
@@ -27,6 +28,7 @@ String syncDetailResultLabel({
     pendingCount: pendingCount,
     lastQueueRun: lastQueueRun,
     networkUnreachable: networkUnreachable,
+    standalonePendingUnknown: standalonePendingUnknown,
   );
   return switch (phase) {
     CloudSyncViewState.syncing => '同步中',
@@ -53,12 +55,14 @@ bool syncMayStartUserRetry({
   bool failuresKnown = true,
   int pendingFailureCount = 0,
   bool verifiedAfterFailure = false,
+  bool standalonePendingKnown = true,
 }) =>
     status != SyncStatusEnum.syncing &&
     (status == SyncStatusEnum.idle || verifiedAfterFailure) &&
     conflictsKnown &&
     conflictCount == 0 &&
     failuresKnown &&
+    standalonePendingKnown &&
     pendingFailureCount == 0 &&
     (!hasRequestError || verifiedAfterFailure);
 
@@ -69,7 +73,8 @@ bool shouldShowCloudSyncBadge({
   required int pendingCount,
   required int conflictCount,
   required SyncStatusEnum status,
-}) => showHealthy || conflictReadFailed || pendingCount > 0 ||
+  bool standalonePendingUnknown = false,
+}) => showHealthy || conflictReadFailed || standalonePendingUnknown || pendingCount > 0 ||
     conflictCount > 0 || status != SyncStatusEnum.idle;
 
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
@@ -103,10 +108,16 @@ class SyncStatusBadge extends StatelessWidget {
           listenable: SyncService(),
           builder: (context, _) {
             final sync = SyncService();
-            return ValueListenableBuilder<int>(
-              valueListenable: CloudSyncCoordinator().standalonePendingCount,
-              builder: (context, standalonePending, _) {
-                final pending = sync.pendingCount + standalonePending;
+            return ListenableBuilder(
+              listenable: Listenable.merge([
+                CloudSyncCoordinator().standalonePendingCount,
+                CloudSyncCoordinator().standalonePendingUnknown,
+              ]),
+              builder: (context, _) {
+                final coordinator = CloudSyncCoordinator();
+                final pending = sync.pendingCount +
+                    coordinator.standalonePendingCount.value;
+                final pendingUnknown = coordinator.standalonePendingUnknown.value;
                 final status = sync.status;
                 return FutureBuilder<List<Map<String, dynamic>>>(
                   future: sync.getAllConflicts(),
@@ -117,6 +128,7 @@ class SyncStatusBadge extends StatelessWidget {
                       // Do not flash a transient badge on every healthy
                       // FutureBuilder reload; show unknown only on real error.
                       conflictReadFailed: snapshot.hasError,
+                      standalonePendingUnknown: pendingUnknown,
                       pendingCount: pending,
                       conflictCount: conflicts.length,
                       status: status,
@@ -131,6 +143,7 @@ class SyncStatusBadge extends StatelessWidget {
                       pendingCount: pending,
                       lastQueueRun: sync.lastQueueRun,
                       networkUnreachable: sync.lastNetworkUnreachable,
+                      standalonePendingUnknown: pendingUnknown,
                     );
                     final label = switch (phase) {
                       CloudSyncViewState.syncing => '同步中',
@@ -317,7 +330,8 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _verifiedRetrySafe = reconciliation.unknown == 0 &&
             reconciliation.conflicts == 0 &&
             conflicts.isEmpty &&
-            failures.isEmpty;
+            failures.isEmpty &&
+            !CloudSyncCoordinator().standalonePendingUnknown.value;
         _feedback = '远端核对：${reconciliation.verified} 项已验证写入，'
             '${reconciliation.conflicts} 项状态不一致，'
             '${reconciliation.unknown} 项仍未知。'
@@ -373,6 +387,12 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         });
         return;
       }
+      if (CloudSyncCoordinator().standalonePendingUnknown.value) {
+        setState(() {
+          _feedback = '待同步数量尚未确认，未重新提交数据；请先核对状态。';
+        });
+        return;
+      }
       final completed = await CloudSyncCoordinator().syncNow();
       final conflicts = await widget.sync.getAllConflicts();
       final failures = await widget.sync.getPendingFailures();
@@ -385,6 +405,8 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         conflictCheckFailed: false,
         conflictCount: conflicts.length,
         pendingCount: pending,
+        standalonePendingUnknown:
+            CloudSyncCoordinator().standalonePendingUnknown.value,
       )) {
         Navigator.of(context).pop();
         widget.notice.show('同步已完成', variant: FxNoticeVariant.success);
@@ -416,14 +438,20 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.sync,
-      builder: (context, _) => ValueListenableBuilder<int>(
-        valueListenable: CloudSyncCoordinator().standalonePendingCount,
-        builder: (context, standalone, _) => FutureBuilder<List<Map<String, dynamic>>>(
+      builder: (context, _) => ListenableBuilder(
+        listenable: Listenable.merge([
+          CloudSyncCoordinator().standalonePendingCount,
+          CloudSyncCoordinator().standalonePendingUnknown,
+        ]),
+        builder: (context, _) => FutureBuilder<List<Map<String, dynamic>>>(
           future: _conflicts,
           builder: (context, snapshot) {
             final scheme = Theme.of(context).colorScheme;
             final status = widget.sync.status;
-            final pending = widget.sync.pendingCount + standalone;
+            final pending = widget.sync.pendingCount +
+                CloudSyncCoordinator().standalonePendingCount.value;
+            final pendingUnknown =
+                CloudSyncCoordinator().standalonePendingUnknown.value;
             final count = snapshot.data?.length ?? 0;
             final conflictsKnown =
                 !_conflictReadFailed &&
@@ -510,11 +538,13 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                                   ? widget.sync.lastQueueRun : null,
                               networkUnreachable: _requestError == null &&
                                   widget.sync.lastNetworkUnreachable,
+                              standalonePendingUnknown: pendingUnknown,
                             ),
                             color: failed ? scheme.error : null,
                           ),
                           const SizedBox(height: SlowlightSpacing.xl),
-                          _row(context, '待同步数据', '$pending 项'),
+                          _row(context, '待同步数据',
+                              pendingUnknown ? '数量待确认' : '$pending 项'),
                           if (!conflictsKnown || count > 0) ...[
                             const SizedBox(height: SlowlightSpacing.xl),
                             _row(context, '同步冲突',
@@ -700,6 +730,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                               widget.sync.lastError != null,
                           failuresKnown: failuresKnown,
                           pendingFailureCount: failuresSnapshot.data?.length ?? 0,
+                          standalonePendingKnown: !pendingUnknown,
                           verifiedAfterFailure: _verifiedRetrySafe,
                         );
                         return LayoutBuilder(

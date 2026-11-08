@@ -22,6 +22,14 @@ void main() {
       showHealthy: false,
       conflictReadFailed: false,
       pendingCount: 0,
+      conflictCount: 0,
+      standalonePendingUnknown: true,
+      status: SyncStatusEnum.idle,
+    ), isTrue);
+    expect(shouldShowCloudSyncBadge(
+      showHealthy: false,
+      conflictReadFailed: false,
+      pendingCount: 0,
       conflictCount: 2,
       status: SyncStatusEnum.idle,
     ), isTrue);
@@ -59,6 +67,7 @@ void main() {
     bool safe({
       SyncStatusEnum status = SyncStatusEnum.idle,
       bool failuresKnown = true,
+      bool standaloneKnown = true,
       int failures = 0,
       bool verified = false,
       bool requestError = false,
@@ -68,11 +77,14 @@ void main() {
       conflictCount: 0,
       hasRequestError: requestError,
       failuresKnown: failuresKnown,
+      standalonePendingKnown: standaloneKnown,
       pendingFailureCount: failures,
       verifiedAfterFailure: verified,
     );
 
     expect(safe(failuresKnown: false), isFalse);
+    expect(safe(standaloneKnown: false), isFalse);
+    expect(safe(standaloneKnown: false, verified: true), isFalse);
     expect(safe(failures: 1), isFalse);
     expect(safe(status: SyncStatusEnum.error), isFalse);
     expect(safe(status: SyncStatusEnum.error, verified: true), isTrue);
@@ -101,6 +113,7 @@ void main() {
       int pending = 0,
       SyncQueueRunEvidence? evidence,
       bool networkUnreachable = false,
+      bool standalonePendingUnknown = false,
     }) => syncDetailResultLabel(
       busy: busy,
       failed: failed,
@@ -109,6 +122,7 @@ void main() {
       pendingCount: pending,
       lastQueueRun: evidence,
       networkUnreachable: networkUnreachable,
+      standalonePendingUnknown: standalonePendingUnknown,
     );
     expect(label(busy: true), '同步中');
     expect(label(failed: true), '同步未完成');
@@ -116,6 +130,7 @@ void main() {
     expect(label(conflicts: 2, pending: 3), '冲突待处理');
     expect(label(pending: 1), '待同步');
     expect(label(), '无待处理项');
+    expect(label(standalonePendingUnknown: true), '状态待确认');
     expect(label(
       failed: true,
       evidence: const SyncQueueRunEvidence(attempted: 4, failed: 1),
