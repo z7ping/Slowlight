@@ -41,16 +41,26 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   bool _hasLoaded = false;
   int _loadVersion = 0;
   bool _showAllTags = false;
+  bool _openingDestination = false;
   Map<String, dynamic> _data = {};
 
   Future<void> _openDestination(TimeDistributionDestination destination) async {
     final navigate = widget.onNavigate;
-    if (navigate == null) return;
-    await navigate(destination);
-    // A finished focus session may have created new facts while this page
-    // stayed mounted behind the dedicated Pomodoro route.
-    if (mounted && destination == TimeDistributionDestination.focus) {
-      await _loadData();
+    if (navigate == null || _openingDestination) return;
+    _openingDestination = true;
+    try {
+      await navigate(destination);
+      // A finished focus session may have created new facts while this page
+      // stayed mounted behind the dedicated Pomodoro route.
+      if (mounted && destination == TimeDistributionDestination.focus) {
+        await _loadData();
+      }
+    } catch (_) {
+      if (mounted) {
+        FxNotice.showContent(context, const Text('暂时无法打开目标页面，请重试'));
+      }
+    } finally {
+      _openingDestination = false;
     }
   }
 
@@ -648,6 +658,7 @@ class _PieChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _PieChartPainter oldDelegate) =>
       oldDelegate.values.toString() != values.toString() ||
       oldDelegate.displayMinutes != displayMinutes ||
+      oldDelegate.colors.toString() != colors.toString() ||
       oldDelegate.textColor != textColor ||
       oldDelegate.secondaryTextColor != secondaryTextColor;
 }
