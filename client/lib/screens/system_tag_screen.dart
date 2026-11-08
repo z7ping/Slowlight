@@ -634,8 +634,22 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         barrierDismissible: false,
       );
       if (confirmed != true || !mounted || version != _loadVersion) return;
-      await _repository.delete(tag, expectedImpact: impact);
-      if (mounted) await _load();
+      final undo = await _repository.deleteWithUndo(
+        tag, expectedImpact: impact,
+      );
+      if (mounted) {
+        await _load();
+        if (mounted) {
+          FxNotice.success(
+            context, '标签已删除，原记录仍保留',
+            action: FxNoticeAction(
+              label: '撤销',
+              onPressed: () => unawaited(_undoDeletedTag(undo)),
+            ),
+            duration: const Duration(seconds: 8),
+          );
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       FxNotice.showContent(
@@ -644,6 +658,20 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       );
     } finally {
       _deletingTag = false;
+    }
+  }
+
+  Future<void> _undoDeletedTag(ObservationTagDeletionUndo undo) async {
+    try {
+      await undo.restore();
+      if (mounted) {
+        await _load();
+        if (mounted) FxNotice.success(context, '原标签及关联已恢复');
+      }
+    } catch (error) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '标签撤销结果未确认', '$error');
+      }
     }
   }
 
