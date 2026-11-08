@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +11,7 @@ import '../models/user.dart';
 import '../repositories/local_habit_repository.dart';
 import '../repositories/local_list_repository.dart';
 import 'api_service.dart';
+import 'app_error_logger.dart';
 import 'http_util.dart';
 
 class SessionRefreshRejected implements Exception {
@@ -24,6 +27,34 @@ class AuthService {
   static const String _userKey = 'user_data';
   static const String _loginMethodKey = 'auth_login_method';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+  // Only categorical, credential-free events are sent here. No JWT/refresh
+  // value, user ID, account name, HTTP payload or endpoint query is recorded.
+  @visibleForTesting
+  static void Function(String)? debugAuthTraceSink;
+  static String? _lastTokenState;
+
+  static void _trace(String event) {
+    debugAuthTraceSink?.call(event);
+    unawaited(AppErrorLogger.instance.write(
+      source: 'AuthSession',
+      error: event,
+    ));
+  }
+
+  static void _observeToken(String? value, String origin) {
+    final state = value == null
+        ? 'missing'
+        : value.startsWith('local:')
+            ? 'local'
+            : _isJwtExpired(value)
+                ? 'invalid_or_expired'
+                : 'valid';
+    if (_lastTokenState != state) {
+      _lastTokenState = state;
+      _trace('credential.read origin=$origin state=$state');
+    }
+  }
 
   /// 登录
   static Future<Map<String, dynamic>> login(String username, String password) async {
@@ -93,16 +124,29 @@ class AuthService {
   /// Token 属于认证凭据，统一存系统安全存储。
   /// 首次读取时会迁移旧版本 SharedPreferences 中的 token。
   static Future<String?> getToken() async {
-    final secureToken = await _secureStorage.read(key: _tokenKey);
-    if (secureToken != null && secureToken.isNotEmpty) return secureToken;
+    try {
+      final secureToken = await _secureStorage.read(key: _tokenKey);
+      if (secureToken != null && secureToken.isNotEmpty) {
+        _observeToken(secureToken, 'secure');
+        return secureToken;
+      }
 
-    final prefs = await SharedPreferences.getInstance();
-    final legacyToken = prefs.getString(_tokenKey);
-    if (legacyToken == null || legacyToken.isEmpty) return null;
+      final prefs = await SharedPreferences.getInstance();
+      final legacyToken = prefs.getString(_tokenKey);
+      if (legacyToken == null || legacyToken.isEmpty) {
+        _observeToken(null, 'none');
+        return null;
+      }
 
-    await _secureStorage.write(key: _tokenKey, value: legacyToken);
-    await prefs.remove(_tokenKey);
-    return legacyToken;
+      await _secureStorage.write(key: _tokenKey, value: legacyToken);
+      await prefs.remove(_tokenKey);
+      _trace('credential.legacy_migrated');
+      _observeToken(legacyToken, 'legacy');
+      return legacyToken;
+    } catch (error) {
+      _trace('credential.read_failed kind=${error.runtimeType}');
+      rethrow;
+    }
   }
 
   /// 后端持久绑定表是唯一可信的第三方关联依据。请求失败必须视为未知。
@@ -191,7 +235,10 @@ class AuthService {
     final token = await getToken();
     if (token != null && token.startsWith('local:')) return false;
     if (token != null && !_isJwtExpired(token)) return true;
-    if (await _secureStorage.read(key: _refreshKey) == null) return false;
+    if (await _secureStorage.read(key: _refreshKey) == null) {
+      _trace('session.check result=login_required reason=no_refresh');
+      return false;
+    }
     try {
       final renewed = await refreshAccessToken();
       return renewed != null && !_isJwtExpired(renewed);
@@ -243,14 +290,23 @@ class AuthService {
   // 只重试当前会话的 Bearer Token，不以旧登录身份验证 OAuth 候选令牌。
   static Future<String?> recoverUnauthorized(String attemptedToken) async {
     final stored = await getToken();
-    if (stored == null || stored.startsWith('local:')) return null;
+    if (stored == null || stored.startsWith('local:')) {
+      _trace('http401.recovery result=no_cloud_credential');
+      return null;
+    }
     if (stored != attemptedToken) {
+      _trace('http401.recovery result=changed_during_request');
       return _isJwtExpired(stored) ? null : stored;
     }
+    _trace('http401.recovery result=refresh_attempt');
     try {
       final renewed = await refreshAccessToken();
+      _trace(renewed == null
+          ? 'http401.recovery result=no_refresh'
+          : 'http401.recovery result=refreshed');
       return renewed != attemptedToken ? renewed : null;
     } on SessionRefreshRejected {
+      _trace('http401.recovery result=refresh_rejected');
       // A 401 from an auxiliary endpoint (providers/password/status) and a
       // rejected refresh request are not proof that an unexpired access JWT
       // was revoked. Leave session policy to AuthGate / token expiration;
@@ -274,14 +330,31 @@ class AuthService {
   }
 
   static Future<String?> _performRefresh() async {
-    final previous = await _secureStorage.read(key: _refreshKey);
-    if (previous == null || previous.isEmpty) return null;
+    String? previous;
+    try {
+      previous = await _secureStorage.read(key: _refreshKey);
+    } catch (error) {
+      _trace('refresh.storage_read_failed kind=${error.runtimeType}');
+      rethrow;
+    }
+    if (previous == null || previous.isEmpty) {
+      _trace('refresh.skipped reason=missing_refresh');
+      return null;
+    }
+    _trace('refresh.request');
     final epoch = _credentialEpoch;
-    final response = await HttpUtil.post(
-      Uri.parse('${ApiService.baseUrl}/auth/refresh'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refresh_token': previous}),
-    ).timeout(ApiService.postTimeout);
+    final response;
+    try {
+      response = await HttpUtil.post(
+        Uri.parse('${ApiService.baseUrl}/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': previous}),
+      ).timeout(ApiService.postTimeout);
+    } catch (error) {
+      _trace('refresh.transport_failed kind=${error.runtimeType}');
+      rethrow;
+    }
+    _trace('refresh.response status=${response.statusCode}');
     if (response.statusCode == 400 || response.statusCode == 401) {
       throw const SessionRefreshRejected();
     }
@@ -298,6 +371,7 @@ class AuthService {
     // 异步返回后若已退出/换账号，不可复活旧身份。
     if (epoch != _credentialEpoch ||
         await _secureStorage.read(key: _refreshKey) != previous) {
+      _trace('refresh.discarded reason=session_changed');
       return getToken();
     }
     final newToken = data['token'] as String;
@@ -309,10 +383,13 @@ class AuthService {
       throw StateError('更新登录凭据失败');
     }
     _credentialEpoch++;
+    _observeToken(newToken, 'refresh');
+    _trace('refresh.committed');
     return newToken;
   }
 
   static Future<void> logout() async {
+    _trace('credential.logout_started');
     _credentialEpoch++;
     final refresh = await _secureStorage.read(key: _refreshKey);
     await _secureStorage.delete(key: _tokenKey);
@@ -321,6 +398,8 @@ class AuthService {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
     await prefs.remove(_loginMethodKey);
+    _observeToken(null, 'logout');
+    _trace('credential.logout_completed');
     if (refresh != null && refresh.isNotEmpty) {
       // 先本地退出，再尽力撤销服务器会话；网络不阻塞界面。
       unawaited(() async {
@@ -445,7 +524,18 @@ class AuthService {
       } else {
         await prefs.setString(_loginMethodKey, loginMethod);
       }
-    } catch (_) {
+      _observeToken(token, 'save');
+      final method = token.startsWith('local:')
+          ? 'local'
+          : loginMethod == 'github'
+              ? 'github'
+              : loginMethod == 'password'
+                  ? 'password'
+                  : 'linked';
+      _trace('credential.save_completed method=$method '
+          'refresh=${refreshToken == null || refreshToken.isEmpty ? 'absent' : 'present'}');
+    } catch (error) {
+      _trace('credential.save_failed kind=${error.runtimeType}');
       // 写入失败恢复旧凭据；旧登录不得被失败的 GitHub 会话覆盖。
       if (oldToken == null) {
         await _secureStorage.delete(key: _tokenKey);
