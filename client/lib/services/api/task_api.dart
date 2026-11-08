@@ -349,6 +349,38 @@ class TaskApi {
     throw Exception('顺延任务失败');
   }
 
+  /// Conditional due-date-only undo, reusing the existing partial PUT endpoint.
+  /// The server performs compare-and-set so a newer date edit wins.
+  static Future<Task> restorePostponedDueDate(
+    int taskId, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  }) async {
+    if (DataModeManager().isLocal) {
+      return _localApi.restorePostponedDueDate(
+        taskId,
+        expectedDueDate: expectedDueDate,
+        originalDueDate: originalDueDate,
+      );
+    }
+    final headers = await ApiService.authHeaders();
+    final response = await HttpUtil.put(
+      Uri.parse('${ApiService.baseUrl}/tasks/$taskId'),
+      headers: headers,
+      body: json.encode({
+        'expected_due_date': expectedDueDate.toUtc().toIso8601String(),
+        'due_date': originalDueDate?.toUtc().toIso8601String(),
+      }),
+    ).timeout(ApiService.postTimeout);
+    if (response.statusCode == 200) {
+      return Task.fromJson(json.decode(response.body));
+    }
+    if (response.statusCode == 409) {
+      throw StateError('任务日期已变化，无法撤销顺延');
+    }
+    throw TaskUpdateException.fromResponse(response);
+  }
+
   /// 搜索任务
   static Future<List<Task>> searchTasks(String query) async {
     if (DataModeManager().isLocal) return _localApi.searchTasks(query);
