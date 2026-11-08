@@ -18,6 +18,7 @@ class SessionApi {
     int? taskId,
     int? targetMinutes,
     String device = 'desktop',
+    bool requireInactive = false,
   }) async {
     if (DataModeManager().isLocal) {
       return _local.startSession(
@@ -25,6 +26,7 @@ class SessionApi {
         taskId: taskId,
         targetMinutes: targetMinutes,
         device: device,
+        requireInactive: requireInactive,
       );
     }
 
@@ -32,6 +34,7 @@ class SessionApi {
     final body = <String, dynamic>{
       'session_type': sessionType,
       'device': device,
+      if (requireInactive) 'require_inactive': true,
     };
     if (taskId != null) body['task_id'] = taskId;
     if (targetMinutes != null) body['target_minutes'] = targetMinutes;
