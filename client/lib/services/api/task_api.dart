@@ -48,6 +48,39 @@ class TaskCreateException implements Exception {
   String toString() => message;
 }
 
+/// A rejected update is different from a request with an unknown result.
+/// Only an explicit 4xx rejection proves the server did not apply the edit.
+class TaskUpdateException implements Exception {
+  const TaskUpdateException({
+    required this.message,
+    required this.confirmedNotUpdated,
+  });
+
+  final String message;
+  final bool confirmedNotUpdated;
+
+  factory TaskUpdateException.fromResponse(http.Response response) {
+    final status = response.statusCode;
+    final rejected = status == 400 || status == 401 || status == 403 ||
+        status == 404 || status == 409 || status == 422;
+    final message = switch (status) {
+      400 || 422 => '任务信息无效，请检查后重试',
+      401 => '登录已失效，请重新登录',
+      403 => '无权修改任务',
+      404 => '任务或清单已不存在，请刷新后核对',
+      409 => '任务数据冲突，请刷新后核对',
+      _ => '任务修改结果未确认，请核对后再操作',
+    };
+    return TaskUpdateException(
+      message: message,
+      confirmedNotUpdated: rejected,
+    );
+  }
+
+  @override
+  String toString() => message;
+}
+
 /// 任务相关 API。
 ///
 /// Data Mode 只决定数据来源：Local 直接落 SQLite，Cloud 调 Slowlight Server。
@@ -257,7 +290,7 @@ class TaskApi {
     if (response.statusCode == 200) {
       return Task.fromJson(json.decode(response.body));
     }
-    throw Exception('更新任务失败');
+    throw TaskUpdateException.fromResponse(response);
   }
 
   /// 删除任务
