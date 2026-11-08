@@ -18,6 +18,7 @@ import '../navigation/home_navigation_state.dart';
 import '../repositories/habit_repository.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/app_error_logger.dart';
 import '../services/data_mode_manager.dart';
 import '../services/data_service.dart';
 import '../services/notification_service.dart';
@@ -999,8 +1000,13 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             (snapshot.hasError ? {'name': '账号状态暂不可用', 'status': '点击查看'} : null);
         return FxInkWell(
           key: const ValueKey('home.account_entry'),
-          onTap: () =>
-              openPage(const SettingsScreen(initialSection: 'account')),
+          onTap: () {
+            unawaited(AppErrorLogger.instance.write(
+              source: 'AuthNavigation',
+              error: 'account_entry.opened',
+            ));
+            openPage(const SettingsScreen(initialSection: 'account'));
+          },
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 52),
