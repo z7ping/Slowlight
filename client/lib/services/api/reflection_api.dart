@@ -51,6 +51,7 @@ class ReflectionApi {
   static Future<List<ReflectionEntry>> recent({
     int limit = 20,
     int offset = 0,
+    String? search,
     DateTime? startAt,
     DateTime? endAt,
     String? questionId,
@@ -66,6 +67,7 @@ class ReflectionApi {
           if (startAt != null) 'start_at': startAt.toUtc().toIso8601String(),
           if (endAt != null) 'end_at': endAt.toUtc().toIso8601String(),
           if (offset > 0) 'offset': '$offset',
+          if (search != null) 'search': search,
           if (questionId != null) 'question_id': questionId,
           if (legacyWeekStart != null) 'legacy_week_start': legacyWeekStart,
           if (legacyWeekEnd != null) 'legacy_week_end': legacyWeekEnd,
@@ -78,7 +80,7 @@ class ReflectionApi {
     }
     final decoded = jsonDecode(response.body);
     final values = decoded is Map ? decoded['items'] : decoded;
-    if (startAt != null || endAt != null) {
+    if (startAt != null || endAt != null || search != null) {
       // A malformed paged month must not masquerade as a complete month.
       if (values is! List || values.any((item) => item is! Map)) {
         throw const FormatException('日历观察记录页格式错误');
