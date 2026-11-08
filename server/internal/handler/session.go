@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+    "gorm.io/gorm/clause"
 )
 
 type SessionHandler struct {
@@ -184,6 +185,15 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 	// 用事务保证“自动结束旧会话 + 记录行为事件 + 创建新会话”原子性。
 	var session model.WorkSession
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if req.RequireInactive {
+            // Serialize guarded starts per account; without this lock two
+            // concurrent devices could both observe no active session.
+            var user model.User
+            if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+                Select("id").First(&user, userID).Error; err != nil {
+                return err
+            }
+        }
 		var existing model.WorkSession
 		result := tx.Where("user_id = ? AND ended_at IS NULL", userID).First(&existing)
         if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
