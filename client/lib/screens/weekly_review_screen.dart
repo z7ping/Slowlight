@@ -63,6 +63,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   List<Map<String, dynamic>> _dailyTrend = const [];
   ReviewPeriodTimeline? _periodTimeline;
   bool _periodTimelineFailed = false;
+  bool _periodTimelineLoading = false;
   bool _showAllPeriodEvents = false;
   ReviewPeriodTimeline? _periodPage;
   int _periodPageOffset = 0;
@@ -105,6 +106,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         if (_responseLoading) _responseChecked = false;
         _responseLoading = false;
         _loadingPeriodPage = false;
+        _periodTimelineLoading = false;
         _loading = !_hasConfirmedReview;
         _loadError = null;
         _refreshError = null;
@@ -140,6 +142,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _dailyTrendFailed = false;
         _periodTimeline = null;
         _periodTimelineFailed = false;
+        _periodTimelineLoading = false;
         _showAllPeriodEvents = false;
         _periodPage = null;
         _periodPageOffset = 0;
@@ -326,6 +329,11 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Future<void> _loadPeriodTimeline(int version) async {
+    if (_periodTimelineLoading || _reviewRefreshing) return;
+    setState(() {
+      _periodTimelineLoading = true;
+      _periodTimelineFailed = false;
+    });
     try {
       final facts = await (widget.periodTimelineLoader ??
           () => ReviewApi.getPeriodTimeline(period: 'week'))();
@@ -333,6 +341,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       setState(() {
         _periodTimeline = facts;
         _periodTimelineFailed = false;
+        _periodTimelineLoading = false;
         _periodPage = facts;
         _periodPageOffset = 0;
         _showAllPeriodEvents = false;
@@ -340,7 +349,10 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       });
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
-      setState(() => _periodTimelineFailed = true);
+      setState(() {
+        _periodTimelineFailed = true;
+        _periodTimelineLoading = false;
+      });
     }
   }
 
@@ -406,17 +418,30 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                 : '观察记录 ${facts.observationCount} 条',
           ),
           const SizedBox(height: 10),
-          if (_periodTimelineFailed)
+          if (_periodTimelineFailed) ...[
             Text(
               '本周轨迹读取未确认，已有统计不受影响。',
               style: SlowlightTypography.secondary(context),
-            )
+            ),
+            const SizedBox(height: 8),
+            FxButton(
+              label: '重试轨迹',
+              variant: FxButtonVariant.secondary,
+              size: FxButtonSize.sm,
+              onPressed: _reviewRefreshing
+                  ? null : () => _loadPeriodTimeline(_loadVersion),
+            ),
+          ]
           else if (facts == null)
             Text('本周轨迹读取中…',
                 style: SlowlightTypography.secondary(context))
           else if (visible.isEmpty)
-            Text('本周还没有可追溯的行为记录。',
-                style: SlowlightTypography.secondary(context))
+            Text(
+              facts.observationCount > 0
+                  ? '本周有 ${facts.observationCount} 条观察，事件明细尚未载入。'
+                  : '本周还没有可追溯的行为记录。',
+              style: SlowlightTypography.secondary(context),
+            )
           else ...[
             if (!_showAllPeriodEvents &&
                 (facts.items.length > visible.length || facts.hasMore))
