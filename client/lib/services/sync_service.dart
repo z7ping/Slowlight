@@ -152,9 +152,9 @@ class SyncQueueRunEvidence {
   final int failed;
   const SyncQueueRunEvidence({required this.attempted, required this.failed});
 
-  int get acknowledged => attempted - failed;
-  bool get partiallyAcknowledged =>
-      attempted > 0 && acknowledged > 0 && failed > 0;
+  int get processed => attempted - failed;
+  bool get partiallyProcessed =>
+      attempted > 0 && processed > 0 && failed > 0;
 }
 
 /// Cloud Data Mode 的离线缓存 / 同步可靠性层。
@@ -895,7 +895,7 @@ class SyncService extends ChangeNotifier {
     int? queuedServerId,
   ) async {
     if (op != 'create' && op != 'delete') {
-      // Unrecognized history intents are not acknowledged operations.
+      // Unrecognized history intents are not processed operations.
       // Keep the original queue row visible for reconciliation.
       throw StateError('Unsupported habit_log sync operation: $op');
     }
