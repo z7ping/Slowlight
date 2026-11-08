@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:slowlight/screens/login_screen.dart';
+import 'package:slowlight/screens/focus_home_screen.dart';
+import 'package:slowlight/main.dart' show authStateNotifier;
+import 'package:slowlight/services/auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
@@ -19,6 +24,41 @@ void main() {
     await ReminderService().loadAll();
   });
   tearDownAll(() { ReminderService().dispose(); });
+  test('点击侧栏账号入口仅读缓存，不校验网络或广播退出登录', () async {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({
+      // Simulate a JWT that expired *after* AuthGate originally opened Home.
+      'auth_token': 'expired.jwt.signed',
+    });
+    await DataModeManager().setCloud();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_login_method', 'github');
+    await prefs.setString('user_data', jsonEncode({
+      'id': 42,
+      'username': 'github_42',
+      'nickname': '七平',
+      'email': '',
+      'created_at': '2026-10-21T00:00:00Z',
+    }));
+    final initialEvent = authStateNotifier.value;
+    var eventCount = 0;
+    void countEvent() => eventCount++;
+    authStateNotifier.addListener(countEvent);
+    try {
+      expect(await AuthService.isLoggedIn(), isFalse);
+      final cached = await readCachedSidebarAccountSummary();
+      expect(cached['name'], '七平');
+      expect(cached['status'], '最近通过 GitHub 登录 · 云端');
+      expect(authStateNotifier.value, initialEvent);
+      expect(eventCount, 0);
+      expect(await AuthService.getToken(), 'expired.jwt.signed');
+      // Neither the cached user nor the token was destroyed by the drawer.
+      expect((await AuthService.getUser())?.id, 42);
+    } finally {
+      authStateNotifier.removeListener(countEvent);
+    }
+  });
+
   test('GitHub OAuth 内部占位邮箱不向用户展示', () {
     expect(
       accountEmailLabel('gh-17805674@oauth.slowlight.invalid'),
