@@ -303,7 +303,7 @@ void main() {
     expect(intents, hasLength(1));
     expect(intents.single['value'], '1');
   });
-  test('P14 离线删除云端清单同时软删除关联任务且清理过时写入意图', () async {
+  test('P14 云端离线批量删除有任务的清单必须阻止，无写入副作用', () async {
     final db = await CloudCacheDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
     await db.insert('lists', {
@@ -318,12 +318,27 @@ void main() {
     expect(await db.query('sync_queue'), hasLength(1));
     expect(await db.query('sync_intents'), hasLength(1));
 
-    await repo.deleteList(501);
-    expect(await repo.getLists(), isEmpty);
-    expect(await repo.getAllTasks(), isEmpty);
-    final rows = await db.query('tasks');
-    expect(rows.single['deleted_at'], isNotNull);
-    expect(await db.query('sync_intents'), isEmpty);
+    await expectLater(
+        repo.deleteList(501, deleteTasks: true), throwsStateError);
+    expect(await repo.getLists(), hasLength(1));
+    expect(await repo.getAllTasks(), hasLength(1));
+    expect((await db.query('tasks')).single['deleted_at'], isNull);
+    expect(await db.query('sync_intents'), hasLength(1));
+    final queue = await db.query('sync_queue');
+    expect(queue, hasLength(1));
+    expect(queue.single['entity_type'], 'tasks');
+    expect(queue.single['operation'], 'create');
+  });
+
+  test('P14 离线空清单可登记普通删除，队列不允许自动级联', () async {
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    await db.insert('lists', {
+      'server_id': 501, 'name': '空清单',
+      'created_at': now, 'updated_at': now,
+    });
+    await CloudCacheRepository().deleteList(501);
+    expect(await CloudCacheRepository().getLists(), isEmpty);
     final queue = await db.query('sync_queue');
     expect(queue, hasLength(1));
     expect(queue.single['entity_type'], 'lists');
