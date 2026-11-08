@@ -18,6 +18,9 @@ class WeeklyReviewScreen extends StatefulWidget {
   final bool embedded;
   final ReflectionRepository? reflectionRepository;
   final TextEditingController? responseDraftController;
+  final VoidCallback? onOpenStats;
+  final VoidCallback? onOpenTimeDistribution;
+  final VoidCallback? onOpenThirtyDays;
   /// Optional test seams; production always uses the existing AnalyticsApi.
   final Future<Map<String, dynamic>> Function()? reviewLoader;
   final Future<Map<String, dynamic>> Function()? outputStatsLoader;
@@ -31,6 +34,9 @@ class WeeklyReviewScreen extends StatefulWidget {
     this.embedded = false,
     this.reflectionRepository,
     this.responseDraftController,
+    this.onOpenStats,
+    this.onOpenTimeDistribution,
+    this.onOpenThirtyDays,
     this.reviewLoader,
     this.outputStatsLoader,
     this.dailyTrendLoader,
@@ -726,6 +732,39 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                   if (_hasOutputData) ...[
                     const SizedBox(height: 14),
                     _outputCard(),
+                  ],
+                  if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+                      (widget.onOpenStats != null ||
+                       widget.onOpenTimeDistribution != null ||
+                       widget.onOpenThirtyDays != null)) ...[
+                    const SizedBox(height: SlowlightSpacing.md),
+                    Wrap(
+                      spacing: SlowlightSpacing.md,
+                      runSpacing: SlowlightSpacing.xs,
+                      children: [
+                        if (widget.onOpenStats != null)
+                          FxButton(
+                            label: '查看记录统计',
+                            variant: FxButtonVariant.link,
+                            size: FxButtonSize.sm,
+                            onPressed: widget.onOpenStats,
+                          ),
+                        if (widget.onOpenTimeDistribution != null)
+                          FxButton(
+                            label: '查看时间分配',
+                            variant: FxButtonVariant.link,
+                            size: FxButtonSize.sm,
+                            onPressed: widget.onOpenTimeDistribution,
+                          ),
+                        if (widget.onOpenThirtyDays != null)
+                          FxButton(
+                            label: '查看近 30 天',
+                            variant: FxButtonVariant.link,
+                            size: FxButtonSize.sm,
+                            onPressed: widget.onOpenThirtyDays,
+                          ),
+                      ],
+                    ),
                   ],
                 ],
               ),
