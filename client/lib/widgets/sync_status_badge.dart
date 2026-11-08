@@ -42,12 +42,12 @@ bool syncMayStartUserRetry({
 /// A failed conflict read is an unknown status, never a healthy pill.
 bool shouldShowCloudSyncBadge({
   required bool showHealthy,
-  required bool conflictsKnown,
+  required bool conflictReadFailed,
   required int pendingCount,
   required int conflictCount,
   required SyncStatusEnum status,
-}) => showHealthy || !conflictsKnown || pendingCount > 0 ||
-    conflictCount > 0 || status == SyncStatusEnum.error;
+}) => showHealthy || conflictReadFailed || pendingCount > 0 ||
+    conflictCount > 0 || status != SyncStatusEnum.idle;
 
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
 class SyncStatusBadge extends StatelessWidget {
@@ -93,7 +93,9 @@ class SyncStatusBadge extends StatelessWidget {
                             ConnectionState.done && !snapshot.hasError;
                     if (!shouldShowCloudSyncBadge(
                       showHealthy: showHealthy,
-                      conflictsKnown: conflictsKnown,
+                      // Do not flash a transient badge on every healthy
+                      // FutureBuilder reload; show unknown only on real error.
+                      conflictReadFailed: snapshot.hasError,
                       pendingCount: pending,
                       conflictCount: conflicts.length,
                       status: status,
@@ -110,8 +112,10 @@ class SyncStatusBadge extends StatelessWidget {
                             : Icons.cloud_queue,
                     text: status == SyncStatusEnum.error
                         ? '同步失败'
-                        : !conflictsKnown
-                            ? (snapshot.hasError ? '状态待核对' : '核对中…')
+                        : status == SyncStatusEnum.syncing
+                            ? '同步中'
+                        : snapshot.hasError
+                            ? '状态待核对'
                         : conflicts.isNotEmpty
                             ? '${conflicts.length} 个冲突'
                             : pending > 0
