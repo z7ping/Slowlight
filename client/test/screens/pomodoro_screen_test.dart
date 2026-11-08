@@ -1,13 +1,82 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/pomodoro_screen.dart';
+import 'package:slowlight/repositories/session_repository.dart';
+import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
+class _ControlledSessionRepository extends SessionRepository {
+  final Completer<Map<String, dynamic>> initial = Completer();
+  var activeReads = 0;
+
+  @override
+  Future<Map<String, dynamic>> getActiveSession() {
+    activeReads++;
+    if (activeReads == 1) return initial.future;
+    return Future.value({'active': false});
+  }
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+}
+
 void main() {
+  testWidgets('P07 还没核对当前活跃会话时不允许开始或更改设置', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final sessions = _ControlledSessionRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: sessions),
+    ));
+    await tester.pump();
+    final start = tester.widget<FxButton>(
+      find.widgetWithText(FxButton, '开始专注'),
+    );
+    expect(start.onPressed, isNull);
+    expect(fxTooltipFinder('正在核对本轮专注'), findsOneWidget);
+
+    sessions.initial.complete({'active': false});
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxButton>(
+      find.widgetWithText(FxButton, '开始专注'),
+    ).onPressed, isNotNull);
+    expect(sessions.activeReads, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 活跃会话状态未知时只允许重新核对而非开启新会话',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final sessions = _ControlledSessionRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: sessions),
+    ));
+    sessions.initial.completeError(StateError('server offline'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前会话状态待核对'), findsOneWidget);
+    expect(find.text('重新核对当前会话'), findsOneWidget);
+    expect(find.widgetWithText(FxButton, '开始专注'), findsNothing);
+    expect(fxTooltipFinder('请先核对当前专注会话'), findsOneWidget);
+
+    await tester.tap(find.text('重新核对当前会话'));
+    await tester.pumpAndSettle();
+    expect(sessions.activeReads, 2);
+    expect(find.widgetWithText(FxButton, '开始专注'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X10 专注设置保存后重新进入页面仍保留，取消不覆盖偏好',
       (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
