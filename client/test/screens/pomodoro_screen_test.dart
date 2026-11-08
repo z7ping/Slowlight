@@ -190,7 +190,54 @@ class _ControlledSessionRepository extends SessionRepository {
       };
 }
 
+class _RemoteEndedLinkedSessionRepository extends SessionRepository {
+  int reads = 0;
+
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async {
+    reads++;
+    if (reads > 1) return {'active': false};
+    return {
+      'active': true,
+      'session': {
+        'id': 761,
+        'session_type': 'work',
+        'task_id': 919,
+        'target_minutes': 25,
+        'started_at': DateTime.now().toUtc().toIso8601String(),
+        'paused_at': DateTime.now().toUtc().toIso8601String(),
+        'paused_duration_seconds': 0,
+        'revision': 1,
+      },
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+}
+
 void main() {
+  testWidgets('X10 另一设备结束原会话后不再携带旧任务关联', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final repo = _RemoteEndedLinkedSessionRepository();
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repo),
+    ));
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(repo.reads, greaterThanOrEqualTo(2));
+    await tester.tap(fxTooltipFinder('专注设置'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxSelect<int>>(find.byType(FxSelect<int>)).value, 0);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P07 自动下一轮不被标签弹窗阻断且经过服务端确认', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final repository = _ExpiredWorkSessionRepository();
