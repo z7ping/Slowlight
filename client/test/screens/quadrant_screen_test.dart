@@ -279,7 +279,6 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-
   testWidgets('P06 Windows 右键移动仅预填原任务，不直接提交', (tester) async {
     SharedPreferences.setMockInitialValues({
       'quadrant_move_hint_desktop_v1': true,
@@ -352,9 +351,9 @@ void main() {
 
     Focus.of(tester.element(find.text('键盘焦点任务'))).requestFocus();
     await tester.pump();
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.f10);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
     await tester.pumpAndSettle();
     expect(find.text('「键盘焦点任务」移动到…'), findsOneWidget);
     expect(tester.takeException(), isNull);
