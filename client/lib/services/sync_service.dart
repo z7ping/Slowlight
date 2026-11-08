@@ -233,9 +233,9 @@ class SyncService extends ChangeNotifier {
           continue;
         }
         final local = rows.single;
-        final remote = await (debugRemoteRead?.call(
-              db, table, serverId, local,
-            ) ?? _fetchRemote(db, table, serverId, local));
+        final remote = debugRemoteRead == null
+            ? await _fetchRemote(db, table, serverId, local)
+            : await debugRemoteRead!(db, table, serverId, local);
         bool applied = false;
         if (operation == 'delete' && remote == null) {
           // For read-by-list APIs a successful complete listing with no ID
