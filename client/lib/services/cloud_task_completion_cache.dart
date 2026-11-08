@@ -25,8 +25,9 @@ class CloudTaskCompletionCache {
     required bool expectedCompleted,
     DateTime? expectedCompletedAt,
   }) async {
-    if (completed == expectedCompleted) {
-      throw ArgumentError('目标状态与预期状态相同');
+    if (completed == expectedCompleted ||
+        (expectedCompleted && expectedCompletedAt == null)) {
+      throw ArgumentError('完成状态条件不完整');
     }
     final db = await _cache.database;
     final row = await _findTask(db, publicTaskId);
@@ -40,7 +41,9 @@ class CloudTaskCompletionCache {
       }
     }
     return _writeTarget(db, row, publicTaskId,
-      completed: completed, expectedCompleted: expectedCompleted);
+      completed: completed,
+      expectedCompleted: expectedCompleted,
+      expectedCompletedAt: expectedCompletedAt);
   }
 
   Future<Task> _writeTarget(
@@ -49,6 +52,7 @@ class CloudTaskCompletionCache {
     int publicTaskId, {
     required bool completed,
     required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
   }) async {
     final localId = row['id'] as int;
     final serverId = row['server_id'] as int?;
@@ -64,8 +68,13 @@ class CloudTaskCompletionCache {
           'last_modified': now,
           'sync_status': 'pending',
         },
-        where: 'id = ? AND is_completed = ?',
-        whereArgs: [localId, expectedCompleted ? 1 : 0],
+        where: 'id = ? AND is_completed = ?'
+            '${expectedCompletedAt == null ? '' : ' AND completed_at = ?'}',
+        whereArgs: [
+          localId, expectedCompleted ? 1 : 0,
+          if (expectedCompletedAt != null)
+            expectedCompletedAt.toUtc().toIso8601String(),
+        ],
       );
       if (changed != 1) {
         throw StateError('本地缓存中的任务状态已变化');
