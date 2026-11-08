@@ -41,6 +41,7 @@ void main() {
     expect(find.text('标签读取失败，已选择的条件仍保留'), findsOneWidget);
     expect(find.text('暂无标签'), findsNothing);
 
+    await tester.ensureVisible(find.text('重试标签'));
     await tester.tap(find.text('重试标签'));
     await tester.pumpAndSettle();
     expect(reads, 2);
