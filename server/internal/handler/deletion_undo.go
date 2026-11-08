@@ -44,7 +44,7 @@ func saveDeletionUndo(
 	raw, err := json.Marshal(payload)
 	if err != nil { return "", err }
 	token := ""
-	if len(requestedToken) > 0 {
+	if len(requestedToken) > 0 && requestedToken[0] != "" {
 		token = requestedToken[0]
 		if !validDeletionUndoToken(token) {
 			return "", errDeletionUndoUnavailable
