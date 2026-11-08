@@ -208,6 +208,18 @@ func (h *ReflectionHandler) List(c *gin.Context) {
     if startText != "" {
         query = query.Where("created_at >= ? AND created_at < ?",startAt,endAt)
     }
+    // Search is evaluated in the owner's SQL scope, not against an
+    // arbitrary recent(100) sample. Escape LIKE wildcards as literals.
+    if raw, ok := c.GetQuery("search"); ok {
+        search := strings.TrimSpace(raw)
+        if search == "" || len([]rune(search)) > 200 {
+            c.JSON(http.StatusBadRequest, gin.H{"error":"搜索关键词需为 1-200 个字符"})
+            return
+        }
+        needle := strings.ToLower(search)
+        needle = strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(needle)
+        query = query.Where("LOWER(content) LIKE ? ESCAPE '!'", "%"+needle+"%")
+    }
 	if questionID := strings.TrimSpace(c.Query("question_id")); questionID != "" {
 		query = query.Where("entry_type = ?", "reflection")
 		if len(questionID) > 120 {

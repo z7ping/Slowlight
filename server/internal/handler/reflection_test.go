@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -248,4 +249,71 @@ func TestP08ReflectionCalendarMonthPagesAndAccountIsolation(t *testing.T) {
         status,_:=call(bad)
         if status!=400 {t.Fatalf("invalid calendar query accepted: %s (%d)",bad,status)}
     }
+}
+
+
+func TestP09SearchHistoryIsAccountScopedAndWildcardLiteral(t *testing.T) {
+    db := beginTx(t, setupTestDB(t))
+    owner := createTestUser(t, db)
+    other := createTestUser(t, db)
+    for i := 0; i < 125; i++ {
+        if err := db.Create(&model.Reflection{
+            UserID: owner.ID, EntryType: "observation",
+            Content: fmt.Sprintf("old-search-token %03d",i),
+            CreatedAt: time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC),
+        }).Error; err != nil { t.Fatal(err) }
+    }
+    for i := 0; i < 115; i++ {
+        if err := db.Create(&model.Reflection{
+            UserID: owner.ID, EntryType: "observation",
+            Content: fmt.Sprintf("unrelated new %d",i),
+            CreatedAt: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC),
+        }).Error; err != nil { t.Fatal(err) }
+    }
+    for _,row := range []model.Reflection{
+        {UserID: other.ID, EntryType: "reflection", Content: "old-search-token FOREIGN"},
+        {UserID: owner.ID, EntryType: "observation", Content: "literal 10% completed"},
+        {UserID: owner.ID, EntryType: "observation", Content: "literal a_b"},
+        {UserID: owner.ID, EntryType: "observation", Content: "literal aXb"},
+    } {
+        if err:=db.Create(&row).Error;err!=nil{t.Fatal(err)}
+    }
+    router:=newTestGin()
+    router.Use(func(c *gin.Context){withUser(c,owner.ID);c.Next()})
+    router.GET("/reflections",NewReflectionHandler(db).List)
+    query:=func(keyword string,offset int) (int,[]reflectionResponse) {
+        req:=httptest.NewRequest(http.MethodGet,fmt.Sprintf(
+            "/reflections?search=%s&limit=100&offset=%d",
+            url.QueryEscape(keyword),offset),nil)
+        rec:=httptest.NewRecorder()
+        router.ServeHTTP(rec,req)
+        var decoded struct{Items []reflectionResponse `json:"items"`}
+        if rec.Code==http.StatusOK {
+            if err:=json.Unmarshal(rec.Body.Bytes(),&decoded);err!=nil{t.Fatal(err)}
+        }
+        return rec.Code,decoded.Items
+    }
+    firstCode,first:=query("old-search-token",0)
+    nextCode,next:=query("old-search-token",100)
+    if firstCode!=200 || nextCode!=200 || len(first)!=100 || len(next)!=25 {
+        t.Fatalf("historical keyword paging: %d/%d rows %d/%d",
+            firstCode,nextCode,len(first),len(next))
+    }
+    for _,record:=range append(first,next...) {
+        if !strings.Contains(record.Content,"old-search-token") ||
+            strings.Contains(record.Content,"FOREIGN"){
+            t.Fatalf("leaked or mismatched record: %s",record.Content)
+        }
+    }
+    _,percentage:=query("%",0)
+    if len(percentage)!=1 || percentage[0].Content!="literal 10% completed"{
+        t.Fatalf("percent wildcard was not literal: %+v",percentage)
+    }
+    _,underscore:=query("a_b",0)
+    if len(underscore)!=1 || underscore[0].Content!="literal a_b"{
+        t.Fatalf("underscore wildcard was not literal: %+v",underscore)
+    }
+    long:=strings.Repeat("a",201)
+    status,_:=query(long,0)
+    if status!=400{t.Fatalf("invalid keyword length accepted: %d",status)}
 }

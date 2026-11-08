@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/habit.dart';
 import '../models/reflection_entry.dart';
@@ -10,6 +11,8 @@ import '../models/todo_list.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../services/data_service.dart';
+import '../services/auth_service.dart';
+import '../services/data_mode_manager.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/task_detail_sheet.dart';
@@ -63,14 +66,19 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Habit> _habits = const [];
   List<ReflectionEntry> _reflections = const [];
   List<TodoList> _lists = const [];
+  int _taskVisible = 20;
+  int _habitVisible = 20;
+  int _reflectionVisible = 20;
 
-  static final List<String> _recentSearches = <String>[];
+  List<String> _recentSearches = const [];
+  String? _recentKey;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadRecentSearches());
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _focusNode.requestFocus(),
+      (_) { if (mounted) _focusNode.requestFocus(); },
     );
   }
 
@@ -111,12 +119,20 @@ class _SearchScreenState extends State<SearchScreen> {
         _reflections = const [];
         _lists = const [];
         _partialUnavailable = const [];
+        _taskVisible = 20;
+        _habitVisible = 20;
+        _reflectionVisible = 20;
         _loading = false;
       });
       return;
     }
 
     setState(() {
+      if (_query != query) {
+        _taskVisible = 20;
+        _habitVisible = 20;
+        _reflectionVisible = 20;
+      }
       _query = query;
       _loading = true;
       _error = false;
@@ -163,6 +179,12 @@ class _SearchScreenState extends State<SearchScreen> {
   }) async {
     final missing = <String>{};
     final sources = widget.sourceLoaders;
+    Future<List<ReflectionEntry>> loadReflections() async {
+      if (sources != null) return sources.reflections();
+      final result = await ReflectionRepository().searchContent(query);
+      if (!result.complete) missing.add('回顾（部分）');
+      return result.entries;
+    }
     final values = await Future.wait<dynamic>([
       (sources?.tasks(query) ?? DataService().searchTasks(query))
           .catchError((Object _) {
@@ -174,8 +196,7 @@ class _SearchScreenState extends State<SearchScreen> {
         missing.add('习惯');
         return <Habit>[];
       }),
-      (sources?.reflections() ?? ReflectionRepository().recent(limit: 100))
-          .catchError((Object _) {
+      loadReflections().catchError((Object _) {
         missing.add('回顾');
         return <ReflectionEntry>[];
       }),
@@ -185,11 +206,12 @@ class _SearchScreenState extends State<SearchScreen> {
         return <TodoList>[];
       }),
     ]);
-    if (missing.length == 4) {
+    if (['任务', '习惯', '回顾', '清单']
+        .every(missing.contains)) {
       throw StateError('所有搜索来源均未读取成功');
     }
     onUnavailable(
-      ['任务', '习惯', '回顾', '清单']
+      ['任务', '习惯', '回顾', '回顾（部分）', '清单']
           .where(missing.contains)
           .toList(growable: false),
     );
@@ -201,10 +223,44 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  Future<void> _loadRecentSearches() async {
+    try {
+      final scope = DataModeManager().isLocal
+          ? 'local'
+          : 'cloud:${(await AuthService.getUser())?.id ?? 0}';
+      // Never share an anonymous cloud history with another account.
+      if (scope == 'cloud:0') return;
+      final key = 'slowlight.search.recent.v1.$scope';
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _recentKey = key;
+        _recentSearches = (prefs.getStringList(key) ?? const <String>[])
+            .where((item) => item.trim().isNotEmpty)
+            .take(5)
+            .toList(growable: true);
+      });
+    } catch (_) {
+      // Search must remain usable if preferences are unavailable.
+    }
+  }
+
+  Future<void> _persistRecent(String key, List<String> values) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(key, values);
+    } catch (_) {
+      // Recent history is optional; failed persistence must not block search.
+    }
+  }
+
   void _remember(String query) {
+    final key = _recentKey;
+    if (key == null) return;
     _recentSearches.remove(query);
     _recentSearches.insert(0, query);
     if (_recentSearches.length > 5) _recentSearches.removeLast();
+    unawaited(_persistRecent(key, List<String>.from(_recentSearches)));
   }
 
   void _useRecent(String value) {
@@ -288,7 +344,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      '部分搜索来源未读取：${_partialUnavailable.join('、')}。以下仅为已载入结果。',
+                                      _partialUnavailable.any((source) => source.endsWith('（部分）'))
+                                          ? '部分搜索来源尚未完整核对：${_partialUnavailable.join('、')}。以下仅为已载入结果。'
+                                          : '部分搜索来源未读取：${_partialUnavailable.join('、')}。以下仅为已载入结果。',
                                       style: SlowlightTypography.secondary(context),
                                     ),
                                   ),
@@ -368,8 +426,17 @@ class _SearchScreenState extends State<SearchScreen> {
       FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         expanded: true,
-        child: Column(children: _tasks.take(20).map(_taskRow).toList()),
+        child: Column(children: _tasks.take(_taskVisible).map(_taskRow).toList()),
       ),
+      more: _tasks.length > _taskVisible
+          ? FxButton(
+              key: const ValueKey('search-task-more'),
+              label: '查看更多任务 · 剩余 ${_tasks.length - _taskVisible} 条',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => setState(() => _taskVisible += 20),
+            )
+          : null,
     );
   }
 
@@ -449,7 +516,7 @@ class _SearchScreenState extends State<SearchScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
         child: Column(
-          children: _habits.take(20).map((habit) {
+          children: _habits.take(_habitVisible).map((habit) {
             return FxInkWell(
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
               onTap: widget.onOpenHabit == null
@@ -488,20 +555,31 @@ class _SearchScreenState extends State<SearchScreen> {
           }).toList(),
         ),
       ),
+      more: _habits.length > _habitVisible
+          ? FxButton(
+              key: const ValueKey('search-habit-more'),
+              label: '查看更多习惯 · 剩余 ${_habits.length - _habitVisible} 条',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => setState(() => _habitVisible += 20),
+            )
+          : null,
     );
   }
 
   Widget _reflectionGroup() {
     final theme = Theme.of(context);
     return _group(
-      '回顾与观察 · ${_reflections.length} 条',
+      _partialUnavailable.any((source) => source.startsWith('回顾'))
+          ? '回顾与观察 · 已载入 ${_reflections.length} 条'
+          : '回顾与观察 · ${_reflections.length} 条',
       FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
         child: Column(
           children:
               _reflections
-                  .take(20)
+                  .take(_reflectionVisible)
                   .map(
                     (entry) => FxInkWell(
                       borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -553,10 +631,19 @@ class _SearchScreenState extends State<SearchScreen> {
                   .toList(),
         ),
       ),
+      more: _reflections.length > _reflectionVisible
+          ? FxButton(
+              key: const ValueKey('search-reflection-more'),
+              label: '查看更多记录 · 剩余 ${_reflections.length - _reflectionVisible} 条',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => setState(() => _reflectionVisible += 20),
+            )
+          : null,
     );
   }
 
-  Widget _group(String label, Widget child) {
+  Widget _group(String label, Widget child, {Widget? more}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -571,6 +658,10 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
         child,
+        if (more != null) ...[
+          const SizedBox(height: 6),
+          Align(alignment: Alignment.centerLeft, child: more),
+        ],
       ],
     );
   }
