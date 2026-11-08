@@ -8,6 +8,7 @@ import '../support/fx_test_host.dart';
 StatsSnapshot _snapshot({
   Set<String> unavailable = const {},
   bool fullTrend = false,
+  bool observationCounts = false,
 }) {
   final now = DateTime.now();
   final day = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -21,6 +22,7 @@ StatsSnapshot _snapshot({
               'date': key,
               'task_completed': i == 6 ? 99 : 1,
               'habit_checked': i == 6 ? 2 : 1,
+              if (observationCounts) 'reflection_count': i == 6 ? 2 : 0,
             };
           })
         : [{'date': day, 'task_completed': 99, 'habit_checked': 2}],
@@ -75,8 +77,10 @@ void main() {
     expect(snapshot.countInDays('habit_checked', 7), 8);
     expect(snapshot.focusMinutesInDays(7), 25);
     expect(snapshot.focusMinutesInDays(1), 25);
-    // Both real AnalyticsDailyTrend providers currently omit this field.
+    // Old Cloud API snapshots do not include the new observation field.
     expect(snapshot.observationCountInDays(7), isNull);
+    expect(_snapshot(fullTrend: true, observationCounts: true)
+        .observationCountInDays(7), 2);
     expect(
       _snapshot(unavailable: {'today_session_stats'})
           .focusMinutesInDays(1),
@@ -108,8 +112,13 @@ void main() {
     expect(find.text('记录概况'), findsOneWidget);
     expect(find.text('105'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
+    await tester.ensureVisible(
+      find.text('观察数量未纳入趋势（当前来源未提供每日观察事实）'),
+    );
     expect(find.text('观察数量未纳入趋势（当前来源未提供每日观察事实）'),
         findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('stats.kpi.tasks')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('stats.kpi.tasks')));
     expect(destinations, [StatsDestination.tasks]);
     await tester.tap(find.text('今天').first);
