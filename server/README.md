@@ -30,7 +30,11 @@ go run ./cmd
 
 ```text
 GET /health
+GET /api/version   # 无需登录；仅读取构建与部署元数据
 ```
+
+`GET /api/version` 返回 `version`、`deployed_at`、`commit_time`、`commit_hash`、`built_at`。
+`commit_time` 是代码提交时间，`deployed_at` 是部署发起时间（不等于每次进程重启时间），UTC RFC3339 格式；未知值为 JSON `null`，绝不以当前时间或最新版号冒充。
 
 ## GitHub 一键登录（可选）
 
@@ -79,9 +83,14 @@ CORS_ALLOW_ORIGINS=<允许访问的前端 Origin，可选>
 然后：
 
 ```bash
-cd server
-docker compose up -d --build
+# 从仓库根目录执行（Git 检出），自动注入版本、提交 SHA、提交时间和部署时间
+sh server/deploy.sh
 ```
+
+`server/deploy.sh` 从 `client/pubspec.yaml` 获取版本，并要求服务端源码与版本文件没有未提交修改。
+仍可手动执行 `cd server && docker compose up -d --build`，但没有通过环境变量提供的信息会显示为 `null`。
+发行版 Linux 二进制在构建时自动注入版本、提交与构建时间；部署时间必须由运维在运行前配置 `SLOWLIGHT_DEPLOYED_AT`（UTC RFC3339），否则不显示。
+
 
 默认仅将后端映射到宿主机 `127.0.0.1:8080`，PostgreSQL 只映射到 `127.0.0.1:5432`。远程访问必须由部署者显式配置 HTTPS 反向代理。
 
