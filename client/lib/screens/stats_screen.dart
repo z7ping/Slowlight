@@ -362,8 +362,10 @@ class _StatsScreenState extends State<StatsScreen> {
           Text('记录来源暂不可用',
               style: SlowlightTypography.secondary(context))
         else if (known.every((value) => value == 0))
-          Text('这段时间还没有记录',
-              style: SlowlightTypography.secondary(context))
+          Text(
+            hasObservations ? '这段时间还没有记录' : '暂无任务或习惯记录',
+            style: SlowlightTypography.secondary(context),
+          )
         else
           ...List.generate(dates.length, (index) {
             final day = dates[index];
@@ -474,9 +476,16 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget _timeDistribution(StatsSnapshot data) {
     final raw = data.timeDistribution['tags'];
     if (!data.hasSource('time_distribution') || raw is! List || raw.isEmpty) {
+      final total = data.timeDistribution['total_min'];
+      final fallback = !data.hasSource('time_distribution') || raw is! List
+          ? '时间分配暂不可用'
+          : total is num && total > 0
+              ? '已记录 ${_focusText(total.toInt())} · 暂无分类'
+              : total == 0
+                  ? '暂无时间分配记录'
+                  : '时间分配统计待核对';
       return Text(
-        data.hasSource('time_distribution')
-            ? '暂无时间分配数据' : '时间分配暂不可用',
+        fallback,
         style: SlowlightTypography.secondary(
           context,
         ).copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
