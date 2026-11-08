@@ -157,6 +157,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
               : '关闭后将丢失当前填写的习惯记录。',
           confirmText: unknown ? '返回核对' : '放弃修改',
           destructive: !unknown,
+          draftDiscard: !unknown,
         );
         if (confirmed != true || !mounted) return;
       } finally {
