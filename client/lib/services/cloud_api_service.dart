@@ -153,11 +153,11 @@ class CloudApiService implements ApiDataSource {
   }
 
   @override
-  Future<void> deleteList(int id) {
-    if (id < 0) return _cache.deleteList(id);
+  Future<void> deleteList(int id, {bool deleteTasks = false}) {
+    if (id < 0) return _cache.deleteList(id, deleteTasks: deleteTasks);
     return _writeThroughVoid(
-      () => ApiService.deleteList(id),
-      () => _cache.deleteList(id),
+      () => ApiService.deleteList(id, deleteTasks: deleteTasks),
+      () => _cache.deleteList(id, deleteTasks: deleteTasks),
     );
   }
 
