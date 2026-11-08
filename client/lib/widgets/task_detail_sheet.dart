@@ -363,7 +363,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       );
       return mounted && leave == true;
     }
-    if (_mobileFormSnapshot() == _initialMobileSnapshot) return true;
+    if (_mobileFormSnapshot() == _initialMobileSnapshot &&
+        !(widget.isCreating && _title.text.trim().isNotEmpty)) return true;
     final discard = await FxDialog.confirm(
       context: context,
       title: '放弃未保存的修改？',
@@ -419,7 +420,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
 
   Future<void> _requestMobileClose({bool backFromSystem = false}) async {
     if (_saving) return;
-    if (_mobileDirty || _writeResultUnknown) {
+    if (_mobileDirty || _writeResultUnknown ||
+        (widget.isCreating && _title.text.trim().isNotEmpty)) {
       final discard = await FxDialog.confirm(
         context: context,
         title: _writeResultUnknown
