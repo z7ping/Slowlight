@@ -275,7 +275,7 @@ class LocalTaskRepository {
       throw StateError('任务日期已变化，无法撤销顺延');
     }
     final result = await getById(id);
-    if (result == null) throw StateError('任务已不可读取，撤销结果待核对');
+    if (result == null) throw Exception('任务已不可读取，撤销结果待核对');
     return result;
   }
 
