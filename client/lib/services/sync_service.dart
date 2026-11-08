@@ -977,31 +977,33 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Legacy retry entry: failed writes are evidence, not a disposable
+  /// backoff counter. Clearing retry_count/last_error before verification
+  /// would bypass _processQueueItem's ambiguous-outcome replay guard.
   Future<void> retryFailed({int maxRetries = 3}) async {
     if (!DataModeManager().isCloud ||
         _status == SyncStatusEnum.syncing || _reconciling) return;
-    final db = await _db.database;
-    final exceeded = await db.query(
-      'sync_queue',
-      where: 'retry_count >= ?',
-      whereArgs: [maxRetries],
-    );
-    for (final item in exceeded) {
-      final table = item['entity_type'] as String;
-      final localId = item['entity_local_id'] as int;
-      if (await _hasColumn(db, table, 'sync_status')) {
-        final rows = await db.query(table,
-            columns: ['sync_status'],
-            where: 'id = ?',
-            whereArgs: [localId],
-            limit: 1);
-        // 显式冲突不得在后台重试时被覆盖。
-        if (rows.isNotEmpty && rows.first['sync_status'] == 'conflict') continue;
+    try {
+      // A read-only remote comparison can remove only confirmed applied
+      // writes; ambiguous or conflicting rows remain intact in sync_queue.
+      await reconcileFailedWrites();
+      final unresolved = await getPendingFailures();
+      if (unresolved.isNotEmpty) {
+        _pendingCount = await _getQueueCount();
+        _status = SyncStatusEnum.error;
+        _lastError = '仍有 ${unresolved.length} 条失败或结果未知的同步记录，'
+            '已保留原始回执；请核对冲突，不自动重发。';
+        notifyListeners();
+        return;
       }
-      await db.update('sync_queue', {'retry_count': 0, 'last_error': ''},
-          where: 'id = ?', whereArgs: [item['id']]);
+      // Only fresh, never-failed queue rows may follow the normal path.
+      await syncBatch(batchSize: 50);
+    } catch (error) {
+      _status = SyncStatusEnum.error;
+      _lastError = '远端核对未完成，原始失败记录保持不变：$error';
+      _pendingCount = await _getQueueCount();
+      notifyListeners();
     }
-    await syncBatch(batchSize: 50);
   }
 
   Future<void> markSynced({
