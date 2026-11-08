@@ -29,7 +29,17 @@ class AnalyticsApi {
 
   static Future<Map<String, dynamic>> getTimeDistribution() async {
     if (DataModeManager().isLocal) return _local.getTimeDistribution();
-    return _getJson('/analytics/time-distribution');
+    final data = await _getJson('/analytics/time-distribution');
+    // Older Cloud servers returned event-derived minutes with an imprecise
+    // rolling window. Do not present them as verified WorkSession facts.
+    if (data['today_date'] is! String ||
+        data['total_work_seconds'] is! num ||
+        data['unclassified_work_seconds'] is! num ||
+        data['tags'] is! List ||
+        data['by_day'] is! List) {
+      throw const FormatException('云端时间分配口径尚未核对，请更新服务端');
+    }
+    return data;
   }
 
   static Future<Map<String, dynamic>> getWeeklyReview() async {

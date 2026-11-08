@@ -58,58 +58,81 @@ class LocalAnalyticsService {
     final today = LocalTimeBoundary.dayStart(DateTime.now());
     final start = LocalTimeBoundary.addCalendarDays(today, 1 - days);
     final end = LocalTimeBoundary.dayEnd(today);
-    final events = await _focusEvents(db, start, end);
+    final range = LocalTimeBoundary.range(start, end);
+    // The session is the canonical focus fact. Behavior events may be absent,
+    // incomplete or retained from older versions; never count them twice.
+    final sessions = await db.query(
+      'work_sessions',
+      columns: ['ended_at', 'duration_sec', 'system_tag_id'],
+      where: "session_type = 'work' AND ended_at IS NOT NULL "
+          'AND ended_at >= ? AND ended_at < ?',
+      whereArgs: [range.startUtc, range.endUtc],
+      orderBy: 'ended_at ASC',
+    );
     final tags = await _observationTagMap(db);
-
-    var totalMin = 0;
-    final minutesByTag = <int, int>{};
+    final secondsByTag = <int, int>{};
     final countByTag = <int, int>{};
-    final daily = <String, Map<String, dynamic>>{};
+    final secondsByDay = <String, int>{};
+    final countByDay = <String, int>{};
+    var totalSeconds = 0;
+    var taggedSeconds = 0;
 
-    for (final event in events) {
-      totalMin += event.durationMin;
-      final date = LocalTimeBoundary.dateKey(event.occurredAt);
-      final day = daily.putIfAbsent(date, () => {
-            'date': date,
-            'total_min': 0,
-            'work_count': 0,
-          });
-      day['total_min'] = (day['total_min'] as int) + event.durationMin;
-      day['work_count'] = (day['work_count'] as int) + 1;
-      final tagId = event.systemTagId;
-      if (tagId != null) {
-        minutesByTag[tagId] = (minutesByTag[tagId] ?? 0) + event.durationMin;
+    for (final row in sessions) {
+      final duration = row['duration_sec'];
+      final endedAt = DateTime.tryParse(row['ended_at']?.toString() ?? '');
+      if (duration is! int || duration < 0 || endedAt == null) {
+        throw const FormatException('专注会话事实无法核对');
+      }
+      if (duration == 0) continue;
+      final day = LocalTimeBoundary.dateKey(endedAt.toLocal());
+      totalSeconds += duration;
+      secondsByDay[day] = (secondsByDay[day] ?? 0) + duration;
+      countByDay[day] = (countByDay[day] ?? 0) + 1;
+      final tagId = row['system_tag_id'];
+      if (tagId is int && tags.containsKey(tagId)) {
+        taggedSeconds += duration;
+        secondsByTag[tagId] = (secondsByTag[tagId] ?? 0) + duration;
         countByTag[tagId] = (countByTag[tagId] ?? 0) + 1;
       }
     }
 
     final tagDist = <Map<String, dynamic>>[];
-    for (final entry in minutesByTag.entries) {
-      final tag = tags[entry.key];
+    for (final entry in secondsByTag.entries) {
+      final tag = tags[entry.key]!;
       tagDist.add({
         'tag_id': entry.key,
-        'name': tag?['name'] ?? '',
-        'icon': tag?['icon'] ?? '',
-        'total_min': entry.value,
-        'session_count': countByTag[entry.key] ?? 0,
-        'percent': totalMin == 0 ? 0.0 : entry.value / totalMin * 100,
+        'name': tag['name'] ?? '',
+        'icon': tag['icon'] ?? '',
+        'work_seconds': entry.value,
+        'total_min': entry.value ~/ 60,
+        'session_count': countByTag[entry.key]!,
+        'percent': totalSeconds == 0 ? 0.0 : entry.value / totalSeconds * 100,
       });
     }
     tagDist.sort((a, b) =>
-        (b['total_min'] as int).compareTo(a['total_min'] as int));
+        (b['work_seconds'] as int).compareTo(a['work_seconds'] as int));
 
     final byDay = <Map<String, dynamic>>[];
     for (var i = 0; i < days; i++) {
       final date = LocalTimeBoundary.dateKey(
         LocalTimeBoundary.addCalendarDays(start, i),
       );
-      byDay.add(daily[date] ?? {
+      final seconds = secondsByDay[date] ?? 0;
+      byDay.add({
         'date': date,
-        'total_min': 0,
-        'work_count': 0,
+        'total_min': seconds ~/ 60,
+        'work_seconds': seconds,
+        'work_count': countByDay[date] ?? 0,
       });
     }
-    return {'total_min': totalMin, 'tags': tagDist, 'by_day': byDay};
+    return {
+      'today_date': LocalTimeBoundary.dateKey(today),
+      'total_min': totalSeconds ~/ 60,
+      'total_work_seconds': totalSeconds,
+      'unclassified_work_seconds': totalSeconds - taggedSeconds,
+      'tags': tagDist,
+      'by_day': byDay,
+    };
   }
 
   Future<Map<String, dynamic>> getWeeklyReview() async {
