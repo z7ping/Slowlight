@@ -9,6 +9,8 @@ void main() {
     bool unknown = false,
     int conflicts = 0,
     int pending = 0,
+    SyncQueueRunEvidence? queueRun,
+    bool networkUnreachable = false,
   }) =>
       cloudSyncSummary(
         status: status,
@@ -16,6 +18,8 @@ void main() {
         conflictCheckFailed: unknown,
         conflictCount: conflicts,
         pendingCount: pending,
+        lastQueueRun: queueRun,
+        networkUnreachable: networkUnreachable,
       );
 
   test('云同步冲突显示全实体合计数量', () {
@@ -41,6 +45,45 @@ void main() {
     expect(label(pending: 3), '云同步 · 3 项待同步');
     expect(label(syncing: true), '云同步 · 同步中…');
     expect(label(status: SyncStatusEnum.syncing), '云同步 · 同步中…');
+  });
+
+  test('P1-11 仅确证部分写入才显示部分成功，不把未知项算成功', () {
+    const partial = SyncQueueRunEvidence(attempted: 5, failed: 2);
+    expect(partial.acknowledged, 3);
+    expect(partial.partiallyAcknowledged, isTrue);
+    expect(label(
+      status: SyncStatusEnum.error,
+      queueRun: partial,
+    ), '云同步 · 部分成功（3 项已确认，2 项未完成）');
+
+    const allFailed = SyncQueueRunEvidence(attempted: 3, failed: 3);
+    expect(allFailed.partiallyAcknowledged, isFalse);
+    expect(label(
+      status: SyncStatusEnum.error,
+      queueRun: allFailed,
+    ), '云同步 · 同步失败');
+    expect(label(
+      status: SyncStatusEnum.error,
+      queueRun: const SyncQueueRunEvidence(attempted: 0, failed: 0),
+    ), '云同步 · 同步失败');
+  });
+
+  test('P1-11 连接异常只表示可能离线，不误判 HTTP 失败', () {
+    expect(label(
+      status: SyncStatusEnum.error,
+      networkUnreachable: true,
+    ), '云同步 · 网络不可达（可能离线）');
+    expect(label(status: SyncStatusEnum.error), '云同步 · 同步失败');
+    expect(label(
+      status: SyncStatusEnum.error,
+      networkUnreachable: true,
+      queueRun: const SyncQueueRunEvidence(attempted: 3, failed: 1),
+    ), contains('部分成功'));
+    expect(label(
+      status: SyncStatusEnum.error,
+      conflicts: 1,
+      networkUnreachable: true,
+    ), '云同步 · 1 个冲突待处理');
   });
 
   test('冲突优先于普通同步错误展示，避免用户找不到处置入口', () {
