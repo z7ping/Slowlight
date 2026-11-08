@@ -233,7 +233,7 @@ void main() {
     await tester.tap(find.text('重试关联'));
     await tester.pumpAndSettle();
     expect(repository.countCalls, 2);
-    expect(find.textContaining('关联 2 条'), findsOneWidget);
+    expect(find.textContaining('关联影响 2 条'), findsOneWidget);
     expect(find.text('标签关联数量未全部核对，标签本身仍可管理。'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -252,7 +252,7 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(find.textContaining('关联 999 条'), findsNothing);
-    expect(find.textContaining('关联 2 条'), findsOneWidget);
+    expect(find.textContaining('关联影响 2 条'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
