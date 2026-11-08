@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../services/data_service.dart';
+import '../services/list_delete_undo_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
@@ -582,12 +583,39 @@ class _ListManageScreenState extends State<ListManageScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      await DataService().deleteList(list.id, list.serverId,
-          deleteTasks: true, expectedTaskCount: affected.length);
+      final undo = await ListDeleteUndoService().delete(
+        localId: list.id,
+        serverId: list.serverId,
+        expectedTaskCount: affected.length,
+      );
       await _loadLists();
+      if (mounted) {
+        FxNotice.success(
+          context, '清单已删除',
+          action: FxNoticeAction(
+            label: '撤销',
+            onPressed: () => unawaited(_undoDeletedList(undo)),
+          ),
+          duration: const Duration(seconds: 8),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       FxNotice.showContent(context, Text('删除失败：$e'));
+    }
+  }
+
+  Future<void> _undoDeletedList(ListDeletionUndo undo) async {
+    try {
+      await undo.restore();
+      if (mounted) {
+        await _loadLists();
+        if (mounted) FxNotice.success(context, '原清单及其任务已恢复');
+      }
+    } catch (error) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '清单撤销结果未确认', '$error');
+      }
     }
   }
 
