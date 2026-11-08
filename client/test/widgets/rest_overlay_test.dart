@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/services/reminder_service.dart';
 import 'package:slowlight/widgets/rest_overlay.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('rest_overlay_clock');
+  });
+
   testWidgets('严格小憩遮罩恢复高保真结构且隐藏跳过入口', (tester) async {
     await tester.pumpWidget(
       buildFxTestHost(
@@ -47,4 +53,45 @@ void main() {
 
     await disposeFxTestHost(tester);
   });
+  testWidgets('P16 遮罩严格跟随服务计时：服务暂停后不能自行归零或完成休息',
+      (tester) async {
+    final service = ReminderService();
+    service.stopAll();
+    service.updateConfig(
+      lockScreenMode: 'window',
+      microRestSeconds: 20,
+      autoLoop: false,
+      microRestStrict: false,
+      allowPostponeMicro: true,
+    );
+    service.startMicroRest();
+    await tester.pumpWidget(buildFxTestHost(
+      home: const RestOverlay(
+        isMicroRest: true,
+        restSeconds: 20,
+        strict: false,
+        allowPostpone: true,
+      ),
+    ));
+    try {
+      await tester.pump();
+      expect(service.state, 'micro_rest');
+      final initial = service.remainingSeconds;
+      expect(find.text('00:20'), findsOneWidget);
+      service.pause();
+      await tester.pump(const Duration(seconds: 3));
+      expect(service.remainingSeconds, initial);
+      expect(find.text('00:20'), findsOneWidget);
+      expect(service.state, 'micro_rest');
+      service.resume();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('00:19'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await disposeFxTestHost(tester);
+      service.stopAll();
+      service.updateConfig(autoLoop: true, microRestStrict: false);
+    }
+  });
+
 }
