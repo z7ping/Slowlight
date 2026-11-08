@@ -162,6 +162,41 @@ void main() {
     expect(await AuthService.getToken(), token);
   });
 
+  test('账户辅助接口 401 且续期失败不得把尚未过期 JWT 判为退出', () async {
+    final token = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+    );
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': token,
+      'auth_refresh_token': 'rejected-refresh',
+    });
+    var reads = 0;
+    var refreshes = 0;
+    await http.runWithClient(() async {
+      await expectLater(
+        AuthService.isGitHubLinked(),
+        throwsA(isA<StateError>()),
+      );
+      // The provider endpoint's 401 does not revoke an unexpired access JWT.
+      // The account view keeps its cached identity and surfaces unknown
+      // provider status instead of sending AuthGate back to login.
+      expect(await AuthService.isLoggedIn(), isTrue);
+      expect(await AuthService.getToken(), token);
+    }, () => MockClient((request) async {
+      if (request.url.path == '/api/auth/refresh') {
+        refreshes++;
+        return http.Response('{"error":"session rejected"}', 401);
+      }
+      expect(request.url.path, '/api/auth/providers');
+      reads++;
+      expect(request.headers['authorization'], 'Bearer $token');
+      return http.Response('{"error":"provider temporarily unavailable"}', 401);
+    }));
+    expect(reads, 1);
+    expect(refreshes, 1);
+    expect(await AuthService.getToken(), token);
+  });
+
   test('Legacy token is migrated out of SharedPreferences', () async {
     final token = _jwt(exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600);
     SharedPreferences.setMockInitialValues({'auth_token': token});
