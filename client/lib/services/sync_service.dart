@@ -162,6 +162,7 @@ class SyncService extends ChangeNotifier {
   String _deviceId = '';
   bool _initialized = false;
   int? _initializedAccountId;
+  bool _reconciling = false;
 
   @visibleForTesting
   Future<Map<String, dynamic>?> Function(
@@ -201,7 +202,11 @@ class SyncService extends ChangeNotifier {
   /// removed only if its queue row is still the same as when we read it.
   Future<SyncReconciliationReport> reconcileFailedWrites() async {
     _requireCloudMode();
-    if (isSyncing) throw StateError('同步进行中，请完成后核对远端');
+    if (isSyncing || _reconciling) {
+      throw StateError('同步或远端核对正在执行，请完成后重试');
+    }
+    _reconciling = true;
+    try {
     final db = await _db.database;
     final accountId = _db.currentAccountId;
     if (accountId == null) throw StateError('云端账号未确认');
@@ -333,6 +338,9 @@ class SyncService extends ChangeNotifier {
     if (verified > 0 || conflicts > 0) notifyListeners();
     return SyncReconciliationReport(
       verified: verified, conflicts: conflicts, unknown: unknown);
+    } finally {
+      _reconciling = false;
+    }
   }
 
   Future<void> init({bool startPeriodic = true}) async {
@@ -416,10 +424,12 @@ class SyncService extends ChangeNotifier {
       DataModeManager().isCloud ? _doSync() : Future.value(false);
 
   Future<bool> _doSync() async {
-    if (!DataModeManager().isCloud || _status == SyncStatusEnum.syncing) {
+    if (!DataModeManager().isCloud ||
+        _status == SyncStatusEnum.syncing || _reconciling) {
       return false;
     }
     await init(startPeriodic: false);
+    if (_reconciling || _status == SyncStatusEnum.syncing) return false;
     _status = SyncStatusEnum.syncing;
     _lastError = null;
     notifyListeners();
@@ -479,7 +489,10 @@ class SyncService extends ChangeNotifier {
         value.contains('timeout') ||
         value.contains('connection reset') ||
         value.contains('connection closed') ||
-        value.contains('connection terminated');
+        value.contains('connection terminated') ||
+        value.contains('socketexception') ||
+        value.contains('broken pipe') ||
+        value.contains('network connection lost');
   }
 
   Future<String?> _processQueueItem(
@@ -933,8 +946,10 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> syncBatch({int batchSize = 10}) async {
-    if (!DataModeManager().isCloud || _status == SyncStatusEnum.syncing) return;
+    if (!DataModeManager().isCloud ||
+        _status == SyncStatusEnum.syncing || _reconciling) return;
     await init(startPeriodic: false);
+    if (_reconciling || _status == SyncStatusEnum.syncing) return;
     _status = SyncStatusEnum.syncing;
     _lastError = null;
     notifyListeners();
@@ -963,7 +978,8 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> retryFailed({int maxRetries = 3}) async {
-    if (!DataModeManager().isCloud || _status == SyncStatusEnum.syncing) return;
+    if (!DataModeManager().isCloud ||
+        _status == SyncStatusEnum.syncing || _reconciling) return;
     final db = await _db.database;
     final exceeded = await db.query(
       'sync_queue',
