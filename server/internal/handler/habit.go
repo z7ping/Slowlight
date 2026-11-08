@@ -320,7 +320,11 @@ func (h *HabitHandler) UpdateHabit(c *gin.Context) {
             if err := tx.Where("id = ? AND user_id = ?", habit.ID, userID).
                 First(&next).Error; err != nil { return err }
             if !habitGoalChanged(current,next) { return nil }
-            return recordHabitGoalRevision(tx,next)
+            if err:=recordHabitGoalRevision(tx,next);err!=nil{return err}
+            var user model.User
+            if err:=tx.Select("timezone").First(&user,userID).Error;err!=nil{return err}
+            streak:=habitStreak(tx,next,model.UserLocation(user.Timezone))
+            return tx.Model(&next).Update("streak_count",streak).Error
         }); err != nil {
             if errors.Is(err,errHabitRecordContractUsed) ||
                errors.Is(err,errHabitAnchorAfterHistory) {
