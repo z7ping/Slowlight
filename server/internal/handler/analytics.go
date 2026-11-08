@@ -328,6 +328,7 @@ func (h *AnalyticsHandler) GetWeeklyReview(c *gin.Context) {
 
 // DailyTrendPoint 每日趋势数据点
 type DailyTrendPoint struct {
+	ReflectionCount int    `json:"reflection_count"`  // 当日观察记录数（不包含回应）
 	Date            string `json:"date"`             // YYYY-MM-DD
 	TaskCompleted   int    `json:"task_completed"`   // 当日完成任务数
 	TaskTotal       int    `json:"task_total"`       // 当日总任务数
@@ -358,7 +359,7 @@ func (h *AnalyticsHandler) GetDailyTrend(c *gin.Context) {
 	points := make([]DailyTrendPoint, 0, days)
 	for i := days - 1; i >= 0; i-- {
 		dayStart := today.AddDate(0, 0, -i)
-		dayEnd := dayStart.Add(24 * time.Hour)
+		dayEnd := dayStart.AddDate(0, 0, 1) // civil day, including DST 23/25h days
 		dateStr := dayStart.Format("2006-01-02")
 
 		completed := h.countCompletedTasks(userID, dayStart, dayEnd)
@@ -378,12 +379,22 @@ func (h *AnalyticsHandler) GetDailyTrend(c *gin.Context) {
 				userID, dateStr).
 			Count(&checked)
 
+		var observations int64
+		if err := h.DB.Model(&model.Reflection{}).
+			Where("user_id = ? AND entry_type = ? AND created_at >= ? AND created_at < ?",
+				userID, "observation", dayStart, dayEnd).
+			Count(&observations).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "观察记录统计未确认"})
+			return
+		}
+
 		rate := 0
 		if total > 0 {
 			rate = completed * 100 / total
 		}
 
 		points = append(points, DailyTrendPoint{
+			ReflectionCount: int(observations),
 			Date:           dateStr,
 			TaskCompleted:  completed,
 			TaskTotal:      total,
