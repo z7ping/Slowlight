@@ -7,6 +7,7 @@ import 'package:slowlight/screens/login_screen.dart';
 import 'package:slowlight/screens/focus_home_screen.dart';
 import 'package:slowlight/main.dart' show authStateNotifier;
 import 'package:slowlight/services/auth_service.dart';
+import 'package:slowlight/services/app_secure_storage.dart';
 import 'package:slowlight/services/auth_storage_diagnostics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -88,7 +89,7 @@ void main() {
       traces.where((e) => e.contains('actor=oauth.pending.load')),
       isEmpty,
     );
-    const storage = FlutterSecureStorage();
+    final storage = AppSecureStorage.instance;
     expect(await storage.read(key: 'auth_token'), 'existing.jwt.value');
     expect(await storage.read(key: 'auth_refresh_token'), 'existing-refresh');
     await disposeFxTestHost(tester);
