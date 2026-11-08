@@ -15,16 +15,19 @@ class CalendarRepository {
   final ReflectionRepository _reflectionRepository;
   final SessionRepository _sessionRepository;
   final Future<List<Task>> Function(int year, int month)? _taskLoader;
+  final Future<List<Task>> Function()? _completedTaskLoader;
 
   CalendarRepository({
     HabitRepository? habitRepository,
     ReflectionRepository? reflectionRepository,
     SessionRepository? sessionRepository,
     Future<List<Task>> Function(int year, int month)? taskLoader,
+    Future<List<Task>> Function()? completedTaskLoader,
   })  : _habitRepository = habitRepository ?? HabitRepository(),
         _reflectionRepository = reflectionRepository ?? ReflectionRepository(),
         _sessionRepository = sessionRepository ?? SessionRepository(),
-        _taskLoader = taskLoader;
+        _taskLoader = taskLoader,
+        _completedTaskLoader = completedTaskLoader;
 
   Future<CalendarMonthData> loadMonth(DateTime month) async {
     final normalized = DateTime(month.year, month.month, 1);
@@ -55,32 +58,85 @@ class CalendarRepository {
     List<CalendarRecord> target,
     Set<CalendarRecordType> unavailable,
   ) async {
+    // A due date is a civil *plan*, never the date a task was completed.
+    // Actual task facts use completed_at and retain their own identity.
+    void addTask(Task task) {
+      final due = task.dueDate;
+      final completedAt = task.isCompleted ? task.completedAt?.toLocal() : null;
+      final completionInMonth =
+          completedAt != null && _inMonth(completedAt, month);
+      if (due != null && _inMonth(due, month) &&
+          !(completionInMonth && _sameCivilDay(due, completedAt))) {
+        final id = 'task-${task.id}-plan';
+        if (!target.any((row) => row.id == id)) {
+          target.add(_taskPlan(task, due));
+        }
+      }
+      if (completionInMonth) {
+        final id = 'task-${task.id}-actual';
+        if (!target.any((row) => row.id == id)) {
+          target.add(_taskActual(task, completedAt));
+        }
+        // The calendar shouldn't show two entries when a plan and its
+        // actual completion belong to the same civil day.
+        target.removeWhere((row) =>
+            row.id == 'task-${task.id}-plan' &&
+            _sameCivilDay(row.date, completedAt));
+      }
+    }
+
     try {
-      final tasks = await (_taskLoader?.call(month.year, month.month) ??
+      final scheduled = await (_taskLoader?.call(month.year, month.month) ??
           ApiService.getTasksForMonth(month.year, month.month));
-      for (final task in tasks) {
-        final due = task.dueDate?.toLocal();
-        if (due == null) continue;
-        target.add(_taskRecord(task, due));
+      for (final task in scheduled) {
+        addTask(task);
+      }
+    } catch (_) {
+      unavailable.add(CalendarRecordType.task);
+    }
+    // Use the existing completed-tasks endpoint rather than changing the
+    // shared task-month API owned by the P06 workstream. Injected calendar
+    // tests may supply an already complete task sample.
+    if (_taskLoader != null && _completedTaskLoader == null) return;
+    try {
+      final completed = await (_completedTaskLoader?.call() ??
+          ApiService.getCompletedTasks());
+      for (final task in completed) {
+        if (task.isCompleted) addTask(task);
       }
     } catch (_) {
       unavailable.add(CalendarRecordType.task);
     }
   }
 
-  CalendarRecord _taskRecord(Task task, DateTime due) => CalendarRecord(
-        id: 'task-${task.id}',
+  bool _sameCivilDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  CalendarRecord _taskPlan(Task task, DateTime due) => CalendarRecord(
+        id: 'task-${task.id}-plan',
         type: CalendarRecordType.task,
-        kind: task.isCompleted
-            ? CalendarRecordKind.actual
-            : CalendarRecordKind.plan,
+        kind: CalendarRecordKind.plan,
         date: DateTime(due.year, due.month, due.day),
         title: task.title,
         timeLabel: task.dueTime ?? '',
         description: task.description ?? '',
         colorHex: task.list?.color ?? '',
-        completed: task.isCompleted,
         priority: task.priority,
+        completed: false,
+        task: task,
+      );
+
+  CalendarRecord _taskActual(Task task, DateTime completedAt) => CalendarRecord(
+        id: 'task-${task.id}-actual',
+        type: CalendarRecordType.task,
+        kind: CalendarRecordKind.actual,
+        date: DateTime(completedAt.year, completedAt.month, completedAt.day),
+        title: task.title,
+        timeLabel: '${DateFormat('HH:mm').format(completedAt)} 完成',
+        description: task.description ?? '',
+        colorHex: task.list?.color ?? '',
+        priority: task.priority,
+        completed: true,
         task: task,
       );
 
@@ -136,13 +192,32 @@ class CalendarRepository {
     try {
       final stats = await _sessionRepository.getSessionStats(period: 'all');
       final daily = stats['daily'];
-      if (daily is! List) return;
-      for (final raw in daily.whereType<Map>()) {
+      if (daily == null &&
+          stats['total_work_seconds'] == 0 &&
+          stats['work_count'] == 0) {
+        return; // Confirmed no work sessions; Go omits empty daily.
+      }
+      if (daily is! List) {
+        unavailable.add(CalendarRecordType.focus);
+        return;
+      }
+      for (final raw in daily) {
+        if (raw is! Map) {
+          unavailable.add(CalendarRecordType.focus);
+          continue;
+        }
         final row = Map<String, dynamic>.from(raw);
         final date = DateTime.tryParse(row['date']?.toString() ?? '');
-        final seconds = (row['work_seconds'] as num?)?.toInt() ?? 0;
-        final count = (row['work_count'] as num?)?.toInt() ?? 0;
-        if (date == null || seconds <= 0 || !_inMonth(date, month)) continue;
+        final rawSeconds = row['work_seconds'];
+        final rawCount = row['work_count'];
+        if (date == null || rawSeconds is! num || rawCount is! num ||
+            rawSeconds < 0 || rawCount < 0) {
+          unavailable.add(CalendarRecordType.focus);
+          continue;
+        }
+        final seconds = rawSeconds.toInt();
+        final count = rawCount.toInt();
+        if (seconds <= 0 || !_inMonth(date, month)) continue;
         target.add(CalendarRecord(
           id: 'focus-${DateFormat('yyyy-MM-dd').format(date)}',
           type: CalendarRecordType.focus,
@@ -167,8 +242,11 @@ class CalendarRepository {
     Set<CalendarRecordType> unavailable,
   ) async {
     try {
-      final entries = await _reflectionRepository.recent(limit: 100);
-      for (final entry in entries) {
+      final result = await _reflectionRepository.month(month);
+      if (!result.complete) {
+        unavailable.add(CalendarRecordType.reflection);
+      }
+      for (final entry in result.entries) {
         final local = entry.createdAt.toLocal();
         if (!_inMonth(local, month)) continue;
         target.add(_reflectionRecord(entry, local));
