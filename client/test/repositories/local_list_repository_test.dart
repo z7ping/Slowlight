@@ -65,4 +65,68 @@ void main() {
     expect(repeated.listId, inbox.id);
     expect((await repo.getAll()).where((list) => list.isInbox), hasLength(1));
   });
+  test('P14 删除清单将本清单未完成/已完成任务一起软删除，其他清单不受影响', () async {
+    final repo = LocalListRepository();
+    final work = await repo.create(name: '项目');
+    final other = await repo.create(name: '其他');
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    Future<int> put(int listId, String name, {bool done = false}) =>
+        db.insert('tasks', {
+          'list_id': listId,
+          'title': name,
+          'is_completed': done ? 1 : 0,
+          'created_at': now,
+          'updated_at': now,
+        });
+    final one = await put(work.id, '未完成任务');
+    final two = await put(work.id, '已完成任务', done: true);
+    final safe = await put(other.id, '其他清单任务');
+
+    await repo.delete(work.id, deleteTasks: true);
+    final lists = await repo.getAll();
+    expect(lists.map((list) => list.id), isNot(contains(work.id)));
+    expect(lists.map((list) => list.id), contains(other.id));
+    for (final id in [one, two]) {
+      final rows = await db.query('tasks', where: 'id = ?', whereArgs: [id]);
+      expect(rows.single['deleted_at'], isNotNull);
+    }
+    final otherRows = await db.query('tasks', where: 'id = ?', whereArgs: [safe]);
+    expect(otherRows.single['deleted_at'], isNull);
+  });
+
+  test('P14 默认收集箱不能删除，关联任务原样保留', () async {
+    final repo = LocalListRepository();
+    final inbox = await repo.ensureInbox();
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final taskId = await db.insert('tasks', {
+      'list_id': inbox.id,
+      'title': '收集箱任务',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await expectLater(repo.delete(inbox.id), throwsStateError);
+    expect((await repo.getAll()).single.id, inbox.id);
+    final rows = await db.query('tasks', where: 'id = ?', whereArgs: [taskId]);
+    expect(rows.single['deleted_at'], isNull);
+  });
+
+  test('P14 普通删除有任务的清单必须拒绝，无副作用', () async {
+    final repo = LocalListRepository();
+    final list = await repo.create(name: '旧客户端清单');
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final taskId = await db.insert('tasks', {
+      'list_id': list.id,
+      'title': '不该误删',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await expectLater(repo.delete(list.id), throwsStateError);
+    expect((await repo.getAll()).single.id, list.id);
+    expect((await db.query('tasks', where: 'id = ?', whereArgs: [taskId]))
+        .single['deleted_at'], isNull);
+  });
+
 }

@@ -32,7 +32,7 @@ class CloudCacheRepository {
     final rows = await db.query(
       'lists',
       where: 'deleted_at IS NULL',
-      orderBy: 'sort_order ASC, created_at ASC',
+      orderBy: 'sort_order ASC, created_at ASC, id ASC',
     );
     return [for (final row in rows) _listFromRow(row)];
   }
@@ -102,16 +102,55 @@ class CloudCacheRepository {
     );
   }
 
-  Future<void> deleteList(int publicId) async {
+  Future<void> deleteList(int publicId, {bool deleteTasks = false}) async {
     final db = await _db;
     final row = await _rowByPublicId(db, 'lists', publicId);
     final localId = row['id'] as int;
-    await db.update(
-      'lists',
-      {'deleted_at': _now()},
-      where: 'id = ?',
-      whereArgs: [localId],
-    );
+    if (row['is_inbox'] == 1) throw StateError('默认收集箱不可删除');
+
+    // Cloud cache is not authoritative for remote task membership.
+    // Even after a local preview, an offline cascade could silently remove
+    // records added on another device. Require an online confirmed deletion
+    // for nonempty lists; server DELETE without opt-in keeps legacy safety.
+    await db.transaction((txn) async {
+      final active = await txn.query(
+        'tasks',
+        columns: ['id'],
+        where: 'list_id = ? AND deleted_at IS NULL',
+        whereArgs: [localId],
+        limit: 1,
+      );
+      if (active.isNotEmpty) {
+        throw StateError(deleteTasks
+            ? '云端任务范围无法离线核对，请联网后删除清单与任务'
+            : '清单下有任务，删除任务须明确确认');
+      }
+      final related = await txn.query(
+        'tasks',
+        columns: ['id'],
+        where: 'list_id = ?',
+        whereArgs: [localId],
+      );
+      for (final task in related) {
+        final queued = await txn.query(
+          'sync_queue',
+          columns: ['id'],
+          where: 'entity_type = ? AND entity_local_id = ?',
+          whereArgs: ['tasks', task['id']],
+          limit: 1,
+        );
+        if (queued.isNotEmpty) {
+          throw StateError('该清单仍有未同步任务，请先同步后再删除');
+        }
+      }
+      final deleted = await txn.update(
+        'lists',
+        {'deleted_at': _now()},
+        where: 'id = ? AND deleted_at IS NULL AND is_inbox = 0',
+        whereArgs: [localId],
+      );
+      if (deleted != 1) throw StateError('清单状态已变化，请刷新后重试');
+    });
     await SyncService().enqueue(
       entityType: 'lists',
       entityLocalId: localId,

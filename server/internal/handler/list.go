@@ -43,7 +43,7 @@ func (h *ListHandler) GetLists(c *gin.Context) {
 	}
 	var lists []model.List
 	if err := h.DB.Where("user_id = ?", userID).
-		Order("sort_order ASC").Find(&lists).Error; err != nil {
+		Order("sort_order ASC, created_at ASC, id ASC").Find(&lists).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取清单失败"})
 		return
 	}
@@ -132,37 +132,58 @@ func (h *ListHandler) UpdateList(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// DeleteList 删除清单
+// DeleteList 删除清单；仅显式 delete_tasks=true 时将所属任务一并软删除。
 func (h *ListHandler) DeleteList(c *gin.Context) {
 	userID := c.GetUint("userID")
 	id := c.Param("id")
 
-	// 检查清单是否属于当前用户
 	var list model.List
 	if err := h.DB.Where("id = ? AND user_id = ?", id, userID).First(&list).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "清单不存在"})
 		return
 	}
-
-	// 保护收集箱不被删除
 	if list.IsInbox {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "收集箱不可删除"})
 		return
 	}
 
-	// 检查是否有任务
-	var count int64
-	h.DB.Model(&model.Task{}).Where("list_id = ? AND user_id = ?", id, userID).Count(&count)
-	if count > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "清单下有任务，无法删除"})
+	// Older clients still use DELETE /lists/:id without an explicit cascade.
+	// Never silently turn that request into destructive task deletion.
+	deleteTasks := c.Query("delete_tasks") == "true"
+	var taskCount int64
+	if err := h.DB.Model(&model.Task{}).
+		Where("list_id = ? AND user_id = ?", list.ID, userID).
+		Count(&taskCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法核对关联任务"})
+		return
+	}
+	if taskCount > 0 && !deleteTasks {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "清单下有任务，删除任务须明确确认"})
 		return
 	}
 
-	if err := h.DB.Delete(&model.List{}, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 任务和清单必须同一事务软删除；任一操作失败都不提交。
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if deleteTasks {
+			if err := tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
+				Delete(&model.Task{}).Error; err != nil {
+				return err
+			}
+		}
+		result := tx.Where("id = ? AND user_id = ? AND is_inbox = false", list.ID, userID).
+			Delete(&model.List{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除清单及关联任务失败"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
 }
 
@@ -188,8 +209,8 @@ func (h *ListHandler) GetStats(c *gin.Context) {
 				ELSE 0
 			END as rate
 		FROM lists l
-		LEFT JOIN tasks t ON t.list_id = l.id
-		WHERE l.user_id = ?
+		LEFT JOIN tasks t ON t.list_id = l.id AND t.user_id = l.user_id AND t.deleted_at IS NULL
+		WHERE l.user_id = ? AND l.deleted_at IS NULL
 		GROUP BY l.id, l.name, l.name, l.color
 		ORDER BY l.sort_order
 	`, userID).Scan(&stats)

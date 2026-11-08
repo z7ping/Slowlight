@@ -135,11 +135,101 @@ class _ListManageScreenState extends State<ListManageScreen> {
   int _taskCountFor(TodoList list) =>
       _tasks.where((task) => task.listId == list.id).length;
 
+  Future<void> _showListDetails(TodoList list) async {
+    final version = _loadVersion;
+    final confirmed = _taskCountConfirmed;
+    final tasks = confirmed
+        ? _tasks.where((task) => task.listId == list.id).toList(growable: false)
+        : <Task>[];
+    final edit = await FxDialog.show<bool>(
+      context: context,
+      title: list.name,
+      child: Builder(
+        builder: (dialogContext) => SizedBox(
+          width: MediaQuery.sizeOf(dialogContext).width < 454
+              ? MediaQuery.sizeOf(dialogContext).width - 64
+              : 390,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                confirmed ? '${tasks.length} 条任务' : '任务数量待核对',
+                style: SlowlightTypography.secondary(dialogContext),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              if (!confirmed)
+                Text(
+                  '当前只确认了清单，无法展示完整任务列表；请返回后重试任务数。',
+                  style: SlowlightTypography.secondary(dialogContext),
+                )
+              else if (tasks.isEmpty)
+                Text('暂无任务',
+                    style: SlowlightTypography.secondary(dialogContext))
+              else
+                SizedBox(
+                  height: tasks.length > 5 ? 220 : tasks.length * 44.0,
+                  child: ListView.builder(
+                    key: const ValueKey('lists.detail.tasks'),
+                    itemCount: tasks.length,
+                    itemBuilder: (context, index) {
+                      final task = tasks[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 32),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              task.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: SlowlightSpacing.xl),
+              FxDialogActions(
+                actions: [
+                  if (!list.isInbox)
+                    FxButton(
+                      label: '编辑清单',
+                      variant: FxButtonVariant.outline,
+                      onPressed: () => Navigator.of(
+                        dialogContext, rootNavigator: true,
+                      ).pop(true),
+                    ),
+                  FxButton(
+                    label: '关闭',
+                    variant: FxButtonVariant.secondary,
+                    onPressed: () => Navigator.of(
+                      dialogContext, rootNavigator: true,
+                    ).pop(false),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (edit == true && mounted && version == _loadVersion &&
+        !list.isInbox) {
+      await _showEditor(list);
+    }
+  }
+
   Future<void> _showEditor([TodoList? existing]) async {
+    if (existing?.isInbox == true) return;
     final nameController = TextEditingController(text: existing?.name ?? '');
     var selectedIcon = existing?.icon ?? _presetIcons.first;
     var selectedColor = existing?.color ?? _presetColors.first;
     var saving = false;
+    var writeUnknown = false;
     String? error;
 
     final saved = await FxDialog.raw<bool>(
@@ -176,7 +266,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                         FxInput(
                           controller: nameController,
                           autofocus: true,
-                          enabled: !saving,
+                          enabled: !saving && !writeUnknown,
                           placeholder: '清单名称',
                           style: SlowlightTypography.body(dialogContext),
                         ),
@@ -190,7 +280,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                 final selected = icon == selectedIcon;
                                 return FxInkWell(
                                   onTap:
-                                      saving
+                                      saving || writeUnknown
                                           ? null
                                           : () => setDialogState(
                                             () => selectedIcon = icon,
@@ -243,7 +333,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                 final color = ColorUtils.safeParse(value);
                                 return FxInkWell(
                                   onTap:
-                                      saving
+                                      saving || writeUnknown
                                           ? null
                                           : () => setDialogState(
                                             () => selectedColor = value,
@@ -305,13 +395,21 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                       ? '创建'
                                       : '保存',
                               onPressed:
-                                  saving
+                                  saving || writeUnknown
                                       ? null
                                       : () async {
                                         final name = nameController.text.trim();
                                         if (name.isEmpty) {
                                           setDialogState(
                                             () => error = '请输入清单名称',
+                                          );
+                                          return;
+                                        }
+                                        if (_lists.any((item) =>
+                                            item.name == name &&
+                                            item.id != existing?.id)) {
+                                          setDialogState(
+                                            () => error = '清单名称不能重复',
                                           );
                                           return;
                                         }
@@ -339,9 +437,13 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                             Navigator.pop(dialogContext, true);
                                           }
                                         } catch (e) {
+                                          if (!dialogContext.mounted) return;
                                           setDialogState(() {
                                             saving = false;
-                                            error = '保存失败：$e';
+                                            // Network errors do not prove that
+                                            // the remote write was rejected.
+                                            writeUnknown = true;
+                                            error = '保存结果尚未确认，请关闭窗口并刷新核对：$e';
                                           });
                                         }
                                       },
@@ -480,7 +582,8 @@ class _ListManageScreenState extends State<ListManageScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      await DataService().deleteList(list.id, list.serverId);
+      await DataService().deleteList(list.id, list.serverId,
+          deleteTasks: true);
       await _loadLists();
     } catch (e) {
       if (!mounted) return;
@@ -584,6 +687,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                           final color = ColorUtils.safeParse(list.color);
                           final count = _taskCountFor(list);
                           return FxListTile(
+                            onTap: () => _showListDetails(list),
                             density: list.isInbox
                                 ? FxListTileDensity.detailed
                                 : FxListTileDensity.compact,
@@ -623,12 +727,13 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                FxIconButton(
-                                  tooltip: '编辑',
-                                  onPressed: () => _showEditor(list),
-                                  icon: LucideIcons.pencil,
-                                  iconSize: SlowlightIconSize.md,
-                                ),
+                                if (!list.isInbox)
+                                  FxIconButton(
+                                    tooltip: '编辑',
+                                    onPressed: () => _showEditor(list),
+                                    icon: LucideIcons.pencil,
+                                    iconSize: SlowlightIconSize.md,
+                                  ),
                                 if (!list.isInbox)
                                   FxIconButton(
                                     tooltip: '删除',

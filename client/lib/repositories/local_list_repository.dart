@@ -10,7 +10,7 @@ class LocalListRepository {
     final maps = await db.query(
       'lists',
       where: 'deleted_at IS NULL',
-      orderBy: 'sort_order ASC, created_at ASC',
+      orderBy: 'sort_order ASC, created_at ASC, id ASC',
     );
     return maps.map(_fromMap).toList();
   }
@@ -98,15 +98,47 @@ class LocalListRepository {
     return result;
   }
 
-  Future<void> delete(int id) async {
+  Future<void> delete(int id, {bool deleteTasks = false}) async {
     final db = await _db.database;
     final now = DateTime.now().toUtc().toIso8601String();
-    await db.update(
-      'lists',
-      {'deleted_at': now},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'lists',
+        columns: ['id', 'is_inbox'],
+        where: 'id = ? AND deleted_at IS NULL',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty) throw StateError('清单不存在，请刷新后重试');
+      if (rows.single['is_inbox'] == 1) {
+        throw StateError('默认收集箱不可删除');
+      }
+      final countRows = await txn.rawQuery(
+        'SELECT COUNT(*) AS total FROM tasks WHERE list_id = ? AND deleted_at IS NULL',
+        [id],
+      );
+      final count = (countRows.single['total'] as num?)?.toInt() ?? 0;
+      if (count > 0 && !deleteTasks) {
+        throw StateError('清单下有任务，删除任务须明确确认');
+      }
+      if (deleteTasks) {
+        await txn.update(
+          'tasks',
+          {'deleted_at': now, 'updated_at': now},
+          where: 'list_id = ? AND deleted_at IS NULL',
+          whereArgs: [id],
+        );
+      }
+      final deleted = await txn.update(
+        'lists',
+        {'deleted_at': now, 'updated_at': now},
+        where: 'id = ? AND deleted_at IS NULL AND is_inbox = 0',
+        whereArgs: [id],
+      );
+      if (deleted != 1) {
+        throw StateError('清单状态已变化，删除未确认');
+      }
+    });
   }
 
   TodoList _fromMap(Map<String, dynamic> map) {
