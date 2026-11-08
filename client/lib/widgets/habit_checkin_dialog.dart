@@ -92,7 +92,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
   final _count = TextEditingController(text: '1');
   String? _error;
   bool _submitting = false;
-  bool _allowMobilePop = false;
+  bool _allowPop = false;
   bool _closePending = false;
   late final String _initialDraft;
   Map<String, dynamic>? _pendingValue;
@@ -164,20 +164,16 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
       }
     }
     if (!mounted) return;
-    setState(() => _allowMobilePop = true);
+    setState(() => _allowPop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.pop(context);
     });
   }
 
   void _complete(Map<String, dynamic> value) {
-    final platform = Theme.of(context).platform;
-    if (platform != TargetPlatform.android &&
-        platform != TargetPlatform.iOS) {
-      Navigator.pop(context, value);
-      return;
-    }
-    setState(() => _allowMobilePop = true);
+    // Desktop Escape and mobile Back share the draft-protecting PopScope.
+    // Release it only after a confirmed successful submission.
+    setState(() => _allowPop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.pop(context, value);
     });
@@ -214,9 +210,9 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
       onPressed: _submitting ? null : _submit,
     );
     return PopScope(
-      canPop: mobile ? _allowMobilePop : !_submitting,
+      canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && mobile) _requestClose();
+        if (!didPop) _requestClose();
       },
       child: SafeArea(
         top: false,
@@ -381,9 +377,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                           FxButton(
                             label: '取消',
                             variant: FxButtonVariant.outline,
-                            onPressed: _submitting
-                                ? null
-                                : () => Navigator.pop(context),
+                            onPressed: _submitting ? null : _requestClose,
                           ),
                           FxButton(
                             key: const ValueKey('habit-checkin-primary-action'),
