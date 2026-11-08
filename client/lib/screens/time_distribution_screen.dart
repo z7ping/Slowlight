@@ -56,7 +56,8 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
 
   int? _todayMinutes() {
     final now = DateTime.now();
-    final date = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+    final date = _data['today_date']?.toString() ??
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
     final rows = _data['by_day'];
     if (rows is! List) return null;
