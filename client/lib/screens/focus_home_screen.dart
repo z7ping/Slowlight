@@ -313,6 +313,18 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     }
   }
 
+  Future<void> _navigateFromTimeDistribution(
+      TimeDistributionDestination destination) async {
+    switch (destination) {
+      case TimeDistributionDestination.focus:
+        await _startFocus();
+        break;
+      case TimeDistributionDestination.tags:
+        await _openTool(HomeToolSection.observationTags);
+        break;
+    }
+  }
+
   Future<void> _createHabitFromToday() async {
     if (_navigating) return;
     setState(() => _openHabitEditorOnEnter = true);
@@ -870,6 +882,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                 focusObservation: _searchFocusObservation,
                 focusRequestId: _searchFocusObservationRequest,
                 onStatsNavigate: _navigateFromStats,
+                onTimeDistributionNavigate: _navigateFromTimeDistribution,
               )
             : const SizedBox.shrink(),
         tool == null ? const SizedBox.shrink() : _buildToolContent(tool),
@@ -917,7 +930,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     HomeToolSection.observationTags => const SystemTagScreen(),
     HomeToolSection.stats => StatsScreen(onNavigate: _navigateFromStats),
     HomeToolSection.weeklyReview => const WeeklyReviewScreen(),
-    HomeToolSection.timeDistribution => const TimeDistributionScreen(),
+    HomeToolSection.timeDistribution => TimeDistributionScreen(
+      titleProvidedByShell: true,
+      onNavigate: _navigateFromTimeDistribution,
+    ),
   };
 
   Future<Map<String, String>> _loadAccountDisplay() async {
