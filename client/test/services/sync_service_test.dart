@@ -227,6 +227,11 @@ void main() {
     });
     expect(await SyncService().manualSync(), isFalse);
     expect(SyncService().lastError, contains('本轮处理 2 项，其中 2 项未完成'));
+    final evidence = SyncService().lastQueueRun;
+    expect(evidence?.attempted, 2);
+    expect(evidence?.failed, 2);
+    expect(evidence?.acknowledged, 0);
+    expect(evidence?.partiallyAcknowledged, isFalse);
     expect((await SyncService().getPendingFailures()).length, 2);
     expect((await db.query('sync_queue')).length, 2);
   });
