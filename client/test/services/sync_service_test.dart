@@ -227,8 +227,32 @@ void main() {
     });
     expect(await SyncService().manualSync(), isFalse);
     expect(SyncService().lastError, contains('本轮处理 2 项，其中 2 项未完成'));
+    final evidence = SyncService().lastQueueRun;
+    expect(evidence?.attempted, 2);
+    expect(evidence?.failed, 2);
+    expect(evidence?.processed, 0);
+    expect(evidence?.partiallyProcessed, isFalse);
     expect((await SyncService().getPendingFailures()).length, 2);
     expect((await db.query('sync_queue')).length, 2);
+  });
+
+  test('P1-11 不支持的习惯日志操作不能冒充成功后被清队列', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    await db.insert('sync_queue', {
+      'entity_type': 'habit_logs', 'entity_local_id': 991,
+      'operation': 'update', 'retry_count': 0, 'last_error': '',
+      'created_at': now, 'updated_at': now,
+    });
+    expect(await SyncService().manualSync(), isFalse);
+    final rows = await db.query('sync_queue');
+    expect(rows, hasLength(1));
+    expect(rows.single['operation'], 'update');
+    expect(SyncService().lastError, contains('Unsupported habit_log sync operation'));
+    expect(SyncService().lastQueueRun?.attempted, 1);
+    expect(SyncService().lastQueueRun?.failed, 1);
+    expect(SyncService().lastQueueRun?.partiallyProcessed, isFalse);
   });
 
   test('X09 远端已写入的旧失败队列被确认后精确清理', () async {

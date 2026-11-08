@@ -16,13 +16,30 @@ String syncDetailResultLabel({
   required bool conflictsKnown,
   required int conflictCount,
   required int pendingCount,
+  SyncQueueRunEvidence? lastQueueRun,
+  bool networkUnreachable = false,
 }) {
-  if (busy) return '同步中';
-  if (failed) return '同步未完成';
-  if (!conflictsKnown) return '状态待确认';
-  if (conflictCount > 0) return '冲突待处理';
-  if (pendingCount > 0) return '待同步';
-  return '无待处理项';
+  final phase = cloudSyncViewState(
+    status: failed ? SyncStatusEnum.error : SyncStatusEnum.idle,
+    isSyncing: busy,
+    conflictCheckFailed: !conflictsKnown,
+    conflictCount: conflictCount,
+    pendingCount: pendingCount,
+    lastQueueRun: lastQueueRun,
+    networkUnreachable: networkUnreachable,
+  );
+  return switch (phase) {
+    CloudSyncViewState.syncing => '同步中',
+    CloudSyncViewState.conflict => '冲突待处理',
+    CloudSyncViewState.partial =>
+      '部分成功（已处理 ${lastQueueRun!.processed} 项，'
+          '未完成 ${lastQueueRun!.failed} 项）',
+    CloudSyncViewState.networkUnreachable => '网络不可达（可能离线）',
+    CloudSyncViewState.failed => '同步未完成',
+    CloudSyncViewState.unknown => '状态待确认',
+    CloudSyncViewState.pending => '待同步',
+    CloudSyncViewState.idle => '无待处理项',
+  };
 }
 
 /// Failed/unknown writes must be reconciled before any user-triggered replay.
@@ -106,28 +123,36 @@ class SyncStatusBadge extends StatelessWidget {
                     )) {
                       return const SizedBox.shrink();
                     }
+                    final phase = cloudSyncViewState(
+                      status: status,
+                      isSyncing: false,
+                      conflictCheckFailed: snapshot.hasError,
+                      conflictCount: conflicts.length,
+                      pendingCount: pending,
+                      lastQueueRun: sync.lastQueueRun,
+                      networkUnreachable: sync.lastNetworkUnreachable,
+                    );
+                    final label = switch (phase) {
+                      CloudSyncViewState.syncing => '同步中',
+                      CloudSyncViewState.conflict =>
+                        '${conflicts.length} 个冲突',
+                      CloudSyncViewState.partial => '部分成功 · 待核对',
+                      CloudSyncViewState.networkUnreachable => '网络不可达',
+                      CloudSyncViewState.failed => '同步失败',
+                      CloudSyncViewState.unknown => '状态待核对',
+                      CloudSyncViewState.pending => '$pending 待同步',
+                      CloudSyncViewState.idle => _getStatusText(status),
+                    };
                     return FxGestureDetector(
-                  onTap: () => _showDetail(context, sync),
-                  child: _statusPill(
-                    context,
-                    icon:
-                        status == SyncStatusEnum.error
-                            ? Icons.cloud_off
-                            : Icons.cloud_queue,
-                    text: status == SyncStatusEnum.error
-                        ? '同步失败'
-                        : status == SyncStatusEnum.syncing
-                            ? '同步中'
-                        : snapshot.hasError
-                            ? '状态待核对'
-                        : conflicts.isNotEmpty
-                            ? '${conflicts.length} 个冲突'
-                            : pending > 0
-                                ? '$pending 待同步'
-                                : _getStatusText(status),
-                    color: _getColor(status, context),
-                    loading: status == SyncStatusEnum.syncing,
-                  ),
+                      onTap: () => _showDetail(context, sync),
+                      child: _statusPill(
+                        context,
+                        icon: status == SyncStatusEnum.error
+                            ? Icons.cloud_off : Icons.cloud_queue,
+                        text: label,
+                        color: _getColor(status, context),
+                        loading: phase == CloudSyncViewState.syncing,
+                      ),
                     );
                   },
                 );
@@ -481,6 +506,10 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                               conflictsKnown: conflictsKnown,
                               conflictCount: count,
                               pendingCount: pending,
+                              lastQueueRun: _requestError == null
+                                  ? widget.sync.lastQueueRun : null,
+                              networkUnreachable: _requestError == null &&
+                                  widget.sync.lastNetworkUnreachable,
                             ),
                             color: failed ? scheme.error : null,
                           ),

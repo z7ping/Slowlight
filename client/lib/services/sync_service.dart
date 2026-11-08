@@ -144,6 +144,19 @@ class SyncReconciliationReport {
   });
 }
 
+/// Evidence from one attempted ordinary Cloud Cache queue batch.
+/// These are completed _syncItem calls, not proof that every cloud source,
+/// pull, or standalone intent has settled.
+class SyncQueueRunEvidence {
+  final int attempted;
+  final int failed;
+  const SyncQueueRunEvidence({required this.attempted, required this.failed});
+
+  int get processed => attempted - failed;
+  bool get partiallyProcessed =>
+      attempted > 0 && processed > 0 && failed > 0;
+}
+
 /// Cloud Data Mode 的离线缓存 / 同步可靠性层。
 ///
 /// Local Data 的普通 CRUD 不进入本队列；Local → Cloud 属于显式迁移能力。
@@ -158,6 +171,8 @@ class SyncService extends ChangeNotifier {
   Timer? _periodicTimer;
   SyncStatusEnum _status = SyncStatusEnum.idle;
   String? _lastError;
+  SyncQueueRunEvidence? _lastQueueRun;
+  bool _lastNetworkUnreachable = false;
   int _pendingCount = 0;
   String _deviceId = '';
   bool _initialized = false;
@@ -171,6 +186,10 @@ class SyncService extends ChangeNotifier {
 
   SyncStatusEnum get status => _status;
   String? get lastError => _lastError;
+  SyncQueueRunEvidence? get lastQueueRun => _lastQueueRun;
+  /// True only when the running queue/pull observed an actual SocketException.
+  /// This suggests unreachable transport, not proof the device is offline.
+  bool get lastNetworkUnreachable => _lastNetworkUnreachable;
   int get pendingCount => _pendingCount;
   bool get isSyncing => _status == SyncStatusEnum.syncing;
   String get deviceId => _deviceId;
@@ -347,10 +366,17 @@ class SyncService extends ChangeNotifier {
     await _db.database;
     final accountId = _db.currentAccountId;
     if (!_initialized || _initializedAccountId != accountId) {
+      _lastQueueRun = null;
+      _lastNetworkUnreachable = false;
+      _lastError = null;
+      _status = SyncStatusEnum.idle;
       _deviceId = await _getOrCreateDeviceId();
       _pendingCount = await _getQueueCount();
       _initialized = true;
       _initializedAccountId = accountId;
+      // A new account must not inherit the previous account's error or
+      // partial-result badge while its own queue is being initialized.
+      notifyListeners();
     }
     _periodicTimer?.cancel();
     if (startPeriodic && DataModeManager().isCloud) _startPeriodicSync();
@@ -432,6 +458,8 @@ class SyncService extends ChangeNotifier {
     if (_reconciling || _status == SyncStatusEnum.syncing) return false;
     _status = SyncStatusEnum.syncing;
     _lastError = null;
+    _lastQueueRun = null;
+    _lastNetworkUnreachable = false;
     notifyListeners();
     try {
       final db = await _db.database;
@@ -445,6 +473,9 @@ class SyncService extends ChangeNotifier {
         firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
+      _lastQueueRun = SyncQueueRunEvidence(
+        attempted: attempted, failed: failed,
+      );
       if (firstFailure != null) {
         _status = SyncStatusEnum.error;
         _lastError = '本轮处理 $attempted 项，其中 $failed 项未完成；'
@@ -464,6 +495,7 @@ class SyncService extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      if (e is SocketException) _lastNetworkUnreachable = true;
       _status = SyncStatusEnum.error;
       _lastError = e.toString();
       _pendingCount = await _getQueueCount();
@@ -539,6 +571,7 @@ class SyncService extends ChangeNotifier {
       }
       return null;
     } catch (e) {
+      if (e is SocketException) _lastNetworkUnreachable = true;
       final retries = (item['retry_count'] as int? ?? 0) + 1;
       final text = e.toString();
       await db.update(
@@ -864,7 +897,11 @@ class SyncService extends ChangeNotifier {
     int localId,
     int? queuedServerId,
   ) async {
-    if (op != 'create' && op != 'delete') return;
+    if (op != 'create' && op != 'delete') {
+      // Unrecognized history intents are not processed operations.
+      // Keep the original queue row visible for reconciliation.
+      throw StateError('Unsupported habit_log sync operation: $op');
+    }
     final row = await _row(db, 'habit_logs', localId);
     if (op == 'delete') {
       final serverLogId = queuedServerId ?? row['server_id'] as int?;
@@ -952,6 +989,8 @@ class SyncService extends ChangeNotifier {
     if (_reconciling || _status == SyncStatusEnum.syncing) return;
     _status = SyncStatusEnum.syncing;
     _lastError = null;
+    _lastQueueRun = null;
+    _lastNetworkUnreachable = false;
     notifyListeners();
     try {
       final db = await _db.database;
@@ -965,12 +1004,16 @@ class SyncService extends ChangeNotifier {
         firstFailure ??= failure;
       }
       _pendingCount = await _getQueueCount();
+      _lastQueueRun = SyncQueueRunEvidence(
+        attempted: attempted, failed: failed,
+      );
       _status = firstFailure == null ? SyncStatusEnum.idle : SyncStatusEnum.error;
       if (firstFailure != null) {
         _lastError = '本轮处理 $attempted 项，其中 $failed 项未完成；'
             '剩余 $_pendingCount 项待处理。首项：$firstFailure';
       }
     } catch (e) {
+      if (e is SocketException) _lastNetworkUnreachable = true;
       _status = SyncStatusEnum.error;
       _lastError = e.toString();
     }
@@ -983,6 +1026,8 @@ class SyncService extends ChangeNotifier {
   Future<void> retryFailed({int maxRetries = 3}) async {
     if (!DataModeManager().isCloud ||
         _status == SyncStatusEnum.syncing || _reconciling) return;
+    _lastQueueRun = null;
+    _lastNetworkUnreachable = false;
     try {
       // A read-only remote comparison can remove only confirmed applied
       // writes; ambiguous or conflicting rows remain intact in sync_queue.

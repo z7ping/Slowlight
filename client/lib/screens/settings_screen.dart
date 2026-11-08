@@ -1218,6 +1218,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       conflictCount: _conflictCount,
       pendingCount: sync.pendingCount +
           CloudSyncCoordinator().standalonePendingCount.value,
+      lastQueueRun: sync.lastQueueRun,
+      networkUnreachable: sync.lastNetworkUnreachable,
     );
   }
 
