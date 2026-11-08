@@ -467,6 +467,8 @@ void main() {
 
   testWidgets('P1-7 今日日志读取失败不能展示伪造的零条',
       (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: HabitToolScreen(
         repository: _OverviewHabitRepo(),
@@ -484,6 +486,8 @@ void main() {
 
   testWidgets('P1-7 后发的刷新成功不得被更早日志统计结果覆盖',
       (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final first = Completer<int>();
     final second = Completer<int>();
     var reads = 0;
