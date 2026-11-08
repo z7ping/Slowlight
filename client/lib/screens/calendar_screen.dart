@@ -197,7 +197,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     selectedDate: _selected,
                     records: _records,
                     displayMode: _displayMode,
-                    loading: _loading,
+                    // A same-month refresh must not blank confirmed cells.
+                    loading: _loading && !_hasCurrentMonth,
                     onSelectDate: _selectDate,
                     onAddTask: _addTask,
                     onOpenRecord: _openRecord,
@@ -476,6 +477,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (record.timeLabel.isNotEmpty) record.timeLabel,
       if (record.dimensionLabel.isNotEmpty) record.dimensionLabel,
       if (record.durationMin > 0) '${record.durationMin}min',
+      if (record.amountLabel.isNotEmpty) record.amountLabel,
     ].join(' · ');
     final scaledSecondary = MediaQuery.textScalerOf(
       context,
@@ -527,7 +529,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              record.completed ? '已记录 ›' : '待完成 ›',
+              record.kind == CalendarRecordKind.plan ? '计划 ›' : '已记录 ›',
               style: SlowlightTypography.caption(
                 context,
               ).copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -584,6 +586,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   _detailLine('时间', record.timeLabel),
                 if (record.durationMin > 0)
                   _detailLine('时长', '${record.durationMin} 分钟'),
+                if (record.amountLabel.isNotEmpty)
+                  _detailLine('数量', record.amountLabel),
                 if (record.dimensionLabel.isNotEmpty)
                   _detailLine('历史分类', record.dimensionLabel),
                 const SizedBox(height: 12),
