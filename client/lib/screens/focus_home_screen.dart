@@ -297,14 +297,19 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     switch (destination) {
       case StatsDestination.tasks:
         unawaited(_openTool(HomeToolSection.tasks));
+        break;
       case StatsDestination.habits:
         unawaited(_openTool(HomeToolSection.habits));
+        break;
       case StatsDestination.focus:
         unawaited(_startFocus());
+        break;
       case StatsDestination.review:
         unawaited(_openPrimary(HomePrimarySection.review));
+        break;
       case StatsDestination.timeDistribution:
         unawaited(_openTool(HomeToolSection.timeDistribution));
+        break;
     }
   }
 
