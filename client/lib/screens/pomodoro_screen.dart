@@ -117,11 +117,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _loadTodayTasks() async {
     try {
+      final requestedScope = await _cycleStorageKey();
       final tasks = await DataService().getTodayTasks();
-      if (!mounted) return;
+      if (!mounted || requestedScope != await _cycleStorageKey()) return;
       setState(() {
         _todayTasks = tasks.where((task) => !task.isCompleted).toList();
-        if (_linkedTaskId != null &&
+        // An active session may be linked to a task no longer in today's
+        // open list. Its persisted task ID must survive this async refresh.
+        if (!_activeSession && _linkedTaskId != null &&
             !_todayTasks.any((task) => task.id == _linkedTaskId)) {
           _linkedTaskId = null;
         }
@@ -131,8 +134,34 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _restoreActiveSession() async {
     try {
+      // Discard a delayed response from a different data mode or Cloud
+      // account; it must never rehydrate a previous account's session.
+      final requestedScope = await _cycleStorageKey();
       final data = await _sessions.getActiveSession();
       if (!mounted) return;
+      if (requestedScope != await _cycleStorageKey()) {
+        throw StateError('账号或数据模式已切换');
+      }
+      if (requestedScope != _cyclePrefsKey) {
+        // An in-place account switch must not reuse the previous account's
+        // local cycle, task choice, or verified remote round count.
+        final prefs = await SharedPreferences.getInstance();
+        final cycle = PomodoroCycleProgress.decode(
+          requestedScope == null ? null : prefs.getString(requestedScope),
+          cycleSize: _sessionsBeforeLong,
+        );
+        if (!mounted || requestedScope != await _cycleStorageKey()) {
+          throw StateError('账号或数据模式已切换');
+        }
+        setState(() {
+          _cyclePrefsKey = requestedScope;
+          _cycle = cycle;
+          _linkedTaskId = null;
+          _todayTasks = const [];
+          _confirmedNaturalWorkRounds = null;
+        });
+        unawaited(_loadTodayTasks());
+      }
       final active = data['active'];
       if (active == true) {
         _applySession(Map<String, dynamic>.from(data['session'] as Map));
@@ -144,8 +173,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             _activeSession = false;
             _running = false;
             _sessionId = null;
+            _sessionRevision = 0;
             _sessionStartedAt = null;
             _sessionPausedAt = null;
+            _pausedDurationSeconds = 0;
+            _linkedTaskId = null;
             _sessionType = 'work';
             _sessionTargetMinutes = _workMinutes;
             _remainingSeconds = _workMinutes * 60;

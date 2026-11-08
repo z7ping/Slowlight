@@ -19,7 +19,8 @@ class LocalMigrationReportStore {
         created TEXT NOT NULL DEFAULT '{}',
         status TEXT NOT NULL,
         error_summary TEXT NOT NULL DEFAULT '',
-        server_report_id INTEGER
+        server_report_id INTEGER,
+        cloud_account_id INTEGER
       )
     ''');
     for (final column in const [
@@ -27,6 +28,7 @@ class LocalMigrationReportStore {
       'snapshot TEXT NOT NULL DEFAULT \'{}\'',
       'scanned TEXT NOT NULL DEFAULT \'{}\'',
       'error_summary TEXT NOT NULL DEFAULT \'\'',
+      'cloud_account_id INTEGER',
     ]) {
       try {
         await db.execute('ALTER TABLE migration_reports ADD COLUMN $column');
@@ -37,7 +39,9 @@ class LocalMigrationReportStore {
     return db;
   }
 
-  Future<int> start(Map<String, dynamic> snapshot, String policy) async {
+  Future<int> start(Map<String, dynamic> snapshot, String policy, {
+    required int cloudAccountId,
+  }) async {
     final db = await _database();
     final now = DateTime.now().toUtc().toIso8601String();
     return db.insert('migration_reports', {
@@ -49,6 +53,7 @@ class LocalMigrationReportStore {
       'created': '{}',
       'status': 'running',
       'error_summary': '',
+      'cloud_account_id': cloudAccountId,
     });
   }
 
@@ -82,15 +87,24 @@ class LocalMigrationReportStore {
         whereArgs: [id]);
   }
 
-  Future<Map<String, dynamic>?> retrySnapshot(int id) async {
+  // The original cloud account ID stays in the local audit row, never in
+  // the fingerprinted server snapshot (which must remain byte-compatible).
+  Future<({Map<String, dynamic> snapshot, int? cloudAccountId})?>
+      retryRecord(int id) async {
     final db = await _database();
     final rows = await db.query('migration_reports',
         where: "id = ? AND status IN ('failed', 'running')",
         whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     final raw = rows.first['snapshot']?.toString() ?? '{}';
-    return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    return (
+      snapshot: Map<String, dynamic>.from(jsonDecode(raw) as Map),
+      cloudAccountId: rows.first['cloud_account_id'] as int?,
+    );
   }
+
+  Future<Map<String, dynamic>?> retrySnapshot(int id) async =>
+      (await retryRecord(id))?.snapshot;
 
   Future<List<Map<String, dynamic>>> all() async {
     final db = await _database();
