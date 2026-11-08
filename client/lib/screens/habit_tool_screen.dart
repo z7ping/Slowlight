@@ -757,6 +757,11 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                   color: theme.colorScheme.outlineVariant),
               const SizedBox(height: SlowlightSpacing.xl),
               _stats(habit),
+              if (habit.goalHistory.isNotEmpty) ...[
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text(_goalRevisionSummary(habit),
+                    style: SlowlightTypography.caption(context)),
+              ],
               const SizedBox(height: SlowlightSpacing.xl),
               FxResponsiveFormGrid(
                 minColumnWidth: 240,
@@ -1306,6 +1311,18 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         ),
       ],
     );
+  }
+
+  String _goalRevisionSummary(Habit habit) {
+    final versions = habit.goalHistory.reversed.take(3).toList().reversed;
+    final summaries = versions.map((row) {
+      final value = row['goal_value'] ?? '未知';
+      final metric = row['goal_metric'] == 'duration'
+          ? '分钟' : row['goal_metric'] == 'count'
+              ? (row['record_unit']?.toString() ?? habit.recordUnit) : '次';
+      return 'v${row['revision'] ?? '?'} $value$metric';
+    }).join(' → ');
+    return '保存的目标版本 ${habit.goalHistory.length} 条 · $summaries';
   }
 
   String _habitMeta(Habit habit) {

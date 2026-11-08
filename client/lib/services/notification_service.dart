@@ -8,8 +8,11 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../brand.dart';
 import '../models/habit_schedule_rule.dart';
+import '../models/habit_timezone_policy.dart';
 import '../repositories/habit_repository.dart';
 import 'api_service.dart';
+import 'auth_service.dart';
+import 'data_mode_manager.dart';
 import 'data_service.dart';
 
 class NotificationService {
@@ -56,7 +59,10 @@ class NotificationService {
       // 移动端：使用 flutter_local_notifications
       // 初始化时区
       tz.initializeTimeZones();
-      tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
+      // Schedule absolute instants in UTC. The OS supplied DateTime retains
+      // the device's civil timezone, including future DST changes; a fixed
+      // Shanghai location would shift notifications for other users.
+      tz.setLocalLocation(tz.UTC);
 
       const androidSettings = AndroidInitializationSettings(_androidIcon);
       const iosSettings = DarwinInitializationSettings(
@@ -185,6 +191,9 @@ class NotificationService {
   }
 
   /// 定时通知
+  static tz.TZDateTime toScheduleInstant(DateTime planned) =>
+      tz.TZDateTime.from(planned.toUtc(), tz.UTC);
+
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -206,7 +215,7 @@ class NotificationService {
         }
       });
     } else {
-      final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
+      final tzTime = toScheduleInstant(scheduledTime);
       if (tzTime.isBefore(tz.TZDateTime.now(tz.local))) {
         await showNotification(id: id, title: title, body: body, payload: payload);
         return;
@@ -284,11 +293,24 @@ class NotificationService {
       throw StateError('系统通知权限未开启，请在 Android 设置中允许应用发送提醒');
     }
     final now = DateTime.now();
+    final cloud = DataModeManager().isCloud;
+    final accountZone = cloud ? (await AuthService.getUser())?.timezone : null;
+    HabitTimezoneMismatch? blocked;
     for (final habit in habits) {
       await cancelHabitReminders(habit.id);
       if (habit.scheduleRule.isEmpty) continue; // Legacy remains unchanged.
       final rule = HabitScheduleRule.fromJson(habit.scheduleRule, legacyFrequency:habit.frequency);
       if (rule.validationError != null || rule.reminderMode=='off') continue;
+      if (cloud) {
+        try {
+          HabitTimezonePolicy.requireCompatibleDeviceCalendar(accountZone);
+        } on HabitTimezoneMismatch catch (error) {
+          // Do not schedule an incorrect recurring reminder in a different
+          // calendar. The habit remains recorded; scheduling is independent.
+          blocked = error;
+          continue;
+        }
+      }
       final planned=<DateTime>[];
       if (rule.reminderMode=='daily') {
         final p=HabitScheduleRule.minute(rule.reminderTime);
@@ -308,6 +330,10 @@ class NotificationService {
           payload:'habit_'+habit.id.toString(),
         );
       }
+    }
+    if (blocked != null) {
+      throw HabitTimezoneMismatch(
+          '云端账号与设备时区不一致；不兼容的习惯提醒已暂停，请核对账号时区');
     }
   }
 

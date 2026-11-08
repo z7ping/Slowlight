@@ -1014,6 +1014,7 @@ class SyncService extends ChangeNotifier {
         'goal_period': item['goal_period'] ?? 'none',
         'goal_metric': item['goal_metric'] ?? 'events',
         'goal_value': item['goal_value'] ?? 0,
+        'goal_history': jsonEncode(item['goal_history'] ?? const []),
         'target_days': item['target_days'] ?? 0,
         'streak_count': item['streak_count'] ?? 0,
         'preferred_period': item['preferred_period'] ?? '',

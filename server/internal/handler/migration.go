@@ -67,6 +67,11 @@ type MigrationHabit struct {
 	RecordUnit string `json:"record_unit"`
 	RecordTimeLabel string `json:"record_time_label"`
 	ScheduleRule      string `json:"schedule_rule"`
+    AllowMultiplePerDay bool `json:"allow_multiple_per_day"`
+    GoalPeriod string `json:"goal_period"`
+    GoalMetric string `json:"goal_metric"`
+    GoalValue int `json:"goal_value"`
+    GoalHistory []MigrationGoalRevision `json:"goal_history"`
 	TargetDays        int    `json:"target_days"`
 	PreferredPeriod   string `json:"preferred_period"`
 	DurationMin       int    `json:"duration_min"`
@@ -76,6 +81,17 @@ type MigrationHabit struct {
 	ReminderAt        string `json:"reminder_at"`
 	SystemTagID       *uint  `json:"system_tag_id"`
 }
+type MigrationGoalRevision struct {
+    Revision int `json:"revision"`
+    GoalPeriod string `json:"goal_period"`
+    GoalMetric string `json:"goal_metric"`
+    GoalValue int `json:"goal_value"`
+    RecordType string `json:"record_type"`
+    RecordUnit string `json:"record_unit"`
+    ScheduleRule string `json:"schedule_rule"`
+    EffectiveAt string `json:"effective_at"`
+}
+
 type MigrationTask struct {
 	LocalID         uint   `json:"id"`
 	ListID          uint   `json:"list_id"`
@@ -440,7 +456,7 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
 				name, nameErr = h.migrationCopyName(tx, userID, "habits", item.Name)
 				if nameErr != nil { return nameErr }
 			}
-			row := model.Habit{UserID: userID, Name: name, Icon: item.Icon, Color: item.Color, Frequency: item.Frequency, ScheduleRule: item.ScheduleRule, RecordType: item.RecordType, RecordUnit: item.RecordUnit, RecordTimeLabel: item.RecordTimeLabel, TargetDays: item.TargetDays, PreferredPeriod: item.PreferredPeriod, DurationMin: item.DurationMin, GenerateTask: item.GenerateTask, ShowCheckinDialog: item.ShowCheckinDialog, SpecificTime: item.SpecificTime, ReminderAt: item.ReminderAt}
+			row := model.Habit{UserID: userID, Name: name, Icon: item.Icon, Color: item.Color, Frequency: item.Frequency, ScheduleRule: item.ScheduleRule, RecordType: item.RecordType, RecordUnit: item.RecordUnit, RecordTimeLabel: item.RecordTimeLabel, AllowMultiplePerDay:item.AllowMultiplePerDay, GoalPeriod:item.GoalPeriod, GoalMetric:item.GoalMetric, GoalValue:item.GoalValue, TargetDays: item.TargetDays, PreferredPeriod: item.PreferredPeriod, DurationMin: item.DurationMin, GenerateTask: item.GenerateTask, ShowCheckinDialog: item.ShowCheckinDialog, SpecificTime: item.SpecificTime, ReminderAt: item.ReminderAt}
 			if item.SystemTagID != nil && systemTagIDs[*item.SystemTagID] != 0 {
 				mapped := systemTagIDs[*item.SystemTagID]
 				row.SystemTagID = &mapped
@@ -460,9 +476,38 @@ func (h *MigrationHandler) ExecuteMigration(c *gin.Context) {
             schedule, err := validateHabitSchedule(row.ScheduleRule)
             if err != nil { return err }
             row.ScheduleRule = schedule
-			if err := tx.Create(&row).Error; err != nil {
-				return err
-			}
+            if row.GoalPeriod=="" {row.GoalPeriod="none"}
+            if row.GoalMetric=="" {row.GoalMetric="events"}
+            if err := validateHabitGoal(row.GoalPeriod,row.GoalMetric,row.GoalValue);err!=nil{return err}
+            if err := tx.Create(&row).Error; err != nil {
+                return err
+            }
+            // The source revision log is authoritative only for periods
+            // actually saved there. Preserve revisions as-is and validate
+            // every field; legacy snapshots with no log remain unknown.
+            previous := 0
+            for _,version := range item.GoalHistory {
+                if version.Revision<=previous || version.Revision<1 {
+                    return fmt.Errorf("迁移目标版本顺序错误")
+                }
+                previous=version.Revision
+                when,err:=time.Parse(time.RFC3339Nano,version.EffectiveAt)
+                if err!=nil {return fmt.Errorf("迁移目标版本时间无效")}
+                if err:=validateHabitGoal(version.GoalPeriod,version.GoalMetric,version.GoalValue);err!=nil{return err}
+                if !validHabitRecordType(version.RecordType) {
+                    return fmt.Errorf("迁移目标版本记录类型无效")
+                }
+                ruleText,err:=validateHabitSchedule(version.ScheduleRule)
+                if err!=nil{return err}
+                revision:=model.HabitGoalRevision{
+                    UserID:userID,HabitID:row.ID,Revision:version.Revision,
+                    GoalPeriod:version.GoalPeriod,GoalMetric:version.GoalMetric,
+                    GoalValue:version.GoalValue,RecordType:version.RecordType,
+                    RecordUnit:version.RecordUnit,ScheduleRule:ruleText,
+                    EffectiveAt:when.UTC(),
+                }
+                if err:=tx.Create(&revision).Error;err!=nil{return err}
+            }
 			habitIDs[item.LocalID] = row.ID
 		}
 		for _, item := range snapshot.Tasks {

@@ -401,6 +401,7 @@ class CloudCacheRepository {
         'goal_period': row['goal_period'] ?? 'none',
         'goal_metric': row['goal_metric'] ?? 'events',
         'goal_value': row['goal_value'] ?? 0,
+        'goal_history': _jsonList(row['goal_history']),
         'goal_progress': goal,
         'goal_met': HabitGoalProgress.met(Map<String, dynamic>.from(row), goal),
         'target_days': row['target_days'] ?? 0,
@@ -496,6 +497,21 @@ class CloudCacheRepository {
     final localId = row['id'] as int;
     final serverId = row['server_id'] as int?;
     final updates = Map<String, dynamic>.from(data);
+    const contract = ['goal_period', 'goal_metric', 'goal_value',
+      'record_type', 'record_unit', 'schedule_rule'];
+    final changed = contract.any((field) {
+      if (!updates.containsKey(field)) return false;
+      if (field == 'schedule_rule') {
+        return _stableRule(row[field]) != _stableRule(updates[field]);
+      }
+      return row[field] != updates[field];
+    });
+    if (changed) {
+      // Server appends the authoritative revision inside the same update
+      // transaction. A disconnected edit has no trustworthy version time,
+      // so never accept a change that could rewrite earlier goal evidence.
+      throw const HabitGoalVersionRequiresOnline();
+    }
     if (updates.containsKey('system_tag_id')) {
       final publicTagId = updates['system_tag_id'] as int?;
       updates['system_tag_id'] = publicTagId == null
@@ -857,6 +873,22 @@ class CloudCacheRepository {
   String? _dateKey(DateTime? value) => value == null
       ? null
       : '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  String _stableRule(Object? value) {
+    final map = _jsonMap(value);
+    final keys = map.keys.toList()..sort();
+    return jsonEncode({for (final key in keys) key: map[key]});
+  }
+
+  List<dynamic> _jsonList(Object? value) {
+    if (value is List) return value;
+    if (value is String && value.isNotEmpty) {
+      final decoded = jsonDecode(value);
+      if (decoded is List) return decoded;
+      throw const FormatException('历史目标版本格式不正确');
+    }
+    return const [];
+  }
 
   Map<String, dynamic> _jsonMap(Object? value) {
     if (value is Map) return Map<String, dynamic>.from(value);

@@ -463,7 +463,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
       if (!mounted) return;
       setState(() => _submitting = false);
       _complete(value);
-    } on HabitTimezoneMismatch catch (error) {
+    } on HabitKnownWriteBlock catch (error) {
       if (!mounted) return;
       setState(() {
         _submitting = false;

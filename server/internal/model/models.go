@@ -111,6 +111,7 @@ type Habit struct {
 	GoalPeriod      string         `json:"goal_period" gorm:"size:10;not null;default:'none'"`
 	GoalMetric      string         `json:"goal_metric" gorm:"size:12;not null;default:'events'"`
 	GoalValue       int            `json:"goal_value" gorm:"not null;default:0"`
+    GoalHistory []HabitGoalRevision `json:"goal_history" gorm:"-"`
 	TargetDays      int            `json:"target_days" gorm:"default:0"`            // 0 = 无限制
 	StreakCount     int            `json:"streak_count" gorm:"default:0"`           // 连续打卡天数
 	PreferredPeriod string         `json:"preferred_period" gorm:"size:20;default:''"` // morning/afternoon/evening/night

@@ -26,10 +26,40 @@ class LocalHabitRepository {
     var cursor = DateTime(now.year, now.month, now.day);
     final habit = (await db.query('habits',
       where: 'id = ?', whereArgs: [habitId], limit: 1)).first;
+    final versions = await _goalHistory(db, habitId);
     Future<bool> met(DateTime date) async {
       final rows = await db.query('habit_logs',
         where: 'habit_id = ? AND date = ?',
         whereArgs: [habitId, _dateStr(date)]);
+      if (versions.isNotEmpty) {
+        final end = DateTime(date.year, date.month, date.day + 1);
+        Map<String, Object?>? active;
+        var changedOnDay = 0;
+        for (final version in versions) {
+          final effective = DateTime.tryParse(
+              version['effective_at']?.toString() ?? '')?.toLocal();
+          if (effective == null || !effective.isBefore(end)) continue;
+          active = version;
+          if (effective.year == date.year &&
+              effective.month == date.month && effective.day == date.day) {
+            changedOnDay++;
+          }
+        }
+        // No revision evidence, or multiple goal revisions during the
+        // same day, cannot certify a historical target achievement.
+        if (active == null || changedOnDay > 1) return false;
+        final value = active['goal_value'] as int? ?? 0;
+        if (active['goal_period'] == 'day' && value > 0) {
+          return HabitGoalProgress.met(
+            {'goal_value': value},
+            HabitGoalProgress.current({
+              'goal_period': 'day',
+              'goal_metric': active['goal_metric'],
+            }, rows, now: date),
+          );
+        }
+        return rows.isNotEmpty;
+      }
       if ((habit['goal_period'] == 'day') &&
           ((habit['goal_value'] as int? ?? 0) > 0)) {
         return HabitGoalProgress.met(habit,
@@ -45,6 +75,32 @@ class LocalHabitRepository {
       if (streak >= 36500) break;
     }
     return streak;
+  }
+
+  static const _goalFields = <String>[
+    'goal_period', 'goal_metric', 'goal_value', 'record_type', 'record_unit',
+    'schedule_rule',
+  ];
+
+  Future<List<Map<String, Object?>>> _goalHistory(
+      DatabaseExecutor db, int habitId) async {
+    return db.query('habit_goal_revisions',
+        where: 'habit_id = ?', whereArgs: [habitId],
+        orderBy: 'revision ASC');
+  }
+
+  Future<void> _appendGoalRevision(
+      DatabaseExecutor db, int habitId, Map<String, Object?> habit) async {
+    final rows = await db.rawQuery(
+        'SELECT COALESCE(MAX(revision), 0) AS n FROM habit_goal_revisions WHERE habit_id = ?',
+        [habitId]);
+    final revision = (rows.first['n'] as int? ?? 0) + 1;
+    await db.insert('habit_goal_revisions', {
+      'habit_id': habitId,
+      'revision': revision,
+      for (final field in _goalFields) field: habit[field],
+      'effective_at': _nowUtc(),
+    });
   }
 
   Future<List<Map<String, dynamic>>> getAll() async {
@@ -68,6 +124,7 @@ class LocalHabitRepository {
     for (final habit in maps) {
       final mutable = Map<String, dynamic>.from(habit);
       final hid = mutable['id'] as int;
+      mutable['goal_history'] = await _goalHistory(db, hid);
       final todayRows = await db.query(
         'habit_logs',
         where: 'habit_id = ? AND date = ?',
@@ -128,7 +185,10 @@ class LocalHabitRepository {
       limit: 1,
     );
     if (maps.isEmpty) return null;
-    return Map<String, dynamic>.from(maps.first);
+    return <String, dynamic>{
+      ...maps.first,
+      'goal_history': await _goalHistory(db, id),
+    };
   }
 
   Future<Map<String, dynamic>> create({
@@ -155,7 +215,8 @@ class LocalHabitRepository {
   }) async {
     final db = await _db.database;
     final now = _nowUtc();
-    final id = await db.insert('habits', {
+    final id = await db.transaction((tx) async {
+      final newId = await tx.insert('habits', {
       'name': name,
       'icon': icon,
       'color': color,
@@ -178,6 +239,11 @@ class LocalHabitRepository {
       'reminder_at': reminderAt != null ? _encodeJson(reminderAt) : '{}',
       'created_at': now,
       'updated_at': now,
+      });
+      final saved = (await tx.query('habits',
+          where: 'id = ?', whereArgs: [newId], limit: 1)).single;
+      await _appendGoalRevision(tx, newId, saved);
+      return newId;
     });
     final result = await getById(id);
     if (result == null) throw Exception('创建习惯失败');
@@ -233,7 +299,48 @@ class LocalHabitRepository {
     if (specificTime != null) updates['specific_time'] = specificTime;
     if (reminderAt != null) updates['reminder_at'] = _encodeJson(reminderAt);
 
-    await db.update('habits', updates, where: 'id = ?', whereArgs: [id]);
+    await db.transaction((tx) async {
+      final before = (await tx.query('habits',
+          where: 'id = ? AND deleted_at IS NULL',
+          whereArgs: [id], limit: 1));
+      if (before.isEmpty) throw StateError('习惯不存在');
+      final old = before.single;
+      final changedType = updates.containsKey('record_type') &&
+          updates['record_type'] != old['record_type'];
+      final changedUnit = updates.containsKey('record_unit') &&
+          updates['record_unit'] != old['record_unit'];
+      if (changedType || changedUnit) {
+        final facts = await tx.query('habit_logs',
+            where: 'habit_id = ?', whereArgs: [id], limit: 1);
+        if (facts.isNotEmpty) {
+          throw StateError('已有记录，不能修改记录类型或单位');
+        }
+      }
+      if (updates.containsKey('schedule_rule') &&
+          updates['schedule_rule'] != old['schedule_rule']) {
+        final facts = await tx.query('habit_logs',
+            where: 'habit_id = ?', whereArgs: [id],
+            orderBy: 'date ASC', limit: 1);
+        if (facts.isNotEmpty) {
+          final rule = HabitOccurrence.rule(updates['schedule_rule'],
+              legacyFrequency: frequency ?? old['frequency']?.toString() ?? 'daily');
+          if (rule != null &&
+              rule.anchorDate.compareTo(facts.single['date'].toString()) > 0) {
+            throw StateError('起算日不能晚于已有最早记录');
+          }
+        }
+      }
+      await tx.update('habits', updates, where: 'id = ?', whereArgs: [id]);
+      final after = (await tx.query('habits',
+          where: 'id = ?', whereArgs: [id], limit: 1)).single;
+      if (_goalFields.any((field) => before.single[field] != after[field])) {
+        await _appendGoalRevision(tx, id, after);
+        final streak = await _calculateCurrentStreak(
+            tx, id, DateTime.now());
+        await tx.update('habits', {'streak_count': streak},
+            where: 'id = ?', whereArgs: [id]);
+      }
+    });
     final result = await getById(id);
     if (result == null) throw Exception('更新习惯失败');
     return result;

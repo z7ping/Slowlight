@@ -15,6 +15,107 @@ void main() {
   tearDown(() async {
     await LocalDb().close();
   });
+  test('P05 旧 SQLite v20 升级只建目标版本表，不倒填旧目标', () async {
+    final path = LocalDb.debugDatabasePathOverride!;
+    final legacy = await databaseFactory.openDatabase(path,
+      options: OpenDatabaseOptions(
+        version: 20,
+        onCreate: (db, _) async {
+          await db.execute('CREATE TABLE habits (id INTEGER PRIMARY KEY, name TEXT)');
+          await db.insert('habits', {'id': 7, 'name': '旧记录'});
+        },
+      ));
+    await legacy.close();
+    final upgraded = await LocalDb().database;
+    final columns = await upgraded.rawQuery(
+        'PRAGMA table_info(habit_goal_revisions)');
+    expect(columns.map((row) => row['name']), contains('revision'));
+    expect(await upgraded.query('habit_goal_revisions'), isEmpty);
+    expect((await upgraded.query('habits')).single['name'], '旧记录');
+  });
+
+  test('P05 目标修改不会把昨天的达标按今天目标重算', () async {
+    final repo = LocalHabitRepository();
+    final habit = await repo.create(
+      name: '历史每日目标', goalPeriod: 'day',
+      goalMetric: 'events', goalValue: 1,
+    );
+    final id = habit['id'] as int;
+    final db = await LocalDb().database;
+    final now = DateTime.now();
+    final oldDate = now.subtract(const Duration(days: 1));
+    String key(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+    final savedAt = now.subtract(const Duration(days: 3))
+        .toUtc().toIso8601String();
+    await db.update('habit_goal_revisions',
+      {'effective_at': savedAt},
+      where: 'habit_id = ? AND revision = ?', whereArgs: [id, 1]);
+    for (final date in [key(oldDate), key(now), key(now)]) {
+      await db.insert('habit_logs', {
+        'habit_id': id, 'date': date,
+        'created_at': now.toUtc().toIso8601String(),
+      });
+    }
+    final changed = await repo.update(id, goalValue: 2);
+    // Yesterday was completed against 1 event, today against 2 events.
+    // Regrading yesterday at the latest target (2) would show 1, not 2.
+    expect(changed['streak_count'], 2);
+    expect(changed['goal_history'], hasLength(2));
+  });
+
+  test('P05 已有事实禁止修改计量口径及晚于事实的起算日', () async {
+    final repo = LocalHabitRepository();
+    final habit = await repo.create(name: '记录不可改');
+    final id = habit['id'] as int;
+    await repo.checkIn(id);
+    await expectLater(repo.update(id, recordType: 'count'),
+        throwsStateError);
+    await expectLater(repo.update(id, recordUnit: '杯'),
+        throwsStateError);
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    String two(int value) => value.toString().padLeft(2, '0');
+    final day = '${tomorrow.year}-${two(tomorrow.month)}-${two(tomorrow.day)}';
+    await expectLater(repo.update(id, scheduleRule: {
+      'version': 1, 'kind': 'interval', 'unit': 'day', 'every': 1,
+      'anchor_date': day, 'anchor_time': '08:00',
+      'reminder_mode': 'off', 'reminder_time': '09:00',
+    }), throwsStateError);
+    expect((await repo.getById(id))!['record_type'], 'check');
+    expect((await repo.getById(id))!['record_unit'], '次');
+    expect((await repo.getById(id))!['goal_history'], hasLength(1));
+  });
+
+  test('P05 Local 历史目标版本只追加，不倒填旧记录', () async {
+    final repo = LocalHabitRepository();
+    final created = await repo.create(
+      name: '目标修订', goalPeriod: 'week', goalValue: 3,
+    );
+    final id = created['id'] as int;
+    List history(Map<String, dynamic> row) => row['goal_history'] as List;
+    expect(history(created), hasLength(1));
+    expect((history(created).first as Map)['goal_value'], 3);
+    final cosmetic = await repo.update(id, name: '重命名');
+    expect(history(cosmetic), hasLength(1));
+    final revised = await repo.update(id, goalValue: 5);
+    expect(history(revised), hasLength(2));
+    expect((history(revised).first as Map)['goal_value'], 3);
+    expect((history(revised).last as Map)['goal_value'], 5);
+    final replay = await repo.update(id, goalValue: 5);
+    expect(history(replay), hasLength(2));
+    final db = await LocalDb().database;
+    final legacyId = await db.insert('habits', {
+      'name': '旧习惯', 'created_at': DateTime.now().toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    final legacy = await repo.update(legacyId, goalValue: 4);
+    expect(history(legacy), hasLength(1));
+    expect((history(legacy).first as Map)['goal_value'], 4);
+    await LocalDb().close();
+    expect(history((await repo.getById(id))!), hasLength(2));
+  });
+
   test('同日多条累计、按记录撤销、默认旧习惯单日一次', () async {
     final repo = LocalHabitRepository();
     final habit = await repo.create(

@@ -30,7 +30,7 @@ Future<bool> recordHabit(
     try {
       await save(value);
       return true;
-    } on HabitTimezoneMismatch catch (error) {
+    } on HabitKnownWriteBlock catch (error) {
       if (context.mounted) {
         FxNotice.showContent(context, Text(error.message),
             variant: FxNoticeVariant.warning);
