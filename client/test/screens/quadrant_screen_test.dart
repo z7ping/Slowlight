@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
@@ -272,6 +275,120 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GridView), findsNothing);
     expect(find.byType(ListView), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P06 Windows 右键移动仅预填原任务，不直接提交', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'quadrant_move_hint_desktop_v1': true,
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final task = _task(86, '右键选中的任务', 'urgent_important');
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks([task])),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('右键选中的任务')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('「右键选中的任务」移动到…'), findsOneWidget);
+    await tester.tap(find.text('重要 · 不紧急').last);
+    await tester.pumpAndSettle();
+
+    final editor = tester.widget<TaskDetailSheet>(
+      find.byType(TaskDetailSheet),
+    );
+    expect(editor.initialPriority, 'important');
+    expect(editor.task.priority, 'urgent_important');
+    expect(task.priority, 'urgent_important');
+    expect(find.text('有未保存的修改'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P06 菜单键与 Shift+F10 在任务焦点上复用同一移动选择',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'quadrant_move_hint_mobile_v1': true,
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final task = _task(87, '键盘焦点任务', 'urgent_important');
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks([task])),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    Focus.of(tester.element(find.text('键盘焦点任务'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+    expect(find.text('「键盘焦点任务」移动到…'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsNothing);
+    expect(task.priority, 'urgent_important');
+
+    Focus.of(tester.element(find.text('键盘焦点任务'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('「键盘焦点任务」移动到…'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P06 移动引导仅在首次有任务时写入本机标记', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks([])),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getBool('quadrant_move_hint_mobile_v1'), isNull);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(
+          key: const ValueKey('populated-quadrants'),
+          dataLoader: () => _loadTasks([
+            _task(88, '首次可移动的任务', 'urgent'),
+          ]),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(preferences.getBool('quadrant_move_hint_mobile_v1'), isTrue);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
