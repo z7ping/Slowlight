@@ -29,6 +29,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   bool _testing = false;
   bool _hasStoredKey = false;
   bool _providerSwitching = false;
+  bool _clearingKey = false;
   int _loadVersion = 0;
   String? _testResult;
   String? _saveError;
@@ -68,7 +69,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       _keyController.text.trim().isNotEmpty;
 
   Future<bool> _confirmLeave() async {
-    if (_saving || _testing || _providerSwitching) return false;
+    if (_saving || _testing || _providerSwitching || _clearingKey) return false;
     if (!_isDirty) return true;
     final confirmed = await FxDialog.confirm(
       context: context,
@@ -111,7 +112,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _changeProvider(AiProviderType provider) async {
-    if (provider == _config.provider || _saving || _testing || _providerSwitching) return;
+    if (provider == _config.provider || _saving || _testing || _providerSwitching || _clearingKey) return;
     setState(() => _providerSwitching = true);
     try {
       if (_isDirty) {
@@ -164,7 +165,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _save() async {
-    if (_saving || _testing || _providerSwitching) return;
+    if (_saving || _testing || _providerSwitching || _clearingKey) return;
     setState(() {
       _saving = true;
       _saveError = null;
@@ -205,7 +206,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _test() async {
-    if (_testing || _saving || _providerSwitching) return;
+    if (_testing || _saving || _providerSwitching || _clearingKey) return;
     String secret = '';
     setState(() {
       _testing = true;
@@ -239,15 +240,19 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _clearKey() async {
-    final confirmed = await FxDialog.confirm(
-      context: context,
-      title: '清除访问密钥？',
-      content: '清除后当前服务商可能无法继续使用，之后可以重新填写密钥。',
-      confirmText: '清除密钥',
-      destructive: true,
-    );
-    if (confirmed != true || !mounted || _saving || _testing || _providerSwitching) return;
+    // Reserve the same mutation lock before showing confirmation. Otherwise
+    // a second tap can open another destructive dialog while the first awaits.
+    if (_saving || _testing || _providerSwitching || _clearingKey) return;
+    setState(() => _clearingKey = true);
     try {
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '清除访问密钥？',
+        content: '清除后当前服务商可能无法继续使用，之后可以重新填写密钥。',
+        confirmText: '清除密钥',
+        destructive: true,
+      );
+      if (confirmed != true || !mounted) return;
       await _store.clearApiKey(_config.provider);
       if (!mounted) return;
       setState(() {
@@ -260,7 +265,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       });
       _message('已清除当前 AI 服务的访问密钥');
     } catch (_) {
-      _message('清除访问密钥失败，请检查安全存储后重试');
+      if (mounted) {
+        _message('清除密钥结果未确认，请检查安全存储状态后再操作');
+      }
+    } finally {
+      if (mounted) setState(() => _clearingKey = false);
     }
   }
 
@@ -313,7 +322,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         padding: const EdgeInsets.all(20),
                         children: [
                           IgnorePointer(
-                            ignoring: _saving || _testing || _providerSwitching,
+                            ignoring: _saving || _testing || _providerSwitching || _clearingKey,
                             child: FxCard(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -392,7 +401,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                         label: '清除已保存密钥',
                                         variant: FxButtonVariant.ghost,
                                         size: FxButtonSize.sm,
-                                        onPressed: _saving || _testing || _providerSwitching
+                                        onPressed: _saving || _testing || _providerSwitching || _clearingKey
                                             ? null
                                             : _clearKey,
                                       ),
@@ -430,14 +439,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                 child: FxButton(
                                   label: _testing ? '测试中…' : '测试连接',
                                   variant: FxButtonVariant.secondary,
-                                  onPressed: _testing || _saving ? null : _test,
+                                  onPressed: _testing || _saving || _providerSwitching || _clearingKey ? null : _test,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: FxButton(
                                   label: _saving ? '保存中…' : '保存',
-                                  onPressed: _saving || _testing ? null : _save,
+                                  onPressed: _saving || _testing || _providerSwitching || _clearingKey ? null : _save,
                                 ),
                               ),
                             ],
