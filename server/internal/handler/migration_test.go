@@ -21,6 +21,47 @@ func migrationRouter(h *MigrationHandler, userID uint) *gin.Engine {
 	return r
 }
 
+
+func TestP05MigrationPreservesRealGoalVersions(t *testing.T) {
+    db:=setupTestDB(t)
+    tx:=beginTx(t,db)
+    user:=createTestUser(t,tx)
+    router:=migrationRouter(NewMigrationHandler(tx),user.ID)
+    title:=uniqueName("迁移带历史版本的习惯")
+    body,_:=json.Marshal(map[string]interface{}{
+        "habits":[]map[string]interface{}{{
+            "id":47,"name":title,"frequency":"daily",
+            "schedule_rule":"{}","record_type":"check","record_unit":"杯",
+            "goal_period":"week","goal_metric":"count","goal_value":5,
+            "goal_history":[]map[string]interface{}{
+                {"revision":1,"goal_period":"week","goal_metric":"count",
+                 "goal_value":3,"record_type":"check","record_unit":"杯",
+                 "schedule_rule":"{}","effective_at":"2026-09-01T09:00:00Z"},
+                {"revision":2,"goal_period":"week","goal_metric":"count",
+                 "goal_value":5,"record_type":"check","record_unit":"杯",
+                 "schedule_rule":"{}","effective_at":"2026-10-01T09:00:00Z"},
+            },
+        }},
+    })
+    req:=httptest.NewRequest(http.MethodPost,"/migration/execute",bytes.NewReader(body))
+    req.Header.Set("Content-Type","application/json")
+    rec:=httptest.NewRecorder()
+    router.ServeHTTP(rec,req)
+    if rec.Code!=http.StatusOK {t.Fatalf("migration=%d %s",rec.Code,rec.Body.String())}
+    var habit model.Habit
+    if err:=tx.Where("user_id = ? AND name = ?",user.ID,title).First(&habit).Error;err!=nil{t.Fatal(err)}
+    if habit.GoalValue!=5 || habit.GoalMetric!="count" || habit.RecordUnit!="杯" {
+        t.Fatalf("migration lost the current goal: %+v",habit)
+    }
+    var versions []model.HabitGoalRevision
+    if err:=tx.Where("habit_id = ? AND user_id = ?",habit.ID,user.ID).
+        Order("revision ASC").Find(&versions).Error;err!=nil{t.Fatal(err)}
+    if len(versions)!=2 || versions[0].GoalValue!=3 ||
+        versions[1].GoalValue!=5 || versions[0].HabitID!=habit.ID {
+        t.Fatalf("migration lost or rewrote original versions: %+v",versions)
+    }
+}
+
 func TestExecuteMigrationCloudPolicyReusesSameNameEntities(t *testing.T) {
 	db := setupTestDB(t)
 	tx := beginTx(t, db)
