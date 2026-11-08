@@ -34,6 +34,37 @@ void main() {
     expect((await upgraded.query('habits')).single['name'], '旧记录');
   });
 
+  test('P05 目标修改不会把昨天的达标按今天目标重算', () async {
+    final repo = LocalHabitRepository();
+    final habit = await repo.create(
+      name: '历史每日目标', goalPeriod: 'day',
+      goalMetric: 'events', goalValue: 1,
+    );
+    final id = habit['id'] as int;
+    final db = await LocalDb().database;
+    final now = DateTime.now();
+    final oldDate = now.subtract(const Duration(days: 1));
+    String key(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+    final savedAt = now.subtract(const Duration(days: 3))
+        .toUtc().toIso8601String();
+    await db.update('habit_goal_revisions',
+      {'effective_at': savedAt},
+      where: 'habit_id = ? AND revision = ?', whereArgs: [id, 1]);
+    for (final date in [key(oldDate), key(now), key(now)]) {
+      await db.insert('habit_logs', {
+        'habit_id': id, 'date': date,
+        'created_at': now.toUtc().toIso8601String(),
+      });
+    }
+    final changed = await repo.update(id, goalValue: 2);
+    // Yesterday was completed against 1 event, today against 2 events.
+    // Regrading yesterday at the latest target (2) would show 1, not 2.
+    expect(changed['streak_count'], 2);
+    expect(changed['goal_history'], hasLength(2));
+  });
+
   test('P05 已有事实禁止修改计量口径及晚于事实的起算日', () async {
     final repo = LocalHabitRepository();
     final habit = await repo.create(name: '记录不可改');
