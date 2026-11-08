@@ -16,6 +16,7 @@ class LocalSessionRepository {
     int? taskId,
     int? targetMinutes,
     String device = 'desktop',
+    bool requireInactive = false,
   }) async {
     if (!const {'work', 'break', 'long_break'}.contains(sessionType)) {
       throw ArgumentError.value(sessionType, 'sessionType', '不支持的会话类型');
@@ -37,6 +38,9 @@ class LocalSessionRepository {
         limit: 1,
       );
       if (active.isNotEmpty) {
+        if (requireInactive) {
+          throw StateError('已存在活动专注会话，请先重新核对');
+        }
         final row = active.first;
         final durationSec = _activeSeconds(row, now);
         final pausedDurationSec = _finalPausedSeconds(row, now);
