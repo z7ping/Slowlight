@@ -108,8 +108,11 @@ extension TaskFilterSortX on List<Task> {
       return true;
     }).toList();
 
-    // 排序
-    filtered.sort((a, b) {
+    // Stable sort keeps task rows from jumping when keys are equal.
+    final indexed = filtered.asMap().entries.toList();
+    indexed.sort((left, right) {
+      final a = left.value;
+      final b = right.value;
       int cmp;
       switch (fs.sortBy) {
         case TaskSortBy.priority:
@@ -120,17 +123,26 @@ extension TaskFilterSortX on List<Task> {
           cmp = a.createdAt.compareTo(b.createdAt);
           break;
         case TaskSortBy.dueDate:
-          final aDate = a.dueDate ?? DateTime(9999);
-          final bDate = b.dueDate ?? DateTime(9999);
-          cmp = aDate.compareTo(bDate);
+          // Unscheduled tasks must remain last in both directions.
+          if (a.dueDate == null || b.dueDate == null) {
+            if (a.dueDate == null && b.dueDate == null) {
+              cmp = 0;
+            } else {
+              return a.dueDate == null ? 1 : -1;
+            }
+          } else {
+            cmp = a.dueDate!.compareTo(b.dueDate!);
+          }
           break;
         case TaskSortBy.title:
           cmp = a.title.toLowerCase().compareTo(b.title.toLowerCase());
           break;
       }
-      return fs.sortDirection == SortDirection.asc ? cmp : -cmp;
+      final ordered =
+          fs.sortDirection == SortDirection.asc ? cmp : -cmp;
+      return ordered == 0 ? left.key.compareTo(right.key) : ordered;
     });
 
-    return filtered;
+    return indexed.map((entry) => entry.value).toList();
   }
 }
