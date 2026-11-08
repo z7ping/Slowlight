@@ -89,6 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _syncing = false;
   bool _savingReminder = false;
   bool _switchingMode = false;
+  bool _confirmingModeSwitch = false;
   bool _linkingGitHub = false;
   bool _githubDeviceEnabled = false;
   String? _githubDeviceCode;
@@ -1166,7 +1167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return cloudSyncSummary(
       status: sync.status,
       isSyncing: _syncing,
-      conflictCheckFailed: _conflictCheckFailed,
+      conflictCheckFailed: _conflictCheckFailed || _checkingConflicts,
       conflictCount: _conflictCount,
       pendingCount: sync.pendingCount +
           CloudSyncCoordinator().standalonePendingCount.value,
@@ -1948,19 +1949,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _setDataMode(int index) async {
     final manager = DataModeManager();
     final toLocal = index == 0;
-    if (_switchingMode || manager.isLocal == toLocal) return;
-    final confirmed = await FxDialog.confirm(
-      context: context,
-      title: toLocal ? '切换为本地数据？' : '切换为云端数据？',
-      confirmText: '确认切换',
-      content: toLocal
-          ? '切换后将读取本设备的本地数据库，不再显示云端记录。'
-              '这不会把云端记录下载或合并到本地，也不会删除任何现有数据。'
-          : '切换后将读取云端账号中的数据，本地记录不会自动上传或合并。'
-              '如需导入已有本地记录，请使用「数据迁移」先预览和处理冲突。'
-              '原本的本地数据不会删除。',
-    );
-    if (confirmed != true || !mounted) return;
+    if (_switchingMode || _confirmingModeSwitch || manager.isLocal == toLocal) return;
+    _confirmingModeSwitch = true;
+    bool? confirmed;
+    try {
+      confirmed = await FxDialog.confirm(
+        context: context,
+        title: toLocal ? '切换为本地数据？' : '切换为云端数据？',
+        confirmText: '确认切换',
+        content: toLocal
+            ? '切换后将读取本设备的本地数据库，不再显示云端记录。'
+                '这不会把云端记录下载或合并到本地，也不会删除任何现有数据。'
+            : '切换后将读取云端账号中的数据，本地记录不会自动上传或合并。'
+                '如需导入已有本地记录，请使用「数据迁移」先预览和处理冲突。'
+                '原本的本地数据不会删除。',
+      );
+    } finally {
+      _confirmingModeSwitch = false;
+    }
+    if (confirmed != true || !mounted ||
+        _switchingMode || manager.isLocal == toLocal) return;
     setState(() => _switchingMode = true);
     try {
       if (toLocal) {
@@ -2014,7 +2022,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final settled = cloudSyncFullySettled(
         requestSucceeded: requested,
         status: sync.status,
-        conflictCheckFailed: _conflictCheckFailed,
+        conflictCheckFailed: _conflictCheckFailed || _checkingConflicts,
         conflictCount: _conflictCount,
         pendingCount: sync.pendingCount +
             CloudSyncCoordinator().standalonePendingCount.value,
