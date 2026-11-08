@@ -32,7 +32,7 @@ String syncDetailResultLabel({
     CloudSyncViewState.syncing => '同步中',
     CloudSyncViewState.conflict => '冲突待处理',
     CloudSyncViewState.partial =>
-      '部分成功（已确认 ${lastQueueRun!.acknowledged} 项，'
+      '部分成功（已处理 ${lastQueueRun!.processed} 项，'
           '未完成 ${lastQueueRun!.failed} 项）',
     CloudSyncViewState.networkUnreachable => '网络不可达（可能离线）',
     CloudSyncViewState.failed => '同步未完成',
