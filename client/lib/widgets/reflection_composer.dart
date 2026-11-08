@@ -732,8 +732,8 @@ class ReflectionComposer {
       StateSetter setDialogState,
     ) async {
       if (saving || closing) return;
-      final dirty = controller.text.trim().isNotEmpty ||
-          canonicalTags.isNotEmpty;
+      final dirty =
+          controller.text.trim().isNotEmpty || canonicalTags.isNotEmpty;
       if (dirty || resultUnknown) {
         closing = true;
         try {
@@ -774,105 +774,105 @@ class ReflectionComposer {
               if (!didPop) requestClose(dialogContext, setState);
             },
             child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (prompt != null && prompt.trim().isNotEmpty) ...[
-                  Text(
-                    prompt,
-                    style: SlowlightTypography.secondary(dialogContext)
-                        .copyWith(
-                      color: Theme.of(dialogContext)
-                          .colorScheme
-                          .onSurfaceVariant,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                FxInput(
-                  controller: controller,
-                  autofocus: true,
-                  enabled: !saving,
-                  minLines: 4,
-                  maxLines: 8,
-                  placeholder: '只记录你的真实想法，不需要写成结论。',
-                ),
-                const SizedBox(height: 12),
-                TagPicker(
-                  enabled: !saving,
-                  selectedTags: canonicalTags,
-                  onChanged: (tags) => setState(() => canonicalTags = tags),
-                ),
-                if (error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    error!,
-                    style: SlowlightTypography.caption(dialogContext).copyWith(
-                      color: Theme.of(dialogContext).colorScheme.error,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FxButton(
-                      label: '取消',
-                      variant: FxButtonVariant.outline,
-                      onPressed: saving
-                          ? null
-                          : () => requestClose(dialogContext, setState),
-                    ),
-                    FxButton(
-                      label: saving ? '保存中…' : '保存',
-                      onPressed: saving || resultUnknown
-                          ? null
-                          : () async {
-                              final value = controller.text.trim();
-                              if (value.isEmpty) {
-                                setState(() => error = '先写一点内容');
-                                return;
-                              }
-                              setState(() {
-                                saving = true;
-                                error = null;
-                              });
-                              try {
-                                await ReflectionRepository().create(
-                                  content: value,
-                                  questionId: questionId,
-                                  dimensionKey: dimensionKey,
-                                  context: contextData,
-                                  tagIds: canonicalTags.map((tag) => tag.id).toList(growable: false),
-                                );
-                                if (dialogContext.mounted) {
-                                  setState(() => allowPop = true);
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (dialogContext.mounted) {
-                                      Navigator.of(dialogContext, rootNavigator: true)
-                                          .pop(true);
-                                    }
-                                  });
-                                }
-                              } catch (_) {
-                                if (!dialogContext.mounted) return;
-                                // A Cloud write may succeed before its response
-                                // or local cache update fails. Never replay it.
-                                setState(() {
-                                  saving = false;
-                                  resultUnknown = true;
-                                  error = '保存结果未确认，请先到回顾核对，避免重复记录。';
-                                });
-                              }
-                            },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (prompt != null && prompt.trim().isNotEmpty) ...[
+                    Text(
+                      prompt,
+                      style: SlowlightTypography.secondary(dialogContext)
+                          .copyWith(
+                        color: Theme.of(dialogContext)
+                            .colorScheme
+                            .onSurfaceVariant,
+                      ),
                     ),
                   ],
-                ),
-              ],
-            ),
+                  const SizedBox(height: 12),
+                  FxInput(
+                    controller: controller,
+                    autofocus: true,
+                    enabled: !saving,
+                    minLines: 4,
+                    maxLines: 8,
+                    placeholder: '只记录你的真实想法，不需要写成结论。',
+                  ),
+                  const SizedBox(height: 12),
+                  TagPicker(
+                    enabled: !saving,
+                    selectedTags: canonicalTags,
+                    onChanged: (tags) => setState(() => canonicalTags = tags),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      style: SlowlightTypography.caption(dialogContext).copyWith(
+                        color: Theme.of(dialogContext).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FxButton(
+                        label: '取消',
+                        variant: FxButtonVariant.outline,
+                        onPressed: saving
+                            ? null
+                            : () => requestClose(dialogContext, setState),
+                      ),
+                      FxButton(
+                        label: saving ? '保存中…' : '保存',
+                        onPressed: saving || resultUnknown
+                            ? null
+                            : () async {
+                                final value = controller.text.trim();
+                                if (value.isEmpty) {
+                                  setState(() => error = '先写一点内容');
+                                  return;
+                                }
+                                setState(() {
+                                  saving = true;
+                                  error = null;
+                                });
+                                try {
+                                  await ReflectionRepository().create(
+                                    content: value,
+                                    questionId: questionId,
+                                    dimensionKey: dimensionKey,
+                                    context: contextData,
+                                    tagIds: canonicalTags.map((tag) => tag.id).toList(growable: false),
+                                  );
+                                  if (dialogContext.mounted) {
+                                    setState(() => allowPop = true);
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (dialogContext.mounted) {
+                                        Navigator.of(dialogContext, rootNavigator: true)
+                                            .pop(true);
+                                      }
+                                    });
+                                  }
+                                } catch (_) {
+                                  if (!dialogContext.mounted) return;
+                                  // A Cloud write may succeed before its response
+                                  // or local cache update fails. Never replay it.
+                                  setState(() {
+                                    saving = false;
+                                    resultUnknown = true;
+                                    error = '保存结果未确认，请先到回顾核对，避免重复记录。';
+                                  });
+                                }
+                              },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         },
