@@ -118,6 +118,16 @@ class TaskRepository {
       );
 
   Future<Task> completeTask(int taskId) => _dataSource.completeTask(taskId);
+  Future<Task> setTaskCompletion(int taskId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) => _dataSource.setTaskCompletion(
+    taskId,
+    completed: completed,
+    expectedCompleted: expectedCompleted,
+    expectedCompletedAt: expectedCompletedAt,
+  );
   Future<Task> postponeTask(int taskId) => _dataSource.postponeTask(taskId);
   Future<Task> restorePostponedDueDate(int taskId, {
     required DateTime expectedDueDate,
