@@ -13,24 +13,31 @@ import '../utils/color_utils.dart';
 class TaskFilterSortSheet extends StatefulWidget {
   final TaskFilterSort current;
   final List<TodoList> lists;
+  final Future<List<Tag>> Function()? tagsLoader;
 
   const TaskFilterSortSheet({
     super.key,
     required this.current,
     required this.lists,
+    this.tagsLoader,
   });
 
   static Future<TaskFilterSort?> show(
     BuildContext context, {
     required TaskFilterSort current,
     required List<TodoList> lists,
+    Future<List<Tag>> Function()? tagsLoader,
   }) {
     return FxSheet.show<TaskFilterSort>(
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
       backgroundColor: Colors.transparent,
-      builder: (_) => TaskFilterSortSheet(current: current, lists: lists),
+      builder: (_) => TaskFilterSortSheet(
+        current: current,
+        lists: lists,
+        tagsLoader: tagsLoader,
+      ),
     );
   }
 
@@ -47,6 +54,8 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
   bool? _filterCompleted;
   List<Tag> _tags = [];
   bool _loadingTags = true;
+  bool _tagLoadFailed = false;
+  int _tagLoadVersion = 0;
 
   @override
   void initState() {
@@ -61,16 +70,26 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
   }
 
   Future<void> _loadTags() async {
+    final request = ++_tagLoadVersion;
+    setState(() {
+      _loadingTags = true;
+      _tagLoadFailed = false;
+    });
     try {
-      final tags = await ApiService.getTags();
-      if (mounted) {
-        setState(() {
-          _tags = tags;
-          _loadingTags = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loadingTags = false);
+      final tags = await (widget.tagsLoader?.call() ?? ApiService.getTags());
+      if (!mounted || request != _tagLoadVersion) return;
+      setState(() {
+        _tags = tags;
+        _loadingTags = false;
+        _tagLoadFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || request != _tagLoadVersion) return;
+      setState(() {
+        _loadingTags = false;
+        _tagLoadFailed = true;
+        // Do not replace existing tags or silently clear a selected filter.
+      });
     }
   }
 
@@ -268,6 +287,28 @@ class _TaskFilterSortSheetState extends State<TaskFilterSortSheet> {
   }
 
   Widget _buildTagFilter() {
+    if (_tagLoadFailed) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              _filterTagId == null
+                  ? '标签读取失败，请重试'
+                  : '标签读取失败，已选择的条件仍保留',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          FxButton(
+            label: '重试标签',
+            variant: FxButtonVariant.ghost,
+            size: FxButtonSize.sm,
+            onPressed: _loadTags,
+          ),
+        ],
+      );
+    }
     if (_loadingTags) {
       return const SizedBox(
         height: 32,
