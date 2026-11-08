@@ -234,6 +234,8 @@ class MigrationService {
     final subtasks = await db.query('subtasks');
     final taskTags = await db.query('task_tags');
     final habitLogs = await db.query('habit_logs');
+    final goalRevisions = await db.query('habit_goal_revisions',
+        orderBy: 'habit_id ASC, revision ASC');
     final sessions = await db.query('work_sessions');
 
     return {
@@ -241,7 +243,11 @@ class MigrationService {
       'lists': lists.map(_list).toList(),
       'tags': tags.map(_tag).toList(),
       'system_tags': systemTags.map(_tag).toList(),
-      'habits': habits.map(_habit).toList(),
+      'habits': habits.map((row) => _habit(
+        row,
+        goalRevisions.where((revision) => revision['habit_id'] == row['id'])
+            .toList(growable: false),
+      )).toList(),
       'tasks': tasks
           .map((row) => _task(
               row,
@@ -272,7 +278,8 @@ class MigrationService {
         'color': row['color'],
       };
 
-  Map<String, dynamic> _habit(Map<String, Object?> row) => {
+  Map<String, dynamic> _habit(Map<String, Object?> row,
+      List<Map<String, Object?>> versions) => {
         'id': row['id'],
         'name': row['name'],
         'icon': row['icon'],
@@ -282,6 +289,13 @@ class MigrationService {
         'record_type':row['record_type'] ?? 'legacy',
         'record_unit':row['record_unit'] ?? '次',
         'record_time_label':row['record_time_label'] ?? '',
+        'allow_multiple_per_day': row['allow_multiple_per_day'] == 1,
+        'goal_period': row['goal_period'] ?? 'none',
+        'goal_metric': row['goal_metric'] ?? 'events',
+        'goal_value': row['goal_value'] ?? 0,
+        // Copy only actually saved versions. Missing legacy history
+        // stays unknown; never invent historical targets during migration.
+        'goal_history': versions,
         'target_days': row['target_days'],
         'preferred_period': row['preferred_period'],
         'duration_min': row['duration_min'],
