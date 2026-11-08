@@ -190,3 +190,62 @@ func TestReflection_PeriodQueryFindsLegacyBeyondRecentHundred(t *testing.T) {
         "/reflections?question_id="+key+"&legacy_week_start=2026-11-03&legacy_week_end=2026-11-08", nil))
     if w.Code != http.StatusBadRequest { t.Fatalf("mismatched legacy week: %d", w.Code) }
 }
+
+
+func TestP08ReflectionCalendarMonthPagesAndAccountIsolation(t *testing.T) {
+    db:=beginTx(t,setupTestDB(t))
+    owner:=createTestUser(t,db)
+    other:=createTestUser(t,db)
+    month:=time.Date(2026,8,21,14,0,0,0,time.UTC)
+    for i:=0;i<105;i++ {
+        row:=model.Reflection{
+            UserID:owner.ID,EntryType:"observation",
+            Content:fmt.Sprintf("calendar-entry-%03d",i),CreatedAt:month,
+        }
+        if err:=db.Create(&row).Error;err!=nil{t.Fatal(err)}
+    }
+    for _,row:=range []model.Reflection{
+        {UserID:owner.ID,EntryType:"observation",Content:"previous month",
+            CreatedAt:time.Date(2026,7,31,15,0,0,0,time.UTC)},
+        {UserID:other.ID,EntryType:"observation",Content:"foreign owner",
+            CreatedAt:month},
+    } {
+        if err:=db.Create(&row).Error;err!=nil{t.Fatal(err)}
+    }
+    router:=newTestGin()
+    router.Use(func(c *gin.Context){withUser(c,owner.ID);c.Next()})
+    router.GET("/reflections",NewReflectionHandler(db).List)
+    call:=func(q string) (int,[]reflectionResponse) {
+        req:=httptest.NewRequest(http.MethodGet,"/reflections?"+q,nil)
+        rec:=httptest.NewRecorder()
+        router.ServeHTTP(rec,req)
+        var answer struct{Items []reflectionResponse `json:"items"`}
+        if rec.Code==http.StatusOK {
+            if err:=json.Unmarshal(rec.Body.Bytes(),&answer);err!=nil{t.Fatal(err)}
+        }
+        return rec.Code,answer.Items
+    }
+    period:="start_at=2026-08-01T00%3A00%3A00Z&end_at=2026-09-01T00%3A00%3A00Z"
+    code,first:=call("limit=100&"+period)
+    if code!=200 || len(first)!=100 {t.Fatalf("first page: %d len=%d",code,len(first))}
+    code,second:=call("limit=100&offset=100&"+period)
+    if code!=200 || len(second)!=5 {t.Fatalf("second page: %d len=%d",code,len(second))}
+    seen:=map[uint]bool{}
+    for _,item:=range append(first,second...) {
+        if seen[item.ID] {t.Fatalf("duplicate calendar record %d",item.ID)}
+        seen[item.ID]=true
+        if item.Content=="previous month"||item.Content=="foreign owner"{
+            t.Fatalf("month/account isolation failed: %s",item.Content)
+        }
+    }
+    for _,bad:=range []string{
+        "offset=-1&"+period,
+        "offset=abc&"+period,
+        "start_at=2026-08-01T00%3A00%3A00Z",
+        "start_at=garbage&end_at=2026-09-01T00%3A00%3A00Z",
+        "start_at=2026-09-01T00%3A00%3A00Z&end_at=2026-08-01T00%3A00%3A00Z",
+    } {
+        status,_:=call(bad)
+        if status!=400 {t.Fatalf("invalid calendar query accepted: %s (%d)",bad,status)}
+    }
+}
