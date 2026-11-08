@@ -67,30 +67,20 @@ class DayViewScreenState extends State<DayViewScreen> {
     }
   }
 
+  /// The day view keeps pending tasks ahead of completed facts, while
+  /// honoring every filter and sort choice of the shared task sheet.
+  /// Partitioning an already-sorted result retains ordering within each group.
+  static List<Task> filterTasksForDay(List<Task> tasks, TaskFilterSort filters) {
+    final sorted = tasks.applyFilterSort(filters);
+    return [
+      ...sorted.where((task) => !task.isCompleted),
+      ...sorted.where((task) => task.isCompleted),
+    ];
+  }
+
   List<Task> _tasksForDay(DateTime day) {
     final key = DateFormat('yyyy-MM-dd').format(day);
-    final tasks = _tasksByDate[key] ?? [];
-    // 应用筛选（不含完成状态筛选，因为日视图应显示所有任务）
-    // 排序：已完成的排后面
-    final filtered =
-        tasks.where((task) {
-          if (_filterSort.filterListId != null &&
-              task.listId != _filterSort.filterListId)
-            return false;
-          if (_filterSort.filterTagId != null &&
-              !task.tags.any((t) => t.id == _filterSort.filterTagId))
-            return false;
-          if (_filterSort.filterPriority != null &&
-              task.priority != _filterSort.filterPriority)
-            return false;
-          // 不应用完成状态筛选，日视图显示该日所有任务
-          return true;
-        }).toList();
-    filtered.sort((a, b) {
-      if (a.isCompleted != b.isCompleted) return a.isCompleted ? 1 : -1;
-      return 0;
-    });
-    return filtered;
+    return filterTasksForDay(_tasksByDate[key] ?? const <Task>[], _filterSort);
   }
 
   DateTime _dateForPage(int page) {
