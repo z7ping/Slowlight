@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -150,6 +152,17 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 	// Older clients still use DELETE /lists/:id without an explicit cascade.
 	// Never silently turn that request into destructive task deletion.
 	deleteTasks := c.Query("delete_tasks") == "true"
+	expectedRaw, expectedProvided := c.GetQuery("expected_tasks")
+	var expectedCount int64
+	if expectedProvided {
+		var err error
+		expectedCount, err = strconv.ParseInt(expectedRaw, 10, 64)
+		if err != nil || expectedCount < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "关联任务核对参数无效"})
+			return
+		}
+	}
+	errImpactChanged := errors.New("list task membership changed")
 	var taskCount int64
 	if err := h.DB.Model(&model.Task{}).
 		Where("list_id = ? AND user_id = ?", list.ID, userID).
@@ -164,10 +177,23 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 
 	// 任务和清单必须同一事务软删除；任一操作失败都不提交。
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		if deleteTasks {
-			if err := tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
-				Delete(&model.Task{}).Error; err != nil {
+		if expectedProvided {
+			var current int64
+			if err := tx.Model(&model.Task{}).
+				Where("list_id = ? AND user_id = ?", list.ID, userID).
+				Count(&current).Error; err != nil {
 				return err
+			}
+			if current != expectedCount {
+				return errImpactChanged
+			}
+		}
+		if deleteTasks {
+			deleted := tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
+				Delete(&model.Task{})
+			if deleted.Error != nil { return deleted.Error }
+			if expectedProvided && deleted.RowsAffected != expectedCount {
+				return errImpactChanged
 			}
 		}
 		result := tx.Where("id = ? AND user_id = ? AND is_inbox = false", list.ID, userID).
@@ -181,6 +207,10 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, errImpactChanged) {
+			c.JSON(http.StatusConflict, gin.H{"error": "清单关联任务已变化，请重新核对删除范围"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除清单及关联任务失败"})
 		return
 	}
