@@ -36,6 +36,35 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P17 Windows 窄窗从休息详情返回后，计时不再重建分类首页',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(720, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('settings.category.rest')));
+    await tester.pump();
+    expect(find.text('休息提醒'), findsWidgets);
+    await tester.tap(find.byTooltip('返回').first);
+    await tester.pump();
+
+    const key = PageStorageKey('settings.overview');
+    final before = tester.widget<ListView>(find.byKey(key));
+    final reminder = ReminderService();
+    reminder.updateConfig(notifyBeforeSec: reminder.notifyBeforeSec);
+    await tester.pump();
+    final after = tester.widget<ListView>(find.byKey(key));
+    expect(identical(before, after), isTrue);
+    expect(find.byKey(const ValueKey('settings.category.rest')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P17 移动设置二级详情返回分类，不另起设置路由', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     tester.view.physicalSize = const Size(390, 844);
