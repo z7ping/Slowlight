@@ -87,7 +87,7 @@ class HttpUtil {
                 'bearer=$bearer',
           );
         }
-        if (bearer == 'present') {
+        if (authorization != null && bearer == 'present') {
           // 401 中间件拒绝后才重试；仅重试当前账号 JWT，
           // OAuth 候选 JWT 不可套用另一个账号的身份。
           String? recovered;
