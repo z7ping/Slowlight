@@ -251,7 +251,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         context,
         Text(wasCompleted ? '已恢复待办' : '任务已完成'),
         variant: FxNoticeVariant.success,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 8),
         // Recurring tasks may have spawned the next occurrence.
         action: wasCompleted || task.isRepeat
             ? null
@@ -369,7 +369,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         context,
         const Text('已顺延到明天'),
         variant: FxNoticeVariant.success,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 8),
         action: expectedDueDate != null &&
                 !_sameDueDate(task.dueDate, expectedDueDate) &&
                 !current.isCompleted
