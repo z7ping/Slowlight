@@ -151,9 +151,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         throw const FormatException('活跃会话查询没有可靠状态');
       }
       final count = data['completed_work_rounds'];
-      if (count is num && count.toInt() >= 0) {
-        _confirmedNaturalWorkRounds = count.toInt();
-      }
+      _confirmedNaturalWorkRounds =
+          count is num && count.toInt() >= 0 ? count.toInt() : null;
+      if (mounted) setState(() => _finishError = null);
       if (mounted) setState(() => _sessionStatusUnknown = false);
     } catch (_) {
       if (!mounted) return;
@@ -290,7 +290,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _remainingSeconds = _remainingFromSession();
       _running = pausedAt == null && _remainingSeconds > 0;
       final taskId = session['task_id'];
-      if (taskId is num && taskId.toInt() > 0) _linkedTaskId = taskId.toInt();
+      _linkedTaskId = taskId is num && taskId.toInt() > 0
+          ? taskId.toInt()
+          : null;
     });
     if (_running) _startTicker();
   }
@@ -356,7 +358,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _pause() async {
-    if (_finalizingSession || _sessionTransitioning || _sessionId == null) return;
+    if (_restoringSession || _sessionStatusUnknown ||
+        _finalizingSession || _sessionTransitioning || _sessionId == null) return;
     setState(() => _sessionTransitioning = true);
     try {
       final response = await _sessions.pauseSession(_sessionId!, _sessionRevision);
@@ -508,7 +511,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _stop() async {
-    if (_finalizingSession || _sessionTransitioning ||
+    if (_restoringSession || _sessionStatusUnknown ||
+        _finalizingSession || _sessionTransitioning ||
         _endConfirmationOpen || !_activeSession) return;
     // Do not stop the persisted timer before the user confirms. The timer
     // may also finish naturally while the confirmation is on screen.
@@ -877,7 +881,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ? '正在核对专注状态'
         : _sessionStatusUnknown
             ? '当前会话状态待核对'
-            : isWork
+            : _activeSession && _remainingSeconds <= 0
+                ? '本轮到时 · 待保存'
+                : isWork
             ? (_running
                 ? '专注中'
                 : _activeSession
@@ -982,7 +988,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   else if (!_running)
                     FxButton(
                       label: _remainingSeconds == 0 && _activeSession
-                          ? '重试保存本轮'
+                          ? '完成并保存本轮'
                           : _activeSession
                               ? '继续'
                               : isWork ? '开始专注' : '开始休息',
@@ -996,14 +1002,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       variant: FxButtonVariant.outline,
                       onPressed: _finalizingSession || _sessionTransitioning ? null : _pause,
                     ),
-                  if (_activeSession)
+                  if (_activeSession && _remainingSeconds > 0 &&
+                      !_sessionStatusUnknown)
                     FxButton(
                       label: _finalizingSession
                           ? '保存中…'
                           : isWork ? '结束专注' : '结束休息',
                       size: FxButtonSize.lg,
                       variant: FxButtonVariant.destructive,
-                      onPressed: _finalizingSession || _sessionTransitioning ? null : _stop,
+                      onPressed: _restoringSession || _finalizingSession || _sessionTransitioning ? null : _stop,
                     ),
                 ],
               ),
