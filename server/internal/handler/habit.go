@@ -1079,22 +1079,48 @@ func habitProgress(logs []model.HabitLog, metric string) int {
 func habitStreak(db *gorm.DB, habit model.Habit, loc *time.Location) int {
     now := time.Now().In(loc)
     cursor := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+    var revisions []model.HabitGoalRevision
+    if err := db.Where("habit_id = ? AND user_id = ?",habit.ID,habit.UserID).
+        Order("revision ASC").Find(&revisions).Error;err!=nil{return 0}
     isMet := func(day time.Time) bool {
         var logs []model.HabitLog
-        if err := db.Where("habit_id = ? AND date = ?", habit.ID, day.Format("2006-01-02")).Find(&logs).Error; err != nil {
-            return false
+        if err := db.Where("habit_id = ? AND date = ?", habit.ID,
+            day.Format("2006-01-02")).Find(&logs).Error;err!=nil{return false}
+        if len(revisions)>0 {
+            // A revision is effective from the real saved instant. Do not
+            // apply today's target backwards to older saved days.
+            end := time.Date(day.Year(),day.Month(),day.Day()+1,0,0,0,0,loc)
+            var active *model.HabitGoalRevision
+            changesOnDay := 0
+            for i := range revisions {
+                effective := revisions[i].EffectiveAt.In(loc)
+                if !effective.Before(end) {continue}
+                active=&revisions[i]
+                if effective.Year()==day.Year() && effective.Month()==day.Month() &&
+                    effective.Day()==day.Day() {changesOnDay++}
+            }
+            // Before the first saved revision the old goal is unknown.
+            // Multiple revisions on the same day cannot certify that the
+            // period was consistently evaluated under one goal.
+            if active==nil || changesOnDay>1 {return false}
+            if active.GoalPeriod=="day" && active.GoalValue>0 {
+                return habitProgress(logs,active.GoalMetric)>=active.GoalValue
+            }
+            return len(logs)>0
         }
-        if habit.GoalPeriod == "day" && habit.GoalValue > 0 {
-            return habitProgress(logs, habit.GoalMetric) >= habit.GoalValue
+        // Legacy records have no captured goal versions. This retains
+        // historic display compatibility without inventing any revisions.
+        if habit.GoalPeriod=="day" && habit.GoalValue>0 {
+            return habitProgress(logs,habit.GoalMetric)>=habit.GoalValue
         }
-        return len(logs) > 0
+        return len(logs)>0
     }
-    if !isMet(cursor) { cursor = cursor.AddDate(0, 0, -1) }
-    count := 0
+    if !isMet(cursor) {cursor=cursor.AddDate(0,0,-1)}
+    count:=0
     for isMet(cursor) {
         count++
-        cursor = cursor.AddDate(0, 0, -1)
-        if count >= 36500 { break }
+        cursor=cursor.AddDate(0,0,-1)
+        if count>=36500 {break}
     }
     return count
 }
