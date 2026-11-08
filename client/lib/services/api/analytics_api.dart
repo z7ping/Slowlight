@@ -32,7 +32,8 @@ class AnalyticsApi {
     final data = await _getJson('/analytics/time-distribution');
     // Older Cloud servers returned event-derived minutes with an imprecise
     // rolling window. Do not present them as verified WorkSession facts.
-    if (data['total_work_seconds'] is! num ||
+    if (data['today_date'] is! String ||
+        data['total_work_seconds'] is! num ||
         data['unclassified_work_seconds'] is! num ||
         data['tags'] is! List ||
         data['by_day'] is! List) {
