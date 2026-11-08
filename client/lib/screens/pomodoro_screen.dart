@@ -168,7 +168,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     try {
       await _restoreActiveSession();
     } finally {
-      if (mounted) setState(() => _restoringSession = false);
+      if (mounted) {
+        setState(() => _restoringSession = false);
+        _completeExpiredRoundOnReturn();
+      }
     }
   }
 
@@ -245,8 +248,27 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (mounted) _message('专注偏好读取失败，已使用默认设置');
     } finally {
       if (mounted) await _restoreActiveSession();
-      if (mounted) setState(() => _restoringSession = false);
+      if (mounted) {
+        setState(() => _restoringSession = false);
+        _completeExpiredRoundOnReturn();
+      }
     }
+  }
+
+  void _completeExpiredRoundOnReturn() {
+    // If the app was suspended when the round expired, settle its persisted
+    // session first. Automatic mode never waits for the optional tag picker.
+    if (!_autoStartNext || !_activeSession || _sessionStatusUnknown ||
+        _restoringSession || _finalizingSession || _remainingSeconds > 0) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _autoStartNext && _activeSession &&
+          !_sessionStatusUnknown && !_restoringSession &&
+          !_finalizingSession && _remainingSeconds <= 0) {
+        unawaited(_finishNaturally());
+      }
+    });
   }
 
   int _remainingFromSession() {
