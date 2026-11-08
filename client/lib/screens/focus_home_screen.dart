@@ -89,6 +89,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   Offset? _fabPosition;
   bool _fabAutoHidden = false;
   DateTime? _lastAndroidBackAt;
+  Object? _exitNoticeId;
   DateTime _knownToday = DateUtils.dateOnly(DateTime.now());
   Timer? _nextDayTimer;
 
@@ -251,6 +252,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     if (_navigating) return;
     final previous = _navigation;
     if (previous.primary == next.primary && previous.tool == next.tool) {
+      _dismissExitPrompt();
       if (next.isToday) _reload();
       return;
     }
@@ -261,10 +263,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           !await (_taskToolKey.currentState?.confirmLeaveTool() ??
               Future<bool>.value(true))) return;
       if (!mounted) return;
+      _dismissExitPrompt();
       setState(() {
-        // A back-to-exit gesture belongs to the page where it started.
-        // Switching tabs or tools must not make the next Back exit the app.
-        _lastAndroidBackAt = null;
         _navigation = next;
         if (next.isReview) _reviewOpened = true;
         if (next.isToday) _fabAutoHidden = false;
@@ -313,6 +313,16 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     _mobileScaffoldKey.currentState?.openDrawer();
   }
 
+  void _dismissExitPrompt() {
+    _lastAndroidBackAt = null;
+    final id = _exitNoticeId;
+    _exitNoticeId = null;
+    if (mounted && id != null) {
+      // Do not clear business notices such as a task-completion Undo action.
+      unawaited(FxNotice.dismiss(context, id));
+    }
+  }
+
   void _handleAndroidBack(bool didPop) {
     if (didPop) return;
 
@@ -330,16 +340,17 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     final lastBackAt = _lastAndroidBackAt;
     if (lastBackAt == null ||
         now.difference(lastBackAt) > const Duration(seconds: 2)) {
+      _dismissExitPrompt();
       _lastAndroidBackAt = now;
-      FxNotice.clear(context);
-      FxNotice.showContent(
+      _exitNoticeId = FxNotice.showContent(
         context,
-        Text('再按一次退出 Slowlight'),
-        duration: Duration(seconds: 2),
+        const Text('再按一次退出 Slowlight'),
+        duration: const Duration(seconds: 2),
       );
       return;
     }
 
+    _dismissExitPrompt();
     SystemNavigator.pop();
   }
 
@@ -471,6 +482,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   }
 
   Future<void> _openSearch() {
+    _dismissExitPrompt();
     return Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -549,7 +561,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           drawerEdgeDragWidth: 72,
           onDrawerChanged: (isOpened) {
             if (isOpened) {
-              _lastAndroidBackAt = null;
+              _dismissExitPrompt();
               _refreshAccount();
             }
           },
