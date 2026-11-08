@@ -132,37 +132,41 @@ func (h *ListHandler) UpdateList(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// DeleteList 删除清单
+// DeleteList 删除清单及其任务。与本地事务保持一致，不留孤儿任务。
 func (h *ListHandler) DeleteList(c *gin.Context) {
 	userID := c.GetUint("userID")
 	id := c.Param("id")
 
-	// 检查清单是否属于当前用户
 	var list model.List
 	if err := h.DB.Where("id = ? AND user_id = ?", id, userID).First(&list).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "清单不存在"})
 		return
 	}
-
-	// 保护收集箱不被删除
 	if list.IsInbox {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "收集箱不可删除"})
 		return
 	}
 
-	// 检查是否有任务
-	var count int64
-	h.DB.Model(&model.Task{}).Where("list_id = ? AND user_id = ?", id, userID).Count(&count)
-	if count > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "清单下有任务，无法删除"})
+	// 任务和清单必须同一事务软删除；任一操作失败都不提交。
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("list_id = ? AND user_id = ?", list.ID, userID).
+			Delete(&model.Task{}).Error; err != nil {
+			return err
+		}
+		result := tx.Where("id = ? AND user_id = ? AND is_inbox = false", list.ID, userID).
+			Delete(&model.List{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除清单及关联任务失败"})
 		return
 	}
-
-	if err := h.DB.Delete(&model.List{}, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
 }
 
