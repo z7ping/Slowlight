@@ -22,7 +22,7 @@ abstract class ApiDataSource {
     String? icon,
     String? color,
   });
-  Future<void> deleteList(int id, {bool deleteTasks = false});
+  Future<void> deleteList(int id, {bool deleteTasks = false, int? expectedTaskCount});
 
   // ===== 任务 =====
   Future<List<Task>> getTasks(int listId);
