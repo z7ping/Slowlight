@@ -56,6 +56,99 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 草稿确认采用左 40% 放弃、右 60% 继续编辑', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    bool? discarded;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(builder: (context) => FxButton(
+          label: '编辑草稿',
+          onPressed: () async {
+            discarded = await FxDialog.confirm(
+              context: context,
+              title: '放弃未保存的修改？',
+              content: '退出后草稿不会保存。',
+              confirmText: '放弃修改',
+              destructive: true,
+              draftDiscard: true,
+            );
+          },
+        )),
+      ),
+    ));
+
+    await tester.tap(find.text('编辑草稿'));
+    await tester.pumpAndSettle();
+
+    final discard = find.byKey(const ValueKey('fx.dialog.discardDraft'));
+    final keep = find.byKey(const ValueKey('fx.dialog.keepEditing'));
+    expect(find.byKey(const ValueKey('fx.dialog.draftActions')), findsOneWidget);
+    expect(discard, findsOneWidget);
+    expect(keep, findsOneWidget);
+    expect(tester.widget<FxButton>(discard).variant, FxButtonVariant.outline);
+    expect(tester.widget<FxButton>(keep).variant, FxButtonVariant.primary);
+    final left = tester.getRect(discard);
+    final right = tester.getRect(keep);
+    expect(left.right, lessThan(right.left));
+    expect(left.width / right.width, closeTo(2 / 3, .02));
+    expect(left.height, greaterThanOrEqualTo(44));
+    expect(right.height, greaterThanOrEqualTo(44));
+    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    expect(dialog.removeBorderRadiusWhenTiny, isFalse);
+    expect(dialog.radius,
+        const BorderRadius.all(Radius.circular(SlowlightRadius.xl)));
+
+    await tester.tap(find.text('继续编辑'));
+    await tester.pumpAndSettle();
+    expect(discarded, isFalse);
+    expect(find.text('放弃未保存的修改？'), findsNothing);
+
+    await tester.tap(find.text('编辑草稿'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(discarded, isTrue);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Windows 草稿确认仍使用原有桌面危险确认布局', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(builder: (context) => FxButton(
+          label: '编辑草稿',
+          onPressed: () => FxDialog.confirm(
+            context: context,
+            title: '放弃未保存的修改？',
+            content: '未保存内容将丢失。',
+            confirmText: '放弃修改',
+            destructive: true,
+            draftDiscard: true,
+          ),
+        )),
+      ),
+    ));
+
+    await tester.tap(find.text('编辑草稿'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('fx.dialog.draftActions')), findsNothing);
+    expect(find.text('取消'), findsOneWidget);
+    expect(find.text('放弃修改'), findsOneWidget);
+    final discard = find.widgetWithText(FxButton, '放弃修改');
+    expect(tester.widget<FxButton>(discard).variant, FxButtonVariant.destructive);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android FxDialog 使用 Android 语义排版', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
