@@ -229,6 +229,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
     var selectedIcon = existing?.icon ?? _presetIcons.first;
     var selectedColor = existing?.color ?? _presetColors.first;
     var saving = false;
+    var writeUnknown = false;
     String? error;
 
     final saved = await FxDialog.raw<bool>(
@@ -265,7 +266,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                         FxInput(
                           controller: nameController,
                           autofocus: true,
-                          enabled: !saving,
+                          enabled: !saving && !writeUnknown,
                           placeholder: '清单名称',
                           style: SlowlightTypography.body(dialogContext),
                         ),
@@ -279,7 +280,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                 final selected = icon == selectedIcon;
                                 return FxInkWell(
                                   onTap:
-                                      saving
+                                      saving || writeUnknown
                                           ? null
                                           : () => setDialogState(
                                             () => selectedIcon = icon,
@@ -332,7 +333,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                 final color = ColorUtils.safeParse(value);
                                 return FxInkWell(
                                   onTap:
-                                      saving
+                                      saving || writeUnknown
                                           ? null
                                           : () => setDialogState(
                                             () => selectedColor = value,
@@ -394,13 +395,21 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                       ? '创建'
                                       : '保存',
                               onPressed:
-                                  saving
+                                  saving || writeUnknown
                                       ? null
                                       : () async {
                                         final name = nameController.text.trim();
                                         if (name.isEmpty) {
                                           setDialogState(
                                             () => error = '请输入清单名称',
+                                          );
+                                          return;
+                                        }
+                                        if (_lists.any((item) =>
+                                            item.name == name &&
+                                            item.id != existing?.id)) {
+                                          setDialogState(
+                                            () => error = '清单名称不能重复',
                                           );
                                           return;
                                         }
@@ -428,9 +437,13 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                             Navigator.pop(dialogContext, true);
                                           }
                                         } catch (e) {
+                                          if (!dialogContext.mounted) return;
                                           setDialogState(() {
                                             saving = false;
-                                            error = '保存失败：$e';
+                                            // Network errors do not prove that
+                                            // the remote write was rejected.
+                                            writeUnknown = true;
+                                            error = '保存结果尚未确认，请关闭窗口并刷新核对：$e';
                                           });
                                         }
                                       },
