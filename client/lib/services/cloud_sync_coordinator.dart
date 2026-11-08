@@ -85,8 +85,9 @@ class CloudSyncCoordinator {
   Future<bool> syncNow() async {
     if (!DataModeManager().isCloud) return false;
     if (_running) {
+      // The request was queued for a later pass, not verified as completed.
       _rerunRequested = true;
-      return true;
+      return false;
     }
 
     _running = true;
@@ -94,7 +95,8 @@ class CloudSyncCoordinator {
     try {
       do {
         _rerunRequested = false;
-        result = await _runOnce() || result;
+        // Completion is determined by the final pass, not an earlier success.
+        result = await _runOnce();
       } while (_rerunRequested && DataModeManager().isCloud);
       return result;
     } finally {
