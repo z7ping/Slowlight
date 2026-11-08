@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/local_db.dart';
 import 'package:slowlight/db/local_product_core_schema.dart';
@@ -12,6 +13,8 @@ void main() {
     await useIsolatedTestDb('p09_reflection_search');
   });
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    DataModeManager().resetForTesting();
     await LocalDb().close();
     await databaseFactory.deleteDatabase(LocalDb.debugDatabasePathOverride!);
     await DataModeManager().setLocal();
