@@ -552,6 +552,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _openRecord(CalendarRecord record) async {
+    // Clicking a month chip must also drive the selected-day detail,
+    // matching the prototype; opening a dialog alone left a stale day panel.
+    await _selectDate(record.date);
+    if (!mounted) return;
     if (record.task != null) {
       final lists = await DataService().getLists();
       if (!mounted) return;
