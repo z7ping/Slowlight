@@ -109,6 +109,7 @@ class ReflectionComposer {
               : '本次观察尚未保存，关闭后会丢失填写的内容。',
           confirmText: resultUnknown ? '返回核对' : '放弃修改',
           destructive: !resultUnknown,
+          draftDiscard: !resultUnknown,
         );
         if (discard != true || !sheetContext.mounted) return;
         setSheetState(() => allowEditorPop = true);
@@ -749,6 +750,7 @@ class ReflectionComposer {
                 : '关闭后会丢失本次尚未保存的内容。',
             confirmText: resultUnknown ? '返回核对' : '放弃修改',
             destructive: !resultUnknown,
+          draftDiscard: !resultUnknown,
           );
           if (discard != true || !dialogContext.mounted) return;
         } finally {
