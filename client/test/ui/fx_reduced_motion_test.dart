@@ -20,6 +20,8 @@ Widget _host(Widget content, {required bool reduceMotion}) =>
 void main() {
   testWidgets('X15 减少动态效果时统一转圈 Loading 静止且仍有状态语义',
       (tester) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
     await tester.pumpWidget(_host(
       const FxSpinner(semanticsLabel: '读取中'),
       reduceMotion: true,
