@@ -90,7 +90,7 @@ class LocalSessionRepository {
     }
     final db = await _db();
     final now = DateTime.now().toUtc();
-    late int sessionId;
+    late int endedSessionId;
     late int durationSec;
 
     await db.transaction((txn) async {
@@ -110,7 +110,7 @@ class LocalSessionRepository {
           (row['revision'] as int? ?? 0) != expectedRevision) {
         throw StateError('会话版本已变更，请重新核对');
       }
-      sessionId = row['id'] as int;
+      endedSessionId = row['id'] as int;
       durationSec = _activeSeconds(row, now);
       final target = row['target_minutes'] as int? ?? 0;
       final completedNaturally = naturallyCompleted &&
@@ -136,11 +136,11 @@ class LocalSessionRepository {
           'naturally_completed': completedNaturally ? 1 : 0,
         },
         where: 'id = ? AND ended_at IS NULL',
-        whereArgs: [sessionId],
+        whereArgs: [endedSessionId],
       );
     });
 
-    final session = await _getById(db, sessionId);
+    final session = await _getById(db, endedSessionId);
     return {
       'message': '会话已结束',
       'session': session,
