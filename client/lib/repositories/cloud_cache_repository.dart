@@ -498,7 +498,7 @@ class CloudCacheRepository {
     final serverId = row['server_id'] as int?;
     final updates = Map<String, dynamic>.from(data);
     const contract = ['goal_period', 'goal_metric', 'goal_value',
-      'record_type', 'schedule_rule'];
+      'record_type', 'record_unit', 'schedule_rule'];
     final changed = contract.any((field) {
       if (!updates.containsKey(field)) return false;
       if (field == 'schedule_rule') {
