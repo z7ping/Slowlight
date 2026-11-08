@@ -64,7 +64,7 @@ String cloudSyncSummary({
     CloudSyncViewState.conflict => '云同步 · $conflictCount 个冲突待处理',
     CloudSyncViewState.partial =>
       '云同步 · 部分成功（${lastQueueRun!.acknowledged} 项已确认，'
-          '${lastQueueRun.failed} 项未完成）',
+          '${lastQueueRun!.failed} 项未完成）',
     CloudSyncViewState.networkUnreachable =>
       '云同步 · 网络不可达（可能离线）',
     CloudSyncViewState.failed => '云同步 · 同步失败',
