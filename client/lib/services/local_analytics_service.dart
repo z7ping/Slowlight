@@ -126,6 +126,7 @@ class LocalAnalyticsService {
       });
     }
     return {
+      'today_date': LocalTimeBoundary.dateKey(today),
       'total_min': totalSeconds ~/ 60,
       'total_work_seconds': totalSeconds,
       'unclassified_work_seconds': totalSeconds - taggedSeconds,
