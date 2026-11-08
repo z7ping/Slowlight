@@ -89,6 +89,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   Offset? _fabPosition;
   bool _fabAutoHidden = false;
   DateTime? _lastAndroidBackAt;
+  Object? _exitNoticeId;
   DateTime _knownToday = DateUtils.dateOnly(DateTime.now());
   Timer? _nextDayTimer;
 
@@ -236,18 +237,22 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     if (task != null && mounted) _openTask(task);
   }
 
-  Future<void> _openPrimary(HomePrimarySection section) {
-    // A search pin belongs only to that explicit deep link, not future visits.
+  Future<void> _openPrimary(HomePrimarySection section) async {
+    await _navigate(_navigation.openPrimary(section));
+    if (!mounted || _navigation.tool != null || _navigation.primary != section) {
+      return;
+    }
+    // A blocked transition must not discard the selected search observation.
     if (_searchFocusObservation != null) {
       setState(() => _searchFocusObservation = null);
     }
-    return _navigate(_navigation.openPrimary(section));
   }
 
   Future<void> _navigate(HomeNavigationState next) async {
     if (_navigating) return;
     final previous = _navigation;
     if (previous.primary == next.primary && previous.tool == next.tool) {
+      _dismissExitPrompt();
       if (next.isToday) _reload();
       return;
     }
@@ -258,10 +263,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           !await (_taskToolKey.currentState?.confirmLeaveTool() ??
               Future<bool>.value(true))) return;
       if (!mounted) return;
+      _dismissExitPrompt();
       setState(() {
-        // A back-to-exit gesture belongs to the page where it started.
-        // Switching tabs or tools must not make the next Back exit the app.
-        _lastAndroidBackAt = null;
         _navigation = next;
         if (next.isReview) _reviewOpened = true;
         if (next.isToday) _fabAutoHidden = false;
@@ -310,6 +313,16 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     _mobileScaffoldKey.currentState?.openDrawer();
   }
 
+  void _dismissExitPrompt() {
+    _lastAndroidBackAt = null;
+    final id = _exitNoticeId;
+    _exitNoticeId = null;
+    if (mounted && id != null) {
+      // Do not clear business notices such as a task-completion Undo action.
+      unawaited(FxNotice.dismiss(context, id));
+    }
+  }
+
   void _handleAndroidBack(bool didPop) {
     if (didPop) return;
 
@@ -327,16 +340,17 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     final lastBackAt = _lastAndroidBackAt;
     if (lastBackAt == null ||
         now.difference(lastBackAt) > const Duration(seconds: 2)) {
+      _dismissExitPrompt();
       _lastAndroidBackAt = now;
-      FxNotice.clear(context);
-      FxNotice.showContent(
+      _exitNoticeId = FxNotice.showContent(
         context,
-        Text('再按一次退出 Slowlight'),
-        duration: Duration(seconds: 2),
+        const Text('再按一次退出 Slowlight'),
+        duration: const Duration(seconds: 2),
       );
       return;
     }
 
+    _dismissExitPrompt();
     SystemNavigator.pop();
   }
 
@@ -468,6 +482,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   }
 
   Future<void> _openSearch() {
+    _dismissExitPrompt();
     return Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -546,18 +561,20 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           drawerEdgeDragWidth: 72,
           onDrawerChanged: (isOpened) {
             if (isOpened) {
-              _lastAndroidBackAt = null;
+              _dismissExitPrompt();
               _refreshAccount();
             }
           },
           drawer: Drawer(
-            width: math.min(304, MediaQuery.sizeOf(context).width * 0.84),
+            // The single Android prototype uses 78% of the viewport.
+            width: MediaQuery.sizeOf(context).width * 0.78,
+            shape: const RoundedRectangleBorder(),
             backgroundColor: theme.colorScheme.surface,
             child: SafeArea(child: _navigationPanel(closeDrawer: true)),
           ),
           appBar: AppBar(
             toolbarHeight: 48,
-            titleSpacing: 16,
+            titleSpacing: 8,
             title: Text(
               _navigation.title,
               style: SlowlightTypography.componentPageTitle(context),
@@ -1094,8 +1111,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                   onTap: () => selectTool(HomeToolSection.calendar),
                 ),
                 const SizedBox(height: 6),
-                _organizeToolsToggle(),
-                if (_organizeToolsExpanded) ...[
+                if (closeDrawer)
+                  _navSectionLabel('组织工具')
+                else
+                  _organizeToolsToggle(),
+                // Android shows both entries; Windows retains its toggle.
+                if (closeDrawer || _organizeToolsExpanded) ...[
                   _navItem(
                     icon: LucideIcons.folder,
                     label: '清单',
@@ -1104,7 +1125,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                   ),
                   _navItem(
                     icon: LucideIcons.tag,
-                    label: '标签',
+                    label: closeDrawer ? '标签' : '观察标签',
                     selected:
                         _navigation.tool == HomeToolSection.observationTags,
                     onTap: () => selectTool(HomeToolSection.observationTags),
