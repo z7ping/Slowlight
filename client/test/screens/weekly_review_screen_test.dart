@@ -250,6 +250,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('这一周还没有行为记录'), findsNothing);
+    expect(find.text('本周有 1 条观察，事件明细尚未载入。'), findsOneWidget);
     expect(find.text('数据积累中，下周会有可对比记录。'), findsNothing);
     expect(find.text('和上周比'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -317,6 +318,45 @@ void main() {
     expect(stats, 1);
     expect(time, 1);
     expect(thirtyDays, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P11 本周轨迹失败可独立重试，不丢统计快照', (tester) async {
+    tester.view.physicalSize = const Size(900, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var attempts = 0;
+    var reviews = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reflectionRepository: _WeekResponseRepo(),
+        reviewLoader: () async {
+          reviews++;
+          return _datedWeek(7, '2026-11-02', '2026-11-08');
+        },
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async {
+          if (++attempts == 1) throw StateError('temporary');
+          return const ReviewPeriodTimeline(observationCount: 1, items: []);
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(reviews, 1);
+    expect(find.textContaining('本周轨迹读取未确认'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
+
+    tester.widget<FxButton>(find.widgetWithText(FxButton, '重试轨迹'))
+        .onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(reviews, 1);
+    expect(find.textContaining('本周轨迹读取未确认'), findsNothing);
+    expect(find.text('本周有 1 条观察，事件明细尚未载入。'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
