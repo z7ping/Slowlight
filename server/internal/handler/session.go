@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+    "io"
 	"time"
 	"errors"
 
@@ -258,10 +259,19 @@ func (h *SessionHandler) EndSession(c *gin.Context) {
         ExpectedRevision *int `json:"expected_revision"`
         NaturallyCompleted bool `json:"naturally_completed"`
 	}
-	// body 可以为空，所以不校验 binding
-	_ = c.ShouldBindJSON(&req)
+    // Keep legacy empty bodies, but malformed JSON must not accidentally
+    // end a different active session with an all-zero request.
+    if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+        c.JSON(http.StatusBadRequest, gin.H{"error":"结束会话参数无效"})
+        return
+    }
     if req.ExpectedRevision != nil && req.SessionID == nil {
         c.JSON(http.StatusBadRequest, gin.H{"error":"指定版本时必须提供会话 ID"})
+        return
+    }
+    if req.NaturallyCompleted &&
+        (req.SessionID == nil || req.ExpectedRevision == nil) {
+        c.JSON(http.StatusBadRequest, gin.H{"error":"自然完成需提供已确认的会话 ID 和版本"})
         return
     }
 	if req.SystemTagID != nil {
