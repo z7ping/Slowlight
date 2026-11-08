@@ -38,6 +38,7 @@ class _TagImpactRepo extends ObservationTagRepository {
   final bool failPreview;
   int deleteCalls = 0;
   int previewCalls = 0;
+  ObservationTagUsage? approvedImpact;
 
   @override
   Future<List<ObservationTag>> getAll() async => [_tag(7, '阅读')];
@@ -58,7 +59,10 @@ class _TagImpactRepo extends ObservationTagRepository {
   }
 
   @override
-  Future<void> delete(ObservationTag tag) async {
+  Future<void> delete(
+    ObservationTag tag, {ObservationTagUsage? expectedImpact}
+  ) async {
+    approvedImpact = expectedImpact;
     deleteCalls++;
   }
 }
@@ -114,6 +118,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.deleteCalls, 0);
     expect(find.text('#阅读'), findsOneWidget);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X08 标签确认后将用户批准的全部关联范围传入删除', (tester) async {
+    final repository = _TagImpactRepo();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byWidgetPredicate(
+      (widget) => widget is FxIconButton && widget.tooltip == '删除',
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除标签'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteCalls, 1);
+    expect(repository.approvedImpact,
+      (tasks: 2, habits: 1, sessions: 3, reflections: 4));
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
