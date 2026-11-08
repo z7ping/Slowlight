@@ -577,7 +577,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _loginProviderButton(BuildContext context, _LoginProvider provider,
-      {VoidCallback? onSelected}) {
+      {FutureOr<void> Function()? onSelected}) {
     final asset = provider.brandAsset;
     return FxButton(
       key: ValueKey('login.provider.${provider.id}'),
