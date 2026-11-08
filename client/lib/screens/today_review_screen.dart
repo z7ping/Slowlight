@@ -447,6 +447,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       return TaskMonthTab(
         reflectionRepository: _reflectionRepository,
         responseDraftController: _monthResponseDraft,
+        onOpenWeekly: () => setState(() => _periodIndex = 1),
       );
     }
     if (_loading) return const Center(child: FxCircularProgress());
