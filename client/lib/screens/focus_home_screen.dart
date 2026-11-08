@@ -57,7 +57,7 @@ Future<Map<String, String>> readCachedSidebarAccountSummary() async {
   }
   // Only read credentials; isLoggedIn() may refresh the access token and is
   // deliberately reserved for AuthGate / explicit mode switching.
-  final token = await AuthService.getToken();
+  final token = await AuthService.getToken(source: 'sidebar');
   if (token == null || token.startsWith('local:')) {
     return {'name': '账号状态待确认', 'status': '请进入账号页检查'};
   }
