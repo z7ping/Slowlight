@@ -10,12 +10,14 @@ class SessionRepository {
     int? taskId,
     int? targetMinutes,
     String device = 'desktop',
+    bool requireInactive = false,
   }) =>
       SessionApi.startSession(
         sessionType,
         taskId: taskId,
         targetMinutes: targetMinutes,
         device: device,
+        requireInactive: requireInactive,
       );
 
   Future<Map<String, dynamic>> endSession({
