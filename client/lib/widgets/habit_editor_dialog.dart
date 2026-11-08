@@ -151,6 +151,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late String _frequency;
   final Map<String, String> _modeUnits = {'interval':'day','specific':'week','goal':'week'};
   final Map<String, String> _modeEvery = {'interval':'1','specific':'1','goal':'1'};
+  // Switching to a mode that cannot schedule reminders must not erase the
+  // previous mode's unsubmitted reminder choice.
+  final Map<String, String> _modeReminderModes = {};
   late String _mode;
   late String _unit;
   late String _hourMode;
@@ -265,6 +268,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _modeEvery[_mode] = rule.every.toString();
     _hourMode = rule.hourMode;
     _reminderMode = rule.reminderMode;
+    _modeReminderModes[_mode] = _reminderMode;
     _anchorTimeFallback = rule.anchorTime;
     _reminderTimeFallback = rule.reminderTime;
     _monthLast = rule.lastDay;
@@ -404,6 +408,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _unit,
     _modeUnits,
     _modeEvery,
+    _modeReminderModes,
     _hourMode,
     _reminderMode,
     _anchorTimeFallback,
@@ -475,6 +480,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       _targetCount.text = template['target'] ?? '3';
       _modeUnits[_mode] = _unit;
       _modeEvery[_mode] = _every.text;
+      _reminderMode = _modeReminderModes[_mode] ?? _reminderMode;
+      if (_mode == 'goal' && _reminderMode == 'schedule') {
+        _reminderMode = 'daily';
+      }
+      _modeReminderModes[_mode] = _reminderMode;
       if (_mode == 'specific') _weekdays = [1, 3, 5];
       _recordType = template['record_type'] ?? 'check';
       _recordTimeLabel.text = template['record_time_label'] ?? '';
@@ -1115,10 +1125,15 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             onChanged: (v) => setState(() {
               _modeUnits[_mode] = _unit;
               _modeEvery[_mode] = _every.text;
+              _modeReminderModes[_mode] = _reminderMode;
               _mode = const ['interval', 'specific', 'goal'][v];
               _unit = _modeUnits[_mode] ?? 'week';
               _every.text = _modeEvery[_mode] ?? '1';
-              if (_mode == 'goal' && _reminderMode == 'schedule') _reminderMode = 'daily';
+              _reminderMode = _modeReminderModes[_mode] ?? _reminderMode;
+              if (_mode == 'goal' && _reminderMode == 'schedule') {
+                _reminderMode = 'daily';
+              }
+              _modeReminderModes[_mode] = _reminderMode;
             }),
             backgroundColor: fxSubtleSurface(context),
             selectedColor: fxSurface(context),
@@ -1302,6 +1317,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
             onChanged: (v) => setState(() {
               _reminderMode = (_mode == 'goal' ? const ['off','daily'] :
                   const ['off','schedule','daily'])[v];
+              _modeReminderModes[_mode] = _reminderMode;
               if (_reminderMode == 'daily' && _reminder == null) {
                 _reminder = const TimeOfDay(hour: 9, minute: 0);
               }
