@@ -238,10 +238,8 @@ void main() {
     expect(tester.getTopLeft(title).dy - tester.getBottomLeft(handle).dy,
         lessThanOrEqualTo(8));
     expect(tester.widget<FxButton>(save).variant, FxButtonVariant.primary);
-    expect(
-      (tester.getSize(cancel).width - tester.getSize(save).width).abs(),
-      lessThan(1.0),
-    );
+    expect(tester.getSize(save).width,
+        greaterThan(tester.getSize(cancel).width * 1.5));
     expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
     expect(tester.getSize(save).height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
@@ -273,10 +271,21 @@ void main() {
     await tester.tap(find.text('记录观察'));
     await tester.pumpAndSettle();
 
-    expect(find.text('归属维度（可选）'), findsOneWidget);
+    expect(find.byKey(const ValueKey('observation.mobile.composer')),
+        findsOneWidget);
+    expect(find.text('归属维度（可选）'), findsNothing);
+    expect(find.text('标签（可选）'), findsNothing);
+    expect(find.text('历史观察分类（兼容）'), findsNothing);
+    expect(tester.widget<EditableText>(
+        find.byType(EditableText).first).focusNode.hasFocus, isFalse);
+    await tester.tap(find.byKey(
+        const ValueKey('observation.mobile.dimensionTrigger')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('observation.mobile.dimensions')),
         findsOneWidget);
-    expect(find.text('历史观察分类（兼容）'), findsNothing);
+    await tester.tap(find.byKey(
+        const ValueKey('observation.mobile.tagsTrigger')));
+    await tester.pumpAndSettle();
     expect(find.text('标签（可选）'), findsOneWidget);
     expect(find.text('＋ 新建标签'), findsOneWidget);
 
@@ -347,6 +356,9 @@ void main() {
     await tester.tap(find.text('打开草稿观察'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(EditableText).first, '今天看到了新变化');
+    await tester.tap(find.byKey(
+        const ValueKey('observation.mobile.tagsTrigger')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('＋ 新建标签'));
     await tester.pumpAndSettle();
     final tagName = find.byKey(const ValueKey('observation.mobile.tagName'));
@@ -379,6 +391,9 @@ void main() {
       )),
     ));
     await tester.tap(find.text('打开新标签观察'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(
+        const ValueKey('observation.mobile.tagsTrigger')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('＋ 新建标签'));
     await tester.pumpAndSettle();
