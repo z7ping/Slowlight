@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -36,10 +37,10 @@ func captureSystemTagUndo(
 		TagID: tag.ID,
 		DeletedAt: time.Now().UTC().Truncate(time.Microsecond),
 	}
-	if err := tx.Unscoped().Model(&model.Task{}).
+	if err := tx.Model(&model.Task{}).
 		Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
 		Pluck("id", &snap.TaskIDs).Error; err != nil { return nil, err }
-	if err := tx.Unscoped().Model(&model.Habit{}).
+	if err := tx.Model(&model.Habit{}).
 		Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
 		Pluck("id", &snap.HabitIDs).Error; err != nil { return nil, err }
 	if err := tx.Model(&model.WorkSession{}).
@@ -50,7 +51,7 @@ func captureSystemTagUndo(
 	err := tx.Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
 		Take(&alias).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound { return snap, nil }
+		if errors.Is(err, gorm.ErrRecordNotFound) { return snap, nil }
 		return nil, err
 	}
 	snap.Alias = &alias
