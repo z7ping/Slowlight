@@ -6,9 +6,49 @@ import (
     "net/http"
     "net/http/httptest"
     "testing"
+    "time"
 
     "slowlight/internal/model"
 )
+
+func TestP05HistoricalStreakRespectsGoalRevision(t *testing.T) {
+    db,handler,userID:=setupHabitTest(t)
+    router:=newHabitRouter(handler,userID)
+    body,_:=json.Marshal(map[string]interface{}{
+        "name":"每日阅读目标","goal_period":"day",
+        "goal_metric":"events","goal_value":1,
+    })
+    request:=httptest.NewRequest(http.MethodPost,"/habits",bytes.NewReader(body))
+    request.Header.Set("Content-Type","application/json")
+    created:=httptest.NewRecorder()
+    router.ServeHTTP(created,request)
+    if created.Code!=http.StatusCreated{t.Fatalf("create: %s",created.Body.String())}
+    var habit model.Habit
+    if err:=json.Unmarshal(created.Body.Bytes(),&habit);err!=nil{t.Fatal(err)}
+    if err:=db.Model(&model.HabitGoalRevision{}).
+        Where("habit_id = ? AND revision = 1",habit.ID).
+        Update("effective_at",time.Now().AddDate(0,0,-3).UTC()).Error;err!=nil{t.Fatal(err)}
+    var user model.User
+    if err:=db.First(&user,userID).Error;err!=nil{t.Fatal(err)}
+    now:=time.Now().In(model.UserLocation(user.Timezone))
+    yesterday:=now.AddDate(0,0,-1).Format("2006-01-02")
+    today:=now.Format("2006-01-02")
+    for _,date:=range []string{yesterday,today,today} {
+        if err:=db.Create(&model.HabitLog{HabitID:habit.ID,Date:date}).Error;err!=nil{t.Fatal(err)}
+    }
+    updatedBody:=[]byte(`{"goal_value":2}`)
+    update:=httptest.NewRequest(http.MethodPut,
+        "/habits/"+itoa(habit.ID),bytes.NewReader(updatedBody))
+    update.Header.Set("Content-Type","application/json")
+    response:=httptest.NewRecorder()
+    router.ServeHTTP(response,update)
+    if response.Code!=http.StatusOK{t.Fatalf("update: %s",response.Body.String())}
+    var updated model.Habit
+    if err:=json.Unmarshal(response.Body.Bytes(),&updated);err!=nil{t.Fatal(err)}
+    if updated.StreakCount!=2{
+        t.Fatalf("old goal must not be recalculated: streak=%d",updated.StreakCount)
+    }
+}
 
 func TestP05HabitGoalRevisionIsAppendOnlyAndAccountScoped(t *testing.T) {
     db, handler, userID := setupHabitTest(t)
