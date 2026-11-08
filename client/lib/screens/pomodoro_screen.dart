@@ -7,15 +7,21 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/task.dart';
+import '../models/pomodoro_cycle_progress.dart';
 import '../repositories/session_repository.dart';
 import '../repositories/tag_links_repository.dart';
 import '../services/data_service.dart';
+import '../services/auth_service.dart';
+import '../services/data_mode_manager.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/system_tag_picker.dart';
 
 class PomodoroScreen extends StatefulWidget {
-  const PomodoroScreen({super.key});
+  const PomodoroScreen({super.key, this.sessionRepository});
+
+  /// Allows exercising restore/start logic without opening a real database.
+  final SessionRepository? sessionRepository;
 
   @override
   State<PomodoroScreen> createState() => _PomodoroScreenState();
@@ -24,7 +30,9 @@ class PomodoroScreen extends StatefulWidget {
 class _PomodoroScreenState extends State<PomodoroScreen>
     with SingleTickerProviderStateMixin {
   static const _settingsPrefsKey = 'slowlight_pomodoro_settings_v1';
-  final SessionRepository _sessions = SessionRepository();
+  late final SessionRepository _sessions =
+      widget.sessionRepository ?? SessionRepository();
+  static const _cyclePrefix = 'slowlight_pomodoro_cycle_v1_';
 
   int _workMinutes = 25;
   int _breakMinutes = 5;
@@ -51,7 +59,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   DateTime? _sessionPausedAt;
   int _pausedDurationSeconds = 0;
   String? _finishError;
-  int _completedSessions = 0;
+  PomodoroCycleProgress _cycle = const PomodoroCycleProgress();
+  String? _cyclePrefsKey;
+  bool _restoringSession = true;
   int _todayWorkSeconds = 0;
   int _todayWorkCount = 0;
   String? _completionMessage;
@@ -111,11 +121,49 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
   }
 
+  // A completed-work cycle is local continuity, not server work_count (which
+  // also counts early/manual endings). Separate Local and each Cloud account.
+  Future<String?> _cycleStorageKey() async {
+    if (DataModeManager().isLocal) return '${_cyclePrefix}local';
+    final user = await AuthService.getUser();
+    if (user == null || user.id <= 0) return null;
+    return '${_cyclePrefix}cloud_${user.id}';
+  }
+
+  Future<void> _rememberNaturalWork(int sessionId) async {
+    final advanced = _cycle.advance(
+      sessionId,
+      cycleSize: _sessionsBeforeLong,
+    );
+    if (identical(advanced, _cycle)) return;
+    _cycle = advanced;
+    final key = _cyclePrefsKey;
+    if (key == null) return;
+    try {
+      // An account or data-mode switch must not write a cycle into the old
+      // scope while the previous async session finish is completing.
+      if (await _cycleStorageKey() != key) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setString(key, advanced.encode()) && mounted) {
+        _message('本机专注轮次未能保存，重新进入后可能需要重新累计');
+      }
+    } catch (_) {
+      if (mounted) _message('本机专注轮次未能保存，重新进入后可能需要重新累计');
+    }
+  }
+
   /// Restore preferences before the legacy session fallback reads a target
   /// duration. Active rounds with persisted target_minutes remain authoritative.
   Future<void> _restorePreferencesThenSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      _cyclePrefsKey = await _cycleStorageKey();
+      if (_cyclePrefsKey case final key?) {
+        _cycle = PomodoroCycleProgress.decode(
+          prefs.getString(key),
+          cycleSize: _sessionsBeforeLong,
+        );
+      }
       final raw = prefs.getString(_settingsPrefsKey);
       if (raw != null) {
         final decoded = jsonDecode(raw);
@@ -141,6 +189,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (mounted) _message('专注偏好读取失败，已使用默认设置');
     } finally {
       if (mounted) await _restoreActiveSession();
+      if (mounted) setState(() => _restoringSession = false);
     }
   }
 
@@ -220,7 +269,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _start() async {
-    if (_finalizingSession || _sessionTransitioning) return;
+    if (_restoringSession || _finalizingSession || _sessionTransitioning) return;
     if (_activeSession && _remainingSeconds <= 0) {
       await _finishNaturally();
       return;
@@ -325,6 +374,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       return;
     }
     if (!mounted) return;
+    final finishedSessionId = _sessionId;
     _activeSession = false;
     _sessionId = null;
     _sessionStartedAt = null;
@@ -336,9 +386,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     if (!mounted) return;
     if (_sessionType == 'work') {
-      _completedSessions++;
+      if (finishedSessionId != null) {
+        await _rememberNaturalWork(finishedSessionId);
+      }
+      if (!mounted) return;
       _showCompletion(tagsSaved ? '专注了 $_sessionTargetMinutes 分钟' : '专注已结束，但标签未保存');
-      final longBreak = _completedSessions % _sessionsBeforeLong == 0;
+      final longBreak = finishedSessionId != null &&
+          _cycle.roundsSinceLongBreak == 0;
       setState(() {
         _sessionType = longBreak ? 'long_break' : 'break';
         _sessionTargetMinutes = _durationFor(_sessionType);
@@ -439,7 +493,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _openSettings() async {
     // Timer duration must not change while a persisted session is in progress.
-    if (_activeSession || _sessionTransitioning || _finalizingSession) return;
+    if (_restoringSession || _activeSession || _sessionTransitioning ||
+        _finalizingSession) return;
     var work = _workMinutes;
     var autoStart = _autoStartNext;
     var soundEnabled = _soundEnabled;
@@ -677,10 +732,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               title: '专注',
               trailing: FxIconButton(
                 icon: LucideIcons.settings,
-                tooltip: _activeSession
-                    ? '本轮结束后可修改设置'
-                    : '专注设置',
-                onPressed: _activeSession ||
+                tooltip: _restoringSession
+                    ? '正在核对本轮专注'
+                    : _activeSession
+                        ? '本轮结束后可修改设置'
+                        : '专注设置',
+                onPressed: _restoringSession ||
+                        _activeSession ||
                         _sessionTransitioning ||
                         _finalizingSession
                     ? null
@@ -712,8 +770,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             : (1 - _remainingSeconds / totalSeconds).clamp(0.0, 1.0);
     final isWork = _sessionType == 'work';
     final color = isWork ? activePalette.accent : AppTheme.success;
-    final stateLabel =
-        isWork
+    final stateLabel = _restoringSession
+        ? '正在核对专注状态'
+        : isWork
             ? (_running
                 ? '专注中'
                 : _activeSession
@@ -818,7 +877,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               ? '继续'
                               : isWork ? '开始专注' : '开始休息',
                       icon: LucideIcons.play,
-                      onPressed: _finalizingSession || _sessionTransitioning ? null : _start,
+                      onPressed: _restoringSession || _finalizingSession || _sessionTransitioning ? null : _start,
                     )
                   else
                     FxButton(
