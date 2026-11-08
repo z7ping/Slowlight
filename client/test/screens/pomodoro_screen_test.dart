@@ -186,14 +186,34 @@ void main() {
       home: PomodoroScreen(sessionRepository: repository),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('完成并保存本轮'), findsOneWidget);
-
-    await tester.tap(find.text('完成并保存本轮'));
-    await tester.pumpAndSettle();
+    // App re-entered after the persisted target expired; auto mode settles
+    // the old round and starts its short break without extra user action.
     expect(repository.naturalEndReceived, isTrue);
     expect(repository.startedBreak, isTrue);
     expect(find.text('开始休息'), findsNothing);
     expect(find.textContaining('本周期 1/4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 关闭自动下一轮后过期会话等待明确保存', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'slowlight_pomodoro_settings_v1': jsonEncode({
+        'workMinutes': 25,
+        'autoStartNext': false,
+        'soundEnabled': false,
+      }),
+    });
+    final repository = _ExpiredWorkSessionRepository();
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repository),
+    ));
+    await tester.pumpAndSettle();
+    expect(repository.naturalEndReceived, isFalse);
+    expect(repository.startedBreak, isFalse);
+    expect(find.text('完成并保存本轮'), findsOneWidget);
+    expect(find.text('本轮到时 · 待保存'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
