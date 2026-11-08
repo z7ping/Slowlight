@@ -731,7 +731,7 @@ class ReflectionComposer {
       BuildContext dialogContext,
       StateSetter setDialogState,
     ) async {
-      if (saving || closing) return;
+      if (saving || closing || allowPop) return;
       final dirty =
           controller.text.trim().isNotEmpty || canonicalTags.isNotEmpty;
       if (dirty || resultUnknown) {
