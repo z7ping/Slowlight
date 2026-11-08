@@ -425,7 +425,7 @@ class LocalHabitRepository {
         return {'message': '该时段已记录', 'already_checked': true,
           'log': existing.first, 'streak_count': habit['streak_count'] ?? 0};
       }
-      if (event?.periodStart != null) {
+      if (event != null && event.periodStart != null) {
         if (!event.sameDayMultiple) {
           final sameDay = await tx.query('habit_logs',
             where: 'habit_id = ? AND date = ?',whereArgs:[habitId,day],limit:1);
