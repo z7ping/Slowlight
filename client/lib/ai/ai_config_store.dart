@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai_models.dart';
+import '../services/secure_storage_config.dart';
 
 abstract interface class AiSecretStore {
   Future<String?> read(AiProviderType provider);
@@ -15,10 +16,7 @@ class SecureAiSecretStore implements AiSecretStore {
   final FlutterSecureStorage _storage;
 
   SecureAiSecretStore({FlutterSecureStorage? storage})
-      : _storage = storage ??
-            FlutterSecureStorage(
-              aOptions: const AndroidOptions(encryptedSharedPreferences: true),
-            );
+      : _storage = storage ?? slowlightSecureStorage;
 
   String _key(AiProviderType provider) => 'slowlight.ai.api_key.${provider.wireName}';
 
