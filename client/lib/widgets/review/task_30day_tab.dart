@@ -17,6 +17,7 @@ import 'review_timeline_item.dart';
 class TaskMonthTab extends StatefulWidget {
   final ReflectionRepository? reflectionRepository;
   final TextEditingController? responseDraftController;
+  final VoidCallback? onOpenWeekly;
   /// Test seams only. Production reuses the existing Review/Analytics APIs.
   final Future<Map<String, dynamic>> Function()? tasksReviewLoader;
   final Future<List<Map<String, dynamic>>> Function()? dailyTrendLoader;
@@ -28,6 +29,7 @@ class TaskMonthTab extends StatefulWidget {
     super.key,
     this.reflectionRepository,
     this.responseDraftController,
+    this.onOpenWeekly,
     this.tasksReviewLoader,
     this.dailyTrendLoader,
     this.periodTimelineLoader,
@@ -40,6 +42,7 @@ class TaskMonthTab extends StatefulWidget {
 
 class _TaskMonthTabState extends State<TaskMonthTab> {
   bool _loading = true;
+  bool _reviewRefreshing = false;
   bool _hasConfirmedReview = false;
   String? _error;
   String? _refreshError;
@@ -49,12 +52,14 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   bool _trendRefreshing = false;
   ReviewPeriodTimeline? _periodTimeline;
   bool _periodTimelineFailed = false;
+  bool _periodTimelineLoading = false;
   bool _showAllPeriodEvents = false;
   ReviewPeriodTimeline? _periodPage;
   int _periodPageOffset = 0;
   bool _loadingPeriodPage = false;
   int? _failedPeriodPageOffset;
   int _loadVersion = 0;
+  int _visibleTasks = 20;
   late final ReflectionRepository _responseRepo =
       widget.reflectionRepository ?? ReflectionRepository();
   late final TextEditingController _responseDraft =
@@ -80,8 +85,21 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
 
   Future<void> _load() async {
     if (_responseSaving) return;
+    if (_responseUnknown) {
+      FxNotice.showContent(
+        context,
+        const Text('上次回应保存结果尚未确认，请先核对回应再刷新'),
+        variant: FxNoticeVariant.warning,
+      );
+      return;
+    }
     final version = ++_loadVersion;
     setState(() {
+      _reviewRefreshing = true;
+      if (_responseLoading) _responseChecked = false;
+      _responseLoading = false;
+      _loadingPeriodPage = false;
+      _periodTimelineLoading = false;
       _loading = !_hasConfirmedReview;
       _error = null;
       _refreshError = null;
@@ -101,14 +119,22 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       final end = LocalTimeBoundary.dateKey(now);
       final periodKey = 'review-30d:$start:$end';
       setState(() {
+        if (_responsePeriodKey != periodKey) {
+          _savedResponse = null;
+          _responseChecked = false;
+          _responseUnknown = false;
+        }
         _responsePeriodKey = periodKey;
         _data = result;
         _hasConfirmedReview = true;
+        _reviewRefreshing = false;
         _loading = false;
+        _visibleTasks = 20;
         _trendRefreshing = _trendDays.isNotEmpty;
         _trendLoadFailed = false;
         _periodTimeline = null;
         _periodTimelineFailed = false;
+        _periodTimelineLoading = false;
         _showAllPeriodEvents = false;
         _periodPage = null;
         _periodPageOffset = 0;
@@ -124,6 +150,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     } catch (error) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
+        _reviewRefreshing = false;
         if (_hasConfirmedReview) {
           _refreshError = error.toString();
         } else {
@@ -164,7 +191,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     final key = _responsePeriodKey;
     final content = _responseDraft.text.trim();
     if (!_responseChecked || _responseSaving || _responseUnknown ||
-        _savedResponse != null || _refreshError != null ||
+        _reviewRefreshing || _savedResponse != null || _refreshError != null ||
         key == null || content.isEmpty) return;
     final version = _loadVersion;
     setState(() => _responseSaving = true);
@@ -241,14 +268,15 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                     variant: FxButtonVariant.secondary,
                     size: FxButtonSize.sm,
                     onPressed: _responseLoading || _responseSaving ||
-                            _responsePeriodKey == null
+                            _reviewRefreshing || _responsePeriodKey == null
                         ? null : () => _loadPeriodResponse(
                             _loadVersion, _responsePeriodKey!),
                   )
                 : FxButton(
                     label: _responseSaving ? '保存中…' : '保存回应',
                     size: FxButtonSize.sm,
-                    onPressed: _responseSaving || _refreshError != null
+                    onPressed: _responseSaving || _refreshError != null ||
+                            _reviewRefreshing
                         ? null : _savePeriodResponse,
                   ),
           ),
