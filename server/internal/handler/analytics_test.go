@@ -105,35 +105,56 @@ func TestGetTimeDistribution_WithSessions(t *testing.T) {
 	r := newAnalyticsRouter(handler, userID)
 
 	now := time.Now()
-	tx.Create(&model.BehaviorEvent{
-		UserID:      userID,
-		EventType:   "session_ended",
-		EntityType:  "session",
-		EntityID:    1,
-		SystemTagID: &tags[0].ID,
-		DurationMin: 25,
-		OccurredAt:  now,
+	ended := now
+	started := now.Add(-25 * time.Minute)
+	// Count WorkSessions, not a BehaviorEvent that might be missing or stale.
+	tx.Create(&model.WorkSession{
+		UserID: userID, SessionType: "work", StartedAt: started, EndedAt: &ended,
+		DurationSec: 25 * 60, SystemTagID: &tags[0].ID,
+	})
+	tx.Create(&model.WorkSession{
+		UserID: userID, SessionType: "work", StartedAt: started, EndedAt: &ended,
+		DurationSec: 50 * 60, SystemTagID: &tags[2].ID,
+	})
+	tx.Create(&model.WorkSession{
+		UserID: userID, SessionType: "work", StartedAt: started, EndedAt: &ended,
+		DurationSec: 5 * 60, // Unclassified work still counts toward total.
+	})
+	tx.Create(&model.WorkSession{
+		UserID: userID, SessionType: "break", StartedAt: started, EndedAt: &ended,
+		DurationSec: 10 * 60, // A break must never inflate focus minutes.
+	})
+	oldEnd := now.AddDate(0, 0, -8)
+	tx.Create(&model.WorkSession{
+		UserID: userID, SessionType: "work", StartedAt: oldEnd.Add(-time.Hour), EndedAt: &oldEnd,
+		DurationSec: 30 * 60,
+	})
+	other := createTestUser(t, tx)
+	tx.Create(&model.WorkSession{
+		UserID: other.ID, SessionType: "work", StartedAt: started, EndedAt: &ended,
+		DurationSec: 60 * 60,
 	})
 	tx.Create(&model.BehaviorEvent{
-		UserID:      userID,
-		EventType:   "session_ended",
-		EntityType:  "session",
-		EntityID:    2,
-		SystemTagID: &tags[2].ID,
-		DurationMin: 50,
-		OccurredAt:  now,
+		UserID: userID, EventType: "session_ended", EntityType: "session",
+		EntityID: 999, DurationMin: 600, OccurredAt: now,
 	})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/analytics/time-distribution", nil)
 	r.ServeHTTP(w, req)
-
 	assertEqual(t, w.Code, http.StatusOK, "StatusCode")
-
 	var dist TimeDistribution
-	json.Unmarshal(w.Body.Bytes(), &dist)
-	assertEqual(t, dist.TotalMin, 75, "TotalMin")
+	if err := json.Unmarshal(w.Body.Bytes(), &dist); err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(t, dist.TotalMin, 80, "TotalMin")
+	assertEqual(t, dist.TotalWorkSeconds, 80*60, "TotalSeconds")
+	assertEqual(t, dist.UnclassifiedWorkSeconds, 5*60, "UnclassifiedSeconds")
 	assertEqual(t, len(dist.Tags), 2, "TagCount")
+	assertEqual(t, len(dist.ByDay), 7, "CalendarDays")
+	assertEqual(t, dist.ByDay[6].TotalMin, 80, "TodayMinutes")
+	assertEqual(t, dist.ByDay[6].WorkCount, 3, "WorkOnlyCount")
+	assertEqual(t, dist.Tags[0].TotalMin, 50, "SortedTagMinutes")
 }
 
 // ========== GetWeeklyReview ==========
