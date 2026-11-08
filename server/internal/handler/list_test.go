@@ -231,7 +231,7 @@ func TestDeleteList_HasTasks(t *testing.T) {
 
 	r := newListRouter(handler, user.ID)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/lists/"+itoa(list.ID), nil)
+	req, _ := http.NewRequest("DELETE", "/lists/"+itoa(list.ID)+"?delete_tasks=true", nil)
 	r.ServeHTTP(w, req)
 
 	assertEqual(t, w.Code, http.StatusOK, "delete populated list")
@@ -256,6 +256,26 @@ func TestDeleteList_HasTasks(t *testing.T) {
 	if err := tx.Unscoped().First(&deletedList, list.ID).Error; err != nil ||
 		!deletedList.DeletedAt.Valid {
 		t.Fatal("清单未软删除:", err)
+	}
+}
+
+func TestDeleteList_P14LegacyDeleteRejectsPopulatedList(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	handler := NewListHandler(tx)
+	user := createTestUser(t, tx)
+	list := createTestList(t, tx, user.ID, "不能意外级联")
+	task := createTestTask(t, tx, user.ID, list.ID, "保留任务")
+	r := newListRouter(handler, user.ID)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/lists/"+itoa(list.ID), nil)
+	r.ServeHTTP(w, req)
+	assertEqual(t, w.Code, http.StatusBadRequest, "legacy delete blocked")
+	if err := tx.First(&model.Task{}, task.ID).Error; err != nil {
+		t.Fatal("旧接口误删任务:", err)
+	}
+	if err := tx.First(&model.List{}, list.ID).Error; err != nil {
+		t.Fatal("旧接口误删清单:", err)
 	}
 }
 
