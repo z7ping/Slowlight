@@ -11,6 +11,7 @@ import '../ui/widgets/slowlight_logo.dart';
 class AboutScreen extends StatefulWidget {
   /// Test seam; production uses the existing AppInfoService.
   final Future<PackageInfo> Function()? infoLoader;
+
   /// Test seam for live remote version queries.
   final Future<ServerVersionInfo> Function()? serverInfoLoader;
 
@@ -28,7 +29,8 @@ class _AboutScreenState extends State<AboutScreen> {
   void initState() {
     super.initState();
     _packageInfo = (widget.infoLoader?.call() ?? AppInfoService.instance.load());
-    _serverInfo = (widget.serverInfoLoader?.call() ?? AppInfoService.instance.loadServerVersion());
+    _serverInfo = (widget.serverInfoLoader?.call() ??
+        AppInfoService.instance.loadServerVersion());
   }
 
   void _reloadInfo() {
