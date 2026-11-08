@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -103,111 +104,121 @@ func (h *AnalyticsHandler) GetOutputStats(c *gin.Context) {
 
 // ========== 2.4 时间分配可视化 ==========
 
-// TagTimeDistribution 时间按系统标签分布
+// TagTimeDistribution 按真实 WorkSession 时长聚合系统标签
 type TagTimeDistribution struct {
-	TagID      uint   `json:"tag_id"`
-	Name       string `json:"name"`
-	Icon       string `json:"icon"`
-	TotalMin   int    `json:"total_min"`
-	SessionCnt int    `json:"session_count"`
-	Percent    float64 `json:"percent"`
+	TagID       uint    `json:"tag_id"`
+	Name        string  `json:"name"`
+	Icon        string  `json:"icon"`
+	TotalMin    int     `json:"total_min"`
+	WorkSeconds int     `json:"work_seconds"`
+	SessionCnt  int     `json:"session_count"`
+	Percent     float64 `json:"percent"`
 }
 
 // TimeDistribution 时间分配统计
 type TimeDistribution struct {
-	TotalMin    int                   `json:"total_min"`
-	Tags        []TagTimeDistribution `json:"tags"`
-	ByDay       []DailyTime           `json:"by_day"` // 最近 7 天每天
+	TotalMin                int                   `json:"total_min"`
+	TotalWorkSeconds        int                   `json:"total_work_seconds"`
+	UnclassifiedWorkSeconds int                   `json:"unclassified_work_seconds"`
+	Tags                    []TagTimeDistribution `json:"tags"`
+	ByDay                   []DailyTime           `json:"by_day"`
 }
 
-// DailyTime 每日时间
+// DailyTime 每日专注事实
 type DailyTime struct {
-	Date      string `json:"date"`
-	TotalMin  int    `json:"total_min"`
-	WorkCount int    `json:"work_count"`
+	Date        string `json:"date"`
+	TotalMin    int    `json:"total_min"`
+	WorkSeconds int    `json:"work_seconds"`
+	WorkCount   int    `json:"work_count"`
 }
 
-// GetTimeDistribution 获取时间分配（按系统标签聚合）
+// GetTimeDistribution 按账号时区的最近七个自然日归属已结束的 WorkSession。
+// 与专注统计采用同一个时长事实，不使用可能缺失/重复的 BehaviorEvent。
 func (h *AnalyticsHandler) GetTimeDistribution(c *gin.Context) {
 	userID := c.GetUint("userID")
-	days := 7 // 默认最近 7 天
-
-	now := time.Now()
 	loc := h.getUserLocation(userID)
-	since := now.AddDate(0, 0, -days)
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	start := today.AddDate(0, 0, -6)
+	end := today.AddDate(0, 0, 1) // 23/25-hour DST days
 
-	// 获取所有系统标签
 	var allTags []model.SystemTag
-	h.DB.Where("user_id = ?", userID).Find(&allTags)
-	tagMap := make(map[uint]model.SystemTag)
-	for _, t := range allTags {
-		tagMap[t.ID] = t
+	if err := h.DB.Where("user_id = ?", userID).Find(&allTags).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "专注标签来源未确认"})
+		return
+	}
+	tagMap := make(map[uint]model.SystemTag, len(allTags))
+	for _, tag := range allTags {
+		tagMap[tag.ID] = tag
 	}
 
-	// 查询 behavior_events
-	var events []model.BehaviorEvent
-	h.DB.Where("user_id = ? AND event_type = 'session_ended' AND occurred_at >= ?",
-		userID, since).Find(&events)
+	var sessions []model.WorkSession
+	if err := h.DB.Where(
+		"user_id = ? AND session_type = ? AND ended_at IS NOT NULL AND ended_at >= ? AND ended_at < ?",
+		userID, "work", start, end,
+	).Order("ended_at ASC, id ASC").Find(&sessions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "专注会话来源未确认"})
+		return
+	}
 
-	// 按标签聚合
-	tagMinutes := make(map[uint]int)
+	tagSeconds := make(map[uint]int)
 	tagCounts := make(map[uint]int)
-	totalMin := 0
-
-	// 按天聚合
-	dailyMap := make(map[string]*DailyTime)
-
-	for _, e := range events {
-		totalMin += e.DurationMin
-
-		// 按天
-		dateKey := e.OccurredAt.In(loc).Format("2006-01-02")
-		if _, ok := dailyMap[dateKey]; !ok {
-			dailyMap[dateKey] = &DailyTime{Date: dateKey}
+	dailySeconds := make(map[string]int)
+	dailyCounts := make(map[string]int)
+	var totalSeconds, taggedSeconds int
+	for _, session := range sessions {
+		if session.EndedAt == nil || session.DurationSec < 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "专注会话时长未确认"})
+			return
 		}
-		dailyMap[dateKey].TotalMin += e.DurationMin
-		dailyMap[dateKey].WorkCount++
-
-		// 按标签
-		if e.SystemTagID != nil {
-			tagMinutes[*e.SystemTagID] += e.DurationMin
-			tagCounts[*e.SystemTagID]++
+		if session.DurationSec == 0 {
+			continue
+		}
+		day := session.EndedAt.In(loc).Format("2006-01-02")
+		totalSeconds += session.DurationSec
+		dailySeconds[day] += session.DurationSec
+		dailyCounts[day]++
+		if session.SystemTagID != nil {
+			if _, ok := tagMap[*session.SystemTagID]; ok {
+				tagSeconds[*session.SystemTagID] += session.DurationSec
+				tagCounts[*session.SystemTagID]++
+				taggedSeconds += session.DurationSec
+			}
 		}
 	}
 
-	// 组装结果
 	dist := TimeDistribution{
-		TotalMin: totalMin,
-		Tags:     make([]TagTimeDistribution, 0),
-		ByDay:    make([]DailyTime, 0),
+		TotalMin: totalSeconds / 60,
+		TotalWorkSeconds: totalSeconds,
+		UnclassifiedWorkSeconds: totalSeconds - taggedSeconds,
+		Tags: make([]TagTimeDistribution, 0, len(tagSeconds)),
+		ByDay: make([]DailyTime, 0, 7),
 	}
-
-	for tagID, mins := range tagMinutes {
+	for tagID, seconds := range tagSeconds {
 		tag := tagMap[tagID]
 		pct := float64(0)
-		if totalMin > 0 {
-			pct = float64(mins) / float64(totalMin) * 100
+		if totalSeconds > 0 {
+			pct = float64(seconds) / float64(totalSeconds) * 100
 		}
 		dist.Tags = append(dist.Tags, TagTimeDistribution{
-			TagID:      tagID,
-			Name:       tag.Name,
-			Icon:       tag.Icon,
-			TotalMin:   mins,
-			SessionCnt: tagCounts[tagID],
-			Percent:    pct,
+			TagID: tagID, Name: tag.Name, Icon: tag.Icon,
+			TotalMin: seconds / 60, WorkSeconds: seconds,
+			SessionCnt: tagCounts[tagID], Percent: pct,
 		})
 	}
-
-	// 填充 7 天的数据
-	for i := days - 1; i >= 0; i-- {
-		date := now.AddDate(0, 0, -i).In(loc).Format("2006-01-02")
-		if dt, ok := dailyMap[date]; ok {
-			dist.ByDay = append(dist.ByDay, *dt)
-		} else {
-			dist.ByDay = append(dist.ByDay, DailyTime{Date: date})
+	sort.Slice(dist.Tags, func(i, j int) bool {
+		if dist.Tags[i].WorkSeconds == dist.Tags[j].WorkSeconds {
+			return dist.Tags[i].TagID < dist.Tags[j].TagID
 		}
+		return dist.Tags[i].WorkSeconds > dist.Tags[j].WorkSeconds
+	})
+	for i := 0; i < 7; i++ {
+		day := start.AddDate(0, 0, i).Format("2006-01-02")
+		seconds := dailySeconds[day]
+		dist.ByDay = append(dist.ByDay, DailyTime{
+			Date: day, TotalMin: seconds / 60, WorkSeconds: seconds, WorkCount: dailyCounts[day],
+		})
 	}
-
 	c.JSON(http.StatusOK, dist)
 }
 
