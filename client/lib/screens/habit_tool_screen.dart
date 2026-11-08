@@ -860,88 +860,101 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     _weekDots(habit, color),
                   ]);
             }),
-            if (expanded) ...[
-              const SizedBox(height: SlowlightSpacing.xl),
-              FxSeparator.horizontal(
-                  margin: EdgeInsets.zero,
-                  color: theme.colorScheme.outlineVariant),
-              const SizedBox(height: SlowlightSpacing.xl),
-              _stats(habit),
-              if (habit.goalHistory.isNotEmpty) ...[
-                const SizedBox(height: SlowlightSpacing.xs),
-                Text(_goalRevisionSummary(habit),
-                    style: SlowlightTypography.caption(context)),
-              ],
-              const SizedBox(height: SlowlightSpacing.xl),
-              FxResponsiveFormGrid(
-                minColumnWidth: 240,
-                children: [
-                  Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('本月记录',
-                            style: SlowlightTypography.fieldLabel(context)),
-                        const SizedBox(height: SlowlightSpacing.md),
-                        _heatmap(habit, color),
-                      ]),
-                  Column(
+            AnimatedSize(
+              key: ValueKey('habits.motion.${habit.id}'),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: expanded
+                  ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('最近记录',
-                            style: SlowlightTypography.fieldLabel(context)),
-                        const SizedBox(height: SlowlightSpacing.md),
-                        _logs(habit, color),
-                      ]),
-                ],
-              ),
-              const SizedBox(height: SlowlightSpacing.xl),
-              FxActionBar(
-                stackBelow: 280,
-                actions: [
-                  FxButton(
-                    label: '编辑',
-                    icon: LucideIcons.pencil,
-                    variant: FxButtonVariant.outline,
-                    size: FxButtonSize.sm,
-                    onPressed: () => _editHabit(habit),
-                  ),
-                  FxButton(
-                    label: '补卡',
-                    icon: LucideIcons.calendarPlus,
-                    variant: FxButtonVariant.outline,
-                    size: FxButtonSize.sm,
-                    onPressed: () => _backfill(habit),
-                  ),
-                  FxMenu<String>(
-                    tooltip: '更多操作',
-                    onSelected: (value) {
-                      if (value == 'delete') _delete(habit);
-                    },
-                    itemBuilder: (_) => const [
-                      FxMenuItem(
-                        value: 'delete',
-                        child: Text('删除习惯'),
-                      ),
-                    ],
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: SlowlightSpacing.xl,
-                        vertical: SlowlightSpacing.md,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(LucideIcons.ellipsis,
-                              size: SlowlightIconSize.sm),
-                          SizedBox(width: SlowlightSpacing.xs),
-                          Text('更多'),
+                        const SizedBox(height: SlowlightSpacing.xl),
+                        FxSeparator.horizontal(
+                            margin: EdgeInsets.zero,
+                            color: theme.colorScheme.outlineVariant),
+                        const SizedBox(height: SlowlightSpacing.xl),
+                        _stats(habit),
+                        if (habit.goalHistory.isNotEmpty) ...[
+                          const SizedBox(height: SlowlightSpacing.xs),
+                          Text(_goalRevisionSummary(habit),
+                              style: SlowlightTypography.caption(context)),
                         ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                        const SizedBox(height: SlowlightSpacing.xl),
+                        FxResponsiveFormGrid(
+                          minColumnWidth: 240,
+                          children: [
+                            Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('本月记录',
+                                      style: SlowlightTypography.fieldLabel(context)),
+                                  const SizedBox(height: SlowlightSpacing.md),
+                                  _heatmap(habit, color),
+                                ]),
+                            Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text('最近记录',
+                                      style: SlowlightTypography.fieldLabel(context)),
+                                  const SizedBox(height: SlowlightSpacing.md),
+                                  _logs(habit, color),
+                                ]),
+                          ],
+                        ),
+                        const SizedBox(height: SlowlightSpacing.xl),
+                        FxActionBar(
+                          stackBelow: 280,
+                          actions: [
+                            FxButton(
+                              label: '编辑',
+                              icon: LucideIcons.pencil,
+                              variant: FxButtonVariant.outline,
+                              size: FxButtonSize.sm,
+                              onPressed: () => _editHabit(habit),
+                            ),
+                            FxButton(
+                              label: '补卡',
+                              icon: LucideIcons.calendarPlus,
+                              variant: FxButtonVariant.outline,
+                              size: FxButtonSize.sm,
+                              onPressed: () => _backfill(habit),
+                            ),
+                            FxMenu<String>(
+                              tooltip: '更多操作',
+                              onSelected: (value) {
+                                if (value == 'delete') _delete(habit);
+                              },
+                              itemBuilder: (_) => const [
+                                FxMenuItem(
+                                  value: 'delete',
+                                  child: Text('删除习惯'),
+                                ),
+                              ],
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: SlowlightSpacing.xl,
+                                  vertical: SlowlightSpacing.md,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(LucideIcons.ellipsis,
+                                        size: SlowlightIconSize.sm),
+                                    SizedBox(width: SlowlightSpacing.xs),
+                                    Text('更多'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
