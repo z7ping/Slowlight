@@ -114,6 +114,9 @@ class _SearchScreenState extends State<SearchScreen> {
         _reflections = const [];
         _lists = const [];
         _partialUnavailable = const [];
+        _taskVisible = 20;
+        _habitVisible = 20;
+        _reflectionVisible = 20;
         _loading = false;
       });
       return;
@@ -198,7 +201,8 @@ class _SearchScreenState extends State<SearchScreen> {
         return <TodoList>[];
       }),
     ]);
-    if (missing.length == 4) {
+    if (['任务', '习惯', '回顾', '清单']
+        .every(missing.contains)) {
       throw StateError('所有搜索来源均未读取成功');
     }
     onUnavailable(
