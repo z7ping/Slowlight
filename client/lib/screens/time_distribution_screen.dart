@@ -316,10 +316,22 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   Widget _distributionCard(List<Map<String, dynamic>> source) {
     final theme = Theme.of(context);
     final tags = [...source]..sort(
-      (a, b) => ((b['total_min'] as num?)?.toInt() ?? 0).compareTo(
-        (a['total_min'] as num?)?.toInt() ?? 0,
-      ),
+      (a, b) => ((b['work_seconds'] as num?)?.toInt() ??
+              ((b['total_min'] as num?)?.toInt() ?? 0) * 60)
+          .compareTo((a['work_seconds'] as num?)?.toInt() ??
+              ((a['total_min'] as num?)?.toInt() ?? 0) * 60),
     );
+    final totalSeconds = (_data['total_work_seconds'] as num?)?.toInt() ??
+        ((_data['total_min'] as num).toInt() * 60);
+    int seconds(Map<String, dynamic> item) =>
+        (item['work_seconds'] as num?)?.toInt() ??
+        ((item['total_min'] as num?)?.toInt() ?? 0) * 60;
+    final taggedSeconds = tags.fold<int>(
+        0, (sum, item) => sum + seconds(item));
+    final unclassifiedSeconds =
+        (_data['unclassified_work_seconds'] as num?)?.toInt() ??
+        math.max(0, totalSeconds - taggedSeconds);
+    final visible = _showAllTags ? tags : tags.take(6).toList(growable: false);
 
     return FxCard(
       padding: const EdgeInsets.all(16),
@@ -331,16 +343,26 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
           const SizedBox(height: 14),
           if (tags.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 36),
-              child: Center(
-                child: Text(
-                  _data['total_min'] is num && (_data['total_min'] as num) > 0
-                      ? '当前专注尚无可确认的分类'
-                      : '暂无专注数据',
-                  style: SlowlightTypography.secondary(
-                    context,
-                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    totalSeconds > 0
+                        ? '未分类 · ${totalSeconds ~/ 60} 分钟'
+                        : '暂无专注数据',
+                    style: SlowlightTypography.secondary(context),
+                  ),
+                  if (totalSeconds > 0) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '当前专注尚无可确认的分类',
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             )
           else ...[
@@ -350,16 +372,15 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                 height: 150,
                 child: CustomPaint(
                   painter: _PieChartPainter(
-                    values: tags
-                        .map<double>(
-                          (item) =>
-                              (item['total_min'] as num?)?.toDouble() ?? 0,
-                        )
-                        .toList(growable: false),
-                    colors: List.generate(
-                      tags.length,
-                      (index) => _chartColors[index % _chartColors.length],
-                    ),
+                    values: [
+                      ...tags.map<double>((item) => seconds(item).toDouble()),
+                      if (unclassifiedSeconds > 0) unclassifiedSeconds.toDouble(),
+                    ],
+                    colors: [
+                      ...List.generate(tags.length,
+                          (index) => _chartColors[index % _chartColors.length]),
+                      if (unclassifiedSeconds > 0) theme.colorScheme.outlineVariant,
+                    ],
                     textColor: theme.colorScheme.onSurface,
                     secondaryTextColor: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -367,10 +388,12 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            ...tags.take(6).toList().asMap().entries.map((entry) {
+            ...visible.asMap().entries.map((entry) {
               final tag = entry.value;
               final color = _chartColors[entry.key % _chartColors.length];
-              final percent = (tag['percent'] as num?)?.toDouble() ?? 0;
+              final percent = totalSeconds <= 0
+                  ? 0.0
+                  : seconds(tag) / totalSeconds * 100;
               return Container(
                 constraints: const BoxConstraints(minHeight: 44),
                 child: Row(
@@ -378,29 +401,54 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                      ),
+                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        tag['name']?.toString() ?? '未分类',
+                        tag['name']?.toString() ?? '未命名标签',
                         overflow: TextOverflow.ellipsis,
                         style: SlowlightTypography.secondary(context),
                       ),
                     ),
                     Text(
                       '${percent.toStringAsFixed(0)}%',
-                      style: SlowlightTypography.caption(
-                        context,
-                      ).copyWith(fontWeight: FontWeight.w600, color: color),
+                      style: SlowlightTypography.caption(context).copyWith(
+                        fontWeight: FontWeight.w600, color: color,
+                      ),
                     ),
                   ],
                 ),
               );
             }),
+            if (unclassifiedSeconds > 0)
+              Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8, height: 8,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.outlineVariant,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('未分类', style: SlowlightTypography.secondary(context))),
+                    Text(
+                      '${(unclassifiedSeconds / totalSeconds * 100).toStringAsFixed(0)}%',
+                      style: SlowlightTypography.caption(context),
+                    ),
+                  ],
+                ),
+              ),
+            if (tags.length > 6)
+              FxButton(
+                label: _showAllTags ? '收起标签' : '查看全部 ${tags.length} 个标签',
+                variant: FxButtonVariant.link,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _showAllTags = !_showAllTags),
+              ),
           ],
         ],
       ),
@@ -441,9 +489,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
             )
           else
             ...byDay.map((day) {
-              final min = (day['total_min'] as num?)?.toInt() ?? 0;
-              final count = (day['work_count'] as num?)?.toInt() ?? 0;
-              final ratio = maxMin > 0 ? min / maxMin : 0.0;
+              final min = (day['total_min'] as num?)?.toInt();
+              final count = (day['work_count'] as num?)?.toInt();
+              final ratio = maxMin > 0 && min != null ? min / maxMin : 0.0;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
@@ -458,17 +506,21 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       ),
                     ),
                     Expanded(
-                      child: FxProgress(
-                        value: ratio.clamp(0, 1).toDouble(),
-                        height: 8,
-                        backgroundColor: theme.colorScheme.outlineVariant,
-                        color: activePalette.accent,
-                      ),
+                      child: min == null
+                          ? const SizedBox(height: 8)
+                          : FxProgress(
+                              value: ratio.clamp(0, 1).toDouble(),
+                              height: 8,
+                              backgroundColor: theme.colorScheme.outlineVariant,
+                              color: activePalette.accent,
+                            ),
                     ),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        min > 0 ? '$min 分钟 · $count 次' : '—',
+                        min == null || count == null
+                            ? '—'
+                            : '$min 分钟 · $count 次',
                         textAlign: TextAlign.right,
                         style: SlowlightTypography.caption(
                           context,
@@ -492,7 +544,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
       final today = DateTime(now.year, now.month, now.day);
       final current = DateTime(date.year, date.month, date.day);
       if (current == today) return '今天';
-      if (current == today.subtract(const Duration(days: 1))) return '昨天';
+      if (current == DateTime(now.year, now.month, now.day - 1)) return '昨天';
       return '周${weekdays[date.weekday - 1]}';
     } catch (_) {
       return dateStr;
