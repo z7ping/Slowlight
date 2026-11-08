@@ -346,6 +346,36 @@ class CloudApiService implements ApiDataSource {
   }
 
   @override
+  Future<Task> setTaskCompletion(int taskId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) {
+    if (taskId < 0) {
+      return _completionCache.setTarget(
+        taskId,
+        completed: completed,
+        expectedCompleted: expectedCompleted,
+        expectedCompletedAt: expectedCompletedAt,
+      );
+    }
+    return _writeThrough(
+      () => TaskApi.setTaskCompletion(
+        taskId,
+        completed: completed,
+        expectedCompleted: expectedCompleted,
+        expectedCompletedAt: expectedCompletedAt,
+      ),
+      () => _completionCache.setTarget(
+        taskId,
+        completed: completed,
+        expectedCompleted: expectedCompleted,
+        expectedCompletedAt: expectedCompletedAt,
+      ),
+    );
+  }
+
+  @override
   Future<void> deleteTask(int taskId) {
     if (taskId < 0) return _cache.deleteTask(taskId);
     return _writeThroughVoid(

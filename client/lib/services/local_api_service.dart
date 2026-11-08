@@ -153,6 +153,18 @@ class LocalApiService implements ApiDataSource {
   Future<Task> completeTask(int taskId) => _taskRepo.complete(taskId);
 
   @override
+  Future<Task> setTaskCompletion(int taskId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) => _taskRepo.setTaskCompletion(
+    taskId,
+    completed: completed,
+    expectedCompleted: expectedCompleted,
+    expectedCompletedAt: expectedCompletedAt,
+  );
+
+  @override
   Future<void> deleteTask(int taskId) => _taskRepo.delete(taskId);
 
   @override

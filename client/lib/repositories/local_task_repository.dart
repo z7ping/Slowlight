@@ -241,6 +241,39 @@ class LocalTaskRepository {
     return result;
   }
 
+  /// Compare-and-set only the completion fields. No stale row can toggle a
+  /// newly-completed or already-undone task.
+  Future<Task> setTaskCompletion(int id, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) async {
+    final db = await _db.database;
+    if (completed == expectedCompleted ||
+        (expectedCompleted && expectedCompletedAt == null)) {
+      throw ArgumentError('完成状态条件不完整');
+    }
+    final now = _nowUtc();
+    final affected = await db.update(
+      'tasks',
+      {
+        'is_completed': completed ? 1 : 0,
+        'completed_at': completed ? now : null,
+        'updated_at': now,
+      },
+      where: 'id = ? AND deleted_at IS NULL AND is_completed = ? AND '
+          '${expectedCompleted ? 'completed_at = ?' : 'completed_at IS NULL'}',
+      whereArgs: [
+        id, expectedCompleted ? 1 : 0,
+        if (expectedCompleted) expectedCompletedAt!.toUtc().toIso8601String(),
+      ],
+    );
+    if (affected != 1) throw StateError('任务状态已变化，请刷新后重试');
+    final result = await getById(id);
+    if (result == null) throw Exception('任务状态保存后不可读取');
+    return result;
+  }
+
   Future<Task> complete(int id) async {
     final db = await _db.database;
     final now = _nowUtc();

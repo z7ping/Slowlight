@@ -131,6 +131,16 @@ class DataService {
 
   Future<Task> completeTask(int localId, int? serverId) =>
       taskRepository.completeTask(_effectiveId(localId, serverId));
+  Future<Task> setTaskCompletion(int localId, int? serverId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) => taskRepository.setTaskCompletion(
+    _effectiveId(localId, serverId),
+    completed: completed,
+    expectedCompleted: expectedCompleted,
+    expectedCompletedAt: expectedCompletedAt,
+  );
 
   Future<Task> uncompleteTask(int localId, int? serverId) {
     if (DataModeManager().isLocal) {

@@ -15,31 +15,77 @@ class CloudTaskCompletionCache {
   Future<Task> toggle(int publicTaskId) async {
     final db = await _cache.database;
     final row = await _findTask(db, publicTaskId);
+    final current = (row['is_completed'] as int? ?? 0) == 1;
+    return _writeTarget(db, row, publicTaskId,
+      completed: !current, expectedCompleted: current);
+  }
+
+  Future<Task> setTarget(int publicTaskId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) async {
+    if (completed == expectedCompleted ||
+        (expectedCompleted && expectedCompletedAt == null)) {
+      throw ArgumentError('完成状态条件不完整');
+    }
+    final db = await _cache.database;
+    final row = await _findTask(db, publicTaskId);
+    if (((row['is_completed'] as int? ?? 0) == 1) != expectedCompleted) {
+      throw StateError('本地缓存中的任务状态已变化');
+    }
+    if (expectedCompleted && expectedCompletedAt != null) {
+      final value = DateTime.tryParse(row['completed_at'] as String? ?? '');
+      if (value == null || !value.isAtSameMomentAs(expectedCompletedAt)) {
+        throw StateError('本地缓存中的任务完成记录已变化');
+      }
+    }
+    return _writeTarget(db, row, publicTaskId,
+      completed: completed,
+      expectedCompleted: expectedCompleted,
+      expectedCompletedAt: expectedCompletedAt);
+  }
+
+  Future<Task> _writeTarget(
+    Database db,
+    Map<String, Object?> row,
+    int publicTaskId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  }) async {
     final localId = row['id'] as int;
     final serverId = row['server_id'] as int?;
-    final desired = (row['is_completed'] as int? ?? 0) != 1;
     final now = DateTime.now().toUtc().toIso8601String();
 
     await db.transaction((txn) async {
-      await txn.update(
+      final changed = await txn.update(
         'tasks',
         {
-          'is_completed': desired ? 1 : 0,
-          'completed_at': desired ? now : null,
+          'is_completed': completed ? 1 : 0,
+          'completed_at': completed ? now : null,
           'updated_at': now,
           'last_modified': now,
           'sync_status': 'pending',
         },
-        where: 'id = ?',
-        whereArgs: [localId],
+        where: 'id = ? AND is_completed = ?'
+            '${expectedCompletedAt == null ? '' : ' AND completed_at = ?'}',
+        whereArgs: [
+          localId, expectedCompleted ? 1 : 0,
+          if (expectedCompletedAt != null)
+            expectedCompletedAt.toUtc().toIso8601String(),
+        ],
       );
+      if (changed != 1) {
+        throw StateError('本地缓存中的任务状态已变化');
+      }
       await txn.insert(
         'sync_intents',
         {
           'entity_type': 'tasks',
           'entity_local_id': localId,
           'intent': 'completion',
-          'value': desired ? '1' : '0',
+          'value': completed ? '1' : '0',
           'created_at': now,
           'updated_at': now,
         },
@@ -53,8 +99,6 @@ class CloudTaskCompletionCache {
       ['tasks', localId],
     );
     if ((queued.first['cnt'] as int? ?? 0) == 0 && serverId != null) {
-      // completion-only 修改也需要一个普通 update 屏障：Coordinator 会等待它
-      // 先成功，再执行具有副作用的 /complete。
       await SyncService().enqueue(
         entityType: 'tasks',
         entityLocalId: localId,
@@ -62,7 +106,6 @@ class CloudTaskCompletionCache {
         operation: 'update',
       );
     }
-
     final tasks = await CloudCacheRepository().getAllTasks();
     return tasks.firstWhere((task) => task.id == publicTaskId);
   }

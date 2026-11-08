@@ -135,6 +135,7 @@ class CloudSyncCoordinator {
           generation: generation,
           entityLocalId: intent['entity_local_id'] as int,
           desiredCompleted: intent['value'] == '1',
+          intentUpdatedAt: intent['updated_at'] as String?,
         );
       }
 
@@ -164,6 +165,7 @@ class CloudSyncCoordinator {
     required int generation,
     required int entityLocalId,
     required bool desiredCompleted,
+    required String? intentUpdatedAt,
   }) async {
     // 普通字段/create 尚未 push 成功时，保留意图等待下次同步。
     final queued = await db.rawQuery(
@@ -172,6 +174,9 @@ class CloudSyncCoordinator {
       ['tasks', entityLocalId],
     );
     if ((queued.first['cnt'] as int? ?? 0) > 0) return;
+    if (!await _isTaskIntentCurrent(
+      db, entityLocalId, desiredCompleted, intentUpdatedAt,
+    )) return;
 
     final rows = await db.query(
       'tasks',
@@ -181,7 +186,9 @@ class CloudSyncCoordinator {
       limit: 1,
     );
     if (rows.isEmpty) {
-      await _deleteTaskIntent(db, entityLocalId);
+      await _deleteTaskIntent(
+        db, entityLocalId, desiredCompleted, intentUpdatedAt,
+      );
       return;
     }
     final serverId = rows.first['server_id'] as int?;
@@ -192,10 +199,17 @@ class CloudSyncCoordinator {
       final remote = await TaskApi.getTask(serverId);
       if (!await _isRunValid(accountId: accountId, generation: generation)) return;
       if (remote.isCompleted != desiredCompleted) {
-        await TaskApi.completeTask(serverId);
+        await TaskApi.setTaskCompletion(
+          serverId,
+          completed: desiredCompleted,
+          expectedCompleted: remote.isCompleted,
+          expectedCompletedAt: remote.completedAt,
+        );
       }
       if (!await _isRunValid(accountId: accountId, generation: generation)) return;
-      await _deleteTaskIntent(db, entityLocalId);
+      await _deleteTaskIntent(
+        db, entityLocalId, desiredCompleted, intentUpdatedAt,
+      );
     } catch (_) {
       if (!await _isRunValid(accountId: accountId, generation: generation)) return;
       // 意图失败时补回普通 update 屏障：既让 pendingCount 对用户可见，
@@ -291,11 +305,36 @@ class CloudSyncCoordinator {
     );
   }
 
-  Future<void> _deleteTaskIntent(Database db, int entityLocalId) => db.delete(
-        'sync_intents',
-        where: 'entity_type = ? AND entity_local_id = ? AND intent = ?',
-        whereArgs: ['tasks', entityLocalId, 'completion'],
-      );
+  // An intent may be replaced while a remote read/write is in flight.
+  // Never delete a newer local decision after finishing the older one.
+  Future<bool> _isTaskIntentCurrent(
+    Database db, int localId, bool desired, String? updatedAt,
+  ) async {
+    final rows = await db.query(
+      'sync_intents',
+      columns: ['value', 'updated_at'],
+      where: 'entity_type = ? AND entity_local_id = ? AND intent = ?',
+      whereArgs: ['tasks', localId, 'completion'],
+      limit: 1,
+    );
+    return rows.isNotEmpty &&
+        rows.first['value'] == (desired ? '1' : '0') &&
+        rows.first['updated_at'] == updatedAt;
+  }
+
+  Future<void> _deleteTaskIntent(
+    Database db, int localId, bool desired, String? updatedAt,
+  ) async {
+    await db.delete(
+      'sync_intents',
+      where: 'entity_type = ? AND entity_local_id = ? AND intent = ? '
+          'AND value = ? AND ${updatedAt == null ? 'updated_at IS NULL' : 'updated_at = ?'}',
+      whereArgs: [
+        'tasks', localId, 'completion', desired ? '1' : '0',
+        if (updatedAt != null) updatedAt,
+      ],
+    );
+  }
 
   Future<void> _deleteReflectionIntent(Database db, int entityLocalId) =>
       db.delete(

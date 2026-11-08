@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -437,66 +438,142 @@ func (h *TaskHandler) GetCompletedTasks(c *gin.Context) {
 	c.JSON(http.StatusOK, tasks)
 }
 
-// CompleteTask 标记任务完成
+// CompleteTask supports both legacy no-body toggle and conditional target writes.
+// New callers must supply is_completed and expected_completed. An undo also
+// supplies the completion timestamp returned by the successful completion call.
 func (h *TaskHandler) CompleteTask(c *gin.Context) {
 	userID := c.GetUint("userID")
 	id := c.Param("id")
-	var task model.Task
 
-	if err := h.DB.Where("user_id = ?", userID).First(&task, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
+	var requested struct {
+		IsCompleted         *bool      `json:"is_completed"`
+		ExpectedCompleted   *bool      `json:"expected_completed"`
+		ExpectedCompletedAt *time.Time `json:"expected_completed_at"`
+	}
+	conditional := c.Request.ContentLength != 0
+	if conditional {
+		if err := c.ShouldBindJSON(&requested); err != nil ||
+			requested.IsCompleted == nil || requested.ExpectedCompleted == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "完成状态参数无效"})
+			return
+		}
+		if *requested.ExpectedCompleted &&
+			requested.ExpectedCompletedAt == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "撤销缺少原完成时间"})
+			return
+		}
+		if *requested.IsCompleted == *requested.ExpectedCompleted {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "目标状态与预期状态相同"})
+			return
+		}
+	}
+
+	var task model.Task
+	var desired bool
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	errConflict := errors.New("task completion changed")
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", userID).First(&task, id).Error; err != nil {
+			return err
+		}
+		expected := task.IsCompleted
+		desired = !expected
+		if conditional {
+			expected = *requested.ExpectedCompleted
+			desired = *requested.IsCompleted
+			if task.IsCompleted != expected {
+				return errConflict
+			}
+			if expected &&
+				(task.CompletedAt == nil ||
+					!task.CompletedAt.Equal(*requested.ExpectedCompletedAt)) {
+				return errConflict
+			}
+		}
+
+		// CAS keeps two clients that read the same completion state from both
+		// committing. Include completed_at to reject an old undo after a new
+		// completion cycle, even when both observed is_completed == true.
+		query := tx.Model(&model.Task{}).
+			Where("id = ? AND user_id = ? AND is_completed = ?", task.ID, userID, expected)
+		if task.CompletedAt != nil {
+			query = query.Where("completed_at = ?", *task.CompletedAt)
+		} else {
+			query = query.Where("completed_at IS NULL")
+		}
+		var completedAt *time.Time
+		if desired {
+			completedAt = &now
+		}
+		result := query.Updates(map[string]interface{}{
+			"is_completed": desired, "completed_at": completedAt,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errConflict
+		}
+
+		if err := tx.Preload("List").First(&task, task.ID).Error; err != nil {
+			return err
+		}
+		if !desired {
+			// Model.AfterSave deliberately skips partial updates without
+			// UserID. Remove events explicitly, in the same transaction.
+			return tx.Where(
+				"user_id = ? AND event_type = ? AND entity_type = ? AND entity_id = ?",
+				userID, "task_completed", "task", task.ID,
+			).Delete(&model.BehaviorEvent{}).Error
+		}
+
+		if task.RepeatType != "none" {
+			if err := h.createNextRepeatTaskWithDB(tx, task); err != nil {
+				return err
+			}
+		}
+		metadata, _ := json.Marshal(map[string]interface{}{
+			"title": task.Title, "list_name": task.List.Name,
+			"task_type": task.TaskType, "output_level": task.OutputLevel,
+			"mood_before": task.MoodBefore, "mood_after": task.MoodAfter,
+			"milestone": task.IsMilestone,
+		})
+		return tx.Create(&model.BehaviorEvent{
+			UserID: userID, EventType: "task_completed",
+			EntityType: "task", EntityID: task.ID,
+			SystemTagID: task.SystemTagID,
+			OccurredAt: now, Metadata: string(metadata),
+		}).Error
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
+		case errors.Is(err, errConflict):
+			c.JSON(http.StatusConflict, gin.H{"error": "完成状态已变化，请刷新后重试"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "任务完成状态保存失败"})
+		}
 		return
 	}
 
-	now := time.Now()
-	task.IsCompleted = !task.IsCompleted
-	if task.IsCompleted {
-		task.CompletedAt = &now
-
-		// 重复任务：完成后自动创建下一个
-		if task.RepeatType != "none" {
-			h.createNextRepeatTask(task)
-		}
-	} else {
-		task.CompletedAt = nil
-	}
-
-	h.DB.Save(&task)
-	h.DB.Preload("List").Preload("Tags").First(&task, id)
-
-	// 触发 Webhook + 写入行为事件
-	if task.IsCompleted {
+	h.DB.Preload("List").Preload("Tags").First(&task, task.ID)
+	if desired {
 		triggerWebhooks(h.DB, userID, model.EventTaskCompleted, map[string]interface{}{
 			"id": task.ID, "title": task.Title, "list_id": task.ListID,
 		})
-
-		// 写入 behavior_events
-		metadata, _ := json.Marshal(map[string]interface{}{
-			"title":        task.Title,
-			"list_name":    task.List.Name,
-			"task_type":    task.TaskType,
-			"output_level": task.OutputLevel,
-			"mood_before":  task.MoodBefore,
-			"mood_after":   task.MoodAfter,
-			"milestone":    task.IsMilestone,
-		})
-		event := model.BehaviorEvent{
-			UserID:      userID,
-			EventType:   "task_completed",
-			EntityType:  "task",
-			EntityID:    task.ID,
-			SystemTagID: task.SystemTagID,
-			OccurredAt:  now,
-			Metadata:    string(metadata),
-		}
-		h.DB.Create(&event)
 	}
-
 	c.JSON(http.StatusOK, task)
 }
 
 // createNextRepeatTask 创建下一个重复任务
 func (h *TaskHandler) createNextRepeatTask(task model.Task) {
+	_ = h.createNextRepeatTaskWithDB(h.DB, task)
+}
+
+// The guarded completion path creates the next occurrence within its CAS
+// transaction; a rejected or failed completion must not spawn a task.
+func (h *TaskHandler) createNextRepeatTaskWithDB(db *gorm.DB, task model.Task) error {
 	var nextDueDate time.Time
 	now := time.Now()
 
@@ -528,7 +605,7 @@ func (h *TaskHandler) createNextRepeatTask(task model.Task) {
 			nextDueDate = now.AddDate(task.RepeatInterval, 0, 0)
 		}
 	default:
-		return
+		return nil
 	}
 
 	nextTask := model.Task{
@@ -544,7 +621,7 @@ func (h *TaskHandler) createNextRepeatTask(task model.Task) {
 		RepeatDays:     task.RepeatDays,
 		ReminderAt:     task.ReminderAt,
 	}
-	h.DB.Create(&nextTask)
+	return db.Create(&nextTask).Error
 }
 
 // nextWeekday 计算下一个指定星期几的日期
