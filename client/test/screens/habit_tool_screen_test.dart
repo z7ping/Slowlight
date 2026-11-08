@@ -128,6 +128,9 @@ class _P05SingleLogRepo extends HabitRepository {
       ] : [];
 
   @override
+  Future<List<HabitLog>> logsForVerification(int habitId) => logs(habitId);
+
+  @override
   Future<void> deleteLog(int habitId, int logId) async {
     if (habitId != 79) throw StateError('wrong habit');
     deletedId = logId;
@@ -149,7 +152,38 @@ class _LostDeleteAckRepo extends _P05SingleLogRepo {
   }
 }
 
+class _UnverifiedDeleteRepo extends _P05SingleLogRepo {
+  @override
+  Future<List<HabitLog>> logsForVerification(int habitId) async =>
+      throw StateError('remote read failed; cached log is not evidence');
+}
+
 void main() {
+  testWidgets('X06 缓存已消失但云端无法核实时不得误报撤销成功', (tester) async {
+    tester.view.physicalSize = const Size(1100, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repo = _UnverifiedDeleteRepo();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: repo)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('habits.details.79')));
+    await tester.pumpAndSettle();
+    final action = find.byKey(const ValueKey('habits.logs.cancel.501'));
+    await tester.ensureVisible(action);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('撤销记录'));
+    await tester.pumpAndSettle();
+
+    expect(repo.deletedId, 501);
+    expect(find.text('记录已撤销'), findsNothing);
+    expect(find.textContaining('撤销结果未确认'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X06 撤销响应丢失时仅重读单条日志，不重复发送删除', (tester) async {
     tester.view.physicalSize = const Size(1100, 950);
     tester.view.devicePixelRatio = 1;
