@@ -28,6 +28,15 @@ type deletionUndoEnvelope struct {
 func saveDeletionUndo(
 	tx *gorm.DB, userID uint, kind string, payload interface{},
 ) (string, error) {
+	// Expired receipts are not recovery data; prune older user-scoped rows
+	// opportunistically. substr avoids SQL LIKE underscore wildcards.
+	cutoff := time.Now().UTC().Add(-10 * time.Minute)
+	if err := tx.Unscoped().Where(
+		"user_id = ? AND substr(key, 1, ?) = ? AND created_at < ?",
+		userID, len(deletionUndoPrefix), deletionUndoPrefix, cutoff,
+	).Delete(&model.UserConfig{}).Error; err != nil {
+		return "", err
+	}
 	raw, err := json.Marshal(payload)
 	if err != nil { return "", err }
 	var random [16]byte
