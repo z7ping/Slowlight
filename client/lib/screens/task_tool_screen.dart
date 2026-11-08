@@ -302,6 +302,46 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     }
   }
 
+  bool _sameDueDate(DateTime? a, DateTime? b) =>
+      a == null ? b == null : b != null && a.isAtSameMomentAs(b);
+
+  Future<void> _undoPostpone(
+    int taskId, {
+    required DateTime expectedDueDate,
+    required DateTime? originalDueDate,
+  }) async {
+    if (!_pendingTaskIds.add(taskId)) return;
+    try {
+      final restored = await _dataService.restorePostponedDueDate(
+        taskId,
+        null,
+        expectedDueDate: expectedDueDate,
+        originalDueDate: originalDueDate,
+      );
+      if (!mounted) return;
+      if (!_sameDueDate(restored.dueDate, originalDueDate)) {
+        _message('撤销回执尚未核实，请查看任务日期');
+        return;
+      }
+      final request = _loadVersion + 1;
+      await _load();
+      if (!mounted) return;
+      if (_loadFailed || request != _loadVersion ||
+          !_all.any((item) =>
+              item.id == taskId && _sameDueDate(item.dueDate, originalDueDate))) {
+        _message('撤销已返回，但任务列表尚未确认，请刷新核对');
+        return;
+      }
+      _message('已撤销顺延');
+    } on StateError {
+      _message('任务日期已变化，未执行撤销，请核对后再操作');
+    } catch (_) {
+      _message('顺延撤销结果未确认，请核对任务日期');
+    } finally {
+      _pendingTaskIds.remove(taskId);
+    }
+  }
+
   Future<void> _postpone(Task task) async {
     if (_loadFailed) {
       _message('任务列表刷新未确认，请先重试刷新再操作');
@@ -310,15 +350,39 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     if (!_pendingTaskIds.add(task.id)) return;
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     try {
-      await _dataService.postponeTask(task.id, null);
+      final postponed = await _dataService.postponeTask(task.id, null);
+      if (!mounted) return;
       final request = _loadVersion + 1;
       await _load();
       if (!mounted) return;
-      if (_loadFailed || request != _loadVersion) {
+      final current = _all.cast<Task?>().firstWhere(
+        (item) => item?.id == task.id,
+        orElse: () => null,
+      );
+      if (_loadFailed || request != _loadVersion || current == null ||
+          !_sameDueDate(current.dueDate, postponed.dueDate)) {
         _message('顺延已返回，但列表刷新未确认，请查看任务日期');
-      } else {
-        _message('已顺延到明天');
+        return;
       }
+      final expectedDueDate = postponed.dueDate;
+      FxNotice.showContent(
+        context,
+        const Text('已顺延到明天'),
+        variant: FxNoticeVariant.success,
+        duration: const Duration(seconds: 4),
+        action: expectedDueDate != null &&
+                !_sameDueDate(task.dueDate, expectedDueDate) &&
+                !current.isCompleted
+            ? FxNoticeAction(
+                label: '撤销',
+                onPressed: () => _undoPostpone(
+                  task.id,
+                  expectedDueDate: expectedDueDate,
+                  originalDueDate: task.dueDate,
+                ),
+              )
+            : null,
+      );
     } catch (_) {
       _message('顺延结果未确认，请查看任务日期');
     } finally {
