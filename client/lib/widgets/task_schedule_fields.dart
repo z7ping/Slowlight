@@ -57,6 +57,38 @@ class TaskScheduleFields extends StatelessWidget {
             _reminderField(context),
           ],
         ),
+        if (onCustomReminderChanged != null) ...[
+          SizedBox(height: compact ? 8 : 12),
+          FxFormField(
+            label: '指定提醒日期和时间',
+            child: Row(
+              children: [
+                Expanded(
+                  child: _picker(
+                    key: const ValueKey('task-reminder-custom-picker'),
+                    context: context,
+                    text: customReminderAt == null
+                        ? '选择日期和时间'
+                        : _customReminderLabel(customReminderAt!),
+                    icon: LucideIcons.bell,
+                    onTap: () => _pickCustomReminder(context),
+                  ),
+                ),
+                if (customReminderAt != null) ...[
+                  const SizedBox(width: 4),
+                  FxIconButton(
+                    icon: LucideIcons.x,
+                    tooltip: '清除指定提醒',
+                    iconSize: 15,
+                    onPressed: enabled
+                        ? () => onCustomReminderChanged!(null)
+                        : null,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
         if (repeatType == 'weekly') ...[
           const SizedBox(height: 12),
           FxFormField(
@@ -182,66 +214,33 @@ class TaskScheduleFields extends StatelessWidget {
       60: '提前 1 小时',
     };
     return FxFormField(
-      label: dueDate == null ? '提醒（提前提醒需到期日期）' : '提醒',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FxSelect<int>(
-            // Custom reminders are still valid without a task due date.
-            value: customReminderAt != null
-                ? -2
-                : dueDate == null ? -1 : reminderAdvanceMinutes,
-            enabled: enabled && dueDate != null,
-            options: [
-              if (customReminderAt != null)
-                const FxSelectOption<int>(
-                  value: -2,
-                  label: '指定提醒日期和时间',
-                ),
-              ...values.entries.map((entry) => FxSelectOption<int>(
-                value: entry.key,
-                label: entry.value,
-              )),
-            ],
-            onChanged: (value) {
-              if (value == -2) {
-                _pickCustomReminder(context);
-              } else {
-                onReminderChanged(value ?? -1);
-              }
-            },
-          ),
-          if (onCustomReminderChanged != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _picker(
-                    key: const ValueKey('task-reminder-custom-picker'),
-                    context: context,
-                    text: customReminderAt == null
-                        ? '指定提醒日期和时间'
-                        : _customReminderLabel(customReminderAt!),
-                    icon: LucideIcons.bell,
-                    onTap: () => _pickCustomReminder(context),
-                  ),
-                ),
-                if (customReminderAt != null) ...[
-                  const SizedBox(width: 4),
-                  FxIconButton(
-                    icon: LucideIcons.x,
-                    tooltip: '清除指定提醒',
-                    iconSize: 15,
-                    onPressed: enabled
-                        ? () => onCustomReminderChanged!(null)
-                        : null,
-                  ),
-                ],
-              ],
-            ),
+      label: dueDate == null ? '相对提醒（需到期日期）' : '提醒',
+      child: FxSelect<int>(
+          // Custom reminders are still valid without a task due date.
+          value: customReminderAt != null
+              ? -2
+              : dueDate == null ? -1 : reminderAdvanceMinutes,
+          enabled: enabled && dueDate != null,
+          options: [
+            if (customReminderAt != null)
+              const FxSelectOption<int>(
+                value: -2,
+                label: '指定提醒日期和时间',
+              ),
+            ...values.entries.map((entry) => FxSelectOption<int>(
+              value: entry.key,
+              label: entry.value,
+            )),
           ],
-        ],
-      ),
+          onChanged: (value) {
+            if (value == -2) {
+              _pickCustomReminder(context);
+            } else {
+              onReminderChanged(value ?? -1);
+            }
+          },
+        ),
+
     );
   }
 
