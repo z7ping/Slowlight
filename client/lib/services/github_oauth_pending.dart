@@ -1,9 +1,8 @@
 import 'dart:convert';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import 'api_service.dart';
 import 'auth_storage_diagnostics.dart';
+import 'secure_storage_config.dart';
 
 /// Android 待完成的 GitHub 会话，数据仅保存在系统安全存储中。
 class GitHubOAuthPending {
@@ -21,7 +20,7 @@ class GitHubOAuthPending {
   });
 
   static const storageKey = 'github_oauth_pending';
-  static const secureStorage = FlutterSecureStorage();
+  static const secureStorage = slowlightSecureStorage;
 
   final String sessionId;
   final String pollToken;
