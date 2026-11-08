@@ -7,6 +7,7 @@
 | 方法 | 路径 |
 |---|---|
 | GET | `/health` |
+| GET | `/api/version` |
 | POST | `/api/auth/github/start` |
 | GET | `/api/auth/github/callback` |
 | POST | `/api/auth/github/poll` |
@@ -127,4 +128,4 @@
 | POST | `/api/caldav/test` |
 | GET | `/api/feishu/config` |
 
-共 120 条路由。
+共 121 条路由。
