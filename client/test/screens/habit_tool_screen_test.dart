@@ -236,6 +236,33 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P1-9 习惯卡片详情展开/收起复用可中断轻过渡', (tester) async {
+    tester.view.physicalSize = const Size(1100, 950);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: _P05SingleLogRepo())),
+    ));
+    await tester.pumpAndSettle();
+
+    final motion = find.byKey(const ValueKey('habits.motion.79'));
+    expect(motion, findsOneWidget);
+    expect(tester.widget<AnimatedSize>(motion).duration,
+        const Duration(milliseconds: 180));
+    final toggle = find.byKey(const ValueKey('habits.details.79'));
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(find.text('本月记录'), findsOneWidget);
+    // Reverse before the previous animation has finished.
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('本月记录'), findsNothing);
+    expect(toggle, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P05 单条撤销按日志身份删除，不误用仍可打卡的日级 toggle', (tester) async {
     tester.view.physicalSize = const Size(1100, 950);
     tester.view.devicePixelRatio = 1;
