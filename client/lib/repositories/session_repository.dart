@@ -18,8 +18,17 @@ class SessionRepository {
         device: device,
       );
 
-  Future<Map<String, dynamic>> endSession({int? systemTagId}) =>
-      SessionApi.endSession(systemTagId: systemTagId);
+  Future<Map<String, dynamic>> endSession({
+    int? systemTagId,
+    int? sessionId,
+    int? expectedRevision,
+    bool naturallyCompleted = false,
+  }) => SessionApi.endSession(
+        systemTagId: systemTagId,
+        sessionId: sessionId,
+        expectedRevision: expectedRevision,
+        naturallyCompleted: naturallyCompleted,
+      );
 
   Future<Map<String, dynamic>> pauseSession(int sessionId, int revision) =>
       SessionApi.pauseSession(sessionId, revision);
