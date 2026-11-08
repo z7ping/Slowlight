@@ -27,16 +27,17 @@ class AuthStorageDiagnostics {
   @visibleForTesting
   static void Function(String)? debugTraceSink;
 
-  static void _record(String event) {
-    if (!_started) {
-      _started = true;
-      _recordEvent('process_started trace=auth_storage_v1');
-    }
-    _recordEvent(event);
-  }
+  static void _record(String event) => _recordEvent(event);
 
   static void _recordEvent(String event) {
-    final line = 'seq=${++_sequence} $event';
+    if (!_started) {
+      _started = true;
+      _writeSafeLog('seq=${++_sequence} process_started trace=auth_storage_v1');
+    }
+    _writeSafeLog('seq=${++_sequence} $event');
+  }
+
+  static void _writeSafeLog(String line) {
     try {
       debugTraceSink?.call(line);
     } catch (_) {
