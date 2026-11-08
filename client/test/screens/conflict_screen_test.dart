@@ -104,4 +104,63 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('S14 回执异常必须先重新核对，不能直接重复写入', (tester) async {
+    var writes = 0;
+    var reads = 0;
+    final row = <String, dynamic>{
+      '_entity_type': 'tasks',
+      'id': 8,
+      'server_id': 20,
+      'title': '网络中断任务',
+    };
+    await tester.pumpWidget(buildFxTestHost(
+      home: ConflictScreen(
+        conflictsLoader: () async {
+          reads++;
+          return [row];
+        },
+        remotePreviewLoader: (_, __) async => {'title': '云端版本'},
+        conflictResolver: (_, {required entityType, required keepLocal}) async {
+          writes++;
+          if (writes == 1) throw StateError('connection closed');
+          return true;
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FxButton, '保留本地版本'));
+    await tester.pumpAndSettle();
+
+    expect(writes, 1);
+    expect(
+      find.byKey(const ValueKey('conflicts.recheck_unknown')),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<FxButton>(
+        find.widgetWithText(FxButton, '保留本地版本'),
+      ).onPressed,
+      isNull,
+    );
+    expect(
+      tester.widget<FxButton>(
+        find.widgetWithText(FxButton, '使用服务端版本'),
+      ).onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('conflicts.recheck_unknown')));
+    await tester.pumpAndSettle();
+    expect(reads, 2);
+    expect(
+      find.byKey(const ValueKey('conflicts.recheck_unknown')),
+      findsNothing,
+    );
+    await tester.tap(find.widgetWithText(FxButton, '保留本地版本'));
+    await tester.pumpAndSettle();
+    expect(writes, 2);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
