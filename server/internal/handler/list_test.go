@@ -218,6 +218,39 @@ func TestDeleteList(t *testing.T) {
 	}
 }
 
+func TestDeleteList_X08ReceiptSurvivesLostHttpResponse(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	user := createTestUser(t, tx)
+	other := createTestUser(t, tx)
+	list := createTestList(t, tx, user.ID, "远端已提交但回执丢失")
+	router := newListRouter(NewListHandler(tx), user.ID)
+	token := "0123456789abcdef0123456789abcdef"
+	url := "/lists/" + itoa(list.ID) +
+		"?delete_tasks=true&expected_tasks=0&undoable=true&undo_token=" + token
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("删除失败: %d %s", w.Code, w.Body.String()) }
+	// Client discards DELETE response and only has the originally generated key.
+	status := "/undo-receipt?kind=list&token=" + token
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, status, nil))
+	if w.Code != http.StatusOK { t.Fatalf("已提交删除不能只读确认: %d", w.Code) }
+	otherRouter := newListRouter(NewListHandler(tx), other.ID)
+	w = httptest.NewRecorder()
+	otherRouter.ServeHTTP(w, httptest.NewRequest(http.MethodGet, status, nil))
+	if w.Code != http.StatusNotFound { t.Fatalf("跨账号可读取撤销凭据: %d", w.Code) }
+	body, _ := json.Marshal(map[string]string{"token": token})
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost,
+		"/lists/undo", bytes.NewReader(body)))
+	if w.Code != http.StatusOK { t.Fatalf("原ID恢复失败: %d %s", w.Code, w.Body.String()) }
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, status, nil))
+	if w.Code != http.StatusNotFound { t.Fatalf("撤销凭据未单次消费: %d", w.Code) }
+	if err := tx.First(&model.List{}, list.ID).Error; err != nil { t.Fatal(err) }
+}
+
 func TestDeleteList_X08UndoRestoresOriginalListAndChildren(t *testing.T) {
 	db := setupTestDB(t)
 	tx := beginTx(t, db)
