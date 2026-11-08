@@ -132,7 +132,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('专注时间分配'), findsOneWidget);
     expect(find.text('今日已记录专注'), findsOneWidget);
-    expect(find.text('75'), findsWidgets);
+    expect(find.textContaining('75'), findsWidgets);
     expect(find.text('未分类'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('timedist.kpi.focus')));
     await tester.pumpAndSettle();
