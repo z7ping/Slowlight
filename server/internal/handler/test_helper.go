@@ -56,6 +56,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.User{},
 		&model.OAuthIdentity{},
 		&model.OAuthLoginSession{},
+		&model.AuthRefreshSession{},
 		&model.List{},
 		&model.Task{},
 		&model.Subtask{},

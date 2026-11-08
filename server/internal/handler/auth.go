@@ -36,8 +36,9 @@ type LoginRequest struct {
 }
 
 type AuthResponse struct {
-	Token string     `json:"token"`
-	User  model.User `json:"user"`
+	Token        string     `json:"token"`
+	RefreshToken string     `json:"refresh_token,omitempty"`
+	User         model.User `json:"user"`
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -86,12 +87,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	token, err := generateToken(user.ID)
+	token, refreshToken, err := issueAuthSession(h.DB, user.ID, "password")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
 		return
 	}
-	c.JSON(http.StatusCreated, AuthResponse{Token: token, User: user})
+	c.JSON(http.StatusCreated, AuthResponse{Token: token, RefreshToken: refreshToken, User: user})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -109,12 +110,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}
-	token, err := generateToken(user.ID)
+	token, refreshToken, err := issueAuthSession(h.DB, user.ID, "password")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
 		return
 	}
-	c.JSON(http.StatusOK, AuthResponse{Token: token, User: user})
+	c.JSON(http.StatusOK, AuthResponse{Token: token, RefreshToken: refreshToken, User: user})
 }
 
 // GetLinkedProviders 返回当前 Slowlight 账号的已验证绑定状态，
@@ -161,7 +162,7 @@ func generateTokenWithMethod(userID uint, method string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"auth_method": method,
-		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+		"exp":     time.Now().Add(time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

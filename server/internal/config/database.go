@@ -98,6 +98,7 @@ func InitDB() (*gorm.DB, error) {
 		&model.User{},
 		&model.OAuthIdentity{},
 		&model.OAuthLoginSession{},
+		&model.AuthRefreshSession{},
 		&model.List{},
 		&model.Task{},
 		&model.Subtask{},
