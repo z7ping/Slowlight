@@ -822,6 +822,17 @@ func TestP07CloudSessionDailyBucketsUseAccountTimezone(t *testing.T) {
         DurationSec: 1500,
     }).Error; err != nil { t.Fatal(err) }
 
+    olderStart := started.AddDate(0, 0, -1)
+    olderEnd := olderStart.Add(25*time.Minute)
+    if err := db.Create(&model.WorkSession{
+        UserID: userID,
+        SessionType: "work",
+        TargetMinutes: 25,
+        StartedAt: olderStart,
+        EndedAt: &olderEnd,
+        DurationSec: 1500,
+    }).Error; err != nil { t.Fatal(err) }
+
     router := newSessionRouter(handler, userID)
     w := httptest.NewRecorder()
     req, _ := http.NewRequest("GET", "/sessions/stats?period=week", nil)
@@ -832,10 +843,13 @@ func TestP07CloudSessionDailyBucketsUseAccountTimezone(t *testing.T) {
     var payload map[string]interface{}
     if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil { t.Fatal(err) }
     days, ok := payload["daily"].([]interface{})
-    if !ok || len(days) == 0 { t.Fatalf("missing daily stats: %v", payload) }
+    if !ok || len(days) != 2 { t.Fatalf("missing two daily stats: %v", payload) }
     first := days[0].(map[string]interface{})
-    want := started.In(loc).Format("2006-01-02")
-    if first["date"] != want {
-        t.Fatalf("account day = %v, want %s", first["date"], want)
+    second := days[1].(map[string]interface{})
+    wantOlder := olderStart.In(loc).Format("2006-01-02")
+    wantLatest := started.In(loc).Format("2006-01-02")
+    if first["date"] != wantOlder || second["date"] != wantLatest {
+        t.Fatalf("daily trend not sorted in account timezone: %v, want %s then %s",
+            days, wantOlder, wantLatest)
     }
 }
