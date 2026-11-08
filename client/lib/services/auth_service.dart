@@ -59,6 +59,24 @@ class AuthService {
   @visibleForTesting
   static void Function(String)? debugAuthTraceSink;
   static String? _lastTokenState;
+  static bool _missingStorageProbed = false;
+
+  static Future<void> _probeMissingStorageOnce() async {
+    if (_missingStorageProbed) return;
+    _missingStorageProbed = true;
+    // Presence-only probes after a confirmed missing access credential.
+    // A single event per loss episode, never per failed HTTP request.
+    await AuthStorageDiagnostics.checkpoint(
+      _secureStorage,
+      slot: AuthStorageSlot.refresh,
+      actor: 'access_missing.companion_refresh',
+    );
+    await AuthStorageDiagnostics.checkpoint(
+      _secureStorage,
+      slot: AuthStorageSlot.oauthPending,
+      actor: 'access_missing.companion_pending',
+    );
+  }
 
   static void _trace(String event) {
     try {
@@ -171,6 +189,7 @@ class AuthService {
         logPresent: source != 'http_request' && source != 'general',
       );
       if (secureToken != null && secureToken.isNotEmpty) {
+        _missingStorageProbed = false;
         _observeToken(secureToken, 'secure');
         return secureToken;
       }
@@ -187,17 +206,20 @@ class AuthService {
           );
           if (confirmedToken != null && confirmedToken.isNotEmpty) {
             _trace('credential.read_retry result=recovered');
+            _missingStorageProbed = false;
             _observeToken(confirmedToken, 'secure_retry');
             return confirmedToken;
           }
         }
         _observeToken(null, 'none');
+        await _probeMissingStorageOnce();
         return null;
       }
 
       await _writeStorage(AuthStorageSlot.access, legacyToken, 'legacy_migration');
       await prefs.remove(_tokenKey);
       _trace('credential.legacy_migrated');
+      _missingStorageProbed = false;
       _observeToken(legacyToken, 'legacy');
       return legacyToken;
     } catch (error) {
@@ -440,6 +462,7 @@ class AuthService {
       throw StateError('更新登录凭据失败');
     }
     _credentialEpoch++;
+    _missingStorageProbed = false;
     _observeToken(newToken, 'refresh');
     _trace('refresh.committed');
     return newToken;
@@ -455,6 +478,7 @@ class AuthService {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
     await prefs.remove(_loginMethodKey);
+    _missingStorageProbed = true;
     _observeToken(null, 'logout');
     _trace('credential.logout_completed');
     if (refresh != null && refresh.isNotEmpty) {
@@ -581,6 +605,7 @@ class AuthService {
       } else {
         await prefs.setString(_loginMethodKey, loginMethod);
       }
+      _missingStorageProbed = false;
       _observeToken(token, 'save');
       final method = token.startsWith('local:')
           ? 'local'
