@@ -41,7 +41,7 @@ void main() {
     expect(completes, 1);
     expect(find.byType(FxSpinner), findsOneWidget);
 
-    await tester.tap(find.text('提交中的行'));
+    await tester.tapAt(tester.getCenter(find.text('提交中的行')));
     await tester.pump();
     expect(childTaps, 0);
     expect(completes, 1);
