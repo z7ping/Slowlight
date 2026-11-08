@@ -634,7 +634,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         barrierDismissible: false,
       );
       if (confirmed != true || !mounted || version != _loadVersion) return;
-      await _repository.delete(tag);
+      await _repository.delete(tag, expectedImpact: impact);
       if (mounted) await _load();
     } catch (error) {
       if (!mounted) return;
