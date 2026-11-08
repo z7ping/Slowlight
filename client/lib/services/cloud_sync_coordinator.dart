@@ -30,6 +30,9 @@ class CloudSyncCoordinator {
   /// 目前主要是 Reflection create。Task completion 通常已有同实体 queue，
   /// 因此不会在 UI 中重复计算两次。
   final ValueNotifier<int> standalonePendingCount = ValueNotifier<int>(0);
+  /// The count is unknown if Cloud Cache could not be read. Never display
+  /// a fabricated zero or accept a sync-success receipt in that state.
+  final ValueNotifier<bool> standalonePendingUnknown = ValueNotifier<bool>(false);
 
   Timer? _timer;
   bool _running = false;
@@ -58,6 +61,7 @@ class CloudSyncCoordinator {
   Future<void> refreshStandalonePendingCount() async {
     if (!DataModeManager().isCloud) {
       standalonePendingCount.value = 0;
+      standalonePendingUnknown.value = false;
       return;
     }
     try {
@@ -72,9 +76,11 @@ class CloudSyncCoordinator {
         )
       ''');
       standalonePendingCount.value = rows.first['cnt'] as int? ?? 0;
+      standalonePendingUnknown.value = false;
     } catch (_) {
-      // 未认证 / 账号切换中的短窗口不保留上一账号的 pending UI 状态。
-      standalonePendingCount.value = 0;
+      // A failed read is unknown, not evidence that every intent is synced.
+      // Keep the previous count as a stale lower-bound until a successful read.
+      standalonePendingUnknown.value = true;
     }
   }
 
@@ -372,5 +378,6 @@ class CloudSyncCoordinator {
     _timer?.cancel();
     _timer = null;
     standalonePendingCount.value = 0;
+    standalonePendingUnknown.value = false;
   }
 }
