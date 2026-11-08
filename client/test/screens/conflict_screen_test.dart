@@ -50,4 +50,58 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('S14 同一冲突的本地和云端决策互斥，不会双重提交', (tester) async {
+    final pending = Completer<bool>();
+    var writes = 0;
+    var reads = 0;
+    final row = <String, dynamic>{
+      '_entity_type': 'tasks',
+      'id': 7,
+      'server_id': 19,
+      'title': '待确认的任务',
+    };
+    await tester.pumpWidget(buildFxTestHost(
+      home: ConflictScreen(
+        conflictsLoader: () async {
+          reads++;
+          return [row];
+        },
+        remotePreviewLoader: (_, __) async => {'title': '服务端任务'},
+        conflictResolver: (id, {required entityType, required keepLocal}) {
+          expect(id, 7);
+          expect(entityType, 'tasks');
+          expect(keepLocal, true);
+          writes++;
+          return pending.future;
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FxButton, '保留本地版本'));
+    await tester.pump();
+    expect(writes, 1);
+    expect(find.text('处理中…'), findsOneWidget);
+    expect(
+      tester.widget<FxButton>(
+        find.widgetWithText(FxButton, '使用服务端版本'),
+      ).onPressed,
+      isNull,
+    );
+    expect(
+      tester.widget<FxButton>(
+        find.widgetWithText(FxButton, '处理中…'),
+      ).onPressed,
+      isNull,
+    );
+
+    pending.complete(true);
+    await tester.pumpAndSettle();
+    expect(writes, 1);
+    expect(reads, 2);
+    expect(find.text('处理中…'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
