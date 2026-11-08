@@ -92,22 +92,70 @@ class FxDialog {
     String confirmText = '确认',
     String cancelText = '取消',
     bool destructive = false,
+    bool draftDiscard = false,
     bool barrierDismissible = true,
   }) {
+    // A draft exit differs from deleting persisted data: keep editing is the
+    // emphasized, wider choice on mobile. Desktop confirmations stay compact.
+    final platform = Theme.of(context).platform;
+    final useDraftLayout = draftDiscard &&
+        (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
     return showShadDialog<bool>(
       context: context,
       barrierColor: barrierColor,
       barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      variant:
-          destructive ? ShadDialogVariant.alert : ShadDialogVariant.primary,
+      variant: destructive && !useDraftLayout
+          ? ShadDialogVariant.alert
+          : ShadDialogVariant.primary,
       builder: (ctx) => ShadDialog(
         // Short confirmations have a single explicit cancel action. Do not
         // add ShadDialog's corner close button as a second exit affordance.
         closeIcon: const SizedBox.shrink(),
+        radius: useDraftLayout
+            ? const BorderRadius.all(Radius.circular(SlowlightRadius.xl))
+            : null,
+        removeBorderRadiusWhenTiny: useDraftLayout ? false : null,
         title: Text(title, style: _titleStyle(ctx)),
         description: Text(content, style: _descriptionStyle(ctx)),
-        actions: [
+        child: useDraftLayout
+            ? SizedBox(
+                // 16dp outside margins + 24dp dialog padding on both sides.
+                width: (MediaQuery.sizeOf(ctx).width - 80).clamp(0.0, 372.0),
+                child: Row(
+                  key: const ValueKey('fx.dialog.draftActions'),
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: FxButton(
+                        key: const ValueKey('fx.dialog.discardDraft'),
+                        label: confirmText,
+                        expanded: true,
+                        variant: FxButtonVariant.outline,
+                        onPressed: () =>
+                            Navigator.of(ctx, rootNavigator: true).pop(true),
+                      ),
+                    ),
+                    const SizedBox(width: SlowlightSpacing.md),
+                    Expanded(
+                      flex: 3,
+                      child: Focus(
+                        autofocus: true,
+                        child: FxButton(
+                          key: const ValueKey('fx.dialog.keepEditing'),
+                          label: cancelText == '取消' ? '继续编辑' : cancelText,
+                          expanded: true,
+                          variant: FxButtonVariant.primary,
+                          onPressed: () =>
+                              Navigator.of(ctx, rootNavigator: true).pop(false),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : null,
+        actions: useDraftLayout ? const <Widget>[] : [
           // 复用统一按钮的尺寸、语义与异步防重入契约。
           // 直接使用 ShadButton 会绕过 Android 44dp 点击区域。
           FxButton(
