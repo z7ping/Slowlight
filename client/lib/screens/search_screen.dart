@@ -344,7 +344,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      '部分搜索来源未读取：${_partialUnavailable.join('、')}。以下仅为已载入结果。',
+                                      _partialUnavailable.any((source) => source.endsWith('（部分）'))
+                                          ? '部分搜索来源尚未完整核对：${_partialUnavailable.join('、')}。以下仅为已载入结果。'
+                                          : '部分搜索来源未读取：${_partialUnavailable.join('、')}。以下仅为已载入结果。',
                                       style: SlowlightTypography.secondary(context),
                                     ),
                                   ),
