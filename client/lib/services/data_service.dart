@@ -145,6 +145,14 @@ class DataService {
 
   Future<Task> postponeTask(int localId, int? serverId) =>
       taskRepository.postponeTask(_effectiveId(localId, serverId));
+  Future<Task> restorePostponedDueDate(int localId, int? serverId, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  }) => taskRepository.restorePostponedDueDate(
+    _effectiveId(localId, serverId),
+    expectedDueDate: expectedDueDate,
+    originalDueDate: originalDueDate,
+  );
 
   Future<List<Task>> getTodayTasks() => taskRepository.getTodayTasks();
   Future<List<Task>> getTasksByListId(int listId) =>
