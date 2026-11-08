@@ -40,7 +40,7 @@ class SyncIncrementalPull {
     // skip those remote deletes forever.
     final rawTime = changes['server_time'];
     final nextTime = rawTime is String &&
-            RegExp(r'(Z|[+-]\d{2}:\d{2}).hasMatch(rawTime)
+            RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(rawTime)
         ? DateTime.tryParse(rawTime)?.toUtc()
         : null;
     if (nextTime == null) {
