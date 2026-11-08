@@ -36,6 +36,7 @@ class _ModeSwitchRepository implements FeishuIntegrationRepository {
 
 class _TemplateRepository implements FeishuIntegrationRepository {
   final pending = Completer<Map<String, dynamic>>();
+  final newer = Completer<Map<String, dynamic>>();
   int configReads = 0;
   int templateCalls = 0;
 
@@ -58,7 +59,7 @@ class _TemplateRepository implements FeishuIntegrationRepository {
   @override
   Future<Map<String, dynamic>> createTemplate() {
     ++templateCalls;
-    return pending.future;
+    return templateCalls == 1 ? pending.future : newer.future;
   }
 
   @override
@@ -177,14 +178,29 @@ void main() {
     await tester.pump();
     expect(fake.configReads, 2);
 
+    // The old Local operation must not lock the new Cloud settings.
+    await tester.tap(find.text('创建数据模板'));
+    await tester.pump();
+    await tester.tap(find.text('创建模板'));
+    await tester.pump();
+    expect(fake.templateCalls, 2);
+    expect(find.text('创建中…'), findsOneWidget);
+
     fake.pending.complete({
       'bitable_url': 'https://stale.example/base',
       'tables': {'任务': 'stale-table'},
     });
     await tester.pump();
+    expect(find.text('创建中…'), findsOneWidget);
+
+    fake.newer.complete({
+      'bitable_url': 'https://current.example/base',
+      'tables': {'任务': 'current-table'},
+    });
+    await tester.pump();
     final fields = tester.widgetList<FxInput>(find.byType(FxInput)).toList();
     expect(fields.first.controller!.text, 'cloud_app');
-    expect(fields[2].controller!.text, 'https://cloud.example/base');
+    expect(fields[2].controller!.text, 'https://current.example/base');
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
