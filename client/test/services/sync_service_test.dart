@@ -230,8 +230,8 @@ void main() {
     final evidence = SyncService().lastQueueRun;
     expect(evidence?.attempted, 2);
     expect(evidence?.failed, 2);
-    expect(evidence?.acknowledged, 0);
-    expect(evidence?.partiallyAcknowledged, isFalse);
+    expect(evidence?.processed, 0);
+    expect(evidence?.partiallyProcessed, isFalse);
     expect((await SyncService().getPendingFailures()).length, 2);
     expect((await db.query('sync_queue')).length, 2);
   });
@@ -252,7 +252,7 @@ void main() {
     expect(SyncService().lastError, contains('Unsupported habit_log sync operation'));
     expect(SyncService().lastQueueRun?.attempted, 1);
     expect(SyncService().lastQueueRun?.failed, 1);
-    expect(SyncService().lastQueueRun?.partiallyAcknowledged, isFalse);
+    expect(SyncService().lastQueueRun?.partiallyProcessed, isFalse);
   });
 
   test('X09 远端已写入的旧失败队列被确认后精确清理', () async {
