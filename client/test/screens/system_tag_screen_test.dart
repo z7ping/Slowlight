@@ -23,6 +23,13 @@ class _TagReads extends ObservationTagRepository {
 
   @override
   Future<List<ObservationTag>> getAll() => reads[calls++]();
+
+  @override
+  Future<Map<int, ObservationTagUsage>> getAssociationUsage(
+      List<ObservationTag> tags) async => {
+    for (final tag in tags)
+      tag.id: (tasks: 0, habits: 0, sessions: 0, reflections: 0),
+  };
 }
 
 class _TagImpactRepo extends ObservationTagRepository {
@@ -36,6 +43,13 @@ class _TagImpactRepo extends ObservationTagRepository {
   Future<List<ObservationTag>> getAll() async => [_tag(7, '阅读')];
 
   @override
+  Future<Map<int, ObservationTagUsage>> getAssociationUsage(
+      List<ObservationTag> tags) async => {
+    for (final tag in tags)
+      tag.id: (tasks: 2, habits: 1, sessions: 3, reflections: 4),
+  };
+
+  @override
   Future<({int tasks, int habits, int sessions, int reflections})?>
       getDeletionImpact(ObservationTag tag) async {
     previewCalls++;
@@ -46,6 +60,37 @@ class _TagImpactRepo extends ObservationTagRepository {
   @override
   Future<void> delete(ObservationTag tag) async {
     deleteCalls++;
+  }
+}
+
+class _TagUsageReads extends ObservationTagRepository {
+  int countCalls = 0;
+
+  @override
+  Future<List<ObservationTag>> getAll() async => [_tag(7, '阅读')];
+
+  @override
+  Future<Map<int, ObservationTagUsage>> getAssociationUsage(
+      List<ObservationTag> tags) async {
+    if (++countCalls == 1) throw StateError('usage temporarily unavailable');
+    return {7: (tasks: 1, habits: 0, sessions: 1, reflections: 0)};
+  }
+}
+
+class _TagDelayedUsage extends ObservationTagRepository {
+  final firstUsage = Completer<Map<int, ObservationTagUsage>>();
+  int calls = 0;
+
+  @override
+  Future<List<ObservationTag>> getAll() async => [_tag(7, '阅读')];
+
+  @override
+  Future<Map<int, ObservationTagUsage>> getAssociationUsage(
+      List<ObservationTag> tags) {
+    if (++calls == 1) return firstUsage.future;
+    return Future.value({
+      7: (tasks: 2, habits: 0, sessions: 0, reflections: 0),
+    });
   }
 }
 
@@ -160,4 +205,56 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('P15 显示已核对关联数量，点击整行进入原有编辑器', (tester) async {
+    final repository = _TagImpactRepo();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('关联 10 条'), findsOneWidget);
+    await tester.tap(find.text('#阅读'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑标签'), findsOneWidget);
+    expect(find.textContaining('关联 10 条'), findsWidgets);
+    expect(find.byType(FxInput), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P15 关联读取失败不隐藏标签，可独立重试恢复', (tester) async {
+    final repository = _TagUsageReads();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('#阅读'), findsOneWidget);
+    expect(find.text('关联未核对'), findsOneWidget);
+    expect(find.text('标签关联数量未全部核对，标签本身仍可管理。'), findsOneWidget);
+    await tester.tap(find.text('重试关联'));
+    await tester.pumpAndSettle();
+    expect(repository.countCalls, 2);
+    expect(find.textContaining('关联 2 条'), findsOneWidget);
+    expect(find.text('标签关联数量未全部核对，标签本身仍可管理。'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P15 关联读取迟到不能污染刷新后的标签记录', (tester) async {
+    final repository = _TagDelayedUsage();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repository)),
+    ));
+    await tester.pump();
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pump();
+    repository.firstUsage.complete({
+      7: (tasks: 999, habits: 0, sessions: 0, reflections: 0),
+    });
+    await tester.pumpAndSettle();
+    expect(find.textContaining('关联 999 条'), findsNothing);
+    expect(find.textContaining('关联 2 条'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
