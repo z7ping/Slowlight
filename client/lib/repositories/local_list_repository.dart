@@ -98,7 +98,7 @@ class LocalListRepository {
     return result;
   }
 
-  Future<void> delete(int id) async {
+  Future<void> delete(int id, {bool deleteTasks = false}) async {
     final db = await _db.database;
     final now = DateTime.now().toUtc().toIso8601String();
     await db.transaction((txn) async {
@@ -113,13 +113,22 @@ class LocalListRepository {
       if (rows.single['is_inbox'] == 1) {
         throw StateError('默认收集箱不可删除');
       }
-      // Same soft-delete semantics as deleting a task individually.
-      await txn.update(
-        'tasks',
-        {'deleted_at': now, 'updated_at': now},
-        where: 'list_id = ? AND deleted_at IS NULL',
-        whereArgs: [id],
+      final countRows = await txn.rawQuery(
+        'SELECT COUNT(*) AS total FROM tasks WHERE list_id = ? AND deleted_at IS NULL',
+        [id],
       );
+      final count = (countRows.single['total'] as num?)?.toInt() ?? 0;
+      if (count > 0 && !deleteTasks) {
+        throw StateError('清单下有任务，删除任务须明确确认');
+      }
+      if (deleteTasks) {
+        await txn.update(
+          'tasks',
+          {'deleted_at': now, 'updated_at': now},
+          where: 'list_id = ? AND deleted_at IS NULL',
+          whereArgs: [id],
+        );
+      }
       final deleted = await txn.update(
         'lists',
         {'deleted_at': now, 'updated_at': now},
