@@ -72,6 +72,11 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final surfaceDuration = reduceMotion
+        ? Duration.zero : const Duration(milliseconds: 160);
+    final contentDuration = reduceMotion
+        ? Duration.zero : const Duration(milliseconds: 180);
     final foreground = _expanded
         ? widget.textColor ?? theme.colorScheme.onSurface
         : widget.collapsedTextColor ?? theme.colorScheme.onSurface;
@@ -80,7 +85,7 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
         : widget.collapsedIconColor ?? theme.colorScheme.onSurfaceVariant;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
+      duration: surfaceDuration,
       decoration: BoxDecoration(
         color: _expanded
             ? widget.backgroundColor
@@ -140,7 +145,7 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
                   else if (widget.showTrailingIcon)
                     AnimatedRotation(
                       turns: _expanded ? .5 : 0,
-                      duration: const Duration(milliseconds: 160),
+                      duration: surfaceDuration,
                       child: Icon(
                         Icons.keyboard_arrow_down,
                         color: iconForeground,
@@ -151,7 +156,7 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
             ),
           ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 180),
+            duration: contentDuration,
             curve: Curves.easeOut,
             child: _expanded
                 ? Padding(

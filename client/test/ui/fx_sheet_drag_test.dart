@@ -17,6 +17,48 @@ void main() {
   setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
+  testWidgets('X15 Android 减少动态效果时 Sheet 回弹及键盘避让使用 0ms',
+      (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: child!,
+      ),
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开可编辑表单',
+          onPressed: () => FxSheet.show<void>(
+            context: context,
+            isDismissible: false,
+            onDismissRequested: () async {},
+            builder: (_) => const SizedBox(
+              height: 180,
+              child: Center(child: Text('原型表单')),
+            ),
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开可编辑表单'));
+    await tester.pumpAndSettle();
+    final surface = fxSheetSurfaceFinder();
+    expect(surface, findsOneWidget);
+    final keyboard = find.ancestor(
+      of: surface,
+      matching: find.byType(AnimatedPadding),
+    );
+    expect(tester.widget<AnimatedPadding>(keyboard.first).duration,
+        Duration.zero);
+    final drag = find.ancestor(
+      of: find.byKey(const ValueKey('fx.sheet.dragHandle')),
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(tester.widget<AnimatedContainer>(drag.first).duration,
+        Duration.zero);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('普通移动 Sheet 的显式引导线和 16dp 顶角与原型一致',
       (tester) async {
     tester.view.physicalSize = const Size(390, 850);
