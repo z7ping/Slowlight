@@ -305,6 +305,40 @@ void main() {
       whereArgs: [listId])).single['name'], '新本地草稿');
   });
 
+  test('X09 核对中切换账号不得更新原账户队列', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '原账号', 'icon': '📋',
+      'color': '#112233', 'server_id': 144,
+      'sync_status': 'pending', 'is_inbox': 0,
+      'created_at': now, 'updated_at': now,
+      'last_modified': 'original',
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'entity_server_id': 144, 'operation': 'update',
+      'retry_count': 1, 'last_error': 'timeout',
+      'created_at': now, 'updated_at': now,
+    });
+    SyncService().debugRemoteRead = (_, __, ___, ____) async {
+      final prefs = await SharedPreferences.getInstance();
+      final user = Map<String, dynamic>.from(
+        jsonDecode(cloudUserJson) as Map,
+      )..['id'] = 77;
+      await prefs.setString('user_data', jsonEncode(user));
+      return {'name': '原账号', 'icon': '📋',
+        'color': '#112233', 'is_inbox': false};
+    };
+    await expectLater(
+      SyncService().reconcileFailedWrites(), throwsStateError,
+    );
+    expect(await db.query('sync_queue'), hasLength(1));
+    expect((await db.query('lists', where: 'id = ?',
+      whereArgs: [listId])).single['sync_status'], 'pending');
+  });
+
   test('X09 历史 timeout 回执先隔离，不因后台周期重放', () async {
     await prepareCloud();
     final db = await CloudCacheDb().database;
