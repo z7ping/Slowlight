@@ -18,12 +18,14 @@ class TaskToolScreen extends StatefulWidget {
   // Independent loaders are test seams; production still uses DataService.
   final Future<List<dynamic>> Function()? taskDataLoader;
   final Future<List<TodoList>> Function()? listsLoader;
+  final DataService? dataService;
 
   const TaskToolScreen({
     super.key,
     this.dataLoader,
     this.taskDataLoader,
     this.listsLoader,
+    this.dataService,
   });
 
   @override
@@ -50,6 +52,14 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   bool _switchingDesktopTask = false;
   int? _revealedTaskId;
   final Set<int> _pendingTaskIds = <int>{};
+  final ScrollController _mobileScrollController = ScrollController();
+  DataService get _dataService => widget.dataService ?? DataService();
+
+  @override
+  void dispose() {
+    _mobileScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -73,7 +83,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     // A missing/slow collection must not block browsing already saved tasks.
     if (!combinedLoader) unawaited(_loadLists(request));
     try {
-      final data = DataService();
+      final data = _dataService;
       final values = await (widget.dataLoader?.call() ??
           widget.taskDataLoader?.call() ??
           Future.wait<dynamic>([
@@ -118,7 +128,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   Future<void> _loadLists(int request) async {
     try {
       final lists = await (widget.listsLoader?.call() ??
-          DataService().getLists());
+          _dataService.getLists());
       if (!mounted || request != _loadVersion) return;
       setState(() {
         _lists = lists;
@@ -202,24 +212,41 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     ],
   );
 
+  // Do not expose Undo for a write that was acknowledged but not reflected
+  // in a fresh task list; an old cloud /complete endpoint toggles state.
+  Future<bool> _refreshAndVerify(int taskId, bool completed) async {
+    final request = _loadVersion + 1;
+    await _load();
+    if (!mounted || _loadFailed || request != _loadVersion) return false;
+    return _all.any((task) =>
+        task.id == taskId && task.isCompleted == completed);
+  }
+
   Future<void> _toggle(Task task) async {
     if (!_pendingTaskIds.add(task.id)) return;
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     final wasCompleted = task.isCompleted;
     try {
-      if (wasCompleted) {
-        await DataService().uncompleteTask(task.id, null);
-      } else {
-        await DataService().completeTask(task.id, null);
+      final updated = wasCompleted
+          ? await _dataService.uncompleteTask(task.id, null)
+          : await _dataService.completeTask(task.id, null);
+      if (!mounted) return;
+      if (updated.isCompleted != !wasCompleted) {
+        await _load();
+        _message('任务状态已变化，请核对后再操作');
+        return;
       }
-      await _load();
+      if (!await _refreshAndVerify(task.id, !wasCompleted)) {
+        _message('任务更新已返回，但列表状态尚未确认，请刷新核对');
+        return;
+      }
       if (!mounted) return;
       FxNotice.showContent(
         context,
         Text(wasCompleted ? '已恢复待办' : '任务已完成'),
         variant: FxNoticeVariant.success,
         duration: const Duration(seconds: 4),
-        // 完成重复任务可能已生成下一周期，不能用简单 toggle 伪装撤销。
+        // Recurring tasks may have spawned the next occurrence.
         action: wasCompleted || task.isRepeat
             ? null
             : FxNoticeAction(
@@ -237,11 +264,33 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   Future<void> _undoCompletion(int taskId) async {
     if (!_pendingTaskIds.add(taskId)) return;
     try {
-      await DataService().uncompleteTask(taskId, null);
-      await _load();
+      // Cloud /complete is a toggle. An outdated toast must never complete a
+      // task again if another action/device has already uncompleted it.
+      final tasks = await _dataService.getAllTasks();
+      final current = tasks.cast<Task?>().firstWhere(
+        (task) => task?.id == taskId,
+        orElse: () => null,
+      );
+      if (!mounted) return;
+      if (current == null || current.isRepeat) {
+        _message('无法确认可撤销的原任务，请先核对任务列表');
+        return;
+      }
+      if (!current.isCompleted) {
+        await _load();
+        _message('任务已是待办状态，无需再次撤销');
+        return;
+      }
+      final updated = await _dataService.uncompleteTask(taskId, null);
+      if (!mounted) return;
+      if (updated.isCompleted ||
+          !await _refreshAndVerify(taskId, false)) {
+        _message('撤销回执尚未核实，请刷新任务列表确认');
+        return;
+      }
       _message('已恢复待办');
     } catch (_) {
-      _message('撤销结果未确认，请查看任务状态');
+      _message('撤销状态未确认，请核对任务后再操作');
     } finally {
       _pendingTaskIds.remove(taskId);
     }
@@ -251,9 +300,15 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     if (!_pendingTaskIds.add(task.id)) return;
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     try {
-      await DataService().postponeTask(task.id, null);
+      await _dataService.postponeTask(task.id, null);
+      final request = _loadVersion + 1;
       await _load();
-      _message('已顺延到明天');
+      if (!mounted) return;
+      if (_loadFailed || request != _loadVersion) {
+        _message('顺延已返回，但列表刷新未确认，请查看任务日期');
+      } else {
+        _message('已顺延到明天');
+      }
     } catch (_) {
       _message('顺延结果未确认，请查看任务日期');
     } finally {
@@ -436,6 +491,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     // entire '全部' list on every state change.
     return CustomScrollView(
       key: const ValueKey('tasks.mobile.list'),
+      controller: _mobileScrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
@@ -556,10 +612,16 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         for (var i = 0; i < items.length; i++)
           FxInkWell(
             key: ValueKey('tasks.mobile.filter.${i}'),
-            onTap: () => setState(() {
-              _segment = i;
-              _revealedTaskId = null;
-            }),
+            onTap: () {
+              if (_segment == i) return;
+              if (_mobileScrollController.hasClients) {
+                _mobileScrollController.jumpTo(0);
+              }
+              setState(() {
+                _segment = i;
+                _revealedTaskId = null;
+              });
+            },
             child: AnimatedContainer(
               duration: MediaQuery.of(context).disableAnimations
                   ? Duration.zero
