@@ -310,6 +310,41 @@ func TestDeleteList_P14PreserveInboxAndOtherUsers(t *testing.T) {
 	}
 }
 
+func TestGetListStats_P14ExcludesDeletedListsAndTasks(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	handler := NewListHandler(tx)
+	user := createTestUser(t, tx)
+	liveList := createTestList(t, tx, user.ID, "现有清单")
+	deletedList := createTestList(t, tx, user.ID, "已删除清单")
+	createTestTask(t, tx, user.ID, liveList.ID, "有效任务")
+	deletedTask := createTestTask(t, tx, user.ID, liveList.ID, "已删除任务")
+	createTestTask(t, tx, user.ID, deletedList.ID, "已删除清单任务")
+	if err := tx.Delete(&deletedTask).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Delete(&deletedList).Error; err != nil {
+		t.Fatal(err)
+	}
+	r := newTestGin()
+	r.Use(func(c *gin.Context) { withUser(c, user.ID); c.Next() })
+	r.GET("/lists/stats", handler.GetStats)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/lists/stats", nil)
+	r.ServeHTTP(w, req)
+	assertEqual(t, w.Code, http.StatusOK, "GetStats status")
+	var stats []struct {
+		ListID uint  `json:"list_id"`
+		Total  int64 `json:"total"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(t, len(stats), 1, "deleted lists omitted")
+	assertEqual(t, stats[0].ListID, liveList.ID, "only live list")
+	assertEqual(t, stats[0].Total, int64(1), "deleted tasks omitted")
+}
+
 func TestDeleteList_NotFound(t *testing.T) {
 	handler, userID := setupListTest(t)
 	r := newListRouter(handler, userID)
