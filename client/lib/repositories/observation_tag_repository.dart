@@ -318,7 +318,8 @@ class ObservationTagRepository {
   Future<List<ObservationTag>> _getLocal() async {
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
-    final rows = await db.query('system_tags', orderBy: 'created_at ASC');
+    final rows = await db.query('system_tags',
+        orderBy: 'created_at ASC, id ASC');
     return rows
         .map((row) => ObservationTag.fromJson(Map<String, dynamic>.from(row)))
         .toList();
