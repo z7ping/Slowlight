@@ -31,14 +31,14 @@ func TestP05MigrationPreservesRealGoalVersions(t *testing.T) {
     body,_:=json.Marshal(map[string]interface{}{
         "habits":[]map[string]interface{}{{
             "id":47,"name":title,"frequency":"daily",
-            "schedule_rule":"{}","record_type":"check","record_unit":"杯",
+            "schedule_rule":"{}","record_type":"count","record_unit":"杯",
             "goal_period":"week","goal_metric":"count","goal_value":5,
             "goal_history":[]map[string]interface{}{
                 {"revision":1,"goal_period":"week","goal_metric":"count",
-                 "goal_value":3,"record_type":"check","record_unit":"杯",
+                 "goal_value":3,"record_type":"count","record_unit":"杯",
                  "schedule_rule":"{}","effective_at":"2026-09-01T09:00:00Z"},
                 {"revision":2,"goal_period":"week","goal_metric":"count",
-                 "goal_value":5,"record_type":"check","record_unit":"杯",
+                 "goal_value":5,"record_type":"count","record_unit":"杯",
                  "schedule_rule":"{}","effective_at":"2026-10-01T09:00:00Z"},
             },
         }},
