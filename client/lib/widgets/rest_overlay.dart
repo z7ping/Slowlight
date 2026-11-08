@@ -1,9 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/lock_screen.dart';
 import '../services/reminder_service.dart';
 import '../ui/fx.dart';
 
@@ -48,9 +45,8 @@ class RestOverlay extends StatefulWidget {
 }
 
 class _RestOverlayState extends State<RestOverlay> {
-  late int _remaining;
-  Timer? _timer;
   bool _dismissed = false;
+  bool _actionPending = false;
 
   // 休息遮罩是独立高保真场景，这些字号只属于该组件，不扩散为全局 Token。
   static const double _modeLabelFontSize = 11;
@@ -74,77 +70,59 @@ class _RestOverlayState extends State<RestOverlay> {
     super.initState();
     _tip = (List.of(_tips)..shuffle()).first;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _remaining = widget.restSeconds;
-    LockScreenManager().updateOverlayCountdown(_remaining);
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_dismissed) return;
-      if (_remaining <= 0) {
-        _timer?.cancel();
-        _dismissAndEnd();
-        return;
-      }
-      setState(() => _remaining--);
-      LockScreenManager().updateOverlayCountdown(_remaining);
-    });
+    // ReminderService owns the only countdown and completion decision.
+    // A second widget timer could drift or end a rest while Windows sleeps.
     ReminderService().addListener(_onReminderChanged);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     ReminderService().removeListener(_onReminderChanged);
     super.dispose();
   }
 
   void _onReminderChanged() {
-    if (_dismissed) return;
-    final s = ReminderService();
-    if (s.state != 'micro_rest' && s.state != 'long_rest') {
-      // 从外部（托盘重置/停止等）触发了状态变更，自动关闭
+    if (_dismissed || !mounted) return;
+    final service = ReminderService();
+    if (service.state != 'micro_rest' && service.state != 'long_rest') {
+      // Do not mark a rest as completed locally; follow the service state.
       _dismissed = true;
-      _timer?.cancel();
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-    }
-  }
-
-  void _dismissAndEnd() {
-    if (_dismissed) return;
-    _dismissed = true;
-    _timer?.cancel();
-    if (context.mounted) {
       Navigator.of(context).pop();
-    }
-    final s = ReminderService();
-    if (s.state == 'micro_rest' || s.state == 'long_rest') {
-      s.endRest();
+    } else {
+      setState(() {});
     }
   }
 
   void _skipRest() {
-    if (_dismissed) return;
-    _dismissed = true;
-    _timer?.cancel();
-    if (context.mounted) {
-      Navigator.of(context).pop();
+    if (_dismissed || _actionPending) return;
+    final service = ReminderService();
+    if (service.isCurrentRestStrict ||
+        (service.state != 'micro_rest' && service.state != 'long_rest')) {
+      return;
     }
-    ReminderService().skipRest();
+    _actionPending = true;
+    service.skipRest();
+    // The service will dismiss us only after its state actually changes.
   }
 
   void _postponeRest() {
-    if (_dismissed) return;
-    _dismissed = true;
-    _timer?.cancel();
-    if (context.mounted) {
-      Navigator.of(context).pop();
+    if (_dismissed || _actionPending) return;
+    final service = ReminderService();
+    if (!service.isCurrentRestPostponeAllowed ||
+        (service.state != 'micro_rest' && service.state != 'long_rest')) {
+      return;
     }
-    ReminderService().postponeRest();
+    _actionPending = true;
+    service.postponeRest();
   }
 
   @override
   Widget build(BuildContext context) {
+    final service = ReminderService();
+    final active = service.state == 'micro_rest' ||
+        service.state == 'long_rest';
+    final _remaining = active ? service.remainingSeconds : widget.restSeconds;
     final m = _remaining ~/ 60;
     final s = _remaining % 60;
     final progress = widget.restSeconds <= 0
