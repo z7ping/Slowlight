@@ -66,13 +66,14 @@ class CalendarRepository {
       final completionInMonth =
           completedAt != null && _inMonth(completedAt, month);
       if (due != null && _inMonth(due, month) &&
-          !(completionInMonth && _sameCivilDay(due, completedAt))) {
+          !(completionInMonth && completedAt != null &&
+                _sameCivilDay(due, completedAt))) {
         final id = 'task-${task.id}-plan';
         if (!target.any((row) => row.id == id)) {
           target.add(_taskPlan(task, due));
         }
       }
-      if (completionInMonth) {
+      if (completionInMonth && completedAt != null) {
         final id = 'task-${task.id}-actual';
         if (!target.any((row) => row.id == id)) {
           target.add(_taskActual(task, completedAt));
