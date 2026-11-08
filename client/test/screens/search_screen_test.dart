@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/reflection_entry.dart';
 import 'package:slowlight/models/task.dart';
@@ -228,6 +231,47 @@ void main() {
     expect(find.text('命中习惯25'),findsOneWidget);
     expect(find.text('命中记录25'),findsOneWidget);
     expect(tester.takeException(),isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P09 最近搜索跨页面恢复且按云端账号隔离', (tester) async {
+    Map<String, Object?> user(int id) => {
+      'id':id, 'username':'search_user_$id',
+      'email':'user$id@example.com', 'nickname':'搜索用户',
+      'created_at':'2026-11-08T00:00:00Z',
+    };
+    SharedPreferences.setMockInitialValues({
+      'user_data':jsonEncode(user(321)),
+    });
+    DataModeManager().resetForTesting();
+    SearchResultData empty(String _) => (
+      tasks:<Task>[], habits:<Habit>[],
+      reflections:<ReflectionEntry>[], lists:<TodoList>[],
+    );
+    Widget screen() => buildFxTestHost(
+      home: SearchScreen(dataLoader:(query) async => empty(query)),
+    );
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '独立关键词');
+    await tester.pump(const Duration(milliseconds:350));
+    await tester.pumpAndSettle();
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getStringList('slowlight.search.recent.v1.cloud:321'),
+        ['独立关键词']);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    expect(find.text('独立关键词'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    SharedPreferences.setMockInitialValues({
+      'user_data':jsonEncode(user(322)),
+    });
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    expect(find.text('独立关键词'), findsNothing);
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
