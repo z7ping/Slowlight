@@ -621,6 +621,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     return SafeArea(
       top: false,
       child: Container(
+        key: const ValueKey('home.bottom-nav'),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           border: Border(
@@ -630,12 +631,14 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         child: Row(
           children: [
             _mobileBottomNavigationItem(
+              itemKey: const ValueKey('home.bottom-nav.today'),
               icon: LucideIcons.sun,
               label: '今天',
               selected: today,
               onTap: () => _openPrimary(HomePrimarySection.today),
             ),
             _mobileBottomNavigationItem(
+              itemKey: const ValueKey('home.bottom-nav.review'),
               icon: LucideIcons.bookOpen,
               label: '回顾',
               selected: !today,
@@ -648,6 +651,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   }
 
   Widget _mobileBottomNavigationItem({
+    required Key itemKey,
     required IconData icon,
     required String label,
     required bool selected,
@@ -657,14 +661,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     final color =
         selected ? activePalette.accent : theme.colorScheme.onSurfaceVariant;
     return Expanded(
-      child: FxInkWell(
-        onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: selected
-                ? activePalette.accent.withValues(alpha: .12)
-                : Colors.transparent,
-          ),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: FxInkWell(
+          key: itemKey,
+          onTap: onTap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 58),
             child: Padding(

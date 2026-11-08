@@ -8,6 +8,7 @@ import 'package:slowlight/services/data_service.dart';
 import 'package:slowlight/screens/habit_tool_screen.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
+import 'package:slowlight/ui/fx.dart' show FxInkWell;
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -51,6 +52,65 @@ void main() {
         await disposeFxTestHost(tester);
       });
     }
+
+    testWidgets('X14 Android 底部导航还原原型：透明选中项、等宽与状态切换',
+        (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+
+      final bar = find.byKey(const ValueKey('home.bottom-nav'));
+      final todayItem = find.byKey(const ValueKey('home.bottom-nav.today'));
+      final reviewItem = find.byKey(const ValueKey('home.bottom-nav.review'));
+      expect(bar, findsOneWidget);
+      expect(todayItem, findsOneWidget);
+      expect(reviewItem, findsOneWidget);
+
+      // 原型只有图标与文字变色；选中项不能再绘制整块强调色背景。
+      expect(tester.widget<FxInkWell>(todayItem).child, isA<ConstrainedBox>());
+      expect(tester.widget<FxInkWell>(reviewItem).child, isA<ConstrainedBox>());
+      expect(tester.getSize(todayItem).width,
+          closeTo(tester.getSize(reviewItem).width, 0.01));
+      expect(tester.getSize(todayItem).height, greaterThanOrEqualTo(58));
+
+      final todayIcon = tester.widget<Icon>(find.descendant(
+        of: todayItem,
+        matching: find.byType(Icon),
+      ));
+      final reviewIcon = tester.widget<Icon>(find.descendant(
+        of: reviewItem,
+        matching: find.byType(Icon),
+      ));
+      expect(todayIcon.size, 17);
+      expect(reviewIcon.size, 17);
+      expect(todayIcon.color, isNot(reviewIcon.color));
+
+      await tester.tap(reviewItem);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      final selectedReviewIcon = tester.widget<Icon>(find.descendant(
+        of: reviewItem,
+        matching: find.byType(Icon),
+      ));
+      expect(selectedReviewIcon.color, todayIcon.color);
+      expect(tester.widget<FxInkWell>(reviewItem).child, isA<ConstrainedBox>());
+
+      await tester.tap(todayItem);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 工具页隐藏底部导航并在返回后恢复', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('四象限'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsNothing);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      await disposeFxTestHost(tester);
+    });
 
     testWidgets('移动端只保留悬浮快速添加任务主入口', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
