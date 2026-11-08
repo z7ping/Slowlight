@@ -349,6 +349,11 @@ class CloudCacheRepository {
     }
     final db = await _db;
     final pattern = search == null ? null : searchSqlLikePattern(search);
+    final pendingClause = pendingOnly
+        ? """AND (habits.sync_status != 'synced' OR EXISTS (
+            SELECT 1 FROM habit_logs p WHERE p.habit_id = habits.id
+              AND p.sync_status NOT IN ('synced', 'pending_delete')))"""
+        : '';
     final rows = pattern == null
         ? await db.query(
             'habits',
@@ -371,9 +376,7 @@ class CloudCacheRepository {
                 SELECT 1 FROM habit_logs l WHERE l.habit_id = habits.id
                   AND l.sync_status != 'pending_delete'
                   AND LOWER(l.note) LIKE ? ESCAPE '!'))
-              ${pendingOnly ? """AND (habits.sync_status != 'synced' OR EXISTS (
-                SELECT 1 FROM habit_logs p WHERE p.habit_id = habits.id
-                  AND p.sync_status NOT IN ('synced', 'pending_delete')))""" : ''}
+              $pendingClause
             ORDER BY habits.created_at ASC
           ''', [pattern, pattern, pattern, pattern]);
     final user = await AuthService.getUser();
@@ -420,6 +423,8 @@ class CloudCacheRepository {
         'id': publicId,
         'user_id': user?.id ?? 0,
         'name': row['name'] ?? '',
+        if (pattern != null) 'search_note': row['search_note'] ?? '',
+        if (pattern != null) 'search_note_at': row['search_note_at'],
         'icon': row['icon'] ?? '✅',
         'color': row['color'] ?? '#52c41a',
         'frequency': row['frequency'] ?? 'daily',
