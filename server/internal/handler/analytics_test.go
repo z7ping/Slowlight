@@ -265,6 +265,17 @@ func TestGetDailyTrend_WithData(t *testing.T) {
 	tx.Create(&habit)
 	tx.Create(&model.HabitLog{HabitID: habit.ID, Date: today.Format("2006-01-02")})
 
+	// Only actual observations from the signed-in user count, not replies.
+	tx.Create(&model.Reflection{
+		UserID: userID, EntryType: "observation", Content: "今天观察", CreatedAt: now,
+	})
+	tx.Create(&model.Reflection{
+		UserID: userID, EntryType: "reflection", Content: "周期回应", CreatedAt: now,
+	})
+	tx.Create(&model.Reflection{
+		UserID: userID, EntryType: "observation", Content: "前日观察", CreatedAt: today.AddDate(0, 0, -1),
+	})
+
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/analytics/daily-trend", nil)
 	r.ServeHTTP(w, req)
@@ -282,5 +293,6 @@ func TestGetDailyTrend_WithData(t *testing.T) {
 	assertEqual(t, todayPoint.TaskCompleted, 1, "TodayCompleted")
 	assertEqual(t, todayPoint.FocusMinutes, 25, "TodayFocus")
 	assertEqual(t, todayPoint.HabitChecked, 1, "TodayHabitChecked")
+	assertEqual(t, todayPoint.ReflectionCount, 1, "TodayObservationCount")
 	assertEqual(t, todayPoint.HabitTotal, 1, "TodayHabitTotal")
 }
