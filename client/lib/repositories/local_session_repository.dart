@@ -79,7 +79,15 @@ class LocalSessionRepository {
     return {'message': '会话已开始', 'session': session};
   }
 
-  Future<Map<String, dynamic>> endSession({int? systemTagId}) async {
+  Future<Map<String, dynamic>> endSession({
+    int? systemTagId,
+    int? sessionId,
+    int? expectedRevision,
+    bool naturallyCompleted = false,
+  }) async {
+    if (expectedRevision != null && sessionId == null) {
+      throw StateError('结束会话必须同时指定会话 ID');
+    }
     final db = await _db();
     final now = DateTime.now().toUtc();
     late int sessionId;
@@ -88,7 +96,8 @@ class LocalSessionRepository {
     await db.transaction((txn) async {
       final active = await txn.query(
         'work_sessions',
-        where: 'ended_at IS NULL',
+        where: sessionId == null ? 'ended_at IS NULL' : 'ended_at IS NULL AND id = ?',
+        whereArgs: sessionId == null ? null : [sessionId],
         orderBy: 'started_at DESC',
         limit: 1,
       );
@@ -97,8 +106,17 @@ class LocalSessionRepository {
       }
 
       final row = active.first;
+      if (expectedRevision != null &&
+          (row['revision'] as int? ?? 0) != expectedRevision) {
+        throw StateError('会话版本已变更，请重新核对');
+      }
       sessionId = row['id'] as int;
       durationSec = _activeSeconds(row, now);
+      final target = row['target_minutes'] as int? ?? 0;
+      final completedNaturally = naturallyCompleted &&
+          row['session_type'] == 'work' &&
+          target > 0 &&
+          durationSec >= target * 60;
       final pausedDurationSec = _finalPausedSeconds(row, now);
       final resolvedSystemTagId = await _resolveSystemTagId(
         txn,
@@ -115,8 +133,9 @@ class LocalSessionRepository {
           'paused_at': null,
           'paused_duration_sec': pausedDurationSec,
           'system_tag_id': resolvedSystemTagId,
+          'naturally_completed': completedNaturally ? 1 : 0,
         },
-        where: 'id = ?',
+        where: 'id = ? AND ended_at IS NULL',
         whereArgs: [sessionId],
       );
     });
@@ -126,6 +145,7 @@ class LocalSessionRepository {
       'message': '会话已结束',
       'session': session,
       'duration': durationSec,
+      'completed_work_rounds': await _completedWorkRounds(db),
     };
   }
 
@@ -176,6 +196,7 @@ class LocalSessionRepository {
 
   Future<Map<String, dynamic>> getActiveSession() async {
     final db = await _db();
+    final completed = await _completedWorkRounds(db);
     final rows = await db.query(
       'work_sessions',
       where: 'ended_at IS NULL',
@@ -183,12 +204,13 @@ class LocalSessionRepository {
       limit: 1,
     );
     if (rows.isEmpty) {
-      return {'active': false, 'config': _defaultConfig()};
+      return {'active': false, 'config': _defaultConfig(), 'completed_work_rounds': completed};
     }
     return {
       'active': true,
       'session': _toJson(rows.first),
       'config': _defaultConfig(),
+      'completed_work_rounds': completed,
     };
   }
 
@@ -238,6 +260,14 @@ class LocalSessionRepository {
           started.day == now.day;
     }).toList();
     return _buildStats(todayRows);
+  }
+
+  Future<int> _completedWorkRounds(DatabaseExecutor db) async {
+    final rows = await db.rawQuery(
+      "SELECT COUNT(*) AS total FROM work_sessions "
+      "WHERE session_type = 'work' AND naturally_completed = 1 AND ended_at IS NOT NULL",
+    );
+    return (rows.first['total'] as num?)?.toInt() ?? 0;
   }
 
   Future<int?> _resolveSystemTagId(
@@ -344,6 +374,7 @@ class LocalSessionRepository {
         'session_type': row['session_type'],
         'task_id': row['task_id'],
         'target_minutes': row['target_minutes'] ?? 0,
+        'naturally_completed': (row['naturally_completed'] as int? ?? 0) == 1,
         'started_at': row['started_at'],
         'ended_at': row['ended_at'],
         'duration_seconds': row['duration_sec'] ?? 0,
