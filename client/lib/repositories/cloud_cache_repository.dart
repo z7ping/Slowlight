@@ -656,7 +656,7 @@ class CloudCacheRepository {
         whereArgs: rule==null ? [hid,day,habit['allow_multiple_per_day'] ?? 0] : [hid,event!.key],limit:1);
       if (existing.isNotEmpty) return <String,dynamic>{
         'log_id':null,'result':{'log':existing.first,'already_checked':true}};
-      if (event?.periodStart != null) {
+      if (event != null && event.periodStart != null) {
         if(!event.sameDayMultiple){
           final old=await tx.query('habit_logs',where:'habit_id = ? AND date = ?',whereArgs:[hid,day],limit:1);
           if(old.isNotEmpty)return <String,dynamic>{'log_id':null,'result':{'log':old.first,'already_checked':true}};
