@@ -7,6 +7,7 @@ import 'package:slowlight/screens/login_screen.dart';
 import 'package:slowlight/screens/focus_home_screen.dart';
 import 'package:slowlight/main.dart' show authStateNotifier;
 import 'package:slowlight/services/auth_service.dart';
+import 'package:slowlight/services/auth_storage_diagnostics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
@@ -58,6 +59,39 @@ void main() {
       authStateNotifier.removeListener(countEvent);
       FlutterSecureStorage.setMockInitialValues({});
     }
+  });
+
+  testWidgets('Android 打开账号页不会自动读取 GitHub 待绑定存储',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': 'existing.jwt.value',
+      'auth_refresh_token': 'existing-refresh',
+      'github_oauth_pending': 'unrelated-pending-entry',
+    });
+    final traces = <String>[];
+    AuthStorageDiagnostics.debugTraceSink = traces.add;
+    addTearDown(() {
+      AuthStorageDiagnostics.debugTraceSink = null;
+      FlutterSecureStorage.setMockInitialValues({});
+    });
+    await tester.runAsync(() => DataModeManager().setCloud());
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(initialSection: 'account'),
+    ));
+    await tester.pump();
+
+    expect(
+      traces.where((e) => e.contains('actor=oauth.pending.load')),
+      isEmpty,
+    );
+    const storage = FlutterSecureStorage();
+    expect(await storage.read(key: 'auth_token'), 'existing.jwt.value');
+    expect(await storage.read(key: 'auth_refresh_token'), 'existing-refresh');
+    await disposeFxTestHost(tester);
   });
 
   test('GitHub OAuth 内部占位邮箱不向用户展示', () {
