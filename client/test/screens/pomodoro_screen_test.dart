@@ -10,6 +10,17 @@ import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
 
+class _InactiveSessionRepository extends SessionRepository {
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {'active': false};
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+}
+
 class _ControlledSessionRepository extends SessionRepository {
   final Completer<Map<String, dynamic>> initial = Completer();
   var activeReads = 0;
@@ -81,7 +92,7 @@ void main() {
       (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     addTearDown(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
-    await tester.pumpWidget(buildFxTestHost(home: const PomodoroScreen()));
+    await tester.pumpWidget(buildFxTestHost(home: PomodoroScreen(sessionRepository: _InactiveSessionRepository())));
     await tester.pumpAndSettle();
 
     await tester.tap(fxTooltipFinder('专注设置'));
@@ -108,7 +119,7 @@ void main() {
 
     // A new screen instance must read stored preferences, not in-memory state.
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpWidget(buildFxTestHost(home: const PomodoroScreen()));
+    await tester.pumpWidget(buildFxTestHost(home: PomodoroScreen(sessionRepository: _InactiveSessionRepository())));
     await tester.pumpAndSettle();
     expect(find.text('45:00'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -127,7 +138,7 @@ void main() {
         ),
         child: child!,
       ),
-      home: const PomodoroScreen(),
+      home: PomodoroScreen(sessionRepository: _InactiveSessionRepository()),
     ));
     await tester.pump();
 
@@ -153,7 +164,7 @@ void main() {
         ),
         child: child!,
       ),
-      home: const PomodoroScreen(),
+      home: PomodoroScreen(sessionRepository: _InactiveSessionRepository()),
     ));
     await tester.pump();
     await tester.tap(fxTooltipFinder('专注设置'));
@@ -165,7 +176,7 @@ void main() {
   });
 
   testWidgets('专注设置关闭后不会残留遮罩', (tester) async {
-    await tester.pumpWidget(buildFxTestHost(home: const PomodoroScreen()));
+    await tester.pumpWidget(buildFxTestHost(home: PomodoroScreen(sessionRepository: _InactiveSessionRepository())));
     await tester.pump();
     final baselineBarriers = find.byType(ModalBarrier).evaluate().length;
 
