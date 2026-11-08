@@ -383,6 +383,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                     ],
                     textColor: theme.colorScheme.onSurface,
                     secondaryTextColor: theme.colorScheme.onSurfaceVariant,
+                    displayMinutes: (_data['total_min'] as num).toInt(),
                   ),
                 ),
               ),
@@ -480,7 +481,9 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               padding: const EdgeInsets.symmetric(vertical: 36),
               child: Center(
                 child: Text(
-                  '暂无每日记录',
+                  (_data['total_min'] as num).toInt() > 0
+                      ? '每日专注记录未确认'
+                      : '暂无每日记录',
                   style: SlowlightTypography.secondary(
                     context,
                   ).copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -557,12 +560,14 @@ class _PieChartPainter extends CustomPainter {
   final List<Color> colors;
   final Color textColor;
   final Color secondaryTextColor;
+  final int displayMinutes;
 
   _PieChartPainter({
     required this.values,
     required this.colors,
     required this.textColor,
     required this.secondaryTextColor,
+    required this.displayMinutes,
   });
 
   @override
@@ -608,7 +613,7 @@ class _PieChartPainter extends CustomPainter {
 
     final valuePainter = TextPainter(
       text: TextSpan(
-        text: '${total.toInt()}',
+        text: '$displayMinutes',
         style: TextStyle(
           fontSize: SlowlightTypography.sectionTitleSize,
           fontWeight: FontWeight.w700,
@@ -641,6 +646,7 @@ class _PieChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PieChartPainter oldDelegate) =>
       oldDelegate.values.toString() != values.toString() ||
+      oldDelegate.displayMinutes != displayMinutes ||
       oldDelegate.textColor != textColor ||
       oldDelegate.secondaryTextColor != secondaryTextColor;
 }
