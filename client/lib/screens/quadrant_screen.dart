@@ -88,8 +88,8 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         FxNotice.show(
           context,
           desktop
-              ? '拖拽任务可移动象限；右键或 Shift+F10 也能选择'
-              : '长按任务可移动象限；菜单键或 Shift+F10 也能选择',
+              ? '拖拽任务移动象限，也可右键或按 Shift+F10'
+              : '长按任务可移动到其他象限',
         );
         await preferences.setBool(key, true);
       } catch (_) {
