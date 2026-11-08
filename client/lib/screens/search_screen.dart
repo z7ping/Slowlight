@@ -63,6 +63,9 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Habit> _habits = const [];
   List<ReflectionEntry> _reflections = const [];
   List<TodoList> _lists = const [];
+  int _taskVisible = 20;
+  int _habitVisible = 20;
+  int _reflectionVisible = 20;
 
   static final List<String> _recentSearches = <String>[];
 
@@ -117,6 +120,11 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     setState(() {
+      if (_query != query) {
+        _taskVisible = 20;
+        _habitVisible = 20;
+        _reflectionVisible = 20;
+      }
       _query = query;
       _loading = true;
       _error = false;
@@ -163,6 +171,12 @@ class _SearchScreenState extends State<SearchScreen> {
   }) async {
     final missing = <String>{};
     final sources = widget.sourceLoaders;
+    Future<List<ReflectionEntry>> loadReflections() async {
+      if (sources != null) return sources.reflections();
+      final result = await ReflectionRepository().searchContent(query);
+      if (!result.complete) missing.add('回顾（部分）');
+      return result.entries;
+    }
     final values = await Future.wait<dynamic>([
       (sources?.tasks(query) ?? DataService().searchTasks(query))
           .catchError((Object _) {
@@ -174,8 +188,7 @@ class _SearchScreenState extends State<SearchScreen> {
         missing.add('习惯');
         return <Habit>[];
       }),
-      (sources?.reflections() ?? ReflectionRepository().recent(limit: 100))
-          .catchError((Object _) {
+      loadReflections().catchError((Object _) {
         missing.add('回顾');
         return <ReflectionEntry>[];
       }),
@@ -189,7 +202,7 @@ class _SearchScreenState extends State<SearchScreen> {
       throw StateError('所有搜索来源均未读取成功');
     }
     onUnavailable(
-      ['任务', '习惯', '回顾', '清单']
+      ['任务', '习惯', '回顾', '回顾（部分）', '清单']
           .where(missing.contains)
           .toList(growable: false),
     );
@@ -368,8 +381,17 @@ class _SearchScreenState extends State<SearchScreen> {
       FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         expanded: true,
-        child: Column(children: _tasks.take(20).map(_taskRow).toList()),
+        child: Column(children: _tasks.take(_taskVisible).map(_taskRow).toList()),
       ),
+      more: _tasks.length > _taskVisible
+          ? FxButton(
+              key: const ValueKey('search-task-more'),
+              label: '查看更多任务 · 剩余 ${_tasks.length - _taskVisible} 条',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => setState(() => _taskVisible += 20),
+            )
+          : null,
     );
   }
 
@@ -449,7 +471,7 @@ class _SearchScreenState extends State<SearchScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
         child: Column(
-          children: _habits.take(20).map((habit) {
+          children: _habits.take(_habitVisible).map((habit) {
             return FxInkWell(
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
               onTap: widget.onOpenHabit == null
@@ -488,20 +510,31 @@ class _SearchScreenState extends State<SearchScreen> {
           }).toList(),
         ),
       ),
+      more: _habits.length > _habitVisible
+          ? FxButton(
+              key: const ValueKey('search-habit-more'),
+              label: '查看更多习惯 · 剩余 ${_habits.length - _habitVisible} 条',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => setState(() => _habitVisible += 20),
+            )
+          : null,
     );
   }
 
   Widget _reflectionGroup() {
     final theme = Theme.of(context);
     return _group(
-      '回顾与观察 · ${_reflections.length} 条',
+      _partialUnavailable.any((source) => source.startsWith('回顾'))
+          ? '回顾与观察 · 已载入 ${_reflections.length} 条'
+          : '回顾与观察 · ${_reflections.length} 条',
       FxCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         expanded: true,
         child: Column(
           children:
               _reflections
-                  .take(20)
+                  .take(_reflectionVisible)
                   .map(
                     (entry) => FxInkWell(
                       borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -553,10 +586,19 @@ class _SearchScreenState extends State<SearchScreen> {
                   .toList(),
         ),
       ),
+      more: _reflections.length > _reflectionVisible
+          ? FxButton(
+              key: const ValueKey('search-reflection-more'),
+              label: '查看更多记录 · 剩余 ${_reflections.length - _reflectionVisible} 条',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => setState(() => _reflectionVisible += 20),
+            )
+          : null,
     );
   }
 
-  Widget _group(String label, Widget child) {
+  Widget _group(String label, Widget child, {Widget? more}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -571,6 +613,10 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
         child,
+        if (more != null) ...[
+          const SizedBox(height: 6),
+          Align(alignment: Alignment.centerLeft, child: more),
+        ],
       ],
     );
   }
