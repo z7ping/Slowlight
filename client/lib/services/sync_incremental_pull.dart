@@ -10,6 +10,9 @@ import 'sync_remote_api.dart';
 /// - ObservationTag.dimension_key：产品核心维度映射，不能在旧同步链路中丢失。
 class SyncIncrementalPull {
   static const cursorKey = 'slowlight_sync_pull_cursor';
+  static const _collections = <String>{
+    'lists', 'tags', 'system_tags', 'habits', 'tasks', 'habit_logs',
+  };
 
   final int? accountId;
 
@@ -29,45 +32,83 @@ class SyncIncrementalPull {
     Database db,
     Map<String, dynamic> changes,
   ) async {
-    await _applyObservationTagDimensions(db, changes['system_tags']);
-
-    final deleted = changes['deleted'];
-    if (deleted is Map) {
-      for (final entry in deleted.entries) {
-        final table = entry.key.toString();
-        final ids = entry.value;
-        if (ids is! List) continue;
-        for (final rawId in ids) {
-          final serverId = rawId is int ? rawId : int.tryParse(rawId.toString());
-          if (serverId != null) {
-            await _applyDelete(db, table, serverId);
-          }
-        }
+    // The server guarantees a complete window. Missing collections and
+    // malformed tombstones are NOT empty changes: advancing the cursor would
+    // skip those remote deletes forever.
+    final rawTime = changes['server_time'];
+    final nextTime = rawTime is String &&
+            RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(rawTime)
+        ? DateTime.tryParse(rawTime)?.toUtc()
+        : null;
+    if (nextTime == null) {
+      throw const FormatException('同步变更缺少有效 server_time');
+    }
+    for (final name in _collections) {
+      if (changes[name] is! List) {
+        throw FormatException('同步变更缺少完整 $name 列表');
+      }
+    }
+    final rawTags = changes['system_tags'] as List;
+    for (final raw in rawTags) {
+      if (raw is! Map ||
+          raw['id'] is! int ||
+          (raw['id'] as int) <= 0 ||
+          raw['dimension_key'] is! String) {
+        throw const FormatException('同步观察标签增量格式错误');
       }
     }
 
-    // 只有整批变化全部成功应用后才推进 cursor。中途任何数据库异常都会直接抛出，
-    // 保留旧 cursor，下一轮重新获取同一批变化，避免漏 tombstone。
-    final serverTime = changes['server_time']?.toString();
-    if (serverTime != null && serverTime.isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_cursorKey, serverTime);
+    final deleted = changes['deleted'];
+    if (deleted is! Map) {
+      throw const FormatException('同步变更缺少删除清单');
     }
+    for (final name in _collections) {
+      final ids = deleted[name];
+      if (ids is! List ||
+          ids.any((id) => id is! int || (id as int) <= 0)) {
+        throw FormatException('同步删除清单 $name 格式错误');
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final priorCursor = prefs.getString(_cursorKey);
+    if (priorCursor != null) {
+      final previous = DateTime.tryParse(priorCursor)?.toUtc();
+      if (previous == null || nextTime.isBefore(previous)) {
+        throw const FormatException('同步变更游标无效或发生回退');
+      }
+    }
+
+    // Apply tags and tombstones atomically: partial SQLite changes without a
+    // cursor update must not leak into an otherwise successful Cloud Pull.
+    await db.transaction((txn) async {
+      await _applyObservationTagDimensions(txn, rawTags);
+      for (final name in _collections) {
+        for (final id in deleted[name] as List) {
+          await _applyDelete(txn, name, id as int);
+        }
+      }
+    });
+
+    // Only after a complete, validated and committed batch may we move the
+    // account-scoped cursor. A failed preferences write leaves the old cursor
+    // and safely replays idempotent local changes on the next pull.
+    await prefs.setString(_cursorKey, rawTime);
   }
 
-  Future<void> _applyObservationTagDimensions(Database db, dynamic rawTags) async {
-    if (rawTags is! List ||
-        !await _hasColumn(db, 'system_tags', 'dimension_key')) {
+  Future<void> _applyObservationTagDimensions(
+    DatabaseExecutor db, List rawTags,
+  ) async {
+    if (!await _hasColumn(db, 'system_tags', 'dimension_key')) {
+      if (rawTags.isNotEmpty) {
+        throw StateError('本地观察标签缺少 dimension_key 字段，无法安全应用同步');
+      }
       return;
     }
     final hasSyncStatus = await _hasColumn(db, 'system_tags', 'sync_status');
     for (final raw in rawTags) {
-      if (raw is! Map) continue;
-      final serverId = raw['id'] is int
-          ? raw['id'] as int
-          : int.tryParse(raw['id']?.toString() ?? '');
-      if (serverId == null) continue;
-      final dimensionKey = raw['dimension_key']?.toString() ?? '';
+      final serverId = raw['id'] as int;
+      final dimensionKey = raw['dimension_key'] as String;
 
       final localRows = await db.query(
         'system_tags',
@@ -110,16 +151,8 @@ class SyncIncrementalPull {
     }
   }
 
-  Future<void> _applyDelete(Database db, String table, int serverId) async {
-    const supported = {
-      'lists',
-      'tags',
-      'system_tags',
-      'habits',
-      'tasks',
-      'habit_logs',
-    };
-    if (!supported.contains(table)) return;
+  Future<void> _applyDelete(DatabaseExecutor db, String table, int serverId) async {
+    if (!_collections.contains(table)) return;
 
     final rows = await db.query(
       table,
@@ -184,7 +217,7 @@ class SyncIncrementalPull {
     }
   }
 
-  Future<bool> _hasColumn(Database db, String table, String column) async {
+  Future<bool> _hasColumn(DatabaseExecutor db, String table, String column) async {
     final rows = await db.rawQuery('PRAGMA table_info($table)');
     return rows.any((row) => row['name'] == column);
   }
