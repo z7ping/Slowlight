@@ -331,13 +331,16 @@ static void ThreadProc(HINSTANCE hInst) {
         DispatchMessage(&msg);
     }
     g_startup_status.store(-1);
+    std::vector<HWND> closing;
     {
         std::lock_guard<std::mutex> guard(g_windows_mutex);
-        for (HWND hwnd : g_overlay_windows) {
-            KillTimer(hwnd, TIMER_ID);
-            DestroyWindow(hwnd);
-        }
-        g_overlay_windows.clear();
+        closing.swap(g_overlay_windows);
+    }
+    // DestroyWindow may synchronously deliver more window messages. Keep the
+    // mutex free so WM_MOUSELEAVE and countdown invalidations cannot deadlock.
+    for (HWND hwnd : closing) {
+        KillTimer(hwnd, TIMER_ID);
+        DestroyWindow(hwnd);
     }
     if (registered) UnregisterClassW(OVERLAY_CLASS_NAME, hInst);
 }
