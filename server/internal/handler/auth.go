@@ -155,6 +155,12 @@ func generateToken(userID uint) (string, error) {
 }
 
 func generateTokenWithMethod(userID uint, method string) (string, error) {
+	return generateTokenWithProofTime(userID, method, time.Now().UTC())
+}
+
+// iat 是本次 Access JWT 签发时间；auth_time 是真实 GitHub 授权时间，
+// Refresh Token 轮换不得延长五分钟的账号认领验证窗口。
+func generateTokenWithProofTime(userID uint, method string, authTime time.Time) (string, error) {
 	secret, err := jwtSigningSecret()
 	if err != nil {
 		return "", err
@@ -163,7 +169,8 @@ func generateTokenWithMethod(userID uint, method string) (string, error) {
 		"user_id": userID,
 		"auth_method": method,
 		"exp":     time.Now().Add(time.Hour).Unix(),
-		"iat":     time.Now().Unix(),
+		"iat":       time.Now().Unix(),
+		"auth_time": authTime.Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)
@@ -214,8 +221,13 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("userID", uint(rawUserID))
 		method, _ := claims["auth_method"].(string)
 		c.Set("authMethod", strings.TrimSpace(method))
-		if issued, ok := claims["iat"].(float64); ok {
-			c.Set("authIssuedAt", int64(issued))
+		// 旧令牌兼容 iat；新令牌必须以原始授权时间校验敏感操作。
+		proofTime, ok := claims["auth_time"].(float64)
+		if !ok {
+			proofTime, _ = claims["iat"].(float64)
+		}
+		if proofTime > 0 {
+			c.Set("authIssuedAt", int64(proofTime))
 		}
 		c.Next()
 	}

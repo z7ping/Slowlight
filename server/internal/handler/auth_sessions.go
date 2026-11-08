@@ -42,9 +42,10 @@ func issueAuthSession(db *gorm.DB, userID uint, method string) (string, string, 
     if err != nil { return "", "", err }
     refresh, err := newRefreshSecret()
     if err != nil { return "", "", err }
+    now := time.Now().UTC()
     session := model.AuthRefreshSession{
         TokenHash: refreshHash(refresh), UserID: userID, Method: method,
-        ExpiresAt: time.Now().UTC().Add(authRefreshLifetime),
+        ProofAt: now, ExpiresAt: now.Add(authRefreshLifetime),
     }
     if err := db.Create(&session).Error; err != nil { return "", "", err }
     return access, refresh, nil
@@ -75,14 +76,15 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
         if err := tx.Model(&model.User{}).Where("id = ?", current.UserID).
             Count(&count).Error; err != nil { return err }
         if count != 1 { return errRefreshRejected }
-        nextAccess, err := generateTokenWithMethod(current.UserID, current.Method)
+        nextAccess, err := generateTokenWithProofTime(current.UserID, current.Method, current.ProofAt)
         if err != nil { return err }
         nextRefresh, err := newRefreshSecret()
         if err != nil { return err }
         if err := tx.Model(&current).Update("revoked_at", now).Error; err != nil { return err }
         next := model.AuthRefreshSession{
             TokenHash: refreshHash(nextRefresh), UserID: current.UserID,
-            Method: current.Method, ExpiresAt: now.Add(authRefreshLifetime),
+            Method: current.Method, ProofAt: current.ProofAt,
+            ExpiresAt: now.Add(authRefreshLifetime),
         }
         if err := tx.Create(&next).Error; err != nil { return err }
         access, refresh = nextAccess, nextRefresh

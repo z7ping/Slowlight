@@ -9,6 +9,7 @@ type AuthRefreshSession struct {
     UserID    uint       `gorm:"not null;index"`
     Method    string     `gorm:"size:16;not null"`
     ExpiresAt time.Time  `gorm:"not null;index"`
+    ProofAt   time.Time  `gorm:"not null"`
     RevokedAt *time.Time
     CreatedAt time.Time
 }

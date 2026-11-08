@@ -25,6 +25,9 @@ func TestRefreshSessionRotationAndLogout(t *testing.T) {
         t.Fatalf("refresh hash missing: %v", err)
     }
     if stored.TokenHash == refresh { t.Fatal("plaintext refresh token persisted") }
+    // 模拟 GitHub 授权已过五分钟，再轮换 Access JWT。
+    proof := time.Now().UTC().Add(-10 * time.Minute).Truncate(time.Second)
+    if err := h.DB.Model(&stored).Update("proof_at", proof).Error; err != nil { t.Fatal(err) }
     claims := jwt.MapClaims{}
     _, _, err = jwt.NewParser(jwt.WithValidMethods([]string{"HS256"})).ParseUnverified(access, claims)
     if err != nil { t.Fatal(err) }
@@ -54,6 +57,14 @@ func TestRefreshSessionRotationAndLogout(t *testing.T) {
     response.Token, response.RefreshToken = data["token"], data["refresh_token"]
     if response.Token == "" || response.RefreshToken == "" || response.RefreshToken == refresh {
         t.Fatal("refresh must rotate both credentials")
+    }
+    refreshedClaims := jwt.MapClaims{}
+    if _, _, err := jwt.NewParser().ParseUnverified(response.Token, refreshedClaims); err != nil {
+        t.Fatal(err)
+    }
+    if got, ok := refreshedClaims["auth_time"].(float64); !ok ||
+        int64(got) != proof.Unix() {
+        t.Fatal("refresh must preserve original GitHub authorization time")
     }
     if second := call("/refresh", refresh); second.Code != http.StatusUnauthorized {
         t.Fatalf("reused refresh token returned %d", second.Code)
