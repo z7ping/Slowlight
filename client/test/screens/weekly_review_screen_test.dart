@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:slowlight/models/reflection_entry.dart';
+import 'package:slowlight/models/today_timeline_item.dart';
+import 'package:slowlight/repositories/reflection_repository.dart';
 import 'package:slowlight/screens/weekly_review_screen.dart';
 import 'package:slowlight/ui/fx.dart';
 
@@ -15,6 +18,28 @@ Map<String, dynamic> _week(int count) => {
   'task_last_week': 1,
   'focus_last_week': 45,
   'time_distribution': <Map<String, dynamic>>[],
+};
+
+class _WeekResponseRepo extends ReflectionRepository {
+  final confirmed = <String, ReflectionEntry?>{};
+  final pending = <String, Completer<ReflectionEntry?>>{};
+
+  @override
+  Future<ReflectionEntry?> findPeriodResponse(
+    String questionId, {
+    String? legacyWeekStart,
+    String? legacyWeekEnd,
+  }) async {
+    final deferred = pending[questionId];
+    if (deferred != null) return deferred.future;
+    return confirmed[questionId];
+  }
+}
+
+Map<String, dynamic> _datedWeek(int count, String start, String end) => {
+  ..._week(count),
+  'week_start': start,
+  'week_end': end,
 };
 
 void main() {
@@ -116,4 +141,145 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('P11 切换周后旧回应立即隐藏，核对新周后才能保存', (tester) async {
+    tester.view.physicalSize = const Size(900, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const previous = 'review-week:2026-11-02:2026-11-08';
+    const next = 'review-week:2026-11-09:2026-11-15';
+    final repo = _WeekResponseRepo();
+    repo.confirmed[previous] = ReflectionEntry(
+      id: 75,
+      content: '上周已确认的回应',
+      entryType: 'reflection',
+      questionId: previous,
+      createdAt: DateTime(2026, 11, 8),
+    );
+    final nextRead = Completer<ReflectionEntry?>();
+    repo.pending[next] = nextRead;
+    var revision = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reflectionRepository: repo,
+        reviewLoader: () async => ++revision == 1
+            ? _datedWeek(3, '2026-11-02', '2026-11-08')
+            : _datedWeek(4, '2026-11-09', '2026-11-15'),
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+          observationCount: 0, items: [],
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('上周已确认的回应'), findsOneWidget);
+
+    await tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh();
+    await tester.pump();
+    expect(find.text('上周已确认的回应'), findsNothing);
+    expect(find.widgetWithText(FxButton, '保存回应'), findsNothing);
+
+    nextRead.complete(null);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FxButton, '保存回应'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P11 刷新未完成时不能用旧周事实保存回应', (tester) async {
+    tester.view.physicalSize = const Size(900, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final pendingReview = Completer<Map<String, dynamic>>();
+    var revision = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reflectionRepository: _WeekResponseRepo(),
+        reviewLoader: () => ++revision == 1
+            ? Future.value(_datedWeek(3, '2026-11-02', '2026-11-08'))
+            : pendingReview.future,
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+          observationCount: 0, items: [],
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FxButton, '保存回应'), findsOneWidget);
+
+    unawaited(tester.widget<FxRefresh>(find.byType(FxRefresh)).onRefresh());
+    await tester.pump();
+    expect(tester.widget<FxButton>(
+      find.widgetWithText(FxButton, '保存回应'),
+    ).onPressed, isNull);
+
+    pendingReview.complete(_datedWeek(4, '2026-11-09', '2026-11-15'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FxButton, '保存回应'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P11 上周为零也是有效比较，观察事实不算空周', (tester) async {
+    tester.view.physicalSize = const Size(900, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reflectionRepository: _WeekResponseRepo(),
+        reviewLoader: () async => {
+          ..._datedWeek(0, '2026-11-02', '2026-11-08'),
+          'habit_checked': 0,
+          'focus_minutes': 0,
+          'habit_last_week': 0,
+          'task_last_week': 0,
+          'focus_last_week': 0,
+        },
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+          observationCount: 1,
+          items: [],
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('这一周还没有行为记录'), findsNothing);
+    expect(find.text('数据积累中，下周会有可对比记录。'), findsNothing);
+    expect(find.text('和上周比'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P11 滚动 7 日趋势不将上周计入本周', (tester) async {
+    tester.view.physicalSize = const Size(900, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reflectionRepository: _WeekResponseRepo(),
+        reviewLoader: () async => _datedWeek(2, '2026-11-02', '2026-11-08'),
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [
+          {'date': '2026-10-30', 'task_completed': 9, 'habit_checked': 0},
+          {'date': '2026-11-02', 'task_completed': 2, 'habit_checked': 0},
+        ],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+          observationCount: 0, items: [],
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('每日记录'), findsOneWidget);
+    expect(find.text('一'), findsOneWidget);
+    expect(find.text('五'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
