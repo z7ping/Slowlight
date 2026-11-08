@@ -77,10 +77,23 @@ class _FeishuScreenState extends State<FeishuScreen> {
 
   void _onDataModeChanged() {
     if (!mounted) return;
+    final oldWritePending = _busyWithFeishu;
     ++_sourceVersion;
     ++_configReadVersion;
     ++_calendarReadVersion;
     setState(() {
+      // The previous source's write may continue remotely, but must not keep
+      // the new source locked or clear its independent busy flags on return.
+      _isSaving = false;
+      _isCreatingTemplate = false;
+      _isConnecting = false;
+      _isSyncingAll = false;
+      _isSyncing = false;
+      _isSyncingSessions = false;
+      _isSyncingReminders = false;
+      _isSyncingTags = false;
+      _isImporting = false;
+      _isSyncingCalendar = false;
       _isLoading = true;
       _isLoadingCalendars = false;
       _loadError = null;
@@ -94,6 +107,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
       _tableUrlController.clear();
     });
     _loadConfig();
+    if (oldWritePending) {
+      _showWarning('数据模式已切换。上一个模式的飞书操作结果未确认，'
+          '请先核对飞书记录，避免重复提交。');
+    }
   }
 
   Future<void> _loadConfig() async {
@@ -184,7 +201,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
     } catch (error) {
       if (_sameSource(source, wasCloud)) _showError('保存失败：$error');
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -213,7 +232,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
     } catch (error) {
       if (_sameSource(source, wasCloud)) _showError('创建模板失败：$error');
     } finally {
-      if (mounted) setState(() => _isCreatingTemplate = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isCreatingTemplate = false);
+      }
     }
   }
 
@@ -241,7 +262,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
     } catch (error) {
       if (_sameSource(source, wasCloud)) _showError('绑定失败：$error');
     } finally {
-      if (mounted) setState(() => _isConnecting = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isConnecting = false);
+      }
     }
   }
 
@@ -277,7 +300,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
     } catch (error) {
       if (_sameSource(source, wasCloud)) _showError('同步全部失败：$error');
     } finally {
-      if (mounted) setState(() => _isSyncingAll = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isSyncingAll = false);
+      }
     }
   }
 
@@ -340,7 +365,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
     } catch (error) {
       if (_sameSource(source, wasCloud)) _showError('$failure：$error');
     } finally {
-      if (mounted) setState(finish);
+      if (_sameSource(source, wasCloud)) setState(finish);
     }
   }
 
@@ -361,7 +386,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
     } catch (error) {
       if (_sameSource(source, wasCloud)) _showError('日历同步失败：$error');
     } finally {
-      if (mounted) setState(() => _isSyncingCalendar = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isSyncingCalendar = false);
+      }
     }
   }
 
