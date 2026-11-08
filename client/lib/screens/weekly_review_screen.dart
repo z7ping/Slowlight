@@ -44,6 +44,7 @@ class WeeklyReviewScreen extends StatefulWidget {
 
 class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   bool _loading = true;
+  bool _reviewRefreshing = false;
   bool _hasConfirmedReview = false;
   bool _generatingAi = false;
   String? _loadError;
@@ -86,9 +87,18 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   Future<void> _loadReview() async {
     if (_responseSaving) return;
+    if (_responseUnknown) {
+      _message('上次回应保存结果尚未确认，请先核对回应再刷新');
+      return;
+    }
     final version = ++_loadVersion;
     if (mounted) {
       setState(() {
+        _reviewRefreshing = true;
+        // A new revision invalidates any pending response/page request.
+        if (_responseLoading) _responseChecked = false;
+        _responseLoading = false;
+        _loadingPeriodPage = false;
         _loading = !_hasConfirmedReview;
         _loadError = null;
         _refreshError = null;
@@ -102,10 +112,20 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       final review = await (widget.reviewLoader ??
           AnalyticsApi.getWeeklyReview)();
       if (!mounted || version != _loadVersion) return;
+      final oldWeek = '${_review['week_start']}:${_review['week_end']}';
+      final newWeek = '${review['week_start']}:${review['week_end']}';
       setState(() {
         _review = review;
+        _reviewRefreshing = false;
         _hasConfirmedReview = true;
         _loading = false;
+        if (oldWeek != newWeek) {
+          // Period-scoped responses cannot belong to the newly loaded week.
+          // Preserve the unsaved draft until the user explicitly edits it.
+          _savedResponse = null;
+          _responseChecked = false;
+          _responseUnknown = false;
+        }
         // The new review starts a fresh evidence cohort. Old trend/output
         // belongs to the previous snapshot and must not be mixed into it.
         _outputStats = {};
@@ -120,6 +140,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
         _loadingPeriodPage = false;
         _failedPeriodPageOffset = null;
         _aiReport = null;
+        _generatingAi = false;
       });
       // The optional queries must never delay the confirmed weekly summary.
       unawaited(_loadOutputStats(version));
@@ -130,6 +151,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       if (!mounted || version != _loadVersion) return;
       setState(() {
         _loading = false;
+        _reviewRefreshing = false;
         if (_hasConfirmedReview) {
           _refreshError = error.toString();
         } else {
@@ -175,7 +197,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final end = _review['week_end']?.toString() ?? '';
     final content = _responseDraft.text.trim();
     if (!_responseChecked || _responseSaving || _responseUnknown ||
-        _savedResponse != null || _refreshError != null ||
+        _reviewRefreshing || _savedResponse != null || _refreshError != null ||
         start.isEmpty || end.isEmpty || content.isEmpty) return;
     final version = _loadVersion;
     setState(() => _responseSaving = true);
@@ -239,13 +261,15 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                       label: '核对回应',
                       variant: FxButtonVariant.secondary,
                       size: FxButtonSize.sm,
-                      onPressed: _responseLoading || _responseSaving
+                      onPressed: _responseLoading || _responseSaving ||
+                              _reviewRefreshing
                           ? null : () => _loadWeekResponse(_loadVersion),
                     )
                   : FxButton(
                       label: _responseSaving ? '保存中…' : '保存回应',
                       size: FxButtonSize.sm,
-                      onPressed: _responseSaving || _refreshError != null
+                      onPressed: _responseSaving || _refreshError != null ||
+                              _reviewRefreshing
                           ? null : _saveWeekResponse,
                     ),
             ),
@@ -276,8 +300,17 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       final trend = await (widget.dailyTrendLoader ??
           () => AnalyticsApi.getDailyTrend(days: 7))();
       if (!mounted || version != _loadVersion) return;
+      final start = _review['week_start']?.toString() ?? '';
+      final end = _review['week_end']?.toString() ?? '';
+      // The source covers a rolling seven days; show only confirmed week days.
+      final thisWeek = start.isEmpty || end.isEmpty
+          ? trend
+          : trend.where((row) {
+              final day = row['date']?.toString() ?? '';
+              return day.compareTo(start) >= 0 && day.compareTo(end) <= 0;
+            }).toList(growable: false);
       setState(() {
-        _dailyTrend = trend;
+        _dailyTrend = thisWeek;
         _dailyTrendFailed = false;
       });
     } catch (_) {
@@ -306,7 +339,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Future<void> _loadPeriodPage(int offset) async {
-    if (_loadingPeriodPage || _periodTimeline == null || offset < 0) return;
+    if (_reviewRefreshing || _loadingPeriodPage ||
+        _periodTimeline == null || offset < 0) return;
     if (offset == 0) {
       setState(() {
         _periodPage = _periodTimeline;
@@ -463,7 +497,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   }
 
   Future<void> _confirmGenerateAiReport() async {
-    if (_generatingAi || !_hasConfirmedReview) return;
+    if (_generatingAi || !_hasConfirmedReview || _reviewRefreshing) return;
     if (_refreshError != null) {
       _message('本周统计刷新尚未确认，请核对后再生成 AI 周报');
       return;
@@ -476,12 +510,13 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       confirmText: '确认生成',
     );
     if (confirmed != true || !mounted || version != _loadVersion ||
-        _refreshError != null) return;
+        _refreshError != null || _reviewRefreshing) return;
     await _generateAiReport();
   }
 
   Future<void> _generateAiReport() async {
-    if (_generatingAi || _refreshError != null || !_hasConfirmedReview) return;
+    if (_generatingAi || _reviewRefreshing ||
+        _refreshError != null || !_hasConfirmedReview) return;
     final version = _loadVersion;
     setState(() => _generatingAi = true);
     try {
@@ -501,9 +536,13 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       if (!mounted || version != _loadVersion) return;
       setState(() => _aiReport = text.trim());
     } catch (e) {
-      _message('AI 周报生成失败：$e');
+      if (mounted && version == _loadVersion) {
+        _message('AI 周报生成失败：$e');
+      }
     } finally {
-      if (mounted) setState(() => _generatingAi = false);
+      if (mounted && version == _loadVersion) {
+        setState(() => _generatingAi = false);
+      }
     }
   }
 
@@ -705,7 +744,9 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       'habit_checked', 'task_completed', 'focus_minutes',
       'habit_last_week', 'task_last_week', 'focus_last_week',
     ];
-    return keys.any((key) => ((_review[key] as num?)?.toInt() ?? 0) != 0) ||
+    return (_periodTimeline?.observationCount ?? 0) > 0 ||
+        (_periodTimeline?.items.isNotEmpty ?? false) ||
+        keys.any((key) => ((_review[key] as num?)?.toInt() ?? 0) != 0) ||
         _dailyTrend.any((row) =>
             ((row['task_completed'] as num?)?.toInt() ?? 0) != 0 ||
             ((row['habit_checked'] as num?)?.toInt() ?? 0) != 0);
@@ -831,10 +872,10 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final focusDelta =
         ((_review['focus_minutes'] as num?)?.toInt() ?? 0) -
         ((_review['focus_last_week'] as num?)?.toInt() ?? 0);
-    final hasData =
-        (_review['habit_last_week'] ?? 0) != 0 ||
-        (_review['task_last_week'] ?? 0) != 0 ||
-        (_review['focus_last_week'] ?? 0) != 0;
+    // A confirmed zero baseline is still valid; missing keys are not.
+    final hasData = const [
+      'habit_last_week', 'task_last_week', 'focus_last_week',
+    ].every((key) => _review[key] is num);
 
     return FxCard(
       padding: const EdgeInsets.all(16),
@@ -859,7 +900,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
           const SizedBox(height: 10),
           FxInkWell(
             borderRadius: BorderRadius.circular(999),
-            onTap: _generatingAi || _refreshError != null
+            onTap: _generatingAi || _reviewRefreshing ||
+                    _refreshError != null
                 ? null : _confirmGenerateAiReport,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 44),
