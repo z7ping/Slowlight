@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/calendar_record.dart';
@@ -158,6 +160,49 @@ void main() {
     expect(find.textContaining('已载入 1 条记录（部分待核对）'), findsOneWidget);
     expect(find.textContaining('习惯记录暂时不可用'), findsOneWidget);
     expect(find.textContaining('完整记录'), findsNothing);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P08 部分来源重试保留原月格直到新结果确认', (tester) async {
+    tester.view.physicalSize = const Size(1100, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final retry = Completer<CalendarMonthData>();
+    var calls = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: CalendarScreen(
+        initialMonth: month,
+        initialSelectedDate: selected,
+        monthLoader: (requested) {
+          calls++;
+          if (calls == 1) {
+            return Future.value(CalendarMonthData(
+              month: requested,
+              records: [records.first],
+              unavailableTypes: const {CalendarRecordType.reflection},
+            ));
+          }
+          return retry.future;
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-record-task-plan')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-partial-retry')),
+        findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('calendar-partial-retry')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('calendar-record-task-plan')),
+        findsOneWidget);
+    expect(find.textContaining('已载入 1 条记录（部分待核对）'),
+        findsOneWidget);
+    retry.complete(CalendarMonthData(month: month, records: records));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-partial-retry')),
+        findsNothing);
+    expect(find.text('计划与实际 · 共 4 条完整记录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
