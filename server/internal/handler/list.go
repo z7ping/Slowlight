@@ -159,6 +159,11 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "可撤销的清单删除必须明确确认子任务范围"})
 		return
 	}
+	clientUndoToken := c.Query("undo_token")
+	if clientUndoToken != "" && (!undoable || !validDeletionUndoToken(clientUndoToken)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效撤销凭据"})
+		return
+	}
 	expectedRaw, expectedProvided := c.GetQuery("expected_tasks")
 	if undoable && !expectedProvided {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "可撤销删除需要已核对的任务数量"})
@@ -240,7 +245,7 @@ func (h *ListHandler) DeleteList(c *gin.Context) {
 		if undoable {
 			token, err := saveDeletionUndo(tx, userID, "list", listDeletionSnapshot{
 				ListID: list.ID, TaskIDs: taskIDs, DeletedAt: stamp,
-			})
+			}, clientUndoToken)
 			if err != nil { return err }
 			undoToken = token
 		}

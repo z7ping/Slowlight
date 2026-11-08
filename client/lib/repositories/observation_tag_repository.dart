@@ -11,6 +11,7 @@ import '../models/dimension.dart';
 import '../models/observation_tag.dart';
 import '../services/api_service.dart';
 import '../services/data_mode_manager.dart';
+import '../services/deletion_undo_receipt.dart';
 import '../services/http_util.dart';
 import 'cloud_reference_cache_repository.dart';
 
@@ -323,12 +324,19 @@ class ObservationTagRepository {
         () => _undoLocalTag(snapshot!),
       );
     }
-    final payload = await _cloudRequest(
-      'DELETE', '${_deletePath(tag, expectedImpact)}&undoable=true',
-    );
-    final token = payload is Map ? payload['undo_token'] as String? : null;
-    if (token == null || token.length != 32) {
-      throw StateError('标签删除结果可能已提交，但撤销凭据未确认，请刷新核对');
+    final token = newDeletionUndoToken();
+    try {
+      final payload = await _cloudRequest(
+        'DELETE',
+        '${_deletePath(tag, expectedImpact)}&undoable=true&undo_token=$token',
+      );
+      if (payload is! Map || payload['undo_token'] != token) {
+        throw StateError('标签删除的撤销凭据未确认');
+      }
+    } catch (_) {
+      // Do not retry a destructive request whose response might be lost.
+      // The server writes this token atomically with the original deletion.
+      if (!await deletionReceiptCommitted('system_tag', token)) rethrow;
     }
     return ObservationTagDeletionUndo(() async {
       await _cloudRequest('POST', '/system-tags/undo',

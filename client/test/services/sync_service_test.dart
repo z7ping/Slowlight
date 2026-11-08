@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -337,6 +338,64 @@ void main() {
     expect(await db.query('sync_queue'), hasLength(1));
     expect((await db.query('lists', where: 'id = ?',
       whereArgs: [listId])).single['sync_status'], 'pending');
+  });
+
+  test('X09 远端核对期间不允许后台/手动同步重放同一队列', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '等待核对', 'server_id': 199,
+      'icon': '📋', 'color': '#112233', 'is_inbox': 0,
+      'sync_status': 'conflict', 'last_modified': 'v1',
+      'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': listId,
+      'entity_server_id': 199, 'operation': 'update',
+      'retry_count': 1, 'last_error': 'timeout',
+      'created_at': now, 'updated_at': now,
+    });
+    final remoteRead = Completer<Map<String, dynamic>?>();
+    final entered = Completer<void>();
+    SyncService().debugRemoteRead = (_, __, ___, ____) async {
+      entered.complete();
+      return remoteRead.future;
+    };
+    final pending = SyncService().reconcileFailedWrites();
+    await entered.future;
+    expect(await SyncService().manualSync(), isFalse);
+    await SyncService().syncBatch();
+    await SyncService().retryFailed();
+    expect(await db.query('sync_queue'), hasLength(1));
+    remoteRead.complete({
+      'name': '等待核对', 'icon': '📋',
+      'color': '#112233', 'is_inbox': false,
+    });
+    final result = await pending;
+    expect(result.verified, 1);
+    expect(await db.query('sync_queue'), isEmpty);
+  });
+
+  test('X09 历史 SocketException 回执未知不能被后台盲重发', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final id = await db.insert('lists', {
+      'name': '已提交与否未知', 'server_id': 204,
+      'sync_status': 'pending', 'created_at': now, 'updated_at': now,
+    });
+    await db.insert('sync_queue', {
+      'entity_type': 'lists', 'entity_local_id': id,
+      'entity_server_id': 204, 'operation': 'update',
+      'retry_count': 1,
+      'last_error': 'SocketException: Connection refused',
+      'created_at': now, 'updated_at': now,
+    });
+    expect(await SyncService().manualSync(), isFalse);
+    expect(await db.query('sync_queue'), hasLength(1));
+    expect((await db.query('lists', where: 'id = ?',
+      whereArgs: [id])).single['sync_status'], 'conflict');
   });
 
   test('X09 历史 timeout 回执先隔离，不因后台周期重放', () async {

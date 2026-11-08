@@ -218,6 +218,11 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
 	}
 	errImpactChanged := errors.New("tag association impact changed")
 	undoable := c.Query("undoable") == "true"
+	clientUndoToken := c.Query("undo_token")
+	if clientUndoToken != "" && (!undoable || !validDeletionUndoToken(clientUndoToken)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效撤销凭据"})
+		return
+	}
 	if undoable && provided != len(fields) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "可撤销删除需要完整的四类关联核对"})
 		return
@@ -269,7 +274,7 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
             Update("deleted_at", undoSnap.DeletedAt)
         if deleted.Error != nil { return deleted.Error }
         if deleted.RowsAffected != 1 { return errDeletionUndoUnavailable }
-        token, err := saveDeletionUndo(tx, userID, "system_tag", undoSnap)
+        token, err := saveDeletionUndo(tx, userID, "system_tag", undoSnap, clientUndoToken)
         if err != nil { return err }
         undoToken = token
         return nil

@@ -33,6 +33,7 @@ func newSystemTagRouter(h *SystemTagHandler, userID uint) *gin.Engine {
 	r.PUT("/system-tags/:id", h.UpdateSystemTag)
 	r.DELETE("/system-tags/:id", h.DeleteSystemTag)
 	r.POST("/system-tags/undo", h.UndoSystemTagDelete)
+	r.GET("/undo-receipt", GetDeletionUndoReceipt(h.DB))
 	return r
 }
 
@@ -367,6 +368,31 @@ func TestCreateSystemTag_MissingName(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assertEqual(t, w.Code, http.StatusBadRequest, "StatusCode")
+}
+
+func TestDeleteSystemTag_X08ReceiptConfirmsUnknownDeleteResponse(t *testing.T) {
+	tx, handler, userID := setupSystemTagTest(t)
+	tag := model.SystemTag{UserID: userID, Name: "响应丢失标签", Icon: "📌", Color: "#aabbcc"}
+	if err := tx.Create(&tag).Error; err != nil { t.Fatal(err) }
+	router := newSystemTagRouter(handler, userID)
+	token := "fedcba9876543210fedcba9876543210"
+	url := fmt.Sprintf("/system-tags/%d?undoable=true&undo_token=%s&expected_tasks=0&expected_habits=0&expected_sessions=0&expected_reflections=0", tag.ID, token)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("标签删除失败: %d %s", w.Code, w.Body.String()) }
+	proof := "/undo-receipt?kind=system_tag&token=" + token
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, proof, nil))
+	if w.Code != http.StatusOK { t.Fatalf("缺少已提交凭据: %d", w.Code) }
+	payload, _ := json.Marshal(map[string]string{"token": token})
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/system-tags/undo", bytes.NewReader(payload)))
+	if w.Code != http.StatusOK { t.Fatalf("无法按原ID恢复标签: %d %s", w.Code, w.Body.String()) }
+	var restored model.SystemTag
+	if err := tx.First(&restored, tag.ID).Error; err != nil { t.Fatal(err) }
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, proof, nil))
+	if w.Code != http.StatusNotFound { t.Fatalf("凭据重复可用: %d", w.Code) }
 }
 
 func TestDeleteSystemTag_X08UndoRestoresOriginalAliasAndLinks(t *testing.T) {
