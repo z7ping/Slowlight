@@ -72,14 +72,22 @@ class HttpUtil {
           '/api/auth/refresh' => 'refresh',
           _ => null,
         };
+        final authorization = headers['Authorization'] ?? headers['authorization'];
+        final bearer = authorization == null || authorization.isEmpty
+            ? 'absent'
+            : authorization.startsWith('Bearer ') && authorization.length > 7
+                ? 'present'
+                : 'other';
         if (endpoint != null) {
+          // Whether a Bearer existed distinguishes missing local credentials
+          // from a server-rejected JWT. Never persist its actual value.
           AppErrorLogger.instance.write(
             source: 'AuthHttp',
-            error: 'unauthorized endpoint=$endpoint method=$method',
+            error: 'unauthorized endpoint=$endpoint method=$method '
+                'bearer=$bearer',
           );
         }
-        final authorization = headers['Authorization'] ?? headers['authorization'];
-        if (authorization != null && authorization.startsWith('Bearer ')) {
+        if (bearer == 'present') {
           // 401 中间件拒绝后才重试；仅重试当前账号 JWT，
           // OAuth 候选 JWT 不可套用另一个账号的身份。
           String? recovered;
