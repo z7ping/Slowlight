@@ -257,6 +257,34 @@ func TestDeleteList_X08UndoRestoresOriginalListAndChildren(t *testing.T) {
 	if w.Code != http.StatusConflict { t.Fatalf("重复撤销应409: %d", w.Code) }
 }
 
+func TestDeleteList_X08UndoTokenCannotCrossAccounts(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	owner := createTestUser(t, tx)
+	other := createTestUser(t, tx)
+	list := createTestList(t, tx, owner.ID, "仅所有者恢复")
+	router := newListRouter(NewListHandler(tx), owner.ID)
+	w := httptest.NewRecorder()
+	url := "/lists/" + itoa(list.ID) + "?delete_tasks=true&expected_tasks=0&undoable=true"
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("删除失败: %s", w.Body.String()) }
+	var result struct { UndoToken string `json:"undo_token"` }
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+	body, _ := json.Marshal(map[string]string{"token": result.UndoToken})
+	unauthorized := newListRouter(NewListHandler(tx), other.ID)
+	w = httptest.NewRecorder()
+	unauthorized.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lists/undo",
+		bytes.NewReader(body)))
+	if w.Code != http.StatusConflict { t.Fatalf("跨用户撤销应拒绝: %d", w.Code) }
+	if err := tx.First(&model.List{}, list.ID).Error; err == nil {
+		t.Fatal("非本人恢复了清单")
+	}
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lists/undo",
+		bytes.NewReader(body)))
+	if w.Code != http.StatusOK { t.Fatalf("原用户应仍可恢复: %d", w.Code) }
+}
+
 func TestDeleteList_X08UndoCannotRestoreModifiedTombstone(t *testing.T) {
 	db := setupTestDB(t)
 	tx := beginTx(t, db)
