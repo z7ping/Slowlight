@@ -119,6 +119,14 @@ class TaskRepository {
 
   Future<Task> completeTask(int taskId) => _dataSource.completeTask(taskId);
   Future<Task> postponeTask(int taskId) => _dataSource.postponeTask(taskId);
+  Future<Task> restorePostponedDueDate(int taskId, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  }) => _dataSource.restorePostponedDueDate(
+    taskId,
+    expectedDueDate: expectedDueDate,
+    originalDueDate: originalDueDate,
+  );
   Future<void> deleteTask(int taskId) => _dataSource.deleteTask(taskId);
 
   Future<List<Subtask>> getSubtasks(int taskId) => _dataSource.getSubtasks(taskId);
