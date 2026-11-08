@@ -222,6 +222,11 @@ class TaskDetailSheet extends StatefulWidget {
       for (final list in available)
         if (list.id == selectedListId) list,
     ];
+    if (selectedListId != null && selected.isEmpty) {
+      FxNotice.showContent(context,
+          const Text('目标清单暂不可用，请刷新后重新创建任务'));
+      return;
+    }
     final initialList = selected.isNotEmpty ? selected.first : preferred;
     final now = DateTime.now();
     final draft = Task(
@@ -265,7 +270,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   bool _saving = false;
   bool _mobileDirty = false;
   late final String _initialMobileSnapshot;
-  bool _creationResultUnknown = false;
+  bool _writeResultUnknown = false;
   bool _mobileExpanded = false;
   bool _allowMobilePop = false;
   bool _desktopClosePending = false;
@@ -348,8 +353,18 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   /// Desktop side panels share the same full-field snapshot as the mobile editor.
   /// Do not let list selection discard a draft or interrupt an in-flight save.
   Future<bool> confirmLeaveSidePanel() async {
-    if (_saving || _creationResultUnknown) return false;
-    if (_mobileFormSnapshot() == _initialMobileSnapshot) return true;
+    if (_saving) return false;
+    if (_writeResultUnknown) {
+      final leave = await FxDialog.confirm(
+        context: context,
+        title: '任务变更结果未确认',
+        content: '请求可能已完成。关闭后请核对任务列表或详情，避免重复操作。',
+        confirmText: '关闭并核对',
+      );
+      return mounted && leave == true;
+    }
+    if (_mobileFormSnapshot() == _initialMobileSnapshot &&
+        !(widget.isCreating && _title.text.trim().isNotEmpty)) return true;
     final discard = await FxDialog.confirm(
       context: context,
       title: '放弃未保存的修改？',
@@ -376,7 +391,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _mobileToggleCompleted() async {
-    if (_saving || widget.isCreating) return;
+    if (_saving || _writeResultUnknown || widget.isCreating) return;
     if (_mobileDirty) {
       FxNotice.showContent(context, const Text('请先保存修改，再更改任务状态'));
       return;
@@ -392,28 +407,32 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       if (mounted) _close();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _saving = false);
+      setState(() {
+        _saving = false;
+        _writeResultUnknown = true;
+      });
       FxNotice.showContent(
         context,
-        const Text('任务状态更新结果未确认，请核对后重试'),
+        const Text('任务状态结果未确认，请关闭并核对，避免重复操作'),
       );
     }
   }
 
   Future<void> _requestMobileClose({bool backFromSystem = false}) async {
     if (_saving) return;
-    if (_mobileDirty || _creationResultUnknown) {
+    if (_mobileDirty || _writeResultUnknown ||
+        (widget.isCreating && _title.text.trim().isNotEmpty)) {
       final discard = await FxDialog.confirm(
         context: context,
-        title: _creationResultUnknown
-            ? '任务创建结果未确认'
+        title: _writeResultUnknown
+            ? '任务变更结果未确认'
             : widget.isCreating ? '放弃新建任务？' : '放弃未保存的修改？',
-        content: _creationResultUnknown
-            ? '请求可能已经成功。请关闭后核对任务列表，避免重复创建。'
+        content: _writeResultUnknown
+            ? '请求可能已完成。请关闭后核对任务列表或详情，避免重复操作。'
             : widget.isCreating
                 ? '尚未创建任务，关闭后将丢弃填写的内容。'
                 : '本次编辑尚未保存，关闭后不会写入任务。',
-        confirmText: '放弃修改',
+        confirmText: _writeResultUnknown ? '关闭并核对' : '放弃修改',
         destructive: true,
       );
       if (discard != true || !mounted) return;
@@ -500,7 +519,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                     foregroundColor: widget.task.isCompleted
                         ? AppTheme.success
                         : theme.colorScheme.onSurfaceVariant,
-                    onPressed: _saving || widget.isCreating
+                    onPressed: _saving || _writeResultUnknown || widget.isCreating
                         ? null
                         : _mobileToggleCompleted,
                   ),
@@ -636,12 +655,12 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             ],
           ),
         ],
-        if (!widget.isCreating || _creationResultUnknown)
+        if (!widget.isCreating || _writeResultUnknown)
           Padding(
             padding: const EdgeInsets.only(top: SlowlightSpacing.xs),
             child: Text(
-              _creationResultUnknown
-                  ? '创建结果未确认，请先核对'
+              _writeResultUnknown
+                  ? '任务变更结果未确认，请先核对'
                   : _mobileDirty ? '有未保存的修改' : '已保存',
               key: const ValueKey('task.detail.status'),
               style: SlowlightTypography.caption(context).copyWith(
@@ -1183,9 +1202,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Widget _mobileFooter() {
-    final canSave = widget.isCreating
-        ? _title.text.trim().isNotEmpty && !_creationResultUnknown
-        : _mobileDirty;
+    final canSave = !_writeResultUnknown &&
+        (widget.isCreating ? _title.text.trim().isNotEmpty : _mobileDirty);
     // The latest Android prototype places Save outside the scrolling task
     // workbench. Reuse the existing FxButton and keep one stable action.
     return SafeArea(
@@ -1209,9 +1227,11 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             constraints: const BoxConstraints(minWidth: 110),
             child: FxButton(
               key: const ValueKey('task.detail.primaryAction'),
-              label: widget.isCreating
-                  ? (_saving ? '添加中…' : '添加任务')
-                  : (_saving ? '保存中…' : '保存修改'),
+              label: _writeResultUnknown
+                  ? '结果待核对'
+                  : widget.isCreating
+                      ? (_saving ? '添加中…' : '添加任务')
+                      : (_saving ? '保存中…' : '保存修改'),
               variant: !canSave
                   ? FxButtonVariant.secondary
                   : FxButtonVariant.primary,
@@ -1274,7 +1294,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                 const SizedBox(width: 4),
                 FxMenu<String>(
                   tooltip: '更多操作',
-                  enabled: !_saving,
+                  enabled: !_saving && !_writeResultUnknown,
                   child: const SizedBox(
                     width: 44,
                     height: 44,
@@ -1620,20 +1640,25 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   label: '删除',
                   icon: LucideIcons.trash2,
                   variant: FxButtonVariant.ghost,
-                  onPressed: _saving ? null : _delete,
+                  onPressed: _saving || _writeResultUnknown || widget.isCreating
+                      ? null : _delete,
                 ),
                 actions: [
                   FxButton(
-                    label: _saving ? '保存中…' : '保存修改',
-                    onPressed: _saving ? null : _save,
+                    label: _writeResultUnknown
+                        ? '结果待核对'
+                        : _saving ? '保存中…' : '保存修改',
+                    onPressed: _saving || _writeResultUnknown ? null : _save,
                   ),
                 ],
               )
             : SizedBox(
                 width: double.infinity,
                 child: FxButton(
-                  label: _saving ? '保存中…' : '保存修改',
-                  onPressed: _saving ? null : _save,
+                  label: _writeResultUnknown
+                      ? '结果待核对'
+                      : _saving ? '保存中…' : '保存修改',
+                  onPressed: _saving || _writeResultUnknown ? null : _save,
                 ),
               ),
       ),
@@ -1694,7 +1719,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _save() async {
-    if (_saving || _creationResultUnknown) return;
+    if (_saving || _writeResultUnknown) return;
     final title = _title.text.trim();
     final listId =
         _listId ?? (widget.lists.isEmpty ? null : widget.lists.first.id);
@@ -1762,24 +1787,26 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       if (!mounted) return;
       // A timed-out create may already be stored remotely. Disable a second
       // create attempt unless the data layer explicitly confirmed no write.
-      final uncertain = widget.isCreating &&
-          (e is! TaskCreateException || !e.confirmedNotCreated);
+      final uncertain = widget.isCreating
+          ? (e is! TaskCreateException || !e.confirmedNotCreated)
+          : (e is! TaskUpdateException || !e.confirmedNotUpdated);
       setState(() {
         _saving = false;
-        _creationResultUnknown = uncertain;
+        _writeResultUnknown = uncertain;
       });
       FxNotice.showContent(
         context,
         Text(uncertain
-            ? '创建结果未确认，请先返回任务列表核对，避免重复创建'
+            ? '任务变更结果未确认，请关闭后核对，避免重复操作'
             : widget.isCreating
                 ? '创建失败，请检查输入后重试'
-                : '保存结果未确认，请核对任务内容'),
+                : '修改未生效，请检查后重试'),
       );
     }
   }
 
   Future<void> _delete() async {
+    if (_saving || _writeResultUnknown || widget.isCreating) return;
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '删除任务',

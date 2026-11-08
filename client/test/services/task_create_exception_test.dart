@@ -28,4 +28,25 @@ void main() {
     expect(error.confirmedNotCreated, isTrue);
     expect(error.message, contains('任务信息无效'));
   });
+
+  test('X01 任务更新明确拒绝时可修正后重试', () {
+    for (final status in [400, 401, 403, 404, 409, 422]) {
+      final error = TaskUpdateException.fromResponse(http.Response(
+        '{"error":"server raw database response"}', status,
+      ));
+      expect(error.confirmedNotUpdated, isTrue);
+      expect(error.toString(), isNot(contains('database')));
+    }
+  });
+
+  test('X01 任务更新 500/502/503 不能冒充已知失败直接重试', () {
+    for (final status in [500, 502, 503]) {
+      final error = TaskUpdateException.fromResponse(http.Response(
+        '<html>proxy failure</html>', status,
+      ));
+      expect(error.confirmedNotUpdated, isFalse);
+      expect(error.message, contains('结果未确认'));
+      expect(error.toString(), isNot(contains('html')));
+    }
+  });
 }

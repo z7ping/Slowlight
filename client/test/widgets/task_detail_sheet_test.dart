@@ -125,6 +125,109 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X01 外部入口预填清单和标题时取消必须保护原始草稿',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final options = [
+      ...lists,
+      TodoList(id: 2, name: '项目清单',
+          color: '#1890ff', createdAt: DateTime(2026, 10, 16)),
+    ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(builder: (context) => FxButton(
+        label: '带预填打开',
+        onPressed: () => TaskDetailSheet.showCreate(
+          context,
+          lists: options,
+          selectedListId: 2,
+          initialTitle: '来自外部入口的标题',
+          defaultDueToday: false,
+          onChanged: () {},
+        ),
+      ))),
+    ));
+    await tester.tap(find.text('带预填打开'));
+    await tester.pumpAndSettle();
+    final editor = find.byType(TaskDetailSheet);
+    expect(editor, findsOneWidget);
+    expect(tester.widget<TaskDetailSheet>(editor).task.listId, 2);
+    expect(find.text('项目清单'), findsOneWidget);
+    expect(find.text('来自外部入口的标题'), findsOneWidget);
+
+    await tester.tap(fxTooltipFinder('关闭'));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃新建任务？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('来自外部入口的标题'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X01 显式清单失效不得静默回退到其他清单创建', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(builder: (context) => FxButton(
+        label: '打开已失效清单',
+        onPressed: () => TaskDetailSheet.showCreate(
+          context,
+          lists: lists,
+          selectedListId: 999,
+          onChanged: () {},
+        ),
+      ))),
+    ));
+    await tester.tap(find.text('打开已失效清单'));
+    await tester.pump();
+    expect(find.byType(TaskDetailSheet), findsNothing);
+    expect(find.text('目标清单暂不可用，请刷新后重新创建任务'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X01 Android 输入法收起前后内容与固定保存区仍在同一 Sheet',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(builder: (context) => FxButton(
+        label: '打开带键盘任务',
+        onPressed: () => TaskDetailSheet.showCreate(
+          context, lists: lists, onChanged: () {},
+        ),
+      ))),
+    ));
+    await tester.tap(find.text('打开带键盘任务'));
+    await tester.pumpAndSettle();
+    final input = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.title')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(input, '输入法展开期间的任务');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    addTearDown(() => tester.view.viewInsets = const FakeViewPadding());
+    await tester.pumpAndSettle();
+    final save = find.byKey(const ValueKey('task.detail.primaryAction'));
+    expect(save, findsOneWidget);
+    expect(tester.getRect(save).bottom, lessThanOrEqualTo(850));
+    expect(find.text('输入法展开期间的任务'), findsOneWidget);
+    tester.view.viewInsets = const FakeViewPadding();
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(tester.widget<FxButton>(save).onPressed, isNotNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 长任务表单滚动时保存操作留在固定位置',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
