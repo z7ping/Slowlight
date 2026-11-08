@@ -10,7 +10,7 @@ import 'package:slowlight/screens/task_tool_screen.dart';
 import 'package:slowlight/screens/list_manage_screen.dart';
 import 'package:slowlight/screens/about_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/ui/fx.dart' show FxInkWell, FxGestureDetector;
+import 'package:slowlight/ui/fx.dart' show FxInkWell, FxGestureDetector, FxNotice;
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
@@ -235,6 +235,32 @@ void main() {
       expect(fxTooltipFinder('快速添加任务（按住可拖动）'), findsOneWidget);
       expect(fxTooltipFinder('添加任务'), findsNothing);
       expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 返回退出提示不清除其它业务通知，导航后单独消失',
+        (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      FxNotice.show(
+        tester.element(find.byType(HomeScreen)),
+        '已有任务撤销提示',
+        duration: const Duration(seconds: 10),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('已有任务撤销提示'), findsOneWidget);
+      expect(find.text('再按一次退出 Slowlight'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.review')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('已有任务撤销提示'), findsOneWidget);
+      expect(find.text('再按一次退出 Slowlight'), findsNothing);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
