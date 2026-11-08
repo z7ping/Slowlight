@@ -280,8 +280,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       unawaited(AppErrorLogger.instance.write(
         source: 'AuthNavigation',
         error: cached == null
-            ? 'account.cache state=missing'
-            : 'account.cache state=present',
+            ? 'account.cache status=missing'
+            : 'account.cache status=present',
       ));
       setState(() {
         _accountUser = cached;

@@ -55,8 +55,15 @@ class AuthService {
                 ? 'invalid_or_expired'
                 : 'valid';
     if (_lastTokenState != state) {
+      // A previously valid JWT read as missing; record only the transition.
+      // Correlate with logout events before attributing any cause.
+      if (_lastTokenState == 'valid' && state == 'missing' &&
+          origin == 'none') {
+        _trace('credential.disappeared previous=valid origin=none');
+      }
       _lastTokenState = state;
-      _trace('credential.read origin=$origin state=$state');
+      // "state=" is intentionally reserved for redacting OAuth state secrets.
+      _trace('credential.read origin=$origin status=$state');
     }
   }
 
@@ -138,6 +145,16 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       final legacyToken = prefs.getString(_tokenKey);
       if (legacyToken == null || legacyToken.isEmpty) {
+        if (_lastTokenState == 'valid') {
+          // One extra read only after a previously valid credential disappears.
+          // Never restore a token from memory or an unverified cache.
+          final confirmedToken = await _secureStorage.read(key: _tokenKey);
+          if (confirmedToken != null && confirmedToken.isNotEmpty) {
+            _trace('credential.read_retry result=recovered');
+            _observeToken(confirmedToken, 'secure_retry');
+            return confirmedToken;
+          }
+        }
         _observeToken(null, 'none');
         return null;
       }

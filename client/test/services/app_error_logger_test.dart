@@ -126,6 +126,37 @@ void main() {
     expect(text, isNot(contains(r'$1')));
   });
 
+  test('safe auth status and Bearer presence survive OAuth state redaction',
+      () async {
+    final logger = AppErrorLogger(directoryProvider: () async => tempDir);
+    await logger.write(
+      source: 'AuthSession',
+      error: 'credential.read origin=none status=missing',
+    );
+    await logger.write(
+      source: 'AuthNavigation',
+      error: 'account.cache status=present',
+    );
+    await logger.write(
+      source: 'AuthHttp',
+      error: 'unauthorized endpoint=profile method=GET bearer=absent',
+    );
+    await logger.write(
+      source: 'oauth',
+      error: 'state=high-entropy-oauth-secret',
+    );
+
+    final text = await logger.readText();
+    expect(text, contains('credential.read origin=none status=missing'));
+    expect(text, contains('account.cache status=present'));
+    expect(
+      text,
+      contains('unauthorized endpoint=profile method=GET bearer=absent'),
+    );
+    expect(text, contains('state=[REDACTED]'));
+    expect(text, isNot(contains('high-entropy-oauth-secret')));
+  });
+
   test('recent log preview is bounded but source file remains intact', () async {
     final logger = AppErrorLogger(directoryProvider: () async => tempDir);
     await logger.write(source: 'network', error: '1234567890');

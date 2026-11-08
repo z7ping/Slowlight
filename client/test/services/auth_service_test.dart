@@ -50,7 +50,13 @@ void main() {
     expect(await AuthService.getToken(), isNull);
     expect(await AuthService.getToken(), isNull);
     expect(
-      events.where((e) => e == 'credential.read origin=none state=missing'),
+      events.where((e) => e == 'credential.read origin=none status=missing'),
+      hasLength(1),
+    );
+    expect(
+      events.where(
+        (e) => e == 'credential.disappeared previous=valid origin=none',
+      ),
       hasLength(1),
     );
     expect(events.join('\n'), isNot(contains(token)));
@@ -86,6 +92,35 @@ void main() {
     expect(recorded, isNot(contains('test-refresh-credential')));
     expect(recorded, isNot(contains('github_40')));
     expect(await AuthService.getToken(), token);
+
+    // Android diagnostics captured exactly this transition after GitHub
+    // sign-in: a verified, saved JWT vanished without a logout event.
+    FlutterSecureStorage.setMockInitialValues({});
+    expect(await AuthService.getToken(), isNull);
+    expect(
+      events,
+      contains('credential.disappeared previous=valid origin=none'),
+    );
+  });
+
+  test('缺失 JWT 时账号 GET 不附带 Bearer，401 不主动清理资料', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_data', jsonEncode({
+      'id': 42, 'username': 'cached', 'nickname': '缓存账号',
+      'email': '', 'created_at': '2026-10-21T00:00:00Z',
+    }));
+    await http.runWithClient(() async {
+      await expectLater(
+        AuthService.passwordStatus(),
+        throwsA(isA<StateError>()),
+      );
+    }, () => MockClient((request) async {
+      expect(request.url.path, '/api/auth/password/status');
+      expect(request.headers.containsKey('authorization'), isFalse);
+      return http.Response('{"error":"missing authorization"}', 401);
+    }));
+    expect((await AuthService.getUser())?.id, 42);
+    expect(await AuthService.getToken(), isNull);
   });
 
   test('Cloud auth rejects local token', () async {
