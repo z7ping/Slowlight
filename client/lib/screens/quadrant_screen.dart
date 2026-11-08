@@ -588,10 +588,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                     .copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
-              _moveOption('重要 · 紧急', 'urgent_important', task.priority),
-              _moveOption('重要 · 不紧急', 'important', task.priority),
-              _moveOption('不重要 · 紧急', 'urgent', task.priority),
-              _moveOption('不重要 · 不紧急', 'none', task.priority),
+              _moveOption(sheetContext, '重要 · 紧急', 'urgent_important', task.priority),
+              _moveOption(sheetContext, '重要 · 不紧急', 'important', task.priority),
+              _moveOption(sheetContext, '不重要 · 紧急', 'urgent', task.priority),
+              _moveOption(sheetContext, '不重要 · 不紧急', 'none', task.priority),
               const SizedBox(height: 4),
               SizedBox(
                 width: double.infinity,
@@ -610,7 +610,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             context: context,
             width: 360,
             showCloseButton: false,
-            child: choices(context),
+            child: Builder(builder: choices),
           )
         : await FxSheet.show<String>(
             context: context,
@@ -635,11 +635,16 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
-  Widget _moveOption(String label, String value, String current) {
+  Widget _moveOption(
+    BuildContext selectorContext,
+    String label,
+    String value,
+    String current,
+  ) {
     final selected = value == current;
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      onTap: () => Navigator.pop(context, value),
+      onTap: () => Navigator.pop(selectorContext, value),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
         child: Container(
