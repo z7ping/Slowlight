@@ -40,6 +40,7 @@ class FxCircularProgress extends StatefulWidget {
 
 class _FxCircularProgressState extends State<FxCircularProgress>
     with SingleTickerProviderStateMixin {
+  bool _reduceMotion = false;
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1200),
@@ -52,16 +53,24 @@ class _FxCircularProgressState extends State<FxCircularProgress>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _syncAnimation();
+  }
+
+  @override
   void didUpdateWidget(covariant FxCircularProgress oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.value != widget.value) _syncAnimation();
   }
 
   void _syncAnimation() {
-    if (widget.value == null) {
+    if (widget.value == null && !_reduceMotion) {
       if (!_controller.isAnimating) _controller.repeat();
     } else {
       _controller.stop();
+      if (_reduceMotion) _controller.value = 0;
     }
   }
 
@@ -77,7 +86,7 @@ class _FxCircularProgressState extends State<FxCircularProgress>
     final effectiveColor =
         widget.valueColor?.value ?? widget.color ?? theme.colorScheme.primary;
     final repaint = Listenable.merge([
-      if (widget.value == null) _controller,
+      if (widget.value == null && !_reduceMotion) _controller,
       if (widget.valueColor != null) widget.valueColor!,
     ]);
 
@@ -91,6 +100,7 @@ class _FxCircularProgressState extends State<FxCircularProgress>
           painter: _FxCircularProgressPainter(
             value: widget.value,
             animation: _controller,
+            reducedMotion: _reduceMotion,
             backgroundColor: widget.backgroundColor,
             color: effectiveColor,
             strokeWidth: widget.strokeWidth,
@@ -108,6 +118,7 @@ class _FxCircularProgressPainter extends CustomPainter {
   _FxCircularProgressPainter({
     required this.value,
     required this.animation,
+    required this.reducedMotion,
     required this.backgroundColor,
     required this.color,
     required this.strokeWidth,
@@ -118,6 +129,7 @@ class _FxCircularProgressPainter extends CustomPainter {
 
   final double? value;
   final Animation<double> animation;
+  final bool reducedMotion;
   final Color? backgroundColor;
   final Color color;
   final double strokeWidth;
@@ -160,7 +172,7 @@ class _FxCircularProgressPainter extends CustomPainter {
       return;
     }
 
-    final phase = animation.value;
+    final phase = reducedMotion ? 0.0 : animation.value;
     final start = -math.pi / 2 + math.pi * 2 * phase;
     final sweep = math.pi * (0.8 + 0.5 * math.sin(phase * math.pi * 2));
     canvas.drawArc(rect, start, sweep, false, paint);
@@ -169,6 +181,7 @@ class _FxCircularProgressPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FxCircularProgressPainter oldDelegate) {
     return value != oldDelegate.value ||
+        reducedMotion != oldDelegate.reducedMotion ||
         backgroundColor != oldDelegate.backgroundColor ||
         color != oldDelegate.color ||
         strokeWidth != oldDelegate.strokeWidth ||
