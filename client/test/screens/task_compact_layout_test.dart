@@ -152,6 +152,14 @@ void main() {
     expect(data.completions, 1);
     expect(find.byType(FxNoticeAction), findsNothing);
     expect(find.textContaining('列表状态尚未确认'), findsWidgets);
+    // The cached row still shows pending; a second tap must not toggle it.
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('tasks.row.903')),
+      matching: find.byType(FxInkWell),
+    ).last);
+    await tester.pumpAndSettle();
+    expect(data.completions, 1);
+    expect(find.textContaining('请先重试刷新再操作'), findsWidgets);
     expect(data.undoCalls, 0);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
