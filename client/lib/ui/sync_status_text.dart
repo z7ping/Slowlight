@@ -29,7 +29,7 @@ CloudSyncViewState cloudSyncViewState({
     return CloudSyncViewState.conflict;
   }
   if (status == SyncStatusEnum.error) {
-    if (lastQueueRun?.partiallyAcknowledged == true) {
+    if (lastQueueRun?.partiallyProcessed == true) {
       return CloudSyncViewState.partial;
     }
     if (networkUnreachable) return CloudSyncViewState.networkUnreachable;
@@ -63,7 +63,7 @@ String cloudSyncSummary({
     CloudSyncViewState.syncing => '云同步 · 同步中…',
     CloudSyncViewState.conflict => '云同步 · $conflictCount 个冲突待处理',
     CloudSyncViewState.partial =>
-      '云同步 · 部分成功（${lastQueueRun!.acknowledged} 项已确认，'
+      '云同步 · 部分成功（${lastQueueRun!.processed} 项已处理，'
           '${lastQueueRun!.failed} 项未完成）',
     CloudSyncViewState.networkUnreachable =>
       '云同步 · 网络不可达（可能离线）',
