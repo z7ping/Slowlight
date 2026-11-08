@@ -80,6 +80,15 @@ class _OverviewHabitRepo extends HabitRepository {
   ];
 }
 
+class _DelayedHabitsRepo extends HabitRepository {
+  final first = Completer<List<Habit>>();
+  final second = Completer<List<Habit>>();
+  int reads = 0;
+
+  @override
+  Future<List<Habit>> getAll() => ++reads == 1 ? first.future : second.future;
+}
+
 class _DelayedLogsRepo extends HabitRepository {
   final first = Completer<List<HabitLog>>();
   final latest = Completer<List<HabitLog>>();
@@ -421,6 +430,33 @@ void main() {
     expect(find.text('创建第一个习惯'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
+  });
+
+  test('P1-7 旧习惯列表迟到不会覆盖已经读取的新目标状态', () async {
+    final repo = _DelayedHabitsRepo();
+    final controller = HabitController(repository: repo);
+    final initial = controller.load();
+    final newer = controller.load();
+    repo.second.complete([
+      Habit(
+        id: 2, userId: 1, name: '更新后的习惯',
+        createdAt: DateTime(2026),
+        goalPeriod: 'week', goalValue: 2, goalMet: true,
+      ),
+    ]);
+    await newer;
+    repo.first.complete([
+      Habit(
+        id: 1, userId: 1, name: '旧响应',
+        createdAt: DateTime(2026),
+        checkedToday: true,
+      ),
+    ]);
+    await initial;
+    expect(controller.habits.single.name, '更新后的习惯');
+    expect(habitOverviewCounts(controller.habits).met, 1);
+    expect(controller.error, isNull);
+    controller.dispose();
   });
 
   test('P1-7 习惯数、今天有记录的习惯数与本期达标分别计算', () {
