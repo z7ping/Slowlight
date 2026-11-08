@@ -100,7 +100,14 @@ void main() {
     await DataModeManager().setLocal();
   });
 
+  void desktop(WidgetTester tester) {
+    tester.view.physicalSize = const Size(1280, 980);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
+
   testWidgets('P17 S16 旧本地配置迟到不能写进云端设置表单', (tester) async {
+    desktop(tester);
     final fake = _ModeSwitchRepository();
     await tester.pumpWidget(buildFxTestHost(
       home: FeishuScreen(repository: fake),
@@ -128,6 +135,7 @@ void main() {
 
   testWidgets('P17 S16 旧云端日历回执不能覆盖新会话日历',
       (tester) async {
+    desktop(tester);
     final fake = _CalendarRepository();
     await tester.pumpWidget(buildFxTestHost(
       home: FeishuScreen(repository: fake),
@@ -162,6 +170,7 @@ void main() {
 
   testWidgets('P17 S16 模式切换后旧创建模板回执不能覆盖新模式配置',
       (tester) async {
+    desktop(tester);
     final fake = _TemplateRepository();
     await tester.pumpWidget(buildFxTestHost(
       home: FeishuScreen(repository: fake),
