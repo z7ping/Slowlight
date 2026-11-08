@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/services/auth_service.dart';
+import 'package:slowlight/services/app_secure_storage.dart';
 import 'package:slowlight/services/auth_storage_diagnostics.dart';
 import 'package:slowlight/services/api_service.dart';
 
@@ -357,7 +358,7 @@ void main() {
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('auth_token'), isNull);
-    expect(await const FlutterSecureStorage().read(key: 'auth_token'), token);
+    expect(await AppSecureStorage.instance.read(key: 'auth_token'), token);
   });
   test('过期 Access Token 刷新一次，侧栏重新读取仍是已登录', () async {
     final events = <String>[];
@@ -373,7 +374,7 @@ void main() {
       expect(await AuthService.isLoggedIn(), isTrue);
       expect(await AuthService.isLoggedIn(), isTrue);
       expect(await AuthService.getToken(), renewed);
-      expect(await const FlutterSecureStorage().read(key: 'auth_refresh_token'),
+      expect(await AppSecureStorage.instance.read(key: 'auth_refresh_token'),
           'second-refresh');
     }, () => MockClient((request) async {
       expect(request.url.path, '/api/auth/refresh');
