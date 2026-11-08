@@ -11,8 +11,10 @@ import '../ui/widgets/slowlight_logo.dart';
 class AboutScreen extends StatefulWidget {
   /// Test seam; production uses the existing AppInfoService.
   final Future<PackageInfo> Function()? infoLoader;
+  /// Test seam for live remote version queries.
+  final Future<ServerVersionInfo> Function()? serverInfoLoader;
 
-  const AboutScreen({super.key, this.infoLoader});
+  const AboutScreen({super.key, this.infoLoader, this.serverInfoLoader});
 
   @override
   State<AboutScreen> createState() => _AboutScreenState();
@@ -20,17 +22,68 @@ class AboutScreen extends StatefulWidget {
 
 class _AboutScreenState extends State<AboutScreen> {
   late Future<PackageInfo> _packageInfo;
+  late Future<ServerVersionInfo> _serverInfo;
 
   @override
   void initState() {
     super.initState();
     _packageInfo = (widget.infoLoader?.call() ?? AppInfoService.instance.load());
+    _serverInfo = (widget.serverInfoLoader?.call() ?? AppInfoService.instance.loadServerVersion());
   }
 
   void _reloadInfo() {
     setState(() {
       _packageInfo = (widget.infoLoader?.call() ?? AppInfoService.instance.load());
     });
+  }
+
+  void _reloadServerInfo() {
+    setState(() {
+      _serverInfo = (widget.serverInfoLoader?.call() ??
+          AppInfoService.instance.loadServerVersion());
+    });
+  }
+
+  String _serverTime(String? raw, {String missing = '未提供'}) {
+    if (raw == null || raw.isEmpty) return missing;
+    final date = DateTime.tryParse(raw)?.toLocal();
+    if (date == null) return missing;
+    String two(int number) => number.toString().padLeft(2, '0');
+    return '${date.year}-${two(date.month)}-${two(date.day)} '
+        '${two(date.hour)}:${two(date.minute)}';
+  }
+
+  Widget _serverDetails(BuildContext context) {
+    return FutureBuilder<ServerVersionInfo>(
+      future: _serverInfo,
+      builder: (context, snapshot) {
+        final loading = snapshot.connectionState == ConnectionState.waiting;
+        final failed = snapshot.hasError;
+        final data = snapshot.data;
+        final pending = loading ? '查询中…' : (failed ? '未确认' : '未提供');
+        return Column(
+          children: [
+            _info(context, '服务端版本',
+                loading ? '查询中…' : (failed ? '查询失败' : data?.version ?? '未提供')),
+            _info(context, '升级时间',
+                _serverTime(data?.deployedAt, missing: pending)),
+            _info(context, '代码提交时间',
+                _serverTime(data?.commitTime, missing: pending)),
+            _info(context, '代码 Hash', data?.commitHash ?? pending,
+                selectable: data?.commitHash != null),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FxButton(
+                label: loading ? '查询中…' : '重新查询服务端版本',
+                size: FxButtonSize.sm,
+                variant: FxButtonVariant.ghost,
+                onPressed: loading ? null : _reloadServerInfo,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -78,7 +131,9 @@ class _AboutScreenState extends State<AboutScreen> {
                               const SizedBox(height: 24),
                               _info(
                                 context,
-                                '版本',
+                                theme.platform == TargetPlatform.android
+                                    ? 'APK 版本'
+                                    : '客户端版本',
                                 info == null
                                     ? (failed ? '读取失败' : '读取中…')
                                     : '${info.version}+${info.buildNumber}',
@@ -95,6 +150,7 @@ class _AboutScreenState extends State<AboutScreen> {
                                   ),
                                 ),
                               ],
+                              _serverDetails(context),
                               _info(context, '数据', '本地优先 · 你的记录属于你'),
                               _info(context, '开源许可', '许可证待定'),
                               _link(
@@ -224,7 +280,8 @@ class _AboutScreenState extends State<AboutScreen> {
     );
   }
 
-  Widget _info(BuildContext context, String title, String value) {
+  Widget _info(BuildContext context, String title, String value,
+      {bool selectable = false}) {
     final theme = Theme.of(context);
     return Container(
       constraints: const BoxConstraints(minHeight: 52),
@@ -245,13 +302,21 @@ class _AboutScreenState extends State<AboutScreen> {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: SlowlightTypography.secondary(
-                context,
-              ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
+            child: selectable
+                ? SelectableText(
+                    value,
+                    textAlign: TextAlign.end,
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : Text(
+                    value,
+                    textAlign: TextAlign.end,
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
           ),
         ],
       ),
