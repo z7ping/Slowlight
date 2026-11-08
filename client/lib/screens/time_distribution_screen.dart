@@ -40,7 +40,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   bool _loadError = false;
   bool _hasLoaded = false;
   int _loadVersion = 0;
-  bool _showAllTags = false;
+  int _shownTagCount = 6;
   bool _openingDestination = false;
   Map<String, dynamic> _data = {};
 
@@ -342,7 +342,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
     final unclassifiedSeconds =
         (_data['unclassified_work_seconds'] as num?)?.toInt() ??
         math.max(0, totalSeconds - taggedSeconds);
-    final visible = _showAllTags ? tags : tags.take(6).toList(growable: false);
+    final visible = tags.take(_shownTagCount).toList(growable: false);
 
     return FxCard(
       padding: const EdgeInsets.all(16),
@@ -456,10 +456,16 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
               ),
             if (tags.length > 6)
               FxButton(
-                label: _showAllTags ? '收起标签' : '查看全部 ${tags.length} 个标签',
+                label: _shownTagCount >= tags.length
+                    ? '收起标签'
+                    : '显示更多标签（剩余 ${tags.length - _shownTagCount}）',
                 variant: FxButtonVariant.link,
                 size: FxButtonSize.sm,
-                onPressed: () => setState(() => _showAllTags = !_showAllTags),
+                onPressed: () => setState(() {
+                  _shownTagCount = _shownTagCount >= tags.length
+                      ? 6
+                      : math.min(tags.length, _shownTagCount + 20);
+                }),
               ),
           ],
         ],
