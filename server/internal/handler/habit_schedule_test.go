@@ -23,4 +23,3 @@ func TestHabitScheduleValidation(t *testing.T) {
   if tc.valid && !strings.Contains(output,"{"){t.Fatal("not encoded as JSON")}
  })}
  }
-}
