@@ -5,6 +5,7 @@ import '../repositories/local_list_repository.dart';
 import 'api_service.dart';
 import 'cloud_sync_coordinator.dart';
 import 'data_mode_manager.dart';
+import 'deletion_undo_receipt.dart';
 import 'http_util.dart';
 
 /// A one-use undo for the original IDs, not a recreation of a lookalike list.
@@ -48,27 +49,34 @@ class ListDeleteUndoService {
     if (remoteId == null) {
       throw StateError('未同步清单暂不能安全删除，请先同步后重试');
     }
+    final token = newDeletionUndoToken();
     final headers = await ApiService.authHeaders();
     final uri = Uri.parse('${ApiService.baseUrl}/lists/$remoteId')
         .replace(queryParameters: {
       'delete_tasks': 'true',
       'expected_tasks': expectedTaskCount.toString(),
       'undoable': 'true',
+      'undo_token': token,
     });
-    final response = await HttpUtil.delete(
-      uri, headers: headers,
-    ).timeout(ApiService.postTimeout);
-    if (response.statusCode == 409) {
-      throw StateError('清单关联任务已变化，请重新核对删除范围');
-    }
-    if (response.statusCode != 200) {
-      throw StateError('清单删除结果未确认，请先刷新核对');
-    }
-    final decoded = jsonDecode(response.body);
-    final token = decoded is Map ? decoded['undo_token'] as String? : null;
-    if (token == null || token.length != 32) {
-      // Do not imply an undo exists if the older server ignored the opt-in.
-      throw StateError('删除可能已生效但撤销凭据未确认，请刷新核对');
+    try {
+      final response = await HttpUtil.delete(
+        uri, headers: headers,
+      ).timeout(ApiService.postTimeout);
+      if (response.statusCode == 409) {
+        throw StateError('清单关联任务已变化，请重新核对删除范围');
+      }
+      if (response.statusCode != 200) {
+        throw StateError('清单删除回执未确认，请先核对');
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map || decoded['undo_token'] != token) {
+        throw StateError('服务端未返回已核对的撤销凭据');
+      }
+    } catch (_) {
+      // HTTP timeout/reset can occur AFTER the server committed the delete.
+      // The caller knows the random key and verifies the durable receipt
+      // via GET; do not send the DELETE again or manufacture success.
+      if (!await deletionReceiptCommitted('list', token)) rethrow;
     }
     unawaited(CloudSyncCoordinator().syncNow());
     return ListDeletionUndo(() async {
