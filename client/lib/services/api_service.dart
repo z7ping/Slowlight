@@ -341,15 +341,28 @@ class ApiService {
   }
 
   // 删除清单
-  static Future<void> deleteList(int id, {bool deleteTasks = false}) async {
+  static Future<void> deleteList(int id, {
+    bool deleteTasks = false,
+    int? expectedTaskCount,
+  }) async {
     if (DataModeManager().isOffline) {
-      return _localApi.deleteList(id, deleteTasks: deleteTasks);
+      return _localApi.deleteList(
+        id, deleteTasks: deleteTasks,
+        expectedTaskCount: expectedTaskCount,
+      );
     }
     final headers = await _authHeaders();
+    final uri = Uri.parse('$baseUrl/lists/$id').replace(queryParameters: {
+      if (deleteTasks) 'delete_tasks': 'true',
+      if (expectedTaskCount != null)
+        'expected_tasks': expectedTaskCount.toString(),
+    });
     final response = await HttpUtil.delete(
-      Uri.parse('$baseUrl/lists/$id${deleteTasks ? '?delete_tasks=true' : ''}'),
-      headers: headers,
+      uri, headers: headers,
     ).timeout(_getTimeout);
+    if (response.statusCode == 409) {
+      throw StateError('清单任务范围已变化，请重新核对删除范围');
+    }
     if (response.statusCode != 200) {
       throw Exception('删除清单失败');
     }
