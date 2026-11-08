@@ -9,6 +9,7 @@ import 'package:slowlight/screens/habit_tool_screen.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
 import 'package:slowlight/screens/list_manage_screen.dart';
 import 'package:slowlight/screens/about_screen.dart';
+import 'package:slowlight/screens/search_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 import 'package:slowlight/ui/fx.dart' show FxInkWell, FxGestureDetector, FxNotice;
 import 'package:slowlight/screens/home_screen.dart';
@@ -190,6 +191,22 @@ void main() {
       expect(find.byType(AboutScreen), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 抽屉搜索使用二级 Navigator，返回仍保留主导航',
+        (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('搜索'));
+      await tester.pump();
+      expect(find.byType(SearchScreen), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
       expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
