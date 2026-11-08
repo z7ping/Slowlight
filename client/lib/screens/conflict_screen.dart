@@ -11,8 +11,22 @@ import '../ui/fx.dart';
 class ConflictScreen extends StatefulWidget {
   /// Test seam only; production continues using SyncService.
   final Future<List<Map<String, dynamic>>> Function()? conflictsLoader;
+  // Test seams; the actual resolution and preview continue through SyncService.
+  final Future<bool> Function(int, {
+    required String entityType,
+    required bool keepLocal,
+  })? conflictResolver;
+  final Future<Map<String, dynamic>?> Function(
+    String entityType,
+    Map<String, dynamic> local,
+  )? remotePreviewLoader;
 
-  const ConflictScreen({super.key, this.conflictsLoader});
+  const ConflictScreen({
+    super.key,
+    this.conflictsLoader,
+    this.conflictResolver,
+    this.remotePreviewLoader,
+  });
 
   @override
   State<ConflictScreen> createState() => _ConflictScreenState();
@@ -25,6 +39,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
   bool _hasLoaded = false;
   bool _loadFailed = false;
   int _loadVersion = 0;
+  bool _resolving = false;
 
   @override
   void initState() {
@@ -58,7 +73,9 @@ class _ConflictScreenState extends State<ConflictScreen> {
       final serverId = local['server_id'] as int?;
       if (serverId != null && serverId > 0) {
         try {
-          if (type == 'tasks') {
+          if (widget.remotePreviewLoader != null) {
+            remote = await widget.remotePreviewLoader!(type, local);
+          } else if (type == 'tasks') {
             remote = _taskPreview(await TaskApi.getTask(serverId));
           } else {
             remote = await _sync.fetchConflictRemote(type, local);
@@ -278,10 +295,10 @@ class _ConflictScreenState extends State<ConflictScreen> {
                 runSpacing: 8,
                 children: [
                   FxButton(
-                    label: '保留本地版本',
+                    label: _resolving ? '处理中…' : '保留本地版本',
                     variant: FxButtonVariant.outline,
                     onPressed:
-                        id == null || !canKeepLocal
+                        _resolving || id == null || !canKeepLocal
                             ? null
                             : () => _resolveConflict(
                                 id, entityType: entityType, keepLocal: true,
@@ -290,7 +307,7 @@ class _ConflictScreenState extends State<ConflictScreen> {
                   FxButton(
                     label: '使用服务端版本',
                     onPressed:
-                        id == null || remote == null
+                        _resolving || id == null || remote == null
                             ? null
                             : () => _resolveConflict(
                                 id, entityType: entityType, keepLocal: false,
@@ -439,10 +456,17 @@ class _ConflictScreenState extends State<ConflictScreen> {
     required String entityType,
     required bool keepLocal,
   }) async {
+    // Both choices modify the same conflict. Lock every resolution action
+    // synchronously before awaiting the source; overlapping writes could
+    // otherwise accept two contradictory user decisions.
+    if (_resolving) return;
+    setState(() => _resolving = true);
     try {
-      final resolved = await _sync.resolveConflict(
+      final resolved = await (widget.conflictResolver?.call(
         localId, entityType: entityType, keepLocal: keepLocal,
-      );
+      ) ?? _sync.resolveConflict(
+        localId, entityType: entityType, keepLocal: keepLocal,
+      ));
       if (!mounted) return;
       FxNotice.showContent(
         context,
@@ -453,7 +477,12 @@ class _ConflictScreenState extends State<ConflictScreen> {
       if (resolved) await _loadConflicts();
     } catch (_) {
       if (!mounted) return;
-      FxNotice.showContent(context, const Text('处理失败，未确认冲突已解决，请重试'));
+      FxNotice.showContent(
+        context,
+        const Text('冲突处理结果未确认，请先刷新列表核对后再操作'),
+      );
+    } finally {
+      if (mounted) setState(() => _resolving = false);
     }
   }
 }
