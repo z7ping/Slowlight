@@ -7,6 +7,7 @@ import '../models/habit_occurrence.dart';
 import '../models/habit_schedule_rule.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
+import '../utils/search_sql_like.dart';
 
 /// 本地习惯仓储（SQLite 内部实现）。
 /// HabitLog.date 是日历日期；created_at/updated_at 等 instant 统一存 UTC。
@@ -103,13 +104,30 @@ class LocalHabitRepository {
     });
   }
 
-  Future<List<Map<String, dynamic>>> getAll() async {
+  Future<List<Map<String, dynamic>>> getAll({String? search}) async {
     final db = await _db.database;
-    final maps = await db.query(
-      'habits',
-      where: 'deleted_at IS NULL',
-      orderBy: 'created_at ASC',
-    );
+    final pattern = search == null ? null : searchSqlLikePattern(search);
+    final maps = pattern == null
+        ? await db.query(
+            'habits',
+            where: 'deleted_at IS NULL',
+            orderBy: 'created_at ASC',
+          )
+        : await db.rawQuery('''
+            SELECT habits.*,
+              (SELECT l.note FROM habit_logs l
+                WHERE l.habit_id = habits.id AND LOWER(l.note) LIKE ? ESCAPE '!'
+                ORDER BY l.created_at DESC, l.id DESC LIMIT 1) AS search_note,
+              (SELECT l.created_at FROM habit_logs l
+                WHERE l.habit_id = habits.id AND LOWER(l.note) LIKE ? ESCAPE '!'
+                ORDER BY l.created_at DESC, l.id DESC LIMIT 1) AS search_note_at
+            FROM habits
+            WHERE habits.deleted_at IS NULL
+              AND (LOWER(habits.name) LIKE ? ESCAPE '!' OR EXISTS (
+                SELECT 1 FROM habit_logs l WHERE l.habit_id = habits.id
+                AND LOWER(l.note) LIKE ? ESCAPE '!'))
+            ORDER BY habits.created_at ASC
+          ''', [pattern, pattern, pattern, pattern]);
 
     final now = DateTime.now();
     final todayStr = _dateStr(now);
