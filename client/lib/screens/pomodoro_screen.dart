@@ -149,26 +149,31 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     return '${_cyclePrefix}cloud_${user.id}';
   }
 
-  Future<void> _rememberNaturalWork(int sessionId) async {
+  Future<bool> _rememberNaturalWork(int sessionId) async {
+    // A changed account/data mode must never inherit another scope's cycle.
+    try {
+      if (await _cycleStorageKey() != _cyclePrefsKey) return false;
+    } catch (_) {
+      return false;
+    }
     final advanced = _cycle.advance(
       sessionId,
       cycleSize: _sessionsBeforeLong,
     );
-    if (identical(advanced, _cycle)) return;
+    if (identical(advanced, _cycle)) return false;
     _cycle = advanced;
     final key = _cyclePrefsKey;
-    if (key == null) return;
-    try {
-      // An account or data-mode switch must not write a cycle into the old
-      // scope while the previous async session finish is completing.
-      if (await _cycleStorageKey() != key) return;
-      final prefs = await SharedPreferences.getInstance();
-      if (!await prefs.setString(key, advanced.encode()) && mounted) {
-        _message('本机专注轮次未能保存，重新进入后可能需要重新累计');
+    if (key != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (!await prefs.setString(key, advanced.encode()) && mounted) {
+          _message('本机专注轮次未能保存，重新进入后可能需要重新累计');
+        }
+      } catch (_) {
+        if (mounted) _message('本机专注轮次未能保存，重新进入后可能需要重新累计');
       }
-    } catch (_) {
-      if (mounted) _message('本机专注轮次未能保存，重新进入后可能需要重新累计');
     }
+    return advanced.roundsSinceLongBreak == 0;
   }
 
   /// Restore preferences before the legacy session fallback reads a target
@@ -406,13 +411,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     if (!mounted) return;
     if (_sessionType == 'work') {
-      if (finishedSessionId != null) {
-        await _rememberNaturalWork(finishedSessionId);
-      }
+      final longBreak = finishedSessionId != null &&
+          await _rememberNaturalWork(finishedSessionId);
       if (!mounted) return;
       _showCompletion(tagsSaved ? '专注了 $_sessionTargetMinutes 分钟' : '专注已结束，但标签未保存');
-      final longBreak = finishedSessionId != null &&
-          _cycle.roundsSinceLongBreak == 0;
       setState(() {
         _sessionType = longBreak ? 'long_break' : 'break';
         _sessionTargetMinutes = _durationFor(_sessionType);
