@@ -224,6 +224,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
   }
 
   Future<void> _showEditor([TodoList? existing]) async {
+    if (existing?.isInbox == true) return;
     final nameController = TextEditingController(text: existing?.name ?? '');
     var selectedIcon = existing?.icon ?? _presetIcons.first;
     var selectedColor = existing?.color ?? _presetColors.first;
@@ -712,12 +713,13 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                FxIconButton(
-                                  tooltip: '编辑',
-                                  onPressed: () => _showEditor(list),
-                                  icon: LucideIcons.pencil,
-                                  iconSize: SlowlightIconSize.md,
-                                ),
+                                if (!list.isInbox)
+                                  FxIconButton(
+                                    tooltip: '编辑',
+                                    onPressed: () => _showEditor(list),
+                                    icon: LucideIcons.pencil,
+                                    iconSize: SlowlightIconSize.md,
+                                  ),
                                 if (!list.isInbox)
                                   FxIconButton(
                                     tooltip: '删除',
