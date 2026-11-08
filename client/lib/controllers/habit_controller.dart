@@ -24,6 +24,7 @@ class HabitController extends ChangeNotifier {
   final Set<int> _queuedLogRefreshes = {};
   final Map<int, String> _logErrors = {};
   bool _loading = false;
+  int _habitLoadRevision = 0;
   String? _error;
   bool _disposed = false;
 
@@ -47,16 +48,22 @@ class HabitController extends ChangeNotifier {
   bool hasLoadedLogs(int habitId) => _logs.containsKey(habitId);
 
   Future<void> load() async {
+    final revision = ++_habitLoadRevision;
     _loading = true;
     _error = null;
     notifyListeners();
     try {
-      _habits = await _repository.getAll();
+      final next = await _repository.getAll();
+      if (!_disposed && revision == _habitLoadRevision) _habits = next;
     } catch (e) {
-      _error = e.toString();
+      if (!_disposed && revision == _habitLoadRevision) {
+        _error = e.toString();
+      }
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (!_disposed && revision == _habitLoadRevision) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 
