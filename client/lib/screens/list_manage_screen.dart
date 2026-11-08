@@ -569,7 +569,8 @@ class _ListManageScreenState extends State<ListManageScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      await DataService().deleteList(list.id, list.serverId);
+      await DataService().deleteList(list.id, list.serverId,
+          deleteTasks: true);
       await _loadLists();
     } catch (e) {
       if (!mounted) return;
