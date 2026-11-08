@@ -18,6 +18,10 @@ typedef OverlayConsumeActionNative = Int32 Function();
 typedef OverlayConsumeAction = int Function();
 typedef OverlaySetStrictNative = Void Function(Int32 strict);
 typedef OverlaySetStrict = void Function(int strict);
+typedef OverlaySetPostponeNative = Void Function(Int32 allowed);
+typedef OverlaySetPostpone = void Function(int allowed);
+typedef OverlayReadyNative = Int32 Function();
+typedef OverlayReady = int Function();
 /// Multi-monitor lock screen overlay via FFI.
 class _OverlayFFI {
   static DynamicLibrary? _lib;
@@ -48,6 +52,11 @@ class _OverlayFFI {
     final lib = _tryLoad();
     if (lib == null) return -1;
     try {
+      // Old DLL versions lack the startup handshake and action-policy API.
+      // Refuse native lock instead of hiding the window with an unsafe DLL.
+      lib.lookupFunction<OverlayReadyNative, OverlayReady>('overlay_is_ready');
+      lib.lookupFunction<OverlaySetPostponeNative, OverlaySetPostpone>(
+          'overlay_set_postpone_allowed');
       final fn =
           lib.lookupFunction<OverlayStartNative, OverlayStart>('overlay_start');
       return fn();
@@ -103,6 +112,28 @@ class _OverlayFFI {
     }
   }
 
+  static void setPostponeAllowed(int allowed) {
+    final lib = _tryLoad();
+    if (lib == null) return;
+    try {
+      final fn = lib.lookupFunction<OverlaySetPostponeNative,
+          OverlaySetPostpone>('overlay_set_postpone_allowed');
+      fn(allowed);
+    } catch (_) {}
+  }
+
+  static bool isReady() {
+    final lib = _tryLoad();
+    if (lib == null) return false;
+    try {
+      final fn = lib.lookupFunction<OverlayReadyNative, OverlayReady>(
+          'overlay_is_ready');
+      return fn() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
 }
 
 /// Desktop lock screen using native overlay windows on ALL monitors.
@@ -147,8 +178,11 @@ class LockScreenManager {
       if (Platform.isWindows) {
         // 必须先确认原生遮罩可以启动，才允许隐藏 Flutter 主窗口。
         // DLL 丢失或入口加载失败时不能把用户留在无窗口、键盘仍被拦截的状态。
-        final strict = ReminderService().isCurrentRestStrict ? 1 : 0;
+        final service = ReminderService();
+        final strict = service.isCurrentRestStrict ? 1 : 0;
         _OverlayFFI.setStrict(strict);
+        _OverlayFFI.setPostponeAllowed(
+            service.isCurrentRestPostponeAllowed ? 1 : 0);
         final overlayResult = _OverlayFFI.start();
         if (overlayResult < 0) return;
 
@@ -216,6 +250,11 @@ class LockScreenManager {
     _stopActionPolling();
     _actionPollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!_isLocked) { _stopActionPolling(); return; }
+      if (Platform.isWindows && !_OverlayFFI.isReady()) {
+        _stopActionPolling();
+        unawaited(_recoverLostNativeOverlay());
+        return;
+      }
       final action = _OverlayFFI.consumeAction();
       if (action == 1) {
         ReminderService().skipRest();
@@ -223,6 +262,14 @@ class LockScreenManager {
         ReminderService().postponeRest();
       }
     });
+  }
+
+  Future<void> _recoverLostNativeOverlay() async {
+    if (!_isLocked) return;
+    // Bring back the hidden Flutter window before asking ReminderService to
+    // show the existing in-app rest fallback. Never end the rest implicitly.
+    await unlock();
+    ReminderService().reportNativeOverlayFailure();
   }
 
   void _stopActionPolling() {

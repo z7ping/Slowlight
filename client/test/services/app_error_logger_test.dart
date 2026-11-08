@@ -78,6 +78,23 @@ void main() {
     expect(await logger.readText(), isEmpty);
   });
 
+  test('X12 clearing local logs also removes prior Android share copy', () async {
+    final logs = Directory('${tempDir.path}/logs');
+    final shares = Directory('${tempDir.path}/cache/diagnostics');
+    final logger = AppErrorLogger(
+      directoryProvider: () async => logs,
+      exportDirectoryProvider: () async => shares,
+    );
+    await logger.write(source: 'exception', error: 'private evidence');
+    final export = await logger.createExportFile(header: 'Slowlight');
+    expect(await export.exists(), isTrue);
+    expect(await export.readAsString(), contains('private evidence'));
+
+    await logger.clear();
+    expect(await logger.readText(), isEmpty);
+    expect(await export.exists(), isFalse);
+  });
+
   test('concurrent error writes are serialized', () async {
     final logger = AppErrorLogger(directoryProvider: () async => tempDir);
     await Future.wait(

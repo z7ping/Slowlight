@@ -9,9 +9,11 @@ typedef ErrorLogDirectoryProvider = Future<Directory> Function();
 class AppErrorLogger {
   AppErrorLogger({
     ErrorLogDirectoryProvider? directoryProvider,
+    ErrorLogDirectoryProvider? exportDirectoryProvider,
     this.maxBytes = 1024 * 1024,
     DateTime Function()? now,
   })  : _directoryProvider = directoryProvider ?? _defaultDirectory,
+        _exportDirectoryProvider = exportDirectoryProvider ?? _defaultExportDirectory,
         _now = now ?? DateTime.now;
 
   static final AppErrorLogger instance = AppErrorLogger();
@@ -25,6 +27,7 @@ class AppErrorLogger {
   }
 
   final ErrorLogDirectoryProvider _directoryProvider;
+  final ErrorLogDirectoryProvider _exportDirectoryProvider;
   final DateTime Function() _now;
   final int maxBytes;
   Future<void> _pendingWrite = Future<void>.value();
@@ -112,14 +115,25 @@ class AppErrorLogger {
       final file = File(path);
       if (await file.exists()) await file.delete();
     }
+    // The Android FileProvider copy is also a local diagnostic artifact.
+    // Clearing logs must not silently leave a previous exported copy behind.
+    try {
+      final export = File(
+        '${(await _exportDirectoryProvider()).path}${Platform.pathSeparator}slowlight-diagnostics.txt',
+      );
+      if (await export.exists()) await export.delete();
+    } catch (_) {
+      // Only Android creates a FileProvider share copy. A missing platform
+      // channel in desktop/tests must not reclassify an already cleared log
+      // as a failed clear; Android must report a failed cache cleanup.
+      if (Platform.isAndroid) rethrow;
+    }
   }
 
-  /// 在缓存目录创建供 Android FileProvider 分享的脱敏文本副本。
+  /// 在缓存目录创建供 Android FileProvider 分享的脱敏文本副本.
   Future<File> createExportFile({String header = ''}) async {
     final text = await readText();
-    final directory = Directory(
-      '${(await getTemporaryDirectory()).path}${Platform.pathSeparator}diagnostics',
-    );
+    final directory = await _exportDirectoryProvider();
     await directory.create(recursive: true);
     final export = File(
       '${directory.path}${Platform.pathSeparator}slowlight-diagnostics.txt',
@@ -127,6 +141,10 @@ class AppErrorLogger {
     await export.writeAsString('$header\n$text', flush: true);
     return export;
   }
+
+  static Future<Directory> _defaultExportDirectory() async => Directory(
+    '${(await getTemporaryDirectory()).path}${Platform.pathSeparator}diagnostics',
+  );
 
   Future<String?> get logPath async {
     try {

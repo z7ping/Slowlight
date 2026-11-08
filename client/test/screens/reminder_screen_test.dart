@@ -72,6 +72,35 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('X13 休息页严格模式仍按配置显示延后但不显示跳过', (tester) async {
+      final service = ReminderService();
+      service.stopAll();
+      service.updateConfig(
+        lockScreenMode: 'window',
+        microRestSeconds: 20,
+        autoLoop: false,
+        microRestStrict: true,
+        allowPostponeMicro: true,
+      );
+      await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));
+      service.startMicroRest();
+      await tester.pump();
+      try {
+        expect(find.text('延后 5 分钟'), findsOneWidget);
+        expect(find.text('跳过'), findsNothing);
+        expect(find.text('严格模式 · 不可跳过'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        service.stopAll();
+        service.updateConfig(
+          autoLoop: true,
+          microRestStrict: false,
+          allowPostponeMicro: true,
+        );
+        await disposeFxTestHost(tester);
+      }
+    });
+
     testWidgets('P16 系统挂起不把未完成小憩记为完成或跳过', (tester) async {
       final service = ReminderService();
       service.stopAll();
