@@ -266,6 +266,9 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                 ),
               ),
       );
+    } on StateError {
+      await _load();
+      if (mounted) _message('任务状态已变化，未重复切换，请核对后操作');
     } catch (_) {
       _message('任务操作结果未确认，请核对任务状态');
     } finally {
