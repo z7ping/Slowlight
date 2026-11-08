@@ -214,13 +214,13 @@ void main() {
     );
     await tester.enterText(input, '输入法展开期间的任务');
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
-    addTearDown(() => tester.view.viewInsets = FakeViewPadding.zero);
+    addTearDown(() => tester.view.viewInsets = const FakeViewPadding());
     await tester.pumpAndSettle();
     final save = find.byKey(const ValueKey('task.detail.primaryAction'));
     expect(save, findsOneWidget);
     expect(tester.getRect(save).bottom, lessThanOrEqualTo(850));
     expect(find.text('输入法展开期间的任务'), findsOneWidget);
-    tester.view.viewInsets = FakeViewPadding.zero;
+    tester.view.viewInsets = const FakeViewPadding();
     await tester.pumpAndSettle();
     expect(find.byType(TaskDetailSheet), findsOneWidget);
     expect(tester.widget<FxButton>(save).onPressed, isNotNull);
