@@ -193,6 +193,17 @@ class HabitRepository {
     return HabitLog.parseHistory(value['logs']);
   }
 
+  /// Readback after destructive writes must not silently fall back to an
+  /// offline cache for a server-backed habit. Ordinary history can still use
+  /// the existing cache fallback to stay available while offline.
+  Future<List<HabitLog>> logsForVerification(int habitId) async {
+    final source = _dataSource;
+    final value = source is CloudApiService
+        ? await source.getHabitLogsForVerification(habitId)
+        : await source.getHabitLogs(habitId);
+    return HabitLog.parseHistory(value['logs']);
+  }
+
   Future<void> delete(int habitId) => _dataSource.deleteHabit(habitId);
 
   /// 旧调用方兼容；新 UI 禁止继续使用动态 Map。
