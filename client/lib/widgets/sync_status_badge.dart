@@ -39,6 +39,16 @@ bool syncMayStartUserRetry({
     conflictCount == 0 &&
     !hasRequestError;
 
+/// A failed conflict read is an unknown status, never a healthy pill.
+bool shouldShowCloudSyncBadge({
+  required bool showHealthy,
+  required bool conflictsKnown,
+  required int pendingCount,
+  required int conflictCount,
+  required SyncStatusEnum status,
+}) => showHealthy || !conflictsKnown || pendingCount > 0 ||
+    conflictCount > 0 || status == SyncStatusEnum.error;
+
 /// 同步状态指示器 — 显示在 AppBar 或 Drawer
 class SyncStatusBadge extends StatelessWidget {
   final bool showHealthy;
@@ -81,11 +91,13 @@ class SyncStatusBadge extends StatelessWidget {
                     final conflicts = snapshot.data ?? const [];
                     final conflictsKnown = snapshot.connectionState ==
                             ConnectionState.done && !snapshot.hasError;
-                    if (!showHealthy &&
-                        conflictsKnown &&
-                        pending == 0 &&
-                        conflicts.isEmpty &&
-                        status != SyncStatusEnum.error) {
+                    if (!shouldShowCloudSyncBadge(
+                      showHealthy: showHealthy,
+                      conflictsKnown: conflictsKnown,
+                      pendingCount: pending,
+                      conflictCount: conflicts.length,
+                      status: status,
+                    )) {
                       return const SizedBox.shrink();
                     }
                     return FxGestureDetector(
