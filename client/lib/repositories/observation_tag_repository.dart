@@ -221,6 +221,12 @@ class ObservationTagRepository {
           where: 'system_tag_id = ?',
           whereArgs: [tag.id],
         );
+        await txn.update(
+          'work_sessions',
+          {'system_tag_id': null},
+          where: 'system_tag_id = ?',
+          whereArgs: [tag.id],
+        );
         final aliases = await txn.query('legacy_system_tag_aliases',
             columns: ['tag_id'], where: 'system_tag_id = ?',
             whereArgs: [tag.id], limit: 1);
