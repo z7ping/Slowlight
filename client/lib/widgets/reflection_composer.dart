@@ -167,7 +167,8 @@ class ReflectionComposer {
       StateSetter setEntryState,
     ) async {
       if (inlineTagSaving || !inlineTagResultUnknown) return;
-      final name = inlineTagName.text.trim().replaceFirst(RegExp(r'^#'), '').trim();
+      final name = inlineTagName.text.trim()
+          .replaceFirst(RegExp(r'^#'), '').trim();
       setEntryState(() => inlineTagSaving = true);
       try {
         final existing = await ApiService.getTags();
