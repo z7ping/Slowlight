@@ -279,6 +279,43 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('P06 Windows 多于四条任务时可查看并打开全部任务',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'quadrant_move_hint_desktop_v1': true,
+    });
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final tasks = List.generate(
+      6,
+      (index) => _task(100 + index, '象限任务${index + 1}', 'urgent_important'),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: () => _loadTasks(tasks)),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('查看全部（6）'), findsOneWidget);
+    expect(find.text('象限任务6'), findsNothing);
+    await tester.tap(find.text('查看全部（6）'));
+    await tester.pumpAndSettle();
+    expect(find.text('重要 · 紧急 · 6 项任务'), findsOneWidget);
+    expect(find.text('象限任务6'), findsOneWidget);
+    await tester.tap(find.text('象限任务6'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskDetailSheet), findsOneWidget);
+    expect(tester.widget<TaskDetailSheet>(find.byType(TaskDetailSheet)).task.id,
+        105);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P06 Windows 右键移动仅预填原任务，不直接提交', (tester) async {
     SharedPreferences.setMockInitialValues({
       'quadrant_move_hint_desktop_v1': true,

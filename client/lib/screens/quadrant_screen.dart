@@ -234,6 +234,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
     final hovering = _dragTarget == priority;
+    final previewCount = desktop ? 4 : 2;
     final emptyState = Center(
       child: desktop
           ? Text(
@@ -314,7 +315,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                 ? Expanded(child: emptyState)
                 : SizedBox(height: 96, child: emptyState)
           else
-            ...items.take(desktop ? 5 : 2).map(
+            ...items.take(previewCount).map(
                   (task) => desktop
                       ? _draggableTask(task, color)
                       : _taskLine(
@@ -324,7 +325,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                           compact: compactMobileGrid,
                         ),
                 ),
-          if (!desktop && items.length > 2)
+          if (items.length > previewCount)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: FxButton(
@@ -387,48 +388,58 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }
 
   Future<void> _showAllTasks(String title, List<Task> items) async {
-    final selection = await FxSheet.show<({Task task, bool move})>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$title · ${items.length} 项任务',
-              style: SlowlightTypography.sectionTitle(sheetContext),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: math.min(
-                MediaQuery.sizeOf(sheetContext).height * .6,
-                math.max(64.0, items.length * 64.0),
+    // Use the existing full-list view on both platforms so desktop cards
+    // never silently hide the fifth and following tasks.
+    Widget content(BuildContext dialogContext) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$title · ${items.length} 项任务',
+                style: SlowlightTypography.sectionTitle(dialogContext),
               ),
-              child: ListView.builder(
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final task = items[index];
-                  void open() => Navigator.of(sheetContext)
-                      .pop((task: task, move: false));
-                  void move() => Navigator.of(sheetContext)
-                      .pop((task: task, move: true));
-                  return _taskLine(
-                    task,
-                    AppTheme.priorityColor(task.priority),
-                    desktop: false,
-                    onTap: open,
-                    onMove: move,
-                  );
-                },
+              const SizedBox(height: 12),
+              SizedBox(
+                height: math.min(
+                  MediaQuery.sizeOf(dialogContext).height * .6,
+                  math.max(64.0, items.length * 64.0),
+                ),
+                child: ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final task = items[index];
+                    void open() => Navigator.of(dialogContext)
+                        .pop((task: task, move: false));
+                    void move() => Navigator.of(dialogContext)
+                        .pop((task: task, move: true));
+                    return _taskLine(
+                      task,
+                      AppTheme.priorityColor(task.priority),
+                      desktop: false,
+                      onTap: open,
+                      onMove: move,
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
+            ],
+          ),
+        );
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
+    final selection = desktop
+        ? await FxDialog.show<({Task task, bool move})>(
+            context: context,
+            width: 480,
+            child: Builder(builder: content),
+          )
+        : await FxSheet.show<({Task task, bool move})>(
+            context: context,
+            useSafeArea: true,
+            isScrollControlled: true,
+            builder: content,
+          );
     if (!mounted || selection == null) return;
     if (selection.move) {
       await _showMoveSheet(selection.task);
