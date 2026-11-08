@@ -127,7 +127,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     if (impact == null) return _usageLoading ? '关联读取中…' : '关联未核对';
     final total = impact.tasks + impact.habits +
         impact.sessions + impact.reflections;
-    return '关联 ${total} 条 · 任务 ${impact.tasks} / 习惯 ${impact.habits} / '
+    return '关联影响 ${total} 条 · 任务 ${impact.tasks} / 习惯 ${impact.habits} / '
         '专注 ${impact.sessions} / 观察 ${impact.reflections}';
   }
 
