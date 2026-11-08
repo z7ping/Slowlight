@@ -55,11 +55,11 @@ class AuthService {
                 ? 'invalid_or_expired'
                 : 'valid';
     if (_lastTokenState != state) {
-      // A previously readable JWT vanished without an observed logout.
-      // This is evidence of a storage/lifecycle problem, not a server 401.
+      // A previously valid JWT read as missing; record only the transition.
+      // Correlate with logout events before attributing any cause.
       if (_lastTokenState == 'valid' && state == 'missing' &&
           origin == 'none') {
-        _trace('credential.disappeared reason=no_observed_logout');
+        _trace('credential.disappeared previous=valid origin=none');
       }
       _lastTokenState = state;
       // "state=" is intentionally reserved for redacting OAuth state secrets.
