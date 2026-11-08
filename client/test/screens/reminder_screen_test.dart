@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/reminder_screen.dart';
+import 'package:slowlight/db/local_db.dart';
 import 'package:slowlight/services/reminder_service.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 
@@ -69,6 +70,79 @@ void main() {
       service.stopAll();
       service.updateConfig(allowPostponeMicro: true, microRestStrict: false);
       await disposeFxTestHost(tester);
+    });
+
+    testWidgets('P16 系统挂起不把未完成小憩记为完成或跳过', (tester) async {
+      final service = ReminderService();
+      service.stopAll();
+      service.updateConfig(
+        microRestSeconds: 20,
+        lockScreenMode: 'window',
+        autoLoop: false,
+        autoStartOnLaunch: false,
+      );
+      await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));
+      final beforeCycle = service.cycleCount;
+      final beforeMicro = service.microRestCount;
+      service.startMicroRest();
+      await tester.pump();
+      try {
+        final db = await LocalDb().database;
+        await tester.runAsync(() async {
+          for (var i = 0; i < 50; i++) {
+            final active = await db.query('reminder_sessions',
+                where: 'type = ? AND ended_at IS NULL',
+                whereArgs: ['rest']);
+            if (active.isNotEmpty) return;
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          throw StateError('休息开始记录未写入数据库');
+        });
+
+        await tester.runAsync(() => service.debugSimulateClockInterruption(
+            DateTime.now().subtract(const Duration(minutes: 3))));
+        await tester.pump();
+        expect(service.state, 'idle');
+        expect(service.microRestCount, beforeMicro);
+        expect(service.cycleCount, beforeCycle);
+        final open = await db.query('reminder_sessions',
+            where: 'type = ? AND ended_at IS NULL',
+            whereArgs: ['rest']);
+        expect(open, isEmpty);
+        expect(tester.takeException(), isNull);
+      } finally {
+        service.stopAll();
+        service.updateConfig(autoLoop: true);
+        await disposeFxTestHost(tester);
+      }
+    });
+
+    testWidgets('P16 挂起后用户手动停止，不得被迟到自动恢复重启', (tester) async {
+      final service = ReminderService();
+      service.stopAll();
+      service.updateConfig(
+        workMinutes: 25,
+        lockScreenMode: 'window',
+        autoLoop: true,
+        autoStartOnLaunch: false,
+      );
+      await tester.pumpWidget(buildFxTestHost(home: const ReminderScreen()));
+      service.startWork();
+      await tester.pump();
+      try {
+        final closing = service.debugSimulateClockInterruption(
+          DateTime.now().subtract(const Duration(minutes: 2)),
+        );
+        service.stopAll();
+        await tester.runAsync(() => closing);
+        await tester.pump();
+        expect(service.state, 'idle');
+        expect(service.remainingSeconds, 0);
+        expect(tester.takeException(), isNull);
+      } finally {
+        service.stopAll();
+        await disposeFxTestHost(tester);
+      }
     });
 
     testWidgets('开始工作后服务进入 working 状态', (tester) async {
