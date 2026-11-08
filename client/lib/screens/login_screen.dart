@@ -572,6 +572,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await _loginWithGitHub(
           resumePending: _githubError != null && _githubCanResume,
         );
+        break;
     }
   }
 
