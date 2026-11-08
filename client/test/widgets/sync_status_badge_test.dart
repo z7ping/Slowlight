@@ -119,7 +119,7 @@ void main() {
     expect(label(
       failed: true,
       evidence: const SyncQueueRunEvidence(attempted: 4, failed: 1),
-    ), '部分成功（已确认 3 项，未完成 1 项）');
+    ), '部分成功（已处理 3 项，未完成 1 项）');
     expect(label(
       failed: true,
       networkUnreachable: true,
