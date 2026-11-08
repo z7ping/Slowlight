@@ -46,6 +46,33 @@ import 'time_distribution_screen.dart';
 import 'today_review_screen.dart';
 import 'weekly_review_screen.dart';
 
+/// 侧边栏只展示本机缓存的账号信息，不进行云端会话判定。
+/// 读取侧栏、打开抽屉或进入账号页都不能触发 AuthGate 的登录重置。
+/// 服务端资料、密码状态和 GitHub 绑定失败由账号页各自显示未知状态。
+@visibleForTesting
+Future<Map<String, String>> readCachedSidebarAccountSummary() async {
+  if (DataModeManager().isLocal) {
+    return {'name': '本地使用', 'status': '记录保存在本机'};
+  }
+  // Only read credentials; isLoggedIn() may refresh the access token and is
+  // deliberately reserved for AuthGate / explicit mode switching.
+  final token = await AuthService.getToken();
+  if (token == null || token.startsWith('local:')) {
+    return {'name': '账号状态待确认', 'status': '请进入账号页检查'};
+  }
+  final User? user = await AuthService.getUser();
+  if (user == null) {
+    return {'name': '账号信息待确认', 'status': '请进入账号页检查'};
+  }
+  final method = await AuthService.getLastLoginMethod();
+  return {
+    'name': user.nickname.trim().isNotEmpty ? user.nickname.trim() : user.username,
+    'status': method == 'github'
+        ? '最近通过 GitHub 登录 · 云端'
+        : '云端账号 · 本机资料',
+  };
+}
+
 /// Slowlight 主壳层。桌面严格使用高保真原型的 232px 左侧栏；
 /// 主内容页自己承担页面头部，不再叠加一层通用顶栏。
 class FocusHomeScreen extends StatefulWidget {
@@ -78,7 +105,6 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   ReflectionEntry? _searchFocusObservation;
   int _searchFocusObservationRequest = 0;
   late Future<Map<String, String>> _accountFuture;
-  bool _cloudSessionWasValid = true;
   bool _shortcutModifierPressed = false;
   int _dashboardRefreshTick = 0;
   final FocusNode _shortcutFocusNode = FocusNode(
@@ -937,36 +963,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     ),
   };
 
-  Future<Map<String, String>> _loadAccountDisplay() async {
-    if (DataModeManager().isLocal) {
-      return {'name': '本地使用', 'status': '记录保存在本机'};
-    }
-    if (!await AuthService.isLoggedIn()) {
-      // 侧边栏与 AuthGate 不能对同一账号得出互相矛盾的身份结论。
-      // 只广播一次实际失效；避免 FutureBuilder / AuthGate 互相触发循环。
-      if (_cloudSessionWasValid) {
-        _cloudSessionWasValid = false;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && DataModeManager().isCloud) {
-            authStateNotifier.value = !authStateNotifier.value;
-          }
-        });
-      }
-      return {'name': '会话已失效', 'status': '请重新登录'};
-    }
-    _cloudSessionWasValid = true;
-    final User? user = await AuthService.getUser();
-    // 侧边栏始终优先显示本机已确认的账号信息，不等待网络查询。
-    // 最近登录方式并不等于绑定状态，绑定详情只在账号页向服务端确认。
-    final method = await AuthService.getLastLoginMethod();
-    final status = method == 'github' ? '通过 GitHub 登录 · 云端' : '云端已登录';
-    return {
-      'name': user?.nickname.isNotEmpty == true
-          ? user!.nickname
-          : (user?.username ?? '已登录'),
-      'status': status,
-    };
-  }
+  Future<Map<String, String>> _loadAccountDisplay() =>
+      readCachedSidebarAccountSummary();
 
   void _refreshAccount() {
     if (mounted) setState(() { _accountFuture = _loadAccountDisplay(); });
