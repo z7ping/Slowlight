@@ -49,15 +49,15 @@ void main() {
 
   test('P1-11 仅确证部分写入才显示部分成功，不把未知项算成功', () {
     const partial = SyncQueueRunEvidence(attempted: 5, failed: 2);
-    expect(partial.acknowledged, 3);
-    expect(partial.partiallyAcknowledged, isTrue);
+    expect(partial.processed, 3);
+    expect(partial.partiallyProcessed, isTrue);
     expect(label(
       status: SyncStatusEnum.error,
       queueRun: partial,
-    ), '云同步 · 部分成功（3 项已确认，2 项未完成）');
+    ), '云同步 · 部分成功（3 项已处理，2 项未完成）');
 
     const allFailed = SyncQueueRunEvidence(attempted: 3, failed: 3);
-    expect(allFailed.partiallyAcknowledged, isFalse);
+    expect(allFailed.partiallyProcessed, isFalse);
     expect(label(
       status: SyncStatusEnum.error,
       queueRun: allFailed,
