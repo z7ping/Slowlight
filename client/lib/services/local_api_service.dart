@@ -41,8 +41,9 @@ class LocalApiService implements ApiDataSource {
       _listRepo.update(id: id, name: name, icon: icon, color: color);
 
   @override
-  Future<void> deleteList(int id, {bool deleteTasks = false}) =>
-      _listRepo.delete(id, deleteTasks: deleteTasks);
+  Future<void> deleteList(int id, {bool deleteTasks = false, int? expectedTaskCount}) =>
+      _listRepo.delete(id, deleteTasks: deleteTasks,
+          expectedTaskCount: expectedTaskCount);
 
   // ===== 任务 =====
 

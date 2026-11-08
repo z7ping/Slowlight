@@ -4,6 +4,7 @@ import (
     "errors"
     "fmt"
 	"net/http"
+	"strconv"
     "strings"
 
 	"github.com/gin-gonic/gin"
@@ -190,7 +191,39 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
 		return
 	}
 
+	// Old callers without conditions remain compatible. The new X08 dialog
+	// sends all four confirmed counts, never an unverified partial subset.
+	fields := []string{"expected_tasks", "expected_habits", "expected_sessions", "expected_reflections"}
+	var expected systemTagUsage
+	provided := 0
+	for i, key := range fields {
+		raw, ok := c.GetQuery(key)
+		if !ok { continue }
+		provided++
+		value, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || value < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "标签关联核对参数无效"})
+			return
+		}
+		switch i {
+		case 0: expected.Tasks = value
+		case 1: expected.Habits = value
+		case 2: expected.Sessions = value
+		case 3: expected.Reflections = value
+		}
+	}
+	if provided != 0 && provided != len(fields) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "标签关联核对参数不完整"})
+		return
+	}
+	errImpactChanged := errors.New("tag association impact changed")
+
 	if err := h.DB.Transaction(func(tx *gorm.DB) error {
+        if provided == len(fields) {
+            current, err := h.usageForTagDB(tx, userID, tag.ID)
+            if err != nil { return err }
+            if current != expected { return errImpactChanged }
+        }
         if err := tx.Model(&model.Habit{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
             Update("system_tag_id", nil).Error; err != nil { return err }
         if err := tx.Model(&model.Task{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
@@ -214,6 +247,10 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
         } else if !errors.Is(err, gorm.ErrRecordNotFound) { return err }
         return tx.Delete(&tag).Error
     }); err != nil {
+        if errors.Is(err, errImpactChanged) {
+            c.JSON(http.StatusConflict, gin.H{"error": "标签关联已变化，请重新核对删除范围"})
+            return
+        }
         c.JSON(http.StatusInternalServerError, gin.H{"error": "删除标签失败"}); return
     }
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})

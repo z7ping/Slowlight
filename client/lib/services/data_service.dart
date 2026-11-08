@@ -203,9 +203,9 @@ class DataService {
       );
 
   Future<void> deleteList(int localId, int? serverId,
-      {bool deleteTasks = false}) =>
+      {bool deleteTasks = false, int? expectedTaskCount}) =>
       listRepository.deleteList(_effectiveId(localId, serverId),
-          deleteTasks: deleteTasks);
+          deleteTasks: deleteTasks, expectedTaskCount: expectedTaskCount);
 
   Future<List<TodoList>> getLists() => listRepository.getLists();
 

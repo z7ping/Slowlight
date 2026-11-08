@@ -215,6 +215,25 @@ func TestDeleteList(t *testing.T) {
 	}
 }
 
+func TestDeleteList_X08RejectsChangedApprovedTaskCount(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	user := createTestUser(t, tx)
+	list := createTestList(t, tx, user.ID, "X08 清单")
+	task := createTestTask(t, tx, user.ID, list.ID, "确认后新增")
+	r := newListRouter(NewListHandler(tx), user.ID)
+	url := "/lists/" + itoa(list.ID) + "?delete_tasks=true&expected_tasks=0"
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusConflict { t.Fatalf("旧范围应拒绝: %d %s", w.Code, w.Body.String()) }
+	if err := tx.First(&model.Task{}, task.ID).Error; err != nil { t.Fatal("任务不应被删:", err) }
+	if err := tx.First(&model.List{}, list.ID).Error; err != nil { t.Fatal("清单不应被删:", err) }
+	url = "/lists/" + itoa(list.ID) + "?delete_tasks=true&expected_tasks=1"
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("核对后删除失败: %d %s", w.Code, w.Body.String()) }
+}
+
 func TestDeleteList_HasTasks(t *testing.T) {
 	db := setupTestDB(t)
 	tx := beginTx(t, db)

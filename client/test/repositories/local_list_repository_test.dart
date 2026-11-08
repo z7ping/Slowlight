@@ -95,6 +95,28 @@ void main() {
     expect(otherRows.single['deleted_at'], isNull);
   });
 
+  test('X08 任务范围变化后禁止按旧确认删除清单', () async {
+    final repo = LocalListRepository();
+    final list = await repo.create(name: '待核对');
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final taskId = await db.insert('tasks', {
+      'list_id': list.id,
+      'title': '确认后新增',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await expectLater(
+      repo.delete(list.id, deleteTasks: true, expectedTaskCount: 0),
+      throwsStateError,
+    );
+    expect(await repo.getById(list.id), isNotNull);
+    expect((await db.query('tasks', where: 'id = ?',
+      whereArgs: [taskId])).single['deleted_at'], isNull);
+    await repo.delete(list.id, deleteTasks: true, expectedTaskCount: 1);
+    expect(await repo.getById(list.id), isNull);
+  });
+
   test('P14 默认收集箱不能删除，关联任务原样保留', () async {
     final repo = LocalListRepository();
     final inbox = await repo.ensureInbox();
