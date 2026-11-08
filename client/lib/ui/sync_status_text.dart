@@ -1,23 +1,77 @@
 import '../services/sync_service.dart';
 
-/// 用于数据同步设置页的状态说明。未知/失败状态不能被表述为成功。
+/// One evidence-first view policy for the settings summary, badge and detail.
+/// A transport SocketException is NOT proof that the whole device is offline.
+enum CloudSyncViewState {
+  syncing,
+  conflict,
+  partial,
+  networkUnreachable,
+  failed,
+  unknown,
+  pending,
+  idle,
+}
+
+CloudSyncViewState cloudSyncViewState({
+  required SyncStatusEnum status,
+  required bool isSyncing,
+  required bool conflictCheckFailed,
+  required int conflictCount,
+  required int pendingCount,
+  SyncQueueRunEvidence? lastQueueRun,
+  bool networkUnreachable = false,
+}) {
+  if (isSyncing || status == SyncStatusEnum.syncing) {
+    return CloudSyncViewState.syncing;
+  }
+  if (!conflictCheckFailed && conflictCount > 0) {
+    return CloudSyncViewState.conflict;
+  }
+  if (status == SyncStatusEnum.error) {
+    if (lastQueueRun?.partiallyAcknowledged == true) {
+      return CloudSyncViewState.partial;
+    }
+    if (networkUnreachable) return CloudSyncViewState.networkUnreachable;
+    return CloudSyncViewState.failed;
+  }
+  if (conflictCheckFailed) return CloudSyncViewState.unknown;
+  if (pendingCount > 0) return CloudSyncViewState.pending;
+  return CloudSyncViewState.idle;
+}
+
+/// 用于数据同步设置页的状态说明。只把普通队列本轮确证的回执称作部分成功。
 String cloudSyncSummary({
   required SyncStatusEnum status,
   required bool isSyncing,
   required bool conflictCheckFailed,
   required int conflictCount,
   required int pendingCount,
+  SyncQueueRunEvidence? lastQueueRun,
+  bool networkUnreachable = false,
 }) {
-  if (isSyncing || status == SyncStatusEnum.syncing) {
-    return '云同步 · 同步中…';
-  }
-  if (!conflictCheckFailed && conflictCount > 0) {
-    return '云同步 · $conflictCount 个冲突待处理';
-  }
-  if (status == SyncStatusEnum.error) return '云同步 · 同步失败';
-  if (conflictCheckFailed) return '云同步 · 冲突状态待确认';
-  if (pendingCount > 0) return '云同步 · $pendingCount 项待同步';
-  return '云同步 · 当前无待处理项';
+  final phase = cloudSyncViewState(
+    status: status,
+    isSyncing: isSyncing,
+    conflictCheckFailed: conflictCheckFailed,
+    conflictCount: conflictCount,
+    pendingCount: pendingCount,
+    lastQueueRun: lastQueueRun,
+    networkUnreachable: networkUnreachable,
+  );
+  return switch (phase) {
+    CloudSyncViewState.syncing => '云同步 · 同步中…',
+    CloudSyncViewState.conflict => '云同步 · $conflictCount 个冲突待处理',
+    CloudSyncViewState.partial =>
+      '云同步 · 部分成功（${lastQueueRun!.acknowledged} 项已确认，'
+          '${lastQueueRun.failed} 项未完成）',
+    CloudSyncViewState.networkUnreachable =>
+      '云同步 · 网络不可达（可能离线）',
+    CloudSyncViewState.failed => '云同步 · 同步失败',
+    CloudSyncViewState.unknown => '云同步 · 冲突状态待确认',
+    CloudSyncViewState.pending => '云同步 · $pendingCount 项待同步',
+    CloudSyncViewState.idle => '云同步 · 当前无待处理项',
+  };
 }
 
 /// 手动同步只在请求成功、状态静止且待处理项均已确认清零时显示成功。
