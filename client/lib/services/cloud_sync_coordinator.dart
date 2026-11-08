@@ -78,8 +78,10 @@ class CloudSyncCoordinator {
       standalonePendingCount.value = rows.first['cnt'] as int? ?? 0;
       standalonePendingUnknown.value = false;
     } catch (_) {
-      // A failed read is unknown, not evidence that every intent is synced.
-      // Keep the previous count as a stale lower-bound until a successful read.
+      // Never carry a previous account's pending count across a failed read.
+      // Zero here is only a placeholder: the separate unknown flag prevents
+      // every consumer from mistaking it for a confirmed empty queue.
+      standalonePendingCount.value = 0;
       standalonePendingUnknown.value = true;
     }
   }
