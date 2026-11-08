@@ -73,6 +73,7 @@ class ReflectionComposer {
     var saving = false;
     var resultUnknown = false;
     var inlineTagOpen = false;
+    var mobileExpandedSection = '';
     var inlineTagSaving = false;
     var inlineTagResultUnknown = false;
     var allowEditorPop = false;
@@ -265,13 +266,11 @@ class ReflectionComposer {
         }
       }
 
-      final narrowMobileFooter = !_useDesktopObservationDialog &&
-          MediaQuery.sizeOf(entryContext).width <= 380;
       final mobileCancelButton = FxButton(
         key: const ValueKey('observation.mobile.cancel'),
         label: '取消',
         size: FxButtonSize.sm,
-        expanded: narrowMobileFooter,
+        expanded: !_useDesktopObservationDialog,
         variant: FxButtonVariant.outline,
         onPressed: saving ? null : () =>
             requestEntryClose(entryContext, setEntryState),
@@ -279,7 +278,7 @@ class ReflectionComposer {
       final saveButton = FxButton(
         label: saving ? '保存中…' : '保存观察',
         size: FxButtonSize.sm,
-        expanded: narrowMobileFooter,
+        expanded: !_useDesktopObservationDialog,
         onPressed: saving || resultUnknown ? null : saveObservation,
       );
 
@@ -294,70 +293,111 @@ class ReflectionComposer {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-            FxInput(
-              controller: controller,
-              autofocus: true,
-              enabled: !saving,
-              minLines: 2,
-              maxLines: 4,
-              placeholder: '写下此刻的观察，只描述真实发生的事…',
-            ),
-            const SizedBox(height: 12),
-            if (_useDesktopObservationDialog) ...[
-              TagChoiceField(
-                label: '历史观察分类（兼容）',
-                tags: tags,
-                selectedTagId: selectedTagId,
-                enabled: !saving,
-                onChanged: (id) => setEntryState(() {
-                  selectedTagId = id;
-                  final match = tags.where((tag) => tag.id == id);
-                  if (match.isNotEmpty && match.first.dimensionKey != null) {
-                    selectedDimension = match.first.dimensionKey;
-                  }
-                }),
-                onCreateTag: () async {
-                  if (saving) return;
-                  final created = await _createObservationTag(entryContext);
-                  if (created == null || !entryContext.mounted) return;
-                  setEntryState(() {
-                    tags = [...tags, created];
-                    selectedTagId = created.id;
-                  });
-                },
-              ),
-              const SizedBox(height: SlowlightSpacing.xl),
-            ],
-            Text(
-                '归属维度（可选）',
-                style: SlowlightTypography.componentFieldLabel(entryContext)
-                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: SlowlightSpacing.md),
-              Wrap(
-                key: ValueKey(_useDesktopObservationDialog
-                    ? 'observation.desktop.dimensions'
-                    : 'observation.mobile.dimensions'),
-                spacing: SlowlightSpacing.md,
-                runSpacing: SlowlightSpacing.md,
-                children: [
-                  FxChoiceChip(
-                    label: '未归类',
-                    selected: selectedDimension == null,
-                    onTap: saving ? null : () =>
-                        setEntryState(() => selectedDimension = null),
-                  ),
-                  for (final dimension in DimensionCatalog.all)
-                    FxChoiceChip(
-                      label: '${dimension.icon} ${dimension.name}',
-                      selected: selectedDimension == dimension.keyValue,
-                      onTap: saving ? null : () => setEntryState(
-                        () => selectedDimension = dimension.keyValue,
+            if (!_useDesktopObservationDialog) ...[
+              // The existing FxCard and borderless FxInput form one compact
+              // workspace; optional attributes live inside the same outline.
+              FxCard(
+                key: const ValueKey('observation.mobile.composer'),
+                padding: EdgeInsets.zero,
+                borderRadius: SlowlightRadius.xl,
+                border: Border.all(color: fxBorder(entryContext)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FxInput(
+                      controller: controller,
+                      enabled: !saving,
+                      autofocus: false,
+                      plain: true,
+                      showPlainFocusUnderline: false,
+                      contentPadding: const EdgeInsets.all(SlowlightSpacing.xl),
+                      minLines: 3,
+                      maxLines: 4,
+                      placeholder: '写下此刻的观察，只描述真实发生的事…',
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        SlowlightSpacing.md, 0,
+                        SlowlightSpacing.md, SlowlightSpacing.md,
+                      ),
+                      child: Wrap(
+                        spacing: SlowlightSpacing.xs,
+                        runSpacing: SlowlightSpacing.xs,
+                        children: [
+                          FxButton(
+                            key: const ValueKey('observation.mobile.dimensionTrigger'),
+                            label: selectedDimension == null
+                                ? '◫ 未归类'
+                                : (DimensionCatalog.all
+                                    .where((d) => d.keyValue == selectedDimension)
+                                    .map((d) => '${d.icon} ${d.name}')
+                                    .firstOrNull ?? '◫ 未归类'),
+                            variant: FxButtonVariant.secondary,
+                            size: FxButtonSize.sm,
+                            onPressed: saving ? null : () {
+                              FocusScope.of(entryContext).unfocus();
+                              setEntryState(() => mobileExpandedSection =
+                                  mobileExpandedSection == 'dimensions'
+                                      ? '' : 'dimensions');
+                            },
+                          ),
+                          FxButton(
+                            key: const ValueKey('observation.mobile.tagsTrigger'),
+                            label: canonicalTags.isEmpty
+                                ? '# 添加标签'
+                                : canonicalTags.length == 1
+                                    ? '#${canonicalTags.single.name}'
+                                    : '# ${canonicalTags.length} 个标签',
+                            variant: FxButtonVariant.secondary,
+                            size: FxButtonSize.sm,
+                            onPressed: saving ? null : () {
+                              FocusScope.of(entryContext).unfocus();
+                              setEntryState(() => mobileExpandedSection =
+                                  mobileExpandedSection == 'tags' ? '' : 'tags');
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: SlowlightSpacing.xl),
+              if (mobileExpandedSection == 'dimensions') ...[
+                const SizedBox(height: SlowlightSpacing.md),
+                Text(
+                  '归属维度（可选）',
+                  style: SlowlightTypography.componentFieldLabel(entryContext)
+                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: SlowlightSpacing.md),
+                Wrap(
+                  key: const ValueKey('observation.mobile.dimensions'),
+                  spacing: SlowlightSpacing.md,
+                  runSpacing: SlowlightSpacing.md,
+                  children: [
+                    FxChoiceChip(
+                      label: '未归类',
+                      selected: selectedDimension == null,
+                      onTap: saving ? null : () => setEntryState(() {
+                        selectedDimension = null;
+                        mobileExpandedSection = '';
+                      }),
+                    ),
+                    for (final dimension in DimensionCatalog.all)
+                      FxChoiceChip(
+                        label: '${dimension.icon} ${dimension.name}',
+                        selected: selectedDimension == dimension.keyValue,
+                        onTap: saving ? null : () => setEntryState(() {
+                          selectedDimension = dimension.keyValue;
+                          mobileExpandedSection = '';
+                        }),
+                      ),
+                  ],
+                ),
+              ],
+              if (mobileExpandedSection == 'tags') ...[
+                const SizedBox(height: SlowlightSpacing.md),
             TagPicker(
               label: '标签（可选）',
               enabled: !saving,
@@ -436,6 +476,81 @@ class ReflectionComposer {
                   ),
                 ),
             ],
+              ],
+            ] else ...[
+            FxInput(
+              controller: controller,
+              autofocus: true,
+              enabled: !saving,
+              minLines: 2,
+              maxLines: 4,
+              placeholder: '写下此刻的观察，只描述真实发生的事…',
+            ),
+            const SizedBox(height: 12),
+            if (_useDesktopObservationDialog) ...[
+              TagChoiceField(
+                label: '历史观察分类（兼容）',
+                tags: tags,
+                selectedTagId: selectedTagId,
+                enabled: !saving,
+                onChanged: (id) => setEntryState(() {
+                  selectedTagId = id;
+                  final match = tags.where((tag) => tag.id == id);
+                  if (match.isNotEmpty && match.first.dimensionKey != null) {
+                    selectedDimension = match.first.dimensionKey;
+                  }
+                }),
+                onCreateTag: () async {
+                  if (saving) return;
+                  final created = await _createObservationTag(entryContext);
+                  if (created == null || !entryContext.mounted) return;
+                  setEntryState(() {
+                    tags = [...tags, created];
+                    selectedTagId = created.id;
+                  });
+                },
+              ),
+              const SizedBox(height: SlowlightSpacing.xl),
+            ],
+            Text(
+                '归属维度（可选）',
+                style: SlowlightTypography.componentFieldLabel(entryContext)
+                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              Wrap(
+                key: ValueKey(_useDesktopObservationDialog
+                    ? 'observation.desktop.dimensions'
+                    : 'observation.mobile.dimensions'),
+                spacing: SlowlightSpacing.md,
+                runSpacing: SlowlightSpacing.md,
+                children: [
+                  FxChoiceChip(
+                    label: '未归类',
+                    selected: selectedDimension == null,
+                    onTap: saving ? null : () =>
+                        setEntryState(() => selectedDimension = null),
+                  ),
+                  for (final dimension in DimensionCatalog.all)
+                    FxChoiceChip(
+                      label: '${dimension.icon} ${dimension.name}',
+                      selected: selectedDimension == dimension.keyValue,
+                      onTap: saving ? null : () => setEntryState(
+                        () => selectedDimension = dimension.keyValue,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: SlowlightSpacing.xl),
+            TagPicker(
+              label: '标签（可选）',
+              enabled: !saving,
+              selectedTags: canonicalTags,
+              allowCreation: _useDesktopObservationDialog,
+              showEmptyOption: _useDesktopObservationDialog,
+              onChanged: (value) => setEntryState(() => canonicalTags = value),
+            ),
+            ],
             if (error != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -470,15 +585,9 @@ class ReflectionComposer {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (narrowMobileFooter)
-                    Expanded(child: mobileCancelButton)
-                  else
-                    mobileCancelButton,
+                  Expanded(flex: 10, child: mobileCancelButton),
                   const SizedBox(width: SlowlightSpacing.md),
-                  if (narrowMobileFooter)
-                    Expanded(child: saveButton)
-                  else
-                    saveButton,
+                  Expanded(flex: 18, child: saveButton),
                 ],
               ),
         ],
