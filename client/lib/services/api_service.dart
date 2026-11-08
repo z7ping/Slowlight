@@ -467,6 +467,29 @@ class ApiService {
     throw Exception('获取习惯列表失败');
   }
 
+  /// Dedicated capability path: legacy servers return 404 instead of silently
+  /// ignoring a search parameter and returning all unrelated habits.
+  static Future<List<Map<String, dynamic>>> searchHabits(String keyword) async {
+    final uri = Uri.parse('$baseUrl/habits/search')
+        .replace(queryParameters: {'search': keyword});
+    final response = await HttpUtil.get(
+      uri,
+      headers: await _authHeaders(),
+    ).timeout(_getTimeout);
+    if (response.statusCode == 404) {
+      throw UnsupportedError('当前云端版本尚不支持习惯备注搜索');
+    }
+    if (response.statusCode != 200) {
+      throw StateError('读取习惯搜索结果失败（HTTP ${response.statusCode}）');
+    }
+    final payload = json.decode(response.body);
+    if (payload is! List || payload.any((item) => item is! Map)) {
+      throw const FormatException('习惯搜索响应格式不正确');
+    }
+    return payload.map((item) =>
+        Map<String, dynamic>.from(item as Map)).toList(growable: false);
+  }
+
   // 创建习惯
   static Future<Map<String, dynamic>> createHabit({
     required String name,
