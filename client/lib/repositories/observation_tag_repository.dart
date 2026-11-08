@@ -21,6 +21,43 @@ typedef ObservationTagUsage = ({
   int reflections,
 });
 
+class ObservationTagDeletionUndo {
+  ObservationTagDeletionUndo(this._restore);
+  final Future<void> Function() _restore;
+  bool _used = false;
+  bool _busy = false;
+
+  Future<void> restore() async {
+    if (_used || _busy) throw StateError('这次撤销已执行或正在核对');
+    _busy = true;
+    try {
+      await _restore();
+      _used = true;
+    } finally {
+      _busy = false;
+    }
+  }
+}
+
+class _LocalTagDeletionSnapshot {
+  const _LocalTagDeletionSnapshot({
+    required this.tag,
+    required this.taskIds,
+    required this.habitIds,
+    required this.sessionIds,
+    required this.alias,
+    required this.canonical,
+    required this.links,
+  });
+  final Map<String, Object?> tag;
+  final List<int> taskIds;
+  final List<int> habitIds;
+  final List<int> sessionIds;
+  final Map<String, Object?>? alias;
+  final Map<String, Object?>? canonical;
+  final Map<String, List<Map<String, Object?>>> links;
+}
+
 /// 用户可编辑的观察标签数据边界。
 ///
 /// ObservationTag 可以选择归属某个固定 Dimension，但它本身不是 Dimension。
@@ -273,71 +310,201 @@ class ObservationTagRepository {
     );
   }
 
-  /// The user-approved association counts are checked again inside the
-  /// deletion transaction, before any link is removed. Missing evidence
-  /// preserves legacy callers; the X08 screen always sends its preview.
+  /// Save exact original tag/alias/link IDs before unlinking, in the SAME
+  /// SQLite transaction. The in-memory receipt is used only by the 8s toast.
+  Future<ObservationTagDeletionUndo> deleteWithUndo(
+    ObservationTag tag, {required ObservationTagUsage expectedImpact}
+  ) async {
+    if (DataModeManager().isLocal) {
+      final snapshot = await _deleteLocal(
+        tag, expectedImpact: expectedImpact, undoable: true,
+      );
+      return ObservationTagDeletionUndo(
+        () => _undoLocalTag(snapshot!),
+      );
+    }
+    final payload = await _cloudRequest(
+      'DELETE', '${_deletePath(tag, expectedImpact)}&undoable=true',
+    );
+    final token = payload is Map ? payload['undo_token'] as String? : null;
+    if (token == null || token.length != 32) {
+      throw StateError('标签删除结果可能已提交，但撤销凭据未确认，请刷新核对');
+    }
+    return ObservationTagDeletionUndo(() async {
+      await _cloudRequest('POST', '/system-tags/undo',
+        body: {'token': token});
+    });
+  }
+
+  String _deletePath(ObservationTag tag, ObservationTagUsage? expected) {
+    if (expected == null) return '/system-tags/${tag.id}';
+    return '/system-tags/${tag.id}'
+        '?expected_tasks=${expected.tasks}'
+        '&expected_habits=${expected.habits}'
+        '&expected_sessions=${expected.sessions}'
+        '&expected_reflections=${expected.reflections}';
+  }
+
+  /// Compatibility for other call sites without an Undo notice.
   Future<void> delete(
     ObservationTag tag, {ObservationTagUsage? expectedImpact}
   ) async {
     if (tag.isDefault) throw StateError('默认观察标签不可删除');
     if (DataModeManager().isLocal) {
-      await LocalProductCoreSchema.ensureReady();
-      final db = await LocalDb().database;
-      await db.transaction((txn) async {
-        if (expectedImpact != null) {
-          final current = await _localDeletionImpact(tag, txn);
-          if (current != expectedImpact) {
-            throw StateError('标签关联已发生变化，请重新核对删除范围');
-          }
-        }
-        await txn.update(
-          'tasks',
-          {'system_tag_id': null},
-          where: 'system_tag_id = ?',
-          whereArgs: [tag.id],
-        );
-        await txn.update(
-          'habits',
-          {'system_tag_id': null},
-          where: 'system_tag_id = ?',
-          whereArgs: [tag.id],
-        );
-        await txn.update(
-          'work_sessions',
-          {'system_tag_id': null},
-          where: 'system_tag_id = ?',
-          whereArgs: [tag.id],
-        );
-        final aliases = await txn.query('legacy_system_tag_aliases',
-            columns: ['tag_id'], where: 'system_tag_id = ?',
-            whereArgs: [tag.id], limit: 1);
-        if (aliases.isNotEmpty) {
-          final canonicalId = aliases.first['tag_id'] as int;
-          await txn.delete('legacy_system_tag_aliases',
-              where: 'system_tag_id = ?', whereArgs: [tag.id]);
-          final others = await txn.query('legacy_system_tag_aliases',
-              columns: ['tag_id'], where: 'tag_id = ?',
-              whereArgs: [canonicalId], limit: 1);
-          if (others.isEmpty) {
-            for (final links in [
-              'task_tags', 'habit_tags', 'work_session_tags', 'reflection_tags',
-            ]) {
-              await txn.delete(links,
-                  where: 'tag_id = ?', whereArgs: [canonicalId]);
-            }
-            await txn.delete('tags', where: 'id = ?', whereArgs: [canonicalId]);
-          }
-        }
-        await txn.delete('system_tags', where: 'id = ?', whereArgs: [tag.id]);
-      });
+      await _deleteLocal(tag, expectedImpact: expectedImpact, undoable: false);
       return;
     }
-    final query = expectedImpact == null ? '' :
-        '?expected_tasks=${expectedImpact.tasks}'
-        '&expected_habits=${expectedImpact.habits}'
-        '&expected_sessions=${expectedImpact.sessions}'
-        '&expected_reflections=${expectedImpact.reflections}';
-    await _cloudRequest('DELETE', '/system-tags/${tag.id}$query');
+    await _cloudRequest('DELETE', _deletePath(tag, expectedImpact));
+  }
+
+  Future<_LocalTagDeletionSnapshot?> _deleteLocal(
+    ObservationTag tag, {
+    required ObservationTagUsage? expectedImpact,
+    required bool undoable,
+  }) async {
+    if (tag.isDefault) throw StateError('默认观察标签不可删除');
+    await LocalProductCoreSchema.ensureReady();
+    final db = await LocalDb().database;
+    return db.transaction<_LocalTagDeletionSnapshot?>((txn) async {
+      if (expectedImpact != null) {
+        final current = await _localDeletionImpact(tag, txn);
+        if (current != expectedImpact) {
+          throw StateError('标签关联已发生变化，请重新核对删除范围');
+        }
+      }
+      final snapshot = undoable
+          ? await _captureLocalTag(txn, tag.id) : null;
+      await txn.update('tasks', {'system_tag_id': null},
+        where: 'system_tag_id = ?', whereArgs: [tag.id]);
+      await txn.update('habits', {'system_tag_id': null},
+        where: 'system_tag_id = ?', whereArgs: [tag.id]);
+      await txn.update('work_sessions', {'system_tag_id': null},
+        where: 'system_tag_id = ?', whereArgs: [tag.id]);
+      final aliases = await txn.query('legacy_system_tag_aliases',
+        columns: ['tag_id'], where: 'system_tag_id = ?',
+        whereArgs: [tag.id], limit: 1);
+      if (aliases.isNotEmpty) {
+        final canonicalId = aliases.first['tag_id'] as int;
+        await txn.delete('legacy_system_tag_aliases',
+          where: 'system_tag_id = ?', whereArgs: [tag.id]);
+        final others = await txn.query('legacy_system_tag_aliases',
+          columns: ['tag_id'], where: 'tag_id = ?',
+          whereArgs: [canonicalId], limit: 1);
+        if (others.isEmpty) {
+          for (final links in [
+            'task_tags', 'habit_tags', 'work_session_tags', 'reflection_tags',
+          ]) {
+            await txn.delete(links,
+              where: 'tag_id = ?', whereArgs: [canonicalId]);
+          }
+          await txn.delete('tags', where: 'id = ?',
+            whereArgs: [canonicalId]);
+        }
+      }
+      final removed = await txn.delete('system_tags',
+        where: 'id = ?', whereArgs: [tag.id]);
+      if (removed != 1) throw StateError('标签已变化，删除未确认');
+      return snapshot;
+    });
+  }
+
+  Future<_LocalTagDeletionSnapshot> _captureLocalTag(
+    Transaction txn, int id,
+  ) async {
+    final tags = await txn.query('system_tags',
+      where: 'id = ?', whereArgs: [id], limit: 1);
+    if (tags.length != 1) throw StateError('标签已变化，请刷新后重试');
+
+    Future<List<int>> legacyIds(String table) async {
+      final rows = await txn.query(table, columns: ['id'],
+        where: 'system_tag_id = ?', whereArgs: [id]);
+      return rows.map((row) => row['id'] as int).toList(growable: false);
+    }
+
+    final aliases = await txn.query('legacy_system_tag_aliases',
+      where: 'system_tag_id = ?', whereArgs: [id], limit: 1);
+    final alias = aliases.isEmpty
+        ? null : Map<String, Object?>.from(aliases.single);
+    Map<String, Object?>? canonical;
+    final links = <String, List<Map<String, Object?>>>{};
+    if (alias != null) {
+      final canonicalId = alias['tag_id'] as int;
+      final otherAliases = await txn.query('legacy_system_tag_aliases',
+        columns: ['system_tag_id'],
+        where: 'tag_id = ? AND system_tag_id != ?',
+        whereArgs: [canonicalId, id], limit: 1);
+      if (otherAliases.isEmpty) {
+        final rows = await txn.query('tags',
+          where: 'id = ?', whereArgs: [canonicalId], limit: 1);
+        if (rows.length != 1) {
+          throw StateError('统一标签身份已变化，无法安全保存撤销证据');
+        }
+        canonical = Map<String, Object?>.from(rows.single);
+        for (final table in [
+          'task_tags', 'habit_tags', 'work_session_tags', 'reflection_tags',
+        ]) {
+          final rows = await txn.query(table,
+            where: 'tag_id = ?', whereArgs: [canonicalId]);
+          links[table] = rows.map((row) =>
+            Map<String, Object?>.from(row)).toList(growable: false);
+        }
+      }
+    }
+    return _LocalTagDeletionSnapshot(
+      tag: Map<String, Object?>.from(tags.single),
+      taskIds: await legacyIds('tasks'),
+      habitIds: await legacyIds('habits'),
+      sessionIds: await legacyIds('work_sessions'),
+      alias: alias,
+      canonical: canonical,
+      links: links,
+    );
+  }
+
+  Future<void> _undoLocalTag(_LocalTagDeletionSnapshot snap) async {
+    final db = await LocalDb().database;
+    await db.transaction((txn) async {
+      // A duplicate ID or a new label with the old name must not be
+      // overwritten. SQLite constraints and transaction roll back together.
+      if (snap.canonical != null) {
+        await txn.insert('tags', snap.canonical!);
+        for (final entry in snap.links.entries) {
+          for (final link in entry.value) {
+            await txn.insert(entry.key, link);
+          }
+        }
+      }
+      if (snap.alias != null) {
+        if (snap.canonical == null) {
+          final existing = await txn.query('tags',
+            columns: ['id'], where: 'id = ?',
+            whereArgs: [snap.alias!['tag_id']], limit: 1);
+          if (existing.isEmpty) {
+            throw StateError('共享标签身份已变化，不能安全撤销');
+          }
+        }
+        await txn.insert('legacy_system_tag_aliases', snap.alias!);
+      }
+      await txn.insert('system_tags', snap.tag);
+
+      Future<void> restoreIds(String table, List<int> ids) async {
+        for (var start = 0; start < ids.length; start += 400) {
+          final end = start + 400 > ids.length ? ids.length : start + 400;
+          final chunk = ids.sublist(start, end);
+          final placeholders = List.filled(chunk.length, '?').join(',');
+          final changed = await txn.update(table,
+            {'system_tag_id': snap.tag['id']},
+            where: 'id IN ($placeholders) AND system_tag_id IS NULL',
+            whereArgs: chunk);
+          if (changed != chunk.length) {
+            throw StateError('关联记录已变化，原标签删除不能撤销');
+          }
+        }
+      }
+      await restoreIds('tasks', snap.taskIds);
+      await restoreIds('habits', snap.habitIds);
+      await restoreIds('work_sessions', snap.sessionIds);
+    });
   }
 
   Future<List<ObservationTag>> _getLocal() async {
