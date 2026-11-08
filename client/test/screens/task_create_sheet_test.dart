@@ -161,7 +161,7 @@ void main() {
     expect(reminder.value, -1);
     expect(reminder.options.map((option) => option.label),
         contains('提前 10 分钟'));
-    expect(find.text('提醒（提前提醒需到期日期）'), findsOneWidget);
+    expect(find.text('相对提醒（需到期日期）'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -229,7 +229,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('X02 指定提醒独立于到期日期，清除后可恢复为相对提醒',
+  testWidgets('X02 指定提醒显示选中值并可独立清除',
       (tester) async {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: TaskScheduleFields(
