@@ -339,6 +339,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               _sessionType,
               taskId: _sessionType == 'work' ? _linkedTaskId : null,
               targetMinutes: _durationFor(_sessionType),
+              requireInactive: true,
             )
           : await _sessions.resumeSession(_sessionId!, _sessionRevision);
       if (!mounted) return;
@@ -1023,7 +1024,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               opacity: quietOpacity,
               duration: const Duration(milliseconds: 180),
               child: Text(
-                '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟',
+                '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟${_confirmedNaturalWorkRounds == null ? '' : ' · 本周期 ${_confirmedNaturalWorkRounds! % _sessionsBeforeLong}/$_sessionsBeforeLong'}',
                 style: TextStyle(
                   fontSize: SlowlightTypography.secondarySize,
                   color: theme.colorScheme.onSurfaceVariant,
