@@ -143,6 +143,57 @@ void main() {
     expect(trend[1]['reflection_count'], 1);
   });
 
+  test('P13 Local 时间分配只统计七个自然日内已结束的真实工作会话', () async {
+    final db = await LocalDb().database;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day, 12);
+    final timestamp = today.toUtc().toIso8601String();
+    final tagId = await db.insert('system_tags', {
+      'name': '深度工作',
+      'icon': '📌',
+      'color': '#1890ff',
+      'created_at': timestamp,
+      'updated_at': timestamp,
+    });
+
+    Future<void> session({
+      required DateTime ended,
+      required int seconds,
+      String type = 'work',
+      int? tag,
+    }) async {
+      await db.insert('work_sessions', {
+        'session_type': type,
+        'started_at': ended.subtract(const Duration(minutes: 30))
+            .toUtc().toIso8601String(),
+        'ended_at': ended.toUtc().toIso8601String(),
+        'duration_sec': seconds,
+        'system_tag_id': tag,
+        'created_at': timestamp,
+      });
+    }
+
+    await session(ended: today, seconds: 25 * 60, tag: tagId);
+    await session(ended: today, seconds: 5 * 60);
+    await session(ended: today, seconds: 12 * 60, type: 'break');
+    await session(
+      ended: DateTime(now.year, now.month, now.day - 8, 12),
+      seconds: 40 * 60,
+    );
+    final result = await LocalAnalyticsService().getTimeDistribution();
+    expect(result['total_min'], 30);
+    expect(result['total_work_seconds'], 1800);
+    expect(result['unclassified_work_seconds'], 300);
+    final tags = result['tags'] as List;
+    expect(tags, hasLength(1));
+    expect((tags.single as Map)['total_min'], 25);
+    final days = result['by_day'] as List;
+    expect(days, hasLength(7));
+    expect((days.last as Map)['total_min'], 30);
+    expect((days.last as Map)['work_count'], 2);
+    expect((days.first as Map)['total_min'], 0);
+  });
+
   test('DimensionSummary 把 session_ended 纳入维度活动', () async {
     final db = await LocalDb().database;
     final now = DateTime.now();
