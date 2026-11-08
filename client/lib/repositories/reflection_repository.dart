@@ -9,6 +9,7 @@ import '../db/local_product_core_schema.dart';
 import '../models/dimension.dart';
 import '../models/reflection_entry.dart';
 import '../services/api/reflection_api.dart';
+import '../utils/habit_record_key.dart';
 import '../services/cloud_sync_coordinator.dart';
 import '../services/data_mode_manager.dart';
 import 'cloud_reflection_cache_repository.dart';
@@ -35,6 +36,10 @@ class ReflectionRepository {
       throw ArgumentError.value(tagIds, 'tagIds', '最多 64 个有效标签 ID');
     }
     final uniqueTagIds = tagIds.toSet().toList(growable: false);
+    // One opaque identity must survive a lost direct POST response and its
+    // offline queued replay; the server already deduplicates client_request_id.
+    final clientRequestId = ReflectionApi.periodClientRequestId(questionId) ??
+        'reflection:${createHabitRecordKey()}';
     final type = _normalizeEntryType(entryType);
     final key = _normalizeDimensionKey(dimensionKey);
     if (DataModeManager().isLocal) {
@@ -56,7 +61,7 @@ class ReflectionRepository {
         dimensionKey: key,
         context: context,
         tagIds: uniqueTagIds,
-        clientRequestId: ReflectionApi.periodClientRequestId(questionId),
+        clientRequestId: clientRequestId,
       );
       await _cloudCache.cacheRemote([remote]);
       return remote;
@@ -69,6 +74,7 @@ class ReflectionRepository {
         dimensionKey: key,
         context: context,
         tagIds: uniqueTagIds,
+        clientRequestId: clientRequestId,
       );
       await CloudSyncCoordinator().refreshStandalonePendingCount();
       unawaited(CloudSyncCoordinator().syncNow());
