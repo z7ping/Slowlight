@@ -7,6 +7,7 @@ import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/services/data_service.dart';
 import 'package:slowlight/screens/habit_tool_screen.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
+import 'package:slowlight/screens/list_manage_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 import 'package:slowlight/ui/fx.dart' show FxInkWell;
 import 'package:slowlight/screens/home_screen.dart';
@@ -109,6 +110,81 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 Android 抽屉宽度与组织工具入口按主原型呈现',
+        (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+
+      final drawer = find.byType(Drawer);
+      expect(drawer, findsOneWidget);
+      expect(tester.getSize(drawer).width, closeTo(360 * .78, .01));
+      expect(find.text('组织工具'), findsOneWidget);
+      // Android shows both entries immediately, unlike Windows expansion.
+      expect(find.text('清单'), findsOneWidget);
+      expect(find.text('标签'), findsOneWidget);
+      expect(fxTooltipFinder('关闭'), findsOneWidget);
+
+      await tester.tap(find.text('清单'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ListManageScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsNothing);
+      await tester.tap(fxTooltipFinder('返回'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 Android 412dp 抽屉/页头入口及关闭可达', (tester) async {
+      await pumpAt(tester, size: const Size(412, 915), textScale: 1.3);
+      expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(Drawer)).width,
+          closeTo(412 * .78, .01));
+      await tester.tap(fxTooltipFinder('关闭'));
+      await tester.pumpAndSettle();
+      expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 Windows 组织工具继续使用已有折叠行为', (tester) async {
+      await pumpAt(tester, size: const Size(1200, 800));
+      expect(find.text('观察标签'), findsNothing);
+      await tester.tap(find.text('组织工具'));
+      await tester.pumpAndSettle();
+      expect(find.text('清单'), findsOneWidget);
+      expect(find.text('观察标签'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('X14 Android 页头随工具导航切换单一标题与返回操作',
+        (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      final appBar = find.byType(AppBar);
+      expect(appBar, findsOneWidget);
+      expect(tester.widget<AppBar>(appBar).toolbarHeight, 48);
+      expect(tester.widget<AppBar>(appBar).titleSpacing, 8);
+      expect(fxTooltipFinder('工具'), findsOneWidget);
+      expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      await tester.tap(fxTooltipFinder('工具'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('四象限'));
+      await tester.pumpAndSettle();
+      expect(fxTooltipFinder('返回'), findsOneWidget);
+      expect(fxTooltipFinder('记录观察'), findsNothing);
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsNothing);
+      await tester.tap(fxTooltipFinder('返回'));
+      await tester.pumpAndSettle();
+      expect(fxTooltipFinder('工具'), findsOneWidget);
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
 
