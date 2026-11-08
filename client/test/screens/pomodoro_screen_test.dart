@@ -96,6 +96,19 @@ class _ExpiredWorkSessionRepository extends SessionRepository {
   }
 }
 
+class _UnavailableStatsSessionRepository extends SessionRepository {
+  @override
+  Future<Map<String, dynamic>> getActiveSession() async => {
+        'active': false,
+        'completed_work_rounds': 3,
+      };
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async {
+    throw StateError('统计读取失败');
+  }
+}
+
 class _VerifiedCycleRepository extends SessionRepository {
   @override
   Future<Map<String, dynamic>> getActiveSession() async => {
@@ -214,6 +227,21 @@ void main() {
     expect(repository.startedBreak, isFalse);
     expect(find.text('完成并保存本轮'), findsOneWidget);
     expect(find.text('本轮到时 · 待保存'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P07 今日统计失败不伪报零，保留可确认的自然轮次', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(
+        sessionRepository: _UnavailableStatsSessionRepository(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('今日专注统计暂不可用'), findsOneWidget);
+    expect(find.textContaining('本周期 3/4'), findsOneWidget);
+    expect(find.textContaining('今日第 0 轮'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
