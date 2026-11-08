@@ -41,6 +41,14 @@ class _FeishuScreenState extends State<FeishuScreen> {
   List<dynamic> _calendars = [];
   String? _selectedCalendarId;
   Map<String, dynamic> _tables = {};
+  int _sourceVersion = 0;
+  int _configReadVersion = 0;
+  int _calendarReadVersion = 0;
+
+  // Data mode is a source boundary. An earlier Local/Cloud request can still
+  // finish after switching; its response must not populate the new mode.
+  bool _sameSource(int version, bool wasCloud) =>
+      mounted && version == _sourceVersion && _cloud == wasCloud;
 
   bool get _cloud => DataModeManager().isCloud;
 
@@ -69,24 +77,51 @@ class _FeishuScreenState extends State<FeishuScreen> {
 
   void _onDataModeChanged() {
     if (!mounted) return;
+    final oldWritePending = _busyWithFeishu;
+    ++_sourceVersion;
+    ++_configReadVersion;
+    ++_calendarReadVersion;
     setState(() {
+      // The previous source's write may continue remotely, but must not keep
+      // the new source locked or clear its independent busy flags on return.
+      _isSaving = false;
+      _isCreatingTemplate = false;
+      _isConnecting = false;
+      _isSyncingAll = false;
+      _isSyncing = false;
+      _isSyncingSessions = false;
+      _isSyncingReminders = false;
+      _isSyncingTags = false;
+      _isImporting = false;
+      _isSyncingCalendar = false;
       _isLoading = true;
+      _isLoadingCalendars = false;
       _loadError = null;
       _isConfigured = false;
       _calendars = [];
       _selectedCalendarId = null;
       _tables = {};
+      _showSecret = false;
       _appIdController.clear();
       _appSecretController.clear();
       _tableUrlController.clear();
     });
     _loadConfig();
+    if (oldWritePending) {
+      _showWarning('数据模式已切换。上一个模式的飞书操作结果未确认，'
+          '请先核对飞书记录，避免重复提交。');
+    }
   }
 
   Future<void> _loadConfig() async {
+    final source = _sourceVersion;
+    final wasCloud = _cloud;
+    final read = ++_configReadVersion;
+    bool current() => _sameSource(source, wasCloud) &&
+        read == _configReadVersion;
     try {
       final config = await _integration.config();
-      if (!mounted) return;
+      if (!current()) return;
       setState(() {
         _isConfigured = config['configured'] == true;
         _appIdController.text = config['app_id']?.toString() ?? '';
@@ -95,9 +130,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
         _loadError = null;
         _isLoading = false;
       });
-      if (_isConfigured && _cloud) await _loadCalendars();
+      if (_isConfigured && wasCloud) await _loadCalendars();
     } catch (error) {
-      if (!mounted) return;
+      if (!current()) return;
       setState(() {
         _loadError = error.toString();
         _isLoading = false;
@@ -107,24 +142,32 @@ class _FeishuScreenState extends State<FeishuScreen> {
 
   Future<void> _loadCalendars() async {
     if (!_cloud || _isLoadingCalendars) return;
+    final source = _sourceVersion;
+    final read = ++_calendarReadVersion;
+    bool current() => _sameSource(source, true) &&
+        read == _calendarReadVersion;
     setState(() => _isLoadingCalendars = true);
     try {
       final calendars = await _integration.calendars();
-      if (!mounted) return;
+      if (!current()) return;
       setState(() {
         _calendars = calendars;
-        if (_selectedCalendarId == null && calendars.isNotEmpty) {
-          final primary = calendars.firstWhere(
-            (item) => item['is_primary'] == true,
-            orElse: () => calendars.first,
-          );
-          _selectedCalendarId = primary['id']?.toString();
+        if (!calendars.any((item) => item['id']?.toString() == _selectedCalendarId)) {
+          if (calendars.isEmpty) {
+            _selectedCalendarId = null;
+          } else {
+            final primary = calendars.firstWhere(
+              (item) => item['is_primary'] == true,
+              orElse: () => calendars.first,
+            );
+            _selectedCalendarId = primary['id']?.toString();
+          }
         }
       });
     } catch (error) {
-      if (mounted) _showError('读取飞书日历失败：$error');
+      if (current()) _showError('读取飞书日历失败：$error');
     } finally {
-      if (mounted) setState(() => _isLoadingCalendars = false);
+      if (current()) setState(() => _isLoadingCalendars = false);
     }
   }
 
@@ -135,6 +178,8 @@ class _FeishuScreenState extends State<FeishuScreen> {
       _showError('请填写应用标识和应用密钥');
       return;
     }
+    final source = _sourceVersion;
+    final wasCloud = _cloud;
     setState(() => _isSaving = true);
     try {
       await _integration.save(
@@ -145,18 +190,20 @@ class _FeishuScreenState extends State<FeishuScreen> {
                 ? null
                 : _tableUrlController.text.trim(),
       );
-      if (!mounted) return;
+      if (!_sameSource(source, wasCloud)) return;
       setState(() {
         _isConfigured = true;
         _appSecretController.clear();
         _showSecret = false;
       });
       _showSuccess('配置已安全保存');
-      if (_cloud) await _loadCalendars();
+      if (wasCloud) await _loadCalendars();
     } catch (error) {
-      if (mounted) _showError('保存失败：$error');
+      if (_sameSource(source, wasCloud)) _showError('保存失败：$error');
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -169,10 +216,12 @@ class _FeishuScreenState extends State<FeishuScreen> {
       confirmText: '创建模板',
     );
     if (confirmed != true || !mounted || _busyWithFeishu) return;
+    final source = _sourceVersion;
+    final wasCloud = _cloud;
     setState(() => _isCreatingTemplate = true);
     try {
       final result = await _integration.createTemplate();
-      if (!mounted) return;
+      if (!_sameSource(source, wasCloud)) return;
       final tableUrl =
           result['bitable_url']?.toString() ?? result['table_url']?.toString();
       setState(() {
@@ -181,9 +230,11 @@ class _FeishuScreenState extends State<FeishuScreen> {
       });
       _showSuccess('模板创建成功，表格链接已填入');
     } catch (error) {
-      if (mounted) _showError('创建模板失败：$error');
+      if (_sameSource(source, wasCloud)) _showError('创建模板失败：$error');
     } finally {
-      if (mounted) setState(() => _isCreatingTemplate = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isCreatingTemplate = false);
+      }
     }
   }
 
@@ -194,10 +245,12 @@ class _FeishuScreenState extends State<FeishuScreen> {
       _showError('请先填写飞书多维表格链接');
       return;
     }
+    final source = _sourceVersion;
+    final wasCloud = _cloud;
     setState(() => _isConnecting = true);
     try {
       final result = await _integration.connect(url);
-      if (!mounted) return;
+      if (!_sameSource(source, wasCloud)) return;
       setState(() {
         _tables = Map<String, dynamic>.from(result['tables'] ?? const {});
         _isConfigured = true;
@@ -207,18 +260,22 @@ class _FeishuScreenState extends State<FeishuScreen> {
         '绑定成功，识别到 ${_tables.length}${allTables == null ? '' : ' / $allTables'} 张表',
       );
     } catch (error) {
-      if (mounted) _showError('绑定失败：$error');
+      if (_sameSource(source, wasCloud)) _showError('绑定失败：$error');
     } finally {
-      if (mounted) setState(() => _isConnecting = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isConnecting = false);
+      }
     }
   }
 
   Future<void> _syncAll() async {
     if (_busyWithFeishu || !_isConfigured) return;
+    final source = _sourceVersion;
+    final wasCloud = _cloud;
     setState(() => _isSyncingAll = true);
     try {
       final result = await _integration.syncAll();
-      if (!mounted) return;
+      if (!_sameSource(source, wasCloud)) return;
       final results = Map<String, dynamic>.from(result['results'] ?? const {});
       final errors = result['errors'] as List? ?? const [];
       final summary = results.entries
@@ -241,9 +298,11 @@ class _FeishuScreenState extends State<FeishuScreen> {
         _showSuccess(summary.isEmpty ? '同步完成' : '同步完成：$summary');
       }
     } catch (error) {
-      if (mounted) _showError('同步全部失败：$error');
+      if (_sameSource(source, wasCloud)) _showError('同步全部失败：$error');
     } finally {
-      if (mounted) setState(() => _isSyncingAll = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isSyncingAll = false);
+      }
     }
   }
 
@@ -295,14 +354,18 @@ class _FeishuScreenState extends State<FeishuScreen> {
     required String failure,
   }) async {
     if (_busyWithFeishu || !_isConfigured) return;
+    final source = _sourceVersion;
+    final wasCloud = _cloud;
     setState(start);
     try {
       final result = await action();
-      if (mounted) _showSuccess(result['message']?.toString() ?? fallback);
+      if (_sameSource(source, wasCloud)) {
+        _showSuccess(result['message']?.toString() ?? fallback);
+      }
     } catch (error) {
-      if (mounted) _showError('$failure：$error');
+      if (_sameSource(source, wasCloud)) _showError('$failure：$error');
     } finally {
-      if (mounted) setState(finish);
+      if (_sameSource(source, wasCloud)) setState(finish);
     }
   }
 
@@ -312,16 +375,20 @@ class _FeishuScreenState extends State<FeishuScreen> {
       _showError('请先选择一个飞书日历');
       return;
     }
+    final source = _sourceVersion;
+    final wasCloud = _cloud;
     setState(() => _isSyncingCalendar = true);
     try {
       final result = await _integration.syncCalendar(_selectedCalendarId!);
-      if (!mounted) return;
+      if (!_sameSource(source, wasCloud)) return;
       final count = (result['results'] as Map<String, dynamic>?)?['日历事件'] ?? 0;
       _showSuccess('日历同步完成：$count 个事件');
     } catch (error) {
-      if (mounted) _showError('日历同步失败：$error');
+      if (_sameSource(source, wasCloud)) _showError('日历同步失败：$error');
     } finally {
-      if (mounted) setState(() => _isSyncingCalendar = false);
+      if (_sameSource(source, wasCloud)) {
+        setState(() => _isSyncingCalendar = false);
+      }
     }
   }
 
