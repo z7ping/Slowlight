@@ -30,6 +30,39 @@ void main() {
     await databaseFactory.deleteDatabase(databasePath);
   });
 
+  test('X08 本地删除标签必须匹配用户确认的关联数量', () async {
+    final repo = ObservationTagRepository();
+    final tag = await repo.create(
+      name: 'X08 审核标签', icon: '🏷', color: '#1890ff',
+    );
+    final preview = await repo.getDeletionImpact(tag);
+    expect(preview?.tasks, 0);
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '审核清单', 'created_at': now, 'updated_at': now,
+    });
+    final taskId = await db.insert('tasks', {
+      'list_id': listId, 'title': '确认后新增任务',
+      'system_tag_id': tag.id, 'created_at': now, 'updated_at': now,
+    });
+    await expectLater(
+      repo.delete(tag, expectedImpact: preview),
+      throwsStateError,
+    );
+    expect(await db.query('system_tags', where: 'id = ?',
+      whereArgs: [tag.id]), hasLength(1));
+    expect((await db.query('tasks', where: 'id = ?',
+      whereArgs: [taskId])).single['system_tag_id'], tag.id);
+    final fresh = await repo.getDeletionImpact(tag);
+    expect(fresh?.tasks, 1);
+    await repo.delete(tag, expectedImpact: fresh);
+    expect(await db.query('system_tags', where: 'id = ?',
+      whereArgs: [tag.id]), isEmpty);
+    expect((await db.query('tasks', where: 'id = ?',
+      whereArgs: [taskId])).single['system_tag_id'], isNull);
+  });
+
   test('P15 本地标签关联仅计入存活任务且去重，旧专注关联删除后清空', () async {
     final repo = ObservationTagRepository();
     final tag = await repo.create(
