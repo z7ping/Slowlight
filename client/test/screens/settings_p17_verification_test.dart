@@ -122,10 +122,10 @@ void main() {
     expect(reads, 1);
 
     await tester.tap(find.text('查看配置'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.byType(AiSettingsScreen), findsOneWidget);
     Navigator.of(tester.element(find.byType(AiSettingsScreen))).pop();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(reads, 2);
 
     latest.complete(
