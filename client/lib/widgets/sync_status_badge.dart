@@ -79,7 +79,10 @@ class SyncStatusBadge extends StatelessWidget {
                   future: sync.getAllConflicts(),
                   builder: (context, snapshot) {
                     final conflicts = snapshot.data ?? const [];
+                    final conflictsKnown = snapshot.connectionState ==
+                            ConnectionState.done && !snapshot.hasError;
                     if (!showHealthy &&
+                        conflictsKnown &&
                         pending == 0 &&
                         conflicts.isEmpty &&
                         status != SyncStatusEnum.error) {
@@ -95,6 +98,8 @@ class SyncStatusBadge extends StatelessWidget {
                             : Icons.cloud_queue,
                     text: status == SyncStatusEnum.error
                         ? '同步失败'
+                        : !conflictsKnown
+                            ? (snapshot.hasError ? '状态待核对' : '核对中…')
                         : conflicts.isNotEmpty
                             ? '${conflicts.length} 个冲突'
                             : pending > 0
@@ -226,7 +231,9 @@ class _SyncStatusDetails extends StatefulWidget {
 
 class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
   late Future<List<Map<String, dynamic>>> _conflicts;
+  late Future<List<SyncPendingFailure>> _failures;
   bool _expanded = false;
+  bool _showAllFailures = false;
   bool _retrying = false;
   String? _feedback;
   String? _requestError;
@@ -236,6 +243,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
   void initState() {
     super.initState();
     _conflicts = widget.sync.getAllConflicts();
+    _failures = widget.sync.getPendingFailures();
   }
 
   Future<void> _verifyOnly() async {
@@ -247,10 +255,12 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
     try {
       // Both reads are observational: no syncNow(), no write queue replay.
       final conflicts = await widget.sync.getAllConflicts();
+      final failures = await widget.sync.getPendingFailures();
       await CloudSyncCoordinator().refreshStandalonePendingCount();
       if (!mounted) return;
       setState(() {
         _conflicts = Future.value(conflicts);
+        _failures = Future.value(failures);
         _conflictReadFailed = false;
         _feedback = conflicts.isNotEmpty
             ? '有同步冲突，请先核对并解决；未重新提交数据。'
@@ -260,6 +270,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       if (!mounted) return;
       setState(() {
         _requestError = error.toString();
+        _failures = widget.sync.getPendingFailures();
         _conflictReadFailed = true;
         _feedback = '核对失败，结果仍未确认；没有重新提交数据。';
       });
@@ -296,6 +307,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       }
       final completed = await CloudSyncCoordinator().syncNow();
       final conflicts = await widget.sync.getAllConflicts();
+      final failures = await widget.sync.getPendingFailures();
       if (!mounted) return;
       final pending = widget.sync.pendingCount +
           CloudSyncCoordinator().standalonePendingCount.value;
@@ -312,6 +324,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       }
       setState(() {
         _conflicts = Future.value(conflicts);
+        _failures = Future.value(failures);
         _conflictReadFailed = false;
         _feedback = widget.sync.status == SyncStatusEnum.error
             ? '本次同步仍未完成，请查看错误或冲突。'
@@ -321,6 +334,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       if (!mounted) return;
       setState(() {
         _requestError = error.toString();
+        _failures = widget.sync.getPendingFailures();
         _conflictReadFailed = true;
         _feedback = '同步请求未完成，请查看技术详情。';
       });
@@ -518,6 +532,71 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                         ],
                       ],
                     ],
+                    // Read-only evidence from the account's actual queue.
+                    FutureBuilder<List<SyncPendingFailure>>(
+                      future: _failures,
+                      builder: (context, failureSnapshot) {
+                        if (failureSnapshot.hasError) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: SlowlightSpacing.xl),
+                            child: Text(
+                              '失败明细读取失败，请点击「核对状态」重试',
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          );
+                        }
+                        final failures =
+                            failureSnapshot.data ?? const <SyncPendingFailure>[];
+                        if (failures.isEmpty) return const SizedBox.shrink();
+                        final shown = _showAllFailures
+                            ? failures
+                            : failures.take(3).toList(growable: false);
+                        return Padding(
+                          padding: const EdgeInsets.only(top: SlowlightSpacing.xl),
+                          child: FxCard(
+                            expanded: true,
+                            padding: const EdgeInsets.all(SlowlightSpacing.xl),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '待核对的失败记录 · ${failures.length} 项',
+                                  style: SlowlightTypography.cardTitle(context),
+                                ),
+                                const SizedBox(height: SlowlightSpacing.md),
+                                for (final entry in shown) ...[
+                                  Text(
+                                    '${entry.entityType} #${entry.entityLocalId}'
+                                    ' · ${entry.operation} · 已尝试 ${entry.retryCount} 次',
+                                    style: SlowlightTypography.secondary(context),
+                                  ),
+                                  if (entry.error.isNotEmpty)
+                                    SelectionArea(
+                                      child: Text(
+                                        entry.error,
+                                        softWrap: true,
+                                        style: SlowlightTypography.caption(context),
+                                      ),
+                                    ),
+                                  const SizedBox(height: SlowlightSpacing.md),
+                                ],
+                                if (failures.length > 3)
+                                  FxButton(
+                                    label: _showAllFailures
+                                        ? '收起失败明细'
+                                        : '查看全部 ${failures.length} 项',
+                                    size: FxButtonSize.sm,
+                                    variant: FxButtonVariant.ghost,
+                                    onPressed: () => setState(
+                                      () => _showAllFailures = !_showAllFailures,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     if (_feedback != null) ...[
                       const SizedBox(height: SlowlightSpacing.xl),
                       Text(
