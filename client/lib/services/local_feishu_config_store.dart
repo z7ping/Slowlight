@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'secure_storage_config.dart';
+
 /// Local Data 模式的飞书配置。Secret 只存系统安全存储。
 class LocalFeishuConfigStore {
   static const _metadataKey = 'local_feishu_config';
   static const _secretKey = 'local_feishu_app_secret';
-  final FlutterSecureStorage _secrets = const FlutterSecureStorage();
+  final FlutterSecureStorage _secrets = slowlightSecureStorage;
 
   Future<Map<String, dynamic>> load() async {
     final prefs = await SharedPreferences.getInstance();
