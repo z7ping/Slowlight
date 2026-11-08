@@ -43,7 +43,7 @@ func (h *ListHandler) GetLists(c *gin.Context) {
 	}
 	var lists []model.List
 	if err := h.DB.Where("user_id = ?", userID).
-		Order("sort_order ASC").Find(&lists).Error; err != nil {
+		Order("sort_order ASC, created_at ASC, id ASC").Find(&lists).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取清单失败"})
 		return
 	}
@@ -132,7 +132,7 @@ func (h *ListHandler) UpdateList(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// DeleteList 删除清单及其任务。与本地事务保持一致，不留孤儿任务。
+// DeleteList 删除清单；仅显式 delete_tasks=true 时将所属任务一并软删除。
 func (h *ListHandler) DeleteList(c *gin.Context) {
 	userID := c.GetUint("userID")
 	id := c.Param("id")
@@ -209,8 +209,8 @@ func (h *ListHandler) GetStats(c *gin.Context) {
 				ELSE 0
 			END as rate
 		FROM lists l
-		LEFT JOIN tasks t ON t.list_id = l.id
-		WHERE l.user_id = ?
+		LEFT JOIN tasks t ON t.list_id = l.id AND t.user_id = l.user_id AND t.deleted_at IS NULL
+		WHERE l.user_id = ? AND l.deleted_at IS NULL
 		GROUP BY l.id, l.name, l.name, l.color
 		ORDER BY l.sort_order
 	`, userID).Scan(&stats)
