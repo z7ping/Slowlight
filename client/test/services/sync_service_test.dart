@@ -148,8 +148,30 @@ void main() {
 
     await SyncService().retryFailed();
     final queued = (await db.query('sync_queue')).single;
-    expect(queued['retry_count'], 1);
+    expect(queued['retry_count'], 3);
+    expect(queued['last_error'], 'previous error');
     expect(SyncService().status, SyncStatusEnum.error);
+    expect(SyncService().pendingCount, 1);
+  });
+
+  test('P1-4 旧失败重试入口不得清空超时回执、重放未知创建', () async {
+    await prepareCloud();
+    final db = await CloudCacheDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final id = await db.insert('sync_queue', {
+      'entity_type': 'habits', 'entity_local_id': 994,
+      'operation': 'create', 'entity_server_id': null,
+      'retry_count': 3, 'last_error': 'TimeoutException: 创建回执未知',
+      'created_at': now, 'updated_at': now,
+    });
+    await SyncService().retryFailed();
+    final row = (await db.query('sync_queue',
+        where: 'id = ?', whereArgs: [id])).single;
+    expect(row['retry_count'], 3);
+    expect(row['last_error'], 'TimeoutException: 创建回执未知');
+    expect(row['operation'], 'create');
+    expect(SyncService().status, SyncStatusEnum.error);
+    expect(SyncService().lastError, contains('不自动重发'));
     expect(SyncService().pendingCount, 1);
   });
 
