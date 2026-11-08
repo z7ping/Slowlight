@@ -426,6 +426,7 @@ class CloudApiService implements ApiDataSource {
       final byId = <int, Map<String, dynamic>>{
         for (final item in remote) item['id'] as int: item,
       };
+      var cacheComplete = true;
       try {
         final pending = await _cache.getHabits(
           search: keyword, pendingOnly: true,
@@ -442,9 +443,13 @@ class CloudApiService implements ApiDataSource {
           };
         }
       } catch (_) {
-        // The network result is authoritative; cache maintenance is optional.
+        // Remote results remain usable, but pending notes are unconfirmed.
+        cacheComplete = false;
       }
-      return (habits: byId.values.toList(growable: false), complete: true);
+      return (
+        habits: byId.values.toList(growable: false),
+        complete: cacheComplete,
+      );
     } catch (error) {
       if (error is! UnsupportedError && !_isTransientNetworkError(error)) {
         rethrow;
