@@ -164,6 +164,16 @@ class LocalApiService implements ApiDataSource {
   Future<Task> postponeTask(int taskId) => _taskRepo.postpone(taskId);
 
   @override
+  Future<Task> restorePostponedDueDate(int taskId, {
+    required DateTime expectedDueDate,
+    DateTime? originalDueDate,
+  }) => _taskRepo.restorePostponedDueDate(
+    taskId,
+    expectedDueDate: expectedDueDate,
+    originalDueDate: originalDueDate,
+  );
+
+  @override
   Future<List<Task>> getTasksForMonth(int year, int month) =>
       _taskRepo.getForMonth(year, month);
 
