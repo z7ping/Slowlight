@@ -135,6 +135,94 @@ class _ListManageScreenState extends State<ListManageScreen> {
   int _taskCountFor(TodoList list) =>
       _tasks.where((task) => task.listId == list.id).length;
 
+  Future<void> _showListDetails(TodoList list) async {
+    final version = _loadVersion;
+    final confirmed = _taskCountConfirmed;
+    final tasks = confirmed
+        ? _tasks.where((task) => task.listId == list.id).toList(growable: false)
+        : <Task>[];
+    final edit = await FxDialog.show<bool>(
+      context: context,
+      title: list.name,
+      child: Builder(
+        builder: (dialogContext) => SizedBox(
+          width: MediaQuery.sizeOf(dialogContext).width < 454
+              ? MediaQuery.sizeOf(dialogContext).width - 64
+              : 390,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                confirmed ? '${tasks.length} 条任务' : '任务数量待核对',
+                style: SlowlightTypography.secondary(dialogContext),
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              if (!confirmed)
+                Text(
+                  '当前只确认了清单，无法展示完整任务列表；请返回后重试任务数。',
+                  style: SlowlightTypography.secondary(dialogContext),
+                )
+              else if (tasks.isEmpty)
+                Text('暂无任务',
+                    style: SlowlightTypography.secondary(dialogContext))
+              else
+                SizedBox(
+                  height: tasks.length > 5 ? 220 : tasks.length * 44.0,
+                  child: ListView.builder(
+                    key: const ValueKey('lists.detail.tasks'),
+                    itemCount: tasks.length,
+                    itemBuilder: (context, index) {
+                      final task = tasks[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 32),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              task.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: SlowlightSpacing.xl),
+              FxDialogActions(
+                actions: [
+                  if (!list.isInbox)
+                    FxButton(
+                      label: '编辑清单',
+                      variant: FxButtonVariant.outline,
+                      onPressed: () => Navigator.of(
+                        dialogContext, rootNavigator: true,
+                      ).pop(true),
+                    ),
+                  FxButton(
+                    label: '关闭',
+                    variant: FxButtonVariant.secondary,
+                    onPressed: () => Navigator.of(
+                      dialogContext, rootNavigator: true,
+                    ).pop(false),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (edit == true && mounted && version == _loadVersion &&
+        !list.isInbox) {
+      await _showEditor(list);
+    }
+  }
+
   Future<void> _showEditor([TodoList? existing]) async {
     final nameController = TextEditingController(text: existing?.name ?? '');
     var selectedIcon = existing?.icon ?? _presetIcons.first;
@@ -584,6 +672,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                           final color = ColorUtils.safeParse(list.color);
                           final count = _taskCountFor(list);
                           return FxListTile(
+                            onTap: () => _showListDetails(list),
                             density: list.isInbox
                                 ? FxListTileDensity.detailed
                                 : FxListTileDensity.compact,
