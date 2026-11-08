@@ -30,6 +30,7 @@ func newListRouter(h *ListHandler, userID uint) *gin.Engine {
 	r.POST("/lists", h.CreateList)
 	r.PUT("/lists/:id", h.UpdateList)
 	r.DELETE("/lists/:id", h.DeleteList)
+	r.POST("/lists/undo", h.UndoListDelete)
 	return r
 }
 
