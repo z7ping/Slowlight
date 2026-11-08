@@ -92,6 +92,7 @@ func finishSessionTiming(session *model.WorkSession, now time.Time) {
 }
 
 var errSessionRevisionConflict = errors.New("stale session revision")
+var errSessionAlreadyActive = errors.New("another active session exists")
 
 // transitionSession 以会话 ID 限定操作目标，避免多端重试误修改后来开启的新会话。
 // 条件写保证连续暂停/继续的重试幂等，同一暂停区间不会被重复累计。
@@ -159,6 +160,7 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 		TargetMinutes int    `json:"target_minutes"`
 		TaskID        *uint  `json:"task_id"`
 		Device      string `json:"device"`
+        RequireInactive bool `json:"require_inactive"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
@@ -184,7 +186,11 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
 		var existing model.WorkSession
 		result := tx.Where("user_id = ? AND ended_at IS NULL", userID).First(&existing)
+        if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            return result.Error
+        }
 		if result.Error == nil {
+            if req.RequireInactive { return errSessionAlreadyActive }
 			now := time.Now()
 			finishSessionTiming(&existing, now)
 			existing.SystemTagID = h.resolveSessionSystemTag(tx, &existing)
@@ -218,6 +224,10 @@ func (h *SessionHandler) StartSession(c *gin.Context) {
 		return tx.Create(&session).Error
 	})
 	if err != nil {
+        if errors.Is(err, errSessionAlreadyActive) {
+            c.JSON(http.StatusConflict, gin.H{"error":"其他设备已有活动专注，请重新核对"})
+            return
+        }
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建会话失败"})
 		return
 	}
