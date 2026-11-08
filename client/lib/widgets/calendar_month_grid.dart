@@ -264,7 +264,9 @@ class CalendarMonthGrid extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     final color = calendarRecordColor(record, context);
-    final suffix = record.durationMin > 0 ? ' · ${record.durationMin}m' : '';
+    final suffix = record.durationMin > 0
+        ? ' · ${record.durationMin}m'
+        : record.amountLabel.isNotEmpty ? ' · ${record.amountLabel}' : '';
     final radius = BorderRadius.circular(SlowlightRadius.sm);
     return Padding(
       padding: const EdgeInsets.only(top: 3),
