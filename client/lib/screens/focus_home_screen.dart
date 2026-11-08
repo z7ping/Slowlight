@@ -236,12 +236,15 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     if (task != null && mounted) _openTask(task);
   }
 
-  Future<void> _openPrimary(HomePrimarySection section) {
-    // A search pin belongs only to that explicit deep link, not future visits.
+  Future<void> _openPrimary(HomePrimarySection section) async {
+    await _navigate(_navigation.openPrimary(section));
+    if (!mounted || _navigation.tool != null || _navigation.primary != section) {
+      return;
+    }
+    // A blocked transition must not discard the selected search observation.
     if (_searchFocusObservation != null) {
       setState(() => _searchFocusObservation = null);
     }
-    return _navigate(_navigation.openPrimary(section));
   }
 
   Future<void> _navigate(HomeNavigationState next) async {
@@ -551,13 +554,15 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             }
           },
           drawer: Drawer(
-            width: math.min(304, MediaQuery.sizeOf(context).width * 0.84),
+            // The single Android prototype uses 78% of the viewport.
+            width: MediaQuery.sizeOf(context).width * 0.78,
+            shape: const RoundedRectangleBorder(),
             backgroundColor: theme.colorScheme.surface,
             child: SafeArea(child: _navigationPanel(closeDrawer: true)),
           ),
           appBar: AppBar(
             toolbarHeight: 48,
-            titleSpacing: 16,
+            titleSpacing: 8,
             title: Text(
               _navigation.title,
               style: SlowlightTypography.componentPageTitle(context),
@@ -1094,8 +1099,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                   onTap: () => selectTool(HomeToolSection.calendar),
                 ),
                 const SizedBox(height: 6),
-                _organizeToolsToggle(),
-                if (_organizeToolsExpanded) ...[
+                if (closeDrawer)
+                  _navSectionLabel('组织工具')
+                else
+                  _organizeToolsToggle(),
+                // Android shows both entries; Windows retains its toggle.
+                if (closeDrawer || _organizeToolsExpanded) ...[
                   _navItem(
                     icon: LucideIcons.folder,
                     label: '清单',
@@ -1104,7 +1113,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                   ),
                   _navItem(
                     icon: LucideIcons.tag,
-                    label: '标签',
+                    label: closeDrawer ? '标签' : '观察标签',
                     selected:
                         _navigation.tool == HomeToolSection.observationTags,
                     onTap: () => selectTool(HomeToolSection.observationTags),
