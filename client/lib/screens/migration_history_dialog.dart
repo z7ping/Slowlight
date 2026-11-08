@@ -109,7 +109,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Text(
                   _source == 'local'
-                      ? '失败的本机记录保留快照，可在云端模式下重试。'
+                      ? '本机失败记录仅核对原始云端回执，不会再次导入。'
                       : '云端审计不包含原始用户内容或应用密钥。',
                   style: SlowlightTypography.caption(
                     context,
@@ -194,8 +194,10 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
     final status = report['status']?.toString() ?? 'unknown';
     final local = report['source'] == 'local';
     final id = (report['id'] as num?)?.toInt();
-    final canRetry = local &&
+    final pendingRecovery = local &&
         (status == 'failed' || status == 'running') && id != null;
+    final accountId = (report['cloud_account_id'] as num?)?.toInt();
+    final canRetry = pendingRecovery && accountId != null && accountId > 0;
     final theme = Theme.of(context);
     return FxCard(
       padding: const EdgeInsets.all(SlowlightSpacing.md),
@@ -242,6 +244,14 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
               style: SlowlightTypography.caption(
                 context,
               ).copyWith(color: theme.colorScheme.error),
+            ),
+          ],
+          if (pendingRecovery && !canRetry) ...[
+            const SizedBox(height: SlowlightSpacing.xs),
+            Text(
+              '旧记录缺少原云端账号信息，不能自动恢复映射',
+              style: SlowlightTypography.caption(context)
+                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
           if (canRetry) ...[
