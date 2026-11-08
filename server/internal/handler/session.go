@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+    "sort"
     "io"
 	"time"
 	"errors"
@@ -446,10 +447,14 @@ func (h *SessionHandler) GetStats(c *gin.Context) {
 		}
 	}
 
-	// 按日期排序
+	// Map iteration is unordered; Local/Cloud must return the same stable
+    // calendar-day trend order so graphs never shuffle on refresh.
 	for _, d := range dailyMap {
 		stats.Sessions = append(stats.Sessions, *d)
 	}
+    sort.Slice(stats.Sessions, func(i, j int) bool {
+        return stats.Sessions[i].Date < stats.Sessions[j].Date
+    })
 
 	c.JSON(http.StatusOK, stats)
 }
