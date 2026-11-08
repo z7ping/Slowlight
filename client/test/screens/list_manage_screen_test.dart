@@ -133,4 +133,85 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('P14 点击清单整行打开任务详情，编辑沿用已有编辑器',
+      (tester) async {
+    tester.view.physicalSize = const Size(950, 1250);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: ListManageScreen(
+        listsLoader: () async => [_list()],
+        tasksLoader: () async => [_task()],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('客户清单'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 条任务'), findsOneWidget);
+    expect(find.text('已保存的任务'), findsOneWidget);
+    expect(find.byKey(const ValueKey('lists.detail.tasks')), findsOneWidget);
+
+    await tester.tap(find.text('编辑清单'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑清单'), findsOneWidget);
+    expect(find.byType(FxInput), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P14 任务数未确认时清单详情不显示旧任务或误报空', (tester) async {
+    tester.view.physicalSize = const Size(950, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final pending = Completer<List<Task>>();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: ListManageScreen(
+        listsLoader: () async => [_list()],
+        tasksLoader: () => pending.future,
+      )),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('客户清单'));
+    await tester.pumpAndSettle();
+    expect(find.text('任务数量待核对'), findsOneWidget);
+    expect(find.text('暂无任务'), findsNothing);
+    expect(find.text('已保存的任务'), findsNothing);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+    pending.complete([_task()]);
+    await tester.pumpAndSettle();
+    expect(find.text('1 条'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P14 默认收集箱可看详情但禁止编辑/删除', (tester) async {
+    tester.view.physicalSize = const Size(950, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final inbox = TodoList(
+      id: 2, name: '收集箱', icon: '📥', isInbox: true,
+      createdAt: DateTime(2026, 11, 1),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: ListManageScreen(
+        listsLoader: () async => [inbox],
+        tasksLoader: () async => <Task>[],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byWidgetPredicate(
+        (widget) => widget is FxIconButton && widget.tooltip == '编辑'),
+        findsNothing);
+    expect(find.byWidgetPredicate(
+        (widget) => widget is FxIconButton && widget.tooltip == '删除'),
+        findsNothing);
+    await tester.tap(find.text('收集箱'));
+    await tester.pumpAndSettle();
+    expect(find.text('暂无任务'), findsOneWidget);
+    expect(find.text('编辑清单'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
