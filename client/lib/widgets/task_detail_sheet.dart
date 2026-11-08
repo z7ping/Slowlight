@@ -22,6 +22,9 @@ class TaskDetailSheet extends StatefulWidget {
   final VoidCallback onChanged;
   final VoidCallback? onClose;
   final bool sidePanel;
+  /// The source task has changed/disappeared while its local draft is open.
+  /// Keep the editor readable but block stale writes.
+  final bool writeBlocked;
   final ObservationTagRepository? tagsRepository;
 
   const TaskDetailSheet({
@@ -33,6 +36,7 @@ class TaskDetailSheet extends StatefulWidget {
     required this.onChanged,
     this.onClose,
     this.sidePanel = false,
+    this.writeBlocked = false,
     this.tagsRepository,
   });
 
@@ -349,6 +353,11 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         _description.text.trim(),
         _mobileValueSnapshot(),
       ].join('\u0000');
+
+  /// Used by the workspace refresh to preserve an unsubmitted draft even if
+  /// a remote refresh no longer contains its original task.
+  bool get hasUncommittedWork => _saving || _writeResultUnknown ||
+      _mobileFormSnapshot() != _initialMobileSnapshot;
 
   /// Desktop side panels share the same full-field snapshot as the mobile editor.
   /// Do not let list selection discard a draft or interrupt an in-flight save.
@@ -1640,7 +1649,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   label: '删除',
                   icon: LucideIcons.trash2,
                   variant: FxButtonVariant.ghost,
-                  onPressed: _saving || _writeResultUnknown || widget.isCreating
+                  onPressed: widget.writeBlocked || _saving || _writeResultUnknown || widget.isCreating
                       ? null : _delete,
                 ),
                 actions: [
@@ -1648,7 +1657,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                     label: _writeResultUnknown
                         ? '结果待核对'
                         : _saving ? '保存中…' : '保存修改',
-                    onPressed: _saving || _writeResultUnknown ? null : _save,
+                    onPressed: widget.writeBlocked || _saving || _writeResultUnknown ? null : _save,
                   ),
                 ],
               )
@@ -1658,7 +1667,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   label: _writeResultUnknown
                       ? '结果待核对'
                       : _saving ? '保存中…' : '保存修改',
-                  onPressed: _saving || _writeResultUnknown ? null : _save,
+                  onPressed: widget.writeBlocked || _saving || _writeResultUnknown ? null : _save,
                 ),
               ),
       ),
@@ -1719,6 +1728,12 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _save() async {
+    if (widget.writeBlocked) {
+      FxNotice.showContent(
+        context, const Text('任务已在其他位置变更，当前草稿已保留；请先核对再编辑'),
+      );
+      return;
+    }
     if (_saving || _writeResultUnknown) return;
     final title = _title.text.trim();
     final listId =
@@ -1806,7 +1821,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _delete() async {
-    if (_saving || _writeResultUnknown || widget.isCreating) return;
+    if (widget.writeBlocked || _saving || _writeResultUnknown || widget.isCreating) return;
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '删除任务',
