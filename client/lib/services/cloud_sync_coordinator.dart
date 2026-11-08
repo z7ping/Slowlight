@@ -290,7 +290,8 @@ class CloudSyncCoordinator {
           clientRequestId: pendingRequestId ??
               ReflectionApi.periodClientRequestId(
                 row['question_id'] as String?,
-              ) ?? '${SyncService().deviceId}:reflection:$localId',
+              ) ??
+              '${SyncService().deviceId}:reflection:$localId',
         );
         if (!await _isRunValid(accountId: accountId, generation: generation)) return;
         await _reflectionCache.markCreateSynced(db, localId, remote);
