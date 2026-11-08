@@ -29,7 +29,24 @@ class _FxSpinnerState extends State<FxSpinner>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
-  )..repeat();
+  );
+  bool _reduceMotion = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (_reduceMotion == reduced && (_controller.isAnimating || reduced)) {
+      return;
+    }
+    _reduceMotion = reduced;
+    if (reduced) {
+      _controller.stop();
+      _controller.value = 0;
+    } else {
+      _controller.repeat();
+    }
+  }
 
   @override
   void dispose() {
@@ -44,15 +61,22 @@ class _FxSpinnerState extends State<FxSpinner>
       label: widget.semanticsLabel,
       child: SizedBox.square(
         dimension: widget.size,
-        child: RotationTransition(
-          turns: _controller,
-          child: Icon(
-            LucideIcons.loaderCircle,
-            size: widget.size,
-            color: widget.color ?? theme.colorScheme.foreground,
-            weight: widget.strokeWidth,
-          ),
-        ),
+        child: _reduceMotion
+            ? Icon(
+                LucideIcons.loaderCircle,
+                size: widget.size,
+                color: widget.color ?? theme.colorScheme.foreground,
+                weight: widget.strokeWidth,
+              )
+            : RotationTransition(
+                turns: _controller,
+                child: Icon(
+                  LucideIcons.loaderCircle,
+                  size: widget.size,
+                  color: widget.color ?? theme.colorScheme.foreground,
+                  weight: widget.strokeWidth,
+                ),
+              ),
       ),
     );
   }
