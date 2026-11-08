@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/reflection_entry.dart';
@@ -278,6 +279,44 @@ void main() {
     expect(find.text('每日记录'), findsOneWidget);
     expect(find.text('一'), findsOneWidget);
     expect(find.text('五'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('P11 Android 相关工具复用正式回顾导航回调', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.reset();
+    });
+    var stats = 0;
+    var time = 0;
+    var thirtyDays = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reviewLoader: () async => _week(2),
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => const ReviewPeriodTimeline(
+          observationCount: 0, items: [],
+        ),
+        onOpenStats: () => stats++,
+        onOpenTimeDistribution: () => time++,
+        onOpenThirtyDays: () => thirtyDays++,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    for (final label in ['查看记录统计', '查看时间分配', '查看近 30 天']) {
+      expect(find.widgetWithText(FxButton, label), findsOneWidget);
+      tester.widget<FxButton>(find.widgetWithText(FxButton, label))
+          .onPressed?.call();
+    }
+    expect(stats, 1);
+    expect(time, 1);
+    expect(thirtyDays, 1);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
