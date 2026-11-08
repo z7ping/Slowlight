@@ -894,7 +894,11 @@ class SyncService extends ChangeNotifier {
     int localId,
     int? queuedServerId,
   ) async {
-    if (op != 'create' && op != 'delete') return;
+    if (op != 'create' && op != 'delete') {
+      // Unrecognized history intents are not acknowledged operations.
+      // Keep the original queue row visible for reconciliation.
+      throw StateError('Unsupported habit_log sync operation: $op');
+    }
     final row = await _row(db, 'habit_logs', localId);
     if (op == 'delete') {
       final serverLogId = queuedServerId ?? row['server_id'] as int?;
