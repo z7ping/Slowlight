@@ -92,6 +92,9 @@ class LocalSessionRepository {
     if (expectedRevision != null && sessionId == null) {
       throw StateError('结束会话必须同时指定会话 ID');
     }
+    if (naturallyCompleted && (sessionId == null || expectedRevision == null)) {
+      throw StateError('自然完成需要已确认的会话 ID 和版本');
+    }
     final db = await _db();
     final now = DateTime.now().toUtc();
     late int endedSessionId;
