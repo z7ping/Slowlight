@@ -80,6 +80,38 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X15 异步按钮立即给出可见等待反馈，尺寸不变且禁止重复写入',
+      (tester) async {
+    final pending = Completer<void>();
+    var saves = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Center(child: FxButton(
+        label: '提交记录',
+        onPressed: () {
+          saves++;
+          return pending.future;
+        },
+      ))),
+    ));
+    final action = find.byType(FxButton);
+    final before = tester.getSize(action);
+    await tester.tap(find.text('提交记录'));
+    await tester.pump();
+    expect(saves, 1);
+    expect(tester.getSize(action), before);
+    expect(find.byType(FxSpinner), findsOneWidget);
+    expect(find.bySemanticsLabel('处理中'), findsOneWidget);
+    await tester.tap(action);
+    await tester.pump();
+    expect(saves, 1, reason: '前一个写入未确认时必须禁止重复提交');
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(FxSpinner), findsNothing);
+    expect(tester.getSize(action), before);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('FxIconButton 异步操作执行中忽略连续点击', (tester) async {
     final pending = Completer<void>();
     var count = 0;
