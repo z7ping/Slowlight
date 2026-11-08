@@ -91,6 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _switchingMode = false;
   bool _confirmingModeSwitch = false;
   bool _linkingGitHub = false;
+  bool _cancelingGitHub = false;
   int _githubBindAttempt = 0;
   bool _githubDeviceEnabled = false;
   String? _githubDeviceCode;
@@ -714,7 +715,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: '绑定',
                           size: FxButtonSize.sm,
                           variant: FxButtonVariant.outline,
-                          onPressed: _checkingGitHub ? null : _bindGitHub,
+                          onPressed: _checkingGitHub || _cancelingGitHub
+                              ? null : _bindGitHub,
                         )
                       : _githubLinked == null &&
                               !_checkingGitHub &&
@@ -733,7 +735,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 githubMessage(),
-                if (_githubDeviceEnabled && _githubLinked == false && !_linkingGitHub) ...[
+                if (_githubDeviceEnabled && _githubLinked == false &&
+                    !_linkingGitHub && !_cancelingGitHub) ...[
                   const SizedBox(height: 8),
                   FxButton(
                     label: '使用验证码绑定 GitHub（备用）',
@@ -869,17 +872,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           // authorization. A late successful poll is not an
                           // accepted binding after the user cancels.
                           ++_githubBindAttempt;
-                          setState(() => _linkingGitHub = false);
+                          setState(() {
+                            _linkingGitHub = false;
+                            _cancelingGitHub = true;
+                          });
                           try {
                             await GitHubSignIn.cancelPendingAuthorization();
                           } catch (error) {
                             if (mounted) {
+                              setState(() => _githubLinked = null);
                               FxNotice.errorWithDetails(
                                 context,
                                 '取消授权结果未确认，请重新检查账号绑定状态',
                                 error.toString(),
                               );
                             }
+                          } finally {
+                            if (mounted) setState(() => _cancelingGitHub = false);
                           }
                         },
                       ),
@@ -1916,7 +1925,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     bool resumePending = false,
     bool useDeviceCode = false,
   }) async {
-    if (_linkingGitHub || DataModeManager().isLocal) return;
+    if (_linkingGitHub || _cancelingGitHub || DataModeManager().isLocal) return;
     final attempt = ++_githubBindAttempt;
     bool current() => mounted && _linkingGitHub &&
         attempt == _githubBindAttempt && DataModeManager().isCloud;
