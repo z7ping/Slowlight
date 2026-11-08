@@ -109,6 +109,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late String _open;
   late bool _mobileDetail;
   bool _openedAsDeepLink = false;
+  // The active section alone is insufficient on narrow Windows: Back may
+  // leave _open == 'rest' while the category overview is visible instead.
+  bool _restPanelVisible = false;
   AiConfig _ai = const AiConfig();
   bool _hasKey = false;
   int _conflictCount = 0;
@@ -173,7 +176,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // ReminderService ticks every second. Rebuilding the entire Settings
     // workspace on Appearance/Account/Sync is expensive and can jank edits.
     // Only the visible Rest panel needs live countdown/state notifications.
-    if (mounted && _open == 'rest') setState(() {});
+    if (mounted && _restPanelVisible &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
+      setState(() {});
+    }
   }
 
   void _syncStatusChanged() {
@@ -1190,6 +1196,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final twoPane = !android && viewport.maxWidth >= 760 &&
             MediaQuery.textScalerOf(context).scale(1) < 1.8;
         final detail = !twoPane && _mobileDetail;
+        _restPanelVisible = _open == 'rest' && (twoPane || detail);
         return PopScope(
           canPop: !detail || _openedAsDeepLink,
           onPopInvoked: (didPop) {
