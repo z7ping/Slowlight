@@ -117,6 +117,7 @@ type TagTimeDistribution struct {
 
 // TimeDistribution 时间分配统计
 type TimeDistribution struct {
+	TodayDate               string                `json:"today_date"`
 	TotalMin                int                   `json:"total_min"`
 	TotalWorkSeconds        int                   `json:"total_work_seconds"`
 	UnclassifiedWorkSeconds int                   `json:"unclassified_work_seconds"`
@@ -188,6 +189,7 @@ func (h *AnalyticsHandler) GetTimeDistribution(c *gin.Context) {
 	}
 
 	dist := TimeDistribution{
+		TodayDate: today.Format("2006-01-02"),
 		TotalMin: totalSeconds / 60,
 		TotalWorkSeconds: totalSeconds,
 		UnclassifiedWorkSeconds: totalSeconds - taggedSeconds,
