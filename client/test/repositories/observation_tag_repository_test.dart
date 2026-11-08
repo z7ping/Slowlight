@@ -63,6 +63,89 @@ void main() {
       whereArgs: [taskId])).single['system_tag_id'], isNull);
   });
 
+  test('X08 原标签/别名/统一关联精确恢复，不能重复撤销', () async {
+    final repo = ObservationTagRepository();
+    final tag = await repo.create(
+      name: '可还原标签', icon: '📚', color: '#112233',
+    );
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '清单', 'created_at': now, 'updated_at': now,
+    });
+    final taskId = await db.insert('tasks', {
+      'list_id': listId, 'title': '有标签任务',
+      'system_tag_id': tag.id, 'created_at': now, 'updated_at': now,
+    });
+    final habitId = await db.insert('habits', {
+      'name': '有标签习惯', 'system_tag_id': tag.id,
+      'created_at': now, 'updated_at': now,
+    });
+    final alias = (await db.query('legacy_system_tag_aliases',
+      where: 'system_tag_id = ?', whereArgs: [tag.id])).single;
+    final canonicalId = alias['tag_id'] as int;
+    await db.insert('task_tags', {
+      'task_id': taskId, 'tag_id': canonicalId,
+    });
+    await db.insert('habit_tags', {
+      'habit_id': habitId, 'tag_id': canonicalId,
+    });
+    final usage = await repo.getDeletionImpact(tag);
+    expect(usage?.tasks, 1);
+    expect(usage?.habits, 1);
+    final undo = await repo.deleteWithUndo(tag, expectedImpact: usage!);
+    expect(await db.query('system_tags', where: 'id = ?',
+      whereArgs: [tag.id]), isEmpty);
+    expect(await db.query('tags', where: 'id = ?',
+      whereArgs: [canonicalId]), isEmpty);
+    expect(await db.query('task_tags', where: 'task_id = ?',
+      whereArgs: [taskId]), isEmpty);
+    await undo.restore();
+    expect(await db.query('system_tags', where: 'id = ?',
+      whereArgs: [tag.id]), hasLength(1));
+    expect(await db.query('tags', where: 'id = ?',
+      whereArgs: [canonicalId]), hasLength(1));
+    expect(await db.query('legacy_system_tag_aliases',
+      where: 'system_tag_id = ?', whereArgs: [tag.id]), hasLength(1));
+    expect(await db.query('task_tags', where: 'task_id = ?',
+      whereArgs: [taskId]), hasLength(1));
+    expect(await db.query('habit_tags', where: 'habit_id = ?',
+      whereArgs: [habitId]), hasLength(1));
+    expect((await db.query('tasks', where: 'id = ?',
+      whereArgs: [taskId])).single['system_tag_id'], tag.id);
+    expect((await db.query('habits', where: 'id = ?',
+      whereArgs: [habitId])).single['system_tag_id'], tag.id);
+    await expectLater(undo.restore(), throwsStateError);
+  });
+
+  test('X08 标签删除后任务被重新分配，不得按旧撤销覆盖新归属', () async {
+    final repo = ObservationTagRepository();
+    final oldTag = await repo.create(
+      name: '旧标签', icon: '📚', color: '#112233',
+    );
+    final replacement = await repo.create(
+      name: '新标签', icon: '📖', color: '#224466',
+    );
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final listId = await db.insert('lists', {
+      'name': '清单', 'created_at': now, 'updated_at': now,
+    });
+    final taskId = await db.insert('tasks', {
+      'list_id': listId, 'title': '重新分配',
+      'system_tag_id': oldTag.id, 'created_at': now, 'updated_at': now,
+    });
+    final usage = await repo.getDeletionImpact(oldTag);
+    final undo = await repo.deleteWithUndo(oldTag, expectedImpact: usage!);
+    await db.update('tasks', {'system_tag_id': replacement.id},
+      where: 'id = ?', whereArgs: [taskId]);
+    await expectLater(undo.restore(), throwsStateError);
+    expect((await db.query('tasks', where: 'id = ?',
+      whereArgs: [taskId])).single['system_tag_id'], replacement.id);
+    expect(await db.query('system_tags', where: 'id = ?',
+      whereArgs: [oldTag.id]), isEmpty);
+  });
+
   test('P15 本地标签关联仅计入存活任务且去重，旧专注关联删除后清空', () async {
     final repo = ObservationTagRepository();
     final tag = await repo.create(

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,6 +31,7 @@ func newListRouter(h *ListHandler, userID uint) *gin.Engine {
 	r.POST("/lists", h.CreateList)
 	r.PUT("/lists/:id", h.UpdateList)
 	r.DELETE("/lists/:id", h.DeleteList)
+	r.POST("/lists/undo", h.UndoListDelete)
 	return r
 }
 
@@ -212,6 +214,100 @@ func TestDeleteList(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("DeleteList 返回 %d, 期望 200. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteList_X08UndoRestoresOriginalListAndChildren(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	user := createTestUser(t, tx)
+	list := createTestList(t, tx, user.ID, "撤销清单")
+	first := createTestTask(t, tx, user.ID, list.ID, "保留ID 1")
+	second := createTestTask(t, tx, user.ID, list.ID, "保留ID 2")
+	other := createTestList(t, tx, user.ID, "其他")
+	otherTask := createTestTask(t, tx, user.ID, other.ID, "不受影响")
+	r := newListRouter(NewListHandler(tx), user.ID)
+	url := "/lists/" + itoa(list.ID) + "?delete_tasks=true&expected_tasks=2&undoable=true"
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("删除失败: %d %s", w.Code, w.Body.String()) }
+	var result struct { UndoToken string `json:"undo_token"` }
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+	if len(result.UndoToken) != 32 { t.Fatal("没有可用的撤销凭据") }
+	for _, id := range []uint{first.ID, second.ID} {
+		if err := tx.First(&model.Task{}, id).Error; err == nil {
+			t.Fatalf("删除后任务 %d 仍可见", id)
+		}
+	}
+	data, _ := json.Marshal(map[string]string{"token": result.UndoToken})
+	w = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/lists/undo", bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK { t.Fatalf("撤销失败: %d %s", w.Code, w.Body.String()) }
+	for _, id := range []uint{first.ID, second.ID, otherTask.ID} {
+		var task model.Task
+		if err := tx.First(&task, id).Error; err != nil { t.Fatalf("原任务ID未恢复 %d: %v", id, err) }
+	}
+	if err := tx.First(&model.List{}, list.ID).Error; err != nil { t.Fatal("原清单ID未恢复:", err) }
+	w = httptest.NewRecorder()
+	repeated := httptest.NewRequest(http.MethodPost, "/lists/undo", bytes.NewReader(data))
+	repeated.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, repeated)
+	if w.Code != http.StatusConflict { t.Fatalf("重复撤销应409: %d", w.Code) }
+}
+
+func TestDeleteList_X08UndoTokenCannotCrossAccounts(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	owner := createTestUser(t, tx)
+	other := createTestUser(t, tx)
+	list := createTestList(t, tx, owner.ID, "仅所有者恢复")
+	router := newListRouter(NewListHandler(tx), owner.ID)
+	w := httptest.NewRecorder()
+	url := "/lists/" + itoa(list.ID) + "?delete_tasks=true&expected_tasks=0&undoable=true"
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("删除失败: %s", w.Body.String()) }
+	var result struct { UndoToken string `json:"undo_token"` }
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+	body, _ := json.Marshal(map[string]string{"token": result.UndoToken})
+	unauthorized := newListRouter(NewListHandler(tx), other.ID)
+	w = httptest.NewRecorder()
+	unauthorized.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lists/undo",
+		bytes.NewReader(body)))
+	if w.Code != http.StatusConflict { t.Fatalf("跨用户撤销应拒绝: %d", w.Code) }
+	if err := tx.First(&model.List{}, list.ID).Error; err == nil {
+		t.Fatal("非本人恢复了清单")
+	}
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lists/undo",
+		bytes.NewReader(body)))
+	if w.Code != http.StatusOK { t.Fatalf("原用户应仍可恢复: %d", w.Code) }
+}
+
+func TestDeleteList_X08UndoCannotRestoreModifiedTombstone(t *testing.T) {
+	db := setupTestDB(t)
+	tx := beginTx(t, db)
+	user := createTestUser(t, tx)
+	list := createTestList(t, tx, user.ID, "过期状态")
+	task := createTestTask(t, tx, user.ID, list.ID, "被改变的原任务")
+	r := newListRouter(NewListHandler(tx), user.ID)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodDelete,
+		"/lists/"+itoa(list.ID)+"?delete_tasks=true&expected_tasks=1&undoable=true", nil))
+	if w.Code != http.StatusOK { t.Fatalf("删除失败: %s", w.Body.String()) }
+	var result struct { UndoToken string `json:"undo_token"` }
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+	if err := tx.Unscoped().Model(&model.Task{}).
+		Where("id = ?", task.ID).Update("deleted_at", time.Now().UTC().Add(-time.Hour)).Error; err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(map[string]string{"token": result.UndoToken})
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lists/undo", bytes.NewReader(body)))
+	if w.Code != http.StatusConflict { t.Fatalf("原任务已变化应拒绝撤销: %d", w.Code) }
+	if err := tx.First(&model.List{}, list.ID).Error; err == nil {
+		t.Fatal("部分恢复了清单，事务未回滚")
 	}
 }
 

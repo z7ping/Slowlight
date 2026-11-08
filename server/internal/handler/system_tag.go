@@ -217,12 +217,23 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
 		return
 	}
 	errImpactChanged := errors.New("tag association impact changed")
-
+	undoable := c.Query("undoable") == "true"
+	if undoable && provided != len(fields) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "可撤销删除需要完整的四类关联核对"})
+		return
+	}
+	var undoToken string
 	if err := h.DB.Transaction(func(tx *gorm.DB) error {
         if provided == len(fields) {
             current, err := h.usageForTagDB(tx, userID, tag.ID)
             if err != nil { return err }
             if current != expected { return errImpactChanged }
+        }
+        var undoSnap *systemTagDeletionSnapshot
+        if undoable {
+            var err error
+            undoSnap, err = captureSystemTagUndo(tx, userID, tag)
+            if err != nil { return err }
         }
         if err := tx.Model(&model.Habit{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
             Update("system_tag_id", nil).Error; err != nil { return err }
@@ -242,10 +253,26 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
                 for _, link := range []interface{}{&model.TaskTag{}, &model.HabitTag{}, &model.WorkSessionTag{}, &model.ReflectionTag{}} {
                     if err := tx.Where("tag_id = ?", alias.TagID).Delete(link).Error; err != nil { return err }
                 }
-                if err := tx.Where("id = ? AND user_id = ?", alias.TagID, userID).Delete(&model.Tag{}).Error; err != nil { return err }
+                if undoable {
+                    result := tx.Model(&model.Tag{}).
+                        Where("id = ? AND user_id = ?", alias.TagID, userID).
+                        Update("deleted_at", undoSnap.DeletedAt)
+                    if result.Error != nil { return result.Error }
+                    if result.RowsAffected != 1 { return errDeletionUndoUnavailable }
+                } else if err := tx.Where("id = ? AND user_id = ?", alias.TagID, userID).
+                    Delete(&model.Tag{}).Error; err != nil { return err }
             }
         } else if !errors.Is(err, gorm.ErrRecordNotFound) { return err }
-        return tx.Delete(&tag).Error
+        if !undoable { return tx.Delete(&tag).Error }
+        deleted := tx.Model(&model.SystemTag{}).
+            Where("id = ? AND user_id = ?", tag.ID, userID).
+            Update("deleted_at", undoSnap.DeletedAt)
+        if deleted.Error != nil { return deleted.Error }
+        if deleted.RowsAffected != 1 { return errDeletionUndoUnavailable }
+        token, err := saveDeletionUndo(tx, userID, "system_tag", undoSnap)
+        if err != nil { return err }
+        undoToken = token
+        return nil
     }); err != nil {
         if errors.Is(err, errImpactChanged) {
             c.JSON(http.StatusConflict, gin.H{"error": "标签关联已变化，请重新核对删除范围"})
@@ -253,5 +280,8 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
         }
         c.JSON(http.StatusInternalServerError, gin.H{"error": "删除标签失败"}); return
     }
-	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "删除成功",
+		"undo_token": undoToken,
+	})
 }

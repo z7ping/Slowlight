@@ -32,6 +32,7 @@ func newSystemTagRouter(h *SystemTagHandler, userID uint) *gin.Engine {
 	r.POST("/system-tags", h.CreateSystemTag)
 	r.PUT("/system-tags/:id", h.UpdateSystemTag)
 	r.DELETE("/system-tags/:id", h.DeleteSystemTag)
+	r.POST("/system-tags/undo", h.UndoSystemTagDelete)
 	return r
 }
 
@@ -366,6 +367,90 @@ func TestCreateSystemTag_MissingName(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assertEqual(t, w.Code, http.StatusBadRequest, "StatusCode")
+}
+
+func TestDeleteSystemTag_X08UndoRestoresOriginalAliasAndLinks(t *testing.T) {
+	tx, handler, userID := setupSystemTagTest(t)
+	list := createTestList(t, tx, userID, "X08 清单")
+	tag := model.SystemTag{UserID: userID, Name: "可恢复", Icon: "🎯", Color: "#123456"}
+	if err := tx.Create(&tag).Error; err != nil { t.Fatal(err) }
+	if err := syncSystemTagToCanonical(tx, tag); err != nil { t.Fatal(err) }
+	var alias model.LegacySystemTagAlias
+	if err := tx.Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
+		First(&alias).Error; err != nil { t.Fatal(err) }
+	task := createTestTask(t, tx, userID, list.ID, "保留关联")
+	if err := tx.Model(&task).Update("system_tag_id", tag.ID).Error; err != nil { t.Fatal(err) }
+	if err := tx.Create(&model.TaskTag{TaskID: task.ID, TagID: alias.TagID}).Error; err != nil { t.Fatal(err) }
+	habit := model.Habit{UserID: userID, Name: "有标签习惯", SystemTagID: &tag.ID}
+	if err := tx.Create(&habit).Error; err != nil { t.Fatal(err) }
+	if err := tx.Create(&model.HabitTag{HabitID: habit.ID, TagID: alias.TagID}).Error; err != nil { t.Fatal(err) }
+	router := newSystemTagRouter(handler, userID)
+	url := fmt.Sprintf("/system-tags/%d?undoable=true&expected_tasks=1&expected_habits=1&expected_sessions=0&expected_reflections=0", tag.ID)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("删除失败: %d %s", w.Code, w.Body.String()) }
+	var result struct { UndoToken string `json:"undo_token"` }
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+	if len(result.UndoToken) != 32 { t.Fatalf("无效撤销凭据: %q", result.UndoToken) }
+	var old model.SystemTag
+	if err := tx.First(&old, tag.ID).Error; err == nil { t.Fatal("标签删除后仍可读") }
+	var canonical model.Tag
+	if err := tx.First(&canonical, alias.TagID).Error; err == nil { t.Fatal("未删除统一标签") }
+	body, _ := json.Marshal(map[string]string{"token": result.UndoToken})
+	w = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/system-tags/undo", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK { t.Fatalf("撤销失败: %d %s", w.Code, w.Body.String()) }
+	if err := tx.First(&old, tag.ID).Error; err != nil { t.Fatal("原标签ID未恢复", err) }
+	if err := tx.First(&canonical, alias.TagID).Error; err != nil { t.Fatal("原统一标签ID未恢复", err) }
+	var restoredTask model.Task
+	if err := tx.First(&restoredTask, task.ID).Error; err != nil { t.Fatal(err) }
+	if restoredTask.SystemTagID == nil || *restoredTask.SystemTagID != tag.ID {
+		t.Fatal("旧任务标签关联未恢复")
+	}
+	var restoredHabit model.Habit
+	if err := tx.First(&restoredHabit, habit.ID).Error; err != nil { t.Fatal(err) }
+	if restoredHabit.SystemTagID == nil || *restoredHabit.SystemTagID != tag.ID {
+		t.Fatal("旧习惯标签关联未恢复")
+	}
+	var n int64
+	tx.Model(&model.TaskTag{}).Where("task_id = ? AND tag_id = ?", task.ID, alias.TagID).Count(&n)
+	if n != 1 { t.Fatal("旧 task_tags 关联未恢复") }
+	tx.Model(&model.HabitTag{}).Where("habit_id = ? AND tag_id = ?", habit.ID, alias.TagID).Count(&n)
+	if n != 1 { t.Fatal("旧 habit_tags 关联未恢复") }
+	w = httptest.NewRecorder()
+	again := httptest.NewRequest(http.MethodPost, "/system-tags/undo", bytes.NewReader(body))
+	again.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, again)
+	if w.Code != http.StatusConflict { t.Fatalf("重复撤销必须409: %d", w.Code) }
+}
+
+func TestDeleteSystemTag_X08UndoRefusesChangedLegacyAssociation(t *testing.T) {
+	tx, handler, userID := setupSystemTagTest(t)
+	list := createTestList(t, tx, userID, "冲突")
+	tag := model.SystemTag{UserID: userID, Name: "原归属", Icon: "🎯", Color: "#123456"}
+	if err := tx.Create(&tag).Error; err != nil { t.Fatal(err) }
+	task := createTestTask(t, tx, userID, list.ID, "改归属")
+	if err := tx.Model(&task).Update("system_tag_id", tag.ID).Error; err != nil { t.Fatal(err) }
+	router := newSystemTagRouter(handler, userID)
+	url := fmt.Sprintf("/system-tags/%d?undoable=true&expected_tasks=1&expected_habits=0&expected_sessions=0&expected_reflections=0", tag.ID)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("删除失败: %s", w.Body.String()) }
+	var result struct { UndoToken string `json:"undo_token"` }
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+	other := model.SystemTag{UserID: userID, Name: "新归属", Icon: "📚", Color: "#456789"}
+	if err := tx.Create(&other).Error; err != nil { t.Fatal(err) }
+	if err := tx.Model(&task).Update("system_tag_id", other.ID).Error; err != nil { t.Fatal(err) }
+	body, _ := json.Marshal(map[string]string{"token": result.UndoToken})
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/system-tags/undo", bytes.NewReader(body)))
+	if w.Code != http.StatusConflict { t.Fatalf("旧标签撤销应拒绝新归属: %d", w.Code) }
+	var previous model.SystemTag
+	if err := tx.First(&previous, tag.ID).Error; err == nil {
+		t.Fatal("已变化的标签被部分恢复")
+	}
 }
 
 func TestDeleteSystemTag_X08RejectsStaleApprovedAssociationCount(t *testing.T) {

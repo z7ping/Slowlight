@@ -95,6 +95,54 @@ void main() {
     expect(otherRows.single['deleted_at'], isNull);
   });
 
+  test('X08 撤销清单删除恢复原任务ID，不复活此前已删除任务', () async {
+    final repo = LocalListRepository();
+    final list = await repo.create(name: '原始清单');
+    final other = await repo.create(name: '其他清单');
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    Future<int> insert(int listId, String title, {String? deletedAt}) =>
+        db.insert('tasks', {
+          'list_id': listId, 'title': title,
+          'created_at': now, 'updated_at': now,
+          'deleted_at': deletedAt,
+        });
+    final one = await insert(list.id, '任务一');
+    final two = await insert(list.id, '任务二');
+    final previouslyDeleted = await insert(list.id, '历史删除',
+      deletedAt: now);
+    final unrelated = await insert(other.id, '未受影响');
+    final receipt = await repo.deleteWithUndo(list.id, expectedTaskCount: 2);
+    expect(await repo.getById(list.id), isNull);
+    await repo.undoDelete(receipt);
+    expect(await repo.getById(list.id), isNotNull);
+    for (final id in [one, two, unrelated]) {
+      expect((await db.query('tasks', where: 'id = ?',
+        whereArgs: [id])).single['deleted_at'], isNull);
+    }
+    expect((await db.query('tasks', where: 'id = ?',
+      whereArgs: [previouslyDeleted])).single['deleted_at'], now);
+    await expectLater(repo.undoDelete(receipt), throwsStateError);
+  });
+
+  test('X08 任务墓碑被其他写入改变时撤销必须整体回滚', () async {
+    final repo = LocalListRepository();
+    final list = await repo.create(name: '禁止部分还原');
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final taskId = await db.insert('tasks', {
+      'list_id': list.id, 'title': '原任务',
+      'created_at': now, 'updated_at': now,
+    });
+    final receipt = await repo.deleteWithUndo(list.id,
+      expectedTaskCount: 1);
+    await db.update('tasks',
+      {'deleted_at': '2020-01-01T00:00:00Z'},
+      where: 'id = ?', whereArgs: [taskId]);
+    await expectLater(repo.undoDelete(receipt), throwsStateError);
+    expect(await repo.getById(list.id), isNull);
+  });
+
   test('X08 任务范围变化后禁止按旧确认删除清单', () async {
     final repo = LocalListRepository();
     final list = await repo.create(name: '待核对');

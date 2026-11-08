@@ -65,6 +65,15 @@ class _TagImpactRepo extends ObservationTagRepository {
     approvedImpact = expectedImpact;
     deleteCalls++;
   }
+
+  @override
+  Future<ObservationTagDeletionUndo> deleteWithUndo(
+    ObservationTag tag, {required ObservationTagUsage expectedImpact}
+  ) async {
+    approvedImpact = expectedImpact;
+    deleteCalls++;
+    return ObservationTagDeletionUndo(() async {});
+  }
 }
 
 class _TagUsageReads extends ObservationTagRepository {
@@ -136,6 +145,29 @@ void main() {
     expect(repository.deleteCalls, 1);
     expect(repository.approvedImpact,
       (tasks: 2, habits: 1, sessions: 3, reflections: 4));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X08 标签删除成功提供真实撤销入口', (tester) async {
+    final repo = _TagImpactRepo();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(repository: repo)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byWidgetPredicate(
+      (w) => w is FxIconButton && w.tooltip == '删除',
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除标签'));
+    await tester.pumpAndSettle();
+    expect(repo.deleteCalls, 1);
+    expect(repo.approvedImpact,
+      (tasks: 2, habits: 1, sessions: 3, reflections: 4));
+    expect(find.text('撤销'), findsOneWidget);
+    await tester.tap(find.text('撤销'));
+    await tester.pumpAndSettle();
+    expect(find.text('原标签及关联已恢复'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });

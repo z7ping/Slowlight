@@ -79,6 +79,7 @@ func main() {
 		api.POST("/lists", listHandler.CreateList)
 		api.PUT("/lists/:id", listHandler.UpdateList)
 		api.DELETE("/lists/:id", listHandler.DeleteList)
+		api.POST("/lists/undo", listHandler.UndoListDelete)
 
 		api.GET("/tags", tagHandler.GetTags)
 		api.GET("/tags/stats", tagHandler.GetStats)
@@ -145,6 +146,7 @@ func main() {
 		api.POST("/system-tags", systemTagHandler.CreateSystemTag)
 		api.PUT("/system-tags/:id", systemTagHandler.UpdateSystemTag)
 		api.DELETE("/system-tags/:id", systemTagHandler.DeleteSystemTag)
+		api.POST("/system-tags/undo", systemTagHandler.UndoSystemTagDelete)
 
 		syncChangesHandler := handler.NewSyncChangesHandler(db)
 		api.GET("/sync/changes", syncChangesHandler.GetChanges)
