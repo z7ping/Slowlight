@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../db/local_product_core_schema.dart';
@@ -13,6 +12,7 @@ import '../repositories/local_list_repository.dart';
 import 'api_service.dart';
 import 'app_error_logger.dart';
 import 'auth_storage_diagnostics.dart';
+import 'secure_storage_config.dart';
 import 'http_util.dart';
 
 class SessionRefreshRejected implements Exception {
@@ -26,7 +26,7 @@ class AuthService {
   static int _credentialEpoch = 0;
   static const String _userKey = 'user_data';
   static const String _loginMethodKey = 'auth_login_method';
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static const _secureStorage = slowlightSecureStorage;
 
   static Future<String?> _readStorage(
     AuthStorageSlot slot,
