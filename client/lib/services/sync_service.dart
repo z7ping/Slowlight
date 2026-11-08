@@ -374,6 +374,9 @@ class SyncService extends ChangeNotifier {
       _pendingCount = await _getQueueCount();
       _initialized = true;
       _initializedAccountId = accountId;
+      // A new account must not inherit the previous account's error or
+      // partial-result badge while its own queue is being initialized.
+      notifyListeners();
     }
     _periodicTimer?.cancel();
     if (startPeriodic && DataModeManager().isCloud) _startPeriodicSync();
