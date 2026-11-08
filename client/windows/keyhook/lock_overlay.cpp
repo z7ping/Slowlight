@@ -19,6 +19,9 @@ static std::atomic<bool> g_running{false};
 static std::atomic<int32_t> g_remaining_seconds{0};
 static std::atomic<int32_t> g_pending_action{0};  // 0=none, 1=skip, 2=postpone
 static std::atomic<bool> g_strict{false};
+static std::atomic<bool> g_allow_postpone{true};
+// 0 = creating windows, 1 = every monitor covered, -1 = unavailable.
+static std::atomic<int32_t> g_startup_status{0};
 static std::atomic<int32_t> g_btn_hover{0};       // 0=none, 1=postpone, 2=skip
 static std::atomic<int32_t> g_btn_pressed{0};     // 0=none, 1=postpone, 2=skip
 
@@ -79,18 +82,16 @@ static void DrawButton(HDC hdc, RECT& r, const wchar_t* text,
 static int HitTestButton(HWND hwnd, int x, int y) {
     RECT rc;
     GetClientRect(hwnd, &rc);
-    int btnY = rc.bottom * 75 / 100;
-    int centerX = rc.right / 2;
-    int totalW = BTN_WIDTH * 2 + BTN_GAP;
-    int leftBtnX = centerX - totalW / 2;
-
-    if (x >= leftBtnX && x <= leftBtnX + BTN_WIDTH &&
-        y >= btnY && y <= btnY + BTN_HEIGHT) return 1;
-
-    int rightBtnX = leftBtnX + BTN_WIDTH + BTN_GAP;
-    if (x >= rightBtnX && x <= rightBtnX + BTN_WIDTH &&
-        y >= btnY && y <= btnY + BTN_HEIGHT) return 2;
-
+    const bool postpone = g_allow_postpone.load();
+    const bool skip = !g_strict.load();
+    if (!postpone && !skip) return 0;
+    const int btnY = rc.bottom * 75 / 100;
+    const int totalW = postpone && skip ? BTN_WIDTH * 2 + BTN_GAP : BTN_WIDTH;
+    const int leftX = (rc.right - totalW) / 2;
+    const int rightX = postpone ? leftX + BTN_WIDTH + BTN_GAP : leftX;
+    if (y < btnY || y > btnY + BTN_HEIGHT) return 0;
+    if (postpone && x >= leftX && x <= leftX + BTN_WIDTH) return 1;
+    if (skip && x >= rightX && x <= rightX + BTN_WIDTH) return 2;
     return 0;
 }
 
@@ -153,28 +154,32 @@ static LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
             // ---- Buttons / Strict label (at ~78%) ----
             if (IsPrimaryMonitor(hwnd)) {
                 SelectObject(hdc, hBtn);
-                int btnY = hh * 75 / 100;
-                int centerX = rc.right / 2;
-                int totalW = BTN_WIDTH * 2 + BTN_GAP;
-                int leftBtnX = centerX - totalW / 2;
-                int rightBtnX = leftBtnX + BTN_WIDTH + BTN_GAP;
-                int hover = g_btn_hover.load();
-                int pressed = g_btn_pressed.load();
+                const int btnY = hh * 75 / 100;
+                const bool postpone = g_allow_postpone.load();
+                const bool skip = !g_strict.load();
+                const int totalW = postpone && skip ? BTN_WIDTH * 2 + BTN_GAP : BTN_WIDTH;
+                const int leftX = (rc.right - totalW) / 2;
+                const int rightX = postpone ? leftX + BTN_WIDTH + BTN_GAP : leftX;
+                const int hover = g_btn_hover.load();
+                const int pressed = g_btn_pressed.load();
 
-                if (g_strict) {
-                    SetTextColor(hdc, C_WHITE38);
-                    RECT r = {0, btnY + 8, rc.right, btnY + 30};
-                    DrawTextW(hdc, TXT_STRICT, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-                } else {
-                    RECT rL = {leftBtnX, btnY, leftBtnX + BTN_WIDTH, btnY + BTN_HEIGHT};
+                if (postpone) {
+                    RECT rL = {leftX, btnY, leftX + BTN_WIDTH, btnY + BTN_HEIGHT};
                     DrawButton(hdc, rL, TXT_POSTPONE,
                                hover == 1, pressed == 1,
                                C_WHITE54, RGB(200, 200, 200));
-
-                    RECT rR = {rightBtnX, btnY, rightBtnX + BTN_WIDTH, btnY + BTN_HEIGHT};
+                }
+                if (skip) {
+                    RECT rR = {rightX, btnY, rightX + BTN_WIDTH, btnY + BTN_HEIGHT};
                     DrawButton(hdc, rR, TXT_SKIP,
                                hover == 2, pressed == 2,
                                C_WHITE38, C_WHITE54);
+                }
+                if (g_strict) {
+                    SetTextColor(hdc, C_WHITE38);
+                    RECT r = {0, btnY + (postpone ? BTN_HEIGHT + 8 : 8),
+                              rc.right, btnY + (postpone ? BTN_HEIGHT + 30 : 30)};
+                    DrawTextW(hdc, TXT_STRICT, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
                 }
             }
 
@@ -187,7 +192,7 @@ static LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
             return 0;
         }
         case WM_MOUSEMOVE: {
-            if (g_strict || !IsPrimaryMonitor(hwnd)) return 0;
+            if ((g_strict && !g_allow_postpone) || !IsPrimaryMonitor(hwnd)) return 0;
 
             TRACKMOUSEEVENT tme = {sizeof(tme), TME_LEAVE, hwnd, 0};
             TrackMouseEvent(&tme);
@@ -210,7 +215,7 @@ static LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
             return 0;
         }
         case WM_LBUTTONDOWN: {
-            if (g_strict || !IsPrimaryMonitor(hwnd)) return 0;
+            if ((g_strict && !g_allow_postpone) || !IsPrimaryMonitor(hwnd)) return 0;
 
             int x = LOWORD(lp);
             int y = HIWORD(lp);
