@@ -502,8 +502,7 @@ class CloudCacheRepository {
     final changed = contract.any((field) {
       if (!updates.containsKey(field)) return false;
       if (field == 'schedule_rule') {
-        return jsonEncode(_jsonMap(row[field])) !=
-            jsonEncode(_jsonMap(updates[field]));
+        return _stableRule(row[field]) != _stableRule(updates[field]);
       }
       return row[field] != updates[field];
     });
@@ -874,6 +873,12 @@ class CloudCacheRepository {
   String? _dateKey(DateTime? value) => value == null
       ? null
       : '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  String _stableRule(Object? value) {
+    final map = _jsonMap(value);
+    final keys = map.keys.toList()..sort();
+    return jsonEncode({for (final key in keys) key: map[key]});
+  }
 
   List<dynamic> _jsonList(Object? value) {
     if (value is List) return value;
