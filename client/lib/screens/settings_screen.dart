@@ -2079,6 +2079,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_syncing || DataModeManager().isLocal) return;
     setState(() => _syncing = true);
     try {
+      // The settings button must obey the same unknown-result gate as the
+      // shared badge: do not submit writes when intent scope cannot be read.
+      await CloudSyncCoordinator().refreshStandalonePendingCount();
+      if (CloudSyncCoordinator().standalonePendingUnknown.value) {
+        _message('待同步数量无法核对，本次没有重新提交数据。请检查本地缓存后重试。');
+        return;
+      }
       final requested = await CloudSyncCoordinator().syncNow();
       if (!mounted || DataModeManager().isLocal) return;
       await _loadConflictCount();
