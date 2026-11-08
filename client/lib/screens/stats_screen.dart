@@ -84,8 +84,11 @@ class _StatsScreenState extends State<StatsScreen> {
     // Android has the prototype's Today / last-7-calendar-days switch.
     // Windows retains the established 7-day compact dashboard.
     final days = desktop ? 7 : _periodDays;
-    final completed = data.countInDays('task_completed', days);
-    final habitChecks = data.countInDays('habit_checked', days);
+    // Desktop titles use the current calendar week; mobile toggles a
+    // rolling 7-day window or today, as specified by the prototype.
+    final countDays = desktop ? DateTime.now().weekday : days;
+    final completed = data.countInDays('task_completed', countDays);
+    final habitChecks = data.countInDays('habit_checked', countDays);
     final focusMinutes = data.focusMinutesInDays(days);
     final observations = data.observationCountInDays(days);
 
