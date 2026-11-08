@@ -1,6 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/services/api_service.dart';
+import 'package:slowlight/services/app_secure_storage.dart';
 import 'package:slowlight/services/auth_storage_diagnostics.dart';
 import 'package:slowlight/services/github_oauth_pending.dart';
 
@@ -80,7 +81,7 @@ void main() {
     expect((await GitHubOAuthPending.load())?.pollToken, poll);
     await GitHubOAuthPending.clear(reason: 'login_saved');
 
-    const storage = FlutterSecureStorage();
+    final storage = AppSecureStorage.instance;
     expect(await storage.read(key: 'auth_token'), access);
     expect(await storage.read(key: GitHubOAuthPending.storageKey), isNull);
     final text = events.join('\n');
