@@ -21,14 +21,20 @@ type systemTagUsage struct {
 }
 
 func (h *SystemTagHandler) usageForTag(userID, tagID uint) (systemTagUsage, error) {
+  return h.usageForTagDB(h.DB, userID, tagID)
+}
+
+func (h *SystemTagHandler) usageForTagDB(
+  db *gorm.DB, userID, tagID uint,
+) (systemTagUsage, error) {
 	var alias model.LegacySystemTagAlias
 	canonicalID := uint(0)
-	err := h.DB.Where("user_id = ? AND system_tag_id = ?", userID, tagID).
+	err := db.Where("user_id = ? AND system_tag_id = ?", userID, tagID).
 		Take(&alias).Error
 	switch {
 	case err == nil:
 		var others int64
-		if err := h.DB.Model(&model.LegacySystemTagAlias{}).
+		if err := db.Model(&model.LegacySystemTagAlias{}).
 			Where("user_id = ? AND tag_id = ? AND system_tag_id != ?", userID, alias.TagID, tagID).
 			Count(&others).Error; err != nil {
 			return systemTagUsage{}, err
@@ -62,7 +68,7 @@ func (h *SystemTagHandler) usageForTag(userID, tagID uint) (systemTagUsage, erro
 			args = append(args, userID, tagID)
 		}
 		sql += ") linked"
-		if err := h.DB.Raw(sql, args...).Scan(&total).Error; err != nil {
+		if err := db.Raw(sql, args...).Scan(&total).Error; err != nil {
 			return 0, err
 		}
 		return total, nil
