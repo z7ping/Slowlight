@@ -33,11 +33,17 @@ bool syncMayStartUserRetry({
   required bool conflictsKnown,
   required int conflictCount,
   required bool hasRequestError,
+  bool failuresKnown = true,
+  int pendingFailureCount = 0,
+  bool verifiedAfterFailure = false,
 }) =>
-    status == SyncStatusEnum.idle &&
+    status != SyncStatusEnum.syncing &&
+    (status == SyncStatusEnum.idle || verifiedAfterFailure) &&
     conflictsKnown &&
     conflictCount == 0 &&
-    !hasRequestError;
+    failuresKnown &&
+    pendingFailureCount == 0 &&
+    (!hasRequestError || verifiedAfterFailure);
 
 /// A failed conflict read is an unknown status, never a healthy pill.
 bool shouldShowCloudSyncBadge({
@@ -252,6 +258,9 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
   String? _feedback;
   String? _requestError;
   bool _conflictReadFailed = false;
+  // A successful read-only reconciliation can unlock a new explicit attempt;
+  // a stale global error by itself is not proof that queued writes are unsafe.
+  bool _verifiedRetrySafe = false;
 
   @override
   void initState() {
@@ -264,6 +273,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
     if (_retrying) return;
     setState(() {
       _retrying = true;
+      _verifiedRetrySafe = false;
       _feedback = null;
     });
     try {
@@ -278,6 +288,11 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _conflicts = Future.value(conflicts);
         _failures = Future.value(failures);
         _conflictReadFailed = false;
+        _requestError = null;
+        _verifiedRetrySafe = reconciliation.unknown == 0 &&
+            reconciliation.conflicts == 0 &&
+            conflicts.isEmpty &&
+            failures.isEmpty;
         _feedback = '远端核对：${reconciliation.verified} 项已验证写入，'
             '${reconciliation.conflicts} 项状态不一致，'
             '${reconciliation.unknown} 项仍未知。'
@@ -290,6 +305,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _requestError = error.toString();
         _failures = widget.sync.getPendingFailures();
         _conflictReadFailed = true;
+        _verifiedRetrySafe = false;
         _feedback = '核对失败，结果仍未确认；没有重新提交数据。';
       });
     } finally {
@@ -298,14 +314,17 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
   }
 
   Future<void> _retry() async {
-    if (_retrying) return;
-    if (widget.sync.status != SyncStatusEnum.idle ||
-        _requestError != null || widget.sync.lastError != null) {
+    if (_retrying || widget.sync.status == SyncStatusEnum.syncing) return;
+    final verified = _verifiedRetrySafe;
+    if (!verified &&
+        (widget.sync.status != SyncStatusEnum.idle ||
+            _requestError != null || widget.sync.lastError != null)) {
       await _verifyOnly();
       return;
     }
     setState(() {
       _retrying = true;
+      _verifiedRetrySafe = false;
       _requestError = null;
       _feedback = null;
     });
@@ -313,13 +332,19 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       // Re-read immediately before sending: a previously closed conflict
       // panel may have left a stale zero-conflicts snapshot on screen.
       final before = await widget.sync.getAllConflicts();
+      final failedRows = await widget.sync.getPendingFailures();
       if (!mounted) return;
-      if (before.isNotEmpty || widget.sync.status != SyncStatusEnum.idle ||
-          widget.sync.lastError != null) {
+      if (before.isNotEmpty || failedRows.isNotEmpty ||
+          widget.sync.status == SyncStatusEnum.syncing ||
+          (!verified &&
+              (widget.sync.status != SyncStatusEnum.idle ||
+                  widget.sync.lastError != null))) {
         setState(() {
           _conflicts = Future.value(before);
+          _failures = Future.value(failedRows);
           _conflictReadFailed = false;
-          _feedback = '发现未核对的冲突或同步状态已变化，未重新提交数据。';
+          _feedback = '发现尚未核对的失败记录、冲突或同步状态变化，'
+              '没有重新提交数据；请先核对状态。';
         });
         return;
       }
@@ -354,6 +379,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _requestError = error.toString();
         _failures = widget.sync.getPendingFailures();
         _conflictReadFailed = true;
+        _verifiedRetrySafe = false;
         _feedback = '同步请求未完成，请查看技术详情。';
       });
     } finally {
@@ -382,14 +408,6 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
             final hasRaw = raw != null && raw.trim().isNotEmpty;
             final failed = _requestError != null || status == SyncStatusEnum.error;
             final busy = _retrying || status == SyncStatusEnum.syncing;
-            final canSync = syncMayStartUserRetry(
-              status: status,
-              conflictsKnown: conflictsKnown,
-              conflictCount: count,
-              hasRequestError: _requestError != null ||
-                  widget.sync.lastError != null,
-            );
-
             return ConstrainedBox(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.sizeOf(context).height * 0.78,
@@ -639,40 +657,58 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                       ),
                     ],
                     const SizedBox(height: SlowlightSpacing.xxxl),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final dismiss = FxButton(
-                          label: '稍后处理',
-                          expanded: true,
-                          variant: FxButtonVariant.outline,
-                          onPressed: () => Navigator.of(context).pop(),
+                    FutureBuilder<List<SyncPendingFailure>>(
+                      future: _failures,
+                      builder: (context, failuresSnapshot) {
+                        final failuresKnown =
+                            failuresSnapshot.connectionState == ConnectionState.done &&
+                            !failuresSnapshot.hasError;
+                        final canSync = syncMayStartUserRetry(
+                          status: status,
+                          conflictsKnown: conflictsKnown,
+                          conflictCount: count,
+                          hasRequestError: _requestError != null ||
+                              widget.sync.lastError != null,
+                          failuresKnown: failuresKnown,
+                          pendingFailureCount: failuresSnapshot.data?.length ?? 0,
+                          verifiedAfterFailure: _verifiedRetrySafe,
                         );
-                        final retry = FxButton(
-                          label: busy ? '核对中…'
-                              : canSync ? '立即同步' : '核对状态',
-                          expanded: true,
-                          icon: busy ? Icons.hourglass_top
-                              : canSync ? Icons.sync : Icons.fact_check_outlined,
-                          onPressed: busy ? null
-                              : canSync ? _retry : _verifyOnly,
-                        );
-                        if (constraints.maxWidth < 360 ||
-                            MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              retry,
-                              const SizedBox(height: SlowlightSpacing.md),
-                              dismiss,
-                            ],
-                          );
-                        }
-                        return Row(
-                          children: [
-                            Expanded(child: dismiss),
-                            const SizedBox(width: SlowlightSpacing.md),
-                            Expanded(flex: 2, child: retry),
-                          ],
+                        return LayoutBuilder(
+                          builder: (context, constraints) {
+                            final dismiss = FxButton(
+                              label: '稍后处理',
+                              expanded: true,
+                              variant: FxButtonVariant.outline,
+                              onPressed: () => Navigator.of(context).pop(),
+                            );
+                            final retry = FxButton(
+                              label: busy ? '核对中…'
+                                  : canSync ? '立即同步' : '核对状态',
+                              expanded: true,
+                              icon: busy ? Icons.hourglass_top
+                                  : canSync ? Icons.sync : Icons.fact_check_outlined,
+                              onPressed: busy ? null
+                                  : canSync ? _retry : _verifyOnly,
+                            );
+                            if (constraints.maxWidth < 360 ||
+                                MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  retry,
+                                  const SizedBox(height: SlowlightSpacing.md),
+                                  dismiss,
+                                ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Expanded(child: dismiss),
+                                const SizedBox(width: SlowlightSpacing.md),
+                                Expanded(flex: 2, child: retry),
+                              ],
+                            );
+                          },
                         );
                       },
                     ),

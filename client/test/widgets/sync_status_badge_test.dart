@@ -54,6 +54,44 @@ void main() {
     expect(safe(SyncStatusEnum.idle, requestError: true), isFalse);
   });
 
+
+  test('同步失败队列未能读取或有未核对记录时不允许重发', () {
+    bool safe({
+      SyncStatusEnum status = SyncStatusEnum.idle,
+      bool failuresKnown = true,
+      int failures = 0,
+      bool verified = false,
+      bool requestError = false,
+    }) => syncMayStartUserRetry(
+      status: status,
+      conflictsKnown: true,
+      conflictCount: 0,
+      hasRequestError: requestError,
+      failuresKnown: failuresKnown,
+      pendingFailureCount: failures,
+      verifiedAfterFailure: verified,
+    );
+
+    expect(safe(failuresKnown: false), isFalse);
+    expect(safe(failures: 1), isFalse);
+    expect(safe(status: SyncStatusEnum.error), isFalse);
+    expect(safe(status: SyncStatusEnum.error, verified: true), isTrue);
+    expect(safe(
+      status: SyncStatusEnum.error,
+      verified: true,
+      failures: 1,
+    ), isFalse);
+    expect(safe(
+      status: SyncStatusEnum.error,
+      verified: true,
+      requestError: true,
+    ), isTrue);
+    expect(safe(
+      status: SyncStatusEnum.syncing,
+      verified: true,
+    ), isFalse);
+  });
+
   test('同步状态同时区分待同步、冲突、未知和已知无待处理', () {
     String label({
       bool busy = false,
