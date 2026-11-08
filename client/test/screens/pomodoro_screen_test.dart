@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/pomodoro_screen.dart';
 import 'package:slowlight/repositories/session_repository.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -219,7 +220,70 @@ class _RemoteEndedLinkedSessionRepository extends SessionRepository {
       };
 }
 
+class _DelayedCrossAccountSessionRepository extends SessionRepository {
+  final later = Completer<Map<String, dynamic>>();
+  int reads = 0;
+
+  @override
+  Future<Map<String, dynamic>> getActiveSession() {
+    reads++;
+    if (reads == 1) return Future.value({'active': false});
+    return later.future;
+  }
+
+  @override
+  Future<Map<String, dynamic>> getTodaySessionStats() async => {
+        'total_work_seconds': 0,
+        'work_count': 0,
+      };
+}
+
+String _cloudTestUser(int id) => jsonEncode({
+      'id': id,
+      'username': 'account$id',
+      'email': 'account$id@example.test',
+      'nickname': 'Account $id',
+      'created_at': '2026-01-01T00:00:00Z',
+    });
+
 void main() {
+  testWidgets('X10 云端账号切换时丢弃迟到的旧会话读取', (tester) async {
+    DataModeManager().resetForTesting();
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'user_data': _cloudTestUser(10),
+    });
+    final repo = _DelayedCrossAccountSessionRepository();
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: repo),
+    ));
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(repo.reads, 2);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_data', _cloudTestUser(11));
+    repo.later.complete({
+      'active': true,
+      'session': {
+        'id': 910,
+        'session_type': 'work',
+        'target_minutes': 25,
+        'started_at': DateTime.now().toUtc().toIso8601String(),
+        'paused_at': null,
+        'paused_duration_seconds': 0,
+        'revision': 0,
+      },
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前会话状态待核对'), findsOneWidget);
+    expect(find.text('重新核对当前会话'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+    DataModeManager().resetForTesting();
+  });
+
   testWidgets('X10 另一设备结束原会话后不再携带旧任务关联', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final repo = _RemoteEndedLinkedSessionRepository();
