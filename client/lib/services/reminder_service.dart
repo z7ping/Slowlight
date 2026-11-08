@@ -390,7 +390,10 @@ class ReminderService extends ChangeNotifier {
 
   void stopAll() {
     _timer?.cancel();
+    _pauseUntilTimer?.cancel();
     ++_timerGeneration;
+    _paused = false;
+    _pauseUntil = null;
     final wasWorking = _state == 'working';
     final wasRest = _state == 'micro_rest' || _state == 'long_rest';
     _state = 'idle';
