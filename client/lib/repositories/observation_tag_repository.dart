@@ -230,28 +230,37 @@ class ObservationTagRepository {
       }
     }
 
-    Future<int> count(String table, String idColumn,
-        {String? legacyTable}) async {
-      final rows = await db.rawQuery(
-        legacyTable == null
-            ? 'SELECT COUNT(*) AS total FROM $table '
-                'WHERE tag_id = ?'
-            : 'SELECT COUNT(*) AS total FROM ('
-                'SELECT id AS entity_id FROM $legacyTable '
-                'WHERE system_tag_id = ? '
-                'UNION SELECT $idColumn AS entity_id FROM $table '
-                'WHERE tag_id = ?)',
-        legacyTable == null ? [canonicalId] : [tag.id, canonicalId],
-      );
+    // Count unique existing records, not stale link rows or soft-deleted
+    // task/habit/reflection history. Avoid double counting legacy+canonical.
+    Future<int> count(String entity, String links, String idColumn, {
+      required bool legacy,
+      required bool softDelete,
+    }) async {
+      final live = softDelete ? ' AND record.deleted_at IS NULL' : '';
+      var sql = 'SELECT COUNT(*) AS total FROM ('
+          'SELECT record.id AS entity_id FROM $entity record '
+          'JOIN $links link ON link.$idColumn = record.id '
+          'WHERE link.tag_id = ?$live';
+      final args = <Object?>[canonicalId];
+      if (legacy) {
+        sql += ' UNION SELECT record.id AS entity_id FROM $entity record '
+            'WHERE record.system_tag_id = ?$live';
+        args.add(tag.id);
+      }
+      sql += ') linked';
+      final rows = await db.rawQuery(sql, args);
       return (rows.first['total'] as num).toInt();
     }
 
     return (
-      tasks: await count('task_tags', 'task_id', legacyTable: 'tasks'),
-      habits: await count('habit_tags', 'habit_id', legacyTable: 'habits'),
-      sessions: await count('work_session_tags', 'work_session_id',
-          legacyTable: 'work_sessions'),
-      reflections: await count('reflection_tags', 'reflection_id'),
+      tasks: await count('tasks', 'task_tags', 'task_id',
+          legacy: true, softDelete: true),
+      habits: await count('habits', 'habit_tags', 'habit_id',
+          legacy: true, softDelete: true),
+      sessions: await count('work_sessions', 'work_session_tags',
+          'work_session_id', legacy: true, softDelete: false),
+      reflections: await count('reflections', 'reflection_tags',
+          'reflection_id', legacy: false, softDelete: true),
     );
   }
 
