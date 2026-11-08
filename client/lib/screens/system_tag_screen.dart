@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -26,6 +28,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   bool _deletingTag = false;
   String? _error;
   List<ObservationTag> _tags = const [];
+  Map<int, ObservationTagUsage> _usage = const {};
+  bool _usageLoading = false;
+  bool _usageFailed = false;
 
   static const _presetEmojis = [
     '🏃',
@@ -69,6 +74,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       setState(() {
         _loading = !_hasLoaded;
         _error = null;
+        _usage = const {};
+        _usageLoading = false;
+        _usageFailed = false;
       });
     }
     try {
@@ -80,6 +88,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         _hasLoaded = true;
         _error = null;
       });
+      unawaited(_loadUsage(version, tags));
     } catch (e) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -88,6 +97,38 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
         _error = e.toString();
       });
     }
+  }
+
+  Future<void> _loadUsage(int version, List<ObservationTag> tags) async {
+    if (!mounted || version != _loadVersion || _usageLoading) return;
+    setState(() {
+      _usageLoading = true;
+      _usageFailed = false;
+    });
+    try {
+      final result = await _repository.getAssociationUsage(tags);
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _usage = result;
+        _usageLoading = false;
+        _usageFailed = result.length < tags.length;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _usageLoading = false;
+        _usageFailed = true;
+      });
+    }
+  }
+
+  String _usageLabel(ObservationTag tag) {
+    final impact = _usage[tag.id];
+    if (impact == null) return _usageLoading ? '关联读取中…' : '关联未核对';
+    final total = impact.tasks + impact.habits +
+        impact.sessions + impact.reflections;
+    return '关联 ${total} 条 · 任务 ${impact.tasks} / 习惯 ${impact.habits} / '
+        '专注 ${impact.sessions} / 观察 ${impact.reflections}';
   }
 
   List<_ObservationTagGroup> _groups() => _tags.isEmpty
@@ -178,6 +219,28 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  if (_usageFailed && !_usageLoading) ...[
+                    FxCard(
+                      padding: const EdgeInsets.all(12),
+                      expanded: true,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '标签关联数量未全部核对，标签本身仍可管理。',
+                              style: SlowlightTypography.secondary(context),
+                            ),
+                          ),
+                          FxButton(
+                            label: '重试关联',
+                            size: FxButtonSize.sm,
+                            variant: FxButtonVariant.ghost,
+                            onPressed: () => _loadUsage(_loadVersion, _tags),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   if (_tags.isEmpty)
                     FxEmptyState(
@@ -223,7 +286,10 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   Widget _tagRow(ObservationTag tag) {
     final theme = Theme.of(context);
     final color = ColorUtils.safeParse(tag.color);
-    return Container(
+    return FxInkWell(
+      onTap: () => _editTag(tag),
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+      child: Container(
       key: ValueKey(tag.id),
       constraints: const BoxConstraints(minHeight: 58),
       decoration: BoxDecoration(
@@ -243,18 +309,31 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '#${tag.name}',
-                  style: SlowlightTypography.secondary(
-                    context,
-                  ).copyWith(fontWeight: FontWeight.w600),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '#${tag.name}',
+                      style: SlowlightTypography.secondary(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (tag.isDefault) _chip('默认'),
+                  ],
                 ),
-                if (tag.isDefault) _chip('默认'),
+                const SizedBox(height: 3),
+                Text(
+                  _usageLabel(tag),
+                  style: SlowlightTypography.caption(context),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -273,6 +352,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                     : theme.colorScheme.error,
           ),
         ],
+      ),
       ),
     );
   }
@@ -314,6 +394,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     var color = existing?.color ?? _presetColors.first;
     String? dimensionKey = existing?.dimensionKey;
     var saving = false;
+    var writeUnknown = false;
     String? error;
 
     final saved = await FxDialog.show<bool>(
@@ -330,7 +411,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
           }) {
             return FxChip(
               label: label,
-              onTap: saving ? null : onTap,
+              onTap: saving || writeUnknown ? null : onTap,
               backgroundColor:
                   selected
                       ? activePalette.accent.withValues(alpha: .12)
@@ -357,8 +438,16 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                   FxInput(
                     controller: nameController,
                     autofocus: true,
+                    enabled: !saving && !writeUnknown,
                     placeholder: '例如：分心、心流、精力低谷',
                   ),
+                  if (existing != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _usageLabel(existing),
+                      style: SlowlightTypography.caption(dialogContext),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   _dialogLabel(dialogContext, '图标'),
                   Wrap(
@@ -385,7 +474,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                               item.toLowerCase() == color.toLowerCase();
                           return FxInkWell(
                             onTap:
-                                saving
+                                saving || writeUnknown
                                     ? null
                                     : () => setDialogState(() => color = item),
                             borderRadius: BorderRadius.circular(22),
@@ -437,12 +526,17 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                       FxButton(
                         label: saving ? '保存中…' : '保存',
                         onPressed:
-                            saving
+                            saving || writeUnknown
                                 ? null
                                 : () async {
                                   final name = nameController.text.trim();
                                   if (name.isEmpty) {
                                     setDialogState(() => error = '标签名称不能为空');
+                                    return;
+                                  }
+                                  if (_tags.any((tag) =>
+                                      tag.name == name && tag.id != existing?.id)) {
+                                    setDialogState(() => error = '标签名称已存在');
                                     return;
                                   }
                                   setDialogState(() {
@@ -470,9 +564,11 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                                       Navigator.of(dialogContext).pop(true);
                                     }
                                   } catch (e) {
+                                    if (!dialogContext.mounted) return;
                                     setDialogState(() {
                                       saving = false;
-                                      error = e.toString();
+                                      writeUnknown = true;
+                                      error = '保存回执未确认，请关闭后重新读取标签，避免重复写入：$e';
                                     });
                                   }
                                 },
@@ -510,12 +606,16 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       final impact = await _repository.getDeletionImpact(tag);
       if (!mounted || version != _loadVersion ||
           !_tags.any((item) => item.id == tag.id)) return;
-      final detail = impact == null
-          ? '云端未提供关联数量，无法在此核对影响条数。'
-              '服务端删除只解除标签及对应关联，不删除任务、习惯和历史记录。'
-          : '本机已确认关联：任务 ${impact.tasks} 项、习惯 ${impact.habits} 项、'
-              '专注 ${impact.sessions} 项、观察/回应 ${impact.reflections} 项。'
-              '删除会解除这些关联，不删除原有记录。';
+      if (impact == null) {
+        FxNotice.showContent(
+          context,
+          const Text('标签关联数量未确认，已阻止删除，请重试核对。'),
+        );
+        return;
+      }
+      final detail = '已核对将解除的关联：任务 ${impact.tasks} 项、习惯 ${impact.habits} 项、'
+          '专注 ${impact.sessions} 项、观察/回应 ${impact.reflections} 项。'
+          '删除只解除关联，不删除原有记录。';
       final confirmed = await FxDialog.confirm(
         context: context,
         title: '删除标签并解除关联？',
