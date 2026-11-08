@@ -18,15 +18,16 @@ enum _LoginView { welcome, github, password, register }
 
 // Only fully implemented identity providers appear here. Additional providers
 // must provide an authorization handler before they can be enabled.
-class _LoginProvider {
-  const _LoginProvider(this.id, this.label, {this.brandAsset});
-  final String id;
+enum _LoginProvider {
+  github('GitHub', brandAsset: 'assets/github_mark.png');
+
+  const _LoginProvider(this.label, {this.brandAsset});
   final String label;
   final String? brandAsset;
 }
 
 const _availableLoginProviders = <_LoginProvider>[
-  _LoginProvider('github', 'GitHub', brandAsset: 'assets/github_mark.png'),
+  _LoginProvider.github,
 ];
 
 class LoginScreen extends StatefulWidget {
@@ -567,21 +568,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _selectLoginProvider(_LoginProvider provider) async {
     if (_isLoading || _credentialsSavedForCloud) return;
-    switch (provider.id) {
-      case 'github':
-        await _loginWithGitHub(
+    // Exhaustive enum dispatch: a newly added provider cannot compile until
+    // its authorization flow is implemented.
+    final Future<void> authorization = switch (provider) {
+      _LoginProvider.github => _loginWithGitHub(
           resumePending: _githubError != null && _githubCanResume,
-        );
-        break;
-    }
+        ),
+    };
+    await authorization;
   }
 
   Widget _loginProviderButton(BuildContext context, _LoginProvider provider,
       {FutureOr<void> Function()? onSelected}) {
     final asset = provider.brandAsset;
     return FxButton(
-      key: ValueKey('login.provider.${provider.id}'),
-      label: provider.id == 'github' && _githubCanResume
+      key: ValueKey('login.provider.${provider.name}'),
+      label: provider == _LoginProvider.github && _githubCanResume
           ? '继续 GitHub 授权'
           : provider.label,
       variant: FxButtonVariant.outline,
@@ -600,7 +602,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _showMoreProviders(BuildContext context) async {
-    final selected = await FxDialog.show<String>(
+    final selected = await FxDialog.show<_LoginProvider>(
       context: context,
       title: '更多登录方式',
       showCloseButton: false,
@@ -612,7 +614,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _loginProviderButton(
                 dialogContext,
                 provider,
-                onSelected: () => Navigator.of(dialogContext).pop(provider.id),
+                onSelected: () => Navigator.of(dialogContext).pop(provider),
               ),
               const SizedBox(height: SlowlightSpacing.md),
             ],
@@ -626,13 +628,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
-    if (!mounted || selected == null) return;
-    for (final provider in _availableLoginProviders) {
-      if (provider.id == selected) {
-        await _selectLoginProvider(provider);
-        break;
-      }
-    }
+    if (mounted && selected != null) await _selectLoginProvider(selected);
   }
 
   Widget _loginAlternatives(BuildContext context) {
