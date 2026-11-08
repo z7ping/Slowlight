@@ -368,6 +368,38 @@ func TestCreateSystemTag_MissingName(t *testing.T) {
 	assertEqual(t, w.Code, http.StatusBadRequest, "StatusCode")
 }
 
+func TestDeleteSystemTag_X08RejectsStaleApprovedAssociationCount(t *testing.T) {
+	tx, handler, userID := setupSystemTagTest(t)
+	list := createTestList(t, tx, userID, "专注清单")
+	tag := model.SystemTag{UserID: userID, Name: "X08 核对", Icon: "🎯", Color: "#334455"}
+	if err := tx.Create(&tag).Error; err != nil { t.Fatal(err) }
+	router := newSystemTagRouter(handler, userID)
+	// The dialog approved a zero-impact deletion, then a new task arrived.
+	task := createTestTask(t, tx, userID, list.ID, "后续新增的任务")
+	if err := tx.Model(&task).Update("system_tag_id", tag.ID).Error; err != nil { t.Fatal(err) }
+	url := fmt.Sprintf("/system-tags/%d?expected_tasks=0&expected_habits=0&expected_sessions=0&expected_reflections=0", tag.ID)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusConflict { t.Fatalf("应拒绝过期删除: %d %s", w.Code, w.Body.String()) }
+	var remaining model.SystemTag
+	if err := tx.First(&remaining, tag.ID).Error; err != nil { t.Fatal("拒绝后标签丢失:", err) }
+	var kept model.Task
+	if err := tx.First(&kept, task.ID).Error; err != nil { t.Fatal(err) }
+	if kept.SystemTagID == nil || *kept.SystemTagID != tag.ID { t.Fatal("拒绝后任务关联被清除") }
+	url = fmt.Sprintf("/system-tags/%d?expected_tasks=1&expected_habits=0&expected_sessions=0&expected_reflections=0", tag.ID)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, url, nil))
+	if w.Code != http.StatusOK { t.Fatalf("核对后删除失败: %d %s", w.Code, w.Body.String()) }
+	if err := tx.First(&kept, task.ID).Error; err != nil { t.Fatal(err) }
+	if kept.SystemTagID != nil { t.Fatal("批准后仍保留旧关联") }
+	partial := httptest.NewRecorder()
+	tag2 := model.SystemTag{UserID: userID, Name: "参数不完整"}
+	if err := tx.Create(&tag2).Error; err != nil { t.Fatal(err) }
+	router.ServeHTTP(partial, httptest.NewRequest(http.MethodDelete,
+		fmt.Sprintf("/system-tags/%d?expected_tasks=0", tag2.ID), nil))
+	if partial.Code != http.StatusBadRequest { t.Fatalf("残缺参数应400: %d", partial.Code) }
+}
+
 // ========== DeleteSystemTag ==========
 
 func TestDeleteSystemTag_CustomTag(t *testing.T) {
