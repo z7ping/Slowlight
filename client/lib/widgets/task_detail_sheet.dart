@@ -1292,7 +1292,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                 const SizedBox(width: 4),
                 FxMenu<String>(
                   tooltip: '更多操作',
-                  enabled: !_saving,
+                  enabled: !_saving && !_writeResultUnknown,
                   child: const SizedBox(
                     width: 44,
                     height: 44,
@@ -1638,20 +1638,25 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   label: '删除',
                   icon: LucideIcons.trash2,
                   variant: FxButtonVariant.ghost,
-                  onPressed: _saving ? null : _delete,
+                  onPressed: _saving || _writeResultUnknown || widget.isCreating
+                      ? null : _delete,
                 ),
                 actions: [
                   FxButton(
-                    label: _saving ? '保存中…' : '保存修改',
-                    onPressed: _saving ? null : _save,
+                    label: _writeResultUnknown
+                        ? '结果待核对'
+                        : _saving ? '保存中…' : '保存修改',
+                    onPressed: _saving || _writeResultUnknown ? null : _save,
                   ),
                 ],
               )
             : SizedBox(
                 width: double.infinity,
                 child: FxButton(
-                  label: _saving ? '保存中…' : '保存修改',
-                  onPressed: _saving ? null : _save,
+                  label: _writeResultUnknown
+                      ? '结果待核对'
+                      : _saving ? '保存中…' : '保存修改',
+                  onPressed: _saving || _writeResultUnknown ? null : _save,
                 ),
               ),
       ),
@@ -1780,8 +1785,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       if (!mounted) return;
       // A timed-out create may already be stored remotely. Disable a second
       // create attempt unless the data layer explicitly confirmed no write.
-      final uncertain = widget.isCreating &&
-          (e is! TaskCreateException || !e.confirmedNotCreated);
+      final uncertain = widget.isCreating
+          ? (e is! TaskCreateException || !e.confirmedNotCreated)
+          : (e is! TaskUpdateException || !e.confirmedNotUpdated);
       setState(() {
         _saving = false;
         _writeResultUnknown = uncertain;
@@ -1789,15 +1795,16 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       FxNotice.showContent(
         context,
         Text(uncertain
-            ? '创建结果未确认，请先返回任务列表核对，避免重复创建'
+            ? '任务变更结果未确认，请关闭后核对，避免重复操作'
             : widget.isCreating
                 ? '创建失败，请检查输入后重试'
-                : '保存结果未确认，请核对任务内容'),
+                : '修改未生效，请检查后重试'),
       );
     }
   }
 
   Future<void> _delete() async {
+    if (_saving || _writeResultUnknown || widget.isCreating) return;
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '删除任务',
