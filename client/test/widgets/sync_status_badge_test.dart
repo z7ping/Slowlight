@@ -99,12 +99,16 @@ void main() {
       bool known = true,
       int conflicts = 0,
       int pending = 0,
+      SyncQueueRunEvidence? evidence,
+      bool networkUnreachable = false,
     }) => syncDetailResultLabel(
       busy: busy,
       failed: failed,
       conflictsKnown: known,
       conflictCount: conflicts,
       pendingCount: pending,
+      lastQueueRun: evidence,
+      networkUnreachable: networkUnreachable,
     );
     expect(label(busy: true), '同步中');
     expect(label(failed: true), '同步未完成');
@@ -112,6 +116,18 @@ void main() {
     expect(label(conflicts: 2, pending: 3), '冲突待处理');
     expect(label(pending: 1), '待同步');
     expect(label(), '无待处理项');
+    expect(label(
+      failed: true,
+      evidence: const SyncQueueRunEvidence(attempted: 4, failed: 1),
+    ), '部分成功（已确认 3 项，未完成 1 项）');
+    expect(label(
+      failed: true,
+      networkUnreachable: true,
+    ), '网络不可达（可能离线）');
+    expect(label(
+      failed: true,
+      evidence: const SyncQueueRunEvidence(attempted: 4, failed: 4),
+    ), '同步未完成');
   });
 
   test('SQLite 错误按真实错误代码描述，不把泛用代码冒充确定根因', () {
