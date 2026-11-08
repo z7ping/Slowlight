@@ -62,6 +62,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _error = false;
   List<String> _partialUnavailable = const [];
   String _query = '';
+  String _lastConfirmedQuery = '';
   List<Task> _tasks = const [];
   List<Habit> _habits = const [];
   List<ReflectionEntry> _reflections = const [];
@@ -113,6 +114,7 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!mounted) return;
       setState(() {
         _query = '';
+        _lastConfirmedQuery = '';
         _error = false;
         _tasks = const [];
         _habits = const [];
@@ -160,6 +162,7 @@ class _SearchScreenState extends State<SearchScreen> {
             .where((entry) => entry.content.toLowerCase().contains(lower))
             .toList(growable: false);
         _lists = values.lists;
+        _lastConfirmedQuery = query;
         _partialUnavailable = unavailable;
         _loading = false;
         _error = false;
@@ -168,11 +171,16 @@ class _SearchScreenState extends State<SearchScreen> {
     } catch (_) {
       if (!mounted || seq != _searchSeq) return;
       setState(() {
-        _tasks = const [];
-        _habits = const [];
-        _reflections = const [];
-        _lists = const [];
-        _partialUnavailable = const [];
+        // A failed same-keyword refresh is not an empty result. Preserve
+        // the last confirmed rows, but never show a different query's data
+        // as the answer to the new keyword.
+        if (query != _lastConfirmedQuery) {
+          _tasks = const [];
+          _habits = const [];
+          _reflections = const [];
+          _lists = const [];
+          _partialUnavailable = const [];
+        }
         _loading = false;
         _error = true;
       });
@@ -372,6 +380,30 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                             const SizedBox(height: 12),
                           ],
+                          if (!_loading && _error &&
+                              _query == _lastConfirmedQuery) ...[
+                            FxCard(
+                              padding: const EdgeInsets.all(12),
+                              expanded: true,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '搜索刷新失败，以下是上次成功查询的记录，当前结果尚未核对。',
+                                      style: SlowlightTypography.secondary(context),
+                                    ),
+                                  ),
+                                  FxButton(
+                                    label: '重新核对',
+                                    size: FxButtonSize.sm,
+                                    variant: FxButtonVariant.ghost,
+                                    onPressed: () => _search(_query),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           if (_loading)
                             const Center(
                               child: Padding(
@@ -385,7 +417,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               title: '输入关键词开始搜索',
                               subtitle: '可以查找任务、习惯和你写下的回顾',
                             )
-                          else if (_error)
+                          else if (_error && _query != _lastConfirmedQuery)
                             FxEmptyState(
                               icon: LucideIcons.triangleAlert,
                               title: '搜索暂时不可用',
@@ -401,12 +433,16 @@ class _SearchScreenState extends State<SearchScreen> {
                               _reflections.isEmpty)
                             FxEmptyState(
                               icon: LucideIcons.search,
-                              title: _partialUnavailable.isEmpty
-                                  ? '没有找到相关内容'
-                                  : '已读取来源没有匹配结果',
-                              subtitle: _partialUnavailable.isEmpty
-                                  ? '没有结果也是一种明确答案'
-                                  : '其他来源仍待核对，请重试查询',
+                              title: _error
+                                  ? '上次查询没有匹配，当前搜索未核对'
+                                  : _partialUnavailable.isEmpty
+                                      ? '没有找到相关内容'
+                                      : '已读取来源没有匹配结果',
+                              subtitle: _error
+                                  ? '请重新核对，不能把失败当作本次无记录'
+                                  : _partialUnavailable.isEmpty
+                                      ? '没有结果也是一种明确答案'
+                                      : '其他来源仍待核对，请重试查询',
                             )
                           else ...[
                             if (_tasks.isNotEmpty) _taskGroup(),
