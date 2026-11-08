@@ -248,29 +248,55 @@ class SyncService extends ChangeNotifier {
         }
 
         if (applied) {
-          final changed = await db.delete('sync_queue',
-            where: 'id = ? AND updated_at = ? AND operation = ?',
-            whereArgs: [item['id'], item['updated_at'], operation]);
-          if (changed == 1) {
-            final stillPending = await db.query('sync_queue',
+          final hasStatus = await _hasColumn(db, table, 'sync_status');
+          final confirmed = await db.transaction<bool>((txn) async {
+            final fresh = await txn.query(table,
+              columns: ['last_modified'],
+              where: 'id = ?', whereArgs: [id], limit: 1);
+            if (fresh.isEmpty ||
+                fresh.single['last_modified'] != local['last_modified']) {
+              return false;
+            }
+            final changed = await txn.delete('sync_queue',
+              where: 'id = ? AND updated_at = ? AND operation = ?',
+              whereArgs: [item['id'], item['updated_at'], operation]);
+            if (changed != 1) return false;
+            final stillPending = await txn.query('sync_queue',
               columns: ['id'],
               where: 'entity_type = ? AND entity_local_id = ?',
               whereArgs: [table, id], limit: 1);
-            if (stillPending.isEmpty && await _hasColumn(db, table, 'sync_status')) {
-              await db.update(table, {'sync_status': 'synced'},
-                where: "id = ? AND sync_status != 'conflict'",
-                whereArgs: [id]);
+            if (hasStatus && stillPending.isEmpty) {
+              await txn.update(table, {'sync_status': 'synced'},
+                where: 'id = ? AND last_modified = ?',
+                whereArgs: [id, local['last_modified']]);
             }
+            return true;
+          });
+          if (confirmed) {
             verified++;
           } else {
             unknown++;
           }
         } else {
-          // A remote mismatch is not evidence that replay is safe. Keep the
-          // original queue item and require explicit conflict resolution.
+          // If the queue or local record changed during the remote read,
+          // do not assign an old conflict result to a newer user decision.
+          final current = await db.query('sync_queue',
+            columns: ['updated_at', 'operation'],
+            where: 'id = ?', whereArgs: [item['id']], limit: 1);
+          final fresh = await db.query(table,
+            columns: ['last_modified'],
+            where: 'id = ?', whereArgs: [id], limit: 1);
+          if (current.isEmpty || fresh.isEmpty ||
+              current.single['updated_at'] != item['updated_at'] ||
+              current.single['operation'] != operation ||
+              fresh.single['last_modified'] != local['last_modified']) {
+            unknown++;
+            continue;
+          }
           if (await _hasColumn(db, table, 'sync_status')) {
             await db.update(table, {'sync_status': 'conflict'},
-              where: 'id = ?', whereArgs: [id]);
+              where: 'id = ? AND last_modified = ?',
+              whereArgs: [id, local['last_modified']]);
           }
           conflicts++;
         }
