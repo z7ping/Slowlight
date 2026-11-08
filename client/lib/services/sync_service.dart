@@ -185,6 +185,11 @@ class SyncService extends ChangeNotifier {
     Database, String, int, Map<String, Object?>,
   )? debugRemoteRead;
 
+  /// Intercepts the remote push only in regression tests, to exercise
+  /// concurrent local edits while the real queue processor is in flight.
+  @visibleForTesting
+  Future<void> Function(Database, Map<String, Object?>)? debugQueuePush;
+
   SyncStatusEnum get status => _status;
   String? get lastError => _lastError;
   SyncQueueRunEvidence? get lastQueueRun => _lastQueueRun;
@@ -557,49 +562,106 @@ class SyncService extends ChangeNotifier {
       }
     }
     try {
-      await _syncItem(db, Map<String, dynamic>.from(item));
-      await db.delete('sync_queue', where: 'id = ?', whereArgs: [item['id']]);
-      if (table == 'habit_logs' && item['operation'] == 'delete') {
-        await db.delete('habit_logs',
-            where: 'id = ?', whereArgs: [localId]);
-      } else if (await _hasColumn(db, table, 'sync_status')) {
-        await db.update(
-          table,
-          {'sync_status': 'synced'},
-          where: 'id = ?',
-          whereArgs: [item['entity_local_id']],
-        );
+      if (debugQueuePush == null) {
+        await _syncItem(db, Map<String, dynamic>.from(item));
+      } else {
+        await debugQueuePush!(db, item);
       }
-      return null;
+
+      // Another user action may have replaced this queue row while the
+      // network request was in flight. A successful *old* response must not
+      // remove the newer operation or mark its record as already synced.
+      final hasStatus = await _hasColumn(db, table, 'sync_status');
+      final acknowledged = await db.transaction<bool>((txn) async {
+        final current = await txn.query(
+          'sync_queue',
+          where: 'id = ?', whereArgs: [item['id']], limit: 1,
+        );
+        if (current.isEmpty ||
+            !_sameQueueSnapshot(item, current.single)) return false;
+        final removed = await txn.delete(
+          'sync_queue', where: 'id = ?', whereArgs: [item['id']],
+        );
+        if (removed != 1) return false;
+        final newer = await txn.query(
+          'sync_queue',
+          columns: ['id'],
+          where: 'entity_type = ? AND entity_local_id = ?',
+          whereArgs: [table, localId],
+          limit: 1,
+        );
+        if (newer.isNotEmpty) return true;
+
+        if (table == 'habit_logs' && operation == 'delete') {
+          await txn.delete('habit_logs',
+              where: 'id = ?', whereArgs: [localId]);
+        } else if (hasStatus) {
+          await txn.update(table, {'sync_status': 'synced'},
+              where: 'id = ?', whereArgs: [localId]);
+        }
+        return true;
+      });
+      return acknowledged
+          ? null
+          : '$table #$localId 同步期间发生新修改，旧回执未清除新队列';
     } catch (e) {
       if (e is SocketException) _lastNetworkUnreachable = true;
       final retries = (item['retry_count'] as int? ?? 0) + 1;
-      final text = e.toString();
-      await db.update(
-        'sync_queue',
-        {
-          'retry_count': retries,
-          'last_error': text,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [item['id']],
-      );
-      // Create may have committed remotely before a timeout/reset. Retrying it
-      // automatically would duplicate server entities. Keep queue for explicit
-      // reconciliation instead of silently replaying an uncertain create.
+      final errorText = e.toString();
       final ambiguous = e is TimeoutException ||
-          _isAmbiguousSyncError(text);
-      if (ambiguous && table != 'habit_logs' &&
-          await _hasColumn(db, table, 'sync_status')) {
-        await db.update(table, {'sync_status': 'conflict'},
-            where: 'id = ?', whereArgs: [localId]);
+          _isAmbiguousSyncError(errorText);
+      final hasStatus = await _hasColumn(db, table, 'sync_status');
+      // A late error from an old request cannot overwrite the retry count,
+      // error message or operation of the user's newer queue row.
+      final recorded = await db.transaction<bool>((txn) async {
+        final current = await txn.query(
+          'sync_queue',
+          where: 'id = ?', whereArgs: [item['id']], limit: 1,
+        );
+        if (current.isEmpty ||
+            !_sameQueueSnapshot(item, current.single)) {
+          if (ambiguous && hasStatus) {
+            // The older write may have committed. Block automatic replay of
+            // the newer operation until the user confirms remote state.
+            await txn.update(table, {'sync_status': 'conflict'},
+                where: 'id = ?', whereArgs: [localId]);
+          }
+          return false;
+        }
+        await txn.update('sync_queue', {
+          'retry_count': retries,
+          'last_error': errorText,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }, where: 'id = ?', whereArgs: [item['id']]);
+        if (ambiguous && table != 'habit_logs' && hasStatus) {
+          await txn.update(table, {'sync_status': 'conflict'},
+              where: 'id = ?', whereArgs: [localId]);
+        }
+        return true;
+      });
+      if (!recorded) {
+        return '$table #$localId 旧操作回执已过期，'
+            '新操作保持原样；请核对云端状态';
+      }
+      if (ambiguous && table != 'habit_logs' && hasStatus) {
         return '$table #$localId 的 $operation 结果未知，请先核对云端记录再处理';
       }
-      // 暂时无法同步不等于版本冲突，必须保留原始操作和 pending。
-      return '$table #$localId: $text';
+      // A definite failure keeps the same queue row, untouched by any
+      // read-back or implicit retry; history intents retain their own keys.
+      return '$table #$localId: $errorText';
     }
   }
+
+  /// The entire queued operation is the receipt identity, not just its ID.
+  /// In particular, enqueue may replace operation/payload/retry metadata
+  /// while a previous HTTP request is still waiting for a response.
+  bool _sameQueueSnapshot(
+    Map<String, Object?> original, Map<String, Object?> current,
+  ) => const [
+    'id', 'entity_type', 'entity_local_id', 'entity_server_id',
+    'operation', 'payload', 'retry_count', 'last_error',
+    'created_at', 'updated_at',
+  ].every((key) => original[key] == current[key]);
 
   Future<void> _syncItem(Database db, Map<String, dynamic> item) async {
     _requireCloudMode();
