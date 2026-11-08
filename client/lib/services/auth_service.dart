@@ -314,7 +314,9 @@ class AuthService {
     final token = await getToken(source: 'auth_check');
     if (token != null && token.startsWith('local:')) return false;
     if (token != null && !_isJwtExpired(token)) return true;
-    if (await _readStorage(AuthStorageSlot.refresh, 'auth_check', logPresent: true) == null) {
+    if (await _readStorage(
+          AuthStorageSlot.refresh, 'auth_check', logPresent: true,
+        ) == null) {
       _trace('session.check result=login_required reason=no_refresh');
       return false;
     }
@@ -411,7 +413,9 @@ class AuthService {
   static Future<String?> _performRefresh() async {
     String? previous;
     try {
-      previous = await _readStorage(AuthStorageSlot.refresh, 'refresh.begin', logPresent: true);
+      previous = await _readStorage(
+        AuthStorageSlot.refresh, 'refresh.begin', logPresent: true,
+      );
     } catch (error) {
       _trace('refresh.storage_read_failed kind=${error.runtimeType}');
       rethrow;
@@ -449,7 +453,9 @@ class AuthService {
     }
     // 异步返回后若已退出/换账号，不可复活旧身份。
     if (epoch != _credentialEpoch ||
-        await _readStorage(AuthStorageSlot.refresh, 'refresh.guard', logPresent: true) != previous) {
+        await _readStorage(
+          AuthStorageSlot.refresh, 'refresh.guard', logPresent: true,
+        ) != previous) {
       _trace('refresh.discarded reason=session_changed');
       return getToken();
     }
@@ -457,8 +463,12 @@ class AuthService {
     final newRefresh = data['refresh_token'] as String;
     await _writeStorage(AuthStorageSlot.refresh, newRefresh, 'refresh.rotate');
     await _writeStorage(AuthStorageSlot.access, newToken, 'refresh.rotate');
-    if (await _readStorage(AuthStorageSlot.access, 'refresh.verify', logPresent: true) != newToken ||
-        await _readStorage(AuthStorageSlot.refresh, 'refresh.verify', logPresent: true) != newRefresh) {
+    if (await _readStorage(
+          AuthStorageSlot.access, 'refresh.verify', logPresent: true,
+        ) != newToken ||
+        await _readStorage(
+          AuthStorageSlot.refresh, 'refresh.verify', logPresent: true,
+        ) != newRefresh) {
       throw StateError('更新登录凭据失败');
     }
     _credentialEpoch++;
@@ -581,7 +591,9 @@ class AuthService {
       throw StateError('登录凭据无效，未保存登录状态');
     }
     final oldToken = await getToken(source: 'save.previous');
-    final oldRefresh = await _readStorage(AuthStorageSlot.refresh, 'save.previous', logPresent: true);
+    final oldRefresh = await _readStorage(
+      AuthStorageSlot.refresh, 'save.previous', logPresent: true,
+    );
     _credentialEpoch++;
     try {
       if (refreshToken == null || refreshToken.isEmpty) {
@@ -591,8 +603,12 @@ class AuthService {
       }
       await _writeStorage(AuthStorageSlot.access, token, 'save');
       // 只有读回确认为有效凭据，登录页面才能宣布成功。
-      if (await _readStorage(AuthStorageSlot.access, 'save.verify', logPresent: true) != token ||
-          await _readStorage(AuthStorageSlot.refresh, 'save.verify', logPresent: true) !=
+      if (await _readStorage(
+            AuthStorageSlot.access, 'save.verify', logPresent: true,
+          ) != token ||
+          await _readStorage(
+            AuthStorageSlot.refresh, 'save.verify', logPresent: true,
+          ) !=
               (refreshToken == null || refreshToken.isEmpty
                   ? null : refreshToken)) {
         throw StateError('登录凭据保存后无法读回');
