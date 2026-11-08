@@ -26,10 +26,40 @@ class LocalHabitRepository {
     var cursor = DateTime(now.year, now.month, now.day);
     final habit = (await db.query('habits',
       where: 'id = ?', whereArgs: [habitId], limit: 1)).first;
+    final versions = await _goalHistory(db, habitId);
     Future<bool> met(DateTime date) async {
       final rows = await db.query('habit_logs',
         where: 'habit_id = ? AND date = ?',
         whereArgs: [habitId, _dateStr(date)]);
+      if (versions.isNotEmpty) {
+        final end = DateTime(date.year, date.month, date.day + 1);
+        Map<String, Object?>? active;
+        var changedOnDay = 0;
+        for (final version in versions) {
+          final effective = DateTime.tryParse(
+              version['effective_at']?.toString() ?? '')?.toLocal();
+          if (effective == null || !effective.isBefore(end)) continue;
+          active = version;
+          if (effective.year == date.year &&
+              effective.month == date.month && effective.day == date.day) {
+            changedOnDay++;
+          }
+        }
+        // No revision evidence, or multiple goal revisions during the
+        // same day, cannot certify a historical target achievement.
+        if (active == null || changedOnDay > 1) return false;
+        final value = active['goal_value'] as int? ?? 0;
+        if (active['goal_period'] == 'day' && value > 0) {
+          return HabitGoalProgress.met(
+            {'goal_value': value},
+            HabitGoalProgress.current({
+              'goal_period': 'day',
+              'goal_metric': active['goal_metric'],
+            }, rows, now: date),
+          );
+        }
+        return rows.isNotEmpty;
+      }
       if ((habit['goal_period'] == 'day') &&
           ((habit['goal_value'] as int? ?? 0) > 0)) {
         return HabitGoalProgress.met(habit,
@@ -305,6 +335,10 @@ class LocalHabitRepository {
           where: 'id = ?', whereArgs: [id], limit: 1)).single;
       if (_goalFields.any((field) => before.single[field] != after[field])) {
         await _appendGoalRevision(tx, id, after);
+        final streak = await _calculateCurrentStreak(
+            tx, id, DateTime.now());
+        await tx.update('habits', {'streak_count': streak},
+            where: 'id = ?', whereArgs: [id]);
       }
     });
     final result = await getById(id);
