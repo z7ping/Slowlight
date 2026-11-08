@@ -72,6 +72,12 @@ abstract class ApiDataSource {
     String outputLevel = '',
   });
   Future<Task> completeTask(int taskId);
+  /// Conditional target state; does not toggle an unchanged or newer task.
+  Future<Task> setTaskCompletion(int taskId, {
+    required bool completed,
+    required bool expectedCompleted,
+    DateTime? expectedCompletedAt,
+  });
   Future<void> deleteTask(int taskId);
   Future<List<Task>> getTodayTasks();
   Future<List<Task>> searchTasks(String query);
