@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/services/auth_service.dart';
@@ -68,15 +70,96 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_login_method', 'password');
 
-    await AuthService.completeOAuthLogin(result, linkingExisting: true);
-    expect(await AuthService.getLastLoginMethod(), 'password');
+    await http.runWithClient(() async {
+      await AuthService.completeOAuthLogin(result, linkingExisting: true);
+      expect(await AuthService.getLastLoginMethod(), 'password');
 
-    await AuthService.completeOAuthLogin(result);
-    expect(await AuthService.getLastLoginMethod(), 'github');
-    expect((await AuthService.getUser())?.nickname, '测试用户');
+      await AuthService.completeOAuthLogin(result);
+      expect(await AuthService.getLastLoginMethod(), 'github');
+      expect((await AuthService.getUser())?.nickname, '测试用户');
+    }, () => MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/api/auth/profile');
+      expect(request.headers['authorization'], 'Bearer ${result['token']}');
+      return http.Response(jsonEncode(result['user']), 200);
+    }));
 
     await AuthService.logout();
     expect(await AuthService.getLastLoginMethod(), isNull);
+  });
+
+  test('GitHub 返回的 JWT 被云端拒绝时不覆盖原有有效登录', () async {
+    final oldToken = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+    );
+    final newToken = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 7200,
+    );
+    FlutterSecureStorage.setMockInitialValues({'auth_token': oldToken});
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_login_method', 'password');
+    await prefs.setString('user_data', jsonEncode({
+      'id': 1, 'username': 'original', 'nickname': '原账号',
+      'email': '', 'created_at': '2026-10-21T00:00:00Z',
+    }));
+    final result = {
+      'token': newToken,
+      'user': {
+        'id': 2, 'username': 'github_2', 'nickname': '新账号',
+        'email': '', 'created_at': '2026-10-21T00:00:00Z',
+      },
+    };
+
+    await http.runWithClient(() async {
+      await expectLater(
+        AuthService.completeOAuthLogin(result),
+        throwsA(isA<StateError>()),
+      );
+    }, () => MockClient((request) async {
+      expect(request.url.path, '/api/auth/profile');
+      expect(request.headers['authorization'], 'Bearer $newToken');
+      return http.Response('{"error":"invalid token"}', 401);
+    }));
+
+    expect(await AuthService.getToken(), oldToken);
+    expect(await AuthService.getLastLoginMethod(), 'password');
+    expect((await AuthService.getUser())?.id, 1);
+  });
+
+  test('GitHub 凭据与云端账号不一致时拒绝替换登录态', () async {
+    final newToken = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+    );
+    final result = {
+      'token': newToken,
+      'user': {
+        'id': 2, 'username': 'github_2', 'nickname': '新账号',
+        'email': '', 'created_at': '2026-10-21T00:00:00Z',
+      },
+    };
+    await http.runWithClient(() async {
+      await expectLater(
+        AuthService.completeOAuthLogin(result),
+        throwsA(isA<StateError>()),
+      );
+    }, () => MockClient((request) async =>
+        http.Response('{"id":3}', 200)));
+    expect(await AuthService.getToken(), isNull);
+  });
+
+  test('GitHub 绑定状态查询返回 401 时不清除已保存 JWT', () async {
+    final token = _jwt(
+      exp: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600,
+    );
+    FlutterSecureStorage.setMockInitialValues({'auth_token': token});
+    await http.runWithClient(() async {
+      await expectLater(AuthService.isGitHubLinked(), throwsA(isA<StateError>()));
+    }, () => MockClient((request) async {
+      expect(request.url.path, '/api/auth/providers');
+      expect(request.headers['authorization'], 'Bearer $token');
+      return http.Response('{"error":"invalid token"}', 401);
+    }));
+    expect(await AuthService.getToken(), token);
   });
 
   test('Legacy token is migrated out of SharedPreferences', () async {
