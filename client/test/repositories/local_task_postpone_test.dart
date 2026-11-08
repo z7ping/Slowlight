@@ -50,7 +50,7 @@ void main() {
     expect(undone.title, '不可覆盖标题');
     expect(undone.description, '保留原描述');
     await expectLater(
-      () => repo.restorePostponedDueDate(
+      repo.restorePostponedDueDate(
         created.id,
         expectedDueDate: postponed.dueDate!,
         originalDueDate: null,
