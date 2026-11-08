@@ -233,9 +233,13 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     if (MediaQuery.sizeOf(context).width < 600) HapticFeedback.lightImpact();
     final wasCompleted = task.isCompleted;
     try {
-      final updated = wasCompleted
-          ? await _dataService.uncompleteTask(task.id, null)
-          : await _dataService.completeTask(task.id, null);
+      final updated = await _dataService.setTaskCompletion(
+        task.id,
+        null,
+        completed: !wasCompleted,
+        expectedCompleted: wasCompleted,
+        expectedCompletedAt: wasCompleted ? task.completedAt : null,
+      );
       if (!mounted) return;
       if (updated.isCompleted != !wasCompleted) {
         await _load();
@@ -253,11 +257,13 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         variant: FxNoticeVariant.success,
         duration: const Duration(seconds: 8),
         // Recurring tasks may have spawned the next occurrence.
-        action: wasCompleted || task.isRepeat
+        action: wasCompleted || task.isRepeat || updated.completedAt == null
             ? null
             : FxNoticeAction(
                 label: '撤销',
-                onPressed: () => _undoCompletion(task.id),
+                onPressed: () => _undoCompletion(
+                  task.id, expectedCompletedAt: updated.completedAt!,
+                ),
               ),
       );
     } catch (_) {
@@ -267,11 +273,12 @@ class TaskToolScreenState extends State<TaskToolScreen> {
     }
   }
 
-  Future<void> _undoCompletion(int taskId) async {
+  Future<void> _undoCompletion(
+    int taskId, {required DateTime expectedCompletedAt}) async {
     if (!_pendingTaskIds.add(taskId)) return;
     try {
-      // Cloud /complete is a toggle. An outdated toast must never complete a
-      // task again if another action/device has already uncompleted it.
+      // A stale toast must not undo another completion cycle. The server
+      // compares both status and the exact completion timestamp atomically.
       final tasks = await _dataService.getAllTasks();
       final current = tasks.cast<Task?>().firstWhere(
         (task) => task?.id == taskId,
@@ -287,7 +294,19 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         _message('任务已是待办状态，无需再次撤销');
         return;
       }
-      final updated = await _dataService.uncompleteTask(taskId, null);
+      if (current.completedAt == null ||
+          !current.completedAt!.isAtSameMomentAs(expectedCompletedAt)) {
+        await _load();
+        _message('任务已有新的完成记录，旧撤销已失效');
+        return;
+      }
+      final updated = await _dataService.setTaskCompletion(
+        taskId,
+        null,
+        completed: false,
+        expectedCompleted: true,
+        expectedCompletedAt: expectedCompletedAt,
+      );
       if (!mounted) return;
       if (updated.isCompleted ||
           !await _refreshAndVerify(taskId, false)) {
@@ -295,6 +314,9 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         return;
       }
       _message('已恢复待办');
+    } on StateError {
+      await _load();
+      if (mounted) _message('任务状态已变化，旧撤销未执行');
     } catch (_) {
       _message('撤销状态未确认，请核对任务后再操作');
     } finally {
