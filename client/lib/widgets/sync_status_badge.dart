@@ -89,8 +89,6 @@ class SyncStatusBadge extends StatelessWidget {
                   future: sync.getAllConflicts(),
                   builder: (context, snapshot) {
                     final conflicts = snapshot.data ?? const [];
-                    final conflictsKnown = snapshot.connectionState ==
-                            ConnectionState.done && !snapshot.hasError;
                     if (!shouldShowCloudSyncBadge(
                       showHealthy: showHealthy,
                       // Do not flash a transient badge on every healthy
