@@ -674,41 +674,41 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           verifiedAfterFailure: _verifiedRetrySafe,
                         );
                         return LayoutBuilder(
-                      builder: (context, constraints) {
-                        final dismiss = FxButton(
-                          label: '稍后处理',
-                          expanded: true,
-                          variant: FxButtonVariant.outline,
-                          onPressed: () => Navigator.of(context).pop(),
-                        );
-                        final retry = FxButton(
-                          label: busy ? '核对中…'
-                              : canSync ? '立即同步' : '核对状态',
-                          expanded: true,
-                          icon: busy ? Icons.hourglass_top
-                              : canSync ? Icons.sync : Icons.fact_check_outlined,
-                          onPressed: busy ? null
-                              : canSync ? _retry : _verifyOnly,
-                        );
-                        if (constraints.maxWidth < 360 ||
-                            MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              retry,
-                              const SizedBox(height: SlowlightSpacing.md),
-                              dismiss,
-                            ],
-                          );
-                        }
-                        return Row(
-                          children: [
-                            Expanded(child: dismiss),
-                            const SizedBox(width: SlowlightSpacing.md),
-                            Expanded(flex: 2, child: retry),
-                          ],
-                        );
-                      },
+                          builder: (context, constraints) {
+                            final dismiss = FxButton(
+                              label: '稍后处理',
+                              expanded: true,
+                              variant: FxButtonVariant.outline,
+                              onPressed: () => Navigator.of(context).pop(),
+                            );
+                            final retry = FxButton(
+                              label: busy ? '核对中…'
+                                  : canSync ? '立即同步' : '核对状态',
+                              expanded: true,
+                              icon: busy ? Icons.hourglass_top
+                                  : canSync ? Icons.sync : Icons.fact_check_outlined,
+                              onPressed: busy ? null
+                                  : canSync ? _retry : _verifyOnly,
+                            );
+                            if (constraints.maxWidth < 360 ||
+                                MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  retry,
+                                  const SizedBox(height: SlowlightSpacing.md),
+                                  dismiss,
+                                ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Expanded(child: dismiss),
+                                const SizedBox(width: SlowlightSpacing.md),
+                                Expanded(flex: 2, child: retry),
+                              ],
+                            );
+                              },
                         );
                       },
                     ),
