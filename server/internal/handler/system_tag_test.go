@@ -32,6 +32,7 @@ func newSystemTagRouter(h *SystemTagHandler, userID uint) *gin.Engine {
 	r.POST("/system-tags", h.CreateSystemTag)
 	r.PUT("/system-tags/:id", h.UpdateSystemTag)
 	r.DELETE("/system-tags/:id", h.DeleteSystemTag)
+	r.POST("/system-tags/undo", h.UndoSystemTagDelete)
 	return r
 }
 
