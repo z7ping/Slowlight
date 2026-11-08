@@ -70,7 +70,13 @@ jobs:
           CGO_ENABLED: '0'
           GOOS: linux
           GOARCH: ${{ matrix.goarch }}
-        run: go build -trimpath -ldflags="-s -w" -o "slowlight-server-linux-${GOARCH}" ./cmd
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ {print $2}' ../client/pubspec.yaml | cut -d+ -f1)"
+          revision="$(git rev-parse HEAD)"
+          commit_time="$(git show -s --format=%cI HEAD)"
+          built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go build -trimpath -ldflags="-s -w -X main.version=${version} -X main.commitHash=${revision} -X main.commitTime=${commit_time} -X main.buildTime=${built_at}" -o "slowlight-server-linux-${GOARCH}" ./cmd
       - name: Package server
         shell: bash
         run: |

@@ -43,6 +43,9 @@ func main() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	// Public read-only metadata; no JWT changes or login dependency.
+	r.GET("/api/version", serverVersionHandler)
+
 	authHandler := handler.NewAuthHandler(db)
 	githubAuth := handler.NewGitHubOAuthHandler(db)
 	// OAuth 回调由 GitHub 浏览器访问；客户端通过一次性凭据领取登录结果。

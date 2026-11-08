@@ -8,7 +8,13 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o slowlight-server ./cmd/
+ARG SLOWLIGHT_APP_VERSION=""
+ARG SLOWLIGHT_GIT_HASH=""
+ARG SLOWLIGHT_GIT_TIME=""
+ARG SLOWLIGHT_BUILD_AT=""
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
+    -ldflags="-X main.version=${SLOWLIGHT_APP_VERSION} -X main.commitHash=${SLOWLIGHT_GIT_HASH} -X main.commitTime=${SLOWLIGHT_GIT_TIME} -X main.buildTime=${SLOWLIGHT_BUILD_AT}" \
+    -o slowlight-server ./cmd/
 
 # Runtime stage
 FROM alpine:3.20

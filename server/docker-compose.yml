@@ -2,7 +2,13 @@ version: '3.8'
 
 services:
   slowlight:
-    build: .
+    build:
+      context: .
+      args:
+        SLOWLIGHT_APP_VERSION: ${SLOWLIGHT_APP_VERSION:-}
+        SLOWLIGHT_GIT_HASH: ${SLOWLIGHT_GIT_HASH:-}
+        SLOWLIGHT_GIT_TIME: ${SLOWLIGHT_GIT_TIME:-}
+        SLOWLIGHT_BUILD_AT: ${SLOWLIGHT_BUILD_AT:-}
     container_name: slowlight-server
     restart: unless-stopped
     ports:
@@ -10,6 +16,7 @@ services:
     environment:
       DATABASE_URL: host=slowlight-db user=slowlight password=${SLOWLIGHT_DB_PASSWORD:?set SLOWLIGHT_DB_PASSWORD} dbname=slowlight port=5432 sslmode=disable
       PORT: "8080"
+      SLOWLIGHT_DEPLOYED_AT: ${SLOWLIGHT_DEPLOYED_AT:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
       GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
