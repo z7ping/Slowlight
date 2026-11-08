@@ -186,7 +186,16 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   FxActionBar(
-                    leading: _chip('${_tags.length} 个标签'),
+                    leading: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text('观察标签',
+                            style: SlowlightTypography.sectionTitle(context)),
+                        _chip('${_tags.length} 个标签'),
+                      ],
+                    ),
                     actions: [
                       FxButton(
                         label: '新建标签',
