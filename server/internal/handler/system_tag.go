@@ -191,6 +191,8 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
             Update("system_tag_id", nil).Error; err != nil { return err }
         if err := tx.Model(&model.Task{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
             Update("system_tag_id", nil).Error; err != nil { return err }
+        if err := tx.Model(&model.WorkSession{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
+            Update("system_tag_id", nil).Error; err != nil { return err }
         var alias model.LegacySystemTagAlias
         err := tx.Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).Take(&alias).Error
         if err == nil {
