@@ -37,6 +37,9 @@ class Habit {
   final int periodTarget;
   final List<String> checkedDays;
   final DateTime createdAt;
+  /// Only populated in search results. Never persisted on the habit itself.
+  final String searchNote;
+  final DateTime? searchNoteAt;
 
   Habit({
     required this.id,
@@ -71,6 +74,8 @@ class Habit {
     this.periodTarget = 0,
     this.checkedDays = const [],
     required this.createdAt,
+    this.searchNote = '',
+    this.searchNoteAt,
   });
 
   factory Habit.fromJson(Map<String, dynamic> json) {
@@ -115,6 +120,10 @@ class Habit {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at']).toLocal()
           : DateTime.now(),
+      searchNote: json['search_note'] as String? ?? '',
+      searchNoteAt: DateTime.tryParse(
+        json['search_note_at']?.toString() ?? '',
+      )?.toLocal(),
     );
   }
 
