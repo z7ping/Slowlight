@@ -216,31 +216,30 @@ class TaskScheduleFields extends StatelessWidget {
     return FxFormField(
       label: dueDate == null ? '相对提醒（需到期日期）' : '提醒',
       child: FxSelect<int>(
-          // Custom reminders are still valid without a task due date.
-          value: customReminderAt != null
-              ? -2
-              : dueDate == null ? -1 : reminderAdvanceMinutes,
-          enabled: enabled && dueDate != null,
-          options: [
-            if (customReminderAt != null)
-              const FxSelectOption<int>(
-                value: -2,
-                label: '指定提醒日期和时间',
-              ),
-            ...values.entries.map((entry) => FxSelectOption<int>(
-              value: entry.key,
-              label: entry.value,
-            )),
-          ],
-          onChanged: (value) {
-            if (value == -2) {
-              _pickCustomReminder(context);
-            } else {
-              onReminderChanged(value ?? -1);
-            }
-          },
-        ),
-
+        // Custom reminders are still valid without a task due date.
+        value: customReminderAt != null
+            ? -2
+            : dueDate == null ? -1 : reminderAdvanceMinutes,
+        enabled: enabled && dueDate != null,
+        options: [
+          if (customReminderAt != null)
+            const FxSelectOption<int>(
+              value: -2,
+              label: '指定提醒日期和时间',
+            ),
+          ...values.entries.map((entry) => FxSelectOption<int>(
+            value: entry.key,
+            label: entry.value,
+          )),
+        ],
+        onChanged: (value) {
+          if (value == -2) {
+            _pickCustomReminder(context);
+          } else {
+            onReminderChanged(value ?? -1);
+          }
+        },
+      ),
     );
   }
 
