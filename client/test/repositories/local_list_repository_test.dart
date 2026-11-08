@@ -83,7 +83,7 @@ void main() {
     final two = await put(work.id, '已完成任务', done: true);
     final safe = await put(other.id, '其他清单任务');
 
-    await repo.delete(work.id);
+    await repo.delete(work.id, deleteTasks: true);
     final lists = await repo.getAll();
     expect(lists.map((list) => list.id), isNot(contains(work.id)));
     expect(lists.map((list) => list.id), contains(other.id));
@@ -110,6 +110,23 @@ void main() {
     expect((await repo.getAll()).single.id, inbox.id);
     final rows = await db.query('tasks', where: 'id = ?', whereArgs: [taskId]);
     expect(rows.single['deleted_at'], isNull);
+  });
+
+  test('P14 普通删除有任务的清单必须拒绝，无副作用', () async {
+    final repo = LocalListRepository();
+    final list = await repo.create(name: '旧客户端清单');
+    final db = await LocalDb().database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final taskId = await db.insert('tasks', {
+      'list_id': list.id,
+      'title': '不该误删',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await expectLater(repo.delete(list.id), throwsStateError);
+    expect((await repo.getAll()).single.id, list.id);
+    expect((await db.query('tasks', where: 'id = ?', whereArgs: [taskId]))
+        .single['deleted_at'], isNull);
   });
 
 }
