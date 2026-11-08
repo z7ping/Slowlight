@@ -421,6 +421,8 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         unawaited(_refreshTodayLogCount());
         _message('已取消今天的打卡');
       } catch (_) {
+        // The write may have committed before the response was lost.
+        unawaited(_refreshTodayLogCount());
         _message('取消打卡失败');
       }
       return;
@@ -448,12 +450,14 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Future<void> _record(Habit habit,
       {bool detailed = false, DateTime? date}) async {
+    var attempted = false;
     final saved = await recordHabit(
       context,
       habit: habit,
       detailed: detailed,
       recordDate: date,
       submit: (value) async {
+        attempted = true;
         await _controller.checkIn(
           habit,
           date: date == null
@@ -468,8 +472,12 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
         );
       },
     );
-    if (saved) {
+    if (attempted) {
+      // Even a failed ACK may have committed remotely. Re-read the source
+      // instead of retaining an old count as though no write happened.
       unawaited(_refreshTodayLogCount());
+    }
+    if (saved) {
       _message(date == null ? '已记录「${habit.name}」' : '补卡已记录');
     }
   }
