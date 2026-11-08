@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/login_screen.dart';
+import 'package:slowlight/screens/diagnostics_screen.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -28,6 +29,19 @@ void main() {
             (widget.image as AssetImage).assetName == 'assets/github_mark.png'),
         findsOneWidget,
       );
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('登录状态丢失时仍可从登录页进入现有应用诊断', (tester) async {
+      await tester.pumpWidget(buildFxTestHost(home: const LoginScreen()));
+      await tester.pump();
+      final action = find.byKey(const ValueKey('login.diagnostics'));
+      expect(action, findsOneWidget);
+      await tester.ensureVisible(action);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      expect(find.byType(DiagnosticsScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
 
