@@ -13,9 +13,7 @@ import '../support/fx_test_host.dart';
 
 class _ModeSwitchRepository implements FeishuIntegrationRepository {
   final oldConfig = Completer<Map<String, dynamic>>();
-  final oldTemplate = Completer<Map<String, dynamic>>();
   int configReads = 0;
-  int templateCalls = 0;
 
   @override
   Future<Map<String, dynamic>> config() {
@@ -31,12 +29,6 @@ class _ModeSwitchRepository implements FeishuIntegrationRepository {
 
   @override
   Future<List<dynamic>> calendars() async => const [];
-
-  @override
-  Future<Map<String, dynamic>> createTemplate() {
-    ++templateCalls;
-    return oldTemplate.future;
-  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
