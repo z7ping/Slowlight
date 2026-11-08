@@ -37,6 +37,7 @@ class ReminderService extends ChangeNotifier {
   // 状态机: idle / working / micro_rest / long_rest
   String _state = 'idle';
   Timer? _timer;
+  int _timerGeneration = 0;
   Timer? _statsTimer;
   Timer? _syncTimer;
   Timer? _pauseUntilTimer;
@@ -389,6 +390,10 @@ class ReminderService extends ChangeNotifier {
 
   void stopAll() {
     _timer?.cancel();
+    _pauseUntilTimer?.cancel();
+    ++_timerGeneration;
+    _paused = false;
+    _pauseUntil = null;
     final wasWorking = _state == 'working';
     final wasRest = _state == 'micro_rest' || _state == 'long_rest';
     _state = 'idle';
@@ -413,6 +418,7 @@ class ReminderService extends ChangeNotifier {
 
   void resetWork() {
     _timer?.cancel();
+    ++_timerGeneration;
     LockScreenManager().unlock();
     if (_state == 'working') {
       _activeWorkStartedAt = null;
@@ -457,49 +463,21 @@ class ReminderService extends ChangeNotifier {
 
   void _startTimer() {
     _timer?.cancel();
+    ++_timerGeneration;
     _lastTickTime = DateTime.now();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       final now = DateTime.now();
-      if (_lastTickTime != null) {
-        final gap = now.difference(_lastTickTime!).inSeconds;
-        if (gap > 60) {
-          _timer?.cancel();
-          _lastTickTime = now;
-          _remainingSeconds = 0;
-          _totalSeconds = 0;
-          final wasRest = _state == 'micro_rest' || _state == 'long_rest';
-          if (wasRest) {
-            _cycleCount++;
-            if (_state == 'micro_rest') {
-              _microRestCount++;
-            } else {
-              _microRestCount = 0;
-            }
-            _activeWorkStartedAt = null;
-            _state = 'idle';
-            LockScreenManager().unlock();
-            _local.endRest().then((_) async {
-              await _refreshLocalStats();
-              if (_autoLoop && _state == 'idle') startWork();
-            });
-          } else if (_state == 'working') {
-            _activeWorkStartedAt = null;
-            _state = 'idle';
-            LockScreenManager().unlock();
-            _local.endWork().then((_) async {
-              await _refreshLocalStats();
-              if (_autoLoop && _state == 'idle') startWork();
-            });
-          }
-          notifyListeners();
-          return;
-        }
+      final lastTick = _lastTickTime;
+      if (lastTick != null && now.difference(lastTick).inSeconds > 60) {
+        // Treat a Windows suspend/blocked event loop as an interruption,
+        // not 60+ seconds of verified work or a completed rest cycle.
+        unawaited(_handleInterruptedClock(lastTick));
+        return;
       }
       _lastTickTime = now;
 
       if (_remainingSeconds <= 0) {
         if (_state == 'working') {
-          // 长休息在完成下一轮工作后触发，而非紧接最后一次小憩。
           if (_microRestCount >= _microRestsBeforeLong) {
             startLongRest();
           } else {
@@ -517,6 +495,38 @@ class ReminderService extends ChangeNotifier {
       notifyListeners();
     });
   }
+
+  Future<void> _handleInterruptedClock(DateTime lastObservedAt) async {
+    final interruptedState = _state;
+    if (interruptedState != 'working' &&
+        interruptedState != 'micro_rest' &&
+        interruptedState != 'long_rest') return;
+    _timer?.cancel();
+    final generation = ++_timerGeneration;
+    _lastTickTime = DateTime.now();
+    _remainingSeconds = 0;
+    _totalSeconds = 0;
+    _activeWorkStartedAt = null;
+    _state = 'idle';
+    unawaited(LockScreenManager().unlock());
+    notifyListeners();
+
+    // A rest that was not observed finishing is neither completed nor skipped.
+    // Work must end at its last observed active tick, not at wake-up time.
+    if (interruptedState == 'working') {
+      await _local.endWork(lastObservedAt: lastObservedAt);
+    } else {
+      await _local.cancelActiveRest();
+    }
+    if (_timerGeneration != generation) return;
+    await _refreshLocalStats();
+    if (_timerGeneration != generation || _state != 'idle' || _paused) return;
+    if (_autoLoop) startWork();
+  }
+
+  @visibleForTesting
+  Future<void> debugSimulateClockInterruption(DateTime lastObservedAt) =>
+      _handleInterruptedClock(lastObservedAt);
 
   Future<void> _refreshLocalStats() async {
     try {
@@ -666,6 +676,7 @@ class ReminderService extends ChangeNotifier {
     if (_state == 'idle' || _paused) return;
     _paused = true;
     _timer?.cancel();
+    ++_timerGeneration;
     notifyListeners();
   }
 
@@ -707,6 +718,7 @@ class ReminderService extends ChangeNotifier {
 
   /// 暂停休息直到指定时间
   void pauseRestUntil(DateTime until) {
+    ++_timerGeneration;
     final wasWorking = _state == 'working';
     final wasRest = _state == 'micro_rest' || _state == 'long_rest';
     _pauseUntil = until;
@@ -744,6 +756,7 @@ class ReminderService extends ChangeNotifier {
 
   /// 暂停休息无限期
   void pauseIndefinitely() {
+    ++_timerGeneration;
     final wasWorking = _state == 'working';
     final wasRest = _state == 'micro_rest' || _state == 'long_rest';
     _pauseUntil = null;
@@ -764,6 +777,7 @@ class ReminderService extends ChangeNotifier {
   /// 重置休息（停止当前状态，重新开始工作循环）
   void resetReminder() {
     _timer?.cancel();
+    ++_timerGeneration;
     _pauseUntilTimer?.cancel();
     Future<void>? op;
     if (_state == 'working') {

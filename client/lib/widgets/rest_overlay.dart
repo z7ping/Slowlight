@@ -1,9 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/lock_screen.dart';
 import '../services/reminder_service.dart';
 import '../ui/fx.dart';
 
@@ -48,9 +45,8 @@ class RestOverlay extends StatefulWidget {
 }
 
 class _RestOverlayState extends State<RestOverlay> {
-  late int _remaining;
-  Timer? _timer;
   bool _dismissed = false;
+  bool _actionPending = false;
 
   // 休息遮罩是独立高保真场景，这些字号只属于该组件，不扩散为全局 Token。
   static const double _modeLabelFontSize = 11;
@@ -74,83 +70,70 @@ class _RestOverlayState extends State<RestOverlay> {
     super.initState();
     _tip = (List.of(_tips)..shuffle()).first;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _remaining = widget.restSeconds;
-    LockScreenManager().updateOverlayCountdown(_remaining);
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_dismissed) return;
-      if (_remaining <= 0) {
-        _timer?.cancel();
-        _dismissAndEnd();
-        return;
-      }
-      setState(() => _remaining--);
-      LockScreenManager().updateOverlayCountdown(_remaining);
-    });
+    // ReminderService owns the only countdown and completion decision.
+    // A second widget timer could drift or end a rest while Windows sleeps.
     ReminderService().addListener(_onReminderChanged);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     ReminderService().removeListener(_onReminderChanged);
     super.dispose();
   }
 
   void _onReminderChanged() {
-    if (_dismissed) return;
-    final s = ReminderService();
-    if (s.state != 'micro_rest' && s.state != 'long_rest') {
-      // 从外部（托盘重置/停止等）触发了状态变更，自动关闭
+    if (_dismissed || !mounted) return;
+    final service = ReminderService();
+    if (service.state != 'micro_rest' && service.state != 'long_rest') {
+      // Do not mark a rest as completed locally; follow the service state.
       _dismissed = true;
-      _timer?.cancel();
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-    }
-  }
-
-  void _dismissAndEnd() {
-    if (_dismissed) return;
-    _dismissed = true;
-    _timer?.cancel();
-    if (context.mounted) {
       Navigator.of(context).pop();
-    }
-    final s = ReminderService();
-    if (s.state == 'micro_rest' || s.state == 'long_rest') {
-      s.endRest();
+    } else {
+      setState(() {});
     }
   }
 
   void _skipRest() {
-    if (_dismissed) return;
-    _dismissed = true;
-    _timer?.cancel();
-    if (context.mounted) {
-      Navigator.of(context).pop();
+    if (_dismissed || _actionPending) return;
+    final service = ReminderService();
+    if (service.isCurrentRestStrict ||
+        (service.state != 'micro_rest' && service.state != 'long_rest')) {
+      return;
     }
-    ReminderService().skipRest();
+    setState(() => _actionPending = true);
+    service.skipRest();
+    // The service will dismiss us only after its state actually changes.
   }
 
   void _postponeRest() {
-    if (_dismissed) return;
-    _dismissed = true;
-    _timer?.cancel();
-    if (context.mounted) {
-      Navigator.of(context).pop();
+    if (_dismissed || _actionPending) return;
+    final service = ReminderService();
+    if (!service.isCurrentRestPostponeAllowed ||
+        (service.state != 'micro_rest' && service.state != 'long_rest')) {
+      return;
     }
-    ReminderService().postponeRest();
+    setState(() => _actionPending = true);
+    service.postponeRest();
   }
 
   @override
   Widget build(BuildContext context) {
-    final m = _remaining ~/ 60;
-    final s = _remaining % 60;
-    final progress = widget.restSeconds <= 0
+    final service = ReminderService();
+    final active = service.state == 'micro_rest' ||
+        service.state == 'long_rest';
+    final remaining = active ? service.remainingSeconds : widget.restSeconds;
+    final total = active ? service.totalSeconds : widget.restSeconds;
+    final isMicro = active ? service.state == 'micro_rest' : widget.isMicroRest;
+    final strict = active ? service.isCurrentRestStrict : widget.strict;
+    final allowPostpone = active
+        ? service.isCurrentRestPostponeAllowed : widget.allowPostpone;
+    final m = remaining ~/ 60;
+    final s = remaining % 60;
+    final progress = total <= 0
         ? 0.0
-        : (_remaining / widget.restSeconds).clamp(0.0, 1.0).toDouble();
-    final modeLabel = widget.isMicroRest ? 'MICRO BREAK' : 'LONG BREAK';
+        : (remaining / total).clamp(0.0, 1.0).toDouble();
+    final modeLabel = isMicro ? 'MICRO BREAK' : 'LONG BREAK';
 
     return PopScope(
       canPop: false,
@@ -197,10 +180,10 @@ class _RestOverlayState extends State<RestOverlay> {
                           strokeWidth: 8,
                           color: SlowlightSemanticColor.successEmphasis,
                           backgroundColor: Colors.white.withValues(alpha: .14),
-                          semanticsLabel: widget.isMicroRest
+                          semanticsLabel: isMicro
                               ? '小憩剩余时间'
                               : '长休息剩余时间',
-                          semanticsValue: '$_remaining 秒',
+                          semanticsValue: '$remaining 秒',
                           child: Container(
                             width: 154,
                             height: 154,
@@ -231,14 +214,14 @@ class _RestOverlayState extends State<RestOverlay> {
                             height: 1.5,
                           ),
                         ),
-                        if (widget.allowPostpone) ...[
+                        if (allowPostpone) ...[
                           const SizedBox(height: 14),
                           FxButton(
-                            label: '延后 5 分钟',
+                            label: _actionPending ? '处理中…' : '延后 5 分钟',
                             variant: FxButtonVariant.ghost,
                             size: FxButtonSize.sm,
                             foregroundColor: Colors.white54,
-                            onPressed: _postponeRest,
+                            onPressed: _actionPending ? null : _postponeRest,
                           ),
                         ],
                       ],
@@ -248,7 +231,7 @@ class _RestOverlayState extends State<RestOverlay> {
                 Positioned(
                   right: 18,
                   bottom: 14,
-                  child: widget.strict
+                  child: strict
                       ? const Text(
                           '严格模式 · 不可跳过',
                           style: TextStyle(
@@ -258,11 +241,11 @@ class _RestOverlayState extends State<RestOverlay> {
                           ),
                         )
                       : FxButton(
-                          label: '跳过',
+                          label: _actionPending ? '处理中…' : '跳过',
                           variant: FxButtonVariant.ghost,
                           size: FxButtonSize.sm,
                           foregroundColor: Colors.white38,
-                          onPressed: _skipRest,
+                          onPressed: _actionPending ? null : _skipRest,
                         ),
                 ),
               ],
