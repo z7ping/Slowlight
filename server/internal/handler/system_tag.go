@@ -52,8 +52,12 @@ func syncSystemTagToCanonical(tx *gorm.DB, legacy model.SystemTag) error {
 
 func (h *SystemTagHandler) GetSystemTags(c *gin.Context) {
 	userID := c.GetUint("userID")
-	var tags []model.SystemTag
-	h.DB.Where("user_id = ?", userID).Order("sort_order ASC").Find(&tags)
+	tags := make([]model.SystemTag, 0)
+	if err := h.DB.Where("user_id = ?", userID).
+		Order("sort_order ASC, id ASC").Find(&tags).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取观察标签失败"})
+		return
+	}
 	c.JSON(http.StatusOK, tags)
 }
 
@@ -190,6 +194,8 @@ func (h *SystemTagHandler) DeleteSystemTag(c *gin.Context) {
         if err := tx.Model(&model.Habit{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
             Update("system_tag_id", nil).Error; err != nil { return err }
         if err := tx.Model(&model.Task{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
+            Update("system_tag_id", nil).Error; err != nil { return err }
+        if err := tx.Model(&model.WorkSession{}).Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).
             Update("system_tag_id", nil).Error; err != nil { return err }
         var alias model.LegacySystemTagAlias
         err := tx.Where("user_id = ? AND system_tag_id = ?", userID, tag.ID).Take(&alias).Error

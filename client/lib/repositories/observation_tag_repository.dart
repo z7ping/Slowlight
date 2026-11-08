@@ -14,6 +14,13 @@ import '../services/data_mode_manager.dart';
 import '../services/http_util.dart';
 import 'cloud_reference_cache_repository.dart';
 
+typedef ObservationTagUsage = ({
+  int tasks,
+  int habits,
+  int sessions,
+  int reflections,
+});
+
 /// 用户可编辑的观察标签数据边界。
 ///
 /// ObservationTag 可以选择归属某个固定 Dimension，但它本身不是 Dimension。
@@ -25,7 +32,11 @@ class ObservationTagRepository {
     if (DataModeManager().isLocal) return _getLocal();
     try {
       final value = await _cloudRequest('GET', '/system-tags');
-      if (value is! List) return const [];
+      // Older servers return JSON null for an empty nil Go slice.
+      if (value == null) return const [];
+      if (value is! List) {
+        throw const FormatException('标签列表响应格式错误');
+      }
       return value
           .whereType<Map>()
           .map((item) => ObservationTag.fromJson(
@@ -150,11 +161,55 @@ class ObservationTagRepository {
     return ObservationTag.fromJson(Map<String, dynamic>.from(value as Map));
   }
 
-  /// Counts only the Local associations the existing delete() will remove.
-  /// Cloud exposes no scoped usage endpoint; null means unverified, not zero.
-  Future<({int tasks, int habits, int sessions, int reflections})?>
-      getDeletionImpact(ObservationTag tag) async {
-    if (!DataModeManager().isLocal) return null;
+  /// Verified links that would be detached by deleting each managed label.
+  /// A missing entry means not confirmed, never zero. Cloud is a single HTTP
+  /// request; Local reuses its existing ID-aware, transactional link evidence.
+  Future<Map<int, ObservationTagUsage>> getAssociationUsage(
+      List<ObservationTag> tags) async {
+    if (tags.isEmpty) return {};
+    if (DataModeManager().isLocal) {
+      final result = await Future.wait(tags.map(getDeletionImpact));
+      return {
+        for (var i = 0; i < tags.length; i++)
+          if (result[i] != null) tags[i].id: result[i]!,
+      };
+    }
+    final payload = await _cloudRequest('GET', '/system-tags/usage');
+    if (payload is! Map || payload['counts'] is! Map) {
+      throw const FormatException('标签关联响应格式错误');
+    }
+    final counts = payload['counts'] as Map;
+    final result = <int, ObservationTagUsage>{};
+    int? asCount(dynamic value) {
+      if (value is! num || value < 0 || value % 1 != 0) return null;
+      return value.toInt();
+    }
+    for (final tag in tags) {
+      final raw = counts[tag.id.toString()];
+      if (raw is! Map) continue;
+      final tasks = asCount(raw['tasks']);
+      final habits = asCount(raw['habits']);
+      final sessions = asCount(raw['sessions']);
+      final reflections = asCount(raw['reflections']);
+      if (tasks == null || habits == null ||
+          sessions == null || reflections == null) continue;
+      result[tag.id] = (
+        tasks: tasks,
+        habits: habits,
+        sessions: sessions,
+        reflections: reflections,
+      );
+    }
+    return result;
+  }
+
+  /// Counts only associations that the existing delete() actually detaches.
+  /// Shared canonical tags survive; soft-deleted sources do not count.
+  Future<ObservationTagUsage?> getDeletionImpact(ObservationTag tag) async {
+    if (!DataModeManager().isLocal) {
+      final usage = await getAssociationUsage([tag]);
+      return usage[tag.id];
+    }
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
     final aliases = await db.query(
@@ -179,27 +234,37 @@ class ObservationTagRepository {
       }
     }
 
-    Future<int> count(String table, String idColumn,
-        {String? legacyTable}) async {
-      final rows = await db.rawQuery(
-        legacyTable == null
-            ? 'SELECT COUNT(*) AS total FROM $table WHERE tag_id = ?'
-            : 'SELECT COUNT(*) AS total FROM ('
-                'SELECT id AS entity_id FROM $legacyTable '
-                'WHERE system_tag_id = ? '
-                'UNION SELECT $idColumn AS entity_id FROM $table '
-                'WHERE tag_id = ?)',
-        legacyTable == null ? [canonicalId] : [tag.id, canonicalId],
-      );
+    // Count unique existing records, not stale link rows or soft-deleted
+    // task/habit/reflection history. Avoid double counting legacy+canonical.
+    Future<int> count(String entity, String links, String idColumn, {
+      required bool legacy,
+      required bool softDelete,
+    }) async {
+      final live = softDelete ? ' AND record.deleted_at IS NULL' : '';
+      var sql = 'SELECT COUNT(*) AS total FROM ('
+          'SELECT record.id AS entity_id FROM $entity record '
+          'JOIN $links link ON link.$idColumn = record.id '
+          'WHERE link.tag_id = ?$live';
+      final args = <Object?>[canonicalId];
+      if (legacy) {
+        sql += ' UNION SELECT record.id AS entity_id FROM $entity record '
+            'WHERE record.system_tag_id = ?$live';
+        args.add(tag.id);
+      }
+      sql += ') linked';
+      final rows = await db.rawQuery(sql, args);
       return (rows.first['total'] as num).toInt();
     }
 
     return (
-      tasks: await count('task_tags', 'task_id', legacyTable: 'tasks'),
-      habits: await count('habit_tags', 'habit_id', legacyTable: 'habits'),
-      sessions: await count('work_session_tags', 'work_session_id',
-          legacyTable: 'work_sessions'),
-      reflections: await count('reflection_tags', 'reflection_id'),
+      tasks: await count('tasks', 'task_tags', 'task_id',
+          legacy: true, softDelete: true),
+      habits: await count('habits', 'habit_tags', 'habit_id',
+          legacy: true, softDelete: true),
+      sessions: await count('work_sessions', 'work_session_tags',
+          'work_session_id', legacy: true, softDelete: false),
+      reflections: await count('reflections', 'reflection_tags',
+          'reflection_id', legacy: false, softDelete: true),
     );
   }
 
@@ -217,6 +282,12 @@ class ObservationTagRepository {
         );
         await txn.update(
           'habits',
+          {'system_tag_id': null},
+          where: 'system_tag_id = ?',
+          whereArgs: [tag.id],
+        );
+        await txn.update(
+          'work_sessions',
           {'system_tag_id': null},
           where: 'system_tag_id = ?',
           whereArgs: [tag.id],
@@ -251,7 +322,8 @@ class ObservationTagRepository {
   Future<List<ObservationTag>> _getLocal() async {
     await LocalProductCoreSchema.ensureReady();
     final db = await LocalDb().database;
-    final rows = await db.query('system_tags', orderBy: 'created_at ASC');
+    final rows = await db.query('system_tags',
+        orderBy: 'created_at ASC, id ASC');
     return rows
         .map((row) => ObservationTag.fromJson(Map<String, dynamic>.from(row)))
         .toList();

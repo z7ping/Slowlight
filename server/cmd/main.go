@@ -141,6 +141,7 @@ func main() {
 
 		systemTagHandler := handler.NewSystemTagHandler(db)
 		api.GET("/system-tags", systemTagHandler.GetSystemTags)
+		api.GET("/system-tags/usage", systemTagHandler.GetSystemTagUsage)
 		api.POST("/system-tags", systemTagHandler.CreateSystemTag)
 		api.PUT("/system-tags/:id", systemTagHandler.UpdateSystemTag)
 		api.DELETE("/system-tags/:id", systemTagHandler.DeleteSystemTag)

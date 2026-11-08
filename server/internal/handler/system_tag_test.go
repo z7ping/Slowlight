@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"time"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,7 @@ func newSystemTagRouter(h *SystemTagHandler, userID uint) *gin.Engine {
 	r := newTestGin()
 	r.Use(func(c *gin.Context) { withUser(c, userID); c.Next() })
 	r.GET("/system-tags", h.GetSystemTags)
+	r.GET("/system-tags/usage", h.GetSystemTagUsage)
 	r.POST("/system-tags", h.CreateSystemTag)
 	r.PUT("/system-tags/:id", h.UpdateSystemTag)
 	r.DELETE("/system-tags/:id", h.DeleteSystemTag)
@@ -88,6 +90,70 @@ func TestGetSystemTags_OnlyOwnTags(t *testing.T) {
 	var tags []model.SystemTag
 	json.Unmarshal(w.Body.Bytes(), &tags)
 	assertEqual(t, len(tags), 4, "ShouldOnlySeeOwnTags")
+}
+
+func TestSystemTagUsage_P15OnlyOwnedLiveRecords(t *testing.T) {
+	tx, handler, userID := setupSystemTagTest(t)
+	other := createTestUser(t, tx)
+	list := createTestList(t, tx, userID, "工作")
+	otherList := createTestList(t, tx, other.ID, "其他")
+	tag := model.SystemTag{UserID: userID, Name: "专注", Icon: "🎯", Color: "#334455"}
+	if err := tx.Create(&tag).Error; err != nil { t.Fatal(err) }
+	task := createTestTask(t, tx, userID, list.ID, "标记任务")
+	if err := tx.Model(&task).Update("system_tag_id", tag.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	removed := createTestTask(t, tx, userID, list.ID, "已删任务")
+	if err := tx.Model(&removed).Update("system_tag_id", tag.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Delete(&removed).Error; err != nil { t.Fatal(err) }
+	unrelated := createTestTask(t, tx, other.ID, otherList.ID, "其他用户任务")
+	if err := tx.Model(&unrelated).Update("system_tag_id", tag.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	habit := model.Habit{UserID: userID, Name: "专注习惯", SystemTagID: &tag.ID}
+	if err := tx.Create(&habit).Error; err != nil { t.Fatal(err) }
+	session := model.WorkSession{
+		UserID: userID, SessionType: "work",
+		StartedAt: time.Now(), SystemTagID: &tag.ID,
+	}
+	if err := tx.Create(&session).Error; err != nil { t.Fatal(err) }
+
+	router := newSystemTagRouter(handler, userID)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/system-tags/usage", nil))
+	assertEqual(t, w.Code, http.StatusOK, "usage HTTP")
+	var response struct {
+		Counts map[string]systemTagUsage `json:"counts"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil { t.Fatal(err) }
+	counts, ok := response.Counts[fmt.Sprint(tag.ID)]
+	if !ok { t.Fatal("missing owned tag usage") }
+	assertEqual(t, counts.Tasks, int64(1), "live owned tasks only")
+	assertEqual(t, counts.Habits, int64(1), "habit usage")
+	assertEqual(t, counts.Sessions, int64(1), "legacy session usage")
+	assertEqual(t, counts.Reflections, int64(0), "no reflection usage")
+}
+
+func TestDeleteSystemTag_P15ClearsLegacySessions(t *testing.T) {
+	tx, handler, userID := setupSystemTagTest(t)
+	tag := model.SystemTag{UserID: userID, Name: "专注", Icon: "🎯", Color: "#334455"}
+	if err := tx.Create(&tag).Error; err != nil { t.Fatal(err) }
+	session := model.WorkSession{
+		UserID: userID, SessionType: "work",
+		StartedAt: time.Now(), SystemTagID: &tag.ID,
+	}
+	if err := tx.Create(&session).Error; err != nil { t.Fatal(err) }
+	router := newSystemTagRouter(handler, userID)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(
+		http.MethodDelete, fmt.Sprintf("/system-tags/%d", tag.ID), nil,
+	))
+	assertEqual(t, w.Code, http.StatusOK, "delete tag")
+	var existing model.WorkSession
+	if err := tx.First(&existing, session.ID).Error; err != nil { t.Fatal(err) }
+	if existing.SystemTagID != nil { t.Fatal("session retains deleted tag") }
 }
 
 // ========== UpdateSystemTag ==========
