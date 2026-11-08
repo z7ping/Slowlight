@@ -155,6 +155,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   late String _unit;
   late String _hourMode;
   late String _reminderMode;
+  // Preserve old/imported V3 times even when the legacy time fields are empty.
+  late String _anchorTimeFallback;
+  late String _reminderTimeFallback;
   late bool _monthLast;
   late bool _sameDayMultiple;
   late List<int> _weekdays;
@@ -230,6 +233,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   void initState() {
     super.initState();
     final habit = widget.habit;
+    final draft = widget.initialValue;
     _name = TextEditingController(text: habit?.name ?? '');
     _targetDays = TextEditingController(
       text: (habit?.targetDays ?? 0).toString(),
@@ -239,7 +243,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     );
     _icon = habit?.icon ?? '✅';
     _color = habit?.color ?? '#52c41a';
-    _frequency = habit?.frequency ?? 'daily';
+    _frequency = draft?.frequency ?? habit?.frequency ?? 'daily';
     _recordType = habit?.recordType ?? 'check';
     _recordUnit = TextEditingController(text: habit?.recordUnit ?? '次');
     _recordTimeLabel =
@@ -249,8 +253,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _goalMetric = habit?.goalMetric ?? 'events';
     _goalValue =
         TextEditingController(text: (habit?.goalValue ?? 0).toString());
+    // An unconfirmed V3 edit is the latest draft. Do not reconstruct the
+    // schedule from the old persisted habit and silently lose its selections.
     final rule = HabitScheduleRule.fromJson(
-      habit?.scheduleRule ?? const {}, legacyFrequency: _frequency,
+      draft?.scheduleRule ?? habit?.scheduleRule ?? const {},
+      legacyFrequency: _frequency,
     );
     _mode = rule.kind;
     _unit = rule.unit;
@@ -258,6 +265,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _modeEvery[_mode] = rule.every.toString();
     _hourMode = rule.hourMode;
     _reminderMode = rule.reminderMode;
+    _anchorTimeFallback = rule.anchorTime;
+    _reminderTimeFallback = rule.reminderTime;
     _monthLast = rule.lastDay;
     _sameDayMultiple = rule.sameDayMultiple;
     _weekdays = List.of(rule.weekdays);
@@ -288,7 +297,6 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     }
     _loadTags();
     _loadCanonicalTags();
-    final draft = widget.initialValue;
     if (draft != null) {
       _name.text = draft.name;
       _targetDays.text = '${draft.targetDays}';
@@ -398,6 +406,8 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     _modeEvery,
     _hourMode,
     _reminderMode,
+    _anchorTimeFallback,
+    _reminderTimeFallback,
     _monthLast,
     _sameDayMultiple,
     _weekdays,
@@ -439,11 +449,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       }
     }
     if (!mounted) return;
-    if (Theme.of(context).platform != TargetPlatform.android &&
-        Theme.of(context).platform != TargetPlatform.iOS) {
-      Navigator.pop(context);
-      return;
-    }
+    // Windows Escape, cancel and Android Back must follow one draft guard.
     setState(() => _allowMobilePop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.pop(context);
@@ -451,11 +457,6 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   }
 
   void _complete(HabitEditorValue value) {
-    if (Theme.of(context).platform != TargetPlatform.android &&
-        Theme.of(context).platform != TargetPlatform.iOS) {
-      Navigator.pop(context, value);
-      return;
-    }
     setState(() => _allowMobilePop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.pop(context, value);
@@ -489,7 +490,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     kind: _mode, unit: _unit,
     every: int.tryParse(_every.text.trim()) ?? 0,
     anchorDate: _anchorDate.text.trim(),
-    anchorTime: _specificTime == null ? '08:00' : _formatTime(_specificTime!),
+    anchorTime: _specificTime == null ? _anchorTimeFallback : _formatTime(_specificTime!),
     hourMode: _hourMode,
     windowStart: _formatTime(_windowStart),
     windowEnd: _formatTime(_windowEnd),
@@ -498,7 +499,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     targetCount: int.tryParse(_targetCount.text.trim()) ?? 0,
     sameDayMultiple: _sameDayMultiple,
     reminderMode: _reminderMode,
-    reminderTime: _reminder == null ? '09:00' : _formatTime(_reminder!),
+    reminderTime: _reminder == null ? _reminderTimeFallback : _formatTime(_reminder!),
   );
 
   Future<void> _submit() async {
@@ -1014,9 +1015,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           FxButton(
                             label: '取消',
                             variant: FxButtonVariant.outline,
-                            onPressed: _submitting
-                                ? null
-                                : () => Navigator.pop(context),
+                            onPressed: _submitting ? null : _requestClose,
                           ),
                           if (_resultUnknown)
                             FxButton(
@@ -1043,9 +1042,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           ),
     );
     return PopScope(
-      canPop: mobile ? _allowMobilePop : !_submitting,
+      canPop: _allowMobilePop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && mobile) _requestClose();
+        if (!didPop) _requestClose();
       },
       child: mobile
           ? SafeArea(top: false, child: editor)
@@ -1283,8 +1282,13 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
         const SizedBox(height: 12),
         _timeField(
           title: '起算／执行时间',
-          value: _specificTime,
-          onChanged: (v) => setState(() => _specificTime = v),
+          // Reflect effective V3 schedule time without overwriting an empty
+          // legacy specific_time field during an unrelated edit.
+          value: _specificTime ?? _parseTime(_anchorTimeFallback),
+          onChanged: (v) => setState(() {
+            _specificTime = v;
+            _anchorTimeFallback = v == null ? '08:00' : _formatTime(v);
+          }),
         ),
         const SizedBox(height: 12),
         FxFormField(
@@ -1308,8 +1312,11 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           const SizedBox(height: 12),
           _timeField(
             title: '每天提醒时间',
-            value: _reminder,
-            onChanged: (v) => setState(() => _reminder = v),
+            value: _reminder ?? _parseTime(_reminderTimeFallback),
+            onChanged: (v) => setState(() {
+              _reminder = v;
+              _reminderTimeFallback = v == null ? '09:00' : _formatTime(v);
+            }),
           ),
         ],
       ],
