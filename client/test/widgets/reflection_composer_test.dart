@@ -235,6 +235,9 @@ void main() {
       tester.getTopLeft(title).dy >= tester.getBottomLeft(handle).dy,
       isTrue,
     );
+    expect(tester.getTopLeft(title).dy - tester.getBottomLeft(handle).dy,
+        lessThanOrEqualTo(8));
+    expect(tester.widget<FxButton>(save).variant, FxButtonVariant.primary);
     expect(
       (tester.getSize(cancel).width - tester.getSize(save).width).abs(),
       lessThan(1.0),

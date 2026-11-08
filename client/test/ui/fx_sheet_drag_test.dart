@@ -89,6 +89,20 @@ void main() {
       sheet.radius,
       const BorderRadius.vertical(top: Radius.circular(SlowlightRadius.xl)),
     );
+    expect(sheet.removeBorderRadiusWhenTiny, isFalse);
+    expect(sheet.gap, 0);
+    // Inspect the final ShadDialog painted surface, not only Sheet.radius.
+    final roundedSurface = find.descendant(
+      of: find.byType(ShadDialog),
+      matching: find.byWidgetPredicate((widget) =>
+          widget is DecoratedBox &&
+          widget.decoration is BoxDecoration &&
+          (widget.decoration as BoxDecoration).borderRadius ==
+              const BorderRadius.vertical(
+                top: Radius.circular(SlowlightRadius.xl),
+              )),
+    );
+    expect(roundedSurface, findsOneWidget);
     expect(sheet.draggable, isTrue);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -122,6 +136,7 @@ void main() {
     expect(find.byKey(const ValueKey('fx.sheet.visualHandle')), findsNothing);
     final sheet = tester.widget<ShadSheet>(fxSheetSurfaceFinder());
     expect(sheet.draggable, isFalse);
+    expect(sheet.removeBorderRadiusWhenTiny, isFalse);
     expect(
       sheet.radius,
       const BorderRadius.vertical(top: Radius.circular(SlowlightRadius.xl)),
@@ -249,6 +264,13 @@ void main() {
     ));
     await tester.tap(find.text('打开任务'));
     await tester.pumpAndSettle();
+    final grip = find.byKey(const ValueKey('fx.sheet.dragHandle'));
+    final heading = find.descendant(
+      of: find.byType(TaskDetailSheet),
+      matching: find.text('添加任务'),
+    ).first;
+    expect(tester.getTopLeft(heading).dy - tester.getBottomLeft(grip).dy,
+        lessThanOrEqualTo(24));
     final input = find.descendant(
       of: find.byKey(const ValueKey('task.detail.title')),
       matching: find.byType(EditableText),

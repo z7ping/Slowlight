@@ -225,11 +225,15 @@ class _FxButtonState extends State<FxButton> {
         ),
       ],
     );
+    // ShadButton defaults enabled=true even when onPressed is null.
+    // Propagate the real disabled state to its paint, semantics and focus.
+    final actionEnabled = widget.onPressed != null && !_running;
     final Widget button;
     switch (widget.variant) {
       case FxButtonVariant.primary:
         button = ShadButton(
           onPressed: _effectiveAction,
+          enabled: actionEnabled,
           size: _shadSize,
           expands: widget.expanded,
           height: effectiveHeight,
@@ -239,6 +243,7 @@ class _FxButtonState extends State<FxButton> {
       case FxButtonVariant.secondary:
         button = ShadButton.secondary(
           onPressed: _effectiveAction,
+          enabled: actionEnabled,
           size: _shadSize,
           expands: widget.expanded,
           height: effectiveHeight,
@@ -248,6 +253,7 @@ class _FxButtonState extends State<FxButton> {
       case FxButtonVariant.outline:
         button = ShadButton.outline(
           onPressed: _effectiveAction,
+          enabled: actionEnabled,
           size: _shadSize,
           expands: widget.expanded,
           height: effectiveHeight,
@@ -257,6 +263,7 @@ class _FxButtonState extends State<FxButton> {
       case FxButtonVariant.ghost:
         button = ShadButton.ghost(
           onPressed: _effectiveAction,
+          enabled: actionEnabled,
           size: _shadSize,
           expands: widget.expanded,
           height: effectiveHeight,
@@ -266,6 +273,7 @@ class _FxButtonState extends State<FxButton> {
       case FxButtonVariant.destructive:
         button = ShadButton.destructive(
           onPressed: _effectiveAction,
+          enabled: actionEnabled,
           size: _shadSize,
           expands: widget.expanded,
           height: effectiveHeight,
@@ -275,6 +283,7 @@ class _FxButtonState extends State<FxButton> {
       case FxButtonVariant.link:
         button = ShadButton.link(
           onPressed: _effectiveAction,
+          enabled: actionEnabled,
           size: _shadSize,
           expands: widget.expanded,
           height: effectiveHeight,

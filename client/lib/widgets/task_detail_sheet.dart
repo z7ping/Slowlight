@@ -1243,9 +1243,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   : widget.isCreating
                       ? (_saving ? '添加中…' : '添加任务')
                       : (_saving ? '保存中…' : '保存修改'),
-              variant: !canSave
-                  ? FxButtonVariant.secondary
-                  : FxButtonVariant.primary,
+              // Disabled is a Primary state, not a different action variant.
+              variant: FxButtonVariant.primary,
               size: FxButtonSize.sm,
               onPressed: _saving || !canSave ? null : _save,
             ),
@@ -1274,9 +1273,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         widget.sidePanel ? 20 : 16,
-        widget.sidePanel ? 10 : 12,
+        // FxSheet already provides the mobile 44dp grip/header spacing.
+        widget.sidePanel ? 10 : 0,
         10,
-        widget.sidePanel ? 8 : 6,
+        widget.sidePanel ? 8 : 4,
       ),
       child: Column(
         children: [
