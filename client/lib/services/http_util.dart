@@ -1,127 +1,92 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'app_error_logger.dart';
+import 'auth_service.dart';
 
-/// HTTP 请求工具类。
-///
-/// 只记录方法、URL、状态码和耗时；请求体、响应体与认证头都可能包含密码、
-/// Token、迁移快照或第三方凭据，禁止写入日志。
+/// HTTP 请求工具类。日志只包含请求方法、URL 路径、状态码及耗时；
+/// 禁止持久化 Authorization、Refresh Token、请求/响应体。
 class HttpUtil {
-  /// GET 请求
-  static Future<http.Response> get(
-    Uri url, {
+  static Future<http.Response> get(Uri url, {
     Map<String, String>? headers,
     Duration? timeout,
-  }) async {
-    _logRequest('GET', url);
-    final sw = Stopwatch()..start();
-    try {
-      final response = await http.get(url, headers: headers).timeout(
-        timeout ?? const Duration(seconds: 8),
-      );
-      sw.stop();
-      _logResponse('GET', url, response.statusCode, sw.elapsedMilliseconds);
-      _recordHttpStatus('GET', url, response.statusCode);
-      return response;
-    } catch (e) {
-      sw.stop();
-      _logError('GET', url, sw.elapsedMilliseconds, e);
-      rethrow;
-    }
-  }
+  }) => _perform('GET', url, headers: headers, timeout: timeout);
 
-  /// POST 请求
-  static Future<http.Response> post(
+  static Future<http.Response> post(Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration? timeout,
+  }) => _perform('POST', url, headers: headers, body: body, timeout: timeout);
+
+  static Future<http.Response> put(Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration? timeout,
+  }) => _perform('PUT', url, headers: headers, body: body, timeout: timeout);
+
+  static Future<http.Response> delete(Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration? timeout,
+  }) => _perform('DELETE', url, headers: headers, body: body, timeout: timeout);
+
+  static Future<http.Response> patch(Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration? timeout,
+  }) => _perform('PATCH', url, headers: headers, body: body, timeout: timeout);
+
+  static Future<http.Response> _perform(
+    String method,
     Uri url, {
     Map<String, String>? headers,
     Object? body,
     Duration? timeout,
   }) async {
-    _logRequest('POST', url);
+    _logRequest(method, url);
     final sw = Stopwatch()..start();
-    try {
-      final response = await http.post(url, headers: headers, body: body).timeout(
-        timeout ?? const Duration(seconds: 15),
-      );
-      sw.stop();
-      _logResponse('POST', url, response.statusCode, sw.elapsedMilliseconds);
-      _recordHttpStatus('POST', url, response.statusCode);
-      return response;
-    } catch (e) {
-      sw.stop();
-      _logError('POST', url, sw.elapsedMilliseconds, e);
-      rethrow;
-    }
-  }
+    final limit = timeout ??
+        Duration(seconds: method == 'GET' ? 8 : 15);
 
-  /// PUT 请求
-  static Future<http.Response> put(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Duration? timeout,
-  }) async {
-    _logRequest('PUT', url);
-    final sw = Stopwatch()..start();
-    try {
-      final response = await http.put(url, headers: headers, body: body).timeout(
-        timeout ?? const Duration(seconds: 15),
-      );
-      sw.stop();
-      _logResponse('PUT', url, response.statusCode, sw.elapsedMilliseconds);
-      _recordHttpStatus('PUT', url, response.statusCode);
-      return response;
-    } catch (e) {
-      sw.stop();
-      _logError('PUT', url, sw.elapsedMilliseconds, e);
-      rethrow;
+    Future<http.Response> send(Map<String, String>? authHeaders) {
+      final request = switch (method) {
+        'GET' => http.get(url, headers: authHeaders),
+        'POST' => http.post(url, headers: authHeaders, body: body),
+        'PUT' => http.put(url, headers: authHeaders, body: body),
+        'DELETE' => http.delete(url, headers: authHeaders, body: body),
+        'PATCH' => http.patch(url, headers: authHeaders, body: body),
+        _ => throw StateError('不支持的 HTTP method'),
+      };
+      return request.timeout(limit);
     }
-  }
 
-  /// DELETE 请求
-  static Future<http.Response> delete(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Duration? timeout,
-  }) async {
-    _logRequest('DELETE', url);
-    final sw = Stopwatch()..start();
     try {
-      final response = await http.delete(url, headers: headers, body: body).timeout(
-        timeout ?? const Duration(seconds: 15),
-      );
+      var response = await send(headers);
+      if (response.statusCode == 401 && headers != null) {
+        final authorization = headers['Authorization'] ?? headers['authorization'];
+        if (authorization != null && authorization.startsWith('Bearer ')) {
+          // 401 中间件拒绝后才重试；仅重试当前账号 JWT，
+          // OAuth 候选 JWT 不可套用另一个账号的身份。
+          String? recovered;
+          try {
+            recovered = await AuthService.recoverUnauthorized(
+                authorization.substring(7));
+          } catch (_) {
+            // 恢复失败仍返回原始 401，不冒充成功或清除本机凭据。
+          }
+          if (recovered != null && recovered != authorization.substring(7)) {
+            response = await send({
+              ...headers, 'Authorization': 'Bearer $recovered',
+            });
+          }
+        }
+      }
       sw.stop();
-      _logResponse('DELETE', url, response.statusCode, sw.elapsedMilliseconds);
-      _recordHttpStatus('DELETE', url, response.statusCode);
+      _logResponse(method, url, response.statusCode, sw.elapsedMilliseconds);
+      _recordHttpStatus(method, url, response.statusCode);
       return response;
-    } catch (e) {
+    } catch (error) {
       sw.stop();
-      _logError('DELETE', url, sw.elapsedMilliseconds, e);
-      rethrow;
-    }
-  }
-
-  /// PATCH 请求
-  static Future<http.Response> patch(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Duration? timeout,
-  }) async {
-    _logRequest('PATCH', url);
-    final sw = Stopwatch()..start();
-    try {
-      final response = await http.patch(url, headers: headers, body: body).timeout(
-        timeout ?? const Duration(seconds: 15),
-      );
-      sw.stop();
-      _logResponse('PATCH', url, response.statusCode, sw.elapsedMilliseconds);
-      _recordHttpStatus('PATCH', url, response.statusCode);
-      return response;
-    } catch (e) {
-      sw.stop();
-      _logError('PATCH', url, sw.elapsedMilliseconds, e);
+      _logError(method, url, sw.elapsedMilliseconds, error);
       rethrow;
     }
   }

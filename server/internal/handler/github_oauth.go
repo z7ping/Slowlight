@@ -239,7 +239,7 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
 		if err := h.DB.First(&user, session.ResultUserID).Error; err != nil {
 			c.JSON(500, gin.H{"error": "账号读取失败"}); return
 		}
-		token, err := generateTokenWithMethod(user.ID, "github")
+		token, refreshToken, err := issueAuthSession(h.DB, user.ID, "github")
 		if err != nil { c.JSON(500, gin.H{"error": "签发登录凭据失败"}); return }
         if req.Mode != "reliable" {
             // 旧客户端不传 mode，保持现有的一次性凭据领取行为。
@@ -250,7 +250,7 @@ func (h *GitHubOAuthHandler) Poll(c *gin.Context) {
             if updated.RowsAffected != 1 { c.JSON(409, gin.H{"error": "授权结果已领取"}); return }
         }
 		c.Header("Cache-Control", "no-store")
-		c.JSON(200, gin.H{"status": "complete", "token": token, "user": user})
+		c.JSON(200, gin.H{"status": "complete", "token": token, "refresh_token": refreshToken, "user": user})
 	default:
 		c.JSON(409, gin.H{"error": "授权结果已领取"})
 	}

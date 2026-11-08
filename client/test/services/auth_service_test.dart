@@ -172,6 +172,113 @@ void main() {
     expect(prefs.getString('auth_token'), isNull);
     expect(await const FlutterSecureStorage().read(key: 'auth_token'), token);
   });
+  test('过期 Access Token 刷新一次，侧栏重新读取仍是已登录', () async {
+    final expired = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - 60);
+    final renewed = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600);
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': expired, 'auth_refresh_token': 'first-refresh'});
+    var calls = 0;
+    await http.runWithClient(() async {
+      expect(await AuthService.isLoggedIn(), isTrue);
+      expect(await AuthService.isLoggedIn(), isTrue);
+      expect(await AuthService.getToken(), renewed);
+      expect(await const FlutterSecureStorage().read(key: 'auth_refresh_token'),
+          'second-refresh');
+    }, () => MockClient((request) async {
+      expect(request.url.path, '/api/auth/refresh');
+      expect(jsonDecode(request.body)['refresh_token'], 'first-refresh');
+      calls++;
+      return http.Response(jsonEncode({
+        'token': renewed, 'refresh_token': 'second-refresh'}), 200);
+    }));
+    expect(calls, 1);
+  });
+
+  test('GitHub 候选凭据 401 不以现有账号自动续期', () async {
+    final token = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600);
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': token, 'auth_refresh_token': 'current-refresh'});
+    final candidate = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 7200);
+    var calls = 0;
+    await http.runWithClient(() async {
+      await expectLater(
+        ApiService.verifyOAuthCredential(candidate, 3), throwsStateError);
+    }, () => MockClient((request) async {
+      calls++;
+      expect(request.url.path, '/api/auth/profile');
+      return http.Response('{}', 401);
+    }));
+    expect(calls, 1);
+    expect(await AuthService.getToken(), token);
+  });
+
+  test('业务接口 401 轮换凭据后最多重试一次', () async {
+    final before = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600);
+    final after = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 7200);
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': before, 'auth_refresh_token': 'refresh-1'});
+    var profileCalls = 0;
+    var refreshCalls = 0;
+    await http.runWithClient(() async {
+      final result = await ApiService.get('/auth/profile');
+      expect(result['id'], 8);
+    }, () => MockClient((request) async {
+      if (request.url.path == '/api/auth/refresh') {
+        refreshCalls++;
+        return http.Response(jsonEncode({
+          'token': after, 'refresh_token': 'refresh-2'}), 200);
+      }
+      profileCalls++;
+      expect(request.headers['authorization'], profileCalls == 1
+          ? 'Bearer $before' : 'Bearer $after');
+      return profileCalls == 1
+          ? http.Response('{}', 401) : http.Response('{"id":8}', 200);
+    }));
+    expect(refreshCalls, 1);
+    expect(profileCalls, 2);
+  });
+
+  test('服务端拒绝刷新令牌不应冒充已登录', () async {
+    final expired = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - 60);
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': expired, 'auth_refresh_token': 'rejected-refresh'});
+    await http.runWithClient(() async {
+      expect(await AuthService.isLoggedIn(), isFalse);
+    }, () => MockClient((_) async => http.Response('{}', 401)));
+    expect(await AuthService.getToken(), expired);
+  });
+
+  test('并发刷新共用一次请求，防止 Refresh Token 轮换冲突', () async {
+    final expired = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - 60);
+    final fresh = _jwt(exp:
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600);
+    FlutterSecureStorage.setMockInitialValues({
+      'auth_token': expired, 'auth_refresh_token': 'refresh-one'});
+    var calls = 0;
+    await http.runWithClient(() async {
+      final states = await Future.wait([
+        AuthService.isLoggedIn(),
+        AuthService.isLoggedIn(),
+        AuthService.isLoggedIn(),
+      ]);
+      expect(states, everyElement(isTrue));
+    }, () => MockClient((_) async {
+      calls++;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      return http.Response(jsonEncode({
+        'token': fresh, 'refresh_token': 'refresh-two'}), 200);
+    }));
+    expect(calls, 1);
+  });
+
 }
 
 String _jwt({required int exp}) {

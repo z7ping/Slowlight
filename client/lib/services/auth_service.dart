@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -8,9 +9,19 @@ import '../models/user.dart';
 import '../repositories/local_habit_repository.dart';
 import '../repositories/local_list_repository.dart';
 import 'api_service.dart';
+import 'http_util.dart';
+
+class SessionRefreshRejected implements Exception {
+  const SessionRefreshRejected();
+}
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
+  static const String _refreshKey = 'auth_refresh_token';
+  static const Duration _refreshAhead = Duration(minutes: 5);
+  static Future<String?>? _refreshInFlight;
+  static int _credentialEpoch = 0;
+  static String? _serverRejectedToken;
   static const String _userKey = 'user_data';
   static const String _loginMethodKey = 'auth_login_method';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
@@ -25,7 +36,11 @@ class AuthService {
 
     final token = response['token'];
     final user = User.fromJson(response['user']);
-    await _saveAuth(token, user, loginMethod: 'password');
+    await _saveAuth(
+      token, user,
+      refreshToken: response['refresh_token'] as String?,
+      loginMethod: 'password',
+    );
     return {'token': token, 'user': user};
   }
 
@@ -46,7 +61,11 @@ class AuthService {
 
     final token = response['token'];
     final user = User.fromJson(response['user']);
-    await _saveAuth(token, user, loginMethod: 'password');
+    await _saveAuth(
+      token, user,
+      refreshToken: response['refresh_token'] as String?,
+      loginMethod: 'password',
+    );
     return {'token': token, 'user': user};
   }
 
@@ -67,6 +86,7 @@ class AuthService {
     await _saveAuth(
       token,
       user,
+      refreshToken: result['refresh_token'] as String?,
       loginMethod: linkingExisting ? await getLastLoginMethod() : 'github',
     );
   }
@@ -167,38 +187,153 @@ class AuthService {
     await prefs.setString(_userKey, json.encode(user.toJson()));
   }
 
+  // 凭据是唯一身份事实；读存储失败或网络故障不能冒充“未登录”。
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
-    if (token == null || token.isEmpty || token.startsWith('local:')) {
+    if (token != null && token.startsWith('local:')) return false;
+    if (token != null && token == _serverRejectedToken) return false;
+    if (token != null && !_isJwtExpired(token)) return true;
+    if (await _secureStorage.read(key: _refreshKey) == null) return false;
+    try {
+      final renewed = await refreshAccessToken();
+      return renewed != null && !_isJwtExpired(renewed);
+    } on SessionRefreshRejected {
       return false;
     }
-    return !_isJwtExpired(token);
   }
 
-  static bool _isJwtExpired(String token) {
+  static int? _jwtExpiry(String token) {
     try {
       final parts = token.split('.');
-      if (parts.length != 3) return true;
+      if (parts.length != 3) return null;
       final payload = json.decode(
         utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
       );
-      if (payload is! Map) return true;
-      final rawExp = payload['exp'];
-      final exp = rawExp is num ? rawExp.toInt() : int.tryParse('$rawExp');
-      if (exp == null) return true;
-      final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-      return exp <= now;
+      if (payload is! Map) return null;
+      final raw = payload['exp'];
+      return raw is num ? raw.toInt() : int.tryParse('$raw');
     } catch (_) {
-      return true;
+      return null;
     }
   }
 
+  static bool _isJwtExpired(String token) =>
+      _jwtExpiresWithin(token, Duration.zero);
+
+  static bool _jwtExpiresWithin(String token, Duration time) {
+    final exp = _jwtExpiry(token);
+    if (exp == null) return true;
+    final cutoff =
+        DateTime.now().toUtc().add(time).millisecondsSinceEpoch ~/ 1000;
+    return exp <= cutoff;
+  }
+
+  // 业务请求在剩余五分钟内提前续期；同进程只轮换一次。
+  static Future<String?> getTokenForRequest() async {
+    final token = await getToken();
+    if (token != null && (token.startsWith('local:') ||
+        !_jwtExpiresWithin(token, _refreshAhead))) return token;
+    if (await _secureStorage.read(key: _refreshKey) == null) return token;
+    try {
+      return await refreshAccessToken() ?? token;
+    } catch (_) {
+      // 离线继续保留凭据，网络错误由请求调用方处理。
+      return token;
+    }
+  }
+
+  // 只重试当前会话的 Bearer Token，不以旧登录身份验证 OAuth 候选令牌。
+  static Future<String?> recoverUnauthorized(String attemptedToken) async {
+    final stored = await getToken();
+    if (stored == null || stored.startsWith('local:')) return null;
+    if (stored != attemptedToken) {
+      return _isJwtExpired(stored) ? null : stored;
+    }
+    try {
+      final renewed = await refreshAccessToken();
+      return renewed != attemptedToken ? renewed : null;
+    } on SessionRefreshRejected {
+      _serverRejectedToken = attemptedToken;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<String?> refreshAccessToken() async {
+    final pending = _refreshInFlight;
+    if (pending != null) return pending;
+    final operation = _performRefresh();
+    _refreshInFlight = operation;
+    try {
+      return await operation;
+    } finally {
+      if (identical(_refreshInFlight, operation)) _refreshInFlight = null;
+    }
+  }
+
+  static Future<String?> _performRefresh() async {
+    final previous = await _secureStorage.read(key: _refreshKey);
+    if (previous == null || previous.isEmpty) return null;
+    final epoch = _credentialEpoch;
+    final response = await HttpUtil.post(
+      Uri.parse('${ApiService.baseUrl}/auth/refresh'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'refresh_token': previous}),
+    ).timeout(ApiService.postTimeout);
+    if (response.statusCode == 400 || response.statusCode == 401) {
+      throw const SessionRefreshRejected();
+    }
+    if (response.statusCode != 200) {
+      throw StateError('续期服务暂时不可用（HTTP ${response.statusCode}）');
+    }
+    final data = jsonDecode(response.body);
+    if (data is! Map ||
+        data['token'] is! String || data['refresh_token'] is! String ||
+        (data['refresh_token'] as String).isEmpty ||
+        _isJwtExpired(data['token'] as String)) {
+      throw const FormatException('续期响应无效');
+    }
+    // 异步返回后若已退出/换账号，不可复活旧身份。
+    if (epoch != _credentialEpoch ||
+        await _secureStorage.read(key: _refreshKey) != previous) {
+      return getToken();
+    }
+    final newToken = data['token'] as String;
+    final newRefresh = data['refresh_token'] as String;
+    await _secureStorage.write(key: _refreshKey, value: newRefresh);
+    await _secureStorage.write(key: _tokenKey, value: newToken);
+    if (await _secureStorage.read(key: _tokenKey) != newToken ||
+        await _secureStorage.read(key: _refreshKey) != newRefresh) {
+      throw StateError('更新登录凭据失败');
+    }
+    _credentialEpoch++;
+    _serverRejectedToken = null;
+    return newToken;
+  }
+
   static Future<void> logout() async {
+    _credentialEpoch++;
+    _serverRejectedToken = null;
+    final refresh = await _secureStorage.read(key: _refreshKey);
     await _secureStorage.delete(key: _tokenKey);
+    await _secureStorage.delete(key: _refreshKey);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey); // 清理旧版本残留。
+    await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
     await prefs.remove(_loginMethodKey);
+    if (refresh != null && refresh.isNotEmpty) {
+      // 先本地退出，再尽力撤销服务器会话；网络不阻塞界面。
+      unawaited(() async {
+        try {
+          await HttpUtil.post(
+            Uri.parse('${ApiService.baseUrl}/auth/logout'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': refresh}),
+          ).timeout(ApiService.postTimeout);
+        } catch (_) {}
+      }());
+    }
   }
 
   /// 本地数据模式初始化 — 创建本地 guest 用户和基础数据。
@@ -280,16 +415,51 @@ class AuthService {
   static Future<void> _saveAuth(
     String token,
     User user, {
+    String? refreshToken,
     String? loginMethod,
   }) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey); // 不再让认证凭据落入普通偏好存储。
-    await prefs.setString(_userKey, json.encode(user.toJson()));
-    if (loginMethod == null) {
-      await prefs.remove(_loginMethodKey);
-    } else {
-      await prefs.setString(_loginMethodKey, loginMethod);
+    if (!token.startsWith('local:') && _isJwtExpired(token)) {
+      throw StateError('登录凭据无效，未保存登录状态');
+    }
+    final oldToken = await getToken();
+    final oldRefresh = await _secureStorage.read(key: _refreshKey);
+    _credentialEpoch++;
+    try {
+      if (refreshToken == null || refreshToken.isEmpty) {
+        await _secureStorage.delete(key: _refreshKey);
+      } else {
+        await _secureStorage.write(key: _refreshKey, value: refreshToken);
+      }
+      await _secureStorage.write(key: _tokenKey, value: token);
+      // 只有读回确认为有效凭据，登录页面才能宣布成功。
+      if (await _secureStorage.read(key: _tokenKey) != token ||
+          await _secureStorage.read(key: _refreshKey) !=
+              (refreshToken == null || refreshToken.isEmpty
+                  ? null : refreshToken)) {
+        throw StateError('登录凭据保存后无法读回');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      _serverRejectedToken = null;
+      await prefs.remove(_tokenKey);
+      await prefs.setString(_userKey, json.encode(user.toJson()));
+      if (loginMethod == null) {
+        await prefs.remove(_loginMethodKey);
+      } else {
+        await prefs.setString(_loginMethodKey, loginMethod);
+      }
+    } catch (_) {
+      // 写入失败恢复旧凭据；旧登录不得被失败的 GitHub 会话覆盖。
+      if (oldToken == null) {
+        await _secureStorage.delete(key: _tokenKey);
+      } else {
+        await _secureStorage.write(key: _tokenKey, value: oldToken);
+      }
+      if (oldRefresh == null) {
+        await _secureStorage.delete(key: _refreshKey);
+      } else {
+        await _secureStorage.write(key: _refreshKey, value: oldRefresh);
+      }
+      rethrow;
     }
   }
 }

@@ -53,7 +53,7 @@ class ApiService {
   /// 获取认证 headers
   static Future<Map<String, String>> _authHeaders() async {
     final headers = <String, String>{'Content-Type': 'application/json'};
-    final token = await AuthService.getToken();
+    final token = await AuthService.getTokenForRequest();
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }

@@ -36,8 +36,9 @@ type LoginRequest struct {
 }
 
 type AuthResponse struct {
-	Token string     `json:"token"`
-	User  model.User `json:"user"`
+	Token        string     `json:"token"`
+	RefreshToken string     `json:"refresh_token,omitempty"`
+	User         model.User `json:"user"`
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -86,12 +87,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	token, err := generateToken(user.ID)
+	token, refreshToken, err := issueAuthSession(h.DB, user.ID, "password")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
 		return
 	}
-	c.JSON(http.StatusCreated, AuthResponse{Token: token, User: user})
+	c.JSON(http.StatusCreated, AuthResponse{Token: token, RefreshToken: refreshToken, User: user})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -109,12 +110,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}
-	token, err := generateToken(user.ID)
+	token, refreshToken, err := issueAuthSession(h.DB, user.ID, "password")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
 		return
 	}
-	c.JSON(http.StatusOK, AuthResponse{Token: token, User: user})
+	c.JSON(http.StatusOK, AuthResponse{Token: token, RefreshToken: refreshToken, User: user})
 }
 
 // GetLinkedProviders 返回当前 Slowlight 账号的已验证绑定状态，
@@ -154,6 +155,12 @@ func generateToken(userID uint) (string, error) {
 }
 
 func generateTokenWithMethod(userID uint, method string) (string, error) {
+	return generateTokenWithProofTime(userID, method, time.Now().UTC())
+}
+
+// iat 是本次 Access JWT 签发时间；auth_time 是真实 GitHub 授权时间，
+// Refresh Token 轮换不得延长五分钟的账号认领验证窗口。
+func generateTokenWithProofTime(userID uint, method string, authTime time.Time) (string, error) {
 	secret, err := jwtSigningSecret()
 	if err != nil {
 		return "", err
@@ -161,8 +168,9 @@ func generateTokenWithMethod(userID uint, method string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"auth_method": method,
-		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
-		"iat":     time.Now().Unix(),
+		"exp":     time.Now().Add(time.Hour).Unix(),
+		"iat":       time.Now().Unix(),
+		"auth_time": authTime.Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secret)
@@ -213,8 +221,13 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("userID", uint(rawUserID))
 		method, _ := claims["auth_method"].(string)
 		c.Set("authMethod", strings.TrimSpace(method))
-		if issued, ok := claims["iat"].(float64); ok {
-			c.Set("authIssuedAt", int64(issued))
+		// 旧令牌兼容 iat；新令牌必须以原始授权时间校验敏感操作。
+		proofTime, ok := claims["auth_time"].(float64)
+		if !ok {
+			proofTime, _ = claims["iat"].(float64)
+		}
+		if proofTime > 0 {
+			c.Set("authIssuedAt", int64(proofTime))
 		}
 		c.Next()
 	}

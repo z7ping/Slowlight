@@ -58,6 +58,9 @@ func main() {
 	r.POST("/api/auth/github/link/start", handler.AuthMiddleware(), githubAuth.LinkStart)
 	r.POST("/api/auth/register", authHandler.Register)
 	r.POST("/api/auth/login", authHandler.Login)
+	// Refresh token 不通过过期的 Access JWT 鉴权；服务端校验哈希并轮换。
+	r.POST("/api/auth/refresh", authHandler.Refresh)
+	r.POST("/api/auth/logout", authHandler.Logout)
 
 	api := r.Group("/api")
 	api.Use(handler.AuthMiddleware())
