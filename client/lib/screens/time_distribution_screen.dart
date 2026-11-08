@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -16,10 +17,19 @@ const _chartColors = [
   AppTheme.chartCyan,
 ];
 
+enum TimeDistributionDestination { focus, tags }
+
 class TimeDistributionScreen extends StatefulWidget {
   final Future<Map<String, dynamic>> Function()? dataLoader;
+  final Future<void> Function(TimeDistributionDestination)? onNavigate;
+  final bool titleProvidedByShell;
 
-  const TimeDistributionScreen({super.key, this.dataLoader});
+  const TimeDistributionScreen({
+    super.key,
+    this.dataLoader,
+    this.onNavigate,
+    this.titleProvidedByShell = false,
+  });
 
   @override
   State<TimeDistributionScreen> createState() => _TimeDistributionScreenState();
@@ -30,7 +40,35 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   bool _loadError = false;
   bool _hasLoaded = false;
   int _loadVersion = 0;
+  bool _showAllTags = false;
   Map<String, dynamic> _data = {};
+
+  Future<void> _openDestination(TimeDistributionDestination destination) async {
+    final navigate = widget.onNavigate;
+    if (navigate == null) return;
+    await navigate(destination);
+    // A finished focus session may have created new facts while this page
+    // stayed mounted behind the dedicated Pomodoro route.
+    if (mounted && destination == TimeDistributionDestination.focus) {
+      await _loadData();
+    }
+  }
+
+  int? _todayMinutes() {
+    final now = DateTime.now();
+    final date = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+    final rows = _data['by_day'];
+    if (rows is! List) return null;
+    for (final row in rows.whereType<Map>()) {
+      if (row['date'] != date) continue;
+      final seconds = row['work_seconds'];
+      if (seconds is num) return seconds.toInt() ~/ 60;
+      final minutes = row['total_min'];
+      return minutes is num ? minutes.toInt() : null;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -50,6 +88,12 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
     try {
       final data = await (widget.dataLoader?.call() ??
           AnalyticsApi.getTimeDistribution());
+      // A missing field or malformed response is unknown, never zero.
+      if (data['total_min'] is! num ||
+          data['tags'] is! List ||
+          data['by_day'] is! List) {
+        throw const FormatException('时间分配来源未返回完整数据');
+      }
       if (!mounted || version != _loadVersion) return;
       setState(() {
         _data = data;
@@ -83,7 +127,7 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
         ),
       );
     }
-    final totalMin = (_data['total_min'] as num?)?.toInt() ?? 0;
+    final totalMin = (_data['total_min'] as num).toInt();
     final tags =
         (_data['tags'] as List? ?? const [])
             .whereType<Map>()
@@ -110,12 +154,16 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '时间分配',
-                              style: SlowlightTypography.pageTitle(context),
+                              widget.titleProvidedByShell
+                                  ? '专注时间分配'
+                                  : '时间分配',
+                              style: widget.titleProvidedByShell
+                                  ? SlowlightTypography.cardTitle(context)
+                                  : SlowlightTypography.pageTitle(context),
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              '最近 7 天 · 看见时间实际流向了哪里',
+                              '近 7 天 · 按标签和日期回看真实专注',
                               style: SlowlightTypography.secondary(
                                 context,
                               ).copyWith(
@@ -169,7 +217,23 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
                       final daily = _dailyCard();
                       if (!wide) {
                         return Column(
-                          children: [pie, const SizedBox(height: 14), daily],
+                          children: [
+                            pie,
+                            const SizedBox(height: 14),
+                            daily,
+                            if (widget.onNavigate != null) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FxButton(
+                                  label: '进入专注',
+                                  onPressed: () => unawaited(
+                                    _openDestination(TimeDistributionDestination.focus),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         );
                       }
                       return Row(
@@ -192,31 +256,57 @@ class _TimeDistributionScreenState extends State<TimeDistributionScreen> {
   }
 
   Widget _stats(int totalMin, int tagCount) {
+    final desktop = ResponsiveLayout.isDesktopOrWider(context);
+    final todayMinutes = _todayMinutes();
     return LayoutBuilder(
       builder: (context, constraints) {
         final textScale = MediaQuery.textScalerOf(context).scale(1);
-        final minCellWidth =
-            (190 + (textScale - 1) * 50).clamp(190, 240).toDouble();
+        final minCellWidth = desktop
+            ? (190 + (textScale - 1) * 50).clamp(190, 240).toDouble()
+            : (140 + (textScale - 1) * 50).clamp(140, 190).toDouble();
         final cellWidth = (constraints.maxWidth - 10) / 2;
         final stacked = cellWidth < minCellWidth;
         final cells = [
-          FxStatCell(value: '$totalMin', label: '总专注时长', suffix: ' 分钟'),
-          FxStatCell(value: '$tagCount', label: '覆盖分类', suffix: ' 个'),
+          FxStatCell(
+            value: desktop ? '$totalMin' : (todayMinutes?.toString() ?? '—'),
+            label: desktop ? '总专注时长' : '今日已记录专注',
+            suffix: ' 分钟',
+          ),
+          FxStatCell(
+            value: desktop ? '$tagCount' : (tagCount == 0 ? '—' : '$tagCount'),
+            label: desktop ? '覆盖分类' : '可确认的分类',
+            suffix: desktop ? ' 个' : null,
+          ),
         ];
+
+        Widget cell(int index) {
+          final child = cells[index];
+          if (desktop || widget.onNavigate == null) return child;
+          final destination = index == 0
+              ? TimeDistributionDestination.focus
+              : TimeDistributionDestination.tags;
+          return FxInkWell(
+            key: ValueKey('timedist.kpi.${destination.name}'),
+            borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+            onTap: () => unawaited(_openDestination(destination)),
+            child: Semantics(button: true, child: child),
+          );
+        }
+
         if (stacked) {
           return Column(
             children: [
-              SizedBox(width: double.infinity, child: cells[0]),
+              SizedBox(width: double.infinity, child: cell(0)),
               const SizedBox(height: 8),
-              SizedBox(width: double.infinity, child: cells[1]),
+              SizedBox(width: double.infinity, child: cell(1)),
             ],
           );
         }
         return Row(
           children: [
-            Expanded(child: cells[0]),
+            Expanded(child: cell(0)),
             const SizedBox(width: 10),
-            Expanded(child: cells[1]),
+            Expanded(child: cell(1)),
           ],
         );
       },
