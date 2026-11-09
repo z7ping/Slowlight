@@ -82,17 +82,32 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('FxActionBar 窄屏大字体时动作下移但继续右对齐', (tester) async {
+  for (final width in [320.0, 360.0, 393.0]) {
+    testWidgets('FxActionBar ${width}dp 130% 短操作自然同行', (tester) async {
+      await tester.pumpWidget(
+        buildFxTestHost(
+          home: Scaffold(body: actionBar(width: width, scale: 1.3)),
+        ),
+      );
+      final leading = tester.getRect(find.text('筛选条件'));
+      final action = tester.getRect(find.text('新建任务'));
+      expect((leading.center.dy - action.center.dy).abs(), lessThan(24));
+      expect(action.right, lessThanOrEqualTo(width + 1));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
+  testWidgets('FxActionBar 真正不足时下移并保持右侧锚点', (tester) async {
     await tester.pumpWidget(
       buildFxTestHost(
-        home: Scaffold(body: actionBar(width: 360, scale: 2)),
+        home: Scaffold(body: actionBar(width: 180, scale: 2)),
       ),
     );
-
     final leading = tester.getRect(find.text('筛选条件'));
     final action = tester.getRect(find.text('新建任务'));
     expect(action.top, greaterThanOrEqualTo(leading.bottom));
-    expect(action.center.dx, greaterThan(240));
+    expect(action.center.dx, greaterThan(90));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -142,17 +157,29 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('FxDialogActions 超大字体时仍会自然分行', (tester) async {
+  testWidgets('FxDialogActions 大字体有空间时仍保持同行', (tester) async {
     await tester.pumpWidget(
       buildFxTestHost(
         home: Scaffold(body: dialogActions(width: 380, scale: 2)),
       ),
     );
+    final destructive = tester.getRect(find.text('删除'));
+    final primary = tester.getRect(find.text('保存'));
+    expect((primary.center.dy - destructive.center.dy).abs(), lessThan(24));
+    expect(primary.center.dx, greaterThan(destructive.center.dx));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
+  testWidgets('FxDialogActions 真正拥挤时才折行', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Scaffold(body: dialogActions(width: 160, scale: 2)),
+      ),
+    );
     final destructive = tester.getRect(find.text('删除'));
     final primary = tester.getRect(find.text('保存'));
     expect(primary.top, greaterThanOrEqualTo(destructive.bottom));
-    expect(primary.center.dx, greaterThan(280));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
