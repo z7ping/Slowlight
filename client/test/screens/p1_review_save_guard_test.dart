@@ -938,4 +938,61 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 今日复用原生事件分页，不把首批记录冒充全量', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.reset();
+    });
+    final offsets = <int>[];
+    final now = DateTime.now();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TodayReviewScreen(
+        reflectionRepository: _ControlledReflections(),
+        habitRepository: _NoHabits(),
+        reviewLoader: () async => {
+          'facts': <String, dynamic>{'task_completed': 1},
+          'patterns': <String, dynamic>{},
+          'questions': <Map<String, dynamic>>[],
+        },
+        todayTimelineLoader: (offset) async {
+          offsets.add(offset);
+          return offset == 0
+              ? ReviewPeriodTimeline(
+                  observationCount: 1,
+                  hasMore: true,
+                  items: [
+                    TodayTimelineItem(id: 'task:8', kind: 'task_completed',
+                      title: '第一件事', durationMinutes: 0, occurredAt: now),
+                    TodayTimelineItem(id: 'reflection:9', kind: 'observation',
+                      title: '今日观察全文', durationMinutes: 0, occurredAt: now),
+                  ],
+                )
+              : ReviewPeriodTimeline(
+                  observationCount: 1,
+                  items: [
+                    TodayTimelineItem(id: 'habit:10', kind: 'habit_checked',
+                      title: '读书', durationMinutes: 0, occurredAt: now),
+                  ],
+                );
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(offsets, [0]);
+    expect(find.text('2 条已载入'), findsOneWidget);
+    expect(find.byType(ReviewTimelineItem), findsNWidgets(2));
+    final more = find.widgetWithText(FxButton, '加载更多记录');
+    await tester.ensureVisible(more);
+    tester.widget<FxButton>(more).onPressed?.call();
+    await tester.pumpAndSettle();
+    expect(offsets, [0, 2]);
+    expect(find.byType(ReviewTimelineItem), findsNWidgets(3));
+    expect(find.widgetWithText(FxButton, '加载更多记录'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
