@@ -80,8 +80,17 @@ func (h *Handler) SaveConfig(c *gin.Context) {
 		return
 	}
 
-	if req.BaseURL == "" || req.Username == "" || req.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "base_url, username, password 不能为空"})
+	if req.BaseURL == "" || req.Username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "base_url, username 不能为空"})
+		return
+	}
+
+	// A blank password may reuse an authenticated user's existing secret, but
+	// never across changed server origins or usernames.
+	var existing model.UserConfig
+	h.DB.Where("user_id = ? AND key = ?", userID, "caldav").First(&existing)
+	if err := resolveCalDAVPassword(&req, existing.Value); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -103,8 +112,6 @@ func (h *Handler) SaveConfig(c *gin.Context) {
 		Value:  configValue,
 	}
 
-	var existing model.UserConfig
-	h.DB.Where("user_id = ? AND key = ?", userID, "caldav").First(&existing)
 	if existing.ID != 0 {
 		config.ID = existing.ID
 	}
@@ -159,6 +166,15 @@ func (h *Handler) Test(c *gin.Context) {
 		return
 	}
 
+	if req.Password == "" {
+		var existing model.UserConfig
+		h.DB.Where("user_id = ? AND key = ?", c.GetUint("userID"), "caldav").First(&existing)
+		if err := resolveCalDAVPassword(&req, existing.Value); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"connected": false, "error": err.Error()})
+			return
+		}
+	}
+
 	client, _, err := newCalDAVClient(req.BaseURL, req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"connected": false, "error": err.Error()})
@@ -192,6 +208,30 @@ func (h *Handler) Test(c *gin.Context) {
 		"query_ok":  false,
 		"error":     "未配置项目路径",
 	})
+}
+
+// resolveCalDAVPassword never sends a stored secret back to the client.
+// For edited settings, server URL and username must match the original config.
+func resolveCalDAVPassword(req *ConfigRequest, existingJSON string) error {
+	if req.Password != "" {
+		return nil
+	}
+	var previous struct {
+		BaseURL string `json:"base_url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if existingJSON == "" || json.Unmarshal([]byte(existingJSON), &previous) != nil ||
+		previous.BaseURL != req.BaseURL || previous.Username != req.Username ||
+		previous.Password == "" {
+		return fmt.Errorf("首次配置或更换服务器/用户名时必须输入密码或访问令牌")
+	}
+	secret, err := secureconfig.Decrypt(previous.Password)
+	if err != nil || secret == "" {
+		return fmt.Errorf("已存凭据不可用，请重新输入密码或访问令牌")
+	}
+	req.Password = secret
+	return nil
 }
 
 // ===== 内部工具 =====
