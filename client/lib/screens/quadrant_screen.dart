@@ -762,7 +762,10 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
               : SlowlightControlSize.minTouchTarget,
         ),
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: compact ? 2 : 7, horizontal: 2),
+          padding: EdgeInsets.symmetric(
+            vertical: quadrantPreview ? 0 : (compact ? 2 : 7),
+            horizontal: quadrantPreview ? 0 : 2,
+          ),
           child: Row(
             children: [
               if (quadrantPreview)
