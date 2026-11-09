@@ -37,6 +37,12 @@ class _FeishuScreenState extends State<FeishuScreen> {
   bool _isSyncingCalendar = false;
   bool _isLoadingCalendars = false;
   bool _showSecret = false;
+  bool _editingConfiguration = false;
+  bool _guideExpanded = false;
+  bool _confirmingExit = false;
+  bool _exitApproved = false;
+  String _savedAppId = '';
+  String _savedTableUrl = '';
   String? _loadError;
   List<dynamic> _calendars = [];
   String? _selectedCalendarId;
@@ -51,6 +57,49 @@ class _FeishuScreenState extends State<FeishuScreen> {
       mounted && version == _sourceVersion && _cloud == wasCloud;
 
   bool get _cloud => DataModeManager().isCloud;
+
+  bool get _tablesReady =>
+      _isConfigured && _tableUrlController.text.trim().isNotEmpty &&
+      _tables.isNotEmpty;
+
+  bool _hasTable(String name) =>
+      _tablesReady && (_tables[name]?.toString().isNotEmpty ?? false);
+
+  bool get _canSyncAll =>
+      const ['任务表', '番茄钟表', '休息提醒表', '标签表'].every(_hasTable);
+
+  bool get _hasConfigurationDraft =>
+      _appIdController.text.trim() != _savedAppId ||
+      _tableUrlController.text.trim() != _savedTableUrl ||
+      _appSecretController.text.isNotEmpty;
+
+  bool get _hasPendingCredentialChanges =>
+      _appIdController.text.trim() != _savedAppId ||
+      _appSecretController.text.isNotEmpty;
+
+  void _leaveAfterFrame() {
+    if (!mounted || _exitApproved) return;
+    setState(() => _exitApproved = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
+  Future<void> _confirmDiscardAndLeave() async {
+    if (_confirmingExit) return;
+    _confirmingExit = true;
+    try {
+      final confirmed = await FxDialog.confirm(
+        context: context,
+        title: '放弃飞书配置修改？',
+        content: '未保存的应用标识、密钥和表格链接将丢失。',
+        confirmText: '放弃修改',
+      );
+      if (confirmed == true && mounted) _leaveAfterFrame();
+    } finally {
+      _confirmingExit = false;
+    }
+  }
 
   /// 所有可能修改外部平台数据的操作共用互斥门禁。
   /// 避免「同步全部」与单项同步/导入/创建模板同时提交。
@@ -78,6 +127,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   void _onDataModeChanged() {
     if (!mounted) return;
     final oldWritePending = _busyWithFeishu;
+    final oldDraftPending = _hasConfigurationDraft;
     ++_sourceVersion;
     ++_configReadVersion;
     ++_calendarReadVersion;
@@ -102,11 +152,15 @@ class _FeishuScreenState extends State<FeishuScreen> {
       _selectedCalendarId = null;
       _tables = {};
       _showSecret = false;
+      _editingConfiguration = false;
+      _savedAppId = '';
+      _savedTableUrl = '';
       _appIdController.clear();
       _appSecretController.clear();
       _tableUrlController.clear();
     });
     _loadConfig();
+    if (oldDraftPending) _showWarning('数据模式已切换，未保存的飞书配置草稿已丢弃。');
     if (oldWritePending) {
       _showWarning('数据模式已切换。上一个模式的飞书操作结果未确认，'
           '请先核对飞书记录，避免重复提交。');
@@ -126,6 +180,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
         _isConfigured = config['configured'] == true;
         _appIdController.text = config['app_id']?.toString() ?? '';
         _tableUrlController.text = config['table_url']?.toString() ?? '';
+        _savedAppId = _appIdController.text.trim();
+        _savedTableUrl = _tableUrlController.text.trim();
+        _editingConfiguration = false;
         _tables = Map<String, dynamic>.from(config['tables'] ?? const {});
         _loadError = null;
         _isLoading = false;
@@ -180,6 +237,9 @@ class _FeishuScreenState extends State<FeishuScreen> {
     }
     final source = _sourceVersion;
     final wasCloud = _cloud;
+    final nextAppId = _appIdController.text.trim();
+    final nextTableUrl = _tableUrlController.text.trim();
+    final mappingChanged = nextAppId != _savedAppId || nextTableUrl != _savedTableUrl;
     setState(() => _isSaving = true);
     try {
       await _integration.save(
@@ -193,10 +253,14 @@ class _FeishuScreenState extends State<FeishuScreen> {
       if (!_sameSource(source, wasCloud)) return;
       setState(() {
         _isConfigured = true;
+        if (mappingChanged) _tables = {};
+        _savedAppId = nextAppId;
+        _savedTableUrl = nextTableUrl;
+        _editingConfiguration = false;
         _appSecretController.clear();
         _showSecret = false;
       });
-      _showSuccess('配置已安全保存');
+      _showSuccess(_tablesReady ? '应用凭据已保存' : '应用凭据已保存，请继续创建或绑定数据表');
       if (wasCloud) await _loadCalendars();
     } catch (error) {
       if (_sameSource(source, wasCloud)) _showError('保存失败：$error');
@@ -208,7 +272,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _createTemplate() async {
-    if (_busyWithFeishu) return;
+    if (_busyWithFeishu || !_isConfigured) return;
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '创建飞书数据模板',
@@ -225,7 +289,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
       final tableUrl =
           result['bitable_url']?.toString() ?? result['table_url']?.toString();
       setState(() {
-        if (tableUrl?.isNotEmpty == true) _tableUrlController.text = tableUrl!;
+        if (tableUrl?.isNotEmpty == true) {
+          _tableUrlController.text = tableUrl!;
+          _savedTableUrl = tableUrl;
+        }
         _tables = Map<String, dynamic>.from(result['tables'] ?? _tables);
       });
       _showSuccess('模板创建成功，表格链接已填入');
@@ -239,10 +306,15 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _connectExisting() async {
-    if (_busyWithFeishu) return;
+    if (_busyWithFeishu || !_isConfigured) return;
+    if (_hasPendingCredentialChanges) {
+      _showError('应用凭据有未保存的修改，请先保存配置');
+      return;
+    }
     final url = _tableUrlController.text.trim();
     if (url.isEmpty) {
-      _showError('请先填写飞书多维表格链接');
+      setState(() => _editingConfiguration = true);
+      _showError('请先在连接配置中填写飞书多维表格链接');
       return;
     }
     final source = _sourceVersion;
@@ -254,6 +326,8 @@ class _FeishuScreenState extends State<FeishuScreen> {
       setState(() {
         _tables = Map<String, dynamic>.from(result['tables'] ?? const {});
         _isConfigured = true;
+        _savedTableUrl = url;
+        _editingConfiguration = false;
       });
       final allTables = (result['all_tables'] as List?)?.length;
       _showSuccess(
@@ -269,7 +343,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _syncAll() async {
-    if (_busyWithFeishu || !_isConfigured) return;
+    if (_busyWithFeishu || !_canSyncAll) return;
     final source = _sourceVersion;
     final wasCloud = _cloud;
     setState(() => _isSyncingAll = true);
@@ -310,6 +384,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
     start: () => _isSyncing = true,
     finish: () => _isSyncing = false,
     action: _integration.syncTasks,
+    requiredTable: '任务表',
     fallback: '任务同步完成',
     failure: '任务同步失败',
   );
@@ -318,6 +393,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
     start: () => _isSyncingSessions = true,
     finish: () => _isSyncingSessions = false,
     action: _integration.syncSessions,
+    requiredTable: '番茄钟表',
     fallback: '专注记录同步完成',
     failure: '专注记录同步失败',
   );
@@ -326,6 +402,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
     start: () => _isSyncingReminders = true,
     finish: () => _isSyncingReminders = false,
     action: _integration.syncReminders,
+    requiredTable: '休息提醒表',
     fallback: '休息记录同步完成',
     failure: '休息记录同步失败',
   );
@@ -334,6 +411,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
     start: () => _isSyncingTags = true,
     finish: () => _isSyncingTags = false,
     action: _integration.syncTags,
+    requiredTable: '标签表',
     fallback: '标签同步完成',
     failure: '标签同步失败',
   );
@@ -342,6 +420,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
     start: () => _isImporting = true,
     finish: () => _isImporting = false,
     action: _integration.importData,
+    requiredTable: '任务表',
     fallback: '飞书数据导入完成',
     failure: '导入失败',
   );
@@ -350,10 +429,11 @@ class _FeishuScreenState extends State<FeishuScreen> {
     required VoidCallback start,
     required VoidCallback finish,
     required Future<Map<String, dynamic>> Function() action,
+    required String requiredTable,
     required String fallback,
     required String failure,
   }) async {
-    if (_busyWithFeishu || !_isConfigured) return;
+    if (_busyWithFeishu || !_hasTable(requiredTable)) return;
     final source = _sourceVersion;
     final wasCloud = _cloud;
     setState(start);
@@ -370,7 +450,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
   }
 
   Future<void> _syncToCalendar() async {
-    if (_busyWithFeishu || !_isConfigured) return;
+    if (_busyWithFeishu || !_isConfigured || !_cloud) return;
     if (_selectedCalendarId == null) {
       _showError('请先选择一个飞书日历');
       return;
@@ -407,11 +487,21 @@ class _FeishuScreenState extends State<FeishuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: _exitApproved,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        if (_hasConfigurationDraft) {
+          _confirmDiscardAndLeave();
+        } else {
+          _leaveAfterFrame();
+        }
+      },
+      child: Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            const FxPageHeader(title: '飞书集成'),
+            const FxPageHeader(title: '飞书多维表格'),
             Expanded(
               child:
                   _isLoading
@@ -422,6 +512,7 @@ class _FeishuScreenState extends State<FeishuScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
