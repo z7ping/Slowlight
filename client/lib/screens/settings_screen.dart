@@ -769,42 +769,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       required Widget leading,
       required Widget content,
       Widget? trailing,
-    }) => LayoutBuilder(
-      builder: (context, constraints) {
-        final stack = trailing != null &&
-            (constraints.maxWidth < 520 ||
-                MediaQuery.textScalerOf(context).scale(1) >= 1.6);
-        if (stack) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  leading,
-                  const SizedBox(width: 14),
-                  Expanded(child: content),
-                ],
+    }) {
+      // Give the actual content its remaining width. The old 520dp /
+      // font-scale switch moved short buttons onto a separate row even
+      // when the text could wrap harmlessly within the left column.
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          leading,
+          const SizedBox(width: 14),
+          Expanded(child: content),
+          if (trailing != null) ...[
+            const SizedBox(width: 16),
+            if (trailing is FxButton)
+              trailing
+            else
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: trailing,
+                ),
               ),
-              const SizedBox(height: 14),
-              Align(alignment: Alignment.centerRight, child: trailing),
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            leading,
-            const SizedBox(width: 14),
-            Expanded(child: content),
-            if (trailing != null) ...[
-              const SizedBox(width: 16),
-              trailing,
-            ],
           ],
-        );
-      },
-    );
+        ],
+      );
+    }
 
     Widget dataModeCard() => sectionCard(
       title: '数据模式',
@@ -2393,11 +2382,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
-        // 根据该设置行的真实内容宽度折行，不读取整机屏幕宽度。
-        final stackTrailing =
-            trailing != null &&
-            (constraints.maxWidth < 360 ||
-                (scale >= 1.6 && constraints.maxWidth < 520));
+        // Keep short actions on the same row; allow the description to
+        // wrap inside its remaining width instead of stacking at 360dp.
+        // Only truly tiny containers (three touch targets wide) stack.
+        final stackTrailing = trailing != null &&
+            constraints.maxWidth < 3 * SlowlightControlSize.minTouchTarget;
         final copy = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2437,7 +2426,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Expanded(child: copy),
                     const SizedBox(width: 10),
-                    trailing,
+                    if (trailing is FxButton)
+                      trailing
+                    else
+                      Flexible(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: trailing,
+                        ),
+                      ),
                   ],
                 ),
         );
