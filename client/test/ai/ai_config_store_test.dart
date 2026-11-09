@@ -23,6 +23,25 @@ class FakeSecretStore implements AiSecretStore {
   }
 }
 
+class FakeProfileSecrets implements AiProfileSecretStore {
+  final values = <String, String>{};
+  bool failWrite = false;
+
+  @override
+  Future<String?> read(String id) async => values[id];
+
+  @override
+  Future<void> write(String id, String key) async {
+    if (failWrite) throw StateError('blocked');
+    values[id] = key;
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    values.remove(id);
+  }
+}
+
 class _FailingConfigStore extends AiConfigStore {
   _FailingConfigStore({required super.secrets});
 
@@ -130,6 +149,95 @@ void main() {
     expect(await store.loadApiKey(AiProviderType.compatible), isNull);
     expect(AiProviderType.compatible.apiKeyRequired, false);
     expect(AiProviderType.ollama.apiKeyRequired, false);
+  });
+
+  test('v1 settings become one legacy profile without losing its credential', () async {
+    final secrets = FakeSecretStore();
+    final store = AiConfigStore(secrets: secrets,
+        profileSecrets: FakeProfileSecrets());
+    await store.save(const AiConfig(
+      enabled: true, provider: AiProviderType.openai,
+      model: 'existing', endpoint: 'https://api.openai.com/v1',
+    ));
+    await secrets.write(AiProviderType.openai, 'old-key');
+    final catalog = await store.loadCatalog();
+    expect(catalog.profiles.length, 1);
+    expect(catalog.activeId, 'legacy');
+    expect(catalog.enabled, true);
+    expect(await store.loadProfileKey(catalog.active!), 'old-key');
+    expect((await store.load()).model, 'existing');
+  });
+
+  test('same provider profiles have separate keys and only active config loads', () async {
+    final secrets = FakeProfileSecrets();
+    final store = AiConfigStore(
+      secrets: FakeSecretStore(), profileSecrets: secrets,
+    );
+    const a = AiProfile(
+      id: 'a', name: 'Local', config: AiConfig(
+        provider: AiProviderType.openai, endpoint: 'https://one.test/v1', model: 'a',
+      ),
+    );
+    const b = AiProfile(
+      id: 'b', name: 'Backup', config: AiConfig(
+        provider: AiProviderType.openai, endpoint: 'https://two.test/v1', model: 'b',
+      ),
+    );
+    await store.saveCatalog(const AiProfileCatalog(
+      profiles: [a,b], activeId: 'a', enabled: true,
+    ), secretProfile: a, newApiKey: 'secret-one');
+    await store.saveCatalog(const AiProfileCatalog(
+      profiles: [a,b], activeId: 'a', enabled: true,
+    ), secretProfile: b, newApiKey: 'secret-two');
+    expect((await store.load()).model, 'a');
+    expect(await store.loadApiKey(AiProviderType.openai), 'secret-one');
+    await store.saveCatalog(const AiProfileCatalog(
+      profiles: [a,b], activeId: 'b', enabled: true,
+    ));
+    expect((await store.load()).model, 'b');
+    expect(await store.loadApiKey(AiProviderType.openai), 'secret-two');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('slowlight.ai.profiles.v1'), isNot(contains('secret-one')));
+    expect(prefs.getString('slowlight.ai.profiles.v1'), isNot(contains('secret-two')));
+  });
+
+  test('removing active profile disables AI instead of activating another', () async {
+    final secrets = FakeProfileSecrets();
+    final store = AiConfigStore(
+      secrets: FakeSecretStore(), profileSecrets: secrets,
+    );
+    const a = AiProfile(
+      id: 'one', name: 'One', config: AiConfig(model:'one'),
+    );
+    const b = AiProfile(
+      id: 'two', name: 'Two', config: AiConfig(model:'two'),
+    );
+    await store.saveCatalog(const AiProfileCatalog(
+      profiles:[a,b], activeId:'one', enabled:true,
+    ), secretProfile:a, newApiKey:'one-key');
+    await store.saveCatalog(const AiProfileCatalog(
+      profiles:[b], activeId:null, enabled:false,
+    ), deletedProfile:a);
+    final catalog = await store.loadCatalog();
+    expect(catalog.activeId, isNull);
+    expect(catalog.enabled, false);
+    expect((await store.load()).enabled, false);
+    expect(secrets.values.containsKey('one'), false);
+  });
+
+  test('credential failure cannot publish a new active profile', () async {
+    final secrets = FakeProfileSecrets()..failWrite = true;
+    final store = AiConfigStore(
+      secrets: FakeSecretStore(), profileSecrets: secrets,
+    );
+    const selected = AiProfile(
+      id:'p1', name:'Test', config:AiConfig(model:'test'),
+    );
+    await expectLater(store.saveCatalog(const AiProfileCatalog(
+      profiles:[selected], activeId:'p1', enabled:true,
+    ), secretProfile:selected, newApiKey:'secret'), throwsStateError);
+    expect((await store.load()).enabled, false);
+    expect((await store.loadCatalog()).profiles.single.id, 'legacy');
   });
 
 }

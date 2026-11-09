@@ -123,6 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _restPanelVisible = false;
   AiConfig _ai = const AiConfig();
   bool _hasKey = false;
+  bool _aiNoActive = false;
   bool _aiKeyChecked = false;
   int _conflictCount = 0;
   // 首次查询完成前不能把未知冲突状态宣称为正常。
@@ -138,9 +139,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _open = widget.initialSection;
-    _openedAsDeepLink = widget.initialSection != 'appearance';
+    final openAiDirectly = widget.initialSection == 'ai';
+    _open = openAiDirectly ? 'appearance' : widget.initialSection;
+    _openedAsDeepLink = !openAiDirectly &&
+        widget.initialSection != 'appearance';
     _mobileDetail = _openedAsDeepLink;
+    if (openAiDirectly) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openAiSettings();
+      });
+    }
     _reminder.addListener(_reminderChanged);
     authStateNotifier.addListener(_authenticationChanged);
     DataModeManager().addListener(_authenticationChanged);
@@ -215,10 +223,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final key = widget.aiConfigLoader == null
           ? await _aiStore.loadApiKey(ai.provider)
           : null;
+      final catalog = widget.aiConfigLoader == null
+          ? await _aiStore.loadCatalog() : null;
       if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _ai = ai;
         _hasKey = key?.isNotEmpty == true;
+        _aiNoActive = catalog != null && catalog.active == null;
         _aiKeyChecked = widget.aiConfigLoader == null;
         _loadingAi = false;
       });
@@ -1429,6 +1440,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   };
 
   void _openSection(String id) {
+    if (id == 'ai') {
+      _openAiSettings();
+      return;
+    }
     if (id == 'diagnostics') {
       Navigator.push(context,
           MaterialPageRoute(builder: (_) => const DiagnosticsScreen()));
@@ -1604,6 +1619,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _aiSummary() {
     if (_loadingAi) return '正在读取…';
     if (_aiLoadError != null) return '配置读取失败';
+    if (_aiNoActive) return '未选择配置 · AI 已关闭';
     if (!_ai.enabled) return '${_ai.provider.label} · 未启用';
     return '${_ai.provider.label} · ${_hasKey || !_ai.provider.apiKeyRequired ? '已配置' : '缺少密钥'}';
   }
@@ -2055,6 +2071,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // endpoint is not evidence of a successful or even attempted network call.
   // Only the origin is rendered: credentials and query parameters never enter UI.
   String _privacyAiTarget() {
+    if (_aiNoActive) return '尚未选择 AI 接口';
     final target = _ai.effectiveEndpoint;
     final uri = Uri.tryParse(target);
     if (uri == null ||
@@ -2115,7 +2132,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? '正在读取当前模型设置…'
         : _aiLoadError != null
             ? '配置读取失败，无法确认请求目标。'
-            : '${_ai.enabled ? "已启用" : "未启用"} · ${_ai.provider.label}\n配置目标：${_privacyAiTarget()}';
+            : _aiNoActive
+                ? 'AI 已关闭 · 尚未选择当前配置。'
+                : '${_ai.enabled ? "已启用" : "未启用"} · ${_ai.provider.label}\n配置目标：${_privacyAiTarget()}';
     final githubDetail = local
         ? '本地模式不读取云端 GitHub 绑定。'
         : _checkingGitHub
@@ -2129,8 +2148,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? '正在读取当前服务商密钥状态…'
         : _aiLoadError != null || !_aiKeyChecked
             ? '密钥状态未确认。'
-            : _hasKey
-                ? '当前服务商密钥已保存在系统安全存储，不显示明文。'
+            : _aiNoActive
+                ? '尚未选择当前配置。'
+                : _hasKey
+                    ? '当前服务商密钥已保存在系统安全存储，不显示明文。'
                 : '当前服务商没有已保存的密钥。';
 
     return Column(

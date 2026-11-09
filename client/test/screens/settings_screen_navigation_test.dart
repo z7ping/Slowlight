@@ -18,6 +18,22 @@ void main() {
     SharedPreferences.setMockInitialValues({'user_data': 'invalid-data'});
   });
 
+  testWidgets('Android AI 服务分类一次点击直接进入多配置编辑', (tester) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(),
+    ));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('settings.category.ai')));
+    await tester.pump();
+    expect(find.byType(AiSettingsScreen), findsOneWidget);
+    expect(find.text('配置 AI 服务'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('P17 编辑外观时，休息时钟事件不重建整个设置页', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1250, 850);
