@@ -88,7 +88,9 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       _usernameController.text.trim() == _savedUsername;
 
   Future<void> _loadConfig() async {
-    if (mounted) setState(() { _loading = true; _configReadFailed = false; });
+    if (mounted && !_loading) {
+      setState(() { _loading = true; _configReadFailed = false; });
+    }
     try {
       final config = await ApiService.getCalDAVConfig();
       if (!mounted) return;
@@ -144,6 +146,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Future<void> _testConnection() async {
+    if (_saving || _testing || _syncing) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -209,6 +212,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Future<void> _saveConfig() async {
+    if (_saving || _testing || _syncing) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -531,12 +535,12 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                 actions: [
                   FxButton(
                     label: '测试连接',
-                    onPressed: _testing || _saving ? null : _testConnection,
+                    onPressed: _testing || _saving || _syncing ? null : _testConnection,
                     variant: FxButtonVariant.outline,
                   ),
                   FxButton(
                     label: '保存配置',
-                    onPressed: _testing || _saving ? null : _saveConfig,
+                    onPressed: _testing || _saving || _syncing ? null : _saveConfig,
                   ),
                 ],
               ),
