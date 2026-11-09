@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/migration_history_dialog.dart';
@@ -17,6 +18,8 @@ void main() {
   });
 
   testWidgets('迁移历史弹窗可以从根导航正常打开和关闭', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     await tester.pumpWidget(
       buildFxTestHost(
         home: Builder(
@@ -47,4 +50,38 @@ void main() {
     expect(find.byType(ModalBarrier), findsNWidgets(barrierBaseline));
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('Android 迁移历史使用独立二级页而非大型弹窗', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FxButton(
+              label: '打开历史',
+              onPressed: () => MigrationHistoryDialog.show(context),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开历史'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(MigrationHistoryDialog), findsOneWidget);
+    expect(find.byType(ShadDialog), findsNothing);
+    expect(find.byType(FxPageHeader), findsOneWidget);
+    expect(find.text('历史来源'), findsOneWidget);
+
+    await tester.tap(find.byWidgetPredicate(
+      (widget) => widget is FxIconButton && widget.tooltip == '返回',
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(MigrationHistoryDialog), findsNothing);
+    await disposeFxTestHost(tester);
+  });
+
 }

@@ -18,17 +18,32 @@ String migrationHistoryStatusLabel(Object? status) => switch (status) {
 };
 
 class MigrationHistoryDialog extends StatefulWidget {
-  const MigrationHistoryDialog({super.key});
+  const MigrationHistoryDialog({super.key, this.fullScreen = false});
 
-  static Future<void> show(BuildContext context) => FxDialog.show<void>(
-    context: context,
-    width: 720,
-    title: '迁移历史',
-    description: '本机留痕与云端审计分开保存，不会跨模式读取。',
-    // The dialog already has an explicit footer close action.
-    showCloseButton: false,
-    child: const MigrationHistoryDialog(),
-  );
+  final bool fullScreen;
+
+  static Future<void> show(BuildContext context) async {
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => const Scaffold(
+            body: SafeArea(
+              child: MigrationHistoryDialog(fullScreen: true),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    await FxDialog.show<void>(
+      context: context,
+      width: 720,
+      title: '迁移历史',
+      description: '本机留痕与云端审计分开保存，不会跨模式读取。',
+      showCloseButton: false,
+      child: const MigrationHistoryDialog(),
+    );
+  }
 
   @override
   State<MigrationHistoryDialog> createState() => _MigrationHistoryDialogState();
@@ -48,6 +63,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
   @override
   Widget build(BuildContext context) {
     final cloudMode = DataModeManager().isCloud;
+    if (widget.fullScreen) return _mobilePage(context, cloudMode);
     final theme = Theme.of(context);
     return SizedBox(
       width: 660,
@@ -86,7 +102,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Center(child: FxCircularProgress());
                 }
-                if (snapshot.hasError) return _errorState(snapshot.error);
+                if (snapshot.hasError) return _errorState();
                 final reports = snapshot.data ?? const [];
                 if (reports.isEmpty) return _emptyState();
                 return ListView.separated(
@@ -129,7 +145,159 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
     );
   }
 
-  Widget _errorState(Object? error) {
+
+  /// Android history is a normal secondary page; desktop keeps its dialog.
+  /// A SliverList preserves lazy report rendering without a tall empty panel.
+  Widget _mobilePage(BuildContext context, bool cloudMode) {
+    final theme = Theme.of(context);
+    final hint = _source == 'local'
+        ? '本机失败记录仅核对原始云端回执，不会再次导入。'
+        : '云端审计不包含原始用户内容或应用密钥。';
+
+    return Column(
+      children: [
+        const FxPageHeader(title: '迁移历史', centerTitle: true),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.xxxl,
+            ),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _reports,
+              builder: (context, snapshot) {
+                final slivers = <Widget>[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: SlowlightSpacing.xxxl,
+                        bottom: SlowlightSpacing.xl,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '历史来源',
+                            style: SlowlightTypography.caption(context).copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: SlowlightSpacing.md),
+                          if (cloudMode)
+                            FxSegmented(
+                              labels: const ['云端审计', '本机记录'],
+                              selectedIndex: _source == 'cloud' ? 0 : 1,
+                              onChanged: (index) {
+                                final selected =
+                                    index == 0 ? 'cloud' : 'local';
+                                if (_source == selected) return;
+                                _source = selected;
+                                _reload();
+                              },
+                            )
+                          else
+                            const FxChip(
+                              label: '当前仅查看本机记录',
+                              variant: FxChipVariant.secondary,
+                            ),
+                          const SizedBox(height: SlowlightSpacing.md),
+                          Text(
+                            '本机留痕与云端审计分开保存，不会跨模式读取。',
+                            style: SlowlightTypography.caption(context).copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ];
+                if (snapshot.connectionState != ConnectionState.done) {
+                  slivers.add(
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(SlowlightSpacing.page),
+                        child: Center(child: FxCircularProgress()),
+                      ),
+                    ),
+                  );
+                } else if (snapshot.hasError) {
+                  slivers.add(
+                    SliverToBoxAdapter(
+                      child: FxCard(
+                        expanded: true,
+                        padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+                        child: _errorState(),
+                      ),
+                    ),
+                  );
+                } else {
+                  final reports = snapshot.data ?? const [];
+                  if (reports.isEmpty) {
+                    slivers.add(
+                      SliverToBoxAdapter(
+                        child: FxCard(
+                          expanded: true,
+                          padding: EdgeInsets.zero,
+                          child: FxEmptyState(
+                            icon: LucideIcons.history,
+                            title: _source == 'local'
+                                ? '还没有本机迁移记录'
+                                : '还没有云端审计记录',
+                            subtitle: '完成一次迁移后，时间、策略与结果会显示在这里。',
+                            emojiSize: SlowlightIconSize.xl,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: SlowlightSpacing.xxxl,
+                              vertical: SlowlightSpacing.page,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  } else {
+                    slivers.add(
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: SlowlightSpacing.md,
+                            ),
+                            child: _report(reports[index]),
+                          ),
+                          childCount: reports.length,
+                        ),
+                      ),
+                    );
+                  }
+                }
+                slivers.add(
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: SlowlightSpacing.xl,
+                      ),
+                      child: Text(
+                        hint,
+                        style: SlowlightTypography.caption(context).copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+                return CustomScrollView(
+                  key: ValueKey('migration-history-' + _source),
+                  slivers: slivers,
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _errorState() {
     final theme = Theme.of(context);
     return Center(
       child: Column(
@@ -143,7 +311,7 @@ class _MigrationHistoryDialogState extends State<MigrationHistoryDialog> {
           ),
           const SizedBox(height: 4),
           Text(
-            '$error',
+            '请检查连接后重新加载。',
             textAlign: TextAlign.center,
             style: SlowlightTypography.caption(
               context,

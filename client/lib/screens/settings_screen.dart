@@ -1863,6 +1863,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _dataManagementPanel() {
     final local = DataModeManager().isLocal;
     final theme = Theme.of(context);
+    final android = theme.platform == TargetPlatform.android;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1875,42 +1876,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _setDataMode,
           ),
         ),
-        if (_switchingMode)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text('正在切换数据模式…',
+        if (_switchingMode) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          Text('正在切换数据模式…',
               style: SlowlightTypography.caption(context)),
-          ),
-        const SizedBox(height: 12),
+        ],
+        const SizedBox(height: SlowlightSpacing.xl),
         Text(
           local
-              ? '当前记录从本机数据库读写。切换不会自动上传或合并本地记录。'
-              : '当前记录以云端数据为准，本机保留离线缓存。切换不会自动导入本地记录。',
+              ? '当前使用本机数据库，记录仅保存在此设备。'
+              : '当前以云端账号数据为准，本机保留离线缓存。',
           style: SlowlightTypography.secondary(context).copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 20),
-        _settingLine(
-          '数据迁移',
-          '先预览本机记录及冲突，再确认迁移',
-          trailing: FxButton(
-            label: '预览迁移',
-            variant: FxButtonVariant.outline,
-            size: FxButtonSize.sm,
-            onPressed: () => MigrationPreviewDialog.show(context),
+        const SizedBox(height: SlowlightSpacing.xl),
+        FxCard(
+          expanded: true,
+          color: theme.colorScheme.surfaceContainerLow,
+          padding: const EdgeInsets.all(SlowlightSpacing.xl),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(LucideIcons.info,
+                  size: SlowlightIconSize.sm,
+                  color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: SlowlightSpacing.md),
+              Expanded(
+                child: Text(
+                  '切换模式不会自动上传、下载、合并或删除记录。',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        _settingLine(
-          '迁移历史',
-          '查看历史迁移时间、策略和结果',
-          trailing: FxButton(
-            label: '查看历史',
-            variant: FxButtonVariant.outline,
-            size: FxButtonSize.sm,
-            onPressed: () => MigrationHistoryDialog.show(context),
+        const SizedBox(height: SlowlightSpacing.page),
+        if (android) ...[
+          _label('迁移与记录'),
+          FxCard(
+            expanded: true,
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                FxListTile(
+                  density: FxListTileDensity.detailed,
+                  leading: const Icon(LucideIcons.arrowLeftRight),
+                  title: '数据迁移',
+                  subtitle: '先核对本机记录与冲突，再决定迁移',
+                  trailing: const Icon(LucideIcons.chevronRight),
+                  onTap: () => MigrationPreviewDialog.show(context),
+                ),
+                FxSeparator.horizontal(height: 1),
+                FxListTile(
+                  density: FxListTileDensity.detailed,
+                  leading: const Icon(LucideIcons.history),
+                  title: '迁移历史',
+                  subtitle: '查看时间、处理策略及结果',
+                  trailing: const Icon(LucideIcons.chevronRight),
+                  onTap: () => MigrationHistoryDialog.show(context),
+                ),
+              ],
+            ),
           ),
-        ),
+        ] else ...[
+          _settingLine(
+            '数据迁移',
+            '先核对本机记录与冲突，再决定迁移',
+            trailing: FxButton(
+              label: '预览迁移',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: () => MigrationPreviewDialog.show(context),
+            ),
+          ),
+          _settingLine(
+            '迁移历史',
+            '查看时间、处理策略及结果',
+            trailing: FxButton(
+              label: '查看历史',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: () => MigrationHistoryDialog.show(context),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -2386,12 +2438,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context: context,
         title: toLocal ? '切换为本地数据？' : '切换为云端数据？',
         confirmText: '确认切换',
+        mobilePairedActions: true,
         content: toLocal
-            ? '切换后将读取本设备的本地数据库，不再显示云端记录。'
-                '这不会把云端记录下载或合并到本地，也不会删除任何现有数据。'
-            : '切换后将读取云端账号中的数据，本地记录不会自动上传或合并。'
-                '如需导入已有本地记录，请使用「数据迁移」先预览和处理冲突。'
-                '原本的本地数据不会删除。',
+            ? '切换后将读取此设备的本地记录，云端记录暂时不再显示。'
+            : '切换后将读取云端账号中的记录，本地独立保存的记录暂时不再显示。',
+        supportingText: toLocal
+            ? '仅改变当前数据来源，不自动迁移、合并或删除记录。'
+            : '仅改变当前数据来源，不自动迁移、合并或删除记录。实际使用云端数据需要有效登录。',
       );
     } finally {
       _confirmingModeSwitch = false;
