@@ -65,6 +65,49 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('Android 360dp 单一设置图标与标题同行（文字缩放 ${scale}x）',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        buildFxTestHost(
+          theme: AppTheme.lightTheme(),
+          home: Scaffold(
+            body: MediaQuery(
+              data: MediaQueryData(
+                size: const Size(360, 800),
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: FxPageHeader(
+                title: '专注',
+                trailing: FxIconButton(
+                  icon: Icons.settings,
+                  tooltip: '专注设置',
+                  onPressed: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final header = tester.getRect(find.byType(FxPageHeader));
+      final title = tester.getRect(find.text('专注'));
+      final settings = tester.getRect(find.byIcon(Icons.settings));
+      expect((title.center.dy - settings.center.dy).abs(), lessThan(20));
+      expect(settings.center.dx, greaterThan(title.center.dx));
+      expect(header.height, lessThan(92));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('FxPageHeader 大字体时右侧动作下移并保持右对齐', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
