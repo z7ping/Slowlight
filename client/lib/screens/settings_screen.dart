@@ -2030,19 +2030,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
-            _settingLine(
-              '平台集成',
-              '连接飞书多维表格，管理已支持的同步范围',
-              trailing: FxButton(
-                label: '打开飞书',
-                size: FxButtonSize.sm,
-                variant: FxButtonVariant.outline,
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const FeishuScreen(),
-                  ),
-                ),
+            FxListTile(
+              key: const ValueKey('settings.sync.feishu'),
+              density: FxListTileDensity.detailed,
+              title: '飞书多维表格',
+              subtitle: '连接配置、数据表与分类同步',
+              trailing: const Icon(LucideIcons.chevronRight, size: 18),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FeishuScreen()),
               ),
             ),
           ],
