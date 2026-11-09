@@ -185,7 +185,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     if (_filter != value && mounted) setState(() => _filter = value);
   }
 
-  void createHabit() => _createHabit();
+  void createHabit() { unawaited(_createHabit()); }
 
   void _focusRequestedHabit() {
     final id = _pendingFocusHabitId;
