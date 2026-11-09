@@ -841,6 +841,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       )?.toLocal();
       items.add(
         ReviewTimelineItem(
+          key: ValueKey('review.task.${task['id'] ?? task['title'] ?? ''}'),
+          kind: 'task_completed',
           color: AppTheme.chartGreen,
           time: completedAt == null ? '今天' : _clockTime(completedAt),
           title: '完成「${task['title'] ?? ''}」',
@@ -856,7 +858,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         final log = fact.log;
         items.add(
           ReviewTimelineItem(
-            color: ColorUtils.safeParse(fact.habit.color),
+            key: ValueKey('review.habit.${fact.habit.id}.${log.id}'),
+            kind: 'habit_checked',
+            color: SlowlightPlatformDensity.usesMobileTouchTargets
+                ? AppTheme.chartYellow
+                : ColorUtils.safeParse(fact.habit.color),
             // Backfilled habits have an occurrence instant distinct from
             // their record creation time. Do not invent a logging timestamp.
             time: _clockTime(_habitFactOccurredAt(log)),
@@ -870,6 +876,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       if (habitChecked > 0) {
         items.add(
           ReviewTimelineItem(
+            kind: 'habit_checked',
             color: AppTheme.chartYellow,
             time: '今天',
             title: '习惯打卡 $habitChecked 次',
@@ -889,6 +896,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           : '主要投入：${distribution.first['name'] ?? ''}';
       items.add(
         ReviewTimelineItem(
+          kind: 'session_ended',
           color: AppTheme.info,
           time: '今天',
           title: '专注 $focusMinutes 分钟 · $focusCount 次',
@@ -906,6 +914,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         .take(5)) {
       items.add(
         ReviewTimelineItem(
+          key: ValueKey('review.observation.${entry.id}'),
+          kind: 'observation',
           color: AppTheme.chartPurple,
           time: _clockTime(entry.createdAt),
           title: '记录观察',
@@ -926,6 +936,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         0,
         ReviewTimelineItem(
           key: _focusedObservationKey,
+          kind: 'observation',
           color: AppTheme.chartPurple,
           time: '${focused.createdAt.year}-${_two(focused.createdAt.month)}-${_two(focused.createdAt.day)} ${_clockTime(focused.createdAt)}',
           title: '定位观察 · 原始记录',
@@ -952,6 +963,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       }
     }
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final visibleItems = mobile && _reviewFilter != 'all'
+        ? items.where((item) => item.kind == _reviewFilter).toList()
+        : items;
     final card = FxCard(
       padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
@@ -962,12 +976,14 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             const FxSectionHeader(title: '行为轨迹'),
             const SizedBox(height: SlowlightSpacing.xl),
           ],
-          if (items.isEmpty)
+          if (visibleItems.isEmpty)
             mobile
                 ? Text(
-                    _partialUnavailable.isEmpty
-                        ? '今天还没有留下记录'
-                        : '部分记录尚未读取成功，请稍后核对。',
+                    _reviewFilter != 'all'
+                        ? '当前类型暂无已载入记录'
+                        : _partialUnavailable.isEmpty
+                            ? '今天还没有留下记录'
+                            : '部分记录尚未读取成功，请稍后核对。',
                     style: SlowlightTypography.secondary(context),
                   )
                 : FxEmptyState(
@@ -982,14 +998,16 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                   )
           else
             ...List.generate(
-              items.length,
+              visibleItems.length,
               (index) => ReviewTimelineItem(
-                key: items[index].key,
-                color: items[index].color,
-                time: items[index].time,
-                title: items[index].title,
-                note: items[index].note,
-                last: index == items.length - 1,
+                key: visibleItems[index].key,
+                kind: visibleItems[index].kind,
+                compact: mobile,
+                color: visibleItems[index].color,
+                time: visibleItems[index].time,
+                title: visibleItems[index].title,
+                note: visibleItems[index].note,
+                last: index == visibleItems.length - 1,
               ),
             ),
         ],
@@ -999,11 +1017,26 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FxSectionHeader(
-          title: '发生过的事',
-          trailing: _partialUnavailable.isNotEmpty
-              ? '待核对'
-              : '$todayItemCount 项',
+        Row(
+          children: [
+            Expanded(
+              child: FxSectionHeader(
+                title: '发生过的事',
+                trailing: _partialUnavailable.isNotEmpty
+                    ? '待核对'
+                    : _reviewFilter == 'all'
+                        ? '$todayItemCount 项'
+                        : '${visibleItems.length} 条已载入',
+              ),
+            ),
+            if (_reviewFilter != 'all')
+              FxButton(
+                label: '清除筛选',
+                variant: FxButtonVariant.ghost,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _reviewFilter = 'all'),
+              ),
+          ],
         ),
         const SizedBox(height: SlowlightSpacing.md),
         card,
