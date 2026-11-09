@@ -1125,6 +1125,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       !_finalizingSession,
                   options: [
                     const FxSelectOption(value: 0, label: '不关联任务'),
+                    if (_linkedTaskId != null &&
+                        !_todayTasks.any((task) => task.id == _linkedTaskId))
+                      FxSelectOption(
+                        value: _linkedTaskId!,
+                        label: '原关联任务（未在今日列表）',
+                      ),
                     ..._todayTasks.map((task) =>
                         FxSelectOption(value: task.id, label: task.title)),
                   ],
