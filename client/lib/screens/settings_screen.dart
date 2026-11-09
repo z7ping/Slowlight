@@ -2381,7 +2381,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scale = MediaQuery.textScalerOf(context).scale(1);
         // Keep short actions on the same row; allow the description to
         // wrap inside its remaining width instead of stacking at 360dp.
         // Only truly tiny containers (three touch targets wide) stack.
