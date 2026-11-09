@@ -12,6 +12,43 @@ import 'package:flutter/foundation.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('月历 Tab 重入静默刷新且保留选中月份与日期', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var reads = 0;
+    final requested = <DateTime>[];
+    Future<CalendarMonthData> load(DateTime month) async {
+      reads++;
+      requested.add(month);
+      return CalendarMonthData(month: month, records: const []);
+    }
+    Widget app(int tick) => buildFxTestHost(
+      home: Scaffold(
+        body: CalendarScreen(
+          initialMonth: DateTime(2026, 8),
+          initialSelectedDate: DateTime(2026, 8, 21),
+          monthLoader: load,
+          refreshTick: tick,
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(app(0));
+    await tester.pumpAndSettle();
+    expect(reads, 1);
+    await tester.pumpWidget(app(1));
+    await tester.pumpAndSettle();
+    expect(reads, 2);
+    expect(requested.every((value) => value.year == 2026 && value.month == 8),
+        isTrue);
+    expect(find.textContaining('8 月 21 日'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
   testWidgets('Android 日历选中日期传入统一创建 Sheet', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
