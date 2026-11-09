@@ -118,16 +118,21 @@ class CalendarMonthTitle extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(
             minHeight: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 30,
+            maxWidth: SlowlightPlatformDensity.usesMobileTouchTargets ? 190 : 260,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
             child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              Flexible(
+                child: Text(
                 '${controller.month.year} 年 ${controller.month.month} 月',
                 key: const ValueKey('calendar-month-label'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: SlowlightTypography.componentPageTitle(context),
+                ),
               ),
               const SizedBox(width: 4),
               const Icon(LucideIcons.chevronDown, size: 16),
@@ -183,8 +188,11 @@ class CalendarHeaderActions extends StatelessWidget {
                 ),
               ),
           ],
-          child: SizedBox(
-            height: SlowlightPlatformDensity.iconButtonVisualSize,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 32,
+              minHeight: SlowlightPlatformDensity.iconButtonVisualSize,
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
