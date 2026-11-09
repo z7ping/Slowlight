@@ -267,6 +267,28 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('历史 high 优先级仍显示在重要紧急象限', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(
+        dataLoader: () => _loadTasks([
+          _task(118, '旧高优先级任务', 'high'),
+        ]),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final card = find.byKey(
+      const ValueKey('quadrant-card-urgent_important'),
+    );
+    expect(card, findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('旧高优先级任务')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 360dp 沿用 2×2 四象限且 none 是不重要不紧急', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
