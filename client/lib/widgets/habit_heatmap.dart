@@ -90,7 +90,7 @@ class HabitHeatmap extends StatelessWidget {
               final count = counts[key] ?? 0;
               final isToday = key == today;
               final intensity = count == 0
-                  ? theme.colorScheme.surfaceContainer
+                  ? theme.colorScheme.surfaceContainerLow
                   : color.withValues(
                       alpha: .25 + .7 * count / maxCount,
                     );
