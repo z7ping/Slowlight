@@ -584,6 +584,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                     const SizedBox(height: 14),
                   ],
                   _summaryCard(summary),
+                  if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+                      hasTaskData && !_trendLoadFailed) ...[
+                    const SizedBox(height: 12),
+                    _trendCard(),
+                  ],
                   const SizedBox(height: 14),
                   _periodEvidenceCard(),
                   if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
@@ -627,6 +632,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                         ],
                       ),
                     ),
+                  if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
                   if (_trendDays.isNotEmpty && hasTaskData) ...[
                     const SizedBox(height: SlowlightSpacing.md),
                     _trendCard(),
@@ -639,6 +645,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                       subtitle: '有记录后，这里会展示完成趋势与任务分布。',
                       padding: EdgeInsets.symmetric(vertical: 24),
                     ),
+                  ],
                   if (hasTaskData && dist.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _distributionCard(dist),
