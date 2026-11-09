@@ -550,7 +550,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         if (_timeline.isNotEmpty) ...[
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0 && !mobile)
-              FxSeparator.horizontal(color: fxDivider(context)), 
+              FxSeparator.horizontal(color: fxDivider(context)),
             _timelineRow(items[i], mobile: mobile),
           ],
           if (_timeline.length > previewLimit)
