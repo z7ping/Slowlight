@@ -465,13 +465,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 density: FxListTileDensity.compact,
                 leading: Icon(LucideIcons.keyRound, size: 22, color: subtle),
                 title: '账号密码',
-                subtitle: (_passwordLoginReady == true
-                    ? '登录账号：' +
-                        (_loginUsername.isEmpty
-                            ? user?.username ?? ''
-                            : _loginUsername) +
-                        (largeText ? ' · ' + passwordState : '')
-                    : largeText ? passwordState : null),
+                // Keep the summary row single-line like GitHub. The login
+                // username is available in the password management sheet.
+                // At large text scale the state remains visible to screen
+                // readers through the trailing label.
                 trailing: stateTrailing(passwordState),
                 onTap: _linkingGitHub ? null : _openMobilePasswordEditor,
               ),
