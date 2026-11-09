@@ -956,9 +956,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }) {
     final theme = Theme.of(dialogContext);
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final stack = constraints.maxWidth < 290 ||
-            MediaQuery.textScalerOf(context).scale(1) >= 1.4;
+      builder: (context, _) {
         final copy = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -985,22 +983,24 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               bottom: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
-          child: stack
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    copy,
-                    const SizedBox(height: 8),
-                    Align(alignment: Alignment.centerRight, child: trailing),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Expanded(child: copy),
-                    const SizedBox(width: 12),
-                    trailing,
-                  ],
+          // Keep short switches and selections alongside their descriptions.
+          // Long option groups wrap inside their own flexible action area.
+          child: Row(
+            children: [
+              Expanded(child: copy),
+              const SizedBox(width: 12),
+              if (trailing is FxSwitch)
+                trailing
+              else
+                Flexible(
+                  flex: trailing is Wrap ? 2 : 1,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: trailing,
+                  ),
                 ),
+            ],
+          ),
         );
       },
     );

@@ -170,6 +170,37 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  for (final width in [320.0, 360.0, 393.0]) {
+    testWidgets('Android ${width}dp 130% 短页头操作无需换行', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(body: SizedBox(
+          width: width,
+          child: MediaQuery(
+            data: MediaQueryData(
+              size: Size(width, 800),
+              textScaler: const TextScaler.linear(1.3),
+            ),
+            child: FxPageHeader(
+              title: '状态',
+              trailing: FxButton(
+                label: '刷新',
+                size: FxButtonSize.sm,
+                onPressed: () {},
+              ),
+            ),
+          ),
+        )),
+      ));
+      final title = tester.getRect(find.text('状态'));
+      final action = tester.getRect(find.text('刷新'));
+      expect((title.center.dy - action.center.dy).abs(), lessThan(24));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('页头操作被禁用时仍保留图标和原有几何位置', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -208,7 +239,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('FxPageHeader 大字体时右侧动作下移并保持右对齐', (tester) async {
+  testWidgets('FxPageHeader 真实可用宽度不足时动作下移', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
@@ -219,11 +250,11 @@ void main() {
           body: Center(
             child: MediaQuery(
               data: const MediaQueryData(
-                size: Size(360, 800),
+                size: Size(220, 800),
                 textScaler: TextScaler.linear(2),
               ),
               child: SizedBox(
-                width: 360,
+                width: 220,
                 child: FxPageHeader(
                   title: '任务详情',
                   trailing: FxButton(
@@ -242,7 +273,7 @@ void main() {
     final title = tester.getRect(find.text('任务详情'));
     final action = tester.getRect(find.text('保存'));
     expect(action.top, greaterThanOrEqualTo(title.bottom));
-    expect(action.center.dx, greaterThan(240));
+    expect(action.center.dx, greaterThan(130));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
