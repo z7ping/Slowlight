@@ -896,7 +896,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: SlowlightSpacing.xl),
+                        SizedBox(height: mobile
+                            ? SlowlightSpacing.md
+                            : SlowlightSpacing.xl),
                         FxSeparator.horizontal(
                             margin: EdgeInsets.zero,
                             color: theme.colorScheme.outlineVariant),
@@ -913,11 +915,23 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                               margin: EdgeInsets.zero,
                               color: theme.colorScheme.outlineVariant),
                           const SizedBox(height: SlowlightSpacing.md),
-                          Text('最近记录',
-                              style: SlowlightTypography.fieldLabel(context)),
-                          const SizedBox(height: SlowlightSpacing.xs),
+                          Row(
+                            children: [
+                              Text('最近记录',
+                                  style: SlowlightTypography.fieldLabel(context)),
+                              const Spacer(),
+                              if (_controller.hasLoadedLogs(habit.id))
+                                Text(
+                                  '${_controller.logsFor(habit.id).length} 条',
+                                  style: SlowlightTypography.caption(context)
+                                      .copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
                           _logs(habit, color),
-                          const SizedBox(height: SlowlightSpacing.md),
+                          const SizedBox(height: SlowlightSpacing.xs),
                         ] else ...[
                         _stats(habit),
                         if (habit.goalHistory.isNotEmpty) ...[
@@ -949,10 +963,11 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                         ),
                         const SizedBox(height: SlowlightSpacing.xl),
                         ],
-                        FxSeparator.horizontal(
-                          margin: EdgeInsets.zero,
-                          color: theme.colorScheme.outlineVariant,
-                        ),
+                        if (!mobile)
+                          FxSeparator.horizontal(
+                            margin: EdgeInsets.zero,
+                            color: theme.colorScheme.outlineVariant,
+                          ),
                         const SizedBox(height: SlowlightSpacing.md),
                         FxActionBar(
                           stackBelow: 280,
@@ -967,7 +982,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                             FxButton(
                               label: '编辑',
                               icon: LucideIcons.pencil,
-                              variant: FxButtonVariant.outline,
+                              variant: mobile
+                                  ? FxButtonVariant.ghost
+                                  : FxButtonVariant.outline,
                               size: FxButtonSize.sm,
                               onPressed: () => _editHabit(habit),
                             ),
@@ -1168,22 +1185,18 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     return Container(
       key: mobileMonth ? ValueKey('habits.month.stat.$label') : null,
       width: double.infinity,
-      constraints: mobileMonth ? const BoxConstraints(minHeight: 61) : null,
+      constraints: mobileMonth ? const BoxConstraints(minHeight: 48) : null,
       padding: EdgeInsets.symmetric(
-        horizontal: mobileMonth ? 9 : 8,
-        vertical: mobileMonth ? 7 : 8,
+        horizontal: mobileMonth ? SlowlightSpacing.xs : SlowlightSpacing.md,
+        vertical: mobileMonth ? SlowlightSpacing.xs : SlowlightSpacing.md,
       ),
-      decoration: BoxDecoration(
-        // Match the approved Android V4 gray stat tiles. Windows retains
-        // the existing outlined statistics style.
-        color: mobileMonth
-            ? theme.colorScheme.surfaceContainerLow
-            : fxSurface(context),
-        border: mobileMonth
-            ? null
-            : Border.all(color: theme.colorScheme.outline),
-        borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      ),
+      decoration: mobileMonth
+          ? null
+          : BoxDecoration(
+              color: fxSurface(context),
+              border: Border.all(color: theme.colorScheme.outline),
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
+            ),
       child: Column(
         crossAxisAlignment:
             mobileMonth ? CrossAxisAlignment.start : CrossAxisAlignment.center,
@@ -1560,6 +1573,71 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       if (log.countValue != null) '${log.countValue} ${habit.recordUnit}',
       if (log.period.isNotEmpty) _periodText(log.period),
     ];
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      final detail = parts.skip(1).join(' · ');
+      // One quiet, scannable line: date/time on the left, precise undo on
+      // the right. No fixed-height timeline stem or nested card surface.
+      return Padding(
+        key: ValueKey('habits.logs.row.${log.id}'),
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 3, right: 12),
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${log.date.substring(5)} · $time',
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (detail.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      detail,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (log.note.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      log.note,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: SlowlightSpacing.xs),
+            FxButton(
+              key: ValueKey('habits.logs.cancel.${log.id}'),
+              label: '撤销',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => _removeLog(habit, log),
+            ),
+          ],
+        ),
+      );
+    }
     return Row(
       key: ValueKey('habits.logs.row.${log.id}'),
       crossAxisAlignment: CrossAxisAlignment.start,
