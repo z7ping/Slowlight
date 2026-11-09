@@ -115,9 +115,13 @@ class CalendarMonthTitle extends StatelessWidget {
             ),
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-          child: Row(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 30,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+            child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
@@ -128,6 +132,7 @@ class CalendarMonthTitle extends StatelessWidget {
               const SizedBox(width: 4),
               const Icon(LucideIcons.chevronDown, size: 16),
             ],
+          ),
           ),
         ),
       ),
@@ -268,9 +273,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _load();
   }
 
-  void _notifyHeader() => _headerController.update(
-    _focused, _displayMode, _loading,
-  );
+  // An Android AppBar can already be listening while the CalendarScreen is
+  // first mounted. Avoid notifying its AnimatedBuilder during build.
+  void _notifyHeader() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _headerController.update(_focused, _displayMode, _loading);
+    });
+  }
 
   void _setFilter(CalendarDisplayMode mode) {
     setState(() => _displayMode = mode);
