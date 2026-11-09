@@ -238,4 +238,28 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('Android 清单主壳按钮触发唯一新建弹窗，正文不重复标题', (tester) async {
+    final request = ValueNotifier<int>(0);
+    addTearDown(request.dispose);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: ListManageScreen(
+        createRequest: request,
+        listsLoader: () async => [_list()],
+        tasksLoader: () async => [_task()],
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('清单管理'), findsNothing);
+    expect(find.text('1 个清单'), findsOneWidget);
+    expect(find.text('客户清单'), findsOneWidget);
+    request.value++;
+    await tester.pumpAndSettle();
+    expect(find.text('新建清单'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }

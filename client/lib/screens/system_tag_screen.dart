@@ -13,8 +13,9 @@ import '../utils/color_utils.dart';
 class SystemTagScreen extends StatefulWidget {
   // Optional test seam; production uses the same ObservationTagRepository.
   final ObservationTagRepository? repository;
+  final ValueListenable<int>? createRequest;
 
-  const SystemTagScreen({super.key, this.repository});
+  const SystemTagScreen({super.key, this.repository, this.createRequest});
 
   @override
   State<SystemTagScreen> createState() => _SystemTagScreenState();
@@ -65,7 +66,27 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? ObservationTagRepository();
+    widget.createRequest?.addListener(_createFromHeader);
     _load();
+  }
+
+  void _createFromHeader() {
+    if (mounted) unawaited(_editTag());
+  }
+
+  @override
+  void didUpdateWidget(covariant SystemTagScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.createRequest != widget.createRequest) {
+      oldWidget.createRequest?.removeListener(_createFromHeader);
+      widget.createRequest?.addListener(_createFromHeader);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.createRequest?.removeListener(_createFromHeader);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -177,7 +198,9 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
+        padding: widget.createRequest != null
+            ? const EdgeInsets.fromLTRB(16, 12, 16, 48)
+            : const EdgeInsets.fromLTRB(20, 18, 20, 72),
         children: [
           Center(
             child: ConstrainedBox(
@@ -185,7 +208,20 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  FxActionBar(
+                  if (widget.createRequest != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(children: [
+                        Expanded(child: Text(
+                          '${_tags.length} 个标签',
+                          style: SlowlightTypography.secondary(context),
+                        )),
+                        Text('跨记录分类使用',
+                          style: SlowlightTypography.caption(context)),
+                      ]),
+                    )
+                  else
+                    FxActionBar(
                     leading: Wrap(
                       spacing: 8,
                       runSpacing: 6,
@@ -282,7 +318,7 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
       children: [
 
         _card(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: widget.createRequest == null ? 12 : 0),
           child: Column(
             children: group.tags.map(_tagRow).toList(growable: false),
           ),
@@ -291,7 +327,83 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
     );
   }
 
+  Widget _tagGlyph(String value) {
+    final glyph = switch (value) {
+      '🏃' || '💪' || '🧘' => LucideIcons.timer,
+      '🧠' || '📚' => LucideIcons.bookOpen,
+      '🎯' || '✍️' => LucideIcons.flag,
+      '💼' => LucideIcons.folder,
+      '🏠' || '👨‍👩‍👧' => LucideIcons.sun,
+      '💡' || '🌱' => LucideIcons.sun,
+      _ => null,
+    };
+    return glyph == null
+        ? Text(value, style: const TextStyle(fontSize: SlowlightTypography.bodySize))
+        : Icon(glyph, size: SlowlightIconSize.lg,
+            color: activePalette.accent);
+  }
+
   Widget _tagRow(ObservationTag tag) {
+    if (widget.createRequest != null) {
+      final color = ColorUtils.safeParse(tag.color);
+      final usage = _usage[tag.id];
+      final summary = usage == null
+          ? (_usageLoading ? '关联读取中…' : '关联未核对')
+          : [
+              if (usage.tasks > 0) '任务 ${usage.tasks}',
+              if (usage.habits > 0) '习惯 ${usage.habits}',
+              if (usage.sessions > 0) '专注 ${usage.sessions}',
+              if (usage.reflections > 0) '观察 ${usage.reflections}',
+            ].join(' · ');
+      return FxListTile(
+        key: ValueKey(tag.id),
+        onTap: () => _editTag(tag),
+        density: FxListTileDensity.detailed,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        showDivider: true,
+        leading: Container(
+          width: 40, height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          ),
+          child: _tagGlyph(tag.icon),
+        ),
+        title: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('#${tag.name}',
+              style: SlowlightTypography.body(context).copyWith(
+                fontWeight: FontWeight.w600,
+              )),
+            if (tag.isDefault) _chip('默认'),
+          ],
+        ),
+        subtitle: summary.isEmpty ? '暂无已载入关联' : summary,
+        trailing: FxMenu<int>(
+          tooltip: '管理标签',
+          onSelected: (action) {
+            if (action == 0) {
+              unawaited(_editTag(tag));
+            } else {
+              unawaited(_confirmDelete(tag));
+            }
+          },
+          itemBuilder: (_) => [
+            const FxMenuItem(value: 0, child: Text('编辑标签')),
+            if (!tag.isDefault)
+              const FxMenuItem(value: 1, child: Text('删除标签')),
+          ],
+          child: const SizedBox(
+            width: 44, height: 44,
+            child: Center(child: Icon(LucideIcons.menu, size: 18)),
+          ),
+        ),
+      );
+    }
     final theme = Theme.of(context);
     final color = ColorUtils.safeParse(tag.color);
     return FxInkWell(
@@ -461,15 +573,37 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: _presetEmojis
-                        .map(
-                          (item) => selectableChip(
-                            label: item,
-                            selected: item == icon,
-                            onTap: () => setDialogState(() => icon = item),
+                    children: _presetEmojis.map((item) {
+                      final selected = item == icon;
+                      if (widget.createRequest == null) {
+                        return selectableChip(
+                          label: item,
+                          selected: selected,
+                          onTap: () => setDialogState(() => icon = item),
+                        );
+                      }
+                      return FxInkWell(
+                        onTap: saving || writeUnknown ? null :
+                            () => setDialogState(() => icon = item),
+                        borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                        child: Container(
+                          width: 44, height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? activePalette.accent.withValues(alpha: .12)
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: selected
+                                  ? activePalette.accent
+                                  : theme.colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(SlowlightRadius.md),
                           ),
-                        )
-                        .toList(growable: false),
+                          child: _tagGlyph(item),
+                        ),
+                      );
+                    }).toList(growable: false),
                   ),
                   const SizedBox(height: 14),
                   _dialogLabel(dialogContext, '颜色'),

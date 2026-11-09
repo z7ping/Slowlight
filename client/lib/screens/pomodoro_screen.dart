@@ -952,37 +952,45 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 ? '已暂停'
                 : '准备专注')
             : (_sessionType == 'long_break' ? '长休息' : '休息中');
-    final quietOpacity = _running ? .4 : 1.0;
+    final quietOpacity = 1.0;
+    final isMobile = !ResponsiveLayout.isDesktopOrWider(context);
     // 专注刻度盘根据真实宽度与文字缩放适度伸展，不再固定 220dp。
     final scale = MediaQuery.textScalerOf(context).scale(1);
     final availableWidth = MediaQuery.sizeOf(context).width - 48;
-    final desired = 220.0 + (scale - 1).clamp(0.0, 1.0).toDouble() * 64.0;
+    final desired = (isMobile ? 260.0 : 220.0) + (scale - 1).clamp(0.0, 1.0).toDouble() * 36.0;
     final dialSize = desired > availableWidth ? availableWidth : desired;
 
-    return Center(
+    return Align(
+      alignment: isMobile ? Alignment.topCenter : Alignment.center,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            AnimatedOpacity(
-              opacity: quietOpacity,
-              duration: const Duration(milliseconds: 180),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  stateLabel,
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.captionSize,
-                    fontWeight: FontWeight.w600,
-                    color: color,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '一段时间，只做一件事',
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(SlowlightRadius.pill),
+                  ),
+                  child: Text(
+                    stateLabel,
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: color, fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -1012,19 +1020,18 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             _format(_remainingSeconds),
                             maxLines: 1,
                             style: theme.textTheme.displaySmall?.copyWith(
-                              fontSize: SlowlightTypography.displaySize,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
+                              fontSize: isMobile ? 55 : SlowlightTypography.displaySize,
+                              fontWeight: FontWeight.w600,
+                               letterSpacing: -1,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isWork ? '专注' : '休息',
+                      const SizedBox(height: 8),
+                       Text(
+                         isWork ? '专注 · $_sessionTargetMinutes 分钟' : '休息 · ${_durationFor(_sessionType)} 分钟',
                         style: TextStyle(
-                          fontSize: SlowlightTypography.captionSize,
-                          letterSpacing: 2,
+                          fontSize: SlowlightTypography.secondarySize,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -1061,17 +1068,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     FxButton(
                       label: '暂停',
                       icon: LucideIcons.pause,
-                      variant: FxButtonVariant.outline,
                       onPressed: _finalizingSession || _sessionTransitioning ? null : _pause,
                     ),
                   if (_activeSession && _remainingSeconds > 0 &&
                       !_sessionStatusUnknown)
                     FxButton(
-                      label: _finalizingSession
-                          ? '保存中…'
-                          : isWork ? '结束专注' : '结束休息',
-                      size: FxButtonSize.lg,
-                      variant: FxButtonVariant.destructive,
+                      label: _finalizingSession ? '保存中…' : '结束',
+                       variant: FxButtonVariant.outline,
                       onPressed: _restoringSession || _finalizingSession || _sessionTransitioning ? null : _stop,
                     ),
                 ],
@@ -1088,23 +1091,85 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 ),
               ),
             ],
-            const SizedBox(height: 20),
-            AnimatedOpacity(
-              opacity: quietOpacity,
-              duration: const Duration(milliseconds: 180),
-              child: Text(
-                '${_todayStatsKnown ? '今日第 ${_todayWorkCount + (isWork && _activeSession ? 1 : 0)} 轮 · 已专注 ${_todayWorkSeconds ~/ 60} 分钟' : '今日专注统计暂不可用'}${_confirmedNaturalWorkRounds == null ? '' : ' · 本周期 ${_confirmedNaturalWorkRounds! % _sessionsBeforeLong}/$_sessionsBeforeLong'}',
-                style: TextStyle(
-                  fontSize: SlowlightTypography.secondarySize,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+
+            const SizedBox(height: 24),
+            DecoratedBox(
+              decoration: BoxDecoration(border: Border(
+                top: BorderSide(color: theme.colorScheme.outlineVariant),
+                bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+              )),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(children: [
+                  _focusStat(_todayStatsKnown ? '$_todayWorkCount' : '—', '今日记录轮次'),
+                  _focusStat(_todayStatsKnown ? '${_todayWorkSeconds ~/ 60}' : '—', '今日专注分钟'),
+                  _focusStat(
+                    _confirmedNaturalWorkRounds == null
+                        ? '—'
+                        : '${_confirmedNaturalWorkRounds! % _sessionsBeforeLong}/$_sessionsBeforeLong',
+                    '本周期完成',
+                    last: true,
+                  ),
+                ]),
               ),
             ),
+            const SizedBox(height: 16),
+            Row(children: [
+              Text('关联任务', style: SlowlightTypography.secondary(context)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FxSelect<int>(
+                  value: _linkedTaskId ?? 0,
+                  enabled: !_activeSession && !_restoringSession &&
+                      !_sessionStatusUnknown && !_sessionTransitioning &&
+                      !_finalizingSession,
+                  options: [
+                    const FxSelectOption(value: 0, label: '不关联任务'),
+                    if (_linkedTaskId != null &&
+                        !_todayTasks.any((task) => task.id == _linkedTaskId))
+                      FxSelectOption(
+                        value: _linkedTaskId!,
+                        label: '原关联任务（未在今日列表）',
+                      ),
+                    ..._todayTasks.map((task) =>
+                        FxSelectOption(value: task.id, label: task.title)),
+                  ],
+                  onChanged: (value) => setState(() {
+                    _linkedTaskId = value == null || value == 0 ? null : value;
+                  }),
+                ),
+              ),
+            ]),
           ],
         ),
       ),
     );
   }
+
+  Widget _focusStat(String value, String label, {bool last = false}) {
+    final theme = Theme.of(context);
+    return Expanded(child: Container(
+      decoration: BoxDecoration(
+        border: last ? null : Border(
+          right: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: SlowlightTypography.sectionTitle(context).copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label, textAlign: TextAlign.center,
+          style: SlowlightTypography.caption(context).copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ]),
+    ));
+  }
+
 
   Widget _completionOverlay() {
     final color = activePalette.accent;

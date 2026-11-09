@@ -312,4 +312,28 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('Android 标签主壳按钮触发新建弹窗，显示紧凑关联列表', (tester) async {
+    final request = ValueNotifier<int>(0);
+    addTearDown(request.dispose);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: SystemTagScreen(
+        repository: _TagImpactRepo(),
+        createRequest: request,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('观察标签'), findsNothing);
+    expect(find.text('1 个标签'), findsOneWidget);
+    expect(find.text('#阅读'), findsOneWidget);
+    expect(find.textContaining('任务 2'), findsWidgets);
+    request.value++;
+    await tester.pumpAndSettle();
+    expect(find.text('新建标签'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }

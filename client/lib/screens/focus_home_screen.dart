@@ -100,6 +100,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   GlobalKey<TaskToolScreenState> _taskToolKey = GlobalKey<TaskToolScreenState>();
   final GlobalKey<HabitToolScreenState> _habitToolKey = GlobalKey<HabitToolScreenState>();
   int _habitToolFilter = 0;
+  final ValueNotifier<int> _listCreateRequest = ValueNotifier<int>(0);
+  final ValueNotifier<int> _tagCreateRequest = ValueNotifier<int>(0);
   bool _navigating = false;
   bool _reviewOpened = false;
   bool _quadrantOpened = false;
@@ -153,6 +155,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     DataModeManager().removeListener(_resetWorkspace);
     _shortcutFocusNode.dispose();
     _calendarHeaderController.dispose();
+    _listCreateRequest.dispose();
+    _tagCreateRequest.dispose();
     super.dispose();
   }
 
@@ -694,6 +698,20 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             actions: [
               if (_navigation.tool == HomeToolSection.calendar)
                 CalendarHeaderActions(controller: _calendarHeaderController),
+              if (_navigation.tool == HomeToolSection.lists ||
+                  _navigation.tool == HomeToolSection.observationTags)
+                FxButton(
+                  label: '新建',
+                  icon: LucideIcons.plus,
+                  size: FxButtonSize.sm,
+                  onPressed: () {
+                    if (_navigation.tool == HomeToolSection.lists) {
+                      _listCreateRequest.value++;
+                    } else {
+                      _tagCreateRequest.value++;
+                    }
+                  },
+                ),
               if (_navigation.tool == HomeToolSection.habits)
                 FxMenu<int>(
                   key: const ValueKey('habits.filter.menu'),
@@ -1063,8 +1081,14 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       ),
     HomeToolSection.quadrant => const QuadrantScreen(),
     HomeToolSection.calendar => _calendarContent(),
-    HomeToolSection.lists => const ListManageScreen(),
-    HomeToolSection.observationTags => const SystemTagScreen(),
+    HomeToolSection.lists => ListManageScreen(
+        createRequest: ResponsiveLayout.isDesktopOrWider(context)
+            ? null : _listCreateRequest,
+      ),
+    HomeToolSection.observationTags => SystemTagScreen(
+        createRequest: ResponsiveLayout.isDesktopOrWider(context)
+            ? null : _tagCreateRequest,
+      ),
     HomeToolSection.stats => StatsScreen(onNavigate: _navigateFromStats),
     HomeToolSection.weeklyReview => const WeeklyReviewScreen(),
     HomeToolSection.timeDistribution => TimeDistributionScreen(

@@ -16,11 +16,13 @@ class ListManageScreen extends StatefulWidget {
   // Source-level test seams; production still uses DataService.
   final Future<List<TodoList>> Function()? listsLoader;
   final Future<List<Task>> Function()? tasksLoader;
+  final ValueListenable<int>? createRequest;
 
   const ListManageScreen({
     super.key,
     this.listsLoader,
     this.tasksLoader,
+    this.createRequest,
   });
 
   @override
@@ -66,7 +68,27 @@ class _ListManageScreenState extends State<ListManageScreen> {
   @override
   void initState() {
     super.initState();
+    widget.createRequest?.addListener(_createFromHeader);
     _loadLists();
+  }
+
+  void _createFromHeader() {
+    if (mounted) unawaited(_showEditor());
+  }
+
+  @override
+  void didUpdateWidget(covariant ListManageScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.createRequest != widget.createRequest) {
+      oldWidget.createRequest?.removeListener(_createFromHeader);
+      widget.createRequest?.addListener(_createFromHeader);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.createRequest?.removeListener(_createFromHeader);
+    super.dispose();
   }
 
   Future<void> _loadLists() async {
@@ -312,11 +334,8 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                                     .outlineVariant,
                                       ),
                                     ),
-                                    child: Text(
-                                      icon,
-                                      style: const TextStyle(
-                                        fontSize: SlowlightIconSize.md,
-                                      ),
+                                    child: widget.createRequest != null ? _listGlyph(icon) : Text(
+                                      icon, style: const TextStyle(fontSize: SlowlightIconSize.md),
                                     ),
                                   ),
                                 );
@@ -619,6 +638,22 @@ class _ListManageScreenState extends State<ListManageScreen> {
     }
   }
 
+  Widget _listGlyph(String value) {
+    final glyph = switch (value) {
+      '📁' || '📂' || '📋' => LucideIcons.folder,
+      '🏠' || '🏡' => LucideIcons.sun,
+      '📚' || '📖' => LucideIcons.bookOpen,
+      '🎯' => LucideIcons.flag,
+      '💡' => LucideIcons.sun,
+      '💼' => LucideIcons.folder,
+      _ => null,
+    };
+    return glyph == null
+        ? Text(value, style: const TextStyle(fontSize: SlowlightIconSize.md))
+        : Icon(glyph, size: SlowlightIconSize.lg,
+            color: activePalette.accent);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: FxCircularProgress());
@@ -637,11 +672,14 @@ class _ListManageScreenState extends State<ListManageScreen> {
       );
     }
     final theme = Theme.of(context);
+    final compact = widget.createRequest != null;
     return FxRefresh(
       onRefresh: _loadLists,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
+        padding: compact
+            ? const EdgeInsets.fromLTRB(16, 12, 16, 48)
+            : const EdgeInsets.fromLTRB(20, 18, 20, 72),
         children: [
           Center(
             child: ConstrainedBox(
@@ -649,7 +687,20 @@ class _ListManageScreenState extends State<ListManageScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  FxActionBar(
+                  if (compact && widget.createRequest != null)
+                     Padding(
+                       padding: const EdgeInsets.only(bottom: 12),
+                       child: Row(children: [
+                         Expanded(child: Text(
+                           '${_lists.length} 个清单',
+                           style: SlowlightTypography.secondary(context),
+                         )),
+                         Text('按用途整理任务',
+                           style: SlowlightTypography.caption(context)),
+                       ]),
+                     )
+                   else
+                     FxActionBar(
                     leading: Wrap(
                       spacing: 8,
                       runSpacing: 6,
@@ -674,7 +725,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       ),
                     ],
                   ),
-                  if (_loadFailed || _taskCountFailed) ...[
+                   if (_loadFailed || _taskCountFailed) ...[
                     FxCard(
                       padding: const EdgeInsets.all(12),
                       expanded: true,
@@ -708,7 +759,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                     )
                   else
                     FxCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 12),
                       expanded: true,
                       child: Column(
                         children: _lists.map((list) {
@@ -716,14 +767,15 @@ class _ListManageScreenState extends State<ListManageScreen> {
                           final count = _taskCountFor(list);
                           return FxListTile(
                             onTap: () => _showListDetails(list),
-                            density: list.isInbox
-                                ? FxListTileDensity.detailed
-                                : FxListTileDensity.compact,
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            density: compact ? FxListTileDensity.detailed :
+                                (list.isInbox ? FxListTileDensity.detailed : FxListTileDensity.compact),
+                            padding: compact
+                                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+                                : const EdgeInsets.symmetric(vertical: 4),
                             showDivider: true,
                             leading: Container(
-                              width: 32,
-                              height: 32,
+                              width: compact ? 40 : 32,
+                              height: compact ? 40 : 32,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: color.withValues(alpha: .10),
@@ -731,18 +783,16 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                   SlowlightRadius.md,
                                 ),
                               ),
-                              child: Text(
-                                list.icon,
-                                style: const TextStyle(
-                                  fontSize: SlowlightIconSize.md,
-                                ),
+                              child: compact ? _listGlyph(list.icon) : Text(
+                                list.icon, style: const TextStyle(fontSize: SlowlightIconSize.md),
                               ),
                             ),
                             title: list.name,
-                            titleTextStyle: SlowlightTypography.secondary(
-                              context,
-                            ).copyWith(fontWeight: FontWeight.w600),
-                            subtitle: list.isInbox ? '默认收集箱' : null,
+                            titleTextStyle: (compact ? SlowlightTypography.body(context) :
+                              SlowlightTypography.secondary(context)).copyWith(fontWeight: FontWeight.w600),
+                            subtitle: compact
+                                ? (list.isInbox ? '默认收集位置' : '任务清单')
+                                : (list.isInbox ? '默认收集箱' : null),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -755,14 +805,35 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                if (!list.isInbox)
+                                if (compact && !list.isInbox)
+                                  FxMenu<int>(
+                                    tooltip: '管理清单',
+                                    onSelected: (action) {
+                                      if (action == 0) {
+                                        unawaited(_showEditor(list));
+                                      } else {
+                                        unawaited(_deleteList(list));
+                                      }
+                                    },
+                                    itemBuilder: (_) => [
+                                      const FxMenuItem(value: 0, child: Text('编辑清单')),
+                                      FxMenuItem(value: 1,
+                                        enabled: _taskCountConfirmed,
+                                        child: const Text('删除清单')),
+                                    ],
+                                    child: const SizedBox(
+                                      width: 44, height: 44,
+                                      child: Center(child: Icon(LucideIcons.menu, size: 18)),
+                                    ),
+                                  ),
+                                if (!compact && !list.isInbox)
                                   FxIconButton(
                                     tooltip: '编辑',
                                     onPressed: () => _showEditor(list),
                                     icon: LucideIcons.pencil,
                                     iconSize: SlowlightIconSize.md,
                                   ),
-                                if (!list.isInbox)
+                                if (!compact && !list.isInbox)
                                   FxIconButton(
                                     tooltip: '删除',
                                     onPressed: _taskCountConfirmed
