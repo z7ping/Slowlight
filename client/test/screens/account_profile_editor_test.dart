@@ -146,4 +146,48 @@ void main() {
       await disposeFxTestHost(tester);
     });
   }
+  testWidgets('Android 昵称编辑使用带拖拽手柄的 FxSheet，草稿取消仍需确认', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final user = User(
+      id: 9,
+      username: 'clouduser',
+      email: 'user@example.com',
+      nickname: '原昵称',
+      createdAt: DateTime(2026),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(builder: (context) => FxButton(
+          onPressed: () => editCloudNickname(context, user),
+          label: '编辑昵称',
+        )),
+      ),
+    ));
+    await tester.tap(find.text('编辑昵称'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('fx.sheet.dragHandle')), findsOneWidget);
+    expect(find.byKey(const ValueKey('account.nickname.input')), findsOneWidget);
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('account.nickname.input')),
+        matching: find.byType(EditableText),
+      ),
+      '未保存草稿',
+    );
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的昵称？'), findsOneWidget);
+    await tester.tap(find.text('继续编辑'));
+    await tester.pumpAndSettle();
+    expect(find.text('未保存草稿'), findsWidgets);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('account.nickname.input')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
