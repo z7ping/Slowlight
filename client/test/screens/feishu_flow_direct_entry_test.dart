@@ -72,8 +72,8 @@ void main() {
     ));
     await tester.pump();
 
-    expect(find.text('打开飞书'), findsOneWidget);
-    await tester.tap(find.text('打开飞书'));
+    expect(find.byKey(const ValueKey('settings.sync.feishu')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('settings.sync.feishu')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.byType(FeishuScreen), findsOneWidget);
