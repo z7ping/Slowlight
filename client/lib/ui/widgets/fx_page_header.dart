@@ -8,7 +8,7 @@ import 'fx_icon_button.dart';
 /// Slowlight 二级页面统一页头：返回 + 标题 + 右侧动作。
 ///
 /// Android 使用 Page Title 可读层级；桌面端保持既有高保真二级页头密度。
-/// 动作在宽布局固定锚定页头右侧，窄屏或超大字体时动作整体落到下一行。
+/// 单一图标动作始终与标题同行；宽操作在窄屏或超大字体时下移。
 class FxPageHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onBack;
@@ -73,8 +73,16 @@ class FxPageHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final stackActions =
-              hasActions && (constraints.maxWidth < 520 || scale >= 1.6);
+          // A single icon fits beside the back arrow and even a scaled title
+          // at normal phone widths. Do not treat it like a wide form action:
+          // the old 520dp threshold created an unnecessary second toolbar row.
+          final singleIconAction =
+              (trailing is FxIconButton && actionIcon == null) ||
+              (trailing == null && actionIcon != null && onAction != null);
+          final stackActions = hasActions &&
+              (constraints.maxWidth < 180 ||
+                  (!singleIconAction &&
+                      (constraints.maxWidth < 520 || scale >= 1.6)));
           final titleRow = Row(
             crossAxisAlignment:
                 largeText ? CrossAxisAlignment.start : CrossAxisAlignment.center,
