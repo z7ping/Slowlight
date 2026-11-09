@@ -132,8 +132,8 @@ extension _FeishuScreenSections on _FeishuScreenState {
       padding: const EdgeInsets.all(SlowlightSpacing.md),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 620;
           final identity = Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 width: 44,
@@ -150,7 +150,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 ),
               ),
               const SizedBox(width: SlowlightSpacing.md),
-              Expanded(
+              Flexible(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -182,22 +182,14 @@ extension _FeishuScreenSections on _FeishuScreenState {
               if (_tables.isNotEmpty) _chip('已识别 ${_tables.length} 张表'),
             ],
           );
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                identity,
-                const SizedBox(height: SlowlightSpacing.md),
-                badges,
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: identity),
-              const SizedBox(width: SlowlightSpacing.xl),
-              badges,
-            ],
+          // Identity and badges take the same line whenever their measured
+          // widths fit; the previous 620dp cutoff stacked them prematurely.
+          return OverflowBar(
+            alignment: MainAxisAlignment.spaceBetween,
+            overflowAlignment: OverflowBarAlignment.start,
+            spacing: SlowlightSpacing.xl,
+            overflowSpacing: SlowlightSpacing.md,
+            children: [identity, badges],
           );
         },
       ),
