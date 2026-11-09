@@ -902,6 +902,10 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                             Text(_goalRevisionSummary(habit),
                                 style: SlowlightTypography.caption(context)),
                           ],
+                          const SizedBox(height: SlowlightSpacing.xl),
+                          FxSeparator.horizontal(
+                              margin: EdgeInsets.zero,
+                              color: theme.colorScheme.outlineVariant),
                           const SizedBox(height: SlowlightSpacing.md),
                           Text('最近记录',
                               style: SlowlightTypography.fieldLabel(context)),
@@ -1161,7 +1165,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       constraints: mobileMonth ? const BoxConstraints(minHeight: 61) : null,
       padding: EdgeInsets.symmetric(
         horizontal: mobileMonth ? 9 : 8,
-        vertical: mobileMonth ? 9 : 8,
+        vertical: mobileMonth ? 7 : 8,
       ),
       decoration: BoxDecoration(
         // Match the approved Android V4 gray stat tiles. Windows retains
@@ -1215,26 +1219,28 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     final calendar = Align(
       alignment: Alignment.topLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 186),
+        constraints: const BoxConstraints(
+          maxWidth: HabitHeatmap.compactMaxWidth,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-        if (loaded)
-          HabitHeatmap(
-            checkInDates: logs
-                .map((log) => DateTime.tryParse(log.date))
-                .whereType<DateTime>()
-                .toList(growable: false),
-            color: Theme.of(context).colorScheme.primary,
-            month: now,
-          )
-        else ...[
-          Text('${now.month} 月 · ${now.year}',
-              style: SlowlightTypography.caption(context)),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Text('本月记录待读取',
-              style: SlowlightTypography.caption(context)),
-        ],
+            if (loaded)
+              HabitHeatmap(
+                checkInDates: logs
+                    .map((log) => DateTime.tryParse(log.date))
+                    .whereType<DateTime>()
+                    .toList(growable: false),
+                color: Theme.of(context).colorScheme.primary,
+                month: now,
+              )
+            else ...[
+              Text('${now.month} 月 · ${now.year}',
+                  style: SlowlightTypography.caption(context)),
+              const SizedBox(height: SlowlightSpacing.xs),
+              Text('本月记录待读取',
+                  style: SlowlightTypography.caption(context)),
+            ],
           ],
         ),
       ),
