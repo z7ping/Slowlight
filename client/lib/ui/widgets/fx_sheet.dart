@@ -101,12 +101,12 @@ abstract final class FxSheet {
 
         Widget buildSheet(Widget? grip) => ShadSheet(
           closeIcon: showCloseButton ? null : const SizedBox.shrink(),
-          // The approved grip occupies its own hit area; editing content
-          // remains scrollable and cannot accidentally dismiss the sheet.
+          // Use the compact visual grip as the header; only its top 44dp
+          // gesture band may request dismissal, leaving the body scrollable.
           title: grip ?? title,
           description: description,
           actions: actions,
-          // The 44dp handle is already its own header; no extra 8dp gap.
+          // Grip already occupies the header slot; add no duplicate gap.
           gap: grip != null ? 0 : null,
           constraints: constraints,
           padding: padding,
