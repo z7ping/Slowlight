@@ -433,6 +433,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   String _periodDescription() {
     if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      if (_periodIndex == 0) {
+        final day = DateTime.now().weekday;
+        const names = ['一', '二', '三', '四', '五', '六', '日'];
+        return '星期${names[day - 1]} · 回看事实，留下自己的理解';
+      }
       return '回看事实，留下自己的理解';
     }
     final now = DateTime.now();
