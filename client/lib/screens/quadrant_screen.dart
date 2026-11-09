@@ -19,9 +19,16 @@ typedef QuadrantData = ({
 
 class QuadrantScreen extends StatefulWidget {
   final Future<QuadrantData> Function()? dataLoader;
+  /// Optional seam for testing completion without writing a real account.
+  final Future<Task> Function(Task task)? taskCompleter;
   final int refreshTick;
 
-  const QuadrantScreen({super.key, this.dataLoader, this.refreshTick = 0});
+  const QuadrantScreen({
+    super.key,
+    this.dataLoader,
+    this.taskCompleter,
+    this.refreshTick = 0,
+  });
 
   @override
   State<QuadrantScreen> createState() => _QuadrantScreenState();
@@ -36,6 +43,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   List<TodoList> _lists = const [];
   String? _dragTarget;
   bool _moveHintRequested = false;
+  bool _lastRefreshFailed = false;
+  String _selectedPriority = 'urgent_important';
+  final Set<int> _completingTaskIds = <int>{};
 
   @override
   void initState() {
@@ -68,6 +78,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         _loading = false;
         _hasLoadedData = true;
         _initialLoadFailed = false;
+        _lastRefreshFailed = false;
       });
       if (_tasks.isNotEmpty) _showMoveHintOnce();
     } catch (_) {
@@ -75,6 +86,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       setState(() {
         _loading = false;
         _initialLoadFailed = !_hasLoadedData;
+        _lastRefreshFailed = true;
       });
       if (_hasLoadedData) {
         FxNotice.showContent(context, const Text('刷新失败，仍显示上次加载的任务'));
@@ -198,26 +210,57 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           );
         }
         if (mobileGrid) {
+          // Same responsive 2x2 viewport fill as product-internal:
+          // no fixed 300dp card, no unnecessary top summary.
           const padding = 12.0;
-          const gap = 12.0;
-          final minCardHeight = textScale > 1.1 ? 324.0 : 300.0;
+          const gap = 9.0;
+          const bottomRoom = 40.0;
+          const minimumCardHeight = 205.0;
           final cardHeight = constraints.hasBoundedHeight
               ? math.max(
-                  minCardHeight,
-                  (constraints.maxHeight - padding * 2 - gap) / 2,
+                  minimumCardHeight,
+                  (constraints.maxHeight - padding - bottomRoom - gap) / 2,
                 )
-              : minCardHeight;
-          final width = (constraints.maxWidth - 2 * padding - gap) / 2;
-          return FxRefresh(
-            onRefresh: _load,
-            child: GridView.count(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(padding),
-              crossAxisCount: 2,
-              crossAxisSpacing: gap,
-              mainAxisSpacing: gap,
-              childAspectRatio: width / cardHeight,
-              children: cells,
+              : minimumCardHeight;
+          final width = (constraints.maxWidth - padding * 2 - gap) / 2;
+          return _mobileBoard(
+            FxRefresh(
+              onRefresh: _load,
+              child: GridView.count(
+                key: const ValueKey('quadrant-mobile-grid'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(padding, padding, padding, bottomRoom),
+                crossAxisCount: 2,
+                crossAxisSpacing: gap,
+                mainAxisSpacing: gap,
+                childAspectRatio: width / cardHeight,
+                children: cells,
+              ),
+            ),
+          );
+        }
+        if (!desktop) {
+          // Large text keeps four complete cards in one scrolling column.
+          final cardHeight = textScale >= 1.9
+              ? 332.0
+              : textScale >= 1.3
+                  ? 238.0
+                  : 210.0;
+          return _mobileBoard(
+            FxRefresh(
+              onRefresh: _load,
+              child: ListView(
+                key: const ValueKey('quadrant-mobile-list'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                children: [
+                  for (final cell in cells)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 9),
+                      child: SizedBox(height: cardHeight, child: cell),
+                    ),
+                ],
+              ),
             ),
           );
         }
@@ -235,6 +278,202 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
+  Widget _mobileBoard(Widget scrollable) {
+    final colors = Theme.of(context).colorScheme;
+    final label = switch (_selectedPriority) {
+      'urgent_important' => '重要 · 紧急',
+      'important' => '重要 · 不紧急',
+      'urgent' => '不重要 · 紧急',
+      _ => '不重要 · 不紧急',
+    };
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        scrollable,
+        Positioned(
+          left: 14,
+          right: 76,
+          bottom: 9,
+          child: Text(
+            '点击象限选中 · 长按任务移动',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: colors.onSurfaceVariant,
+              fontSize: SlowlightTypography.resolvedCaptionSize * .88,
+            ),
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: Semantics(
+            label: '在$label添加任务',
+            button: true,
+            child: Material(
+              color: colors.primary,
+              borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+              elevation: 4,
+              child: FxInkWell(
+                key: const ValueKey('quadrant-add'),
+                borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+                onTap: () => _addTask(_selectedPriority),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(LucideIcons.plus,
+                      size: 22, color: colors.onPrimary),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _mobileQuadrant(
+    String title,
+    String priority,
+    Color color,
+    List<Task> items, {
+    required bool compact,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final selected = _selectedPriority == priority;
+    final preview = items.length > 3 ? 2 : 3;
+    final titleStyle = SlowlightTypography.caption(context).copyWith(
+      fontWeight: FontWeight.w700,
+      color: colors.onSurface,
+    );
+
+    return FxCard(
+      key: ValueKey('quadrant-card-$priority'),
+      onTap: () {
+        if (_selectedPriority != priority) {
+          setState(() => _selectedPriority = priority);
+        }
+      },
+      padding: EdgeInsets.zero,
+      color: selected
+          ? Color.alphaBlend(
+              colors.primary.withValues(alpha: .035),
+              fxSurface(context),
+            )
+          : fxSurface(context),
+      borderRadius: SlowlightRadius.lg,
+      border: Border.all(
+        color: selected
+            ? colors.primary.withValues(alpha: .52)
+            : colors.outlineVariant,
+      ),
+      expanded: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // A slim semantic edge, rather than four heavy colored borders.
+          Container(width: 3, color: color),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Semantics(
+                    selected: selected,
+                    label: '选择$title象限，共${items.length}项任务',
+                    button: true,
+                    child: FxInkWell(
+                      onTap: () {
+                        if (_selectedPriority != priority) {
+                          setState(() => _selectedPriority = priority);
+                        }
+                      },
+                      child: SizedBox(
+                        height: 38,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: titleStyle,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${items.length} 项',
+                              style: SlowlightTypography.caption(context)
+                                  .copyWith(
+                                color: colors.onSurfaceVariant,
+                                fontSize:
+                                    SlowlightTypography.resolvedCaptionSize * .92,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  FxSeparator.horizontal(
+                    height: 1,
+                    thickness: 1,
+                    color: colors.outlineVariant,
+                  ),
+                  Expanded(
+                    child: items.isEmpty
+                        ? Center(
+                            child: Text(
+                              '暂无任务',
+                              style: SlowlightTypography.caption(context)
+                                  .copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final task in items.take(preview))
+                                _taskLine(
+                                  task,
+                                  color,
+                                  desktop: false,
+                                  compact: compact,
+                                  quadrantPreview: true,
+                                ),
+                              if (items.length > preview)
+                                FxInkWell(
+                                  key: ValueKey('quadrant-more-$priority'),
+                                  onTap: () => _showAllTasks(title, items),
+                                  child: SizedBox(
+                                    height: 36,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '还有 ${items.length - preview} 项 · 查看全部',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style:
+                                            SlowlightTypography.caption(context)
+                                                .copyWith(
+                                          color: colors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _quadrant(
     String title,
     String priority,
@@ -244,103 +483,70 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }) {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
+    if (!desktop) {
+      return _mobileQuadrant(
+        title, priority, color, items,
+        compact: compactMobileGrid,
+      );
+    }
     final hovering = _dragTarget == priority;
-    final previewCount = desktop ? 4 : 2;
-    final emptyState = Center(
-      child: desktop
-          ? Text(
-              '这里暂时没有任务',
-              textAlign: TextAlign.center,
-              style: SlowlightTypography.caption(context)
-                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
-            )
-          : FxButton(
-              key: ValueKey('quadrant-add-$priority'),
-              label: '添加任务',
-              icon: LucideIcons.plus,
-              variant: FxButtonVariant.ghost,
-              onPressed: () => _addTask(priority),
-            ),
-    );
-
     Widget card = FxCard(
-      padding: EdgeInsets.all(compactMobileGrid ? 12 : 16),
+      padding: const EdgeInsets.all(16),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(
-        color: hovering
-            ? Colors.transparent
-            : color.withValues(alpha: priority == 'none' ? 1 : .36),
+        color: hovering ? Colors.transparent : color.withValues(alpha: .36),
       ),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow: theme.brightness == Brightness.light
+          ? AppTheme.cardShadow
+          : null,
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: desktop
-                    ? Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              title,
-                              style: SlowlightTypography.cardTitle(context)
-                                  .copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _quadrantCount(items.length),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            softWrap: true,
-                            style: SlowlightTypography.cardTitle(context)
-                                .copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 4),
-                          _quadrantCount(items.length),
-                        ],
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: SlowlightTypography.cardTitle(context)
+                            .copyWith(fontWeight: FontWeight.w700),
                       ),
-              ),
-              if (desktop || items.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                FxIconButton(
-                  tooltip: '在$title添加任务',
-                  onPressed: () => _addTask(priority),
-                  icon: LucideIcons.plus,
+                    ),
+                    const SizedBox(width: 8),
+                    _quadrantCount(items.length),
+                  ],
                 ),
-              ],
+              ),
+              FxIconButton(
+                tooltip: '在$title添加任务',
+                onPressed: () => _addTask(priority),
+                icon: LucideIcons.plus,
+              ),
             ],
           ),
           const SizedBox(height: 12),
           if (items.isEmpty)
-            desktop || compactMobileGrid
-                ? Expanded(child: emptyState)
-                : SizedBox(height: 96, child: emptyState)
-          else
-            ...items.take(previewCount).map(
-                  (task) => desktop
-                      ? _draggableTask(task, color)
-                      : _taskLine(
-                          task,
-                          color,
-                          desktop: false,
-                          compact: compactMobileGrid,
-                        ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '这里暂时没有任务',
+                  textAlign: TextAlign.center,
+                  style: SlowlightTypography.caption(context)
+                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
-          if (items.length > previewCount)
+              ),
+            )
+          else
+            ...items.take(4).map((task) => _draggableTask(task, color)),
+          if (items.length > 4)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: FxButton(
-                label: compactMobileGrid ? '查看全部' : '查看全部（${items.length}）',
+                label: '查看全部（${items.length}）',
                 size: FxButtonSize.sm,
                 variant: FxButtonVariant.ghost,
                 onPressed: () => _showAllTasks(title, items),
@@ -349,7 +555,6 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         ],
       ),
     );
-
     if (hovering) {
       card = CustomPaint(
         painter: _QuadrantDashedPainter(
@@ -359,8 +564,6 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         child: card,
       );
     }
-
-    if (!desktop) return card;
     return DragTarget<Task>(
       onWillAcceptWithDetails: (details) {
         if (details.data.priority == priority) return false;
@@ -508,40 +711,79 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
+  Widget _taskCompleteControl(Task task) => Semantics(
+        label: '完成${task.title}',
+        button: true,
+        child: FxInkWell(
+          key: ValueKey('quadrant-complete-${task.id}'),
+          onTap: _completingTaskIds.contains(task.id)
+              ? null
+              : () => _completeTask(task),
+          child: SizedBox(
+            width: 40,
+            height: 44,
+            child: Center(
+              child: ExcludeSemantics(
+                child: IgnorePointer(
+                  child: FxCheckbox(
+                    value: false,
+                    onChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
   Widget _taskLine(
     Task task,
     Color color, {
     required bool desktop,
     bool compact = false,
+    bool quadrantPreview = false,
     VoidCallback? onTap,
     VoidCallback? onMove,
   }) {
     final row = FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      // 安卓点击任务与其他任务列表一致：打开详情。
-      // 移动象限使用右侧明确的“更多”操作，不隐藏在长按手势里。
+      // Primary tap opens the existing editor; long press/keyboard-menu
+      // still opens the established move-and-save flow.
       onTap: onTap ?? () => _openTask(task),
       onLongPress: desktop ? null : (onMove ?? () => _showMoveSheet(task)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: SlowlightControlSize.minTouchTarget,
+        constraints: BoxConstraints(
+          minHeight: quadrantPreview
+              ? MediaQuery.textScalerOf(context).scale(16) >= 30
+                  ? 88
+                  : MediaQuery.textScalerOf(context).scale(16) >= 21
+                      ? 56
+                      : SlowlightControlSize.minTouchTarget
+              : SlowlightControlSize.minTouchTarget,
         ),
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: compact ? 2 : 7, horizontal: 2),
+          padding: EdgeInsets.symmetric(
+            vertical: quadrantPreview ? 0 : (compact ? 2 : 7),
+            horizontal: quadrantPreview ? 0 : 2,
+          ),
           child: Row(
             children: [
-              Text(
-                '●',
-                style: TextStyle(
-                  color: color,
-                  fontSize: SlowlightTypography.captionSize,
+              if (quadrantPreview)
+                _taskCompleteControl(task)
+              else ...[
+                Text(
+                  '●',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: SlowlightTypography.captionSize,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Text(
                   task.title,
-                  maxLines: compact ||
+                  maxLines: quadrantPreview || compact ||
                           MediaQuery.textScalerOf(context).scale(
                                 SlowlightTypography.secondarySize,
                               ) >=
@@ -549,10 +791,14 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                       ? 2
                       : 1,
                   overflow: TextOverflow.ellipsis,
-                  style: SlowlightTypography.secondary(context),
+                  style: quadrantPreview && compact
+                      ? SlowlightTypography.caption(context).copyWith(
+                          fontSize: SlowlightTypography.resolvedCaptionSize * .95,
+                        )
+                      : SlowlightTypography.secondary(context),
                 ),
               ),
-              if (!desktop && !compact)
+              if (!desktop && !compact && !quadrantPreview)
                 FxIconButton(
                   icon: LucideIcons.ellipsis,
                   tooltip: '移动到其他象限',
@@ -593,6 +839,109 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       defaultDueToday: false,
       onChanged: _load,
     );
+  }
+
+  Future<void> _completeTask(Task task) async {
+    // Cloud completion may be a stateful toggle. Never retry against a stale
+    // task list, and never show success before a fresh list confirms it.
+    if (_lastRefreshFailed) {
+      FxNotice.show(context, '任务列表刷新未确认，请先刷新再操作');
+      return;
+    }
+    if (!_completingTaskIds.add(task.id)) return;
+    if (mounted) setState(() {});
+    HapticFeedback.lightImpact();
+    try {
+      final result = await (widget.taskCompleter?.call(task) ??
+          DataService().setTaskCompletion(
+            task.id,
+            null,
+            completed: true,
+            expectedCompleted: false,
+          ));
+      if (!mounted) return;
+      if (!result.isCompleted) {
+        await _load();
+        if (mounted) FxNotice.show(context, '任务状态已变化，请核对后再操作');
+        return;
+      }
+      await _load();
+      if (!mounted) return;
+      if (_lastRefreshFailed || _tasks.any((item) => item.id == task.id)) {
+        FxNotice.show(context, '任务更新结果未核实，请刷新后核对');
+        return;
+      }
+      FxNotice.show(
+        context,
+        '任务已完成',
+        variant: FxNoticeVariant.success,
+        duration: const Duration(seconds: 8),
+        action: task.isRepeat || result.completedAt == null
+            ? null
+            : FxNoticeAction(
+                label: '撤销',
+                onPressed: () => _undoCompletion(
+                  task.id, expectedCompletedAt: result.completedAt!,
+                ),
+              ),
+      );
+    } on StateError {
+      await _load();
+      if (mounted) FxNotice.show(context, '任务状态已变化，请核对后再操作');
+    } catch (_) {
+      // A timeout may occur after the backend wrote the completion.
+      // Refresh first instead of issuing a potentially destructive retry.
+      await _load();
+      if (mounted) FxNotice.show(context, '任务结果未确认，请核对任务状态');
+    } finally {
+      _completingTaskIds.remove(task.id);
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _undoCompletion(
+    int taskId, {
+    required DateTime expectedCompletedAt,
+  }) async {
+    if (!_completingTaskIds.add(taskId)) return;
+    try {
+      final tasks = await DataService().getAllTasks();
+      final current = tasks.cast<Task?>().firstWhere(
+        (task) => task?.id == taskId,
+        orElse: () => null,
+      );
+      if (!mounted) return;
+      if (current == null || current.isRepeat || !current.isCompleted ||
+          current.completedAt == null ||
+          !current.completedAt!.isAtSameMomentAs(expectedCompletedAt)) {
+        FxNotice.show(context, '任务完成记录已变化，未执行旧撤销');
+        return;
+      }
+      final updated = await DataService().setTaskCompletion(
+        taskId,
+        null,
+        completed: false,
+        expectedCompleted: true,
+        expectedCompletedAt: expectedCompletedAt,
+      );
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      if (updated.isCompleted ||
+          _lastRefreshFailed ||
+          !_tasks.any((task) => task.id == taskId)) {
+        FxNotice.show(context, '撤销结果尚未确认，请刷新核对');
+        return;
+      }
+      FxNotice.show(context, '已恢复待办');
+    } on StateError {
+      await _load();
+      if (mounted) FxNotice.show(context, '任务状态已变化，未执行旧撤销');
+    } catch (_) {
+      FxNotice.show(context, '撤销结果未确认，请核对任务状态');
+    } finally {
+      _completingTaskIds.remove(taskId);
+    }
   }
 
   Future<void> _showMoveSheet(Task task) async {
