@@ -47,4 +47,35 @@ void main() {
     expect(find.byType(ModalBarrier), findsNWidgets(barrierBaseline));
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('Android 迁移历史使用独立二级页而非大型弹窗', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(
+      buildFxTestHost(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FxButton(
+              label: '打开历史',
+              onPressed: () => MigrationHistoryDialog.show(context),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开历史'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MigrationHistoryDialog), findsOneWidget);
+    expect(find.byType(ShadDialog), findsNothing);
+    expect(find.byType(FxPageHeader), findsOneWidget);
+    expect(find.text('历史来源'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MigrationHistoryDialog), findsNothing);
+    await disposeFxTestHost(tester);
+  });
+
 }
