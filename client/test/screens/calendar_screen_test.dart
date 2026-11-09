@@ -513,6 +513,40 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 360dp 顶部年月与周期、视图、筛选不溢出', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = CalendarHeaderController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 48,
+        titleSpacing: 8,
+        title: CalendarMonthTitle(controller: controller),
+        leading: const Icon(LucideIcons.menu),
+        actions: [CalendarHeaderActions(controller: controller)],
+      ),
+      body: CalendarScreen(
+        headerController: controller,
+        headerInAppBar: true,
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: DateTime(2026, 8, 21),
+        monthLoader: loader,
+      ),
+    )));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-month-label')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-period-prev')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-period-next')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-view-toggle')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-filter')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 时间栏滚动后仍固定，日期与时间列对齐', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
