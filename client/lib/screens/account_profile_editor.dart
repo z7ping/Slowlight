@@ -8,7 +8,37 @@ import '../services/github_sign_in.dart';
 import '../ui/fx.dart';
 
 /// 编辑弹窗只返回是否已保存；身份与资料刷新由账号页统一处理。
+/// Android 使用已有 FxSheet；Windows 继续沿用 FxDialog。
+bool _accountMobile(BuildContext context) {
+  final platform = Theme.of(context).platform;
+  return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+}
+
 Future<bool> editCloudNickname(BuildContext context, User user) async {
+  if (_accountMobile(context)) {
+    final formKey = GlobalKey<_NicknameFormState>();
+    final done = await FxSheet.show<bool>(
+      context: context,
+      dismissible: false,
+      draggable: false,
+      showDragHandle: true,
+      showCloseButton: false,
+      onDismissRequested: () async => formKey.currentState?._cancel(),
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('修改昵称', style: SlowlightTypography.cardTitle(sheetContext)),
+            const SizedBox(height: 14),
+            _NicknameForm(key: formKey, initialName: user.nickname),
+          ],
+        ),
+      ),
+    );
+    return done == true;
+  }
   final done = await FxDialog.show<bool>(
     context: context,
     title: '修改昵称',
@@ -24,6 +54,39 @@ Future<bool> manageAccountPassword(BuildContext context, {
   required bool alreadySet,
   required String username,
 }) async {
+  if (_accountMobile(context)) {
+    final formKey = GlobalKey<_PasswordFormState>();
+    final done = await FxSheet.show<bool>(
+      context: context,
+      dismissible: false,
+      draggable: false,
+      showDragHandle: true,
+      showCloseButton: false,
+      onDismissRequested: () async => formKey.currentState?._cancel(),
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                alreadySet ? '修改登录密码' : '设置账号密码',
+                style: SlowlightTypography.cardTitle(sheetContext),
+              ),
+              const SizedBox(height: 14),
+              _PasswordForm(
+                key: formKey,
+                alreadySet: alreadySet,
+                username: username,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return done == true;
+  }
   final done = await FxDialog.show<bool>(
     context: context,
     title: alreadySet ? '修改登录密码' : '设置账号密码',
@@ -36,7 +99,7 @@ Future<bool> manageAccountPassword(BuildContext context, {
 }
 
 class _NicknameForm extends StatefulWidget {
-  const _NicknameForm({required this.initialName});
+  const _NicknameForm({super.key, required this.initialName});
   final String initialName;
 
   @override
@@ -134,7 +197,7 @@ class _NicknameFormState extends State<_NicknameForm> {
 }
 
 class _PasswordForm extends StatefulWidget {
-  const _PasswordForm({required this.alreadySet, required this.username});
+  const _PasswordForm({super.key, required this.alreadySet, required this.username});
   final bool alreadySet;
   final String username;
 
