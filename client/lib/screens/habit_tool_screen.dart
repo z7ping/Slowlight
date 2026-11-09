@@ -47,6 +47,7 @@ class HabitToolScreen extends StatefulWidget {
   final Future<int> Function()? todayLogCountLoader;
   final TagLinksRepository? tagLinksRepository;
   final bool titleProvidedByShell;
+  final int initialFilter;
   /// Open the existing editor once when the Today empty state requests create.
   final bool createOnOpen;
   /// A search result may request opening one habit in the existing tool.
@@ -61,15 +62,16 @@ class HabitToolScreen extends StatefulWidget {
     this.tagLinksRepository,
     this.editor,
     this.titleProvidedByShell = false,
+    this.initialFilter = 0,
     this.createOnOpen = false,
     this.focusHabitId,
   });
 
   @override
-  State<HabitToolScreen> createState() => _HabitToolScreenState();
+  State<HabitToolScreen> createState() => HabitToolScreenState();
 }
 
-class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObserver {
+class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObserver {
   late final HabitController _controller;
   late final TagLinksRepository _tagLinks;
   bool _editingHabit = false;
@@ -144,6 +146,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _filter = widget.initialFilter;
     _tagLinks = widget.tagLinksRepository ?? TagLinksRepository();
     _controller = HabitController(repository: widget.repository)
       ..addListener(_onChanged);
@@ -170,12 +173,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
   @override
   void didUpdateWidget(covariant HabitToolScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.initialFilter != oldWidget.initialFilter) _filter = widget.initialFilter;
     if (widget.focusHabitId != null &&
         widget.focusHabitId != oldWidget.focusHabitId) {
       _pendingFocusHabitId = widget.focusHabitId;
       _focusRequestedHabit();
     }
   }
+
+  void setFilter(int value) {
+    if (_filter != value && mounted) setState(() => _filter = value);
+  }
+
+  void createHabit() { unawaited(_createHabit()); }
 
   void _focusRequestedHabit() {
     final id = _pendingFocusHabitId;
@@ -604,7 +614,9 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                     const SizedBox(height: SlowlightSpacing.xl),
                   ],
                   _summaryBar(),
-                  if (all.isNotEmpty) ...[
+                  if (all.isNotEmpty &&
+                      (!SlowlightPlatformDensity.usesMobileTouchTargets ||
+                          !widget.titleProvidedByShell)) ...[
                     const SizedBox(height: SlowlightSpacing.md),
                     _filters(),
                   ],
@@ -675,7 +687,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       return FxActionBar(
         stackBelow: 280,
         leading: Text('习惯概况待核对', style: caption),
-        actions: [if (widget.titleProvidedByShell) _addButton()],
+        actions: [if (widget.titleProvidedByShell && !SlowlightPlatformDensity.usesMobileTouchTargets) _addButton()],
       );
     }
     final counts = habitOverviewCounts(_controller.habits);
@@ -698,7 +710,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
             Text('$records · $period', style: caption),
           ],
         ),
-        actions: [if (widget.titleProvidedByShell) _addButton()],
+        actions: [if (widget.titleProvidedByShell && !SlowlightPlatformDensity.usesMobileTouchTargets) _addButton()],
       );
     }
     return FxActionBar(
@@ -721,7 +733,7 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           Text(period, style: caption),
         ],
       ),
-      actions: [if (widget.titleProvidedByShell) _addButton()],
+      actions: [if (widget.titleProvidedByShell && !SlowlightPlatformDensity.usesMobileTouchTargets) _addButton()],
     );
   }
 
@@ -787,10 +799,10 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
               builder: (context, constraints) {
                 final largeText =
                     MediaQuery.textScalerOf(context).scale(1) >= 1.3;
-                final narrow = constraints.maxWidth < 270 || largeText;
-                final actionWidth = (SlowlightPlatformDensity.usesMobileTouchTargets
-                        ? _mobileTodayActionWidth
-                        : _todayActionWidth) *
+                final narrow = constraints.maxWidth < 270 || (largeText && MediaQuery.textScalerOf(context).scale(1) >= 1.8);
+                final actionWidth = (mobile && !_allowsMultipleToday(habit)
+                        ? SlowlightControlSize.minTouchTarget
+                        : (mobile ? _mobileTodayActionWidth : _todayActionWidth)) *
                     MediaQuery.textScalerOf(context).scale(1);
                 if (narrow) {
                   return Column(
@@ -836,13 +848,19 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                   ));
               final scale = MediaQuery.textScalerOf(context).scale(1);
               if (mobile) {
-                // One compact line in the master prototype. Wrap at large
-                // accessibility scale rather than shrinking or clipping.
-                return Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: SlowlightSpacing.md,
-                  children: [label, _weekDots(habit, color), details],
-                );
+                if (scale >= 1.8 || constraints.maxWidth < 270) {
+                  return Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: SlowlightSpacing.md,
+                    children: [label, SizedBox(width: 110, child: _weekDots(habit, color)), details],
+                  );
+                }
+                return Row(children: [
+                  label,
+                  const SizedBox(width: SlowlightSpacing.md),
+                  Expanded(child: _weekDots(habit, color)),
+                  details,
+                ]);
               }
               if (constraints.maxWidth >= 460 * scale) {
                 return Row(children: [
@@ -876,6 +894,20 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                             margin: EdgeInsets.zero,
                             color: theme.colorScheme.outlineVariant),
                         const SizedBox(height: SlowlightSpacing.xl),
+                        if (mobile) ...[
+                          _mobileMonthSummary(habit, color),
+                          if (habit.goalHistory.isNotEmpty) ...[
+                            const SizedBox(height: SlowlightSpacing.xs),
+                            Text(_goalRevisionSummary(habit),
+                                style: SlowlightTypography.caption(context)),
+                          ],
+                          const SizedBox(height: SlowlightSpacing.md),
+                          Text('最近记录',
+                              style: SlowlightTypography.fieldLabel(context)),
+                          const SizedBox(height: SlowlightSpacing.xs),
+                          _logs(habit, color),
+                          const SizedBox(height: SlowlightSpacing.md),
+                        ] else ...[
                         _stats(habit),
                         if (habit.goalHistory.isNotEmpty) ...[
                           const SizedBox(height: SlowlightSpacing.xs),
@@ -905,22 +937,28 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                           ],
                         ),
                         const SizedBox(height: SlowlightSpacing.xl),
+                        ],
+                        FxSeparator.horizontal(
+                          margin: EdgeInsets.zero,
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                        const SizedBox(height: SlowlightSpacing.md),
                         FxActionBar(
                           stackBelow: 280,
                           actions: [
-                            FxButton(
-                              label: '编辑',
-                              icon: LucideIcons.pencil,
-                              variant: FxButtonVariant.outline,
-                              size: FxButtonSize.sm,
-                              onPressed: () => _editHabit(habit),
-                            ),
                             FxButton(
                               label: '补卡',
                               icon: LucideIcons.calendarPlus,
                               variant: FxButtonVariant.outline,
                               size: FxButtonSize.sm,
                               onPressed: () => _backfill(habit),
+                            ),
+                            FxButton(
+                              label: '编辑',
+                              icon: LucideIcons.pencil,
+                              variant: FxButtonVariant.outline,
+                              size: FxButtonSize.sm,
+                              onPressed: () => _editHabit(habit),
                             ),
                             FxMenu<String>(
                               tooltip: '更多操作',
@@ -933,21 +971,28 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                                   child: Text('删除习惯'),
                                 ),
                               ],
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: SlowlightSpacing.xl,
-                                  vertical: SlowlightSpacing.md,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(LucideIcons.ellipsis,
-                                        size: SlowlightIconSize.sm),
-                                    SizedBox(width: SlowlightSpacing.xs),
-                                    Text('更多'),
-                                  ],
-                                ),
-                              ),
+                              child: mobile
+                                  ? const SizedBox(
+                                      width: SlowlightControlSize.minTouchTarget,
+                                      height: SlowlightControlSize.minTouchTarget,
+                                      child: Icon(LucideIcons.ellipsis,
+                                          size: SlowlightIconSize.md),
+                                    )
+                                  : const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: SlowlightSpacing.xl,
+                                        vertical: SlowlightSpacing.md,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(LucideIcons.ellipsis,
+                                              size: SlowlightIconSize.sm),
+                                          SizedBox(width: SlowlightSpacing.xs),
+                                          Text('更多'),
+                                        ],
+                                      ),
+                                    ),
                             ),
                           ],
                         ),
@@ -1016,6 +1061,30 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
 
   Widget _todayButton(Habit habit, {bool expanded = false}) {
     final canAppend = _allowsMultipleToday(habit);
+    if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+        !canAppend && !(habit.checkedToday && habit.canCheckIn == true)) {
+      return Semantics(
+        label: '${habit.name} · ${habit.checkedToday ? '已记录，点击可撤销' : '记录今天'}',
+        child: SizedBox(
+          key: ValueKey('habits.today.${habit.id}'),
+          width: SlowlightControlSize.minTouchTarget,
+          height: SlowlightControlSize.minTouchTarget,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _pendingHabitActions.contains(habit.id)
+                ? null
+                : () => _toggleToday(habit),
+            child: Center(
+              child: FxCheckbox(
+                value: habit.checkedToday,
+                enabled: !_pendingHabitActions.contains(habit.id),
+                onChanged: (_) => _toggleToday(habit),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final completed = habit.checkedToday &&
         !canAppend &&
         habit.canCheckIn != true;
@@ -1113,7 +1182,61 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _heatmap(Habit habit, Color color) {
+  Widget _mobileMonthSummary(Habit habit, Color color) {
+    final now = DateTime.now();
+    final monthPrefix = '${now.year}-${_two(now.month)}-';
+    final loaded = _controller.hasLoadedLogs(habit.id);
+    final logs = loaded
+        ? _controller.logsFor(habit.id).where((log) => log.date.startsWith(monthPrefix)).toList()
+        : <HabitLog>[];
+    final days = logs.map((log) => log.date).toSet().length;
+    final dayStat = _miniStat(loaded ? '$days' : '待核对', '记录天数');
+    final logStat = _miniStat(loaded ? '${logs.length}' : '待核对', '日志条数');
+    final calendar = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${now.month} 月 · ${now.year}',
+            style: SlowlightTypography.caption(context)),
+        const SizedBox(height: SlowlightSpacing.xs),
+        _heatmap(habit, color, compact: true),
+      ],
+    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final scale = MediaQuery.textScalerOf(context).scale(1);
+      final wide = constraints.maxWidth >= (scale >= 1.3 ? 340 : 270);
+      if (wide) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 100,
+              child: Column(children: [
+                dayStat,
+                const SizedBox(height: SlowlightSpacing.md),
+                logStat,
+              ]),
+            ),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(child: calendar),
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(child: dayStat),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(child: logStat),
+          ]),
+          const SizedBox(height: SlowlightSpacing.md),
+          calendar,
+        ],
+      );
+    });
+  }
+
+  Widget _heatmap(Habit habit, Color color, {bool compact = false}) {
     if (!_controller.hasLoadedLogs(habit.id)) {
       return Text('本月记录待读取',
           style: SlowlightTypography.caption(context));
@@ -1136,9 +1259,62 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
           context,
         ).scale(SlowlightTypography.captionSize) >=
         SlowlightTypography.captionSize * 1.3;
-    final cell = largeText ? 28.0 : 19.0;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final cell = compact ? (scale >= 1.8 ? 40.0 : largeText ? 30.0 : 23.0)
+        : largeText ? 28.0 : 19.0;
     final dot = largeText ? 22.0 : 16.0;
     final width = cell * 7;
+    if (compact) {
+      final scheme = Theme.of(context).colorScheme;
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: width,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: labels.map((label) => SizedBox(
+                width: cell,
+                child: Text(label, textAlign: TextAlign.center,
+                    style: SlowlightTypography.caption(context)),
+              )).toList(growable: false)),
+              const SizedBox(height: SlowlightSpacing.xs),
+              Wrap(
+                children: days.map((day) {
+                  final inMonth = day.month == now.month;
+                  final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
+                  final active = inMonth && checked.contains(key);
+                  return SizedBox(
+                    width: cell,
+                    height: cell,
+                    child: Center(
+                      child: Container(
+                        width: cell - 2,
+                        height: cell - 2,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: active ? scheme.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(SlowlightRadius.sm),
+                          border: _sameDay(day, today)
+                              ? Border.all(color: scheme.onSurfaceVariant)
+                              : null,
+                        ),
+                        child: Text(
+                          inMonth ? '${day.day}' : '',
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: active ? scheme.onPrimary : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(growable: false),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SizedBox(
@@ -1201,17 +1377,13 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
       // The approved Android overview uses 7px read-only dots. Details
       // remains the adjacent full-size action, never these fact markers.
       return Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(7, (index) {
           final day = DateTime(today.year, today.month, today.day - (6 - index));
           final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
           final active = checked.contains(key) ||
               (_sameDay(day, today) && habit.checkedToday);
-          return Padding(
-            padding: EdgeInsets.only(
-              right: index == 6 ? 0 : SlowlightSpacing.xs,
-            ),
-            child: Semantics(
+          return Semantics(
               label: '${day.month}月${day.day}日${active ? '有记录' : '无记录'}',
               child: Container(
                 key: ValueKey('habits.week.${habit.id}.$index'),
@@ -1222,7 +1394,6 @@ class _HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingOb
                   color: active ? scheme.primary : fxSubtleSurface(context),
                 ),
               ),
-            ),
           );
         }),
       );

@@ -681,8 +681,19 @@ void main() {
     const recordedKey = ValueKey('habits.today.2');
     final pending = find.byKey(pendingKey);
     final recorded = find.byKey(recordedKey);
-    expect(tester.widget<FxButton>(pending).variant, FxButtonVariant.outline);
-    expect(tester.widget<FxButton>(recorded).variant, FxButtonVariant.outline);
+    final pendingCheckbox = find.descendant(
+      of: pending,
+      matching: find.byType(FxCheckbox),
+    );
+    final recordedCheckbox = find.descendant(
+      of: recorded,
+      matching: find.byType(FxCheckbox),
+    );
+    expect(pendingCheckbox, findsOneWidget);
+    expect(recordedCheckbox, findsOneWidget);
+    expect(tester.widget<FxCheckbox>(pendingCheckbox).value, isFalse);
+    expect(tester.widget<FxCheckbox>(recordedCheckbox).value, isTrue);
+    expect(tester.getSize(pending).width, greaterThanOrEqualTo(44));
     expect(tester.getTopRight(pending).dx,
         closeTo(tester.getTopRight(recorded).dx, 1));
     expect(find.descendant(
