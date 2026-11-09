@@ -23,6 +23,26 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    for (final width in [320.0, 360.0, 393.0]) {
+      testWidgets('飞书概况 ${width}dp + 130% 字体自适应不溢出', (tester) async {
+        tester.view.physicalSize = Size(width, 820);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(buildFxTestHost(
+          home: const FeishuScreen(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: const TextScaler.linear(1.3),
+            ),
+            child: child!,
+          ),
+        ));
+        await tester.pump(const Duration(seconds: 3));
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+
     testWidgets('窄屏不产生布局溢出', (tester) async {
       tester.view.physicalSize = const Size(420, 820);
       tester.view.devicePixelRatio = 1;
