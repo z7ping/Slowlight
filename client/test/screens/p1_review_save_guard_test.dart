@@ -899,6 +899,7 @@ void main() {
               {
                 'id': 711,
                 'title': '给朋友回一封邮件',
+                'list_name': '个人',
                 'completed_at': DateTime.now().toIso8601String(),
               },
             ],
@@ -929,6 +930,7 @@ void main() {
     await tester.tap(find.text('完成「给朋友回一封邮件」'));
     await tester.pumpAndSettle();
     expect(find.byType(ReviewTimelineItem), findsOneWidget);
+    expect(find.text('个人'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const ValueKey('review.metric.task_completed')));
