@@ -261,4 +261,36 @@ void main() {
           '${offenders.join('\n')}',
     );
   });
+
+  test('通用动作布局不再使用固定宽度直接判定换行', () async {
+    const shared = [
+      'lib/ui/widgets/fx_action_layout.dart',
+      'lib/ui/widgets/fx_page_header.dart',
+      'lib/ui/widgets/fx_section_header.dart',
+    ];
+    final offenders = <String>[];
+    final forcedWidth = RegExp(
+      r'constraints\\.maxWidth\\s*<\\s*(?:[0-9]+(?:\\.[0-9]+)?|stackBelow)\\b',
+    );
+    for (final path in shared) {
+      final source = await File(path).readAsString();
+      if (forcedWidth.hasMatch(source)) offenders.add(path);
+    }
+    final settings = await File('lib/screens/settings_screen.dart').readAsString();
+    final begin = settings.indexOf('Widget _settingLine(');
+    final end = settings.indexOf('Widget _label(', begin);
+    expect(begin, greaterThanOrEqualTo(0));
+    expect(end, greaterThan(begin));
+    final settingLine = settings.substring(begin, end);
+    if (RegExp(r'constraints\\.maxWidth\\s*<\\s*(?:360|520)\\b')
+        .hasMatch(settingLine)) {
+      offenders.add('lib/screens/settings_screen.dart:_settingLine');
+    }
+    expect(
+      offenders,
+      isEmpty,
+      reason: '通用动作区须根据内容实际占用换行；'
+          '禁止再引入 300/360/520dp 等固定阈值。',
+    );
+  });
 }
