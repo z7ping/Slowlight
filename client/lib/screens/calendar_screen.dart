@@ -939,14 +939,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         )),
                     ),
                     const SizedBox(height: 2),
-                    SizedBox(height: 3, child:
-                      _rangeCache.containsKey(_monthKey(day)) &&
-                      _timelineRecords(day).isNotEmpty
-                        ? Container(width: 3, height: 3,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: activePalette.accent.withValues(alpha: .7)))
-                        : const SizedBox.shrink()),
+                    SizedBox(
+                      height: 3,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_timelineRecords(day).any(
+                              (r) => r.kind == CalendarRecordKind.plan))
+                            Container(
+                              width: 3, height: 3,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: activePalette.accent,
+                              ),
+                            ),
+                          if (_timelineRecords(day).any(
+                              (r) => r.kind == CalendarRecordKind.actual)) ...[
+                            const SizedBox(width: 3),
+                            Container(
+                              width: 3, height: 3,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppTheme.success,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 )),
               ),
