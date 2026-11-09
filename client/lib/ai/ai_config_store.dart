@@ -223,6 +223,8 @@ class AiConfigStore {
       if (active != null && active.config.provider == provider) {
         return loadProfileKey(active);
       }
+      // Missing active profile is not permission to read an unrelated key.
+      return null;
     }
     return secrets.read(provider);
   }
