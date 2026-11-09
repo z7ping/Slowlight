@@ -304,7 +304,12 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         context,
         Text(wasCompleted ? '已恢复待办' : '任务已完成'),
         variant: FxNoticeVariant.success,
-        duration: const Duration(seconds: 8),
+        duration: wasCompleted || task.isRepeat || updated.completedAt == null
+            ? const Duration(milliseconds: 2500)
+            : const Duration(seconds: 8),
+        placement: wasCompleted || task.isRepeat || updated.completedAt == null
+            ? FxNoticePlacement.top
+            : FxNoticePlacement.undo,
         // Recurring tasks may have spawned the next occurrence.
         action: wasCompleted || task.isRepeat || updated.completedAt == null
             ? null
@@ -443,7 +448,16 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         context,
         const Text('已顺延到明天'),
         variant: FxNoticeVariant.success,
-        duration: const Duration(seconds: 8),
+        duration: expectedDueDate != null &&
+                !_sameDueDate(task.dueDate, expectedDueDate) &&
+                !current.isCompleted
+            ? const Duration(seconds: 8)
+            : const Duration(milliseconds: 2500),
+        placement: expectedDueDate != null &&
+                !_sameDueDate(task.dueDate, expectedDueDate) &&
+                !current.isCompleted
+            ? FxNoticePlacement.undo
+            : FxNoticePlacement.top,
         action: expectedDueDate != null &&
                 !_sameDueDate(task.dueDate, expectedDueDate) &&
                 !current.isCompleted

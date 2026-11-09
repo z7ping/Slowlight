@@ -1892,7 +1892,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             } catch (_) {}
           },
         ),
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 8),
+        placement: FxNoticePlacement.undo,
       );
     } catch (e) {
       notice.showContent(Text('删除失败：$e'));

@@ -887,7 +887,12 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         context,
         '任务已完成',
         variant: FxNoticeVariant.success,
-        duration: const Duration(seconds: 8),
+        duration: task.isRepeat || result.completedAt == null
+            ? const Duration(milliseconds: 2500)
+            : const Duration(seconds: 8),
+        placement: task.isRepeat || result.completedAt == null
+            ? FxNoticePlacement.top
+            : FxNoticePlacement.undo,
         action: task.isRepeat || result.completedAt == null
             ? null
             : FxNoticeAction(
