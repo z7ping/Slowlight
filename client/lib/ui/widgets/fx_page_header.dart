@@ -16,6 +16,9 @@ class FxPageHeader extends StatelessWidget {
   final IconData? actionIcon;
   final String? actionTooltip;
   final VoidCallback? onAction;
+  /// Match the approved Android settings detail header, without altering
+  /// other page headers or desktop alignment.
+  final bool centerTitle;
 
   const FxPageHeader({
     super.key,
@@ -25,6 +28,7 @@ class FxPageHeader extends StatelessWidget {
     this.actionIcon,
     this.actionTooltip,
     this.onAction,
+    this.centerTitle = false,
   });
 
   List<Widget> _actions(BuildContext context) {
@@ -101,6 +105,38 @@ class FxPageHeader extends StatelessWidget {
             ],
           );
 
+          if (centerTitle && !hasActions && !largeText) {
+            return SizedBox(
+              width: double.infinity,
+              height: SlowlightControlSize.minTouchTarget,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FxIconButton(
+                      icon: LucideIcons.chevronLeft,
+                      tooltip: '返回',
+                      onPressed: back,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: SlowlightControlSize.minTouchTarget + 4,
+                    ),
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: SlowlightTypography.componentPageTitle(context)
+                          .copyWith(color: theme.colorScheme.onSurface),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
           if (!stackActions) return titleRow;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

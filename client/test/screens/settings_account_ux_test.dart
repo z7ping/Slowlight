@@ -11,6 +11,7 @@ import 'package:slowlight/services/auth_storage_diagnostics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
+import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/services/reminder_service.dart';
 
@@ -203,8 +204,24 @@ void main() {
     ));
     await tester.pump();
     expect(find.byKey(const ValueKey('settings.account.personal')), findsOneWidget);
+    // Section captions live outside the card, as in the approved prototype.
+    expect(find.ancestor(
+      of: find.text('登录与安全'),
+      matching: find.byType(FxCard),
+    ), findsNothing);
+    expect(find.ancestor(
+      of: find.text('数据与同步'),
+      matching: find.byType(FxCard),
+    ), findsNothing);
+    // The centered title is a settings detail variant of the existing header.
+    expect(tester.getRect(find.text('账号')).center.dx, closeTo(180, 2));
     expect(find.byKey(const ValueKey('settings.account.login_cloud')), findsOneWidget);
     expect(find.byKey(const ValueKey('settings.account.open_data')), findsOneWidget);
+    final dataTile = tester.widget<FxListTile>(
+      find.byKey(const ValueKey('settings.account.open_data')),
+    );
+    expect(dataTile.leading, isA<CircleAvatar>());
+    expect((dataTile.leading! as CircleAvatar).radius, 18);
     expect(find.byKey(const ValueKey('settings.account.github.mobile')), findsNothing);
     expect(find.byKey(const ValueKey('settings.account.logout.mobile')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('settings.account.open_data')));
