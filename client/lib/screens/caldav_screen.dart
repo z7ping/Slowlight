@@ -456,6 +456,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
 
   Widget _buildConfigForm() {
     return FxCard(
+      padding: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
         child: Form(
@@ -618,36 +619,9 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
     );
   }
 
-  Widget _buildStatusItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: SlowlightTypography.buttonSize,
-                height: 1.5,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildErrorCard() {
     return FxCard(
+      padding: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
