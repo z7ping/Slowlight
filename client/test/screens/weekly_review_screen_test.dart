@@ -8,6 +8,7 @@ import 'package:slowlight/models/today_timeline_item.dart';
 import 'package:slowlight/repositories/reflection_repository.dart';
 import 'package:slowlight/screens/weekly_review_screen.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/widgets/review/review_timeline_item.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -357,6 +358,56 @@ void main() {
     expect(find.textContaining('本周轨迹读取未确认'), findsNothing);
     expect(find.text('本周有 1 条观察，事件明细尚未载入。'), findsOneWidget);
     expect(find.text('7'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 本周筛选原生轨迹，保留记录类型和真实日期', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(390, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.reset();
+    });
+    final now = DateTime.now();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: WeeklyReviewScreen(
+        embedded: true,
+        reviewLoader: () async => _week(2),
+        outputStatsLoader: () async => {},
+        dailyTrendLoader: () async => [],
+        periodTimelineLoader: () async => ReviewPeriodTimeline(
+          observationCount: 1,
+          items: [
+            TodayTimelineItem(
+              id: 'task:71', kind: 'task_completed',
+              title: '整理工作笔记', durationMinutes: 0, occurredAt: now,
+            ),
+            TodayTimelineItem(
+              id: 'reflection:72', kind: 'observation',
+              title: '今天记录了一点变化', durationMinutes: 0, occurredAt: now,
+            ),
+          ],
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('review.week.metric.task_completed')),
+        findsOneWidget);
+    await tester.tap(find.byKey(
+        const ValueKey('review.week.metric.task_completed')));
+    await tester.pumpAndSettle();
+    final visible = tester.widgetList<ReviewTimelineItem>(
+        find.byType(ReviewTimelineItem));
+    expect(visible.length, 1);
+    expect(visible.single.kind, 'task_completed');
+    expect(visible.single.compact, isTrue);
+
+    await tester.tap(find.byKey(
+        const ValueKey('review.week.metric.task_completed')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReviewTimelineItem), findsNWidgets(2));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
