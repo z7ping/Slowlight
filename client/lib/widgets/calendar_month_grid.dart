@@ -75,7 +75,7 @@ class CalendarMonthGrid extends StatelessWidget {
         _weekdayHeader(context),
         if (loading)
           const SizedBox(
-            height: _dates.length / 7 * (compact ? 72 : 136),
+            height: _dates.length / 7 * (compact ? 64 : 136),
             child: Center(child: FxCircularProgress()),
           )
         else
@@ -85,9 +85,11 @@ class CalendarMonthGrid extends StatelessWidget {
             itemCount: _dates.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
+              mainAxisSpacing: 2,
+              crossAxisSpacing: 2,
               mainAxisExtent: switch ((compact, largeText)) {
                 (true, true) => 160.0,
-                (true, false) => 72.0,
+                (true, false) => 64.0,
                 (false, true) => 172.0,
                 (false, false) => 136.0,
               },
@@ -145,10 +147,10 @@ class CalendarMonthGrid extends StatelessWidget {
     final selected = _sameDay(date, selectedDate);
     final today = _sameDay(date, DateTime.now());
     final items = _visibleRecords(date);
-    final previewCount = largeText ? 1 : (compact ? 2 : 3);
+    final previewCount = largeText ? 1 : (compact && items.length > 2 ? 1 : compact ? 2 : 3);
     final shown = items.take(previewCount).toList(growable: false);
     final remaining = items.length - shown.length;
-    final dateHeaderHeight = largeText ? 38.0 : compact ? 22.0 : 23.0;
+    final dateHeaderHeight = largeText ? 38.0 : compact ? 21.0 : 23.0;
     final surfaceColor =
         selected
             ? activePalette.accent.withValues(alpha: .08)
@@ -273,7 +275,7 @@ class CalendarMonthGrid extends StatelessWidget {
         : record.amountLabel.isNotEmpty ? ' · ${record.amountLabel}' : '';
     final radius = BorderRadius.circular(SlowlightRadius.sm);
     return Padding(
-      padding: EdgeInsets.only(top: compact && !largeText ? 2 : 3),
+      padding: EdgeInsets.only(top: compact && !largeText ? 1 : 3),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color.withValues(alpha: .12),
@@ -285,7 +287,7 @@ class CalendarMonthGrid extends StatelessWidget {
           child: Container(
             key: ValueKey('calendar-grid-record-${record.id}'),
             width: double.infinity,
-            constraints: BoxConstraints(minHeight: largeText ? 36 : compact ? 18 : 24),
+            constraints: BoxConstraints(minHeight: largeText ? 36 : compact ? 16 : 24),
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 6),
             child: Text(
@@ -341,7 +343,7 @@ class _WeekdayLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
     child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
       child: Text(
         label,
         textAlign: TextAlign.center,
