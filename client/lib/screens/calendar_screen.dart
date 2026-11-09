@@ -330,6 +330,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _monthLoader = widget.monthLoader ?? CalendarRepository().loadMonth;
     _ownsHeaderController = widget.headerController == null;
     _headerController = widget.headerController ?? CalendarHeaderController();
+    _viewMode = _headerController.viewMode;
     _headerController.attach(onMoveMonth: _moveMonth, onToday: _goToday,
         onFilter: _setFilter, onViewMode: _setViewMode);
     _restoreViewMode();
