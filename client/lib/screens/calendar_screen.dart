@@ -487,9 +487,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final next = DateTime(_selected.year, _selected.month,
         _selected.day + step * direction);
     await _selectDate(next);
-    if (mounted && _viewMode != CalendarViewMode.month) {
-      await _ensureRange();
-    }
   }
 
   Future<void> _refresh({bool keepCurrent = false}) async {
@@ -562,13 +559,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _selectDate(DateTime date) async {
     final changeMonth =
         date.year != _focused.year || date.month != _focused.month;
+    final cached = changeMonth ? _rangeCache[_monthKey(date)] : null;
     setState(() {
       _selected = DateTime(date.year, date.month, date.day);
-      if (changeMonth) _focused = DateTime(date.year, date.month, 1);
+      if (changeMonth) {
+        _focused = DateTime(date.year, date.month, 1);
+        // Neighboring dates are already loaded by the current date strip.
+        // Reuse confirmed records rather than blanking the whole page.
+        if (cached != null) {
+          _data = cached;
+          _loading = false;
+          _loadFailed = false;
+        }
+      }
     });
     if (changeMonth) {
       _notifyHeader();
-      await _load();
+      if (cached == null) {
+        await _load();
+      } else if (_viewMode != CalendarViewMode.month) {
+        await _ensureRange();
+      }
     } else if (_viewMode != CalendarViewMode.month) {
       await _ensureRange();
     }
