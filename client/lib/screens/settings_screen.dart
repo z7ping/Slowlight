@@ -348,6 +348,330 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return '$name · 云端';
   }
 
+  /// Android account settings reuse the existing Fx cards/rows and account
+  /// operations. Windows keeps the established two-column settings layout.
+  Widget _mobileAccountPanel() {
+    final theme = Theme.of(context);
+    final subtle = theme.colorScheme.onSurfaceVariant;
+    final local = DataModeManager().isLocal;
+    final largeText = MediaQuery.textScalerOf(context).scale(1) >= 1.3;
+    final user = _accountUser;
+    final name = local
+        ? '本地使用'
+        : user == null
+            ? (_loadingAccount ? '正在读取账号…' : '账号信息待确认')
+            : user.nickname.trim().isNotEmpty
+                ? user.nickname.trim()
+                : user.username;
+    final passwordState = _passwordLoginReady == null
+        ? '未确认'
+        : _passwordLoginReady! ? '已设置' : '未设置';
+    final githubState = _checkingGitHub
+        ? '检查中'
+        : _githubLinked == null
+            ? '未确认'
+            : _githubLinked! ? '已绑定' : '未绑定';
+
+    Widget group(String title, Widget content) => FxCard(
+      expanded: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+            child: Text(title, style: SlowlightTypography.secondary(context)
+                .copyWith(fontWeight: FontWeight.w600)),
+          ),
+          content,
+        ],
+      ),
+    );
+
+    Widget arrow() => Icon(LucideIcons.chevronRight, size: 18, color: subtle);
+    Widget stateTrailing(String value) => largeText ? arrow() : Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: SlowlightTypography.caption(context)
+            .copyWith(color: subtle)),
+        const SizedBox(width: 4),
+        arrow(),
+      ],
+    );
+
+    final identity = FxCard(
+      key: const ValueKey('settings.account.personal'),
+      expanded: true,
+      padding: const EdgeInsets.all(8),
+      child: FxListTile(
+        density: FxListTileDensity.detailed,
+        leading: CircleAvatar(
+          radius: 22,
+          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          child: Icon(LucideIcons.userRound, color: subtle, size: 22),
+        ),
+        title: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
+            style: SlowlightTypography.cardTitle(context)),
+        subtitle: local
+            ? '无需账号 · 数据保存在本机'
+            : accountEmailLabel(user?.email ?? ''),
+        trailing: !local && user != null ? arrow() : null,
+        onTap: local || _loadingAccount
+            ? null
+            : user == null
+                ? _loadAccount
+                : () async {
+                    final changed = await editCloudNickname(context, user);
+                    if (changed && mounted) await _loadAccount();
+                  },
+      ),
+    );
+
+    final data = group('数据与同步', FxListTile(
+      key: const ValueKey('settings.account.open_data'),
+      density: FxListTileDensity.compact,
+      leading: Icon(local ? LucideIcons.hardDrive : LucideIcons.cloud,
+          size: 22, color: subtle),
+      title: '数据模式',
+      subtitle: largeText ? (local ? '本地' : '云端') : null,
+      trailing: stateTrailing(local ? '本地' : '云端'),
+      onTap: () => _openSection('data'),
+    ));
+
+    final signIn = group('登录与安全', local
+        ? FxListTile(
+            key: const ValueKey('settings.account.login_cloud'),
+            density: FxListTileDensity.compact,
+            leading: Icon(LucideIcons.cloud, size: 22, color: subtle),
+            title: '登录云端账号',
+            subtitle: '登录不会自动迁移本地记录',
+            trailing: arrow(),
+            onTap: _switchingMode ? null : () => _setDataMode(1),
+          )
+        : Column(
+            children: [
+              FxListTile(
+                key: const ValueKey('settings.account.github.mobile'),
+                density: FxListTileDensity.compact,
+                leading: githubBrandMark(context, size: 36),
+                title: 'GitHub',
+                subtitle: largeText ? (_linkingGitHub ? '授权中' : githubState) : null,
+                trailing: stateTrailing(_linkingGitHub ? '授权中' : githubState),
+                onTap: _cancelingGitHub ? null : _showMobileGitHubSheet,
+              ),
+              FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+              FxListTile(
+                key: const ValueKey('settings.account.password.mobile'),
+                density: FxListTileDensity.compact,
+                leading: Icon(LucideIcons.keyRound, size: 22, color: subtle),
+                title: '账号密码',
+                subtitle: (_passwordLoginReady == true
+                    ? '登录账号：' +
+                        (_loginUsername.isEmpty
+                            ? user?.username ?? ''
+                            : _loginUsername) +
+                        (largeText ? ' · ' + passwordState : '')
+                    : largeText ? passwordState : null),
+                trailing: stateTrailing(passwordState),
+                onTap: _linkingGitHub ? null : _openMobilePasswordEditor,
+              ),
+            ],
+          ));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        identity,
+        const SizedBox(height: 12),
+        signIn,
+        const SizedBox(height: 12),
+        data,
+        if (!local) ...[
+          const SizedBox(height: 12),
+          FxCard(
+            expanded: true,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: FxListTile(
+              key: const ValueKey('settings.account.logout.mobile'),
+              density: FxListTileDensity.compact,
+              leading: Icon(LucideIcons.logOut, size: 20,
+                  color: theme.colorScheme.error),
+              title: Text(_loggingOut ? '退出中…' : '退出登录',
+                style: SlowlightTypography.body(context)
+                    .copyWith(color: theme.colorScheme.error)),
+              trailing: arrow(),
+              onTap: _loggingOut || _linkingGitHub ? null : _logoutAccount,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _openMobilePasswordEditor() async {
+    if (_passwordLoginReady == null) {
+      await _loadAccount();
+      return;
+    }
+    if (_passwordLoginReady == false && _githubLinked != true) {
+      // First password setup requires an explicitly confirmed GitHub link.
+      await _showMobileGitHubSheet();
+      return;
+    }
+    final changed = await manageAccountPassword(
+      context,
+      alreadySet: _passwordLoginReady!,
+      username: _loginUsername,
+    );
+    if (changed && mounted) await _loadAccount();
+  }
+
+  Future<void> _showMobileGitHubSheet() async {
+    if (DataModeManager().isLocal) return;
+    final status = _checkingGitHub
+        ? '正在核对云端绑定状态'
+        : _githubLinked == true
+            ? '已绑定当前云端账号'
+            : _githubLinked == false
+                ? '未绑定'
+                : '状态未确认，请重新检查';
+    final result = await FxSheet.show<String>(
+      context: context,
+      showDragHandle: true,
+      showCloseButton: false,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('GitHub 账号',
+              style: SlowlightTypography.cardTitle(sheetContext)),
+            const SizedBox(height: 14),
+            Text(status, style: SlowlightTypography.body(sheetContext)),
+            const SizedBox(height: 8),
+            Text(
+              _linkingGitHub ? _githubLinkingStatus :
+                  '绑定只影响当前云端账号的登录方式，不会迁移本地记录。',
+              style: SlowlightTypography.caption(sheetContext),
+            ),
+            if (_linkingGitHub &&
+                _githubDeviceCode != null &&
+                _githubDeviceUri != null) ...[
+              const SizedBox(height: 12),
+              SelectableText(_githubDeviceCode!),
+              const SizedBox(height: 8),
+              FxButton(
+                label: '复制验证码',
+                variant: FxButtonVariant.outline,
+                expanded: true,
+                onPressed: () => Navigator.of(sheetContext).pop('copy'),
+              ),
+              const SizedBox(height: 8),
+              FxButton(
+                label: '打开 GitHub 验证页',
+                variant: FxButtonVariant.outline,
+                expanded: true,
+                onPressed: () => Navigator.of(sheetContext).pop('open'),
+              ),
+            ],
+            const SizedBox(height: 16),
+            if (_linkingGitHub) ...[
+              FxButton(
+                label: '检查授权结果',
+                expanded: true,
+                variant: FxButtonVariant.outline,
+                onPressed: () => Navigator.of(sheetContext).pop('poll'),
+              ),
+              const SizedBox(height: 8),
+              FxButton(
+                label: '取消等待',
+                variant: FxButtonVariant.ghost,
+                expanded: true,
+                onPressed: () => Navigator.of(sheetContext).pop('cancel'),
+              ),
+            ] else if (!_checkingGitHub && _githubLinked == false) ...[
+              FxButton(
+                label: '绑定 GitHub',
+                expanded: true,
+                onPressed: () => Navigator.of(sheetContext).pop('bind'),
+              ),
+              if (_githubDeviceEnabled) ...[
+                const SizedBox(height: 8),
+                FxButton(
+                  label: '使用验证码绑定（备用）',
+                  variant: FxButtonVariant.outline,
+                  expanded: true,
+                  onPressed: () => Navigator.of(sheetContext).pop('device'),
+                ),
+              ],
+            ] else ...[
+              FxButton(
+                label: '重新检查绑定状态',
+                expanded: true,
+                variant: FxButtonVariant.outline,
+                onPressed: () => Navigator.of(sheetContext).pop('refresh'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    switch (result) {
+      case 'bind':
+        await _bindGitHub();
+        break;
+      case 'device':
+        await _bindGitHub(useDeviceCode: true);
+        break;
+      case 'refresh':
+        await _loadAccount();
+        break;
+      case 'copy':
+        final code = _githubDeviceCode;
+        if (code != null) {
+          await Clipboard.setData(ClipboardData(text: code));
+          if (mounted) _message('验证码已复制');
+        }
+        break;
+      case 'open':
+        final uri = _githubDeviceUri;
+        if (uri != null &&
+            !await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+            mounted) {
+          _message('请手动打开 github.com/login/device');
+        }
+        break;
+      case 'poll':
+        if (!GitHubSignIn.checkAuthorizationNow()) {
+          _message('授权会话正在初始化，请稍后重试');
+        }
+        break;
+      case 'cancel':
+        ++_githubBindAttempt;
+        setState(() {
+          _linkingGitHub = false;
+          _cancelingGitHub = true;
+        });
+        try {
+          await GitHubSignIn.cancelPendingAuthorization();
+        } catch (error) {
+          if (mounted) {
+            setState(() => _githubLinked = null);
+            FxNotice.errorWithDetails(
+              context,
+              '取消授权结果未确认，请重新检查账号绑定状态',
+              error.toString(),
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _cancelingGitHub = false);
+        }
+        break;
+    }
+  }
+
   Widget _accountPanel() {
     final theme = Theme.of(context);
     final subtle = theme.colorScheme.onSurfaceVariant;
@@ -355,6 +679,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final captionStyle = SlowlightTypography.caption(context);
     final local = DataModeManager().isLocal;
     final user = _accountUser;
+    final platform = theme.platform;
+    if (platform == TargetPlatform.android || platform == TargetPlatform.iOS) {
+      return _mobileAccountPanel();
+    }
 
     Widget sectionCard({
       Key? key,

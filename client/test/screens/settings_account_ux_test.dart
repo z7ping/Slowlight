@@ -190,4 +190,29 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 账号列表保持紧凑，本地入口只能登录或管理数据', (tester) async {
+    SharedPreferences.setMockInitialValues(const {});
+    await tester.runAsync(() => DataModeManager().setLocal());
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: const SettingsScreen(initialSection: 'account'),
+    ));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('settings.account.personal')), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.account.login_cloud')), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.account.open_data')), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.account.github.mobile')), findsNothing);
+    expect(find.byKey(const ValueKey('settings.account.logout.mobile')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('settings.account.open_data')));
+    await tester.pump();
+    expect(find.text('数据迁移'), findsOneWidget);
+    expect(find.text('迁移历史'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
