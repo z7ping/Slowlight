@@ -305,6 +305,22 @@ class CalendarHeaderActions extends StatelessWidget {
   );
 }
 
+class _CalendarDateHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+  const _CalendarDateHeaderDelegate({required this.child, required this.height});
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      child;
+  @override
+  bool shouldRebuild(covariant _CalendarDateHeaderDelegate oldDelegate) => true;
+}
+
 class CalendarScreen extends StatefulWidget {
   final CalendarMonthLoader? monthLoader;
   final DateTime? initialMonth;
@@ -355,6 +371,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   CalendarViewMode _viewMode = CalendarViewMode.month;
   bool _modeTouched = false;
   bool _untimedExpanded = false;
+  bool _otherTimeExpanded = false;
   String? _draggingRecordId;
   Offset _dragOrigin = Offset.zero;
   Offset _dragOffset = Offset.zero;
@@ -443,6 +460,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() {
       if (view == CalendarViewMode.threeDays) _threeDayStart = _selected;
       _untimedExpanded = false;
+      _otherTimeExpanded = false;
       _viewMode = view;
     });
     _notifyHeader();
@@ -549,7 +567,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final next = DateTime(anchor.year, anchor.month,
         anchor.day + step * direction);
     if (_viewMode == CalendarViewMode.threeDays) _threeDayStart = next;
-    if (mounted) setState(() => _untimedExpanded = false);
+    if (mounted) setState(() {
+      _untimedExpanded = false;
+      _otherTimeExpanded = false;
+    });
     await _selectDate(next);
   }
 
@@ -628,7 +649,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final cached = changeMonth ? _rangeCache[_monthKey(date)] : null;
     setState(() {
       _selected = DateTime(date.year, date.month, date.day);
-      if (changeMonth) _untimedExpanded = false;
+      if (changeMonth) {
+        _untimedExpanded = false;
+        _otherTimeExpanded = false;
+      }
       if (changeMonth) {
         _focused = DateTime(date.year, date.month, 1);
         // Neighboring dates are already loaded by the current date strip.
@@ -696,6 +720,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.headerInAppBar &&
+        SlowlightPlatformDensity.usesMobileTouchTargets &&
+        _viewMode != CalendarViewMode.month && _hasCurrentMonth) {
+      return _pinnedClockView();
+    }
     return FxRefresh(
       onRefresh: _refresh,
       child: ListView(
@@ -755,8 +784,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           onShowMore: _showMore,
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      _dayPanel(),
+                      const SizedBox(height: 12),
+                      if (widget.headerInAppBar &&
+                          SlowlightPlatformDensity.usesMobileTouchTargets)
+                        _compactMonthPanel()
+                      else
+                        _dayPanel(),
                     ] else ...[
                       // The shared date header is part of the time grid.
                       if (_rangeLoading)
@@ -780,6 +813,61 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ],
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pin the same date rail used by the time-axis columns on Android.
+  Widget _pinnedClockView() {
+    return FxRefresh(
+      onRefresh: _refresh,
+      child: CustomScrollView(
+        key: const ValueKey('calendar-scroll-view'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          if (_hasCurrentMonth && _data!.unavailableTypes.isNotEmpty)
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: _partialDataNotice(),
+            )),
+          if (_loadFailed && _hasCurrentMonth)
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: _monthRefreshFailedNotice(),
+            )),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _CalendarDateHeaderDelegate(
+              height: 56,
+              child: ColoredBox(
+                color: Theme.of(context).colorScheme.surface,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _dateStrip(),
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 32),
+              child: _rangeLoading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 36),
+                      child: Center(child: FxCircularProgress()),
+                    )
+                  : _rangeFailed
+                      ? FxEmptyState(
+                          icon: LucideIcons.triangleAlert,
+                          title: '部分日期读取失败',
+                          subtitle: '跨月记录尚未核实，不能按无记录展示。',
+                          action: FxButton(label: '重新加载',
+                              onPressed: _retryRange),
+                        )
+                      : _timeGrid(includeDateStrip: false),
             ),
           ),
         ],
@@ -851,14 +939,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         )),
                     ),
                     const SizedBox(height: 2),
-                    SizedBox(height: 3, child:
-                      _rangeCache.containsKey(_monthKey(day)) &&
-                      _timelineRecords(day).isNotEmpty
-                        ? Container(width: 3, height: 3,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: activePalette.accent.withValues(alpha: .7)))
-                        : const SizedBox.shrink()),
+                    SizedBox(
+                      height: 3,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_timelineRecords(day).any(
+                              (r) => r.kind == CalendarRecordKind.plan))
+                            Container(
+                              width: 3, height: 3,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: activePalette.accent,
+                              ),
+                            ),
+                          if (_timelineRecords(day).any(
+                              (r) => r.kind == CalendarRecordKind.actual)) ...[
+                            const SizedBox(width: 3),
+                            Container(
+                              width: 3, height: 3,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppTheme.success,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 )),
               ),
@@ -932,13 +1040,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _timeGrid() {
+  Widget _timeGrid({bool includeDateStrip = true}) {
     final days = _visibleDays();
     if (days.isEmpty) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
-    final leftover = <CalendarRecord>[];
+    final untimed = <CalendarRecord>[];
+    final outsideHours = <CalendarRecord>[];
     for (final day in days) {
-      leftover.addAll(_timelineRecords(day).where((r) => !_isTimed(r)));
+      for (final record in _timelineRecords(day)) {
+        if (_isTimed(record)) continue;
+        if (_clockMinute(record) == null) {
+          untimed.add(record);
+        } else {
+          outsideHours.add(record);
+        }
+      }
     }
     final partial = days.any((d) =>
         _rangeCache[_monthKey(d)]?.unavailableTypes.isNotEmpty ?? false);
@@ -946,7 +1062,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       key: const ValueKey('calendar-selected-timeline'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _dateStrip(),
+        if (includeDateStrip) _dateStrip(),
         if (partial) Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text('部分来源未核实，仍保留已确认的记录。',
@@ -974,7 +1090,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           );
         }),
-        if (leftover.isNotEmpty) _remainingRecords(leftover),
+        if (untimed.isNotEmpty) _remainingRecords(untimed),
+        if (outsideHours.isNotEmpty) _remainingRecords(outsideHours, outside: true),
         Align(
           alignment: Alignment.centerRight,
           child: Padding(
@@ -1095,29 +1212,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _remainingRecords(List<CalendarRecord> rows) {
+  Widget _remainingRecords(List<CalendarRecord> rows, {bool outside = false}) {
     final colors = Theme.of(context).colorScheme;
+    final expanded = outside ? _otherTimeExpanded : _untimedExpanded;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       FxInkWell(
-        key: const ValueKey('calendar-untimed-toggle'),
-        onTap: () => setState(() => _untimedExpanded = !_untimedExpanded),
+        key: ValueKey(outside ? 'calendar-other-time-toggle' : 'calendar-untimed-toggle'),
+        onTap: () => setState(() {
+          if (outside) {
+            _otherTimeExpanded = !_otherTimeExpanded;
+          } else {
+            _untimedExpanded = !_untimedExpanded;
+          }
+        }),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
           child: Row(children: [
-            Text('未定／其他时间',
+            Text(outside ? '其他时间' : '未定时间',
               style: SlowlightTypography.secondary(context)
                   .copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
             Text(rows.length.toString() + ' 项',
               style: SlowlightTypography.caption(context)),
             const Spacer(),
-            Icon(_untimedExpanded
+            Icon(expanded
                 ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                 size: 16, color: colors.onSurfaceVariant),
           ]),
         ),
       ),
-      if (_untimedExpanded)
+      if (expanded)
         for (final record in rows)
           FxInkWell(
             key: ValueKey('calendar-untimed-record-' + record.id),
@@ -1189,6 +1313,88 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ]),
       ),
+    );
+  }
+
+  // Android month overview reuses records and detail editor in a compact list.
+  Widget _compactMonthPanel() {
+    final rows = _recordsForDay(_selected).toList()
+      ..sort((a, b) => (_clockMinute(a) ?? 1440)
+          .compareTo(_clockMinute(b) ?? 1440));
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final theme = Theme.of(context);
+    return Column(
+      key: _dayPanelKey,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Expanded(child: Text(
+            _selected.month.toString() + '月' + _selected.day.toString() +
+                '日 · 周' + weekdays[_selected.weekday - 1],
+            key: const ValueKey('calendar-selected-title'),
+            style: SlowlightTypography.secondary(context)
+                .copyWith(fontWeight: FontWeight.w700),
+          )),
+          FxIconButton(
+            key: const ValueKey('calendar-add-task'),
+            icon: LucideIcons.plus,
+            tooltip: '安排任务',
+            onPressed: () => _addTask(_selected),
+          ),
+        ]),
+        if (rows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Text(
+              _hasCurrentMonth && _data!.unavailableTypes.isNotEmpty
+                  ? '部分记录待核对'
+                  : '当天还没有安排或记录',
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.caption(context)
+                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          )
+        else
+          for (final record in rows)
+            FxInkWell(
+              key: ValueKey('calendar-record-' + record.id),
+              onTap: () => _openRecord(record),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: .6),
+                  )),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(left: BorderSide(
+                      color: calendarRecordColor(record, context), width: 2,
+                    )),
+                  ),
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(record.title,
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.secondary(context)
+                            .copyWith(fontWeight: FontWeight.w600)),
+                      if (record.description.isNotEmpty ||
+                          record.timeLabel.isNotEmpty)
+                        Text(
+                          record.description.isNotEmpty
+                              ? record.description : record.timeLabel,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+      ],
     );
   }
 
