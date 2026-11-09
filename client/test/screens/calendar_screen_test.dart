@@ -513,6 +513,87 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 时间栏滚动后仍固定，日期与时间列对齐', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    SharedPreferences.setMockInitialValues({'calendar.view_mode': 'threeDays'});
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(
+      body: CalendarScreen(
+        headerInAppBar: true,
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: DateTime(2026, 8, 21),
+        monthLoader: (requested) async =>
+            CalendarMonthData(month: requested, records: records),
+      ),
+    )));
+    await tester.pumpAndSettle();
+    final strip = find.byKey(const ValueKey('calendar-date-strip'));
+    expect(strip, findsOneWidget);
+    final before = tester.getTopLeft(strip).dy;
+    await tester.drag(find.byKey(const ValueKey('calendar-scroll-view')),
+        const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect((tester.getTopLeft(strip).dy - before).abs(), lessThan(1));
+    final date = find.byKey(const ValueKey('calendar-period-day-2026-8-21'));
+    final slot = find.byKey(const ValueKey('calendar-hour-slot-2026-8-21'));
+    expect((tester.getSize(date).width - tester.getSize(slot).width).abs(),
+        lessThan(1));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 月视图使用紧凑当日明细而非大统计卡片', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(
+      body: CalendarScreen(
+        headerInAppBar: true,
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: DateTime(2026, 8, 21),
+        monthLoader: loader,
+      ),
+    )));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-selected-title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-record-task-plan')), findsOneWidget);
+    expect(find.text('当日足迹'), findsNothing);
+    expect(find.text('当日任务'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('月格实际需要的 5 周不补虚构第 6 周', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(
+      body: CalendarScreen(
+        initialMonth: DateTime(2026, 2),
+        initialSelectedDate: DateTime(2026, 2, 12),
+        monthLoader: (requested) async =>
+            CalendarMonthData(month: requested, records: const []),
+      ),
+    )));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-day-2026-03-01')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-day-2026-03-08')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('有明确凌晨时刻和未知时刻分别进入其他时间、未定时间',
+      (tester) async {
+    await pumpCalendar(tester);
+    await selectCalendarView(tester, '日');
+    expect(find.byKey(const ValueKey('calendar-untimed-toggle')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-other-time-toggle')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('三日跨月加载相邻月份记录，不以无记录代替未加载', (tester) async {
     final requestedMonths = <int>[];
     await tester.pumpWidget(buildFxTestHost(
