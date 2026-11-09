@@ -98,6 +98,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   int _loadVersion = 0;
   GlobalKey _workspaceKey = GlobalKey(debugLabel: '回顾工作区');
   GlobalKey<TaskToolScreenState> _taskToolKey = GlobalKey<TaskToolScreenState>();
+  final GlobalKey<HabitToolScreenState> _habitToolKey = GlobalKey<HabitToolScreenState>();
+  int _habitToolFilter = 0;
   bool _navigating = false;
   bool _reviewOpened = false;
   bool _organizeToolsExpanded = false;
@@ -661,6 +663,28 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             actions: [
               if (_navigation.tool == HomeToolSection.calendar)
                 CalendarHeaderActions(controller: _calendarHeaderController),
+              if (_navigation.tool == HomeToolSection.habits)
+                FxMenu<int>(
+                  key: const ValueKey('habits.filter.menu'),
+                  tooltip: '筛选习惯',
+                  onSelected: (value) {
+                    setState(() => _habitToolFilter = value);
+                    _habitToolKey.currentState?.setFilter(value);
+                  },
+                  itemBuilder: (_) => [
+                    FxMenuItem(value: 0, child: Text(_habitToolFilter == 0 ? '✓ 全部' : '全部')),
+                    FxMenuItem(value: 1, child: Text(_habitToolFilter == 1 ? '✓ 今日未记录' : '今日未记录')),
+                    FxMenuItem(value: 2, child: Text(_habitToolFilter == 2 ? '✓ 今日有记录' : '今日有记录')),
+                  ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Icon(LucideIcons.listFilter,
+                        size: SlowlightIconSize.md,
+                        color: _habitToolFilter == 0
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.primary),
+                  ),
+                ),
               if (_navigation.isToday) ...[
                 FxIconButton(
                   icon: LucideIcons.pencil,
@@ -816,6 +840,15 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                 child: content,
               ),
             ),
+            if (_navigation.tool == HomeToolSection.habits)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: _mobileQuickAddButton(
+                  tooltip: '添加习惯',
+                  onTap: () => _habitToolKey.currentState?.createHabit(),
+                ),
+              ),
             if (_navigation.isToday)
               Positioned(
                 left: left,
@@ -870,12 +903,14 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   }
 
   Widget _mobileQuickAddButton({
-    required GestureDragUpdateCallback onPanUpdate,
+    GestureDragUpdateCallback? onPanUpdate,
+    VoidCallback? onTap,
+    String tooltip = '快速添加任务（按住可拖动）',
   }) {
     return GestureDetector(
       onPanUpdate: onPanUpdate,
       child: FxTooltip(
-        message: '快速添加任务（按住可拖动）',
+        message: tooltip,
         child: Material(
           color: Theme.of(context).colorScheme.onSurface,
           elevation: 4,
@@ -885,7 +920,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           ),
           clipBehavior: Clip.antiAlias,
           child: FxInkWell(
-            onTap: _quickAdd,
+            onTap: onTap ?? _quickAdd,
             child: SizedBox(
               width: 48,
               height: 48,
@@ -955,6 +990,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     HomeToolSection.tasks => TaskToolScreen(key: _taskToolKey),
     HomeToolSection.habits =>
       HabitToolScreen(
+        key: _habitToolKey,
+        initialFilter: _habitToolFilter,
         titleProvidedByShell: true,
         createOnOpen: _openHabitEditorOnEnter,
         focusHabitId: _searchFocusHabitId,
