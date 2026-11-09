@@ -279,7 +279,7 @@ class _DashboardBodyState extends State<DashboardBody> {
         spacing: SlowlightSpacing.md,
         overflowSpacing: SlowlightSpacing.xs,
         children: [date, focus],
-      });
+      );
     }
 
     final subtitle =
