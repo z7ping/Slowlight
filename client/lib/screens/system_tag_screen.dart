@@ -573,15 +573,37 @@ class _SystemTagScreenState extends State<SystemTagScreen> {
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: _presetEmojis
-                        .map(
-                          (item) => selectableChip(
-                            label: item,
-                            selected: item == icon,
-                            onTap: () => setDialogState(() => icon = item),
+                    children: _presetEmojis.map((item) {
+                      final selected = item == icon;
+                      if (widget.createRequest == null) {
+                        return selectableChip(
+                          label: item,
+                          selected: selected,
+                          onTap: () => setDialogState(() => icon = item),
+                        );
+                      }
+                      return FxInkWell(
+                        onTap: saving || writeUnknown ? null :
+                            () => setDialogState(() => icon = item),
+                        borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                        child: Container(
+                          width: 44, height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? activePalette.accent.withValues(alpha: .12)
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: selected
+                                  ? activePalette.accent
+                                  : theme.colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(SlowlightRadius.md),
                           ),
-                        )
-                        .toList(growable: false),
+                          child: _tagGlyph(item),
+                        ),
+                      );
+                    }).toList(growable: false),
                   ),
                   const SizedBox(height: 14),
                   _dialogLabel(dialogContext, '颜色'),
