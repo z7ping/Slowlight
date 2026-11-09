@@ -305,6 +305,22 @@ class CalendarHeaderActions extends StatelessWidget {
   );
 }
 
+class _CalendarDateHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+  const _CalendarDateHeaderDelegate({required this.child, required this.height});
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      child;
+  @override
+  bool shouldRebuild(covariant _CalendarDateHeaderDelegate oldDelegate) => true;
+}
+
 class CalendarScreen extends StatefulWidget {
   final CalendarMonthLoader? monthLoader;
   final DateTime? initialMonth;
@@ -696,6 +712,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.headerInAppBar &&
+        SlowlightPlatformDensity.usesMobileTouchTargets &&
+        _viewMode != CalendarViewMode.month && _hasCurrentMonth) {
+      return _pinnedClockView();
+    }
     return FxRefresh(
       onRefresh: _refresh,
       child: ListView(
@@ -780,6 +801,61 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ],
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pin the same date rail used by the time-axis columns on Android.
+  Widget _pinnedClockView() {
+    return FxRefresh(
+      onRefresh: _refresh,
+      child: CustomScrollView(
+        key: const ValueKey('calendar-scroll-view'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          if (_hasCurrentMonth && _data!.unavailableTypes.isNotEmpty)
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: _partialDataNotice(),
+            )),
+          if (_loadFailed && _hasCurrentMonth)
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: _monthRefreshFailedNotice(),
+            )),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _CalendarDateHeaderDelegate(
+              height: 56,
+              child: ColoredBox(
+                color: Theme.of(context).colorScheme.surface,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _dateStrip(),
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 32),
+              child: _rangeLoading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 36),
+                      child: Center(child: FxCircularProgress()),
+                    )
+                  : _rangeFailed
+                      ? FxEmptyState(
+                          icon: LucideIcons.triangleAlert,
+                          title: '部分日期读取失败',
+                          subtitle: '跨月记录尚未核实，不能按无记录展示。',
+                          action: FxButton(label: '重新加载',
+                              onPressed: _retryRange),
+                        )
+                      : _timeGrid(includeDateStrip: false),
             ),
           ),
         ],
@@ -932,7 +1008,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _timeGrid() {
+  Widget _timeGrid({bool includeDateStrip = true}) {
     final days = _visibleDays();
     if (days.isEmpty) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
@@ -946,7 +1022,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       key: const ValueKey('calendar-selected-timeline'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _dateStrip(),
+        if (includeDateStrip) _dateStrip(),
         if (partial) Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text('部分来源未核实，仍保留已确认的记录。',
