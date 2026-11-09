@@ -124,7 +124,8 @@ class FxPageHeader extends StatelessWidget {
               (trailing is FxIconButton && actionIcon == null) ||
               (trailing == null && actionIcon != null);
           final singleButtonFits =
-              !singleIconAction && _singleButtonFits(context, constraints.maxWidth);
+              !singleIconAction && scale < 1.6 &&
+              _singleButtonFits(context, constraints.maxWidth);
           final stackActions = hasActions &&
               (constraints.maxWidth < 180 ||
                   (!singleIconAction &&
