@@ -98,7 +98,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildOverview(),
-                  const SizedBox(height: SlowlightSpacing.xxxl),
+                  const SizedBox(height: SlowlightSpacing.lg),
                   if (wide)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,9 +108,13 @@ extension _FeishuScreenSections on _FeishuScreenState {
                         Expanded(flex: 6, child: _buildOperationsColumn()),
                       ],
                     )
-                  else ...[
+                  else if (_tablesReady) ...[
+                    _buildOperationsColumn(),
+                    const SizedBox(height: SlowlightSpacing.lg),
                     _buildConfigurationColumn(),
-                    const SizedBox(height: SlowlightSpacing.xxxl),
+                  ] else ...[
+                    _buildConfigurationColumn(),
+                    const SizedBox(height: SlowlightSpacing.lg),
                     _buildOperationsColumn(),
                   ],
                 ],
@@ -125,7 +129,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
   Widget _buildOverview() {
     final theme = Theme.of(context);
     return _card(
-      padding: const EdgeInsets.all(SlowlightSpacing.xl),
+      padding: const EdgeInsets.all(SlowlightSpacing.md),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 620;
@@ -158,7 +162,8 @@ extension _FeishuScreenSections on _FeishuScreenState {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      _isConfigured ? '连接已就绪，可按数据类型同步' : '填写应用凭据后创建或绑定数据表',
+                      _tablesReady ? '表格映射已识别，可同步已支持的数据类型' :
+                          _isConfigured ? '凭据已保存，请创建或绑定数据表' : '先填写应用凭据，再创建或绑定表格',
                       style: SlowlightTypography.caption(
                         context,
                       ).copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -173,7 +178,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             runSpacing: SlowlightSpacing.xs,
             children: [
               _chip(_cloud ? '云端配置' : '本机配置'),
-              _chip(_isConfigured ? '已连接' : '未连接', accent: _isConfigured),
+              _chip(_isConfigured ? '凭据已保存' : '未配置', accent: _isConfigured),
               if (_tables.isNotEmpty) _chip('已识别 ${_tables.length} 张表'),
             ],
           );
@@ -205,7 +210,40 @@ extension _FeishuScreenSections on _FeishuScreenState {
       children: [
         const FxSectionHeader(title: '连接配置', trailing: '密钥保存在当前数据模式对应的安全存储中'),
         const SizedBox(height: SlowlightSpacing.xs),
-        _card(
+        if (_isConfigured && !_editingConfiguration)
+          _card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '应用标识：${_savedAppId.isEmpty ? '未提供' : _savedAppId}',
+                  style: SlowlightTypography.secondary(context),
+                ),
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text(
+                  _savedTableUrl.isEmpty
+                      ? '多维表格链接尚未设置'
+                      : '已保存多维表格链接',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: SlowlightSpacing.sm),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FxButton(
+                    label: '修改配置',
+                    variant: FxButtonVariant.outline,
+                    onPressed: _busyWithFeishu
+                        ? null
+                        : () => setState(() => _editingConfiguration = true),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          _card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -244,12 +282,31 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 spacing: SlowlightSpacing.xs,
                 runSpacing: SlowlightSpacing.xs,
                 children: [
-                  FxButton(
-                    label: _isConnecting ? '绑定中…' : '绑定现有表格',
-                    icon: LucideIcons.link2,
-                    variant: FxButtonVariant.outline,
-                    onPressed: _busyWithFeishu ? null : _connectExisting,
-                  ),
+                  if (_isConfigured)
+                    FxButton(
+                      label: '取消修改',
+                      variant: FxButtonVariant.outline,
+                      onPressed: _busyWithFeishu
+                          ? null
+                          : () async {
+                              if (_hasConfigurationDraft) {
+                                final confirmed = await FxDialog.confirm(
+                                  context: context,
+                                  title: '放弃飞书配置修改？',
+                                  content: '未保存的输入将丢失。',
+                                  confirmText: '放弃修改',
+                                );
+                                if (!mounted || confirmed != true) return;
+                              }
+                              setState(() {
+                                _appIdController.text = _savedAppId;
+                                _tableUrlController.text = _savedTableUrl;
+                                _appSecretController.clear();
+                                _showSecret = false;
+                                _editingConfiguration = false;
+                              });
+                            },
+                    ),
                   FxButton(
                     label: _isSaving ? '保存中…' : '保存配置',
                     icon: LucideIcons.save,
@@ -260,7 +317,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             ],
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.xxxl),
+        const SizedBox(height: SlowlightSpacing.lg),
         const FxSectionHeader(title: '数据模板', trailing: '首次连接建议从这里开始'),
         const SizedBox(height: SlowlightSpacing.xs),
         _card(
@@ -293,23 +350,41 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 ),
               ),
               const SizedBox(height: SlowlightSpacing.md),
-              FxButton(
-                label: _isCreatingTemplate ? '创建中…' : '创建数据模板',
-                icon: LucideIcons.sparkles,
-                variant: FxButtonVariant.outline,
-                onPressed: _busyWithFeishu ? null : _createTemplate,
+              Wrap(
+                spacing: SlowlightSpacing.xs,
+                runSpacing: SlowlightSpacing.xs,
+                children: [
+                  FxButton(
+                    label: _isConnecting ? '绑定中…' : '绑定现有表格',
+                    icon: LucideIcons.link2,
+                    variant: FxButtonVariant.outline,
+                    onPressed: !_isConfigured || _busyWithFeishu ? null : _connectExisting,
+                  ),
+                  FxButton(
+                    label: _isCreatingTemplate ? '创建中…' : '创建数据模板',
+                    icon: LucideIcons.sparkles,
+                    onPressed: !_isConfigured || _busyWithFeishu ? null : _createTemplate,
+                  ),
+                ],
               ),
+              if (!_isConfigured) ...[
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text(
+                  '请先保存应用凭据，才能创建或绑定数据表。',
+                  style: SlowlightTypography.caption(context),
+                ),
+              ],
             ],
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.xxxl),
+        const SizedBox(height: SlowlightSpacing.lg),
         _buildGuide(),
       ],
     );
   }
 
   Widget _buildOperationsColumn() {
-    final disabled = !_isConfigured;
+    final disabled = !_tablesReady;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -320,7 +395,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             label: _isSyncingAll ? '同步中…' : '同步全部',
             icon: LucideIcons.refreshCw,
             size: FxButtonSize.sm,
-            onPressed: disabled || _busyWithFeishu ? null : _syncAll,
+            onPressed: !_canSyncAll || _busyWithFeishu ? null : _syncAll,
           ),
         ),
         const SizedBox(height: SlowlightSpacing.xs),
@@ -333,7 +408,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 title: '任务与清单',
                 subtitle: '同步任务、子任务、清单与习惯数据',
                 busy: _isSyncing,
-                enabled: !disabled && !_busyWithFeishu,
+                enabled: _hasTable('任务表') && !_busyWithFeishu,
                 onTap: _syncToFeishu,
               ),
               _FeishuActionTile(
@@ -341,7 +416,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 title: '专注记录',
                 subtitle: '同步已结束的专注会话与关联任务',
                 busy: _isSyncingSessions,
-                enabled: !disabled && !_busyWithFeishu,
+                enabled: _hasTable('番茄钟表') && !_busyWithFeishu,
                 onTap: _syncSessionsToFeishu,
               ),
               _FeishuActionTile(
@@ -349,7 +424,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 title: '休息记录',
                 subtitle: '同步工作与休息行为事实',
                 busy: _isSyncingReminders,
-                enabled: !disabled && !_busyWithFeishu,
+                enabled: _hasTable('休息提醒表') && !_busyWithFeishu,
                 onTap: _syncRemindersToFeishu,
               ),
               _FeishuActionTile(
@@ -357,7 +432,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 title: '标签',
                 subtitle: '同步观察标签及关联信息',
                 busy: _isSyncingTags,
-                enabled: !disabled && !_busyWithFeishu,
+                enabled: _hasTable('标签表') && !_busyWithFeishu,
                 onTap: _syncTagsToFeishu,
                 last: !_cloud,
               ),
@@ -367,13 +442,23 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   title: '从飞书导入',
                   subtitle: '仅云端模式可用；导入前请确认表格内容',
                   busy: _isImporting,
-                  enabled: !disabled && !_busyWithFeishu,
+                  enabled: _hasTable('任务表') && !_busyWithFeishu,
                   onTap: _importFromFeishu,
                   last: true,
                 ),
             ],
           ),
         ),
+        if (!disabled && !_canSyncAll) ...[
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text('部分数据表尚未识别：仅可同步已准备的分类。',
+            style: SlowlightTypography.caption(context)),
+        ],
+        if (disabled) ...[
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text('先创建或绑定并识别数据表，才能同步。',
+            style: SlowlightTypography.caption(context)),
+        ],
         if (!_cloud) ...[
           const SizedBox(height: SlowlightSpacing.xs),
           Text(
@@ -487,10 +572,29 @@ extension _FeishuScreenSections on _FeishuScreenState {
       '填写应用标识和密钥，创建模板或绑定已有表格',
       '按数据类型同步；首次操作建议先检查目标表格',
     ];
+    if (!_guideExpanded) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const FxSectionHeader(title: '连接步骤'),
+          FxButton(
+            label: '查看配置步骤',
+            variant: FxButtonVariant.outline,
+            onPressed: () => setState(() => _guideExpanded = true),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FxSectionHeader(title: '连接步骤'),
+        FxSectionHeader(title: '连接步骤',
+          trailingWidget: FxButton(
+            label: '收起步骤',
+            variant: FxButtonVariant.ghost,
+            onPressed: () => setState(() => _guideExpanded = false),
+          ),
+        ),
         const SizedBox(height: SlowlightSpacing.xs),
         _card(
           color: theme.colorScheme.primaryContainer.withValues(alpha: .22),
