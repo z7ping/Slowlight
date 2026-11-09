@@ -138,9 +138,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _open = widget.initialSection;
-    _openedAsDeepLink = widget.initialSection != 'appearance';
+    final openAiDirectly = widget.initialSection == 'ai';
+    _open = openAiDirectly ? 'appearance' : widget.initialSection;
+    _openedAsDeepLink = !openAiDirectly &&
+        widget.initialSection != 'appearance';
     _mobileDetail = _openedAsDeepLink;
+    if (openAiDirectly) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openAiSettings();
+      });
+    }
     _reminder.addListener(_reminderChanged);
     authStateNotifier.addListener(_authenticationChanged);
     DataModeManager().addListener(_authenticationChanged);
