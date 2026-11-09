@@ -617,16 +617,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     switch (result) {
       case 'bind':
         await _bindGitHub();
+        break;
       case 'device':
         await _bindGitHub(useDeviceCode: true);
+        break;
       case 'refresh':
         await _loadAccount();
+        break;
       case 'copy':
         final code = _githubDeviceCode;
         if (code != null) {
           await Clipboard.setData(ClipboardData(text: code));
           if (mounted) _message('验证码已复制');
         }
+        break;
       case 'open':
         final uri = _githubDeviceUri;
         if (uri != null &&
@@ -634,10 +638,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mounted) {
           _message('请手动打开 github.com/login/device');
         }
+        break;
       case 'poll':
         if (!GitHubSignIn.checkAuthorizationNow()) {
           _message('授权会话正在初始化，请稍后重试');
         }
+        break;
       case 'cancel':
         ++_githubBindAttempt;
         setState(() {
@@ -658,6 +664,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         } finally {
           if (mounted) setState(() => _cancelingGitHub = false);
         }
+        break;
     }
   }
 
