@@ -58,6 +58,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   String? _statusError;
   bool _testing = false;
   bool _configured = false;
+  bool _configReadFailed = false;
+  bool _hasStoredPassword = false;
+  String _savedBaseUrl = '';
+  String _savedUsername = '';
+  String? _connectionFeedback;
   bool _obscurePassword = true;
 
   Map<String, dynamic>? _status;
@@ -78,17 +83,31 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
     super.dispose();
   }
 
+  bool get _canReusePassword => _configured && _hasStoredPassword &&
+      _baseUrlController.text.trim() == _savedBaseUrl &&
+      _usernameController.text.trim() == _savedUsername;
+
   Future<void> _loadConfig() async {
+    if (mounted && !_loading) {
+      setState(() { _loading = true; _configReadFailed = false; });
+    }
     try {
       final config = await ApiService.getCalDAVConfig();
       if (!mounted) return;
       setState(() {
-        _configured = config['configured'] ?? false;
+        _configured = config['configured'] == true;
+        _configReadFailed = false;
+        _lastError = null;
+        _hasStoredPassword = false;
         if (_configured && config['value'] != null) {
           final value = config['value'];
           if (value is Map) {
             _baseUrlController.text = value['base_url'] ?? '';
             _usernameController.text = value['username'] ?? '';
+            _savedBaseUrl = _baseUrlController.text.trim();
+            _savedUsername = _usernameController.text.trim();
+            _hasStoredPassword = value['has_password'] == true;
+            _passwordController.clear();
             if (value['paths'] != null) {
               _pathsController.text = (value['paths'] as List).join('\n');
             }
@@ -104,6 +123,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _configReadFailed = true;
         _lastError = e.toString();
       });
     }
@@ -126,11 +146,13 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Future<void> _testConnection() async {
+    if (_saving || _testing || _syncing) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _testing = true;
       _lastError = null;
+      _connectionFeedback = null;
     });
 
     try {
@@ -165,6 +187,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           noticeVariant = FxNoticeVariant.destructive;
         }
 
+        setState(() => _connectionFeedback = message);
+
         FxNotice.showContent(
           context,
           Text(message),
@@ -174,6 +198,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _connectionFeedback = '测试失败：$e');
         FxNotice.showContent(
           context,
           Text('测试失败：$e'),
@@ -187,6 +212,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Future<void> _saveConfig() async {
+    if (_saving || _testing || _syncing) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -210,6 +236,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       if (!mounted) return;
       setState(() {
         _configured = true;
+        _hasStoredPassword = true;
+        _savedBaseUrl = _baseUrlController.text.trim();
+        _savedUsername = _usernameController.text.trim();
+        _passwordController.clear();
         _saving = false;
       });
 
@@ -288,208 +318,94 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             FxPageHeader(
               title: 'CalDAV 同步',
               actionIcon: _configured ? LucideIcons.refreshCw : null,
-              actionTooltip: '立即同步',
-              onAction: _configured && !_syncing ? _syncNow : null,
+              actionTooltip: '刷新同步状态',
+              onAction: _configured && !_statusLoading ? _loadStatus : null,
             ),
             Expanded(
               child: _loading
                   ? const Center(child: FxCircularProgress())
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildInfoCard(),
-                          const SizedBox(height: 16),
-                          _buildConfigForm(),
-                          const SizedBox(height: 16),
-                          if (_configured) _buildStatusCard(),
-                          if (_lastError != null) ...[
-                            const SizedBox(height: 16),
-                            _buildErrorCard(),
-                          ],
-                        ],
-                      ),
-                    ),
+                  : _configReadFailed
+                      ? FxEmptyState(
+                          icon: LucideIcons.circleAlert,
+                          title: '配置状态未确认',
+                          subtitle: '无法读取 CalDAV 配置，请检查连接后重试。',
+                          action: FxButton(label: '重新读取', onPressed: _loadConfig),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _configured ? _buildStatusCard() : _buildInitialSummary(),
+                              const SizedBox(height: SlowlightSpacing.xl),
+                              _buildConfigForm(),
+                              const SizedBox(height: SlowlightSpacing.xl),
+                              _buildInfoCard(),
+                              if (_lastError != null) ...[
+                                const SizedBox(height: SlowlightSpacing.xl),
+                                _buildErrorCard(),
+                              ],
+                            ],
+                          ),
+                        ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInitialSummary() {
+    final theme = Theme.of(context);
+    return FxCard(
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.calendarDays, size: SlowlightIconSize.lg),
+          const SizedBox(width: SlowlightSpacing.xl),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('未配置', style: SlowlightTypography.cardTitle(context)),
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text('填写服务器和访问凭据，测试连接后即可保存。',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildInfoCard() {
+    final theme = Theme.of(context);
     return FxCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.info,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'CalDAV 同步',
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.buttonSize,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '配置后系统将：',
-              style: TextStyle(
-                fontSize: SlowlightTypography.buttonSize,
-                height: 1.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 6),
-            _buildInfoItem('📥', '自动同步远程任务到本地'),
-            _buildInfoItem('📤', '支持双向同步（创建/更新）'),
-            _buildInfoItem('⏰', '每5分钟自动检查更新'),
-            _buildInfoItem('🏷️', '保持任务优先级、截止日期等属性'),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.success.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppTheme.success.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '📝 快速上手：',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.buttonSize,
-                      height: 1.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.success,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '1. 填写服务器地址（如 https://vikunja.example.com）\n'
-                    '2. 输入用户名和密码 / 访问令牌\n'
-                    '3. 填写项目路径（格式 /dav/projects/ID）\n'
-                    '4. 点击「测试连接」验证\n'
-                    '5. 点击「保存配置」完成',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      color: AppTheme.success,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.info.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppTheme.info.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '💡 支持的服务：',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.buttonSize,
-                      height: 1.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.info,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '• Vikunja — 开源任务管理\n'
-                    '• Nextcloud Tasks — 自托管任务\n'
-                    '• Baïkal / Radicale — 轻量 CalDAV\n'
-                    '• 任何兼容 CalDAV 协议的服务',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      color: AppTheme.info,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.priorityLow.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppTheme.priorityLow.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '📍 项目路径获取：',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.buttonSize,
-                      height: 1.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.priorityLow,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '• Vikunja：项目设置 → 复制 CalDAV 路径\n'
-                    '• Nextcloud：任务设置 → 复制 CalDAV 地址\n'
-                    '• 一般格式：/dav/projects/{数字ID}',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      color: AppTheme.priorityLow,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(String emoji, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
+      padding: EdgeInsets.zero,
+      child: FxExpansionTile(
+        leading: const Icon(LucideIcons.info, size: SlowlightIconSize.md),
+        title: Text('如何配置 · 兼容服务与路径说明',
+          style: SlowlightTypography.secondary(context)),
         children: [
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
-            ),
-          ),
+          Text('1. 获取服务器地址及 CalDAV 账号或访问令牌。\n'
+              '2. 填写任务项目路径，每行一个。\n'
+              '3. 测试连接并确认能查询任务后保存配置。',
+            style: SlowlightTypography.secondary(context)),
+          const SizedBox(height: SlowlightSpacing.md),
+          Text('Vikunja、Nextcloud Tasks、Baïkal、Radicale 等服务的实际兼容范围'
+              '以连接测试和任务查询结果为准。',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
+          const SizedBox(height: SlowlightSpacing.md),
+          Text('Vikunja 项目路径一般可从项目设置中复制；'
+              '不同服务路径格式可能不同，请使用服务端提供的地址。',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
         ],
       ),
     );
@@ -521,7 +437,12 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             obscureText: obscureText,
             minLines: maxLines,
             maxLines: maxLines,
-            onChanged: field.didChange,
+            onChanged: (value) {
+              field.didChange(value);
+              if (_connectionFeedback != null) {
+                setState(() => _connectionFeedback = null);
+              }
+            },
           ),
           if (field.hasError) ...[
             const SizedBox(height: SlowlightSpacing.xs),
@@ -539,6 +460,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
 
   Widget _buildConfigForm() {
     return FxCard(
+      padding: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
         child: Form(
@@ -567,7 +489,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               _validatedInput(
                 controller: _passwordController,
                 label: '密码 / 访问令牌',
-                placeholder: '输入密码或访问令牌',
+                placeholder: _canReusePassword
+                    ? '留空沿用已保存凭据' : '输入密码或访问令牌',
                 icon: LucideIcons.lock,
                 obscureText: _obscurePassword,
                 trailing: FxIconButton(
@@ -577,7 +500,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     () => _obscurePassword = !_obscurePassword,
                   ),
                 ),
-                validate: CalDavFormValidation.password,
+                validate: (value) => value.isNotEmpty || _canReusePassword
+                    ? null : CalDavFormValidation.password(value),
               ),
               const SizedBox(height: 16),
               _validatedInput(
@@ -595,17 +519,28 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 24),
+              if (_canReusePassword) ...[
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text('服务器地址及用户名不变时，可留空沿用已保存凭据。',
+                  style: SlowlightTypography.caption(context)),
+              ],
+              if (_connectionFeedback != null) ...[
+                const SizedBox(height: SlowlightSpacing.xl),
+                Text(_connectionFeedback!,
+                  key: const ValueKey('caldav.connection-feedback'),
+                  style: SlowlightTypography.secondary(context)),
+              ],
+              const SizedBox(height: SlowlightSpacing.xxxl),
               FxDialogActions(
                 actions: [
                   FxButton(
                     label: '测试连接',
-                    onPressed: _testing || _saving ? null : _testConnection,
+                    onPressed: _testing || _saving || _syncing ? null : _testConnection,
                     variant: FxButtonVariant.outline,
                   ),
                   FxButton(
                     label: '保存配置',
-                    onPressed: _testing || _saving ? null : _saveConfig,
+                    onPressed: _testing || _saving || _syncing ? null : _saveConfig,
                   ),
                 ],
               ),
@@ -617,118 +552,72 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Widget _buildStatusCard() {
+    final theme = Theme.of(context);
+    final states = _status?['states'];
+    final projects = states is List ? states.length : null;
+    final known = _status != null && _statusError == null;
     return FxCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(LucideIcons.circleCheck, color: AppTheme.success, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  '同步状态',
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.buttonSize,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildStatusItem('服务器', _baseUrlController.text),
-            _buildStatusItem('用户', _usernameController.text),
-            _buildStatusItem(
-              '已同步任务',
-              calDavSyncedTaskLabel(
-                _status,
-                loading: _statusLoading,
-                stale: _statusError != null,
-              ),
-            ),
-            if (_statusError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(children: [
-                  Expanded(child: Text(
-                    '状态读取失败，请检查连接后重试',
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  )),
-                  FxButton(
-                    label: '重试读取',
-                    size: FxButtonSize.sm,
-                    variant: FxButtonVariant.outline,
-                    onPressed: _statusLoading ? null : _loadStatus,
-                  ),
-                ]),
-              ),
-            if (_status?['states'] != null) ...[
-              const SizedBox(height: 8),
-              const Text(
-                '同步历史：',
-                style: TextStyle(
-                  fontSize: SlowlightTypography.buttonSize,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              ...(_status!['states'] as List).map((state) {
-                final path = state['project_path'] ?? '未知';
-                final lastSync = state['last_synced_at'] ?? '从未同步';
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    '• $path - 最后同步：$lastSync',
-                    style: const TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      height: 1.4,
-                    ),
-                  ),
-                );
-              }),
-            ],
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FxButton(
-                label: _syncing ? '同步中…' : '立即同步',
-                onPressed: _syncing ? null : _syncNow,
-              ),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Icon(LucideIcons.calendarDays,
+              size: SlowlightIconSize.lg,
+              color: theme.colorScheme.primary),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(child: Text('同步概况',
+              style: SlowlightTypography.cardTitle(context))),
+            Text(known ? '状态已读取' : '状态待核对',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant)),
+          ]),
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          Row(children: [
+            Expanded(child: Column(children: [
+              Text(calDavSyncedTaskLabel(_status,
+                  loading: _statusLoading, stale: _statusError != null),
+                style: SlowlightTypography.sectionTitle(context)),
+              Text('已同步任务',
+                style: SlowlightTypography.caption(context)),
+            ])),
+            Expanded(child: Column(children: [
+              Text(projects == null ? '—' : '$projects',
+                style: SlowlightTypography.sectionTitle(context)),
+              Text('项目状态记录',
+                style: SlowlightTypography.caption(context)),
+            ])),
+          ]),
+          if (_statusError != null) ...[
+            const SizedBox(height: SlowlightSpacing.xl),
+            Text('状态读取失败，以上数字仅为上次已载入数据。',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.error)),
+            FxButton(
+              label: '重试读取',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: _statusLoading ? null : _loadStatus),
+          ],
+          if (states is List && states.isNotEmpty) ...[
+            const SizedBox(height: SlowlightSpacing.xl),
+            FxExpansionTile(
+              title: Text('各项目上次同步时间',
+                style: SlowlightTypography.secondary(context)),
+              children: states.map<Widget>((state) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
+                child: Text(
+                  '${state['project_path'] ?? '未知'} · ${state['last_synced_at'] ?? '从未同步'}',
+                  style: SlowlightTypography.caption(context)),
+              )).toList(),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: SlowlightTypography.buttonSize,
-                height: 1.5,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
-            ),
-          ),
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          FxButton(
+            label: _syncing ? '同步中…' : '立即同步',
+            icon: LucideIcons.refreshCw,
+            expanded: true,
+            onPressed: _syncing || _saving || _testing ? null : _syncNow),
         ],
       ),
     );
@@ -736,6 +625,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
 
   Widget _buildErrorCard() {
     return FxCard(
+      padding: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

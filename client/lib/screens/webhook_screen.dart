@@ -6,6 +6,15 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 
+String? validateWebhookUrl(String input) {
+  final uri = Uri.tryParse(input.trim());
+  if (uri == null || !uri.hasAuthority ||
+      (uri.scheme != 'https' && uri.scheme != 'http')) {
+    return '请输入有效的 HTTP(S) 回调地址';
+  }
+  return null;
+}
+
 Set<String> existingWebhookEvents(List<dynamic> records, String target) {
   final events = <String>{};
   for (final item in records) {
@@ -104,6 +113,8 @@ class _WebhookScreenState extends State<WebhookScreen> {
   bool _hasLoaded = false;
   bool _loadFailed = false;
   bool _creating = false;
+  final Set<int> _testingIds = <int>{};
+  final Map<int, String> _testResults = <int, String>{};
 
   @override
   void initState() {
@@ -139,12 +150,43 @@ class _WebhookScreenState extends State<WebhookScreen> {
 
   Future<void> _addWebhook() async {
     if (_creating) return;
-    final result = await FxDialog.show<Map<String, dynamic>>(
-      context: context,
-      title: '添加事件回调',
-      width: 560,
-      child: const _AddWebhookDialogBody(),
-    );
+    final editorKey = GlobalKey<_AddWebhookDialogBodyState>();
+    Future<void> dismissEditor() async {
+      if (editorKey.currentState?.hasUnsavedChanges == true) {
+        final discard = await FxDialog.confirm(
+          context: context,
+          title: '放弃未保存的事件回调？',
+          content: '关闭后将丢失当前填写的地址和事件选择。',
+          confirmText: '放弃',
+          cancelText: '继续编辑',
+          draftDiscard: true,
+          barrierDismissible: false,
+        );
+        if (discard != true) return;
+      }
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    }
+    final mobile = Theme.of(context).platform == TargetPlatform.android ||
+        Theme.of(context).platform == TargetPlatform.iOS;
+    final result = mobile
+        ? await FxSheet.show<Map<String, dynamic>>(
+            context: context,
+            useRootNavigator: true,
+            showDragHandle: true,
+            dismissible: false,
+            onDismissRequested: dismissEditor,
+            showCloseButton: false,
+            builder: (_) => _AddWebhookDialogBody(
+              key: editorKey, mobile: true,
+              onCancel: () { dismissEditor(); },
+            ),
+          )
+        : await FxDialog.show<Map<String, dynamic>>(
+            context: context,
+            title: '添加事件回调',
+            width: 560,
+            child: const _AddWebhookDialogBody(),
+          );
     if (result == null || !mounted || _creating) return;
     setState(() => _creating = true);
     final url = (result['url'] as String).trim();
@@ -189,11 +231,26 @@ class _WebhookScreenState extends State<WebhookScreen> {
   }
 
   Future<void> _testWebhook(int id) async {
+    if (_testingIds.contains(id)) return;
+    setState(() {
+      _testingIds.add(id);
+      _testResults.remove(id);
+    });
     try {
       final result = await ApiService.testWebhook(id);
-      _showMsg(result['success'] == true ? '测试成功' : '测试失败: ${result['error']}');
-    } catch (e) {
-      _showMsg('测试失败: $e');
+      final message = result['success'] == true
+          ? '测试成功 · 服务端已确认'
+          : '测试失败：${result['error'] ?? '原因未知'}';
+      if (!mounted) return;
+      setState(() => _testResults[id] = message);
+      _showMsg(message);
+    } catch (error) {
+      if (!mounted) return;
+      final message = '测试结果未确认：$error';
+      setState(() => _testResults[id] = message);
+      _showMsg(message);
+    } finally {
+      if (mounted) setState(() => _testingIds.remove(id));
     }
   }
 
@@ -208,6 +265,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
     if (ok != true) return;
     try {
       await ApiService.deleteWebhook(id);
+      _testResults.remove(id);
       await _loadWebhooks();
     } catch (e) {
       _showMsg('删除失败：$e');
@@ -250,6 +308,8 @@ class _WebhookScreenState extends State<WebhookScreen> {
                       icon: LucideIcons.link2,
                       title: '还没有事件回调',
                       subtitle: '连接 $kBrandDisplayName 到 n8n、Zapier 等外部服务',
+                      action: FxButton(label: '添加事件回调',
+                        onPressed: _creating ? null : _addWebhook),
                     )
                   : _buildContent(),
             ),
@@ -260,11 +320,36 @@ class _WebhookScreenState extends State<WebhookScreen> {
   }
 
   Widget _buildContent() {
+    final theme = Theme.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
       children: [
-        ..._webhooks.map(_buildWebhookCard),
-        const SizedBox(height: 24),
+        if (_loadFailed) ...[
+          FxCard(
+            padding: const EdgeInsets.all(SlowlightSpacing.xl),
+            child: Row(children: [
+              const Icon(LucideIcons.triangleAlert, size: SlowlightIconSize.md),
+              const SizedBox(width: SlowlightSpacing.md),
+              Expanded(child: Text('刷新失败 · 当前显示上次已载入的回调',
+                style: SlowlightTypography.caption(context))),
+              FxButton(label: '重试', size: FxButtonSize.sm,
+                onPressed: _loadWebhooks),
+            ]),
+          ),
+          const SizedBox(height: SlowlightSpacing.xl),
+        ],
+        Padding(
+          padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
+          child: Text('${_webhooks.length} 条事件回调',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant)),
+        ),
+        FxCard(
+          padding: EdgeInsets.zero,
+          child: Column(children: _webhooks
+              .map(_buildWebhookCard).toList(growable: false)),
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
         _buildEventGuide(),
       ],
     );
@@ -274,67 +359,81 @@ class _WebhookScreenState extends State<WebhookScreen> {
     final eventKey = webhook['event']?.toString() ?? '';
     final def = webhookEvents.firstWhere(
       (event) => event.key == eventKey,
-      orElse:
-          () => WebhookEventDef(
-            key: eventKey,
-            label: eventKey,
-            icon: LucideIcons.link2,
-            description: '',
-            exampleUse: '',
-            examplePayload: '',
-          ),
+      orElse: () => WebhookEventDef(
+        key: eventKey, label: eventKey,
+        icon: LucideIcons.link2,
+        description: '', exampleUse: '', examplePayload: '',
+      ),
     );
-
-    return FxCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      borderRadius: SlowlightRadius.lg,
-      padding: EdgeInsets.zero,
-      child: FxListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              webhook['is_active'] == true
-                  ? AppTheme.primaryLight
-                  : Theme.of(context).colorScheme.outlineVariant,
-          child: Icon(def.icon, size: SlowlightIconSize.md),
+    final theme = Theme.of(context);
+    final id = webhook['id'] as int;
+    final url = webhook['url']?.toString() ?? '';
+    final enabled = webhook['is_active'] == true;
+    final result = _testResults[id];
+    return FxListTile(
+      key: ValueKey('webhook.row.$id'),
+      density: FxListTileDensity.detailed,
+      padding: const EdgeInsets.symmetric(
+        horizontal: SlowlightSpacing.xl,
+        vertical: SlowlightSpacing.md,
+      ),
+      showDivider: true,
+      leading: Container(
+        width: 40, height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: .10),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
         ),
-        title: Text(
-          webhook['name']?.toString().isNotEmpty == true
-              ? webhook['name'].toString()
-              : def.label,
-          style: SlowlightTypography.cardTitle(context),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${def.label}',
-              style: SlowlightTypography.caption(
-                context,
-              ).copyWith(color: AppTheme.primary),
+        child: Icon(def.icon, size: SlowlightIconSize.lg,
+          color: theme.colorScheme.primary),
+      ),
+      title: Text(
+        webhook['name']?.toString().isNotEmpty == true
+            ? webhook['name'].toString() : def.label,
+        maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: SlowlightTypography.secondary(context).copyWith(
+          fontWeight: FontWeight.w600),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${def.label} · ${enabled ? '已启用' : '未启用'}',
+            style: SlowlightTypography.caption(context)),
+          FxTooltip(
+            message: url,
+            child: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: SlowlightTypography.caption(context)),
+          ),
+          if (_testingIds.contains(id))
+            Text('测试中…', style: SlowlightTypography.caption(context)),
+          if (result != null)
+            Text(result,
+              key: ValueKey('webhook.test-result.$id'),
+              style: SlowlightTypography.caption(context).copyWith(
+                color: result.startsWith('测试成功')
+                    ? AppTheme.success : Theme.of(context).colorScheme.error),
             ),
-            Text(
-              webhook['url']?.toString() ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: SlowlightTypography.caption(context),
-            ),
-          ],
-        ),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
-            FxIconButton(
-              tooltip: '测试',
-              icon: LucideIcons.send,
-              onPressed: () => _testWebhook(webhook['id'] as int),
-            ),
-            FxIconButton(
-              tooltip: '删除',
-              icon: LucideIcons.trash2,
-              foregroundColor: AppTheme.error,
-              onPressed: () => _deleteWebhook(webhook['id'] as int),
-            ),
-          ],
+        ],
+      ),
+      trailing: FxMenu<int>(
+        tooltip: '管理事件回调',
+        enabled: !_creating && !_testingIds.contains(id),
+        onSelected: (action) {
+          if (action == 0) {
+            _testWebhook(id);
+          } else {
+            _deleteWebhook(id);
+          }
+        },
+        itemBuilder: (_) => const [
+          FxMenuItem<int>(value: 0, child: Text('发送测试')),
+          FxMenuItem<int>(value: 1,
+            child: Text('删除回调', style: TextStyle(color: AppTheme.error))),
+        ],
+        child: const SizedBox(
+          width: 44, height: 44,
+          child: Center(child: Icon(LucideIcons.menu, size: 20)),
         ),
       ),
     );
@@ -439,7 +538,9 @@ class _WebhookScreenState extends State<WebhookScreen> {
 }
 
 class _AddWebhookDialogBody extends StatefulWidget {
-  const _AddWebhookDialogBody();
+  const _AddWebhookDialogBody({super.key, this.mobile = false, this.onCancel});
+  final bool mobile;
+  final VoidCallback? onCancel;
 
   @override
   State<_AddWebhookDialogBody> createState() => _AddWebhookDialogBodyState();
@@ -449,6 +550,11 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
   final _urlCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final Set<String> _selectedEvents = {'task.completed'};
+  String? _validationError;
+
+  bool get hasUnsavedChanges => _urlCtrl.text.trim().isNotEmpty ||
+      _nameCtrl.text.trim().isNotEmpty ||
+      _selectedEvents.length != 1 || !_selectedEvents.contains('task.completed');
 
   @override
   void dispose() {
@@ -466,9 +572,21 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FxInput(controller: _nameCtrl, placeholder: '名称（可选）'),
+            if (widget.mobile) ...[
+              Text('添加事件回调',
+                style: SlowlightTypography.cardTitle(context)),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+            ],
+            FxInput(controller: _nameCtrl, label: '名称（可选）',
+              placeholder: '例如：任务完成通知'),
             const SizedBox(height: 12),
-            FxInput(controller: _urlCtrl, placeholder: '回调地址'),
+            FxInput(controller: _urlCtrl, label: '回调地址',
+              placeholder: 'https://hooks.example.com/slowlight'),
+            if (_validationError != null) ...[
+              const SizedBox(height: SlowlightSpacing.xs),
+              Text(_validationError!, style: SlowlightTypography.caption(context)
+                .copyWith(color: Theme.of(context).colorScheme.error)),
+            ],
             const SizedBox(height: 16),
             Text('选择触发事件（可多选）', style: SlowlightTypography.cardTitle(context)),
             const SizedBox(height: 8),
@@ -482,12 +600,12 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
                 FxButton(
                   label: '取消',
                   variant: FxButtonVariant.ghost,
-                  onPressed:
+                  onPressed: widget.onCancel ??
                       () => Navigator.of(context, rootNavigator: true).pop(),
                 ),
                 FxButton(
                   label: '添加 (${_selectedEvents.length})',
-                  onPressed: _submit,
+                  onPressed: _selectedEvents.isEmpty ? null : _submit,
                 ),
               ],
             ),
@@ -544,7 +662,12 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
 
   void _submit() {
     final url = _urlCtrl.text.trim();
-    if (url.isEmpty || _selectedEvents.isEmpty) return;
+    final invalid = validateWebhookUrl(url);
+    if (invalid != null || _selectedEvents.isEmpty) {
+      setState(() => _validationError =
+          invalid ?? '请至少选择一个触发事件');
+      return;
+    }
     Navigator.of(context, rootNavigator: true).pop({
       'url': url,
       'events': _selectedEvents.toList(),

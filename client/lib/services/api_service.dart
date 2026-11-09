@@ -236,7 +236,7 @@ class ApiService {
   }) async {
     final headers = await _authHeaders();
     final response = await HttpUtil.post(
-      Uri.parse('$baseUrl/caldav/config'),
+      Uri.parse('${ApiService.baseUrl}/caldav/config'),
       headers: headers,
       body: json.encode({
         'base_url': baseUrl,
@@ -260,7 +260,7 @@ class ApiService {
   }) async {
     final headers = await _authHeaders();
     final response = await HttpUtil.post(
-      Uri.parse('$baseUrl/caldav/test'),
+      Uri.parse('${ApiService.baseUrl}/caldav/test'),
       headers: headers,
       body: json.encode({
         'base_url': baseUrl,
