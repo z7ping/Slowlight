@@ -854,43 +854,45 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             child: ConstrainedBox(
               key: const ValueKey('pomodoro.settings.mobile'),
               constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(dialogContext).height * .84,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: Text(
-                    '专注设置',
-                    style: SlowlightTypography.componentDialogTitle(dialogContext),
+                maxHeight: MediaQuery.sizeOf(dialogContext).height * .84,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text(
+                      '专注设置',
+                      style: SlowlightTypography.componentDialogTitle(
+                        dialogContext,
+                      ),
+                    ),
                   ),
-                ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: controls,
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: controls,
+                    ),
                   ),
-                ),
-                FxSeparator.horizontal(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  child: Row(
-                    children: [
-                      Expanded(flex: 10, child: cancel),
-                      const SizedBox(width: SlowlightSpacing.md),
-                      Expanded(flex: 18, child: save),
-                    ],
+                  FxSeparator.horizontal(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant,
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Row(
+                      children: [
+                        Expanded(flex: 10, child: cancel),
+                        const SizedBox(width: SlowlightSpacing.md),
+                        Expanded(flex: 18, child: save),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         );
       },
     );
