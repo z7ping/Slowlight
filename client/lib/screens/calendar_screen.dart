@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/calendar_record.dart';
 import '../models/todo_list.dart';
@@ -10,40 +11,50 @@ import '../widgets/calendar_month_grid.dart';
 import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
+enum CalendarViewMode { month, day, threeDays, week }
+
 /// Calendar toolbar state shared by Android AppBar and desktop content.
 class CalendarHeaderController extends ChangeNotifier {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month, 1);
   CalendarDisplayMode _mode = CalendarDisplayMode.all;
+  CalendarViewMode _viewMode = CalendarViewMode.month;
   bool _loading = false;
   Future<void> Function(int)? _onMoveMonth;
   Future<void> Function()? _onToday;
   void Function(CalendarDisplayMode)? _onFilter;
+  void Function(CalendarViewMode)? _onViewMode;
 
   DateTime get month => _month;
   CalendarDisplayMode get mode => _mode;
+  CalendarViewMode get viewMode => _viewMode;
   bool get loading => _loading;
 
   void attach({
     required Future<void> Function(int) onMoveMonth,
     required Future<void> Function() onToday,
     required void Function(CalendarDisplayMode) onFilter,
+    required void Function(CalendarViewMode) onViewMode,
   }) {
     _onMoveMonth = onMoveMonth;
     _onToday = onToday;
     _onFilter = onFilter;
+    _onViewMode = onViewMode;
   }
 
   void detach() {
     _onMoveMonth = null;
     _onToday = null;
     _onFilter = null;
+    _onViewMode = null;
   }
 
-  void update(DateTime month, CalendarDisplayMode mode, bool loading) {
+  void update(DateTime month, CalendarDisplayMode mode,
+      CalendarViewMode viewMode, bool loading) {
     if (_month.year == month.year && _month.month == month.month &&
-        _mode == mode && _loading == loading) return;
+        _mode == mode && _viewMode == viewMode && _loading == loading) return;
     _month = month;
     _mode = mode;
+    _viewMode = viewMode;
     _loading = loading;
     notifyListeners();
   }
@@ -57,6 +68,7 @@ class CalendarHeaderController extends ChangeNotifier {
   }
 
   void setFilter(CalendarDisplayMode mode) => _onFilter?.call(mode);
+  void setViewMode(CalendarViewMode mode) => _onViewMode?.call(mode);
 }
 
 /// FxMenu owns the anchored ShadPopover; the month picker does not open a
@@ -157,11 +169,50 @@ class CalendarHeaderActions extends StatelessWidget {
     builder: (context, _) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        FxIconButton(
-          key: const ValueKey('calendar-today'),
-          icon: LucideIcons.calendarDays,
-          tooltip: '回到今天',
-          onPressed: controller.loading ? null : controller.goToday,
+        FxMenu<CalendarViewMode>(
+          key: const ValueKey('calendar-view-toggle'),
+          tooltip: '切换日历视图',
+          onSelected: controller.setViewMode,
+          initialValue: controller.viewMode,
+          constraints: const BoxConstraints(minWidth: 174, maxWidth: 220),
+          itemBuilder: (context) => [
+            for (final view in CalendarViewMode.values)
+              FxMenuItem<CalendarViewMode>(
+                value: view,
+                height: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 36,
+                child: Row(
+                  children: [
+                    Icon(switch (view) {
+                      CalendarViewMode.month => LucideIcons.calendarDays,
+                      CalendarViewMode.day => LucideIcons.list,
+                      CalendarViewMode.threeDays => LucideIcons.columns3,
+                      CalendarViewMode.week => LucideIcons.calendarRange,
+                    }, size: 17),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(switch (view) {
+                      CalendarViewMode.month => '月历',
+                      CalendarViewMode.day => '单日 Timeline',
+                      CalendarViewMode.threeDays => '三日视图',
+                      CalendarViewMode.week => '七日视图',
+                    })),
+                    if (controller.viewMode == view)
+                      const Icon(LucideIcons.check, size: 16),
+                  ],
+                ),
+              ),
+          ],
+          child: SizedBox(
+            width: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 34,
+            height: SlowlightPlatformDensity.iconButtonVisualSize,
+            child: Center(
+              child: Icon(switch (controller.viewMode) {
+                CalendarViewMode.month => LucideIcons.calendarDays,
+                CalendarViewMode.day => LucideIcons.list,
+                CalendarViewMode.threeDays => LucideIcons.columns3,
+                CalendarViewMode.week => LucideIcons.calendarRange,
+              }, size: 19),
+            ),
+          ),
         ),
         FxMenu<CalendarDisplayMode>(
           key: const ValueKey('calendar-filter'),
@@ -255,6 +306,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
   bool _loading = true;
   bool _loadFailed = false;
   int _loadVersion = 0;
+  CalendarViewMode _viewMode = CalendarViewMode.month;
+  bool _modeTouched = false;
+  final Map<int, CalendarMonthData> _rangeCache = {};
+  bool _rangeLoading = false;
+  bool _rangeFailed = false;
+  int _rangeVersion = 0;
 
   bool get _hasCurrentMonth => _data != null &&
       _data!.month.year == _focused.year &&
@@ -274,7 +331,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _ownsHeaderController = widget.headerController == null;
     _headerController = widget.headerController ?? CalendarHeaderController();
     _headerController.attach(onMoveMonth: _moveMonth, onToday: _goToday,
-        onFilter: _setFilter);
+        onFilter: _setFilter, onViewMode: _setViewMode);
+    _restoreViewMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _notifyHeader();
     });
@@ -285,7 +343,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // first mounted. Avoid notifying its AnimatedBuilder during build.
   void _notifyHeader() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _headerController.update(_focused, _displayMode, _loading);
+      if (mounted) _headerController.update(
+          _focused, _displayMode, _viewMode, _loading);
     });
   }
 
@@ -294,8 +353,38 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _notifyHeader();
   }
 
+  static const _viewPreferenceKey = 'calendar.view_mode';
+
+  Future<void> _restoreViewMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString(_viewPreferenceKey);
+      if (!mounted || _modeTouched) return;
+      final restored = CalendarViewMode.values.where((v) => v.name == name);
+      if (restored.isNotEmpty) _setViewMode(restored.first, persist: false);
+    } catch (_) {
+      // A preference failure must not block the calendar.
+    }
+  }
+
+  void _setViewMode(CalendarViewMode view, {bool persist = true}) {
+    if (persist) _modeTouched = true;
+    if (_viewMode == view) return;
+    setState(() => _viewMode = view);
+    _notifyHeader();
+    if (persist) {
+      SharedPreferences.getInstance()
+          .then((prefs) => prefs.setString(_viewPreferenceKey, view.name))
+          .catchError((Object _) => false);
+    }
+    if (_hasCurrentMonth && view != CalendarViewMode.month) {
+      _ensureRange();
+    }
+  }
+
   @override
   void dispose() {
+    _rangeVersion++;
     _headerController.detach();
     if (_ownsHeaderController) _headerController.dispose();
     super.dispose();
