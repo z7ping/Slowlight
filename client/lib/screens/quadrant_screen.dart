@@ -711,40 +711,76 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
+  Widget _taskCompleteControl(Task task) => Semantics(
+        label: '完成${task.title}',
+        button: true,
+        child: FxInkWell(
+          key: ValueKey('quadrant-complete-${task.id}'),
+          onTap: _completingTaskIds.contains(task.id)
+              ? null
+              : () => _completeTask(task),
+          child: SizedBox(
+            width: 40,
+            height: 44,
+            child: Center(
+              child: ExcludeSemantics(
+                child: IgnorePointer(
+                  child: FxCheckbox(
+                    value: false,
+                    onChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
   Widget _taskLine(
     Task task,
     Color color, {
     required bool desktop,
     bool compact = false,
+    bool quadrantPreview = false,
     VoidCallback? onTap,
     VoidCallback? onMove,
   }) {
     final row = FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      // 安卓点击任务与其他任务列表一致：打开详情。
-      // 移动象限使用右侧明确的“更多”操作，不隐藏在长按手势里。
+      // Primary tap opens the existing editor; long press/keyboard-menu
+      // still opens the established move-and-save flow.
       onTap: onTap ?? () => _openTask(task),
       onLongPress: desktop ? null : (onMove ?? () => _showMoveSheet(task)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: SlowlightControlSize.minTouchTarget,
+        constraints: BoxConstraints(
+          minHeight: quadrantPreview
+              ? MediaQuery.textScalerOf(context).scale(16) >= 30
+                  ? 88
+                  : MediaQuery.textScalerOf(context).scale(16) >= 21
+                      ? 56
+                      : SlowlightControlSize.minTouchTarget
+              : SlowlightControlSize.minTouchTarget,
         ),
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: compact ? 2 : 7, horizontal: 2),
           child: Row(
             children: [
-              Text(
-                '●',
-                style: TextStyle(
-                  color: color,
-                  fontSize: SlowlightTypography.captionSize,
+              if (quadrantPreview)
+                _taskCompleteControl(task)
+              else ...[
+                Text(
+                  '●',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: SlowlightTypography.captionSize,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Text(
                   task.title,
-                  maxLines: compact ||
+                  maxLines: quadrantPreview || compact ||
                           MediaQuery.textScalerOf(context).scale(
                                 SlowlightTypography.secondarySize,
                               ) >=
@@ -752,10 +788,14 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
                       ? 2
                       : 1,
                   overflow: TextOverflow.ellipsis,
-                  style: SlowlightTypography.secondary(context),
+                  style: quadrantPreview && compact
+                      ? SlowlightTypography.caption(context).copyWith(
+                          fontSize: SlowlightTypography.resolvedCaptionSize * .95,
+                        )
+                      : SlowlightTypography.secondary(context),
                 ),
               ),
-              if (!desktop && !compact)
+              if (!desktop && !compact && !quadrantPreview)
                 FxIconButton(
                   icon: LucideIcons.ellipsis,
                   tooltip: '移动到其他象限',
