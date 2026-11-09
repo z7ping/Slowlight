@@ -377,8 +377,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           .then((prefs) => prefs.setString(_viewPreferenceKey, view.name))
           .catchError((Object _) => false);
     }
+    _rangeVersion++;
     if (_hasCurrentMonth && view != CalendarViewMode.month) {
       _ensureRange();
+    } else if (_rangeLoading || _rangeFailed) {
+      setState(() { _rangeLoading = false; _rangeFailed = false; });
     }
   }
 
@@ -388,6 +391,89 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _headerController.detach();
     if (_ownsHeaderController) _headerController.dispose();
     super.dispose();
+  }
+
+  int _monthKey(DateTime date) => date.year * 12 + date.month;
+
+  List<DateTime> _visibleDays() {
+    if (_viewMode == CalendarViewMode.month) return const [];
+    final anchor = DateTime(_selected.year, _selected.month, _selected.day);
+    final count = switch (_viewMode) {
+      CalendarViewMode.day => 1,
+      CalendarViewMode.threeDays => 3,
+      CalendarViewMode.week => 7,
+      CalendarViewMode.month => 0,
+    };
+    final start = _viewMode == CalendarViewMode.week
+        ? DateTime(anchor.year, anchor.month, anchor.day - anchor.weekday + 1)
+        : anchor;
+    return List.generate(count,
+        (index) => DateTime(start.year, start.month, start.day + index));
+  }
+
+  /// The existing month loader is reused for cross-month day columns.
+  /// Missing adjacent months show a retry state, never a false empty day.
+  Future<void> _ensureRange() async {
+    if (!mounted || !_hasCurrentMonth ||
+        _viewMode == CalendarViewMode.month) return;
+    final months = <int, DateTime>{};
+    for (final day in _visibleDays()) {
+      final key = _monthKey(day);
+      if (key != _monthKey(_focused) && !_rangeCache.containsKey(key)) {
+        months[key] = DateTime(day.year, day.month, 1);
+      }
+    }
+    if (months.isEmpty) {
+      if (_rangeLoading || _rangeFailed) {
+        setState(() {
+          _rangeLoading = false;
+          _rangeFailed = false;
+        });
+      }
+      return;
+    }
+    final version = ++_rangeVersion;
+    setState(() {
+      _rangeLoading = true;
+      _rangeFailed = false;
+    });
+    try {
+      final results = await Future.wait(months.values.map(_monthLoader));
+      if (!mounted || version != _rangeVersion) return;
+      setState(() {
+        for (final data in results) {
+          _rangeCache[_monthKey(data.month)] = data;
+        }
+        _rangeLoading = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _rangeVersion) return;
+      setState(() {
+        _rangeLoading = false;
+        _rangeFailed = true;
+      });
+    }
+  }
+
+  Future<void> _retryRange() async {
+    _rangeCache.removeWhere((key, _) => key != _monthKey(_focused));
+    await _ensureRange();
+  }
+
+  Future<void> _shiftPeriod(int direction) async {
+    if (_loading || _rangeLoading) return;
+    final step = switch (_viewMode) {
+      CalendarViewMode.day => 1,
+      CalendarViewMode.threeDays => 3,
+      CalendarViewMode.week => 7,
+      CalendarViewMode.month => 1,
+    };
+    final next = DateTime(_selected.year, _selected.month,
+        _selected.day + step * direction);
+    await _selectDate(next);
+    if (mounted && _viewMode != CalendarViewMode.month) {
+      await _ensureRange();
+    }
   }
 
   Future<void> _load() async {
@@ -403,10 +489,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (!mounted || version != _loadVersion) return;
       setState(() {
         _data = data;
+        _rangeCache[_monthKey(requested)] = data;
         _loadFailed = false;
         _loading = false;
       });
       _notifyHeader();
+      await _ensureRange();
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -450,6 +538,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (changeMonth) {
       _notifyHeader();
       await _load();
+    } else if (_viewMode != CalendarViewMode.month) {
+      await _ensureRange();
     }
   }
 
