@@ -317,6 +317,7 @@ void main() {
     expect(find.byKey(const ValueKey('calendar-selected-timeline')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-period-day-2026-8-17')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-period-day-2026-8-23')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-period-add-task')), findsOneWidget);
     final strip = find.byKey(const ValueKey('calendar-date-strip'));
     expect(find.descendant(of: strip, matching: find.byType(SingleChildScrollView)), findsNothing);
     await tester.drag(strip, const Offset(-260, 0));
