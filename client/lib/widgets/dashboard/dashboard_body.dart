@@ -519,7 +519,11 @@ class _DashboardBodyState extends State<DashboardBody> {
             ),
           ),
         if (_timelineLoading && _timeline.isEmpty)
-          _empty('正在读取今天的轨迹…', compact: mobile)
+          mobile
+              ? const FxSkeletonGroup(
+                  child: FxSkeletonList(kind: FxSkeletonRowKind.timeline),
+                )
+              : _empty('正在读取今天的轨迹…')
         else if (_timeline.isEmpty && !_timelineLoadFailed)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
@@ -1208,9 +1212,17 @@ class _DashboardBodyState extends State<DashboardBody> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (loading)
-          const FxCircularProgress()
-        else ...[
+        if (loading && !hasData)
+          SlowlightPlatformDensity.usesMobileTouchTargets
+              ? FxSkeletonGroup(
+                  child: FxSkeletonList(
+                    kind: name == '任务'
+                        ? FxSkeletonRowKind.task
+                        : FxSkeletonRowKind.habit,
+                  ),
+                )
+              : const FxCircularProgress()
+        else if (!loading) ...[
           Text(hasData ? '${name}刷新失败，以下为上次数据。' : '${name}暂时无法加载，当前数量未知。'),
           FxButton(
               label: '重新加载$name',
