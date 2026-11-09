@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
 import '../models/reflection_entry.dart';
+import '../models/today_timeline_item.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../services/api/review_api.dart';
@@ -33,6 +34,8 @@ class TodayReviewScreen extends StatefulWidget {
   final ReflectionRepository? reflectionRepository;
   final HabitRepository? habitRepository;
   final Future<Map<String, dynamic>> Function()? reviewLoader;
+  /// Optional test seam; production reuses the existing Local/Cloud ReviewApi.
+  final Future<ReviewPeriodTimeline> Function(int offset)? todayTimelineLoader;
 
   const TodayReviewScreen({
     super.key,
@@ -44,6 +47,7 @@ class TodayReviewScreen extends StatefulWidget {
     this.reflectionRepository,
     this.habitRepository,
     this.reviewLoader,
+    this.todayTimelineLoader,
   });
 
   @override
@@ -67,6 +71,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   int _viewIndex = 0;
   int _periodIndex = 0;
   String _reviewFilter = 'all';
+  List<TodayTimelineItem>? _nativeToday;
+  bool _nativeHasMore = false;
+  bool _nativeLoadingMore = false;
+  bool _nativePageFailed = false;
   final Set<String> _answered = {};
   final Set<String> _expanded = {};
   final Map<String, TextEditingController> _answerControllers = {};
@@ -149,6 +157,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     // Each task updates only its own state, and older results cannot win.
     unawaited(_loadReflections(version));
     unawaited(_loadHabitDetails(version));
+    // Native Local/Cloud events are the single source for the full Android day.
+    // Test loaders without a native seam keep their existing isolated fixtures.
+    if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+        widget.focusObservation == null &&
+        (widget.reviewLoader == null || widget.todayTimelineLoader != null)) {
+      unawaited(_loadNativeToday(version));
+    }
 
     try {
       final review = await (widget.reviewLoader ?? ReviewApi.getTodayReview)();
@@ -168,6 +183,55 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           _error = error.toString();
         }
         _loading = false;
+      });
+    }
+  }
+
+
+  Future<ReviewPeriodTimeline> _readNativeToday(int offset) =>
+      widget.todayTimelineLoader?.call(offset) ??
+      ReviewApi.getPeriodTimeline(period: 'today', offset: offset);
+
+  Future<void> _loadNativeToday(int version) async {
+    try {
+      final result = await _readNativeToday(0);
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _nativeToday = result.items;
+        _nativeHasMore = result.hasMore;
+        _nativeLoadingMore = false;
+        _nativePageFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      // Keep last confirmed rows; the existing Review facts remain a fallback.
+      setState(() => _nativePageFailed = true);
+    }
+  }
+
+  Future<void> _loadMoreNativeToday() async {
+    final old = _nativeToday;
+    if (old == null || !_nativeHasMore || _nativeLoadingMore) return;
+    final version = _loadVersion;
+    setState(() {
+      _nativeLoadingMore = true;
+      _nativePageFailed = false;
+    });
+    try {
+      final next = await _readNativeToday(old.length);
+      if (!mounted || version != _loadVersion) return;
+      final ids = old.map((event) => event.id).toSet();
+      final newItems = next.items.where((event) => ids.add(event.id));
+      setState(() {
+        _nativeToday = TodayTimelineItem.sorted([...old, ...newItems]);
+        _nativeHasMore = next.hasMore && next.items.isNotEmpty;
+        _nativeLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _nativePageFailed = true;
+        _nativeLoadingMore = false;
       });
     }
   }
