@@ -450,13 +450,31 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             Text('本周轨迹读取中…',
                 style: SlowlightTypography.secondary(context))
           else if (visible.isEmpty)
-            Text(
-              mobile && _eventFilter != 'all'
-                  ? '当前类型暂无已载入记录；其他页面可能还有记录。'
-                  : facts.observationCount > 0
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  mobile && _eventFilter != 'all'
+                      ? '当前页暂无该类型的已载入记录。'
+                      : facts.observationCount > 0
                   ? '本周有 ${facts.observationCount} 条观察，事件明细尚未载入。'
                   : '本周还没有可追溯的行为记录。',
-              style: SlowlightTypography.secondary(context),
+                  style: SlowlightTypography.secondary(context),
+                ),
+                if (mobile && _eventFilter != 'all' &&
+                    (page?.hasMore == true || facts.hasMore))
+                  FxButton(
+                    label: '继续查看后续记录',
+                    variant: FxButtonVariant.link,
+                    size: FxButtonSize.sm,
+                    onPressed: _loadingPeriodPage ? null : () {
+                      setState(() => _showAllPeriodEvents = true);
+                      _loadPeriodPage(
+                        _periodPageOffset + (page?.items.length ?? 0),
+                      );
+                    },
+                  ),
+              ],
             )
           else ...[
             if (!_showAllPeriodEvents &&
