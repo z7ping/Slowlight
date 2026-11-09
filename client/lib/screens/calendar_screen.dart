@@ -501,15 +501,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
         (index) => DateTime(start.year, start.month, start.day + index));
   }
 
+  // A confirmed visible range remains readable while its source months refresh.
+  // An uncached neighboring month must never be rendered as an empty day.
+  bool get _hasVisibleRange => _hasCurrentMonth &&
+      _visibleDays().every((day) => _rangeCache.containsKey(_monthKey(day)));
+
   /// The existing month loader is reused for cross-month day columns.
   /// Missing adjacent months show a retry state, never a false empty day.
-  Future<void> _ensureRange() async {
+  Future<void> _ensureRange({bool refreshCached = false}) async {
     if (!mounted || !_hasCurrentMonth ||
         _viewMode == CalendarViewMode.month) return;
     final months = <int, DateTime>{};
     for (final day in _visibleDays()) {
       final key = _monthKey(day);
-      if (key != _monthKey(_focused) && !_rangeCache.containsKey(key)) {
+      if (key != _monthKey(_focused) &&
+          (refreshCached || !_rangeCache.containsKey(key))) {
         months[key] = DateTime(day.year, day.month, 1);
       }
     }
@@ -546,8 +552,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _retryRange() async {
-    _rangeCache.removeWhere((key, _) => key != _monthKey(_focused));
-    await _ensureRange();
+    // Keep the last confirmed adjacent-month data on a failed refresh.
+    final hasVisibleRange = _hasVisibleRange;
+    if (!hasVisibleRange) {
+      _rangeCache.removeWhere((key, _) => key != _monthKey(_focused));
+    }
+    await _ensureRange(refreshCached: hasVisibleRange);
   }
 
   Future<void> _shiftPeriod(int direction) async {
@@ -576,17 +586,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _refresh({bool keepCurrent = false}) async {
     _rangeVersion++;
-    if (_viewMode != CalendarViewMode.month && mounted) {
-      setState(() => _rangeLoading = true);
+    final preserveConfirmed = keepCurrent && _hasCurrentMonth;
+    if (!preserveConfirmed) {
+      if (_viewMode != CalendarViewMode.month && mounted) {
+        setState(() => _rangeLoading = true);
+      }
+      _rangeCache.clear();
+      // Never label an uncached neighboring month as a confirmed empty day.
+      if (_hasCurrentMonth) _rangeCache[_monthKey(_focused)] = _data!;
     }
-    _rangeCache.clear();
-    // Preserve confirmed same-month data during refresh, but do not label an
-    // uncached neighbor as empty while the new request is pending.
-    if (_hasCurrentMonth) _rangeCache[_monthKey(_focused)] = _data!;
-    await _load(keepCurrent: keepCurrent);
+    // Pull-to-refresh and tab reentry preserve the visible month *and* any
+    // confirmed adjacent months, while still re-querying those months.
+    await _load(
+      keepCurrent: keepCurrent,
+      refreshCachedRange: preserveConfirmed,
+    );
   }
 
-  Future<void> _load({bool keepCurrent = false}) async {
+  Future<void> _load({
+    bool keepCurrent = false,
+    bool refreshCachedRange = false,
+  }) async {
     final requested = DateTime(_focused.year, _focused.month, 1);
     final version = ++_loadVersion;
     if (mounted) setState(() {
@@ -605,7 +625,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _loading = false;
       });
       _notifyHeader();
-      await _ensureRange();
+      await _ensureRange(refreshCached: refreshCachedRange);
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -614,7 +634,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _loadFailed = true;
         _loading = false;
         _rangeLoading = false;
-        if (_viewMode != CalendarViewMode.month) _rangeFailed = true;
+        if (_viewMode != CalendarViewMode.month) {
+          _rangeFailed = !_hasVisibleRange;
+        }
       });
       _notifyHeader();
     }
@@ -726,7 +748,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return _pinnedClockView();
     }
     return FxRefresh(
-      onRefresh: _refresh,
+      onRefresh: () => _refresh(keepCurrent: true),
       child: ListView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -792,12 +814,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         _dayPanel(),
                     ] else ...[
                       // The shared date header is part of the time grid.
-                      if (_rangeLoading)
+                      if (_rangeLoading && !_hasVisibleRange)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 36),
                           child: Center(child: FxCircularProgress()),
                         )
-                      else if (_rangeFailed)
+                      else if (_rangeFailed && !_hasVisibleRange)
                         FxEmptyState(
                           icon: LucideIcons.triangleAlert,
                           title: '部分日期读取失败',
@@ -807,8 +829,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             onPressed: _retryRange,
                           ),
                         )
-                      else
+                      else ...[
+                        if (_rangeFailed) _rangeRefreshFailedNotice(),
                         _timeGrid(),
+                      ],
                     ],
                   ],
                 ],
@@ -823,7 +847,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // Pin the same date rail used by the time-axis columns on Android.
   Widget _pinnedClockView() {
     return FxRefresh(
-      onRefresh: _refresh,
+      onRefresh: () => _refresh(keepCurrent: true),
       child: CustomScrollView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -854,12 +878,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 32),
-              child: _rangeLoading
+              child: _rangeLoading && !_hasVisibleRange
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 36),
                       child: Center(child: FxCircularProgress()),
                     )
-                  : _rangeFailed
+                  : _rangeFailed && !_hasVisibleRange
                       ? FxEmptyState(
                           icon: LucideIcons.triangleAlert,
                           title: '部分日期读取失败',
@@ -867,7 +891,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           action: FxButton(label: '重新加载',
                               onPressed: _retryRange),
                         )
-                      : _timeGrid(includeDateStrip: false),
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_rangeFailed) _rangeRefreshFailedNotice(),
+                            _timeGrid(includeDateStrip: false),
+                          ],
+                        ),
             ),
           ),
         ],
@@ -1277,6 +1307,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
           size: FxButtonSize.sm,
           variant: FxButtonVariant.ghost,
           onPressed: _loading ? null : _refresh,
+        ),
+      ]),
+    ),
+  );
+
+  Widget _rangeRefreshFailedNotice() => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: FxCard(
+      padding: const EdgeInsets.all(12),
+      expanded: true,
+      child: Row(children: [
+        const Icon(LucideIcons.triangleAlert, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: Text(
+          '跨月记录刷新失败，当前显示上次读取的数据',
+          style: SlowlightTypography.secondary(context),
+        )),
+        FxButton(
+          label: '重试',
+          size: FxButtonSize.sm,
+          variant: FxButtonVariant.ghost,
+          onPressed: _rangeLoading ? null : _retryRange,
         ),
       ]),
     ),
