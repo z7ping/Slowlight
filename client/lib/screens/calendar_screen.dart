@@ -286,7 +286,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void didUpdateWidget(covariant CalendarScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.refreshTick != widget.refreshTick) _load(keepCurrent: true);
+    if (oldWidget.refreshTick == widget.refreshTick) return;
+    final revision = widget.refreshTick;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.refreshTick == revision) _load(keepCurrent: true);
+    });
   }
 
   // An Android AppBar can already be listening while the CalendarScreen is
