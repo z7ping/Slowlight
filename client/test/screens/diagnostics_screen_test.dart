@@ -39,22 +39,21 @@ void main() {
     await tester.pump();
     expect(find.text('暂无诊断记录'), findsOneWidget);
     expect(find.text('清空本机日志'), findsNothing);
-    expect(find.text('当前没有可导出的记录'), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics.export')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('有日志：默认折叠、展开可选择原文', (tester) async {
+  testWidgets('有日志：固定窗口默认显示，提供全文阅读', (tester) async {
     await tester.pumpWidget(buildFxTestHost(
       home: DiagnosticsScreen(logger: _TestLogger('2026-10-21 exception: test')),
     ));
     await tester.pump();
-    expect(find.text('已有诊断记录'), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics.raw_viewport')), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics.full_log')), findsOneWidget);
     expect(find.text('清空本机日志'), findsOneWidget);
-    expect(find.text('2026-10-21 exception: test'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('diagnostics.raw_toggle')));
-    await tester.pump();
     expect(find.text('2026-10-21 exception: test'), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics.raw_toggle')), findsNothing);
     await disposeFxTestHost(tester);
   });
 
@@ -86,7 +85,7 @@ void main() {
     await tester.tap(find.text('清空日志'));
     await tester.pumpAndSettle();
     expect(logger.text, '必须保留的原始日志');
-    expect(find.text('已有诊断记录'), findsOneWidget);
+    expect(find.text('必须保留的原始日志'), findsOneWidget);
     expect(find.byKey(const ValueKey('diagnostics.clear')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -109,7 +108,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Windows 日志原文固定高度，展开后默认定位最新记录', (tester) async {
+  testWidgets('Windows 日志原文固定高度，默认定位最新记录', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
@@ -119,7 +118,6 @@ void main() {
       home: DiagnosticsScreen(logger: _TestLogger(content)),
     ));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('diagnostics.raw_toggle')));
     await tester.pumpAndSettle();
     final viewport = find.byKey(const ValueKey('diagnostics.raw_viewport'));
     expect(viewport, findsOneWidget);
@@ -132,6 +130,21 @@ void main() {
     expect(scroller.position.maxScrollExtent, greaterThan(0));
     expect(scroller.position.pixels,
         closeTo(scroller.position.maxScrollExtent, 1));
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('完整日志单独阅读，并可复制全部内容', (tester) async {
+    final logger = _TestLogger('第一条\\n第二条\\n详细堆栈');
+    await tester.pumpWidget(buildFxTestHost(
+      home: DiagnosticsScreen(logger: logger),
+    ));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('diagnostics.full_log')));
+    await tester.tap(find.byKey(const ValueKey('diagnostics.full_log')));
+    await tester.pumpAndSettle();
+    expect(find.text('完整诊断日志'), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics.full_viewport')), findsOneWidget);
+    expect(find.byKey(const ValueKey('diagnostics.copy_full')), findsOneWidget);
     await disposeFxTestHost(tester);
   });
 
