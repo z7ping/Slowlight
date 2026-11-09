@@ -85,6 +85,24 @@ void main() {
     ));
     await tester.pump();
 
+    // GitHub and password are equally high compact rows. Their divider must
+    // occupy the geometric midpoint, not inherit Shad theme separator margins
+    // that paint the line below the actual row boundary.
+    final githubRow = find.byKey(
+      const ValueKey('settings.account.github.mobile'),
+    );
+    final passwordRow = find.byKey(
+      const ValueKey('settings.account.password.mobile'),
+    );
+    final dividerFinder = find.byType(FxSeparator);
+    expect(githubRow, findsOneWidget);
+    expect(passwordRow, findsOneWidget);
+    expect(dividerFinder, findsOneWidget);
+    expect(tester.widget<FxSeparator>(dividerFinder).margin, EdgeInsets.zero);
+    final midpoint = (tester.getCenter(githubRow).dy +
+        tester.getCenter(passwordRow).dy) / 2;
+    expect(tester.getCenter(dividerFinder).dy, closeTo(midpoint, 1));
+
     expect(
       traces.where((e) => e.contains('actor=oauth.pending.load')),
       isEmpty,
