@@ -5,6 +5,9 @@ import '../ui/fx.dart';
 /// Android month heatmap: a responsive seven-column matrix of read-only
 /// squares. The viewport width, not a hardcoded cell size, owns geometry.
 class HabitHeatmap extends StatelessWidget {
+  /// The approved Android V4 calendar uses 24dp max squares with 3dp gaps.
+  static const double compactMaxWidth = 7 * 24 + 6 * 3;
+
   const HabitHeatmap({
     super.key,
     required this.checkInDates,
@@ -90,7 +93,7 @@ class HabitHeatmap extends StatelessWidget {
               final count = counts[key] ?? 0;
               final isToday = key == today;
               final intensity = count == 0
-                  ? theme.colorScheme.surfaceContainer
+                  ? theme.colorScheme.surfaceContainerLow
                   : color.withValues(
                       alpha: .25 + .7 * count / maxCount,
                     );

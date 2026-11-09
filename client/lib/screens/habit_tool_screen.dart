@@ -896,12 +896,16 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                             color: theme.colorScheme.outlineVariant),
                         const SizedBox(height: SlowlightSpacing.xl),
                         if (mobile) ...[
-                          _mobileMonthSummary(habit, color),
+                          _mobileMonthSummary(habit),
                           if (habit.goalHistory.isNotEmpty) ...[
                             const SizedBox(height: SlowlightSpacing.xs),
                             Text(_goalRevisionSummary(habit),
                                 style: SlowlightTypography.caption(context)),
                           ],
+                          const SizedBox(height: SlowlightSpacing.xl),
+                          FxSeparator.horizontal(
+                              margin: EdgeInsets.zero,
+                              color: theme.colorScheme.outlineVariant),
                           const SizedBox(height: SlowlightSpacing.md),
                           Text('最近记录',
                               style: SlowlightTypography.fieldLabel(context)),
@@ -1153,37 +1157,51 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     );
   }
 
-  Widget _miniStat(String value, String label) {
+  Widget _miniStat(String value, String label, {bool mobileMonth = false}) {
     final theme = Theme.of(context);
     return Container(
+      key: mobileMonth ? ValueKey('habits.month.stat.$label') : null,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      constraints: mobileMonth ? const BoxConstraints(minHeight: 61) : null,
+      padding: EdgeInsets.symmetric(
+        horizontal: mobileMonth ? 9 : 8,
+        vertical: mobileMonth ? 7 : 8,
+      ),
       decoration: BoxDecoration(
-        color: fxSurface(context),
-        border: Border.all(color: theme.colorScheme.outline),
+        // Match the approved Android V4 gray stat tiles. Windows retains
+        // the existing outlined statistics style.
+        color: mobileMonth
+            ? theme.colorScheme.surfaceContainerLow
+            : fxSurface(context),
+        border: mobileMonth
+            ? null
+            : Border.all(color: theme.colorScheme.outline),
         borderRadius: BorderRadius.circular(SlowlightRadius.md),
       ),
       child: Column(
+        crossAxisAlignment:
+            mobileMonth ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             value,
-            style: SlowlightTypography.cardTitle(
-              context,
-            ).copyWith(fontWeight: FontWeight.w700),
+            style: (mobileMonth
+                    ? SlowlightTypography.statValue(context)
+                    : SlowlightTypography.cardTitle(context))
+                .copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: SlowlightTypography.caption(
-              context,
-            ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: SlowlightTypography.caption(context)
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
     );
   }
 
-  Widget _mobileMonthSummary(Habit habit, Color color) {
+  Widget _mobileMonthSummary(Habit habit) {
     final now = DateTime.now();
     final monthPrefix = '${now.year}-${_two(now.month)}-';
     final loaded = _controller.hasLoadedLogs(habit.id);
@@ -1191,28 +1209,41 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
         ? _controller.logsFor(habit.id).where((log) => log.date.startsWith(monthPrefix)).toList()
         : <HabitLog>[];
     final days = logs.map((log) => log.date).toSet().length;
-    final dayStat = _miniStat(loaded ? '$days' : '待核对', '记录天数');
-    final logStat = _miniStat(loaded ? '${logs.length}' : '待核对', '日志条数');
-    final calendar = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (loaded)
-          HabitHeatmap(
-            checkInDates: logs
-                .map((log) => DateTime.tryParse(log.date))
-                .whereType<DateTime>()
-                .toList(growable: false),
-            color: color,
-            month: now,
-          )
-        else ...[
-          Text('${now.month} 月 · ${now.year}',
-              style: SlowlightTypography.caption(context)),
-          const SizedBox(height: SlowlightSpacing.xs),
-          Text('本月记录待读取',
-              style: SlowlightTypography.caption(context)),
-        ],
-      ],
+    final dayStat = _miniStat(
+      loaded ? '$days' : '待核对', '记录天数', mobileMonth: true);
+    final logStat = _miniStat(
+      loaded ? '${logs.length}' : '待核对', '日志条数', mobileMonth: true);
+    // The approved V4 heatmap uses compact 24dp squares, not a stretched
+    // full-width calendar. Constrain only the calendar; keep the V4 two-column
+    // information hierarchy, with stats on the left.
+    final calendar = Align(
+      alignment: Alignment.topLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: HabitHeatmap.compactMaxWidth,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (loaded)
+              HabitHeatmap(
+                checkInDates: logs
+                    .map((log) => DateTime.tryParse(log.date))
+                    .whereType<DateTime>()
+                    .toList(growable: false),
+                color: Theme.of(context).colorScheme.primary,
+                month: now,
+              )
+            else ...[
+              Text('${now.month} 月 · ${now.year}',
+                  style: SlowlightTypography.caption(context)),
+              const SizedBox(height: SlowlightSpacing.xs),
+              Text('本月记录待读取',
+                  style: SlowlightTypography.caption(context)),
+            ],
+          ],
+        ),
+      ),
     );
     return LayoutBuilder(builder: (context, constraints) {
       final scale = MediaQuery.textScalerOf(context).scale(1);
@@ -1222,14 +1253,17 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 100,
+              // Same 0.65 : 1.4 ratio and 88dp minimum as V4 prototype.
+              width: ((constraints.maxWidth - SlowlightSpacing.xl) * 65 / 205)
+                  .clamp(88.0, constraints.maxWidth - 160)
+                  .toDouble(),
               child: Column(children: [
                 dayStat,
                 const SizedBox(height: SlowlightSpacing.md),
                 logStat,
               ]),
             ),
-            const SizedBox(width: SlowlightSpacing.md),
+            const SizedBox(width: SlowlightSpacing.xl),
             Expanded(child: calendar),
           ],
         );
@@ -1594,7 +1628,12 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   }
 
   String _habitMeta(Habit habit) {
-    final parts = <String>[habit.frequencyText];
+    // Raw legacy enum names are not meaningful habit summaries.
+    final parts = <String>[
+      habit.frequency == 'custom' && habit.scheduleRule.isEmpty
+          ? '自定义频率'
+          : habit.frequencyText,
+    ];
     if (habit.goalValue > 0) {
       final unit = habit.goalMetric == 'duration'
           ? '分钟'
