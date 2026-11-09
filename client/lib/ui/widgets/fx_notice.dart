@@ -6,7 +6,6 @@ import '../../services/app_error_logger.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../app_theme.dart';
-import '../color_tokens.dart';
 import '../layout_tokens.dart';
 import 'fx_button.dart';
 
@@ -412,12 +411,9 @@ abstract final class FxNotice {
           description: description,
           action: action,
           duration: duration,
-          backgroundColor: AppTheme.success,
-          border: const Border.fromBorderSide(
+          border: Border.fromBorderSide(
             BorderSide(color: AppTheme.success),
           ),
-          titleStyle: const TextStyle(color: SlowlightSemanticColor.noticeSuccessForeground),
-          descriptionStyle: const TextStyle(color: SlowlightSemanticColor.noticeSuccessForeground),
         ),
       FxNoticeVariant.warning => ShadToast(
           alignment: alignment,
@@ -425,12 +421,9 @@ abstract final class FxNotice {
           description: description,
           action: action,
           duration: duration,
-          backgroundColor: AppTheme.warning,
-          border: const Border.fromBorderSide(
+          border: Border.fromBorderSide(
             BorderSide(color: AppTheme.warning),
           ),
-          titleStyle: const TextStyle(color: SlowlightSemanticColor.noticeWarningForeground),
-          descriptionStyle: const TextStyle(color: SlowlightSemanticColor.noticeWarningForeground),
         ),
     };
   }
