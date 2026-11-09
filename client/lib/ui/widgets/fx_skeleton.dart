@@ -145,16 +145,20 @@ class FxSkeletonList extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      FractionallySizedBox(
+                      Align(
                         alignment: Alignment.centerLeft,
-                        widthFactor: index.isEven ? 0.78 : 0.62,
-                        child: const FxSkeleton(height: 12),
+                        child: FractionallySizedBox(
+                          widthFactor: index.isEven ? 0.78 : 0.62,
+                          child: const FxSkeleton(height: 12),
+                        ),
                       ),
                       const SizedBox(height: SlowlightSpacing.md),
-                      FractionallySizedBox(
+                      Align(
                         alignment: Alignment.centerLeft,
-                        widthFactor: index.isEven ? 0.42 : 0.55,
-                        child: const FxSkeleton(height: 9),
+                        child: FractionallySizedBox(
+                          widthFactor: index.isEven ? 0.42 : 0.55,
+                          child: const FxSkeleton(height: 9),
+                        ),
                       ),
                     ],
                   ),
