@@ -674,6 +674,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             child: SafeArea(child: _navigationPanel(closeDrawer: true)),
           ),
           appBar: AppBar(
+            // 主导航靠表面与正文间距分层，不绘制底线或滚动阴影。
+            scrolledUnderElevation: 0,
             toolbarHeight: 48,
             titleSpacing: 8,
             title: _navigation.tool == HomeToolSection.calendar
@@ -744,14 +746,6 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
               ],
               const SizedBox(width: 4),
             ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1),
-              child: FxSeparator.horizontal(
-                height: 1,
-                thickness: 1,
-                color: theme.colorScheme.outlineVariant,
-              ),
-            ),
           ),
           body: _mobileTodayBody(content),
           bottomNavigationBar:

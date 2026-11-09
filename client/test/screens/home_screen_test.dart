@@ -57,6 +57,21 @@ void main() {
       });
     }
 
+    testWidgets('Android 主壳顶栏不出现通用分隔线或滚动阴影', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      for (final tab in ['today', 'review', 'calendar']) {
+        if (tab != 'today') {
+          await tester.tap(find.byKey(ValueKey('home.bottom-nav.$tab')));
+          await tester.pump();
+        }
+        final appBar = tester.widget<AppBar>(find.byType(AppBar).first);
+        expect(appBar.bottom, isNull);
+        expect(appBar.scrolledUnderElevation, 0);
+      }
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('Android 底栏固定 56dp 贴底，页头和工作台仍有空间', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
       final nav = find.byKey(const ValueKey('home.bottom-nav'));
