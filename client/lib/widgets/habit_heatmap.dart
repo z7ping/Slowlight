@@ -42,8 +42,7 @@ class HabitHeatmap extends StatelessWidget {
     final today = DateTime(now.year, now.month, now.day);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
-    return LayoutBuilder(
-      builder: (context, constraints) => Column(
+    return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -73,6 +72,7 @@ class HabitHeatmap extends StatelessWidget {
           GridView.builder(
             key: const ValueKey('habit-month-heatmap-grid'),
             shrinkWrap: true,
+            padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: numberOfCells,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -119,7 +119,6 @@ class HabitHeatmap extends StatelessWidget {
             },
           ),
         ],
-      ),
     );
   }
 }
