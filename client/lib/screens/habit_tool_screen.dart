@@ -1202,7 +1202,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                 .map((log) => DateTime.tryParse(log.date))
                 .whereType<DateTime>()
                 .toList(growable: false),
-            color: Theme.of(context).colorScheme.primary,
+            color: color,
             month: now,
           )
         else ...[
