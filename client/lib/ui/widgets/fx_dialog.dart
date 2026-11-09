@@ -93,47 +93,53 @@ class FxDialog {
     String cancelText = '取消',
     bool destructive = false,
     bool draftDiscard = false,
+    bool mobilePairedActions = false,
     bool barrierDismissible = true,
   }) {
-    // A draft exit differs from deleting persisted data: keep editing is the
-    // emphasized, wider choice on mobile. Desktop confirmations stay compact.
+    // Keep a single mobile 40/60 action geometry for draft exits and
+    // explicitly opted-in mode confirmations. Desktop stays compact.
     final platform = Theme.of(context).platform;
-    final useDraftLayout = draftDiscard &&
+    final usePairedLayout = (draftDiscard || mobilePairedActions) &&
         (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
     return showShadDialog<bool>(
       context: context,
       barrierColor: barrierColor,
       barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      variant: destructive && !useDraftLayout
+      variant: destructive && !usePairedLayout
           ? ShadDialogVariant.alert
           : ShadDialogVariant.primary,
       builder: (ctx) => ShadDialog(
         // Short confirmations have a single explicit cancel action. Do not
         // add ShadDialog's corner close button as a second exit affordance.
         closeIcon: const SizedBox.shrink(),
-        radius: useDraftLayout
+        radius: usePairedLayout
             ? const BorderRadius.all(Radius.circular(SlowlightRadius.xl))
             : null,
-        removeBorderRadiusWhenTiny: useDraftLayout ? false : null,
+        removeBorderRadiusWhenTiny: usePairedLayout ? false : null,
         title: Text(title, style: _titleStyle(ctx)),
         description: Text(content, style: _descriptionStyle(ctx)),
-        child: useDraftLayout
+        child: usePairedLayout
             ? SizedBox(
-                // 16dp outside margins + 24dp dialog padding on both sides.
+                // Preserve the already-approved mobile dialog geometry and
+                // minimum 44dp FxButton touch targets at larger text scales.
                 width: (MediaQuery.sizeOf(ctx).width - 80).clamp(0.0, 372.0),
                 child: Row(
-                  key: const ValueKey('fx.dialog.draftActions'),
+                  key: ValueKey(draftDiscard
+                      ? 'fx.dialog.draftActions'
+                      : 'fx.dialog.pairedActions'),
                   children: [
                     Expanded(
                       flex: 2,
                       child: FxButton(
-                        key: const ValueKey('fx.dialog.discardDraft'),
-                        label: confirmText,
+                        key: ValueKey(draftDiscard
+                            ? 'fx.dialog.discardDraft'
+                            : 'fx.dialog.cancel'),
+                        label: draftDiscard ? confirmText : cancelText,
                         expanded: true,
                         variant: FxButtonVariant.outline,
-                        onPressed: () =>
-                            Navigator.of(ctx, rootNavigator: true).pop(true),
+                        onPressed: () => Navigator.of(ctx, rootNavigator: true)
+                            .pop(draftDiscard),
                       ),
                     ),
                     const SizedBox(width: SlowlightSpacing.md),
@@ -142,12 +148,18 @@ class FxDialog {
                       child: Focus(
                         autofocus: true,
                         child: FxButton(
-                          key: const ValueKey('fx.dialog.keepEditing'),
-                          label: cancelText == '取消' ? '继续编辑' : cancelText,
+                          key: ValueKey(draftDiscard
+                              ? 'fx.dialog.keepEditing'
+                              : 'fx.dialog.confirm'),
+                          label: draftDiscard
+                              ? (cancelText == '取消' ? '继续编辑' : cancelText)
+                              : confirmText,
                           expanded: true,
-                          variant: FxButtonVariant.primary,
-                          onPressed: () =>
-                              Navigator.of(ctx, rootNavigator: true).pop(false),
+                          variant: destructive && !draftDiscard
+                              ? FxButtonVariant.destructive
+                              : FxButtonVariant.primary,
+                          onPressed: () => Navigator.of(ctx, rootNavigator: true)
+                              .pop(!draftDiscard),
                         ),
                       ),
                     ),
@@ -155,7 +167,7 @@ class FxDialog {
                 ),
               )
             : null,
-        actions: useDraftLayout ? const <Widget>[] : [
+        actions: usePairedLayout ? const <Widget>[] : [
           // 复用统一按钮的尺寸、语义与异步防重入契约。
           // 直接使用 ShadButton 会绕过 Android 44dp 点击区域。
           FxButton(
