@@ -372,21 +372,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ? '未确认'
             : _githubLinked! ? '已绑定' : '未绑定';
 
-    Widget group(String title, Widget content) => FxCard(
-      expanded: true,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-            child: Text(title, style: SlowlightTypography.secondary(context)
-                .copyWith(fontWeight: FontWeight.w600)),
+    // The approved Android prototype places the section caption OUTSIDE its
+    // bordered panel. Keep its row surface compact and reuse FxCard/FxListTile.
+    Widget group(String title, Widget content) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
+          child: Text(
+            title,
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: subtle,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          content,
-        ],
-      ),
+        ),
+        FxCard(
+          expanded: true,
+          padding: const EdgeInsets.symmetric(
+            horizontal: SlowlightSpacing.xl,
+            vertical: SlowlightSpacing.xs,
+          ),
+          child: content,
+        ),
+      ],
     );
+
+    Widget rowIcon(IconData icon, {bool destructive = false}) =>
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: destructive
+              ? theme.colorScheme.errorContainer.withValues(alpha: .40)
+              : theme.colorScheme.surfaceContainerHighest,
+          child: Icon(
+            icon,
+            size: 20,
+            color: destructive ? theme.colorScheme.error : subtle,
+          ),
+        );
 
     Widget arrow() => Icon(LucideIcons.chevronRight, size: 18, color: subtle);
     Widget stateTrailing(String value) => largeText ? arrow() : Row(
@@ -430,8 +453,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final data = group('数据与同步', FxListTile(
       key: const ValueKey('settings.account.open_data'),
       density: FxListTileDensity.compact,
-      leading: Icon(local ? LucideIcons.hardDrive : LucideIcons.cloud,
-          size: 22, color: subtle),
+      leading: rowIcon(local ? LucideIcons.hardDrive : LucideIcons.cloud),
       title: '数据模式',
       subtitle: largeText ? (local ? '本地' : '云端') : null,
       trailing: stateTrailing(local ? '本地' : '云端'),
@@ -442,7 +464,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? FxListTile(
             key: const ValueKey('settings.account.login_cloud'),
             density: FxListTileDensity.compact,
-            leading: Icon(LucideIcons.cloud, size: 22, color: subtle),
+            leading: rowIcon(LucideIcons.cloud),
             title: '登录云端账号',
             subtitle: '登录不会自动迁移本地记录',
             trailing: arrow(),
@@ -463,7 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               FxListTile(
                 key: const ValueKey('settings.account.password.mobile'),
                 density: FxListTileDensity.compact,
-                leading: Icon(LucideIcons.keyRound, size: 22, color: subtle),
+                leading: rowIcon(LucideIcons.keyRound),
                 title: '账号密码',
                 // Standard density: title and status share the same
                 // baseline as GitHub; the username belongs in the editor.
@@ -492,8 +514,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: FxListTile(
               key: const ValueKey('settings.account.logout.mobile'),
               density: FxListTileDensity.compact,
-              leading: Icon(LucideIcons.logOut, size: 20,
-                  color: theme.colorScheme.error),
+              leading: rowIcon(LucideIcons.logOut, destructive: true),
               title: Text(_loggingOut ? '退出中…' : '退出登录',
                 style: SlowlightTypography.body(context)
                     .copyWith(color: theme.colorScheme.error)),
@@ -1603,6 +1624,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   FxPageHeader(
                     title: detail ? _sectionTitle(_open) : '设置',
                     onBack: detail ? _backFromDetail : null,
+                    centerTitle: android && detail,
                   ),
                   Expanded(
                     child: ListView(
