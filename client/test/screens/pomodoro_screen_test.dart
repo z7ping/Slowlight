@@ -544,4 +544,22 @@ void main() {
     );
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('Android 专注主体展示计时圆环、事实统计与关联任务', (tester) async {
+    tester.view.physicalSize = const Size(390, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: _InactiveSessionRepository()),
+    ));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('pomodoro-dial')), findsOneWidget);
+    expect(find.text('一段时间，只做一件事'), findsOneWidget);
+    expect(find.text('今日记录轮次'), findsOneWidget);
+    expect(find.text('今日专注分钟'), findsOneWidget);
+    expect(find.text('关联任务'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
