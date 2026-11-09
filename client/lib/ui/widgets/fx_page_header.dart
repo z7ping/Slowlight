@@ -3,12 +3,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../layout_tokens.dart';
 import '../typography_tokens.dart';
+import 'fx_button.dart';
 import 'fx_icon_button.dart';
 
 /// Slowlight 二级页面统一页头：返回 + 标题 + 右侧动作。
 ///
 /// Android 使用 Page Title 可读层级；桌面端保持既有高保真二级页头密度。
-/// 单一图标动作始终与标题同行；宽操作在窄屏或超大字体时下移。
+/// 单一图标始终同标题行；短文字按钮空间足够时同排，宽操作在空间不足时下移。
 class FxPageHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onBack;
@@ -34,11 +35,11 @@ class FxPageHeader extends StatelessWidget {
   List<Widget> _actions(BuildContext context) {
     return [
       if (trailing != null) trailing!,
-      if (actionIcon != null && onAction != null)
+      if (actionIcon != null)
         FxIconButton(
           icon: actionIcon!,
           tooltip: actionTooltip ?? title,
-          onPressed: onAction!,
+          onPressed: onAction,
         ),
     ];
   }
@@ -53,13 +54,56 @@ class FxPageHeader extends StatelessWidget {
     );
   }
 
+  // Only estimate the one supported single-button action. Other composite
+  // trailing widgets keep the conservative wrapping contract.
+  bool _singleButtonFits(BuildContext context, double width) {
+    final widget = trailing;
+    if (widget is! FxButton || actionIcon != null) return false;
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final titleText = TextPainter(
+      text: TextSpan(
+        text: title,
+        style: SlowlightTypography.componentPageTitle(context),
+      ),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final actionText = TextPainter(
+      text: TextSpan(
+        text: widget.label,
+        style: SlowlightTypography.componentButton(
+          context,
+          compact: widget.size == FxButtonSize.sm,
+        ),
+      ),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+
+    final iconSpace = widget.icon != null || widget.leading != null
+        ? (widget.size == FxButtonSize.sm
+            ? SlowlightIconSize.compactAction + 6
+            : SlowlightIconSize.sm + SlowlightSpacing.md)
+        : 0.0;
+    final actionPadding = widget.size == FxButtonSize.sm ? 28.0 : 36.0;
+    final needed = SlowlightPlatformDensity.iconButtonVisualSize +
+        4 + 8 + titleText.width + actionText.width +
+        iconSpace + actionPadding + 12;
+    titleText.dispose();
+    actionText.dispose();
+    return needed <= width;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final back = onBack ?? () => Navigator.of(context).maybePop();
     final scale = MediaQuery.textScalerOf(context).scale(1);
     final largeText = scale >= 1.5;
-    final hasActions = trailing != null || (actionIcon != null && onAction != null);
+    final hasActions = trailing != null || actionIcon != null;
 
     return Container(
       decoration: BoxDecoration(
@@ -78,10 +122,13 @@ class FxPageHeader extends StatelessWidget {
           // the old 520dp threshold created an unnecessary second toolbar row.
           final singleIconAction =
               (trailing is FxIconButton && actionIcon == null) ||
-              (trailing == null && actionIcon != null && onAction != null);
+              (trailing == null && actionIcon != null);
+          final singleButtonFits =
+              !singleIconAction && _singleButtonFits(context, constraints.maxWidth);
           final stackActions = hasActions &&
               (constraints.maxWidth < 180 ||
                   (!singleIconAction &&
+                      !singleButtonFits &&
                       (constraints.maxWidth < 520 || scale >= 1.6)));
           final titleRow = Row(
             crossAxisAlignment:
