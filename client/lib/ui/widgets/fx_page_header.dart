@@ -3,7 +3,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../layout_tokens.dart';
 import '../typography_tokens.dart';
-import 'fx_button.dart';
 import 'fx_icon_button.dart';
 
 /// Slowlight 二级页面统一页头：返回 + 标题 + 右侧动作。
@@ -54,49 +53,6 @@ class FxPageHeader extends StatelessWidget {
     );
   }
 
-  // Only estimate the one supported single-button action. Other composite
-  // trailing widgets keep the conservative wrapping contract.
-  bool _singleButtonFits(BuildContext context, double width) {
-    final widget = trailing;
-    if (widget is! FxButton || actionIcon != null) return false;
-    final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
-    final titleText = TextPainter(
-      text: TextSpan(
-        text: title,
-        style: SlowlightTypography.componentPageTitle(context),
-      ),
-      textDirection: direction,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-    final actionText = TextPainter(
-      text: TextSpan(
-        text: widget.label,
-        style: SlowlightTypography.componentButton(
-          context,
-          compact: widget.size == FxButtonSize.sm,
-        ),
-      ),
-      textDirection: direction,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-
-    final iconSpace = widget.icon != null || widget.leading != null
-        ? (widget.size == FxButtonSize.sm
-            ? SlowlightIconSize.compactAction + 6
-            : SlowlightIconSize.sm + SlowlightSpacing.md)
-        : 0.0;
-    final actionPadding = widget.size == FxButtonSize.sm ? 28.0 : 36.0;
-    final needed = SlowlightPlatformDensity.iconButtonVisualSize +
-        4 + 8 + titleText.width + actionText.width +
-        iconSpace + actionPadding + 12;
-    titleText.dispose();
-    actionText.dispose();
-    return needed <= width;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -117,21 +73,18 @@ class FxPageHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // A single icon fits beside the back arrow and even a scaled title
-          // at normal phone widths. Do not treat it like a wide form action:
-          // the old 520dp threshold created an unnecessary second toolbar row.
-          final singleIconAction =
-              (trailing is FxIconButton && actionIcon == null) ||
-              (trailing == null && actionIcon != null);
-          final singleButtonFits =
-              !singleIconAction && scale < 1.6 &&
-              _singleButtonFits(context, constraints.maxWidth);
-          final stackActions = hasActions &&
-              (constraints.maxWidth < 180 ||
-                  (!singleIconAction &&
-                      !singleButtonFits &&
-                      (constraints.maxWidth < 520 || scale >= 1.6)));
+          final titleCopy = Padding(
+            padding: EdgeInsets.only(top: largeText ? 6 : 0),
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: SlowlightTypography.componentPageTitle(context)
+                  .copyWith(color: theme.colorScheme.onSurface),
+            ),
+          );
           final titleRow = Row(
+            mainAxisSize: hasActions ? MainAxisSize.min : MainAxisSize.max,
             crossAxisAlignment:
                 largeText ? CrossAxisAlignment.start : CrossAxisAlignment.center,
             children: [
@@ -141,23 +94,10 @@ class FxPageHeader extends StatelessWidget {
                 onPressed: back,
               ),
               const SizedBox(width: 4),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(top: largeText ? 6 : 0),
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: SlowlightTypography.componentPageTitle(
-                      context,
-                    ).copyWith(color: theme.colorScheme.onSurface),
-                  ),
-                ),
-              ),
-              if (hasActions && !stackActions) ...[
-                const SizedBox(width: 8),
-                _actionGroup(context),
-              ],
+              if (hasActions)
+                Flexible(child: titleCopy)
+              else
+                Expanded(child: titleCopy),
             ],
           );
 
@@ -193,18 +133,15 @@ class FxPageHeader extends StatelessWidget {
               ),
             );
           }
-          if (!stackActions) return titleRow;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              titleRow,
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerRight,
-                child: _actionGroup(context),
-              ),
-            ],
+          if (!hasActions) return titleRow;
+          // Both title and actions keep their natural widths until they
+          // truly cannot fit; no 180/520dp or font-scale forced wrapping.
+          return OverflowBar(
+            alignment: MainAxisAlignment.spaceBetween,
+            overflowAlignment: OverflowBarAlignment.end,
+            spacing: SlowlightSpacing.sm,
+            overflowSpacing: SlowlightSpacing.xs,
+            children: [titleRow, _actionGroup(context)],
           );
         },
       ),
