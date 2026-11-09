@@ -76,6 +76,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   late final HabitController _controller;
   late final TagLinksRepository _tagLinks;
   bool _editingHabit = false;
+  bool _hasLoadedHabits = false;
   Timer? _nextSlotRefresh;
   int? _expandedHabitId;
   int? _pendingFocusHabitId;
@@ -132,6 +133,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     final revision = ++_habitReloadRevision;
     await _controller.load();
     if (!mounted || revision != _habitReloadRevision) return;
+    if (_controller.error == null && !_hasLoadedHabits) {
+      setState(() => _hasLoadedHabits = true);
+    }
     if (_controller.error != null) {
       ++_todayLogRevision;
       setState(() => _todayLogCount = null);
@@ -566,8 +570,10 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
 
   @override
   Widget build(BuildContext context) {
-    if (_controller.loading && _controller.habits.isEmpty) {
-      return const Center(child: FxCircularProgress());
+    if (_controller.loading && !_hasLoadedHabits && _controller.habits.isEmpty) {
+      return SlowlightPlatformDensity.usesMobileTouchTargets
+          ? const FxSkeletonPage(kind: FxSkeletonPageKind.habits)
+          : const Center(child: FxCircularProgress());
     }
     final all = _controller.habits;
     final visible = all

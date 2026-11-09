@@ -537,7 +537,11 @@ class TaskToolScreenState extends State<TaskToolScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && !_hasLoaded) return const Center(child: FxCircularProgress());
+    if (_loading && !_hasLoaded) {
+      return SlowlightPlatformDensity.usesMobileTouchTargets
+          ? const FxSkeletonPage(kind: FxSkeletonPageKind.tasks)
+          : const Center(child: FxCircularProgress());
+    }
     if (_loadFailed && !_hasLoaded) {
       return Center(child: FxEmptyState(
         icon: LucideIcons.triangleAlert,

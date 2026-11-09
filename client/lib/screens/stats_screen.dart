@@ -66,7 +66,9 @@ class _StatsScreenState extends State<StatsScreen> {
     final body = _snapshot != null
         ? _content(_snapshot!)
         : _loading
-            ? const Center(child: FxCircularProgress())
+            ? (SlowlightPlatformDensity.usesMobileTouchTargets
+                ? const FxSkeletonPage(kind: FxSkeletonPageKind.stats)
+                : const Center(child: FxCircularProgress()))
             : _errorView();
     if (widget.embedded || !Navigator.of(context).canPop()) return body;
     return Scaffold(

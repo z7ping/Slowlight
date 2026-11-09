@@ -456,7 +456,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         onOpenWeekly: () => setState(() => _periodIndex = 1),
       );
     }
-    if (_loading) return const Center(child: FxCircularProgress());
+    if (_loading) {
+      return SlowlightPlatformDensity.usesMobileTouchTargets
+          ? const FxSkeletonPage(kind: FxSkeletonPageKind.review)
+          : const Center(child: FxCircularProgress());
+    }
     if (_error != null) return _errorView();
     return _todayBody();
   }
