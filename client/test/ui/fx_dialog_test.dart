@@ -139,6 +139,7 @@ void main() {
                 content: '仅改变数据来源，不自动迁移或删除记录。',
                 confirmText: '确认切换',
                 mobilePairedActions: true,
+                supportingText: '不会自动迁移、合并或删除记录。',
               );
             },
           ),
@@ -156,6 +157,7 @@ void main() {
     final confirm = find.byKey(const ValueKey('fx.dialog.confirm'));
     expect(find.byKey(const ValueKey('fx.dialog.pairedActions')),
         findsOneWidget);
+    expect(find.text('不会自动迁移、合并或删除记录。'), findsOneWidget);
     expect(tester.widget<FxButton>(cancel).variant, FxButtonVariant.outline);
     expect(tester.widget<FxButton>(confirm).variant, FxButtonVariant.primary);
     final left = tester.getRect(cancel);
