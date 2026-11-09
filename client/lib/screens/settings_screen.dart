@@ -1429,6 +1429,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   };
 
   void _openSection(String id) {
+    if (id == 'ai') {
+      _openAiSettings();
+      return;
+    }
     if (id == 'diagnostics') {
       Navigator.push(context,
           MaterialPageRoute(builder: (_) => const DiagnosticsScreen()));
