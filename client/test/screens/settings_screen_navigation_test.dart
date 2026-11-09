@@ -133,14 +133,14 @@ void main() {
       await tester.pump();
       expect(find.byType(CalDAVScreen), findsOneWidget);
       Navigator.of(tester.element(find.byType(CalDAVScreen))).pop();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       await tester.ensureVisible(webhook);
       await tester.tap(webhook);
       await tester.pump();
       expect(find.byType(WebhookScreen), findsOneWidget);
       Navigator.of(tester.element(find.byType(WebhookScreen))).pop();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
