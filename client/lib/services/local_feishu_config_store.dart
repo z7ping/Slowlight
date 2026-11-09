@@ -31,12 +31,19 @@ class LocalFeishuConfigStore {
     await _secrets.write(key: _secretKey, value: appSecret);
     final prefs = await SharedPreferences.getInstance();
     final existing = await load();
+    final nextUrl = tableUrl ?? '';
+    // A different app or Bitable must not inherit table IDs from the old target.
+    final sameTarget =
+        existing['app_id']?.toString() == appId &&
+        existing['table_url']?.toString() == nextUrl;
     await prefs.setString(
         _metadataKey,
         jsonEncode({
           'app_id': appId,
-          'table_url': tableUrl ?? '',
-          'tables': existing['tables'] ?? <String, dynamic>{}
+          'table_url': nextUrl,
+          'tables': sameTarget
+              ? (existing['tables'] ?? <String, dynamic>{})
+              : <String, dynamic>{}
         }));
   }
 

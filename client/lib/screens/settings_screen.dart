@@ -26,7 +26,7 @@ import 'account_profile_editor.dart';
 import 'about_screen.dart';
 import 'diagnostics_screen.dart';
 import 'conflict_screen.dart';
-import 'integration_screen.dart';
+import 'feishu_screen.dart';
 import 'login_screen.dart';
 import 'migration_history_dialog.dart';
 import 'migration_preview_dialog.dart';
@@ -2046,19 +2046,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
-            _settingLine(
-              '平台集成',
-              '连接飞书多维表格，管理已支持的同步范围',
-              trailing: FxButton(
-                label: '打开集成',
-                size: FxButtonSize.sm,
-                variant: FxButtonVariant.outline,
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const IntegrationScreen(),
-                  ),
-                ),
+            FxListTile(
+              key: const ValueKey('settings.sync.feishu'),
+              density: FxListTileDensity.detailed,
+              title: '飞书多维表格',
+              subtitle: '连接配置、数据表与分类同步',
+              trailing: const Icon(LucideIcons.chevronRight, size: 18),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FeishuScreen()),
               ),
             ),
           ],
@@ -2192,11 +2188,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             keyName: 'feishu',
             icon: LucideIcons.cloud,
             title: '飞书集成',
-            detail: '授权和同步范围尚无统一核验结果；可在平台集成页查看配置。',
+            detail: '授权和同步范围尚无统一核验结果；可在飞书页面查看配置。',
             open: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const IntegrationScreen(),
+                builder: (_) => const FeishuScreen(),
               ),
             ),
           ),

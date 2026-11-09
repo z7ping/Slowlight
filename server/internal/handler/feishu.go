@@ -95,7 +95,16 @@ func (h *FeishuHandler) SaveConfig(c *gin.Context) {
 		merged = map[string]interface{}{}
 	}
 
-	// 只更新用户提交的字段，不覆盖 tables
+	// Keep IDs only when the destination app and Bitable have not changed.
+	// Otherwise a saved credential might accidentally write to an old table.
+	oldAppID, _ := merged["app_id"].(string)
+	oldTableURL, _ := merged["table_url"].(string)
+	if existingConfig.ID != 0 &&
+		(oldAppID != req.AppID || (req.TableURL != "" && oldTableURL != req.TableURL)) {
+		delete(merged, "tables")
+	}
+
+	// Save encrypted credentials without exposing secret values.
 	encryptedSecret, err := secureconfig.Encrypt(req.AppSecret)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法安全保存凭据: " + err.Error()})
