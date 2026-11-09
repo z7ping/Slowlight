@@ -150,4 +150,86 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('Android 普通提示在顶部，撤销在底栏上方且避让键盘', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(builder: (context) => Column(children: [
+          FxButton(label: '顶部通知', onPressed: () =>
+              FxNotice.show(context, '普通提示')),
+          FxButton(label: '底部撤销', onPressed: () =>
+              FxNotice.show(
+                context,
+                '任务已完成',
+                action: FxNoticeAction(label: '撤销', onPressed: () {}),
+                placement: FxNoticePlacement.undo,
+              )),
+        ])),
+      ),
+    ));
+
+    await tester.tap(find.text('顶部通知'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    final topToast = find.ancestor(
+      of: find.text('普通提示'),
+      matching: find.byType(ShadToast),
+    );
+    expect(tester.getRect(topToast).top, lessThan(160));
+
+    await tester.tap(find.text('底部撤销'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    final undoToast = find.ancestor(
+      of: find.text('任务已完成'),
+      matching: find.byType(ShadToast),
+    );
+    expect(tester.getRect(undoToast).top, greaterThan(500));
+    expect(tester.getRect(undoToast).bottom, lessThan(740));
+    expect(find.text('普通提示'), findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    expect(tester.getRect(undoToast).bottom, lessThan(510));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Windows 普通提示在右上，连续触发替换旧提示', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(builder: (context) => Column(children: [
+        FxButton(label: '第一次', onPressed: () => FxNotice.show(context, '旧提示')),
+        FxButton(label: '第二次', onPressed: () => FxNotice.show(context, '新提示')),
+      ]))),
+    ));
+
+    await tester.tap(find.text('第一次'));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('第二次'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('旧提示'), findsNothing);
+    final currentToast = find.ancestor(
+      of: find.text('新提示'),
+      matching: find.byType(ShadToast),
+    );
+    expect(currentToast, findsOneWidget);
+    expect(tester.getRect(currentToast).top, lessThan(120));
+    expect(tester.getRect(currentToast).right, greaterThan(1000));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 }
