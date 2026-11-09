@@ -478,7 +478,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _refresh() async {
     _rangeVersion++;
+    if (_viewMode != CalendarViewMode.month && mounted) {
+      setState(() => _rangeLoading = true);
+    }
     _rangeCache.clear();
+    // Preserve confirmed same-month data during refresh, but do not label an
+    // uncached neighbor as empty while the new request is pending.
+    if (_hasCurrentMonth) _rangeCache[_monthKey(_focused)] = _data!;
     await _load();
   }
 
@@ -508,6 +514,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         // 禁止把接口失败伪造成本月零条记录。
         _loadFailed = true;
         _loading = false;
+        _rangeLoading = false;
+        if (_viewMode != CalendarViewMode.month) _rangeFailed = true;
       });
       _notifyHeader();
     }
