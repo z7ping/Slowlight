@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' show FontFeature;
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../ui/typography_tokens.dart';
+import '../../ui/fx.dart';
 
 /// 回顾页专属时间线项。
 ///
 /// 时间线表达“今天真实发生了什么”，属于 Review Feature Widget，
 /// 不进入全局 Fx 基础组件层。
-class ReviewTimelineItem extends StatelessWidget {
+class ReviewTimelineItem extends StatefulWidget {
   final Color color;
   final String time;
   final String title;
   final String? note;
   final bool last;
+  final String kind;
+  final bool compact;
 
   const ReviewTimelineItem({
     super.key,
@@ -20,10 +25,28 @@ class ReviewTimelineItem extends StatelessWidget {
     required this.title,
     this.note,
     this.last = false,
+    this.kind = 'record',
+    this.compact = false,
   });
 
   @override
+  State<ReviewTimelineItem> createState() => _ReviewTimelineItemState();
+}
+
+class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
+  bool _expanded = false;
+
+  String get _category => switch (widget.kind) {
+    'task_completed' => '任务',
+    'habit_checked' => '习惯',
+    'observation' => '观察',
+    'session_ended' => '专注',
+    _ => '记录',
+  };
+
+  @override
   Widget build(BuildContext context) {
+    if (widget.compact) return _compactItem(context);
     final theme = Theme.of(context);
     return IntrinsicHeight(
       child: Row(
@@ -89,6 +112,128 @@ class ReviewTimelineItem extends StatelessWidget {
       ),
     );
   }
+
+  Widget _compactItem(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final identityColor = Color.lerp(widget.color, theme.colorScheme.onSurface, .35)!;
+    final observation = widget.kind == 'observation';
+    final displayTitle = observation && (widget.note?.isNotEmpty ?? false)
+        ? widget.note!
+        : widget.title;
+    final detail = observation ? widget.title : widget.note;
+    final shortTime = widget.time.contains(' ')
+        ? widget.time.split(' ').last
+        : widget.time;
+    final reducedMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 46,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              shortTime,
+              style: SlowlightTypography.caption(context).copyWith(
+                color: muted,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 15),
+          child: Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: identityColor, shape: BoxShape.circle),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: FxInkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
+            child: Semantics(
+              button: true,
+              expanded: _expanded,
+              label: '${displayTitle}，${_category}，${_expanded ? '收起' : '展开'}详情',
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayTitle,
+                      maxLines: _expanded ? null : 2,
+                      overflow: _expanded ? null : TextOverflow.ellipsis,
+                      style: SlowlightTypography.body(context).copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Container(
+                          width: 6, height: 6,
+                          decoration: BoxDecoration(
+                            color: identityColor, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(_category,
+                            style: SlowlightTypography.caption(context).copyWith(
+                              color: identityColor, fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Icon(_expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                            size: SlowlightIconSize.sm, color: muted),
+                      ],
+                    ),
+                    AnimatedSize(
+                      duration: reducedMotion ? Duration.zero
+                          : const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: !_expanded
+                          ? const SizedBox(width: double.infinity)
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(SlowlightSpacing.xl),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerLowest,
+                                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(widget.time,
+                                        style: SlowlightTypography.caption(context)
+                                            .copyWith(color: muted)),
+                                    if (detail != null && detail.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(detail,
+                                          style: SlowlightTypography.caption(context)
+                                              .copyWith(color: muted)),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
 }
 
  
