@@ -190,10 +190,10 @@ class CalendarHeaderActions extends StatelessWidget {
                     }, size: 17),
                     const SizedBox(width: 10),
                     Expanded(child: Text(switch (view) {
-                      CalendarViewMode.month => '月历',
-                      CalendarViewMode.day => '单日 Timeline',
-                      CalendarViewMode.threeDays => '三日视图',
-                      CalendarViewMode.week => '七日视图',
+                      CalendarViewMode.month => '月',
+                      CalendarViewMode.day => '日',
+                      CalendarViewMode.threeDays => '三日',
+                      CalendarViewMode.week => '七日',
                     })),
                     if (controller.viewMode == view)
                       const Icon(LucideIcons.check, size: 16),
