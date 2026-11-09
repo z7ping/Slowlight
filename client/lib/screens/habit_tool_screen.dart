@@ -1212,7 +1212,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
               width: 100,
               child: Column(children: [
                 dayStat,
-                const SizedBox(height: SlowlightSpacing.sm),
+                const SizedBox(height: SlowlightSpacing.md),
                 logStat,
               ]),
             ),
