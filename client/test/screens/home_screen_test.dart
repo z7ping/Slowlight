@@ -14,6 +14,7 @@ import 'package:slowlight/widgets/task_detail_sheet.dart';
 import 'package:slowlight/ui/fx.dart' show FxInkWell, FxGestureDetector, FxNotice;
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
+import 'package:slowlight/screens/calendar_screen.dart';
 import 'package:slowlight/screens/task_create_sheet.dart';
 import 'package:slowlight/widgets/dashboard/dashboard_body.dart';
 
@@ -56,62 +57,78 @@ void main() {
       });
     }
 
-    testWidgets('X14 Android 底部导航还原原型：透明选中项、等宽与状态切换',
-        (tester) async {
+    testWidgets('Android 四图标底栏：等宽、无可见标签及选中态', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
-
-      final bar = find.byKey(const ValueKey('home.bottom-nav'));
-      final todayItem = find.byKey(const ValueKey('home.bottom-nav.today'));
-      final reviewItem = find.byKey(const ValueKey('home.bottom-nav.review'));
-      expect(bar, findsOneWidget);
-      expect(todayItem, findsOneWidget);
-      expect(reviewItem, findsOneWidget);
-
-      // 原型只有图标与文字变色；选中项不能再绘制整块强调色背景。
-      expect(tester.widget<FxInkWell>(todayItem).child, isA<ConstrainedBox>());
-      expect(tester.widget<FxInkWell>(reviewItem).child, isA<ConstrainedBox>());
-      expect(tester.getSize(todayItem).width,
-          closeTo(tester.getSize(reviewItem).width, 0.01));
-      expect(tester.getSize(todayItem).height, greaterThanOrEqualTo(58));
-
-      final todayIcon = tester.widget<Icon>(find.descendant(
-        of: todayItem,
-        matching: find.byType(Icon),
-      ));
-      final reviewIcon = tester.widget<Icon>(find.descendant(
-        of: reviewItem,
-        matching: find.byType(Icon),
-      ));
-      expect(todayIcon.size, 17);
-      expect(reviewIcon.size, 17);
-      expect(todayIcon.color, isNot(reviewIcon.color));
-
-      await tester.tap(reviewItem);
-      await tester.pump();
+      final items = ['today', 'quadrant', 'calendar', 'review']
+          .map((name) => find.byKey(ValueKey('home.bottom-nav.$name')))
+          .toList();
       expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
-      final selectedReviewIcon = tester.widget<Icon>(find.descendant(
-        of: reviewItem,
-        matching: find.byType(Icon),
-      ));
-      expect(selectedReviewIcon.color, todayIcon.color);
-      expect(tester.widget<FxInkWell>(reviewItem).child, isA<ConstrainedBox>());
-
-      await tester.tap(todayItem);
+      for (final item in items) {
+        expect(item, findsOneWidget);
+        expect(tester.getSize(item).height, greaterThanOrEqualTo(56));
+        expect(tester.getSize(item).width,
+            closeTo(tester.getSize(items.first).width, .01));
+        expect(find.descendant(of: item, matching: find.byType(Text)),
+            findsNothing);
+        expect(tester.widget<Icon>(find.descendant(
+          of: item, matching: find.byType(Icon),
+        )).size, 20);
+      }
+      final selected = tester.widget<Icon>(find.descendant(
+        of: items.first, matching: find.byType(Icon),
+      )).color;
+      await tester.tap(items.last);
+      await tester.pump();
+      expect(tester.widget<Icon>(find.descendant(
+        of: items.last, matching: find.byType(Icon),
+      )).color, selected);
+      await tester.tap(items.first);
       await tester.pump();
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('X14 工具页隐藏底部导航并在返回后恢复', (tester) async {
+    testWidgets('Android 四个 Tab 保留四象限与月历 State', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
+      final quadrantTab = find.byKey(const ValueKey('home.bottom-nav.quadrant'));
+      final calendarTab = find.byKey(const ValueKey('home.bottom-nav.calendar'));
+      await tester.tap(quadrantTab);
+      await tester.pumpAndSettle();
+      final quadrant = find.byType(QuadrantScreen, skipOffstage: false);
+      final quadrantState = tester.state(quadrant);
+      expect(fxTooltipFinder('工具'), findsOneWidget);
+      await tester.tap(calendarTab);
+      await tester.pumpAndSettle();
+      final calendar = find.byType(CalendarScreen, skipOffstage: false);
+      final calendarState = tester.state(calendar);
+      expect(find.byType(CalendarMonthTitle), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.review')));
+      await tester.pump();
+      await tester.tap(quadrantTab);
+      await tester.pump();
+      expect(identical(tester.state(quadrant), quadrantState), isTrue);
+      await tester.tap(calendarTab);
+      await tester.pump();
+      expect(identical(tester.state(calendar), calendarState), isTrue);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('Android 其他工具仍隐藏底栏，返回最近选中的 Tab', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.quadrant')));
+      await tester.pumpAndSettle();
       await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('四象限'));
+      await tester.tap(find.text('任务'));
       await tester.pumpAndSettle();
+      expect(find.byType(TaskToolScreen), findsOneWidget);
       expect(find.byKey(const ValueKey('home.bottom-nav')), findsNothing);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
+      expect(find.byType(QuadrantScreen), findsOneWidget);
       expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
 
@@ -236,7 +253,7 @@ void main() {
       expect(fxTooltipFinder('记录观察'), findsOneWidget);
       await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('四象限'));
+      await tester.tap(find.text('任务'));
       await tester.pumpAndSettle();
       expect(fxTooltipFinder('返回'), findsOneWidget);
       expect(fxTooltipFinder('记录观察'), findsNothing);
@@ -304,7 +321,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pump();
       // Moving to Review must invalidate that pending exit gesture.
-      await tester.tap(find.text('回顾').last);
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.review')));
       await tester.pump();
       await tester.binding.handlePopRoute();
       await tester.pump();
@@ -345,12 +362,12 @@ void main() {
       expect(today, findsOneWidget);
       final dashboardState = tester.state(today);
 
-      await tester.tap(find.text('回顾').last);
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.review')));
       await tester.pump();
       expect(today, findsOneWidget);
       expect(identical(tester.state(today), dashboardState), isTrue);
 
-      await tester.tap(find.text('今天').last);
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.today')));
       await tester.pump();
       expect(today, findsOneWidget);
       expect(identical(tester.state(today), dashboardState), isTrue);
@@ -365,14 +382,14 @@ void main() {
 
       await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('四象限'));
+      await tester.tap(find.text('任务'));
       await tester.pumpAndSettle();
-      expect(find.byType(QuadrantScreen), findsOneWidget);
+      expect(find.byType(TaskToolScreen), findsOneWidget);
       expect(identical(tester.state(today), dashboardState), isTrue);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byType(QuadrantScreen), findsNothing);
+      expect(find.byType(TaskToolScreen), findsNothing);
       expect(identical(tester.state(today), dashboardState), isTrue);
       final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
       expect(fab, findsOneWidget);
@@ -538,14 +555,14 @@ void main() {
       await pumpAt(tester, size: const Size(360, 800));
       await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('四象限'));
+      await tester.tap(find.text('任务'));
       await tester.pumpAndSettle();
-      expect(find.byType(QuadrantScreen), findsOneWidget);
+      expect(find.byType(TaskToolScreen), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
-      expect(find.byType(QuadrantScreen), findsNothing);
+      expect(find.byType(TaskToolScreen), findsNothing);
       expect(find.text('再按一次退出 Slowlight'), findsNothing);
       await disposeFxTestHost(tester);
     });
