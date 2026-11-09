@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
 import 'package:slowlight/models/todo_list.dart';
@@ -12,6 +13,8 @@ import 'package:flutter/foundation.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('月历 Tab 重入静默刷新且保留选中月份与日期', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
@@ -265,7 +268,7 @@ void main() {
   testWidgets('单行年月标题可切月，浮层和筛选各保留一处入口', (tester) async {
     await pumpCalendar(tester);
     expect(find.byKey(const ValueKey('calendar-month-label')), findsOneWidget);
-    expect(find.byKey(const ValueKey('calendar-today')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-view-toggle')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-filter')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('calendar-month-label')));
@@ -275,6 +278,115 @@ void main() {
     expect(find.byKey(const ValueKey('calendar-day-2026-09-21')), findsOneWidget);
     expect(tester.widget<Text>(find.byKey(const ValueKey('calendar-month-label'))).data,
         '2026 年 9 月');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  Future<void> selectCalendarView(WidgetTester tester, String name) async {
+    await tester.tap(find.byKey(const ValueKey('calendar-view-toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(name).last);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('日历菜单提供月历、单日、三日、七日四个视图', (tester) async {
+    await pumpCalendar(tester);
+    await tester.tap(find.byKey(const ValueKey('calendar-view-toggle')));
+    await tester.pumpAndSettle();
+    for (final text in ['月历', '单日 Timeline', '三日视图', '七日视图']) {
+      expect(find.text(text), findsOneWidget);
+    }
+    await tester.tap(find.text('单日 Timeline'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-period-horizontal-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-timeline-record-task-plan')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-day-2026-08-21')), findsNothing);
+    expect(find.byKey(const ValueKey('calendar-period-add-task')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('calendar-period-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-timeline-record-task-next-day')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('七日视图在 360dp 横向滑动且保留选中日', (tester) async {
+    await pumpCalendar(tester, width: 360);
+    await selectCalendarView(tester, '七日视图');
+    expect(find.byKey(const ValueKey('calendar-period-horizontal-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-8-17')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-8-23')), findsOneWidget);
+    final scrollable = find.byKey(const ValueKey('calendar-period-horizontal-scroll'));
+    await tester.drag(scrollable, const Offset(-260, 0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('三日跨月加载相邻月份记录，不以无记录代替未加载', (tester) async {
+    final requestedMonths = <int>[];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: CalendarScreen(
+          initialMonth: DateTime(2026, 8),
+          initialSelectedDate: DateTime(2026, 8, 31),
+          monthLoader: (requested) async {
+            requestedMonths.add(requested.month);
+            return CalendarMonthData(month: requested, records: [
+              if (requested.month == 9)
+                CalendarRecord(
+                  id: 'sep-plan',
+                  type: CalendarRecordType.task,
+                  kind: CalendarRecordKind.plan,
+                  date: DateTime(2026, 9, 1),
+                  timeLabel: '09:00',
+                  title: '跨月计划',
+                ),
+            ]);
+          },
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await selectCalendarView(tester, '三日视图');
+    expect(requestedMonths, containsAll([8, 9]));
+    expect(find.byKey(const ValueKey('calendar-timeline-record-sep-plan')), findsOneWidget);
+    expect(find.text('跨月计划'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('跨月读取失败明确提示重试，不伪造空日期', (tester) async {
+    var failSeptember = true;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: CalendarScreen(
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: DateTime(2026, 8, 31),
+        monthLoader: (requested) async {
+          if (requested.month == 9 && failSeptember) {
+            throw StateError('unavailable');
+          }
+          return CalendarMonthData(month: requested, records: const []);
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await selectCalendarView(tester, '七日视图');
+    expect(find.text('部分日期读取失败'), findsOneWidget);
+    expect(find.text('这天没有记录'), findsNothing);
+    failSeptember = false;
+    await tester.tap(find.text('重新加载').last);
+    await tester.pumpAndSettle();
+    expect(find.text('部分日期读取失败'), findsNothing);
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-9-1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('恢复上次保存的日历视图', (tester) async {
+    SharedPreferences.setMockInitialValues({'calendar.view_mode': 'threeDays'});
+    await pumpCalendar(tester);
+    expect(find.byKey(const ValueKey('calendar-period-horizontal-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-day-2026-08-21')), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
