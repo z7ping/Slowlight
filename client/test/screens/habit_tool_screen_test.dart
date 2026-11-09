@@ -9,6 +9,7 @@ import 'package:slowlight/models/habit_log.dart';
 import 'package:slowlight/models/habit_schedule_rule.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
 import 'package:slowlight/screens/habit_tool_screen.dart';
+import 'package:slowlight/widgets/habit_heatmap.dart';
 import 'package:slowlight/widgets/habit_editor_dialog.dart';
 import 'package:slowlight/ui/fx.dart';
 
@@ -435,6 +436,40 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(opens, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 展开月记录使用七列方块并铺满右侧容器', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: _SampleHabitRepo())),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('habits.details.1')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HabitHeatmap), findsOneWidget);
+    final heatmap = find.byKey(const ValueKey('habit-month-heatmap-grid'));
+    expect(heatmap, findsOneWidget);
+    final grid = tester.widget<GridView>(heatmap);
+    final delegate = grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 7);
+    expect(delegate.childAspectRatio, 1);
+    final available = tester.getSize(find.byType(HabitHeatmap));
+    expect(tester.getSize(heatmap).width, closeTo(available.width, 1));
+    expect(tester.getSize(heatmap).width, greaterThan(150));
+
+    final today = DateTime.now();
+    final todayKey = 'habit-heatmap-day-${today.year}-'
+        '${today.month.toString().padLeft(2, '0')}-'
+        '${today.day.toString().padLeft(2, '0')}';
+    expect(find.byKey(ValueKey(todayKey), skipOffstage: false), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
