@@ -75,19 +75,19 @@ class CalendarMonthGrid extends StatelessWidget {
         _weekdayHeader(context),
         if (loading)
           const SizedBox(
-            height: 560,
+            height: _dates.length / 7 * (compact ? 72 : 136),
             child: Center(child: FxCircularProgress()),
           )
         else
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: 42,
+            itemCount: _dates.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               mainAxisExtent: switch ((compact, largeText)) {
                 (true, true) => 160.0,
-                (true, false) => 88.0,
+                (true, false) => 72.0,
                 (false, true) => 172.0,
                 (false, false) => 136.0,
               },
@@ -102,8 +102,12 @@ class CalendarMonthGrid extends StatelessWidget {
 
   List<DateTime> get _dates {
     final first = DateTime(focusedMonth.year, focusedMonth.month, 1);
-    final start = first.subtract(Duration(days: first.weekday - 1));
-    return List.generate(42, (index) => start.add(Duration(days: index)));
+    final offset = first.weekday - 1;
+    final daysInMonth = DateTime(focusedMonth.year, focusedMonth.month + 1, 0).day;
+    final cells = ((offset + daysInMonth + 6) ~/ 7) * 7;
+    return List.generate(cells, (index) => DateTime(
+      focusedMonth.year, focusedMonth.month, 1 - offset + index,
+    ));
   }
 
   Widget _weekdayHeader(BuildContext context) {
@@ -144,7 +148,7 @@ class CalendarMonthGrid extends StatelessWidget {
     final previewCount = largeText ? 1 : (compact ? 2 : 3);
     final shown = items.take(previewCount).toList(growable: false);
     final remaining = items.length - shown.length;
-    final dateHeaderHeight = largeText ? 38.0 : 23.0;
+    final dateHeaderHeight = largeText ? 38.0 : compact ? 22.0 : 23.0;
     final surfaceColor =
         selected
             ? activePalette.accent.withValues(alpha: .08)
@@ -160,7 +164,7 @@ class CalendarMonthGrid extends StatelessWidget {
           key: ValueKey(
             'calendar-day-${DateFormat('yyyy-MM-dd').format(date)}',
           ),
-          padding: EdgeInsets.fromLTRB(compact ? 4 : 7, 5, compact ? 4 : 7, 4),
+          padding: EdgeInsets.fromLTRB(compact ? 3 : 7, compact ? 3 : 5, compact ? 3 : 7, compact ? 3 : 4),
           decoration: BoxDecoration(
             // 选中态使用边框，而非无模糊阴影：后者会把整个日期格涂成强调色。
             border: selected
