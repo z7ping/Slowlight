@@ -476,6 +476,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  Future<void> _refresh() async {
+    _rangeVersion++;
+    _rangeCache.clear();
+    await _load();
+  }
+
   Future<void> _load() async {
     final requested = DateTime(_focused.year, _focused.month, 1);
     final version = ++_loadVersion;
@@ -548,7 +554,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (!mounted) return;
     if (widget.createTaskOverride != null) {
       await widget.createTaskOverride!(context, date);
-      await _load();
+      await _refresh();
       return;
     }
     if (SlowlightPlatformDensity.usesMobileTouchTargets) {
@@ -557,7 +563,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         lists: widget.createListsOverride,
         initialDueDate: date,
         defaultDueToday: false,
-        onChanged: _load,
+        onChanged: _refresh,
       );
       return;
     }
@@ -566,7 +572,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       defaultDueDate: date,
       defaultToToday: false,
     );
-    if (created == true && mounted) await _load();
+    if (created == true && mounted) await _refresh();
   }
 
   void _showMore(DateTime date) {
@@ -587,7 +593,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return FxRefresh(
-      onRefresh: _load,
+      onRefresh: _refresh,
       child: ListView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -617,7 +623,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       icon: LucideIcons.triangleAlert,
                       title: '当前月份读取失败',
                       subtitle: '未能加载这一个月的记录；请重试，不代表没有安排。',
-                      action: FxButton(label: '重新加载', onPressed: _load),
+                      action: FxButton(label: '重新加载', onPressed: _refresh),
                     )
                   else ...[
                     if (_viewMode == CalendarViewMode.month) ...[
@@ -920,7 +926,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           label: '重试',
           size: FxButtonSize.sm,
           variant: FxButtonVariant.ghost,
-          onPressed: _loading ? null : _load,
+          onPressed: _loading ? null : _refresh,
         ),
       ]),
     ),
@@ -953,7 +959,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             label: '重试',
             size: FxButtonSize.sm,
             variant: FxButtonVariant.ghost,
-            onPressed: _loading ? null : _load,
+            onPressed: _loading ? null : _refresh,
           ),
         ]),
       ),
@@ -1187,7 +1193,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         context,
         task: record.task!,
         lists: const <TodoList>[],
-        onChanged: _load,
+        onChanged: _refresh,
       );
       return;
     }
