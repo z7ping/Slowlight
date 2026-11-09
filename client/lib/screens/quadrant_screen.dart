@@ -838,6 +838,109 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
+  Future<void> _completeTask(Task task) async {
+    // Cloud completion may be a stateful toggle. Never retry against a stale
+    // task list, and never show success before a fresh list confirms it.
+    if (_lastRefreshFailed) {
+      FxNotice.show(context, '任务列表刷新未确认，请先刷新再操作');
+      return;
+    }
+    if (!_completingTaskIds.add(task.id)) return;
+    if (mounted) setState(() {});
+    HapticFeedback.lightImpact();
+    try {
+      final result = await (widget.taskCompleter?.call(task) ??
+          DataService().setTaskCompletion(
+            task.id,
+            null,
+            completed: true,
+            expectedCompleted: false,
+          ));
+      if (!mounted) return;
+      if (!result.isCompleted) {
+        await _load();
+        if (mounted) FxNotice.show(context, '任务状态已变化，请核对后再操作');
+        return;
+      }
+      await _load();
+      if (!mounted) return;
+      if (_lastRefreshFailed || _tasks.any((item) => item.id == task.id)) {
+        FxNotice.show(context, '任务更新结果未核实，请刷新后核对');
+        return;
+      }
+      FxNotice.show(
+        context,
+        '任务已完成',
+        variant: FxNoticeVariant.success,
+        duration: const Duration(seconds: 8),
+        action: task.isRepeat || result.completedAt == null
+            ? null
+            : FxNoticeAction(
+                label: '撤销',
+                onPressed: () => _undoCompletion(
+                  task.id, expectedCompletedAt: result.completedAt!,
+                ),
+              ),
+      );
+    } on StateError {
+      await _load();
+      if (mounted) FxNotice.show(context, '任务状态已变化，请核对后再操作');
+    } catch (_) {
+      // A timeout may occur after the backend wrote the completion.
+      // Refresh first instead of issuing a potentially destructive retry.
+      await _load();
+      if (mounted) FxNotice.show(context, '任务结果未确认，请核对任务状态');
+    } finally {
+      _completingTaskIds.remove(task.id);
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _undoCompletion(
+    int taskId, {
+    required DateTime expectedCompletedAt,
+  }) async {
+    if (!_completingTaskIds.add(taskId)) return;
+    try {
+      final tasks = await DataService().getAllTasks();
+      final current = tasks.cast<Task?>().firstWhere(
+        (task) => task?.id == taskId,
+        orElse: () => null,
+      );
+      if (!mounted) return;
+      if (current == null || current.isRepeat || !current.isCompleted ||
+          current.completedAt == null ||
+          !current.completedAt!.isAtSameMomentAs(expectedCompletedAt)) {
+        FxNotice.show(context, '任务完成记录已变化，未执行旧撤销');
+        return;
+      }
+      final updated = await DataService().setTaskCompletion(
+        taskId,
+        null,
+        completed: false,
+        expectedCompleted: true,
+        expectedCompletedAt: expectedCompletedAt,
+      );
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      if (updated.isCompleted ||
+          _lastRefreshFailed ||
+          !_tasks.any((task) => task.id == taskId)) {
+        FxNotice.show(context, '撤销结果尚未确认，请刷新核对');
+        return;
+      }
+      FxNotice.show(context, '已恢复待办');
+    } on StateError {
+      await _load();
+      if (mounted) FxNotice.show(context, '任务状态已变化，未执行旧撤销');
+    } catch (_) {
+      FxNotice.show(context, '撤销结果未确认，请核对任务状态');
+    } finally {
+      _completingTaskIds.remove(taskId);
+    }
+  }
+
   Future<void> _showMoveSheet(Task task) async {
     // All secondary actions share one four-choice selector and the same
     // unsaved TaskDetailSheet priority draft. Only explicit Save writes.
