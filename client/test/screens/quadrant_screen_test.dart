@@ -218,6 +218,8 @@ void main() {
     await tester.pumpAndSettle();
     final check = find.byKey(const ValueKey('quadrant-complete-96'));
     expect(check, findsOneWidget);
+    expect(tester.getSize(check).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(check).height, greaterThanOrEqualTo(44));
     expect(find.text('整理本周的阅读笔记'), findsOneWidget);
     await tester.tap(check);
     await tester.pumpAndSettle();
