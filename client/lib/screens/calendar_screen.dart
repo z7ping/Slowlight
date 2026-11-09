@@ -369,15 +369,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _setViewMode(CalendarViewMode view, {bool persist = true}) {
-    if (persist) _modeTouched = true;
-    if (_viewMode == view) return;
-    setState(() => _viewMode = view);
-    _notifyHeader();
     if (persist) {
+      _modeTouched = true;
       SharedPreferences.getInstance()
           .then((prefs) => prefs.setString(_viewPreferenceKey, view.name))
           .catchError((Object _) => false);
     }
+    if (_viewMode == view) return;
+    setState(() => _viewMode = view);
+    _notifyHeader();
     _rangeVersion++;
     if (_hasCurrentMonth && view != CalendarViewMode.month) {
       _ensureRange();
