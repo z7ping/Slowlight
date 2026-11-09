@@ -353,6 +353,21 @@ extension _FeishuScreenSections on _FeishuScreenState {
               Wrap(
                 spacing: SlowlightSpacing.xs,
                 runSpacing: SlowlightSpacing.xs,
+                children: const [
+                  FxChip(label: '任务', variant: FxChipVariant.outline),
+                  FxChip(label: '子任务', variant: FxChipVariant.outline),
+                  FxChip(label: '清单', variant: FxChipVariant.outline),
+                  FxChip(label: '习惯', variant: FxChipVariant.outline),
+                  FxChip(label: '习惯记录', variant: FxChipVariant.outline),
+                  FxChip(label: '专注', variant: FxChipVariant.outline),
+                  FxChip(label: '休息记录', variant: FxChipVariant.outline),
+                  FxChip(label: '标签', variant: FxChipVariant.outline),
+                ],
+              ),
+              const SizedBox(height: SlowlightSpacing.md),
+              Wrap(
+                spacing: SlowlightSpacing.xs,
+                runSpacing: SlowlightSpacing.xs,
                 children: [
                   FxButton(
                     label: _isConnecting ? '绑定中…' : '绑定现有表格',
