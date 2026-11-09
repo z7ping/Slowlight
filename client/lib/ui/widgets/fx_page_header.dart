@@ -139,7 +139,7 @@ class FxPageHeader extends StatelessWidget {
           return OverflowBar(
             alignment: MainAxisAlignment.spaceBetween,
             overflowAlignment: OverflowBarAlignment.end,
-            spacing: SlowlightSpacing.sm,
+            spacing: SlowlightSpacing.md,
             overflowSpacing: SlowlightSpacing.xs,
             children: [titleRow, _actionGroup(context)],
           );
