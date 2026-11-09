@@ -928,6 +928,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
             )
           else
             for (final record in rows) _timelineRecord(record),
+          if (_viewMode != CalendarViewMode.day)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: FxButton(
+                  key: const ValueKey('calendar-period-add-task'),
+                  label: '安排任务',
+                  icon: LucideIcons.plus,
+                  size: FxButtonSize.sm,
+                  variant: FxButtonVariant.outline,
+                  onPressed: () => _addTask(_selected),
+                ),
+              ),
+            ),
         ],
       ),
     );
