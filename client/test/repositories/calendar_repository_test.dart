@@ -103,6 +103,27 @@ class _NoSessions extends SessionRepository {
 }
 
 void main() {
+  test('F-001 云端纯日期在月初跨 UTC 日界仍归属选中日及正确月份', () async {
+    final task = Task.fromJson({
+      'id': 275, 'list_id': 1, 'title': '月初计划',
+      'priority': 'none', 'is_completed': false,
+      'due_date': '2026-10-31T16:00:00Z',
+      'created_at': '2026-10-31T12:00:00Z',
+    });
+    final repo = CalendarRepository(
+      habitRepository: _NoHabits(),
+      reflectionRepository: _NoReflections(),
+      sessionRepository: _NoSessions(),
+      taskLoader: (_, __) async => [task],
+    );
+    final november = await repo.loadMonth(DateTime(2026, 11));
+    final plan = november.records.singleWhere((r) => r.id == 'task-275-plan');
+    expect(plan.kind, CalendarRecordKind.plan);
+    expect(plan.date, DateTime(2026, 11, 1));
+    final october = await repo.loadMonth(DateTime(2026, 10));
+    expect(october.records.where((r) => r.id == 'task-275-plan'), isEmpty);
+  });
+
   test('P08 截止日期不当成真实完成日期；跨月和无截止完成仍可见', () async {
     final completed = [
       Task(

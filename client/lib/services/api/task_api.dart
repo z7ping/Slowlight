@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../http_util.dart';
 import '../../models/task.dart';
+import '../../utils/local_time_boundary.dart';
 import '../../repositories/local_task_repository.dart';
 import '../api_service.dart';
 import '../data_mode_manager.dart';
@@ -175,9 +176,7 @@ class TaskApi {
       'title': title,
       'description': description,
       'priority': priority,
-      'due_date': dueDate != null
-          ? '${dueDate.year}-${dueDate.month.toString().padLeft(2, '0')}-${dueDate.day.toString().padLeft(2, '0')}'
-          : null,
+      'due_date': dueDate == null ? null : LocalTimeBoundary.dateKey(dueDate),
       'due_time': dueTime,
       'repeat_type': repeatType,
       'repeat_interval': repeatInterval,
@@ -262,9 +261,7 @@ class TaskApi {
       'title': title,
       'description': description,
       'priority': priority,
-      'due_date': dueDate != null
-          ? '${dueDate.year}-${dueDate.month.toString().padLeft(2, '0')}-${dueDate.day.toString().padLeft(2, '0')}'
-          : null,
+      'due_date': dueDate == null ? null : LocalTimeBoundary.dateKey(dueDate),
       'due_time': dueTime,
       'repeat_type': repeatType,
       'repeat_interval': repeatInterval,
@@ -405,8 +402,12 @@ class TaskApi {
       Uri.parse('${ApiService.baseUrl}/tasks/$taskId'),
       headers: headers,
       body: json.encode({
-        'expected_due_date': expectedDueDate.toUtc().toIso8601String(),
-        'due_date': originalDueDate?.toUtc().toIso8601String(),
+        // Conditional compare-and-set uses the same civil-date wire format
+        // as create/update; converting to the device's UTC offset breaks it.
+        'expected_due_date': LocalTimeBoundary.dateKey(expectedDueDate),
+        'due_date': originalDueDate == null
+            ? null
+            : LocalTimeBoundary.dateKey(originalDueDate),
       }),
     ).timeout(ApiService.postTimeout);
     if (response.statusCode == 200) {
@@ -460,8 +461,8 @@ class TaskApi {
     return allTasks.where((t) {
       final d = t.dueDate;
       if (d == null) return false;
-      final local = d.toLocal();
-      return local.year == year && local.month == month;
+      // due_date is already normalized to a civil date by Task.fromJson.
+      return d.year == year && d.month == month;
     }).toList();
   }
 

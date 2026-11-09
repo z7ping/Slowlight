@@ -71,6 +71,61 @@ func TestPostponeTaskMovesToTomorrowInUserTimezone(t *testing.T) {
 	}
 }
 
+func TestPostponeUndoAcceptsCalendarDateWithoutLosingCAS(t *testing.T) {
+	cases := []struct {
+		name string
+		stored time.Time
+	}{
+		{"UTC midnight", time.Date(2026, 11, 9, 0, 0, 0, 0, time.UTC)},
+		{"Beijing midnight", time.Date(2026, 11, 8, 16, 0, 0, 0, time.UTC)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, handler, user, list := setupTaskTest(t)
+			due := model.FlexibleTime{Time: tc.stored, Valid: true}
+			task := model.Task{
+				UserID: user.ID, ListID: list.ID, Title: "月初计划",
+				DueDate: &due,
+			}
+			if err := db.Create(&task).Error; err != nil {
+				t.Fatal(err)
+			}
+			r := newTaskRouter(handler, user.ID)
+			id := "/tasks/" + itoa(task.ID)
+			undo := func(expected string) *httptest.ResponseRecorder {
+				t.Helper()
+				body, _ := json.Marshal(map[string]interface{}{
+					"expected_due_date": expected, "due_date": nil,
+				})
+				w := httptest.NewRecorder()
+				req := httptest.NewRequest(http.MethodPut, id, bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+				r.ServeHTTP(w, req)
+				return w
+			}
+			wrong := undo("2026-11-08")
+			if wrong.Code != http.StatusConflict {
+				t.Fatalf("错误日历日应拒绝修改: %d %s", wrong.Code, wrong.Body.String())
+			}
+			correct := undo("2026-11-09")
+			if correct.Code != http.StatusOK {
+				t.Fatalf("同日条件撤销失败: %d %s", correct.Code, correct.Body.String())
+			}
+			var current model.Task
+			if err := db.First(&current, task.ID).Error; err != nil {
+				t.Fatal(err)
+			}
+			if current.DueDate != nil {
+				t.Fatal("撤销后应清空原截止日")
+			}
+			stale := undo("2026-11-09")
+			if stale.Code != http.StatusConflict {
+				t.Fatalf("重复撤销应冲突: %d %s", stale.Code, stale.Body.String())
+			}
+		})
+	}
+}
+
 func TestPostponeUndoOnlyRestoresUnchangedDate(t *testing.T) {
   db, handler, user, list := setupTaskTest(t)
   r := newTaskRouter(handler, user.ID)

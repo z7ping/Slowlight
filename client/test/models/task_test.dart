@@ -61,6 +61,30 @@ void main() {
         expect(task.outputLevel, 'A');
       });
 
+      test('云端 UTC 日期按北京时间的纯日历日还原，不使用设备时区', () {
+        for (final raw in [
+          '2026-11-08T16:00:00Z',
+          '2026-11-09T00:00:00+08:00',
+          '2026-11-09',
+        ]) {
+          final task = Task.fromJson({...baseJson, 'due_date': raw});
+          expect(task.dueDate, DateTime(2026, 11, 9), reason: raw);
+        }
+      });
+
+      test('云端月末 UTC 日期应落到次月首日，时间点字段保持原有规则', () {
+        final task = Task.fromJson({
+          ...baseJson,
+          'due_date': '2026-10-31T16:00:00Z',
+          'completed_at': '2026-11-01T02:00:00Z',
+        });
+        expect(task.dueDate, DateTime(2026, 11, 1));
+        expect(
+          task.completedAt,
+          DateTime.parse('2026-11-01T02:00:00Z').toLocal(),
+        );
+      });
+
       test('可选字段缺失时使用默认值', () {
         final task = Task.fromJson(baseJson);
 

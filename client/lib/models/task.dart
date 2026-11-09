@@ -76,16 +76,27 @@ class Task {
       return DateTime.tryParse(raw.toString())?.toLocal();
     }
 
+    DateTime? calendarDate(dynamic raw) {
+      if (raw == null || raw.toString().isEmpty) return null;
+      final value = raw.toString();
+      final parsed = DateTime.tryParse(value);
+      if (parsed == null) return null;
+      // Cloud FlexibleTime encodes a date-only value as Beijing midnight,
+      // often the previous day at 16:00Z. due_date is a calendar date,
+      // not an instant in the device timezone.
+      final civil = value.contains('T') && parsed.isUtc
+          ? parsed.toUtc().add(const Duration(hours: 8))
+          : parsed;
+      return DateTime(civil.year, civil.month, civil.day);
+    }
+
     return Task(
       id: json['id'] ?? 0,
       listId: json['list_id'] ?? 0,
       title: json['title'] ?? '',
       description: json['description'],
       priority: json['priority'] ?? 'none',
-      // due_date 是纯日历日期，不执行时区转换。
-      dueDate: json['due_date'] != null
-          ? DateTime.tryParse(json['due_date'].toString())
-          : null,
+      dueDate: calendarDate(json['due_date']),
       dueTime: json['due_time'],
       isCompleted: json['is_completed'] == true || json['is_completed'] == 1,
       completedAt: instant(json['completed_at']),
