@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:ui' show FontFeature;
+
+import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../ui/typography_tokens.dart';
@@ -122,9 +123,11 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
         ? widget.note!
         : widget.title;
     final detail = observation ? widget.title : widget.note;
-    final shortTime = widget.time.contains(' ')
-        ? widget.time.split(' ').last
-        : widget.time;
+    final separator = widget.time.lastIndexOf(' ');
+    final shortTime = separator < 0
+        ? widget.time
+        : widget.time.substring(separator + 1);
+    final datePart = separator < 0 ? null : widget.time.substring(0, separator);
     final reducedMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,6 +189,16 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
                         Text(_category,
                             style: SlowlightTypography.caption(context).copyWith(
                               color: identityColor, fontWeight: FontWeight.w600)),
+                        if (datePart != null) ...[
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(' · $datePart',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: SlowlightTypography.caption(context)
+                                    .copyWith(color: muted)),
+                          ),
+                        ],
                         const Spacer(),
                         Icon(_expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                             size: SlowlightIconSize.sm, color: muted),
