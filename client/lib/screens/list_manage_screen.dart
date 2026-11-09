@@ -675,7 +675,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
       );
     }
     final theme = Theme.of(context);
-    final compact = !ResponsiveLayout.isDesktopOrWider(context);
+    final compact = widget.createRequest != null;
     return FxRefresh(
       onRefresh: _loadLists,
       child: ListView(
