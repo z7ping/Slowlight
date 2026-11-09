@@ -18,6 +18,9 @@ class TaskDetailSheet extends StatefulWidget {
   final bool isCreating;
   /// Only edits the initial draft. The stored task is unchanged until Save.
   final String? initialPriority;
+  /// Draft-only date/time proposed by calendar drag; never writes on open.
+  final DateTime? initialDueDate;
+  final TimeOfDay? initialDueTime;
   final List<TodoList> lists;
   final VoidCallback onChanged;
   final VoidCallback? onClose;
@@ -32,6 +35,8 @@ class TaskDetailSheet extends StatefulWidget {
     required this.task,
     this.isCreating = false,
     this.initialPriority,
+    this.initialDueDate,
+    this.initialDueTime,
     required this.lists,
     required this.onChanged,
     this.onClose,
@@ -47,6 +52,8 @@ class TaskDetailSheet extends StatefulWidget {
     required VoidCallback onChanged,
     bool isCreating = false,
     String? initialPriority,
+    DateTime? initialDueDate,
+    TimeOfDay? initialDueTime,
   }) async {
     // Different tool routes may not have loaded lists yet. Resolve their
     // canonical list options before opening an editor, never treat an empty
@@ -120,6 +127,8 @@ class TaskDetailSheet extends StatefulWidget {
                         task: task,
                         isCreating: isCreating,
                         initialPriority: initialPriority,
+                        initialDueDate: initialDueDate,
+                        initialDueTime: initialDueTime,
                         lists: availableLists,
                         onChanged: onChanged,
                         onClose: closeRoute,
@@ -182,6 +191,8 @@ class TaskDetailSheet extends StatefulWidget {
             task: task,
             isCreating: isCreating,
             initialPriority: initialPriority,
+            initialDueDate: initialDueDate,
+            initialDueTime: initialDueTime,
             lists: availableLists,
             onChanged: onChanged,
           ),
@@ -198,6 +209,7 @@ class TaskDetailSheet extends StatefulWidget {
     required VoidCallback onChanged,
     int? selectedListId,
     DateTime? initialDueDate,
+    TimeOfDay? initialDueTime,
     bool defaultDueToday = true,
     String initialTitle = '',
     String initialPriority = 'none',
@@ -240,6 +252,9 @@ class TaskDetailSheet extends StatefulWidget {
       priority: initialPriority,
       dueDate: initialDueDate ??
           (defaultDueToday ? DateTime(now.year, now.month, now.day) : null),
+      dueTime: initialDueTime == null
+          ? null
+          : '${initialDueTime.hour.toString().padLeft(2, '0')}:${initialDueTime.minute.toString().padLeft(2, '0')}',
       systemTagId: systemTagId,
       isCompleted: false,
       createdAt: now,
@@ -312,10 +327,15 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     _initialMobileSnapshot = _mobileFormSnapshot();
     // Moving a task is an unsaved edit, not an immediate data mutation.
     // Take the snapshot before applying the requested target quadrant.
-    if (!widget.isCreating &&
-        widget.initialPriority != null &&
-        widget.initialPriority != task.priority) {
-      _priority = widget.initialPriority!;
+    if (!widget.isCreating) {
+      if (widget.initialPriority != null) {
+        _priority = widget.initialPriority!;
+      }
+      if (widget.initialDueDate != null || widget.initialDueTime != null) {
+        _dueDate = widget.initialDueDate ?? _dueDate;
+        _dueTime = widget.initialDueTime ?? _dueTime;
+        _mobileRecomputeRelativeReminder();
+      }
       _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot;
     }
   }
