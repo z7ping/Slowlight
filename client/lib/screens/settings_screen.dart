@@ -2441,10 +2441,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         mobilePairedActions: true,
         content: toLocal
             ? '切换后将读取此设备的本地记录，云端记录暂时不再显示。'
-                '仅改变当前数据来源，不自动迁移、合并或删除记录。'
-            : '切换后将读取云端账号中的记录，本地独立保存的记录暂时不再显示。'
-                '仅改变当前数据来源，不自动迁移、合并或删除记录。'
-                '实际使用云端数据需要有效登录。',
+            : '切换后将读取云端账号中的记录，本地独立保存的记录暂时不再显示。',
+        supportingText: toLocal
+            ? '仅改变当前数据来源，不自动迁移、合并或删除记录。'
+            : '仅改变当前数据来源，不自动迁移、合并或删除记录。实际使用云端数据需要有效登录。',
       );
     } finally {
       _confirmingModeSwitch = false;
