@@ -1318,35 +1318,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // Android month overview reuses records and detail editor in a compact list.
   Widget _compactMonthPanel() {
-    final rows = _recordsForDay(_selected);
+    final rows = _recordsForDay(_selected).toList()
+      ..sort((a, b) => (_clockMinute(a) ?? 1440)
+          .compareTo(_clockMinute(b) ?? 1440));
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final theme = Theme.of(context);
-    final plans = rows.where((r) => r.kind == CalendarRecordKind.plan).length;
-    final actual = rows.where((r) => r.kind == CalendarRecordKind.actual).length;
     return Column(
       key: _dayPanelKey,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(children: [
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _selected.month.toString() + '月' + _selected.day.toString() +
-                    '日 · 周' + weekdays[_selected.weekday - 1],
-                key: const ValueKey('calendar-selected-title'),
-                style: SlowlightTypography.secondary(context)
-                    .copyWith(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                _hasCurrentMonth && _data!.unavailableTypes.isNotEmpty
-                    ? '已载入 ' + rows.length.toString() + ' 条 · 部分待核对'
-                    : plans.toString() + ' 项计划 · ' +
-                        actual.toString() + ' 条记录',
-                style: SlowlightTypography.caption(context)
-                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
+          Expanded(child: Text(
+            _selected.month.toString() + '月' + _selected.day.toString() +
+                '日 · 周' + weekdays[_selected.weekday - 1],
+            key: const ValueKey('calendar-selected-title'),
+            style: SlowlightTypography.secondary(context)
+                .copyWith(fontWeight: FontWeight.w700),
           )),
           FxIconButton(
             key: const ValueKey('calendar-add-task'),
@@ -1355,7 +1342,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onPressed: () => _addTask(_selected),
           ),
         ]),
-        const SizedBox(height: 8),
         if (rows.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 18),
@@ -1375,33 +1361,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
               onTap: () => _openRecord(record),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(
                     color: theme.colorScheme.outlineVariant.withValues(alpha: .6),
                   )),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                child: Row(children: [
-                  SizedBox(width: 40,
-                    child: Text(
-                      _clockMinute(record) == null
-                          ? '未定' : _timeText(_clockMinute(record)!),
-                      style: SlowlightTypography.caption(context),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(left: BorderSide(
+                      color: calendarRecordColor(record, context), width: 2,
                     )),
-                  const SizedBox(width: 7),
-                  Container(width: 3, height: 24,
-                    decoration: BoxDecoration(
-                      color: calendarRecordColor(record, context),
-                      borderRadius: BorderRadius.circular(SlowlightRadius.sm),
-                    )),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(
-                    record.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: SlowlightTypography.secondary(context),
-                  )),
-                ]),
+                  ),
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(record.title,
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.secondary(context)
+                            .copyWith(fontWeight: FontWeight.w600)),
+                      if (record.description.isNotEmpty ||
+                          record.timeLabel.isNotEmpty)
+                        Text(
+                          record.description.isNotEmpty
+                              ? record.description : record.timeLabel,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.caption(context).copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
               ),
             ),
       ],
