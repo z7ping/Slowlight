@@ -141,6 +141,22 @@ class _WebhookScreenState extends State<WebhookScreen> {
 
   Future<void> _addWebhook() async {
     if (_creating) return;
+    final editorKey = GlobalKey<_AddWebhookDialogBodyState>();
+    Future<void> dismissEditor() async {
+      if (editorKey.currentState?.hasUnsavedChanges == true) {
+        final discard = await FxDialog.confirm(
+          context: context,
+          title: '放弃未保存的事件回调？',
+          content: '关闭后将丢失当前填写的地址和事件选择。',
+          confirmText: '放弃',
+          cancelText: '继续编辑',
+          draftDiscard: true,
+          barrierDismissible: false,
+        );
+        if (discard != true) return;
+      }
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    }
     final mobile = Theme.of(context).platform == TargetPlatform.android ||
         Theme.of(context).platform == TargetPlatform.iOS;
     final result = mobile
@@ -148,10 +164,13 @@ class _WebhookScreenState extends State<WebhookScreen> {
             context: context,
             useRootNavigator: true,
             showDragHandle: true,
-            onDismissRequested: () async =>
-                Navigator.of(context, rootNavigator: true).pop(),
+            dismissible: false,
+            onDismissRequested: dismissEditor,
             showCloseButton: false,
-            builder: (_) => const _AddWebhookDialogBody(mobile: true),
+            builder: (_) => _AddWebhookDialogBody(
+              key: editorKey, mobile: true,
+              onCancel: () { dismissEditor(); },
+            ),
           )
         : await FxDialog.show<Map<String, dynamic>>(
             context: context,
@@ -510,8 +529,9 @@ class _WebhookScreenState extends State<WebhookScreen> {
 }
 
 class _AddWebhookDialogBody extends StatefulWidget {
-  const _AddWebhookDialogBody({this.mobile = false});
+  const _AddWebhookDialogBody({super.key, this.mobile = false, this.onCancel});
   final bool mobile;
+  final VoidCallback? onCancel;
 
   @override
   State<_AddWebhookDialogBody> createState() => _AddWebhookDialogBodyState();
@@ -522,6 +542,10 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
   final _nameCtrl = TextEditingController();
   final Set<String> _selectedEvents = {'task.completed'};
   String? _validationError;
+
+  bool get hasUnsavedChanges => _urlCtrl.text.trim().isNotEmpty ||
+      _nameCtrl.text.trim().isNotEmpty ||
+      _selectedEvents.length != 1 || !_selectedEvents.contains('task.completed');
 
   @override
   void dispose() {
@@ -567,7 +591,7 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
                 FxButton(
                   label: '取消',
                   variant: FxButtonVariant.ghost,
-                  onPressed:
+                  onPressed: widget.onCancel ??
                       () => Navigator.of(context, rootNavigator: true).pop(),
                 ),
                 FxButton(
