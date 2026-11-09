@@ -483,7 +483,43 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 展开月记录使用七列方块并铺满右侧容器', (tester) async {
+  testWidgets('Android 月度统计采用 V4 左灰卡、右紧凑方块', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: _SampleHabitRepo())),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('habits.details.1')));
+    await tester.pumpAndSettle();
+
+    final dayStat = find.byKey(const ValueKey('habits.month.stat.记录天数'));
+    final logStat = find.byKey(const ValueKey('habits.month.stat.日志条数'));
+    final grid = find.byKey(const ValueKey('habit-month-heatmap-grid'));
+    expect(dayStat, findsOneWidget);
+    expect(logStat, findsOneWidget);
+    expect(tester.getSize(dayStat).width, inInclusiveRange(88, 105));
+    expect(tester.getSize(dayStat).height, greaterThanOrEqualTo(61));
+    expect(tester.getTopLeft(dayStat).dx,
+        lessThan(tester.getTopLeft(grid).dx));
+    expect(tester.getTopLeft(dayStat).dy,
+        lessThan(tester.getTopLeft(logStat).dy));
+    final decoration =
+        tester.widget<Container>(dayStat).decoration! as BoxDecoration;
+    expect(decoration.border, isNull);
+    expect(decoration.color,
+        Theme.of(tester.element(dayStat)).colorScheme.surfaceContainerLow);
+    expect(tester.getSize(grid).width, lessThanOrEqualTo(186));
+    expect(tester.getSize(grid).width, greaterThan(160));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 展开月记录使用七列紧凑方块', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 800);
