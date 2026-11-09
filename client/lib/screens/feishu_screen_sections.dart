@@ -98,7 +98,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildOverview(),
-                  const SizedBox(height: SlowlightSpacing.lg),
+                  const SizedBox(height: SlowlightSpacing.xl),
                   if (wide)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,11 +110,11 @@ extension _FeishuScreenSections on _FeishuScreenState {
                     )
                   else if (_tablesReady) ...[
                     _buildOperationsColumn(),
-                    const SizedBox(height: SlowlightSpacing.lg),
+                    const SizedBox(height: SlowlightSpacing.xl),
                     _buildConfigurationColumn(),
                   ] else ...[
                     _buildConfigurationColumn(),
-                    const SizedBox(height: SlowlightSpacing.lg),
+                    const SizedBox(height: SlowlightSpacing.xl),
                     _buildOperationsColumn(),
                   ],
                 ],
@@ -228,7 +228,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: SlowlightSpacing.sm),
+                const SizedBox(height: SlowlightSpacing.md),
                 Align(
                   alignment: Alignment.centerRight,
                   child: FxButton(
@@ -317,7 +317,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             ],
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.lg),
+        const SizedBox(height: SlowlightSpacing.xl),
         const FxSectionHeader(title: '数据模板', trailing: '首次连接建议从这里开始'),
         const SizedBox(height: SlowlightSpacing.xs),
         _card(
@@ -377,7 +377,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             ],
           ),
         ),
-        const SizedBox(height: SlowlightSpacing.lg),
+        const SizedBox(height: SlowlightSpacing.xl),
         _buildGuide(),
       ],
     );
