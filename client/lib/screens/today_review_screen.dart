@@ -66,6 +66,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   List<_TodayHabitFact> _todayHabitFacts = const [];
   int _viewIndex = 0;
   int _periodIndex = 0;
+  String _reviewFilter = 'all';
   final Set<String> _answered = {};
   final Set<String> _expanded = {};
   final Map<String, TextEditingController> _answerControllers = {};
@@ -100,6 +101,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       if (widget.focusObservation != null) {
         _viewIndex = 0;
         _periodIndex = 0;
+        _reviewFilter = 'all';
       }
     }
   }
@@ -317,7 +319,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                   final periods = FxSegmented(
                     labels: const ['今天', '本周', '近 30 天'],
                     selectedIndex: _periodIndex,
-                    onChanged: (index) => setState(() => _periodIndex = index),
+                    onChanged: (index) => setState(() {
+                      _periodIndex = index;
+                      _reviewFilter = 'all';
+                    }),
                     expanded: compact,
                   );
                   if (compact) {
@@ -373,6 +378,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             onPressed: () => setState(() {
               _viewIndex = 0;
               _periodIndex = 1;
+              _reviewFilter = 'all';
             }),
           ),
           FxButton(
@@ -382,6 +388,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             onPressed: () => setState(() {
               _viewIndex = 0;
               _periodIndex = 2;
+              _reviewFilter = 'all';
             }),
           ),
           FxButton(
@@ -550,7 +557,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                     const SizedBox(height: 16),
                   ],
                   _snapshotCard(facts),
-                  const SizedBox(height: 16),
+                  SizedBox(height: SlowlightPlatformDensity.usesMobileTouchTargets
+                      ? SlowlightSpacing.xl : 16),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final timeline = _factsCard(facts);
@@ -592,7 +600,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             timeline,
-                            const SizedBox(height: 16),
+                            SizedBox(height: SlowlightPlatformDensity.usesMobileTouchTargets
+                                ? SlowlightSpacing.xl : 16),
                             reflection,
                           ],
                         );
@@ -637,9 +646,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             horizontalGap: SlowlightSpacing.md,
             verticalGap: SlowlightSpacing.md,
             children: [
-              FxStatCell(value: '$tasks', label: '完成任务'),
-              FxStatCell(value: '$habits', label: '习惯打卡'),
-              FxStatCell(value: '$focus', label: '专注分钟'),
+              _reviewMetric('$tasks', '完成任务', 'task_completed', mobile),
+              _reviewMetric('$habits',
+                  mobile ? '习惯记录' : '习惯打卡', 'habit_checked', mobile),
+              _reviewMetric('$focus', '专注分钟', 'session_ended', mobile),
             ],
           ),
           if (!mobile) ...[
@@ -675,6 +685,34 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         const SizedBox(height: SlowlightSpacing.md),
         card,
       ],
+    );
+  }
+
+
+  Widget _reviewMetric(String value, String label, String kind, bool mobile) {
+    final cell = FxStatCell(value: value, label: label);
+    if (!mobile) return cell;
+    final selected = _reviewFilter == kind;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label $value，${selected ? '清除筛选' : '筛选对应轨迹'}',
+      child: FxInkWell(
+        key: ValueKey('review.metric.$kind'),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
+        onTap: () => setState(() {
+          _reviewFilter = selected ? 'all' : kind;
+        }),
+        child: Container(
+          decoration: BoxDecoration(
+            color: selected
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: .08)
+                : null,
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          ),
+          child: cell,
+        ),
+      ),
     );
   }
 
