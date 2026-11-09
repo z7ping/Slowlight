@@ -674,8 +674,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       const SizedBox(height: 14),
                       _dayPanel(),
                     ] else ...[
-                      _periodNavigation(),
-                      const SizedBox(height: 10),
+                      _dateStrip(),
+                      const SizedBox(height: 8),
                       if (_rangeLoading)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 36),
@@ -692,12 +692,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         )
                       else
-                        _timelineBoard(),
-                      if (_viewMode != CalendarViewMode.day &&
-                          !_rangeLoading && !_rangeFailed) ...[
-                        const SizedBox(height: 14),
-                        _dayPanel(),
-                      ],
+                        _selectedTimeline(),
                     ],
                   ],
                 ],
@@ -717,41 +712,132 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ],
   );
 
-  Widget _periodNavigation() {
+  // One compact date strip; never render complete day columns side by side.
+  // Three-/seven-day modes share the selected day's single full-width timeline.
+  Widget _dateStrip() {
     final days = _visibleDays();
     if (days.isEmpty) return const SizedBox.shrink();
-    final start = days.first, end = days.last;
-    final period = days.length == 1
-        ? '${start.month} 月 ${start.day} 日'
-        : '${start.month}/${start.day} – ${end.month}/${end.day}';
-    return Row(
-      children: [
-        FxIconButton(
-          key: const ValueKey('calendar-period-prev'),
-          icon: LucideIcons.chevronLeft,
-          tooltip: '上一时段',
-          onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(-1),
-        ),
-        Expanded(
-          child: Text(period,
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final theme = Theme.of(context);
+    if (_viewMode == CalendarViewMode.day) {
+      final day = days.single;
+      return Row(
+        key: const ValueKey('calendar-date-strip'),
+        children: [
+          FxIconButton(
+            key: const ValueKey('calendar-period-prev'),
+            icon: LucideIcons.chevronLeft,
+            tooltip: '前一天',
+            onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(-1),
+          ),
+          Expanded(
+            child: Text(
+              '${day.month}月${day.day}日 · 周${weekdays[day.weekday - 1]}',
               textAlign: TextAlign.center,
               style: SlowlightTypography.secondary(context)
-                  .copyWith(fontWeight: FontWeight.w700)),
-        ),
-        FxIconButton(
-          key: const ValueKey('calendar-period-next'),
-          icon: LucideIcons.chevronRight,
-          tooltip: '下一时段',
-          onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(1),
-        ),
-        FxIconButton(
-          key: const ValueKey('calendar-period-add-task'),
-          icon: LucideIcons.plus,
-          tooltip: '在选中日期新建任务',
-          onPressed: () => _addTask(_selected),
-        ),
-      ],
+                  .copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          FxIconButton(
+            key: const ValueKey('calendar-period-next'),
+            icon: LucideIcons.chevronRight,
+            tooltip: '后一天',
+            onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(1),
+          ),
+          FxIconButton(
+            key: const ValueKey('calendar-period-add-task'),
+            icon: LucideIcons.plus,
+            tooltip: '在当前日期新建任务',
+            onPressed: () => _addTask(_selected),
+          ),
+        ],
+      );
+    }
+    final week = _viewMode == CalendarViewMode.week;
+    return GestureDetector(
+      key: const ValueKey('calendar-date-strip'),
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity.abs() > 180) _shiftPeriod(velocity < 0 ? 1 : -1);
+      },
+      child: Row(
+        children: [
+          for (final day in days)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: FxInkWell(
+                  key: ValueKey(
+                    'calendar-period-day-${day.year}-${day.month}-${day.day}',
+                  ),
+                  onTap: () => _selectDate(day),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 56),
+                    padding: EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: week ? 1 : 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _sameDay(day, _selected)
+                          ? activePalette.accent.withValues(alpha: .08)
+                          : theme.colorScheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(SlowlightRadius.sm),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _sameDay(day, _selected)
+                              ? activePalette.accent
+                              : theme.colorScheme.outlineVariant,
+                          width: _sameDay(day, _selected) ? 2 : 1,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          week
+                              ? '周${weekdays[day.weekday - 1]}'
+                              : '${day.month}/${day.day} · 周${weekdays[day.weekday - 1]}',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.caption(context),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          week ? '${day.day}' : _dateCount(day),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SlowlightTypography.secondary(context)
+                              .copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (week)
+                          Text(
+                            _dateCount(day, compact: true),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            style: SlowlightTypography.caption(context)
+                                .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
+  }
+
+  String _dateCount(DateTime day, {bool compact = false}) {
+    if (!_rangeCache.containsKey(_monthKey(day))) return '—';
+    final partial = _rangeCache[_monthKey(day)]!.unavailableTypes.isNotEmpty;
+    if (partial) return '·';
+    final count = _timelineRecords(day).length;
+    return compact ? '$count' : '$count 条';
   }
 
   List<CalendarRecord> _timelineRecords(DateTime day) {
@@ -782,89 +868,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return result;
   }
 
-  Widget _timelineBoard() {
-    final days = _visibleDays();
-    final isLargeText = MediaQuery.textScalerOf(context)
-            .scale(SlowlightTypography.secondarySize) >=
-        SlowlightTypography.secondarySize * 1.3;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final minimum = days.length == 1
-            ? constraints.maxWidth
-            : days.length * (isLargeText ? 250.0 : 216.0);
-        final boardWidth = constraints.maxWidth > minimum
-            ? constraints.maxWidth
-            : minimum;
-        return SingleChildScrollView(
-          key: const ValueKey('calendar-period-horizontal-scroll'),
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: boardWidth,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final day in days)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _timelineDay(day),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _timelineDay(DateTime day) {
-    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+  Widget _selectedTimeline() {
+    final day = _selected;
     final rows = _timelineRecords(day);
-    final partial = _rangeCache[_monthKey(day)]!.unavailableTypes.isNotEmpty;
-    final selected = _sameDay(day, _selected);
-    final palette = Theme.of(context).colorScheme;
-    return FxCard(
-      padding: const EdgeInsets.all(10),
+    final partial =
+        _rangeCache[_monthKey(day)]?.unavailableTypes.isNotEmpty ?? false;
+    final colors = Theme.of(context).colorScheme;
+    return GestureDetector(
+      key: const ValueKey('calendar-selected-timeline'),
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity.abs() > 180) _shiftPeriod(velocity < 0 ? 1 : -1);
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FxInkWell(
-            key: ValueKey('calendar-period-day-${day.year}-${day.month}-${day.day}'),
-            onTap: () => _selectDate(day),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: selected
-                        ? activePalette.accent
-                        : palette.outlineVariant,
-                    width: selected ? 2 : 1,
-                  ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Text('${day.month} 月 ${day.day} 日 · 周${weekdays[day.weekday-1]}',
-                    style: SlowlightTypography.secondary(context)
-                        .copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 3),
-                  Text(partial ? '部分记录待核对' : '${rows.length} 条',
-                    style: SlowlightTypography.caption(context)
-                        .copyWith(color: palette.onSurfaceVariant)),
-                ],
+          if (partial)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Text(
+                '部分记录未读取成功，当前仅显示已确认的内容。',
+                style: SlowlightTypography.caption(context)
+                    .copyWith(color: colors.onSurfaceVariant),
               ),
             ),
-          ),
           if (rows.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Text(
-                partial ? '部分来源未读取，请重试核对。' : '这天没有记录',
+                partial ? '请重试核对其他记录。' : '当天没有记录',
                 textAlign: TextAlign.center,
-                style: SlowlightTypography.caption(context)
-                    .copyWith(color: palette.onSurfaceVariant),
+                style: SlowlightTypography.secondary(context)
+                    .copyWith(color: colors.onSurfaceVariant),
               ),
             )
           else
