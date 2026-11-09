@@ -117,6 +117,67 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('Android 数据模式确认使用左 40% 取消、右 60% 确认', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    bool? confirmed;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '切换数据模式',
+            onPressed: () async {
+              confirmed = await FxDialog.confirm(
+                context: context,
+                title: '切换为本地数据？',
+                content: '仅改变数据来源，不自动迁移或删除记录。',
+                confirmText: '确认切换',
+                mobilePairedActions: true,
+              );
+            },
+          ),
+        ),
+      ),
+    ));
+
+    Future<void> open() async {
+      await tester.tap(find.text('切换数据模式'));
+      await tester.pumpAndSettle();
+    }
+
+    await open();
+    final cancel = find.byKey(const ValueKey('fx.dialog.cancel'));
+    final confirm = find.byKey(const ValueKey('fx.dialog.confirm'));
+    expect(find.byKey(const ValueKey('fx.dialog.pairedActions')),
+        findsOneWidget);
+    expect(tester.widget<FxButton>(cancel).variant, FxButtonVariant.outline);
+    expect(tester.widget<FxButton>(confirm).variant, FxButtonVariant.primary);
+    final left = tester.getRect(cancel);
+    final right = tester.getRect(confirm);
+    expect(left.right, lessThan(right.left));
+    expect(left.width / right.width, closeTo(2 / 3, .02));
+    expect(left.height, greaterThanOrEqualTo(44));
+    expect(right.height, greaterThanOrEqualTo(44));
+    expect(tester.widget<ShadDialog>(find.byType(ShadDialog)).closeIcon,
+        isA<SizedBox>());
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(confirmed, isFalse);
+
+    await open();
+    await tester.tap(find.text('确认切换'));
+    await tester.pumpAndSettle();
+    expect(confirmed, isTrue);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Windows 草稿确认仍使用原有桌面危险确认布局', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
