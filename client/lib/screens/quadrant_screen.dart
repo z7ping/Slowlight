@@ -19,9 +19,16 @@ typedef QuadrantData = ({
 
 class QuadrantScreen extends StatefulWidget {
   final Future<QuadrantData> Function()? dataLoader;
+  /// Optional seam for testing completion without writing a real account.
+  final Future<Task> Function(Task task)? taskCompleter;
   final int refreshTick;
 
-  const QuadrantScreen({super.key, this.dataLoader, this.refreshTick = 0});
+  const QuadrantScreen({
+    super.key,
+    this.dataLoader,
+    this.taskCompleter,
+    this.refreshTick = 0,
+  });
 
   @override
   State<QuadrantScreen> createState() => _QuadrantScreenState();
@@ -36,6 +43,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   List<TodoList> _lists = const [];
   String? _dragTarget;
   bool _moveHintRequested = false;
+  bool _lastRefreshFailed = false;
+  String _selectedPriority = 'urgent_important';
+  final Set<int> _completingTaskIds = <int>{};
 
   @override
   void initState() {
@@ -68,6 +78,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         _loading = false;
         _hasLoadedData = true;
         _initialLoadFailed = false;
+        _lastRefreshFailed = false;
       });
       if (_tasks.isNotEmpty) _showMoveHintOnce();
     } catch (_) {
@@ -75,6 +86,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
       setState(() {
         _loading = false;
         _initialLoadFailed = !_hasLoadedData;
+        _lastRefreshFailed = true;
       });
       if (_hasLoadedData) {
         FxNotice.showContent(context, const Text('刷新失败，仍显示上次加载的任务'));
@@ -198,26 +210,57 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
           );
         }
         if (mobileGrid) {
+          // Same responsive 2x2 viewport fill as product-internal:
+          // no fixed 300dp card, no unnecessary top summary.
           const padding = 12.0;
-          const gap = 12.0;
-          final minCardHeight = textScale > 1.1 ? 324.0 : 300.0;
+          const gap = 9.0;
+          const bottomRoom = 40.0;
+          const minimumCardHeight = 205.0;
           final cardHeight = constraints.hasBoundedHeight
               ? math.max(
-                  minCardHeight,
-                  (constraints.maxHeight - padding * 2 - gap) / 2,
+                  minimumCardHeight,
+                  (constraints.maxHeight - padding - bottomRoom - gap) / 2,
                 )
-              : minCardHeight;
-          final width = (constraints.maxWidth - 2 * padding - gap) / 2;
-          return FxRefresh(
-            onRefresh: _load,
-            child: GridView.count(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(padding),
-              crossAxisCount: 2,
-              crossAxisSpacing: gap,
-              mainAxisSpacing: gap,
-              childAspectRatio: width / cardHeight,
-              children: cells,
+              : minimumCardHeight;
+          final width = (constraints.maxWidth - padding * 2 - gap) / 2;
+          return _mobileBoard(
+            FxRefresh(
+              onRefresh: _load,
+              child: GridView.count(
+                key: const ValueKey('quadrant-mobile-grid'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(padding, padding, padding, bottomRoom),
+                crossAxisCount: 2,
+                crossAxisSpacing: gap,
+                mainAxisSpacing: gap,
+                childAspectRatio: width / cardHeight,
+                children: cells,
+              ),
+            ),
+          );
+        }
+        if (!desktop) {
+          // Large text keeps four complete cards in one scrolling column.
+          final cardHeight = textScale >= 1.9
+              ? 332.0
+              : textScale >= 1.3
+                  ? 238.0
+                  : 210.0;
+          return _mobileBoard(
+            FxRefresh(
+              onRefresh: _load,
+              child: ListView(
+                key: const ValueKey('quadrant-mobile-list'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                children: [
+                  for (final cell in cells)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 9),
+                      child: SizedBox(height: cardHeight, child: cell),
+                    ),
+                ],
+              ),
             ),
           );
         }
