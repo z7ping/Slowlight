@@ -726,7 +726,7 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         },
         enableFeedback: !pending,
         child: SizedBox(
-          width: 40,
+          width: 44,
           height: 44,
           child: Center(
             child: Opacity(
