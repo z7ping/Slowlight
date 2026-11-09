@@ -16,6 +16,152 @@ import '../support/fx_test_host.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('月视图下拉刷新仅使用 FxRefresh 指示器，保留已确认事项', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final date = DateTime(2026, 8, 21);
+    final refreshed = Completer<CalendarMonthData>();
+    var reads = 0;
+    CalendarMonthData monthData(String title) => CalendarMonthData(
+      month: DateTime(2026, 8),
+      records: [
+        CalendarRecord(
+          id: 'test-plan',
+          type: CalendarRecordType.task,
+          kind: CalendarRecordKind.plan,
+          date: date,
+          title: title,
+          timeLabel: '14:00',
+        ),
+      ],
+    );
+    Future<CalendarMonthData> load(DateTime month) {
+      reads++;
+      return reads == 1
+          ? Future.value(monthData('原任务'))
+          : refreshed.future;
+    }
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: CalendarScreen(
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: date,
+        monthLoader: load,
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    final oldRecord = find.byKey(
+      const ValueKey('calendar-grid-record-test-plan'),
+    );
+    expect(oldRecord, findsOneWidget);
+    final refresh = tester.widget<FxRefresh>(find.byType(FxRefresh));
+    final pending = refresh.onRefresh();
+    await tester.pump();
+    expect(reads, 2);
+    expect(oldRecord, findsOneWidget);
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    refreshed.complete(monthData('新任务'));
+    await pending;
+    await tester.pumpAndSettle();
+    expect(find.textContaining('新任务'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('跨月七日视图下拉保留已有日期列，邻月仍重新读取', (tester) async {
+    SharedPreferences.setMockInitialValues({'calendar.view_mode': 'week'});
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final augustRefresh = Completer<CalendarMonthData>();
+    final septemberRefresh = Completer<CalendarMonthData>();
+    final reads = <int, int>{};
+    CalendarMonthData data(DateTime month, String title) =>
+        CalendarMonthData(month: month, records: [
+          if (month.month == 9)
+            CalendarRecord(
+              id: 'neighbor-task',
+              type: CalendarRecordType.task,
+              kind: CalendarRecordKind.plan,
+              date: DateTime(2026, 9, 1),
+              title: title,
+              timeLabel: '10:00',
+            ),
+        ]);
+    Future<CalendarMonthData> load(DateTime month) {
+      final count = (reads[month.month] ?? 0) + 1;
+      reads[month.month] = count;
+      if (count == 1) {
+        return Future.value(data(month, '跨月旧任务'));
+      }
+      return month.month == 8
+          ? augustRefresh.future
+          : septemberRefresh.future;
+    }
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: CalendarScreen(
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: DateTime(2026, 8, 31),
+        monthLoader: load,
+        headerInAppBar: true,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final oldRecord = find.byKey(
+      const ValueKey('calendar-timeline-record-neighbor-task'),
+    );
+    expect(oldRecord, findsOneWidget);
+    expect(reads[9], 1);
+
+    final refresh = tester.widget<FxRefresh>(find.byType(FxRefresh));
+    final pending = refresh.onRefresh();
+    await tester.pump();
+    expect(oldRecord, findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    augustRefresh.complete(data(DateTime(2026, 8), ''));
+    await tester.pump();
+    expect(reads[9], 2);
+    expect(oldRecord, findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    septemberRefresh.complete(data(DateTime(2026, 9), '跨月新任务'));
+    await pending;
+    await tester.pumpAndSettle();
+    expect(oldRecord, findsOneWidget);
+    expect(find.textContaining('跨月新任务'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('首次无记录的日历仍显示内容加载指示器', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final first = Completer<CalendarMonthData>();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: CalendarScreen(
+        initialMonth: DateTime(2026, 8),
+        monthLoader: (_) => first.future,
+      )),
+    ));
+    await tester.pump();
+    expect(find.byType(FxCircularProgress), findsOneWidget);
+    first.complete(CalendarMonthData(
+      month: DateTime(2026, 8),
+      records: const [],
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(FxCircularProgress), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('月历 Tab 重入静默刷新且保留选中月份与日期', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
