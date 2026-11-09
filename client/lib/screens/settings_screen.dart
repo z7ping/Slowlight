@@ -26,7 +26,7 @@ import 'account_profile_editor.dart';
 import 'about_screen.dart';
 import 'diagnostics_screen.dart';
 import 'conflict_screen.dart';
-import 'integration_screen.dart';
+import 'feishu_screen.dart';
 import 'login_screen.dart';
 import 'migration_history_dialog.dart';
 import 'migration_preview_dialog.dart';
@@ -2034,13 +2034,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '平台集成',
               '连接飞书多维表格，管理已支持的同步范围',
               trailing: FxButton(
-                label: '打开集成',
+                label: '打开飞书',
                 size: FxButtonSize.sm,
                 variant: FxButtonVariant.outline,
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const IntegrationScreen(),
+                    builder: (_) => const FeishuScreen(),
                   ),
                 ),
               ),
