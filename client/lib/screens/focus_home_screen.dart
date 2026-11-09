@@ -376,9 +376,19 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
 
   Future<void> _createHabitFromToday() async {
     if (_navigating) return;
-    setState(() => _openHabitEditorOnEnter = true);
+    // A pinned HabitToolScreen may already be mounted offstage. A createOnOpen
+    // flag is only consumed by initState; call the existing editor instead.
+    final alreadyMounted = _habitToolKey.currentState != null;
+    setState(() => _openHabitEditorOnEnter = !alreadyMounted);
     try {
       await _openTool(HomeToolSection.habits);
+      if (alreadyMounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _navigation.tool == HomeToolSection.habits) {
+            _habitToolKey.currentState?.createHabit();
+          }
+        });
+      }
     } finally {
       // Only the first build of the tool screen receives the create intent.
       // Returning to the same tool later must not reopen the editor.
