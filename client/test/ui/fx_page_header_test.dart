@@ -140,6 +140,36 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 360dp 130% 字体的诊断页头操作不溢出', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildFxTestHost(
+      theme: AppTheme.lightTheme(),
+      home: Scaffold(body: SizedBox(
+        width: 360,
+        child: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(360, 800),
+            textScaler: TextScaler.linear(1.3),
+          ),
+          child: FxPageHeader(
+            title: '完整诊断日志',
+            trailing: FxButton(
+              label: '复制全部',
+              size: FxButtonSize.sm,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      )),
+    ));
+    await tester.pump();
+    expect(find.text('完整诊断日志'), findsOneWidget);
+    expect(find.text('复制全部'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('页头操作被禁用时仍保留图标和原有几何位置', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
