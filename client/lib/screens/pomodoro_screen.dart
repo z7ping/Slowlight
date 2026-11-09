@@ -956,7 +956,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }) {
     final theme = Theme.of(dialogContext);
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (context, _) {
         final copy = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
