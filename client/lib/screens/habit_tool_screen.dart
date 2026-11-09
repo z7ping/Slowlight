@@ -14,6 +14,7 @@ import '../services/api/review_api.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 import '../widgets/habit_checkin_flow.dart';
+import '../widgets/habit_heatmap.dart';
 import '../widgets/habit_editor_dialog.dart';
 
 /// Distinguish a habit with a record from the number of log events.
@@ -1195,10 +1196,22 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     final calendar = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${now.month} 月 · ${now.year}',
-            style: SlowlightTypography.caption(context)),
-        const SizedBox(height: SlowlightSpacing.xs),
-        _heatmap(habit, color, compact: true),
+        if (loaded)
+          HabitHeatmap(
+            checkInDates: logs
+                .map((log) => DateTime.tryParse(log.date))
+                .whereType<DateTime>()
+                .toList(growable: false),
+            color: Theme.of(context).colorScheme.primary,
+            month: now,
+          )
+        else ...[
+          Text('${now.month} 月 · ${now.year}',
+              style: SlowlightTypography.caption(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+          Text('本月记录待读取',
+              style: SlowlightTypography.caption(context)),
+        ],
       ],
     );
     return LayoutBuilder(builder: (context, constraints) {
@@ -1236,7 +1249,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     });
   }
 
-  Widget _heatmap(Habit habit, Color color, {bool compact = false}) {
+  Widget _heatmap(Habit habit, Color color) {
     if (!_controller.hasLoadedLogs(habit.id)) {
       return Text('本月记录待读取',
           style: SlowlightTypography.caption(context));
@@ -1259,62 +1272,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
           context,
         ).scale(SlowlightTypography.captionSize) >=
         SlowlightTypography.captionSize * 1.3;
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    final cell = compact ? (scale >= 1.8 ? 40.0 : largeText ? 30.0 : 23.0)
-        : largeText ? 28.0 : 19.0;
+    final cell = largeText ? 28.0 : 19.0;
     final dot = largeText ? 22.0 : 16.0;
     final width = cell * 7;
-    if (compact) {
-      final scheme = Theme.of(context).colorScheme;
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: width,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: labels.map((label) => SizedBox(
-                width: cell,
-                child: Text(label, textAlign: TextAlign.center,
-                    style: SlowlightTypography.caption(context)),
-              )).toList(growable: false)),
-              const SizedBox(height: SlowlightSpacing.xs),
-              Wrap(
-                children: days.map((day) {
-                  final inMonth = day.month == now.month;
-                  final key = '${day.year}-${_two(day.month)}-${_two(day.day)}';
-                  final active = inMonth && checked.contains(key);
-                  return SizedBox(
-                    width: cell,
-                    height: cell,
-                    child: Center(
-                      child: Container(
-                        width: cell - 2,
-                        height: cell - 2,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: active ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(SlowlightRadius.sm),
-                          border: _sameDay(day, today)
-                              ? Border.all(color: scheme.onSurfaceVariant)
-                              : null,
-                        ),
-                        child: Text(
-                          inMonth ? '${day.day}' : '',
-                          style: SlowlightTypography.caption(context).copyWith(
-                            color: active ? scheme.onPrimary : scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(growable: false),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SizedBox(
