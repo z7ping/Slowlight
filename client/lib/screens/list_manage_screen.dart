@@ -334,11 +334,8 @@ class _ListManageScreenState extends State<ListManageScreen> {
                                                     .outlineVariant,
                                       ),
                                     ),
-                                    child: Text(
-                                      icon,
-                                      style: const TextStyle(
-                                        fontSize: SlowlightIconSize.md,
-                                      ),
+                                    child: widget.createRequest != null ? _listGlyph(icon) : Text(
+                                      icon, style: const TextStyle(fontSize: SlowlightIconSize.md),
                                     ),
                                   ),
                                 );
