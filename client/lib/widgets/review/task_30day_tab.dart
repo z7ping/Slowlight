@@ -54,6 +54,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
   bool _periodTimelineFailed = false;
   bool _periodTimelineLoading = false;
   bool _showAllPeriodEvents = false;
+  String _eventFilter = 'all';
   ReviewPeriodTimeline? _periodPage;
   int _periodPageOffset = 0;
   bool _loadingPeriodPage = false;
@@ -136,6 +137,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         _periodTimelineFailed = false;
         _periodTimelineLoading = false;
         _showAllPeriodEvents = false;
+        _eventFilter = 'all';
         _periodPage = null;
         _periodPageOffset = 0;
         _loadingPeriodPage = false;
@@ -378,23 +380,37 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
 
   Widget _periodEvidenceCard() {
     final facts = _periodTimeline;
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     final page = _showAllPeriodEvents ? (_periodPage ?? facts) : facts;
-    final visible = page?.items.take(_showAllPeriodEvents ? 40 : 20)
-            .toList(growable: false) ??
-        const <TodayTimelineItem>[];
-    return FxCard(
+    final filtered = page?.items.where(
+      (entry) => !mobile || _eventFilter == 'all' || entry.kind == _eventFilter,
+    ).toList(growable: false) ?? const <TodayTimelineItem>[];
+    final visible = filtered.take(_showAllPeriodEvents ? 40 : mobile ? 8 : 20)
+        .toList(growable: false);
+    final evidenceCard = FxCard(
       expanded: true,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(
-            title: '发生过的事',
-            trailing: facts == null
-                ? '待读取'
-                : '观察记录 ${facts.observationCount} 条',
-          ),
-          const SizedBox(height: 10),
+          if (!mobile) ...[
+            FxSectionHeader(
+              title: '发生过的事',
+              trailing: facts == null
+                  ? '待读取'
+                  : '观察记录 ${facts.observationCount} 条',
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (mobile && _eventFilter != 'all') ...[
+            FxButton(
+              label: '清除筛选',
+              variant: FxButtonVariant.ghost,
+              size: FxButtonSize.sm,
+              onPressed: () => setState(() => _eventFilter = 'all'),
+            ),
+            const SizedBox(height: SlowlightSpacing.xs),
+          ],
           if (_periodTimelineFailed) ...[
             Text('近 30 天轨迹读取未确认，已有任务统计不受影响。',
                 style: SlowlightTypography.secondary(context)),
@@ -411,11 +427,31 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
             Text('近 30 天轨迹读取中…',
                 style: SlowlightTypography.secondary(context))
           else if (visible.isEmpty)
-            Text(
-              facts.observationCount > 0
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  mobile && _eventFilter != 'all'
+                      ? '当前页暂无该类型的已载入记录。'
+                      : facts.observationCount > 0
                   ? '近 30 天有 ${facts.observationCount} 条观察，事件明细尚未载入。'
                   : '近 30 天还没有可追溯的行为记录。',
-              style: SlowlightTypography.secondary(context),
+                  style: SlowlightTypography.secondary(context),
+                ),
+                if (mobile && _eventFilter != 'all' &&
+                    (page?.hasMore == true || facts.hasMore))
+                  FxButton(
+                    label: '继续查看后续记录',
+                    variant: FxButtonVariant.link,
+                    size: FxButtonSize.sm,
+                    onPressed: _loadingPeriodPage ? null : () {
+                      setState(() => _showAllPeriodEvents = true);
+                      _loadPeriodPage(
+                        _periodPageOffset + (page?.items.length ?? 0),
+                      );
+                    },
+                  ),
+              ],
             )
           else ...[
             if (!_showAllPeriodEvents &&
@@ -428,6 +464,9 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
             ...List.generate(visible.length, (index) {
               final entry = visible[index];
               return ReviewTimelineItem(
+                key: ValueKey('review.month.${entry.id}'),
+                kind: entry.kind,
+                compact: mobile,
                 color: switch (entry.kind) {
                   'task_completed' => AppTheme.chartGreen,
                   'habit_checked' => AppTheme.chartYellow,
@@ -442,7 +481,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
               );
             }),
             if (!_showAllPeriodEvents &&
-                (facts.items.length > 20 || facts.hasMore)) ...[
+                (facts.items.length > (mobile ? 8 : 20) || facts.hasMore)) ...[
               const SizedBox(height: 8),
               FxButton(
                 label: '查看全部事件',
@@ -499,6 +538,19 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
           ],
         ],
       ),
+    );
+    if (!mobile) return evidenceCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FxSectionHeader(
+          title: '近期记录',
+          trailing: facts == null ? '待读取'
+              : '${page?.items.length ?? 0} 条已载入',
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        evidenceCard,
+      ],
     );
   }
 
@@ -565,6 +617,12 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                     const SizedBox(height: 14),
                   ],
                   _summaryCard(summary),
+                  if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+                      _trendDays.isNotEmpty && !_trendRefreshing &&
+                      !_trendLoadFailed) ...[
+                    const SizedBox(height: 12),
+                    _trendCard(),
+                  ],
                   const SizedBox(height: 14),
                   _periodEvidenceCard(),
                   if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
@@ -608,6 +666,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                         ],
                       ),
                     ),
+                  if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
                   if (_trendDays.isNotEmpty && hasTaskData) ...[
                     const SizedBox(height: SlowlightSpacing.md),
                     _trendCard(),
@@ -620,6 +679,7 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                       subtitle: '有记录后，这里会展示完成趋势与任务分布。',
                       padding: EdgeInsets.symmetric(vertical: 24),
                     ),
+                  ],
                   if (hasTaskData && dist.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _distributionCard(dist),
@@ -650,6 +710,34 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     );
   }
 
+
+  Widget _periodMetric(String value, String label, String kind,
+      {bool available = true}) {
+    final selected = _eventFilter == kind;
+    return Semantics(
+      button: available,
+      selected: selected,
+      label: '$label $value，${available ? selected ? '清除筛选' : '筛选已载入轨迹' : '数据尚未读取'}',
+      child: FxInkWell(
+        key: ValueKey('review.month.metric.$kind'),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
+        onTap: !available ? null : () => setState(() {
+          _eventFilter = selected ? 'all' : kind;
+          _showAllPeriodEvents = false;
+        }),
+        child: Container(
+          decoration: BoxDecoration(
+            color: selected
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: .08)
+                : null,
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          ),
+          child: FxStatCell(value: value, label: label),
+        ),
+      ),
+    );
+  }
+
   Widget _summaryCard(Map<String, dynamic> summary) {
     final theme = Theme.of(context);
     final completed = (summary['completed_count'] as num?)?.toInt() ?? 0;
@@ -665,31 +753,57 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       (sum, day) => sum + ((day['habit_checked'] as num?)?.toInt() ?? 0),
     );
 
-    return FxCard(
-      padding: const EdgeInsets.all(16),
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final observationCount = _periodTimeline?.observationCount;
+
+    final summaryCard = FxCard(
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(title: '近 30 天已载入记录', trailing: '$days 天'),
-          const SizedBox(height: 12),
-          _stats([
-            FxStatCell(
-              value: summary['completed_count'] is num ? '$completed' : '—',
-              label: '完成任务',
-            ),
-            FxStatCell(
-              value: summary['created_count'] is num ? '$created' : '—',
-              label: '新建任务',
-            ),
-            FxStatCell(
-              value: _trendDays.isEmpty ? '—' : '$habitCount',
-              label: _trendDays.isNotEmpty &&
-                      (_trendRefreshing || _trendLoadFailed)
-                  ? '习惯记录（上次核对）'
-                  : '习惯记录',
-            ),
-          ]),
+          if (!mobile) ...[
+            FxSectionHeader(title: '近 30 天已载入记录', trailing: '$days 天'),
+            const SizedBox(height: 12),
+          ],
+          if (mobile)
+            FxResponsiveFormGrid(
+              minColumnWidth: 96,
+              maxColumns: 3,
+              horizontalGap: SlowlightSpacing.md,
+              verticalGap: SlowlightSpacing.md,
+              children: [
+                _periodMetric(summary['completed_count'] is num
+                    ? '$completed' : '—', '完成任务', 'task_completed',
+                    available: summary['completed_count'] is num),
+                _periodMetric(_trendDays.isEmpty || _trendRefreshing ||
+                    _trendLoadFailed ? '—' : '$habitCount',
+                    '习惯记录', 'habit_checked',
+                    available: _trendDays.isNotEmpty &&
+                        !_trendRefreshing && !_trendLoadFailed),
+                _periodMetric(observationCount?.toString() ?? '—',
+                    '观察记录', 'observation',
+                    available: observationCount != null),
+              ],
+            )
+          else
+            _stats([
+              FxStatCell(
+                value: summary['completed_count'] is num ? '$completed' : '—',
+                label: '完成任务',
+              ),
+              FxStatCell(
+                value: summary['created_count'] is num ? '$created' : '—',
+                label: '新建任务',
+              ),
+              FxStatCell(
+                value: _trendDays.isEmpty ? '—' : '$habitCount',
+                label: _trendDays.isNotEmpty &&
+                        (_trendRefreshing || _trendLoadFailed)
+                    ? '习惯记录（上次核对）'
+                    : '习惯记录',
+              ),
+            ]),
           if (bestDay != null && bestCount > 0) ...[
             const SizedBox(height: 10),
             Text(
@@ -701,6 +815,15 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
           ],
         ],
       ),
+    );
+    if (!mobile) return summaryCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '本期概况'),
+        const SizedBox(height: SlowlightSpacing.md),
+        summaryCard,
+      ],
     );
   }
 
@@ -716,14 +839,17 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
 
   Widget _trendCard() {
     final theme = Theme.of(context);
-    return FxCard(
+    final trendCard = FxCard(
       padding: const EdgeInsets.all(16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '每日任务完成趋势', trailing: '近 30 天'),
-          const SizedBox(height: 14),
+          if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
+            const FxSectionHeader(
+              title: '每日任务完成趋势', trailing: '近 30 天'),
+            const SizedBox(height: 14),
+          ],
           if (_trendDays.isEmpty)
             Text(
               '暂无趋势数据',
@@ -736,12 +862,25 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         ],
       ),
     );
+    if (!SlowlightPlatformDensity.usesMobileTouchTargets) return trendCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(
+          title: '记录节奏', trailing: '已载入任务与习惯'),
+        const SizedBox(height: SlowlightSpacing.md),
+        trendCard,
+      ],
+    );
   }
 
   Widget _bars() {
     final theme = Theme.of(context);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     final values = _trendDays
-        .map((day) => (day['task_completed'] as num?)?.toInt() ?? 0)
+        .map((day) =>
+            ((day['task_completed'] as num?)?.toInt() ?? 0) +
+            (mobile ? ((day['habit_checked'] as num?)?.toInt() ?? 0) : 0))
         .toList(growable: false);
     final max = values.fold<int>(1, (a, b) => b > a ? b : a);
     return SizedBox(

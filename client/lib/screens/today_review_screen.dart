@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/habit.dart';
 import '../models/habit_log.dart';
 import '../models/reflection_entry.dart';
+import '../models/today_timeline_item.dart';
 import '../repositories/habit_repository.dart';
 import '../repositories/reflection_repository.dart';
 import '../services/api/review_api.dart';
@@ -33,6 +34,8 @@ class TodayReviewScreen extends StatefulWidget {
   final ReflectionRepository? reflectionRepository;
   final HabitRepository? habitRepository;
   final Future<Map<String, dynamic>> Function()? reviewLoader;
+  /// Optional test seam; production reuses the existing Local/Cloud ReviewApi.
+  final Future<ReviewPeriodTimeline> Function(int offset)? todayTimelineLoader;
 
   const TodayReviewScreen({
     super.key,
@@ -44,6 +47,7 @@ class TodayReviewScreen extends StatefulWidget {
     this.reflectionRepository,
     this.habitRepository,
     this.reviewLoader,
+    this.todayTimelineLoader,
   });
 
   @override
@@ -66,6 +70,12 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   List<_TodayHabitFact> _todayHabitFacts = const [];
   int _viewIndex = 0;
   int _periodIndex = 0;
+  String _reviewFilter = 'all';
+  List<TodayTimelineItem>? _nativeToday;
+  bool _nativeHasMore = false;
+  int _nativeNextOffset = 0;
+  bool _nativeLoadingMore = false;
+  bool _nativePageFailed = false;
   final Set<String> _answered = {};
   final Set<String> _expanded = {};
   final Map<String, TextEditingController> _answerControllers = {};
@@ -100,6 +110,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       if (widget.focusObservation != null) {
         _viewIndex = 0;
         _periodIndex = 0;
+        _reviewFilter = 'all';
       }
     }
   }
@@ -133,6 +144,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         // Main review facts are independent of recent responses and per-habit
         // log queries. Keep confirmed facts and draft visible while refreshing.
         _loading = !_hasConfirmedReview;
+        if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+          _nativeToday = null;
+          _nativeNextOffset = 0;
+          _nativeHasMore = false;
+          _nativeLoadingMore = false;
+          _nativePageFailed = false;
+        }
         _error = null;
         _refreshError = null;
         _reflectionsChecked = false;
@@ -147,6 +165,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     // Each task updates only its own state, and older results cannot win.
     unawaited(_loadReflections(version));
     unawaited(_loadHabitDetails(version));
+    // Native Local/Cloud events are the single source for the full Android day.
+    // Test loaders without a native seam keep their existing isolated fixtures.
+    if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+        widget.focusObservation == null &&
+        (widget.reviewLoader == null || widget.todayTimelineLoader != null)) {
+      unawaited(_loadNativeToday(version));
+    }
 
     try {
       final review = await (widget.reviewLoader ?? ReviewApi.getTodayReview)();
@@ -166,6 +191,57 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           _error = error.toString();
         }
         _loading = false;
+      });
+    }
+  }
+
+
+  Future<ReviewPeriodTimeline> _readNativeToday(int offset) =>
+      widget.todayTimelineLoader?.call(offset) ??
+      ReviewApi.getPeriodTimeline(period: 'today', offset: offset);
+
+  Future<void> _loadNativeToday(int version) async {
+    try {
+      final result = await _readNativeToday(0);
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _nativeToday = result.items;
+        _nativeHasMore = result.hasMore;
+        _nativeNextOffset = result.items.length;
+        _nativeLoadingMore = false;
+        _nativePageFailed = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      // Keep last confirmed rows; the existing Review facts remain a fallback.
+      setState(() => _nativePageFailed = true);
+    }
+  }
+
+  Future<void> _loadMoreNativeToday() async {
+    final old = _nativeToday;
+    if (old == null || !_nativeHasMore || _nativeLoadingMore) return;
+    final version = _loadVersion;
+    setState(() {
+      _nativeLoadingMore = true;
+      _nativePageFailed = false;
+    });
+    try {
+      final next = await _readNativeToday(_nativeNextOffset);
+      if (!mounted || version != _loadVersion) return;
+      final ids = old.map((event) => event.id).toSet();
+      final newItems = next.items.where((event) => ids.add(event.id));
+      setState(() {
+        _nativeToday = TodayTimelineItem.sorted([...old, ...newItems]);
+        _nativeHasMore = next.hasMore && next.items.isNotEmpty;
+        _nativeNextOffset += next.items.length;
+        _nativeLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _nativePageFailed = true;
+        _nativeLoadingMore = false;
       });
     }
   }
@@ -317,7 +393,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                   final periods = FxSegmented(
                     labels: const ['今天', '本周', '近 30 天'],
                     selectedIndex: _periodIndex,
-                    onChanged: (index) => setState(() => _periodIndex = index),
+                    onChanged: (index) => setState(() {
+                      _periodIndex = index;
+                      _reviewFilter = 'all';
+                    }),
                     expanded: compact,
                   );
                   if (compact) {
@@ -373,6 +452,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             onPressed: () => setState(() {
               _viewIndex = 0;
               _periodIndex = 1;
+              _reviewFilter = 'all';
             }),
           ),
           FxButton(
@@ -382,6 +462,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             onPressed: () => setState(() {
               _viewIndex = 0;
               _periodIndex = 2;
+              _reviewFilter = 'all';
             }),
           ),
           FxButton(
@@ -426,6 +507,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
   String _periodDescription() {
     if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      if (_periodIndex == 0) {
+        final day = DateTime.now().weekday;
+        const names = ['一', '二', '三', '四', '五', '六', '日'];
+        return '星期${names[day - 1]} · 回看事实，留下自己的理解';
+      }
       return '回看事实，留下自己的理解';
     }
     final now = DateTime.now();
@@ -550,7 +636,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                     const SizedBox(height: 16),
                   ],
                   _snapshotCard(facts),
-                  const SizedBox(height: 16),
+                  SizedBox(height: SlowlightPlatformDensity.usesMobileTouchTargets
+                      ? SlowlightSpacing.xl : 16),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final timeline = _factsCard(facts);
@@ -592,7 +679,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             timeline,
-                            const SizedBox(height: 16),
+                            SizedBox(height: SlowlightPlatformDensity.usesMobileTouchTargets
+                                ? SlowlightSpacing.xl : 16),
                             reflection,
                           ],
                         );
@@ -637,9 +725,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             horizontalGap: SlowlightSpacing.md,
             verticalGap: SlowlightSpacing.md,
             children: [
-              FxStatCell(value: '$tasks', label: '完成任务'),
-              FxStatCell(value: '$habits', label: '习惯打卡'),
-              FxStatCell(value: '$focus', label: '专注分钟'),
+              _reviewMetric('$tasks', '完成任务', 'task_completed', mobile),
+              _reviewMetric('$habits',
+                  mobile ? '习惯记录' : '习惯打卡', 'habit_checked', mobile),
+              _reviewMetric('$focus', '专注分钟', 'session_ended', mobile),
             ],
           ),
           if (!mobile) ...[
@@ -675,6 +764,34 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         const SizedBox(height: SlowlightSpacing.md),
         card,
       ],
+    );
+  }
+
+
+  Widget _reviewMetric(String value, String label, String kind, bool mobile) {
+    final cell = FxStatCell(value: value, label: label);
+    if (!mobile) return cell;
+    final selected = _reviewFilter == kind;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label $value，${selected ? '清除筛选' : '筛选对应轨迹'}',
+      child: FxInkWell(
+        key: ValueKey('review.metric.$kind'),
+        borderRadius: BorderRadius.circular(SlowlightRadius.md),
+        onTap: () => setState(() {
+          _reviewFilter = selected ? 'all' : kind;
+        }),
+        child: Container(
+          decoration: BoxDecoration(
+            color: selected
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: .08)
+                : null,
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          ),
+          child: cell,
+        ),
+      ),
     );
   }
 
@@ -790,7 +907,99 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     }
   }
 
+
+  Widget _nativeFactsCard() {
+    final source = _nativeToday ?? const <TodayTimelineItem>[];
+    final visible = _reviewFilter == 'all'
+        ? source
+        : source.where((event) => event.kind == _reviewFilter).toList();
+    final card = FxCard(
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
+      expanded: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (visible.isEmpty)
+            Text(
+              _reviewFilter != 'all'
+                  ? '当前类型暂无已载入记录'
+                  : '今天尚未载入可追溯的明细',
+              style: SlowlightTypography.secondary(context),
+            )
+          else
+            ...List.generate(visible.length, (index) {
+              final event = visible[index];
+              return ReviewTimelineItem(
+                key: ValueKey('review.native.${event.kind}:${event.id}:${event.occurredAt.microsecondsSinceEpoch}'),
+                kind: event.kind,
+                compact: true,
+                color: switch (event.kind) {
+                  'task_completed' => AppTheme.chartGreen,
+                  'habit_checked' => AppTheme.chartYellow,
+                  'observation' => AppTheme.chartPurple,
+                  _ => AppTheme.info,
+                },
+                time: event.timeLabel,
+                title: event.kind == 'observation'
+                    ? '记录观察' : event.description,
+                note: event.kind == 'observation' ? event.title : null,
+                last: index == visible.length - 1 && !_nativeHasMore,
+              );
+            }),
+          if (_nativeHasMore) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            FxButton(
+              label: _nativeLoadingMore ? '正在读取更多记录…' : '加载更多记录',
+              variant: FxButtonVariant.link,
+              size: FxButtonSize.sm,
+              onPressed: _nativeLoadingMore ? null : _loadMoreNativeToday,
+            ),
+          ],
+          if (_nativePageFailed) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            Text('后续轨迹尚未读取成功，已载入记录仍可查看。',
+                style: SlowlightTypography.caption(context)),
+            FxButton(
+              label: '重试读取',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: _nativeHasMore ? _loadMoreNativeToday : _load,
+            ),
+          ],
+        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: FxSectionHeader(
+                title: '发生过的事',
+                trailing: '${visible.length} 条已载入',
+              ),
+            ),
+            if (_reviewFilter != 'all')
+              FxButton(
+                label: '清除筛选',
+                variant: FxButtonVariant.ghost,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _reviewFilter = 'all'),
+              ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
+    );
+  }
+
   Widget _factsCard(Map<String, dynamic> facts) {
+    if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+        widget.focusObservation == null && _nativeToday != null) {
+      return _nativeFactsCard();
+    }
     final items = <ReviewTimelineItem>[];
     final tasks = (facts['today_completed_tasks'] as List? ?? const [])
         .whereType<Map>()
@@ -803,6 +1012,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       )?.toLocal();
       items.add(
         ReviewTimelineItem(
+          key: ValueKey('review.task.${task['id'] ?? task['title'] ?? ''}'),
+          kind: 'task_completed',
           color: AppTheme.chartGreen,
           time: completedAt == null ? '今天' : _clockTime(completedAt),
           title: '完成「${task['title'] ?? ''}」',
@@ -818,7 +1029,11 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         final log = fact.log;
         items.add(
           ReviewTimelineItem(
-            color: ColorUtils.safeParse(fact.habit.color),
+            key: ValueKey('review.habit.${fact.habit.id}.${log.id}'),
+            kind: 'habit_checked',
+            color: SlowlightPlatformDensity.usesMobileTouchTargets
+                ? AppTheme.chartYellow
+                : ColorUtils.safeParse(fact.habit.color),
             // Backfilled habits have an occurrence instant distinct from
             // their record creation time. Do not invent a logging timestamp.
             time: _clockTime(_habitFactOccurredAt(log)),
@@ -832,6 +1047,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       if (habitChecked > 0) {
         items.add(
           ReviewTimelineItem(
+            kind: 'habit_checked',
             color: AppTheme.chartYellow,
             time: '今天',
             title: '习惯打卡 $habitChecked 次',
@@ -851,6 +1067,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           : '主要投入：${distribution.first['name'] ?? ''}';
       items.add(
         ReviewTimelineItem(
+          kind: 'session_ended',
           color: AppTheme.info,
           time: '今天',
           title: '专注 $focusMinutes 分钟 · $focusCount 次',
@@ -868,6 +1085,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         .take(5)) {
       items.add(
         ReviewTimelineItem(
+          key: ValueKey('review.observation.${entry.id}'),
+          kind: 'observation',
           color: AppTheme.chartPurple,
           time: _clockTime(entry.createdAt),
           title: '记录观察',
@@ -888,6 +1107,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         0,
         ReviewTimelineItem(
           key: _focusedObservationKey,
+          kind: 'observation',
           color: AppTheme.chartPurple,
           time: '${focused.createdAt.year}-${_two(focused.createdAt.month)}-${_two(focused.createdAt.day)} ${_clockTime(focused.createdAt)}',
           title: '定位观察 · 原始记录',
@@ -914,6 +1134,9 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       }
     }
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final visibleItems = mobile && _reviewFilter != 'all'
+        ? items.where((item) => item.kind == _reviewFilter).toList()
+        : items;
     final card = FxCard(
       padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
@@ -924,12 +1147,14 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
             const FxSectionHeader(title: '行为轨迹'),
             const SizedBox(height: SlowlightSpacing.xl),
           ],
-          if (items.isEmpty)
+          if (visibleItems.isEmpty)
             mobile
                 ? Text(
-                    _partialUnavailable.isEmpty
-                        ? '今天还没有留下记录'
-                        : '部分记录尚未读取成功，请稍后核对。',
+                    _reviewFilter != 'all'
+                        ? '当前类型暂无已载入记录'
+                        : _partialUnavailable.isEmpty
+                            ? '今天还没有留下记录'
+                            : '部分记录尚未读取成功，请稍后核对。',
                     style: SlowlightTypography.secondary(context),
                   )
                 : FxEmptyState(
@@ -944,14 +1169,16 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                   )
           else
             ...List.generate(
-              items.length,
+              visibleItems.length,
               (index) => ReviewTimelineItem(
-                key: items[index].key,
-                color: items[index].color,
-                time: items[index].time,
-                title: items[index].title,
-                note: items[index].note,
-                last: index == items.length - 1,
+                key: visibleItems[index].key,
+                kind: visibleItems[index].kind,
+                compact: mobile,
+                color: visibleItems[index].color,
+                time: visibleItems[index].time,
+                title: visibleItems[index].title,
+                note: visibleItems[index].note,
+                last: index == visibleItems.length - 1,
               ),
             ),
         ],
@@ -961,13 +1188,35 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FxSectionHeader(
-          title: '发生过的事',
-          trailing: _partialUnavailable.isNotEmpty
-              ? '待核对'
-              : '$todayItemCount 项',
+        Row(
+          children: [
+            Expanded(
+              child: FxSectionHeader(
+                title: '发生过的事',
+                trailing: _partialUnavailable.isNotEmpty
+                    ? '待核对'
+                    : _reviewFilter == 'all'
+                        ? '$todayItemCount 项'
+                        : '${visibleItems.length} 条已载入',
+              ),
+            ),
+            if (_reviewFilter != 'all')
+              FxButton(
+                label: '清除筛选',
+                variant: FxButtonVariant.ghost,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _reviewFilter = 'all'),
+              ),
+          ],
         ),
         const SizedBox(height: SlowlightSpacing.md),
+        if (_nativePageFailed) ...[
+          Text(
+            '完整轨迹暂不可用，以下仅为已载入记录。',
+            style: SlowlightTypography.caption(context),
+          ),
+          const SizedBox(height: SlowlightSpacing.xs),
+        ],
         card,
       ],
     );
