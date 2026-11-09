@@ -69,6 +69,19 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('FxActionBar 360dp 短说明与单操作不应提前分行', (tester) async {
+    await tester.pumpWidget(
+      buildFxTestHost(home: Scaffold(body: actionBar(width: 360, scale: 1))),
+    );
+
+    final leading = tester.getRect(find.text('筛选条件'));
+    final action = tester.getRect(find.text('新建任务'));
+    expect((leading.center.dy - action.center.dy).abs(), lessThan(20));
+    expect(action.center.dx, greaterThan(leading.center.dx));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('FxActionBar 窄屏大字体时动作下移但继续右对齐', (tester) async {
     await tester.pumpWidget(
       buildFxTestHost(
