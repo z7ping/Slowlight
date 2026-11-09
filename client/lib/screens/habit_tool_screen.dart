@@ -896,7 +896,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: SlowlightSpacing.md),
+                        SizedBox(height: mobile
+                            ? SlowlightSpacing.md
+                            : SlowlightSpacing.xl),
                         FxSeparator.horizontal(
                             margin: EdgeInsets.zero,
                             color: theme.colorScheme.outlineVariant),
