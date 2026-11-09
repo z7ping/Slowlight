@@ -24,7 +24,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
 
   late Future<String> _logs;
   late final Future<String> _version;
-  bool _showRawLogs = false;
+  bool _initialScrollPending = true;
   final ScrollController _rawScroll = ScrollController();
   bool _followLatest = true;
   bool _exporting = false;
@@ -70,14 +70,15 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
 
   Future<void> _reload() async {
     if (_busy) return;
-    final wasFollowing = _followLatest;
     final pending = _logger.readRecent();
-    setState(() { _logs = pending; });
+    setState(() {
+      _logs = pending;
+      _initialScrollPending = _followLatest;
+    });
     try {
       await pending;
-      if (mounted && _showRawLogs && wasFollowing) _jumpToLatest();
     } catch (_) {
-      // FutureBuilder 持续显示读取失败与重新读取操作。
+      // 读取失败由 FutureBuilder 显示，页面保留唯一重试入口。
     }
   }
 
@@ -96,8 +97,9 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       await _logger.clear();
       if (!mounted) return;
       setState(() {
-        _showRawLogs = false;
         _logs = _logger.readRecent();
+        _followLatest = true;
+        _initialScrollPending = true;
       });
       FxNotice.success(context, '本机日志已清空');
     } catch (e) {
@@ -152,7 +154,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
   Widget _detailRow(String label, String value) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+      padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -184,13 +186,9 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(SlowlightRadius.md),
-          ),
-          child: Icon(icon, size: 24, color: theme.colorScheme.onSurfaceVariant),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -222,103 +220,161 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     );
   }
 
+  /// 固定视口只显示最近部分；完整日志按需读取并分段懒构建。
   Widget _rawLogPanel(String logs) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FxInkWell(
-          key: const ValueKey('diagnostics.raw_toggle'),
-          onTap: () {
-            final showing = !_showRawLogs;
-            setState(() {
-              _showRawLogs = showing;
-              if (showing) _followLatest = true;
-            });
-            if (showing) _jumpToLatest();
-          },
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('日志原文',
-                      style: SlowlightTypography.secondary(context).copyWith(
-                        fontWeight: FontWeight.w600,
-                      )),
+        Row(
+          children: [
+            Expanded(
+              child: Text('诊断日志',
+                style: SlowlightTypography.secondary(context).copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                Text(
-                  _showRawLogs ? '收起' : '展开',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              ),
+            ),
+            FxButton(
+              key: const ValueKey('diagnostics.copy_recent'),
+              label: '复制',
+              icon: LucideIcons.copy,
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: logs));
+                if (mounted) FxNotice.success(context, '已复制当前显示的日志');
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        Container(
+          key: const ValueKey('diagnostics.raw_viewport'),
+          height: _android ? 220 : 280,
+          width: double.infinity,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLow,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          ),
+          child: Scrollbar(
+            controller: _rawScroll,
+            thumbVisibility: !_android,
+            child: SingleChildScrollView(
+              controller: _rawScroll,
+              padding: const EdgeInsets.all(SlowlightSpacing.md),
+              child: SelectableText(
+                logs,
+                key: const ValueKey('diagnostics.raw_text'),
+                style: SlowlightTypography.caption(context).copyWith(
+                  fontFamily: 'monospace', height: 1.5,
                 ),
-                const SizedBox(width: 6),
-                Icon(
-                  _showRawLogs ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                  size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ],
+              ),
             ),
           ),
         ),
-        if (_showRawLogs) ...[
-          const SizedBox(height: SlowlightSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '仅记录应用异常与必要的认证状态 · 导出包含完整记录',
-                  style: SlowlightTypography.caption(context).copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              if (!_followLatest)
-                FxButton(
-                  key: const ValueKey('diagnostics.scroll_latest'),
-                  label: '跳到最新',
-                  icon: LucideIcons.arrowDown,
-                  size: FxButtonSize.sm,
-                  variant: FxButtonVariant.ghost,
-                  onPressed: () {
-                    setState(() => _followLatest = true);
-                    _jumpToLatest();
-                  },
-                ),
-            ],
-          ),
-          Container(
-            key: const ValueKey('diagnostics.raw_viewport'),
-            height: _android ? 220 : 280,
-            width: double.infinity,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-              borderRadius: BorderRadius.circular(SlowlightRadius.md),
-            ),
-            child: Scrollbar(
-              controller: _rawScroll,
-              thumbVisibility: !_android,
-              child: SingleChildScrollView(
-                controller: _rawScroll,
-                padding: const EdgeInsets.all(SlowlightSpacing.md),
-                child: SelectableText(
-                  logs,
-                  key: const ValueKey('diagnostics.raw_text'),
-                  style: SlowlightTypography.caption(context).copyWith(
-                    fontFamily: 'monospace',
-                    height: 1.5,
-                  ),
-                ),
+        Wrap(
+          spacing: SlowlightSpacing.md,
+          runSpacing: SlowlightSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            Text('仅显示最近部分，导出包含完整日志',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
-        ],
+            if (!_followLatest)
+              FxButton(
+                key: const ValueKey('diagnostics.scroll_latest'),
+                label: '跳到最新',
+                size: FxButtonSize.sm,
+                variant: FxButtonVariant.ghost,
+                onPressed: () {
+                  setState(() => _followLatest = true);
+                  _jumpToLatest();
+                },
+              ),
+            FxButton(
+              key: const ValueKey('diagnostics.full_log'),
+              label: '查看全文',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: _openFullLogs,
+            ),
+          ],
+        ),
       ],
     );
+  }
+
+  Future<void> _openFullLogs() async {
+    try {
+      final contents = await _logger.readText();
+      if (!mounted) return;
+      if (contents.trim().isEmpty) {
+        FxNotice.warning(context, '目前没有可查看的日志');
+        return;
+      }
+      final chunks = <String>[];
+      var buffer = StringBuffer();
+      for (final line in contents.split('\n')) {
+        if (buffer.length + line.length > 3000 && buffer.isNotEmpty) {
+          chunks.add(buffer.toString());
+          buffer = StringBuffer();
+        }
+        buffer.writeln(line);
+      }
+      if (buffer.isNotEmpty) chunks.add(buffer.toString());
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (pageContext) => Scaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  FxPageHeader(
+                    title: '完整诊断日志',
+                    trailing: FxButton(
+                      key: const ValueKey('diagnostics.copy_full'),
+                      label: '复制全部',
+                      size: FxButtonSize.sm,
+                      variant: FxButtonVariant.outline,
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: contents));
+                        if (pageContext.mounted) {
+                          FxNotice.success(pageContext, '已复制完整日志');
+                        }
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: SelectionArea(
+                      child: ListView.builder(
+                        key: const ValueKey('diagnostics.full_viewport'),
+                        padding: const EdgeInsets.all(SlowlightSpacing.md),
+                        itemCount: chunks.length,
+                        itemBuilder: (context, index) => Text(
+                          chunks[index],
+                          style: SlowlightTypography.caption(context).copyWith(
+                            fontFamily: 'monospace', height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        FxNotice.errorWithDetails(context, '读取完整日志失败', e.toString());
+      }
+    }
   }
 
   @override
@@ -328,15 +384,10 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            FxPageHeader(
-              title: '应用诊断',
-              actionIcon: LucideIcons.refreshCw,
-              actionTooltip: '刷新诊断记录',
-              onAction: _busy ? null : _reload,
-            ),
+            const FxPageHeader(title: '应用诊断'),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 children: [
                   Center(
                     child: ConstrainedBox(
@@ -344,7 +395,6 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _sectionTitle('诊断记录'),
                           FutureBuilder<String>(
                             future: _logs,
                             builder: (context, snapshot) {
@@ -383,20 +433,21 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                                           '本设备没有已保存的诊断日志。遇到异常时可在这里查看。',
                                     )
                                   else ...[
-                                    _recordState(
-                                      icon: LucideIcons.fileText,
-                                      title: '已有诊断记录',
-                                      description:
-                                          '可查看日志原文，或导出完整记录用于排查。',
-                                    ),
-                                    const SizedBox(height: SlowlightSpacing.md),
+                                    if (_initialScrollPending)
+                                      Builder(
+                                        builder: (context) {
+                                          _initialScrollPending = false;
+                                          _jumpToLatest();
+                                          return const SizedBox.shrink();
+                                        },
+                                      ),
                                     _rawLogPanel(logs),
                                   ],
-                                  const SizedBox(height: SlowlightSpacing.xl),
+                                  const SizedBox(height: SlowlightSpacing.md),
                                   FxSeparator.horizontal(
                                     color: theme.colorScheme.outlineVariant,
                                   ),
-                                  const SizedBox(height: SlowlightSpacing.xl),
+                                  const SizedBox(height: SlowlightSpacing.md),
                                   _sectionTitle('诊断信息'),
                                   FutureBuilder<String>(
                                     future: _version,
@@ -411,46 +462,27 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                                   ),
                                   _detailRow('运行平台', defaultTargetPlatform.name),
                                   _detailRow('日志存储', '仅本设备'),
-                                  const SizedBox(height: SlowlightSpacing.xl),
+                                  const SizedBox(height: SlowlightSpacing.md),
                                   FxSeparator.horizontal(
                                     color: theme.colorScheme.outlineVariant,
                                   ),
-                                  const SizedBox(height: SlowlightSpacing.xl),
+                                  const SizedBox(height: SlowlightSpacing.md),
                                   _sectionTitle('日志管理'),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text('导出诊断日志',
-                                              style: SlowlightTypography.secondary(context)),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              hasLogs
-                                                  ? _android
-                                                      ? '使用系统分享发送完整日志'
-                                                      : '复制完整日志到剪贴板'
-                                                  : '当前没有可导出的记录',
-                                              style: SlowlightTypography.caption(context).copyWith(
-                                                color: theme.colorScheme.onSurfaceVariant,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      FxButton(
-                                        key: const ValueKey('diagnostics.export'),
-                                        label: _exporting
-                                            ? '导出中…'
-                                            : _android
-                                                ? '导出'
-                                                : '复制',
-                                        size: FxButtonSize.sm,
-                                        onPressed: hasLogs && !_busy ? _export : null,
-                                      ),
-                                    ],
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FxButton(
+                                      key: const ValueKey('diagnostics.export'),
+                                      label: _exporting
+                                          ? '导出中…'
+                                          : _android
+                                              ? '导出诊断日志'
+                                              : '复制完整日志',
+                                      icon: _android
+                                          ? LucideIcons.share2
+                                          : LucideIcons.copy,
+                                      expanded: true,
+                                      onPressed: hasLogs && !_busy ? _export : null,
+                                    ),
                                   ),
                                   if (hasLogs) ...[
                                     const SizedBox(height: SlowlightSpacing.md),
@@ -466,29 +498,19 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                               );
                             },
                           ),
-                          const SizedBox(height: SlowlightSpacing.xl),
-                          Container(
-                            padding: const EdgeInsets.all(SlowlightSpacing.md),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(LucideIcons.shieldCheck,
-                                  size: 18, color: theme.colorScheme.onSurfaceVariant),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    '诊断日志默认不会上传。主动分享前，请检查其中是否包含个人信息。',
-                                    style: SlowlightTypography.caption(context).copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          const SizedBox(height: SlowlightSpacing.md),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(LucideIcons.shieldCheck,
+                                size: 18, color: theme.colorScheme.onSurfaceVariant),
+                              const SizedBox(width: SlowlightSpacing.md),
+                              Expanded(child: Text(
+                                '日志不会自动上传。分享前请检查是否包含个人信息。',
+                                style: SlowlightTypography.caption(context).copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant),
+                              )),
+                            ],
                           ),
                         ],
                       ),
