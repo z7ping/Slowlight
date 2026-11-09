@@ -286,7 +286,9 @@ class CalendarHeaderActions extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(LucideIcons.listFilter, size: 19),
-                  if (controller.mode != CalendarDisplayMode.all) ...[
+                  if (controller.mode != CalendarDisplayMode.all &&
+                       (!SlowlightPlatformDensity.usesMobileTouchTargets ||
+                        MediaQuery.sizeOf(context).width >= 480)) ...[
                     const SizedBox(width: 4),
                     Text(
                       controller.mode == CalendarDisplayMode.plan ? '计划' : '实际',
@@ -972,6 +974,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
           );
         }),
         if (leftover.isNotEmpty) _remainingRecords(leftover),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: FxButton(
+              key: const ValueKey('calendar-period-add-task'),
+              label: '安排任务',
+              icon: LucideIcons.plus,
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.outline,
+              onPressed: () => _addTask(_selected),
+            ),
+          ),
+        ),
       ],
     );
   }
