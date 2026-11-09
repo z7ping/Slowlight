@@ -546,7 +546,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 月度统计采用 V4 左灰卡、右紧凑方块', (tester) async {
+  testWidgets('Android 月度统计采用轻量数字与右侧紧凑热力图', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 800);
@@ -566,19 +566,50 @@ void main() {
     expect(dayStat, findsOneWidget);
     expect(logStat, findsOneWidget);
     expect(tester.getSize(dayStat).width, inInclusiveRange(88, 105));
-    expect(tester.getSize(dayStat).height, greaterThanOrEqualTo(61));
+    expect(tester.getSize(dayStat).height, greaterThanOrEqualTo(48));
     expect(tester.getTopLeft(dayStat).dx,
         lessThan(tester.getTopLeft(grid).dx));
     expect(tester.getTopLeft(dayStat).dy,
         lessThan(tester.getTopLeft(logStat).dy));
-    final decoration =
-        tester.widget<Container>(dayStat).decoration! as BoxDecoration;
-    expect(decoration.border, isNull);
-    expect(decoration.color,
-        Theme.of(tester.element(dayStat)).colorScheme.surfaceContainerLow);
+    // Month counts are now quiet inline facts, not secondary gray cards.
+    expect(tester.widget<Container>(dayStat).decoration, isNull);
     expect(tester.getSize(grid).width,
         lessThanOrEqualTo(HabitHeatmap.compactMaxWidth));
     expect(tester.getSize(grid).width, greaterThan(160));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 最近记录与底部操作层级保持克制', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: HabitToolScreen(repository: _P05SingleLogRepo()),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('habits.details.79')));
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(const ValueKey('habits.logs.row.501'));
+    final undo = find.byKey(const ValueKey('habits.logs.cancel.501'));
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
+    expect(find.text('最近记录'), findsOneWidget);
+    expect(find.text('1 条'), findsOneWidget);
+    expect(find.text('独立事实'), findsOneWidget);
+    expect(undo, findsOneWidget);
+    expect(tester.getSize(undo).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(row).height, lessThan(74));
+    expect(
+      tester.widget<FxButton>(find.widgetWithText(FxButton, '编辑')).variant,
+      FxButtonVariant.ghost,
+    );
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
