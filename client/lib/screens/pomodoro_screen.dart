@@ -678,7 +678,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       final active = editorContext;
       if (active == null || !active.mounted) return;
       if (!mobileSheet) {
-        Navigator.of(active).pop(save);
+        Navigator.of(active, rootNavigator: true).pop(save);
         return;
       }
       editorSetState?.call(() => allowSheetPop = true);
@@ -813,7 +813,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           expanded: mobileSheet,
           onPressed: mobileSheet
               ? requestSettingsClose
-              : () => Navigator.of(dialogContext).pop(false),
+              : () => Navigator.of(dialogContext, rootNavigator: true).pop(false),
         );
         final save = FxButton(
           label: '保存设置',
