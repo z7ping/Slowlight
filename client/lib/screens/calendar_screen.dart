@@ -20,6 +20,7 @@ class CalendarHeaderController extends ChangeNotifier {
   CalendarViewMode _viewMode = CalendarViewMode.month;
   bool _loading = false;
   Future<void> Function(int)? _onMoveMonth;
+  Future<void> Function(int)? _onMovePeriod;
   Future<void> Function()? _onToday;
   void Function(CalendarDisplayMode)? _onFilter;
   void Function(CalendarViewMode)? _onViewMode;
@@ -31,11 +32,13 @@ class CalendarHeaderController extends ChangeNotifier {
 
   void attach({
     required Future<void> Function(int) onMoveMonth,
+    required Future<void> Function(int) onMovePeriod,
     required Future<void> Function() onToday,
     required void Function(CalendarDisplayMode) onFilter,
     required void Function(CalendarViewMode) onViewMode,
   }) {
     _onMoveMonth = onMoveMonth;
+    _onMovePeriod = onMovePeriod;
     _onToday = onToday;
     _onFilter = onFilter;
     _onViewMode = onViewMode;
@@ -43,6 +46,7 @@ class CalendarHeaderController extends ChangeNotifier {
 
   void detach() {
     _onMoveMonth = null;
+    _onMovePeriod = null;
     _onToday = null;
     _onFilter = null;
     _onViewMode = null;
@@ -63,6 +67,10 @@ class CalendarHeaderController extends ChangeNotifier {
     if (!_loading) await _onMoveMonth?.call(delta);
   }
 
+  Future<void> movePeriod(int delta) async {
+    if (!_loading) await _onMovePeriod?.call(delta);
+  }
+
   Future<void> goToday() async {
     if (!_loading) await _onToday?.call();
   }
@@ -80,6 +88,7 @@ class CalendarMonthTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) => FxMenu<int>(
@@ -129,8 +138,8 @@ class CalendarMonthTitle extends StatelessWidget {
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minHeight: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 30,
-            maxWidth: SlowlightPlatformDensity.usesMobileTouchTargets ? 190 : 260,
+            minHeight: mobile ? 44 : 30,
+            maxWidth: mobile ? 112 : 260,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
@@ -139,11 +148,16 @@ class CalendarMonthTitle extends StatelessWidget {
             children: [
               Flexible(
                 child: Text(
-                '${controller.month.year} 年 ${controller.month.month} 月',
+                mobile
+                    ? '${controller.month.year}年${controller.month.month}月'
+                    : '${controller.month.year} 年 ${controller.month.month} 月',
                 key: const ValueKey('calendar-month-label'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.componentPageTitle(context),
+                style: mobile
+                    ? SlowlightTypography.secondary(context)
+                        .copyWith(fontWeight: FontWeight.w700)
+                    : SlowlightTypography.componentPageTitle(context),
                 ),
               ),
               const SizedBox(width: 4),
@@ -169,6 +183,29 @@ class CalendarHeaderActions extends StatelessWidget {
     builder: (context, _) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (SlowlightPlatformDensity.usesMobileTouchTargets) ...[
+          FxIconButton(
+            key: const ValueKey('calendar-period-prev'),
+            icon: LucideIcons.chevronLeft,
+            iconSize: 16,
+            tooltip: '上一周期',
+            onPressed: controller.loading ? null : () => controller.movePeriod(-1),
+          ),
+          FxIconButton(
+            key: const ValueKey('calendar-period-next'),
+            icon: LucideIcons.chevronRight,
+            iconSize: 16,
+            tooltip: '下一周期',
+            onPressed: controller.loading ? null : () => controller.movePeriod(1),
+          ),
+          if (MediaQuery.sizeOf(context).width >= 412)
+            FxButton(
+              label: '今天',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: controller.loading ? null : controller.goToday,
+            ),
+        ],
         FxMenu<CalendarViewMode>(
           key: const ValueKey('calendar-view-toggle'),
           tooltip: '切换日历视图',
@@ -299,6 +336,10 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   final _dayPanelKey = GlobalKey();
+  static const _calendarAxisWidth = 36.0;
+  static const _calendarHourHeight = 54.0;
+  static const _calendarStartMinute = 8 * 60;
+  static const _calendarEndMinute = 22 * 60;
   late final CalendarHeaderController _headerController;
   late final bool _ownsHeaderController;
   late DateTime _focused;
@@ -312,6 +353,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   int _loadVersion = 0;
   CalendarViewMode _viewMode = CalendarViewMode.month;
   bool _modeTouched = false;
+  bool _untimedExpanded = false;
+  String? _draggingRecordId;
+  Offset _dragOrigin = Offset.zero;
+  Offset _dragOffset = Offset.zero;
   final Map<int, CalendarMonthData> _rangeCache = {};
   bool _rangeLoading = false;
   bool _rangeFailed = false;
@@ -336,7 +381,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _ownsHeaderController = widget.headerController == null;
     _headerController = widget.headerController ?? CalendarHeaderController();
     _viewMode = _headerController.viewMode;
-    _headerController.attach(onMoveMonth: _moveMonth, onToday: _goToday,
+    _headerController.attach(onMoveMonth: _moveMonth,
+        onMovePeriod: _shiftPeriod, onToday: _goToday,
         onFilter: _setFilter, onViewMode: _setViewMode);
     _restoreViewMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -395,6 +441,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (_viewMode == view) return;
     setState(() {
       if (view == CalendarViewMode.threeDays) _threeDayStart = _selected;
+      _untimedExpanded = false;
       _viewMode = view;
     });
     _notifyHeader();
@@ -486,6 +533,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _shiftPeriod(int direction) async {
     if (_loading || _rangeLoading) return;
+    if (_viewMode == CalendarViewMode.month) {
+      await _moveMonth(direction);
+      return;
+    }
     final step = switch (_viewMode) {
       CalendarViewMode.day => 1,
       CalendarViewMode.threeDays => 3,
@@ -497,6 +548,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final next = DateTime(anchor.year, anchor.month,
         anchor.day + step * direction);
     if (_viewMode == CalendarViewMode.threeDays) _threeDayStart = next;
+    if (mounted) setState(() => _untimedExpanded = false);
     await _selectDate(next);
   }
 
@@ -575,6 +627,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final cached = changeMonth ? _rangeCache[_monthKey(date)] : null;
     setState(() {
       _selected = DateTime(date.year, date.month, date.day);
+      if (changeMonth) _untimedExpanded = false;
       if (changeMonth) {
         _focused = DateTime(date.year, date.month, 1);
         // Neighboring dates are already loaded by the current date strip.
@@ -598,7 +651,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  Future<void> _addTask(DateTime date) async {
+  Future<void> _addTask(DateTime date, {TimeOfDay? time}) async {
     await _selectDate(date);
     if (!mounted) return;
     if (widget.createTaskOverride != null) {
@@ -611,6 +664,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         context,
         lists: widget.createListsOverride,
         initialDueDate: date,
+        initialDueTime: time,
         defaultDueToday: false,
         onChanged: _refresh,
       );
@@ -646,7 +700,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: ListView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(20, widget.headerInAppBar ? 4 : 18, 20, 32),
+        padding: EdgeInsets.fromLTRB(
+          widget.headerInAppBar && SlowlightPlatformDensity.usesMobileTouchTargets ? 12 : 20,
+          widget.headerInAppBar ? 4 : 18,
+          widget.headerInAppBar && SlowlightPlatformDensity.usesMobileTouchTargets ? 12 : 20,
+          32,
+        ),
         children: [
           Center(
             child: ConstrainedBox(
@@ -698,8 +757,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       const SizedBox(height: 14),
                       _dayPanel(),
                     ] else ...[
-                      _dateStrip(),
-                      const SizedBox(height: 8),
+                      // The shared date header is part of the time grid.
                       if (_rangeLoading)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 36),
@@ -716,7 +774,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         )
                       else
-                        _selectedTimeline(),
+                        _timeGrid(),
                     ],
                   ],
                 ],
