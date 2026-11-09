@@ -131,7 +131,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
     return _card(
       padding: const EdgeInsets.all(SlowlightSpacing.md),
       child: LayoutBuilder(
-        builder: (context, constraints) {
+        builder: (context, _) {
           final identity = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
