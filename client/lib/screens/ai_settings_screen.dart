@@ -186,7 +186,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     if (_busy || _selected == null || _selected!.config.provider == provider) return;
     // Changing provider also resets the endpoint/model/key. Confirm only if
     // something in this editor has already been changed.
-    if (_dirty && !await _confirmDiscardProvider() || !mounted) return;
+    if ((_dirty && !await _confirmDiscardProvider()) || !mounted) return;
     setState(() {
       _selected = _selected!.copyWith(
         config: AiConfig(
@@ -228,11 +228,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       ) == true;
 
   Future<String> _keyFor(AiProfile profile) async {
-    final entered = _keyController.text.trim();
-    if (entered.isNotEmpty && profile.id == _selected?.id) return entered;
-    if (_savedSelected?.id == profile.id &&
-        _savedSelected?.config.provider == profile.config.provider) {
-      return await _store.loadProfileKey(profile) ?? '';
+    if (profile.id == _selected?.id) {
+      final typed = _keyController.text.trim();
+      if (typed.isNotEmpty) return typed;
+      // New drafts and provider changes must not borrow an old credential.
+      if (_savedSelected == null ||
+          _savedSelected!.config.provider != profile.config.provider) {
+        return '';
+      }
     }
     return await _store.loadProfileKey(profile) ?? '';
   }
@@ -269,11 +272,16 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       if (index < 0) profiles.add(draft);
       else profiles[index] = draft;
       final updated = _catalog.copyWith(profiles: profiles);
+      final providerChanged = _savedSelected != null &&
+          _savedSelected!.config.provider != draft.config.provider;
       await _store.saveCatalog(
         updated,
         secretProfile: draft,
         newApiKey: _keyController.text.trim().isEmpty
             ? null : _keyController.text.trim(),
+        // Existing ID-scoped key belongs to the previous provider.
+        clearKey: providerChanged && _keyController.text.trim().isEmpty &&
+            draft.id != 'legacy',
       );
       if (!mounted) return;
       setState(() {
