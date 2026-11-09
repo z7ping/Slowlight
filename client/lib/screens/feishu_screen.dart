@@ -36,6 +36,8 @@ class _FeishuScreenState extends State<FeishuScreen> {
   bool _isConnecting = false;
   bool _isSyncingCalendar = false;
   bool _isLoadingCalendars = false;
+  bool _calendarLoaded = false;
+  String? _calendarReadError;
   bool _showSecret = false;
   bool _editingConfiguration = false;
   bool _guideExpanded = false;
@@ -146,6 +148,8 @@ class _FeishuScreenState extends State<FeishuScreen> {
       _isSyncingCalendar = false;
       _isLoading = true;
       _isLoadingCalendars = false;
+      _calendarLoaded = false;
+      _calendarReadError = null;
       _loadError = null;
       _isConfigured = false;
       _calendars = [];
@@ -203,11 +207,17 @@ class _FeishuScreenState extends State<FeishuScreen> {
     final read = ++_calendarReadVersion;
     bool current() => _sameSource(source, true) &&
         read == _calendarReadVersion;
-    setState(() => _isLoadingCalendars = true);
+    setState(() {
+      _isLoadingCalendars = true;
+      _calendarLoaded = false;
+      _calendarReadError = null;
+    });
     try {
       final calendars = await _integration.calendars();
       if (!current()) return;
       setState(() {
+        _calendarLoaded = true;
+        _calendarReadError = null;
         _calendars = calendars;
         if (!calendars.any((item) => item['id']?.toString() == _selectedCalendarId)) {
           if (calendars.isEmpty) {
@@ -222,7 +232,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
         }
       });
     } catch (error) {
-      if (current()) _showError('读取飞书日历失败：$error');
+      if (current()) {
+        setState(() => _calendarReadError = error.toString());
+        _showError('读取飞书日历失败：$error');
+      }
     } finally {
       if (current()) setState(() => _isLoadingCalendars = false);
     }
