@@ -666,24 +666,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     var soundEnabled = _soundEnabled;
     var linkedTaskId = _linkedTaskId;
 
-    final saved = await FxDialog.show<bool>(
-      context: context,
-      title: '🍅 专注设置',
-      showCloseButton: false,
-      child: StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final theme = Theme.of(dialogContext);
-          return ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(dialogContext).height * .72,
-            ),
-            child: SingleChildScrollView(
-              child: SizedBox(
-                width: 360,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+    final platform = Theme.of(context).platform;
+    final mobileSheet =
+        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    BuildContext? editorContext;
+
+    // Both platforms share the same settings fields and temporary draft.
+    // Android uses the approved FxSheet surface; Windows keeps FxDialog.
+    final editor = StatefulBuilder(
+      builder: (dialogContext, setDialogState) {
+        editorContext = dialogContext;
+        final theme = Theme.of(dialogContext);
+        final controls = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
                     _settingsLine(
                       dialogContext,
                       title: '专注时长',
@@ -763,40 +760,116 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          size: FxButtonSize.sm,
-                          onPressed:
-                              () => Navigator.of(
-                                dialogContext,
-                                rootNavigator: true,
-                              ).pop(false),
-                        ),
-                        const SizedBox(width: 8),
-                        FxButton(
-                          label: '保存设置',
-                          size: FxButtonSize.sm,
-                          onPressed:
-                              () => Navigator.of(
-                                dialogContext,
-                                rootNavigator: true,
-                              ).pop(true),
-                        ),
-                      ],
-                    ),
+          ],
+        );
+        final cancel = FxButton(
+          label: '取消',
+          variant: FxButtonVariant.outline,
+          size: mobileSheet ? FxButtonSize.md : FxButtonSize.sm,
+          expanded: mobileSheet,
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+        );
+        final save = FxButton(
+          label: '保存设置',
+          size: mobileSheet ? FxButtonSize.md : FxButtonSize.sm,
+          expanded: mobileSheet,
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+        );
+
+        if (!mobileSheet) {
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * .72,
+            ),
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    controls,
+                    const SizedBox(height: SlowlightSpacing.xl),
+                    FxDialogActions(actions: [cancel, save]),
                   ],
                 ),
               ),
             ),
           );
-        },
-      ),
+        }
+
+        return SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            key: const ValueKey('pomodoro.settings.mobile'),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * .84,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Text(
+                    '专注设置',
+                    style: SlowlightTypography.componentDialogTitle(dialogContext),
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: controls,
+                  ),
+                ),
+                FxSeparator.horizontal(
+                  height: 1,
+                  color: theme.colorScheme.outlineVariant,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 10, child: cancel),
+                      const SizedBox(width: SlowlightSpacing.md),
+                      Expanded(flex: 18, child: save),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
+
+    // Dismissing has the same meaning as Cancel: unsaved local choices
+    // are discarded and no preference is written.
+    Future<void> dismissSettings() async {
+      final active = editorContext;
+      if (active != null && active.mounted) {
+        Navigator.of(active).pop(false);
+      }
+    }
+
+    final saved = mobileSheet
+        ? await FxSheet.show<bool>(
+            context: context,
+            isDismissible: false,
+            draggable: false,
+            showDragHandle: true,
+            onDismissRequested: dismissSettings,
+            showCloseButton: false,
+            padding: EdgeInsets.zero,
+            backgroundColor: fxSurface(context),
+            builder: (_) => editor,
+          )
+        : await FxDialog.show<bool>(
+            context: context,
+            title: '🍅 专注设置',
+            showCloseButton: false,
+            child: editor,
+          );
 
     if (saved != true || !mounted) return;
     try {
