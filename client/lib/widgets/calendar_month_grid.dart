@@ -285,7 +285,7 @@ class CalendarMonthGrid extends StatelessWidget {
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 6),
             child: Text(
-              '${record.title}$suffix',
+              compact ? record.title : '${record.title}$suffix',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: SlowlightTypography.caption(context).copyWith(
@@ -301,17 +301,29 @@ class CalendarMonthGrid extends StatelessWidget {
     );
   }
 
-  List<CalendarRecord> _visibleRecords(DateTime date) => records
-      .where((record) {
-        if (!_sameDay(record.date, date)) return false;
-        return switch (displayMode) {
-          CalendarDisplayMode.all => true,
-          CalendarDisplayMode.plan => record.kind == CalendarRecordKind.plan,
-          CalendarDisplayMode.actual =>
-            record.kind == CalendarRecordKind.actual,
-        };
-      })
-      .toList(growable: false);
+  List<CalendarRecord> _visibleRecords(DateTime date) {
+    final visible = records.where((record) {
+      if (!_sameDay(record.date, date)) return false;
+      return switch (displayMode) {
+        CalendarDisplayMode.all => true,
+        CalendarDisplayMode.plan => record.kind == CalendarRecordKind.plan,
+        CalendarDisplayMode.actual =>
+          record.kind == CalendarRecordKind.actual,
+      };
+    }).toList();
+    // A narrow month cell only previews two facts. Show named tasks first so
+    // two habit logs cannot conceal an actual task that exists on this day.
+    visible.sort((a, b) {
+      final taskRank = (a.type == CalendarRecordType.task ? 0 : 1)
+          .compareTo(b.type == CalendarRecordType.task ? 0 : 1);
+      if (taskRank != 0) return taskRank;
+      final byKind = a.kind.index.compareTo(b.kind.index);
+      if (byKind != 0) return byKind;
+      final byTitle = a.title.compareTo(b.title);
+      return byTitle != 0 ? byTitle : a.id.compareTo(b.id);
+    });
+    return visible;
+  }
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
