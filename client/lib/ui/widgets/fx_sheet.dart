@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -24,8 +25,8 @@ abstract final class FxSheet {
     /// Explicitly controls the handle. When omitted, guarded editors show it.
     /// Ordinary draggable sheets show it only when explicitly requested.
     bool? showDragHandle,
-    /// Invoked by the 44dp grip only. The owner decides whether a dirty
-    /// draft may close; FxSheet must never pop an editor behind its back.
+    /// Invoked by a gesture starting in the top 44dp grip region. The owner
+    /// decides whether a dirty draft may close; never pop behind its back.
     Future<void> Function()? onDismissRequested,
     bool showCloseButton = true,
     bool isScrollControlled = true,
@@ -42,6 +43,8 @@ abstract final class FxSheet {
   }) {
     final effectiveDismissible = isDismissible ?? dismissible;
     final effectiveDraggable = enableDrag ?? draggable;
+    // Keep the render anchor stable across sheet rebuilds (e.g. keyboard).
+    final gripRegionKey = GlobalKey();
     BorderRadius? radius;
     if (shape is RoundedRectangleBorder && shape.borderRadius is BorderRadius) {
       radius = shape.borderRadius as BorderRadius;
@@ -81,6 +84,9 @@ abstract final class FxSheet {
         // even if their owner explicitly hides the handle.
         double dragDistance = 0;
         bool dragging = false;
+        int? activePointer;
+        double startY = 0;
+        VelocityTracker? tracker;
         final reduceMotion = MediaQuery.of(sheetContext).disableAnimations;
         final viewInsets = MediaQuery.viewInsetsOf(sheetContext);
         final insetPadding = switch (side) {
@@ -95,12 +101,12 @@ abstract final class FxSheet {
 
         Widget buildSheet(Widget? grip) => ShadSheet(
           closeIcon: showCloseButton ? null : const SizedBox.shrink(),
-          // The approved grip occupies its own hit area; editing content
-          // remains scrollable and cannot accidentally dismiss the sheet.
+          // Use the compact visual grip as the header; only its top 44dp
+          // gesture band may request dismissal, leaving the body scrollable.
           title: grip ?? title,
           description: description,
           actions: actions,
-          // The 44dp handle is already its own header; no extra 8dp gap.
+          // Grip already occupies the header slot; add no duplicate gap.
           gap: grip != null ? 0 : null,
           constraints: constraints,
           padding: padding,
@@ -119,11 +125,12 @@ abstract final class FxSheet {
           child: content,
         );
 
-        // Shared Android handle geometry: 44dp hit zone, 36x4dp indicator.
+        // Compact 24dp visual strip, 36x4dp indicator; drag starts remain
+        // 44dp tall without allocating a 44dp header above the content.
         Widget gripIndicator({Key? key}) => SizedBox(
           key: key,
           width: double.infinity,
-          height: SlowlightControlSize.minTouchTarget,
+          height: SlowlightSpacing.page,
           child: Center(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -143,52 +150,86 @@ abstract final class FxSheet {
         } else {
           sheet = StatefulBuilder(
             builder: (context, setDragState) {
-              void reset() => setDragState(() {
-                dragging = false;
-                dragDistance = 0;
-              });
+              void reset() {
+                activePointer = null;
+                tracker = null;
+                if (!dragging && dragDistance == 0) return;
+                setDragState(() {
+                  dragging = false;
+                  dragDistance = 0;
+                });
+              }
+
               final grip = Semantics(
                 label: '下滑关闭弹窗',
                 button: true,
-                // TalkBack/VoiceOver can invoke dismissal explicitly. A
-                // single accidental touch on the grip never closes the form.
+                // Accessibility dismissal follows the original draft guard.
                 onTap: () {
                   onDismissRequested?.call();
                 },
-                child: GestureDetector(
-                  key: const ValueKey('fx.sheet.dragHandle'),
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragStart: (_) {
-                    FocusScope.of(context).unfocus();
-                    setDragState(() {
-                      dragging = true;
-                      dragDistance = 0;
-                    });
-                  },
-                  onVerticalDragUpdate: (details) {
-                    setDragState(() {
-                      dragDistance =
-                          (dragDistance + details.delta.dy).clamp(0.0, 1000.0);
-                    });
-                  },
-                  onVerticalDragEnd: (details) async {
-                    final close = dragDistance > 120 ||
-                        (dragDistance > 40 &&
-                         (details.primaryVelocity ?? 0) > 750);
-                    reset();
-                    if (close) await onDismissRequested?.call();
-                  },
-                  onVerticalDragCancel: reset,
-                  child: gripIndicator(),
+                child: SizedBox(
+                  key: gripRegionKey,
+                  child: gripIndicator(
+                    key: const ValueKey('fx.sheet.dragHandle'),
+                  ),
                 ),
               );
+
               return AnimatedContainer(
                 duration: dragging || reduceMotion
                     ? Duration.zero
                     : const Duration(milliseconds: 190),
                 curve: Curves.easeOutCubic,
                 transform: Matrix4.translationValues(0, dragDistance, 0),
-                child: buildSheet(grip),
+                // Listener preserves scroll/text selection recognizers; only
+                // gestures beginning within 44dp of the visible grip count.
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (event) {
+                    if (activePointer != null) return;
+                    final render =
+                        gripRegionKey.currentContext?.findRenderObject();
+                    if (render is! RenderBox || !render.hasSize) return;
+                    final top = render.localToGlobal(Offset.zero).dy;
+                    if (event.position.dy < top ||
+                        event.position.dy >
+                            top + SlowlightControlSize.minTouchTarget) {
+                      return;
+                    }
+                    activePointer = event.pointer;
+                    startY = event.position.dy;
+                    tracker = VelocityTracker.withKind(event.kind)
+                      ..addPosition(event.timeStamp, event.position);
+                  },
+                  onPointerMove: (event) {
+                    if (event.pointer != activePointer) return;
+                    tracker?.addPosition(event.timeStamp, event.position);
+                    final distance =
+                        (event.position.dy - startY).clamp(0.0, 1000.0);
+                    if (!dragging && distance <= 6) return;
+                    if (!dragging) FocusScope.of(context).unfocus();
+                    setDragState(() {
+                      dragging = true;
+                      dragDistance = distance;
+                    });
+                  },
+                  onPointerUp: (event) async {
+                    if (event.pointer != activePointer) return;
+                    tracker?.addPosition(event.timeStamp, event.position);
+                    final distance =
+                        (event.position.dy - startY).clamp(0.0, 1000.0);
+                    final speed =
+                        tracker?.getVelocity().pixelsPerSecond.dy ?? 0;
+                    final close = distance > 120 ||
+                        (distance > 40 && speed > 750);
+                    reset();
+                    if (close) await onDismissRequested?.call();
+                  },
+                  onPointerCancel: (event) {
+                    if (event.pointer == activePointer) reset();
+                  },
+                  child: buildSheet(grip),
+                ),
               );
             },
           );

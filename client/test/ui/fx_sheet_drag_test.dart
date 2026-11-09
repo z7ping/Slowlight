@@ -83,7 +83,7 @@ void main() {
     await tester.pumpAndSettle();
     final grip = find.byKey(const ValueKey('fx.sheet.visualHandle'));
     expect(grip, findsOneWidget);
-    expect(tester.getSize(grip).height, 44);
+    expect(tester.getSize(grip).height, 24);
     final sheet = tester.widget<ShadSheet>(fxSheetSurfaceFinder());
     expect(
       sheet.radius,
@@ -104,6 +104,57 @@ void main() {
     );
     expect(roundedSurface, findsOneWidget);
     expect(sheet.draggable, isTrue);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('受保护 Sheet：24dp 可见手柄，44dp 下拉起始区，不吞点击',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var dismissCount = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: Builder(
+        builder: (context) => FxButton(
+          label: '打开紧凑手柄',
+          onPressed: () => FxSheet.show<void>(
+            context: context,
+            isDismissible: false,
+            onDismissRequested: () async {
+              dismissCount++;
+              Navigator.of(context, rootNavigator: true).pop();
+            },
+            builder: (_) => const SizedBox(
+              height: 180,
+              child: Center(child: Text('不会因轻触关闭')),
+            ),
+          ),
+        ),
+      )),
+    ));
+    await tester.tap(find.text('打开紧凑手柄'));
+    await tester.pumpAndSettle();
+
+    final grip = find.byKey(const ValueKey('fx.sheet.dragHandle'));
+    expect(grip, findsOneWidget);
+    expect(tester.getSize(grip).height, 24);
+
+    // 24dp painted strip + 20dp invisible extension below it.
+    final extended = tester.getTopLeft(grip) +
+        Offset(tester.getSize(grip).width / 2, 36);
+    await tester.tapAt(extended);
+    await tester.pumpAndSettle();
+    expect(dismissCount, 0);
+    expect(grip, findsOneWidget);
+
+    final drag = await tester.startGesture(extended);
+    await drag.moveBy(const Offset(0, 170));
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(dismissCount, 1);
+    expect(grip, findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
