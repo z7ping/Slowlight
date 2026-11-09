@@ -74,7 +74,7 @@ class CalendarMonthGrid extends StatelessWidget {
       children: [
         _weekdayHeader(context, compact),
         if (loading)
-          const SizedBox(
+          SizedBox(
             height: _dates.length / 7 * (compact ? 64 : 136),
             child: Center(child: FxCircularProgress()),
           )
