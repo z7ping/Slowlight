@@ -1,10 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/widgets/review/review_timeline_item.dart';
+import 'package:slowlight/widgets/timeline_type_label.dart';
+import 'package:slowlight/ui/app_theme.dart';
 
 import '../support/fx_test_host.dart';
 
 void main() {
+  test('今天与回顾共用语义类别颜色及类型映射', () {
+    expect(TimelineTypeLabel.baseColorFor('task_completed'), AppTheme.chartGreen);
+    expect(TimelineTypeLabel.baseColorFor('habit_checked'), AppTheme.chartYellow);
+    expect(TimelineTypeLabel.baseColorFor('observation'), AppTheme.chartPurple);
+    expect(TimelineTypeLabel.baseColorFor('session_ended'), AppTheme.info);
+    expect(TimelineTypeLabel.labelFor('habit_checked'), '习惯');
+    expect(TimelineTypeLabel.labelFor('task_completed'), '任务');
+  });
+
+  testWidgets('回顾紧凑轨迹仍使用共享类型标识和原有展开操作', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(
+        body: ReviewTimelineItem(
+          color: AppTheme.chartYellow,
+          kind: 'habit_checked',
+          compact: true,
+          time: '10:03',
+          title: '记录了早起',
+        ),
+      ),
+    ));
+    final marker = find.byType(TimelineTypeLabel);
+    expect(marker, findsOneWidget);
+    expect(tester.widget<TimelineTypeLabel>(marker).baseColor, AppTheme.chartYellow);
+    expect(find.text('习惯'), findsOneWidget);
+    await tester.tap(find.text('记录了早起'));
+    await tester.pump();
+    expect(find.text('10:03'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   test('事实时间线先展示有确定时刻的记录，按时间正序', () {
     const undated = ReviewTimelineItem(
       color: Colors.grey, time: '今天', title: '汇总',
