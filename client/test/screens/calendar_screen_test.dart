@@ -298,7 +298,8 @@ void main() {
     }
     await tester.tap(find.text('单日 Timeline'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('calendar-period-horizontal-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-date-strip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-selected-timeline')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-timeline-record-task-plan')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-day-2026-08-21')), findsNothing);
     expect(find.byKey(const ValueKey('calendar-period-add-task')), findsOneWidget);
@@ -309,14 +310,17 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('七日视图在 360dp 横向滑动且保留选中日', (tester) async {
+  testWidgets('七日视图 360dp 一屏显示七个日期并可滑动换周', (tester) async {
     await pumpCalendar(tester, width: 360);
     await selectCalendarView(tester, '七日视图');
-    expect(find.byKey(const ValueKey('calendar-period-horizontal-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-date-strip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-selected-timeline')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-period-day-2026-8-17')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-period-day-2026-8-23')), findsOneWidget);
-    final scrollable = find.byKey(const ValueKey('calendar-period-horizontal-scroll'));
-    await tester.drag(scrollable, const Offset(-260, 0));
+    expect(find.byKey(const ValueKey('calendar-period-add-task')), findsOneWidget);
+    final strip = find.byKey(const ValueKey('calendar-date-strip'));
+    expect(find.descendant(of: strip, matching: find.byType(SingleChildScrollView)), findsNothing);
+    await tester.drag(strip, const Offset(-260, 0));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -349,6 +353,11 @@ void main() {
     await tester.pumpAndSettle();
     await selectCalendarView(tester, '三日视图');
     expect(requestedMonths, containsAll([8, 9]));
+    await tester.tap(find.byKey(const ValueKey('calendar-period-day-2026-9-1')));
+    await tester.pumpAndSettle();
+    // Selecting the second day must not move the three-day window.
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-8-31')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-9-2')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-timeline-record-sep-plan')), findsOneWidget);
     expect(find.text('跨月计划'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -385,7 +394,8 @@ void main() {
   testWidgets('恢复上次保存的日历视图', (tester) async {
     SharedPreferences.setMockInitialValues({'calendar.view_mode': 'threeDays'});
     await pumpCalendar(tester);
-    expect(find.byKey(const ValueKey('calendar-period-horizontal-scroll')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-date-strip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-selected-timeline')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-day-2026-08-21')), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
