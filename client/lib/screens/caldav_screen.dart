@@ -58,6 +58,11 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   String? _statusError;
   bool _testing = false;
   bool _configured = false;
+  bool _configReadFailed = false;
+  bool _hasStoredPassword = false;
+  String _savedBaseUrl = '';
+  String _savedUsername = '';
+  String? _connectionFeedback;
   bool _obscurePassword = true;
 
   Map<String, dynamic>? _status;
@@ -78,17 +83,29 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
     super.dispose();
   }
 
+  bool get _canReusePassword => _configured && _hasStoredPassword &&
+      _baseUrlController.text.trim() == _savedBaseUrl &&
+      _usernameController.text.trim() == _savedUsername;
+
   Future<void> _loadConfig() async {
+    if (mounted) setState(() { _loading = true; _configReadFailed = false; });
     try {
       final config = await ApiService.getCalDAVConfig();
       if (!mounted) return;
       setState(() {
-        _configured = config['configured'] ?? false;
+        _configured = config['configured'] == true;
+        _configReadFailed = false;
+        _lastError = null;
+        _hasStoredPassword = false;
         if (_configured && config['value'] != null) {
           final value = config['value'];
           if (value is Map) {
             _baseUrlController.text = value['base_url'] ?? '';
             _usernameController.text = value['username'] ?? '';
+            _savedBaseUrl = _baseUrlController.text.trim();
+            _savedUsername = _usernameController.text.trim();
+            _hasStoredPassword = value['has_password'] == true;
+            _passwordController.clear();
             if (value['paths'] != null) {
               _pathsController.text = (value['paths'] as List).join('\n');
             }
@@ -104,6 +121,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _configReadFailed = true;
         _lastError = e.toString();
       });
     }
@@ -131,6 +149,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
     setState(() {
       _testing = true;
       _lastError = null;
+      _connectionFeedback = null;
     });
 
     try {
@@ -165,6 +184,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
           noticeVariant = FxNoticeVariant.destructive;
         }
 
+        setState(() => _connectionFeedback = message);
+
         FxNotice.showContent(
           context,
           Text(message),
@@ -174,6 +195,7 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _connectionFeedback = '测试失败：$e');
         FxNotice.showContent(
           context,
           Text('测试失败：$e'),
@@ -210,6 +232,10 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
       if (!mounted) return;
       setState(() {
         _configured = true;
+        _hasStoredPassword = true;
+        _savedBaseUrl = _baseUrlController.text.trim();
+        _savedUsername = _usernameController.text.trim();
+        _passwordController.clear();
         _saving = false;
       });
 
@@ -288,8 +314,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             FxPageHeader(
               title: 'CalDAV 同步',
               actionIcon: _configured ? LucideIcons.refreshCw : null,
-              actionTooltip: '立即同步',
-              onAction: _configured && !_syncing ? _syncNow : null,
+              actionTooltip: '刷新同步状态',
+              onAction: _configured && !_statusLoading ? _loadStatus : null,
             ),
             Expanded(
               child: _loading
@@ -521,7 +547,12 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             obscureText: obscureText,
             minLines: maxLines,
             maxLines: maxLines,
-            onChanged: field.didChange,
+            onChanged: (value) {
+              field.didChange(value);
+              if (_connectionFeedback != null) {
+                setState(() => _connectionFeedback = null);
+              }
+            },
           ),
           if (field.hasError) ...[
             const SizedBox(height: SlowlightSpacing.xs),
@@ -567,7 +598,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
               _validatedInput(
                 controller: _passwordController,
                 label: '密码 / 访问令牌',
-                placeholder: '输入密码或访问令牌',
+                placeholder: _canReusePassword
+                    ? '留空沿用已保存凭据' : '输入密码或访问令牌',
                 icon: LucideIcons.lock,
                 obscureText: _obscurePassword,
                 trailing: FxIconButton(
@@ -577,7 +609,8 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                     () => _obscurePassword = !_obscurePassword,
                   ),
                 ),
-                validate: CalDavFormValidation.password,
+                validate: (value) => value.isNotEmpty || _canReusePassword
+                    ? null : CalDavFormValidation.password(value),
               ),
               const SizedBox(height: 16),
               _validatedInput(
@@ -595,7 +628,18 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 24),
+              if (_canReusePassword) ...[
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text('服务器地址及用户名不变时，可留空沿用已保存凭据。',
+                  style: SlowlightTypography.caption(context)),
+              ],
+              if (_connectionFeedback != null) ...[
+                const SizedBox(height: SlowlightSpacing.xl),
+                Text(_connectionFeedback!,
+                  key: const ValueKey('caldav.connection-feedback'),
+                  style: SlowlightTypography.secondary(context)),
+              ],
+              const SizedBox(height: SlowlightSpacing.xxxl),
               FxDialogActions(
                 actions: [
                   FxButton(
