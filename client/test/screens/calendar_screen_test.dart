@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
 import 'package:slowlight/models/todo_list.dart';
@@ -224,6 +225,23 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('单行年月标题可切月，浮层和筛选各保留一处入口', (tester) async {
+    await pumpCalendar(tester);
+    expect(find.byKey(const ValueKey('calendar-month-label')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-today')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-filter')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('calendar-month-label')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(LucideIcons.chevronRight));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-day-2026-09-21')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('calendar-month-label'))).data,
+        '2026 年 9 月');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('选中日期只显示浅色底与描边，不用阴影涂满日程', (tester) async {
     await pumpCalendar(tester);
 
@@ -271,8 +289,10 @@ void main() {
 
     expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
         findsOneWidget);
-    await tester.tap(find.text('计划').first);
-    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('calendar-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('计划').last);
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
         findsNothing);
@@ -343,10 +363,12 @@ void main() {
   testWidgets('01 Android 窄屏可切换月格筛选，日明细仍展示完整事实', (tester) async {
     await pumpCalendar(tester, width: 360);
 
-    expect(find.text('月格筛选'), findsOneWidget);
-    expect(find.text('计划'), findsOneWidget);
-    await tester.tap(find.text('计划').first);
-    await tester.pump();
+    expect(find.byKey(const ValueKey('calendar-filter')), findsOneWidget);
+    expect(find.text('月格筛选'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('calendar-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('计划').last);
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
         findsNothing);
@@ -376,7 +398,7 @@ void main() {
     );
 
     expect(find.text('2026 年 8 月'), findsOneWidget);
-    expect(find.text('计划'), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-filter')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-scroll-view')), findsOneWidget);
 
     await tester.scrollUntilVisible(

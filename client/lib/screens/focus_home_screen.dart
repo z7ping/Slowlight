@@ -113,6 +113,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   );
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
+  final CalendarHeaderController _calendarHeaderController =
+      CalendarHeaderController();
   // FAB 的实际布局坐标（相对于手机内容区域）；为空时停靠右下角。
   Offset? _fabPosition;
   bool _fabAutoHidden = false;
@@ -142,6 +144,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     authStateNotifier.removeListener(_resetWorkspace);
     DataModeManager().removeListener(_resetWorkspace);
     _shortcutFocusNode.dispose();
+    _calendarHeaderController.dispose();
     super.dispose();
   }
 
@@ -636,10 +639,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           appBar: AppBar(
             toolbarHeight: 48,
             titleSpacing: 8,
-            title: Text(
-              _navigation.title,
-              style: SlowlightTypography.componentPageTitle(context),
-            ),
+            title: _navigation.tool == HomeToolSection.calendar
+                ? CalendarMonthTitle(controller: _calendarHeaderController)
+                : Text(
+                    _navigation.title,
+                    style: SlowlightTypography.componentPageTitle(context),
+                  ),
             leading: _navigation.isTool
                 ? FxIconButton(
                     icon: LucideIcons.chevronLeft,
@@ -654,6 +659,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                     onPressed: _openMobileTools,
                   ),
             actions: [
+              if (_navigation.tool == HomeToolSection.calendar)
+                CalendarHeaderActions(controller: _calendarHeaderController),
               if (_navigation.isToday) ...[
                 FxIconButton(
                   icon: LucideIcons.pencil,
@@ -953,7 +960,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         focusHabitId: _searchFocusHabitId,
       ),
     HomeToolSection.quadrant => const QuadrantScreen(),
-    HomeToolSection.calendar => const CalendarScreen(),
+    HomeToolSection.calendar => CalendarScreen(
+      headerController: _calendarHeaderController,
+      headerInAppBar: !ResponsiveLayout.isDesktopOrWider(context),
+    ),
     HomeToolSection.lists => const ListManageScreen(),
     HomeToolSection.observationTags => const SystemTagScreen(),
     HomeToolSection.stats => StatsScreen(onNavigate: _navigateFromStats),
