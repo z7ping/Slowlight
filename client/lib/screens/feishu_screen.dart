@@ -235,6 +235,13 @@ class _FeishuScreenState extends State<FeishuScreen> {
       _showError('请填写应用标识和应用密钥');
       return;
     }
+    // The server does not support clearing a previously bound URL through
+    // credential-save; require an explicit new target instead.
+    if (_isConfigured && _savedTableUrl.isNotEmpty &&
+        _tableUrlController.text.trim().isEmpty) {
+      _showError('不能直接清空已绑定的表格链接，请填写新链接或取消修改');
+      return;
+    }
     final source = _sourceVersion;
     final wasCloud = _cloud;
     final nextAppId = _appIdController.text.trim();
