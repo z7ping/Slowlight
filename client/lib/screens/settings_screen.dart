@@ -2047,41 +2047,152 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ),
   );
 
+  // The privacy center shows verifiable facts from existing stores. A saved
+  // endpoint is not evidence of a successful or even attempted network call.
+  // Only the origin is rendered: credentials and query parameters never enter UI.
+  String _privacyAiTarget() {
+    final target = _ai.effectiveEndpoint;
+    final uri = Uri.tryParse(target);
+    if (uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        uri.host.isEmpty) {
+      return '目标地址待核对';
+    }
+    final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
+    final port = uri.hasPort ? ':${uri.port}' : '';
+    return '${uri.scheme}://$host$port';
+  }
+
   Widget _privacyPanel() {
     final local = DataModeManager().isLocal;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final subtle = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    Widget section(String label, List<Widget> rows) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _settingLine(
-          '当前记录来源',
-          local
-              ? '本地数据模式：读写本设备数据库，不自动上传记录。'
-              : '云端数据模式：数据以服务端为准，本机保留离线缓存。',
+        _groupLabel(label),
+        FxCard(
+          expanded: true,
+          padding: EdgeInsets.zero,
+          child: Column(children: rows),
         ),
-        _settingLine(
-          'AI 请求',
-          '请求发往已配置的模型接口。是否离开本设备取决于实际接口地址。',
-          trailing: FxButton(
-            label: '查看配置',
-            size: FxButtonSize.sm,
-            variant: FxButtonVariant.outline,
-            onPressed: _openAiSettings,
+      ],
+    );
+
+    Widget fact({
+      required String keyName,
+      required IconData icon,
+      required String title,
+      required String detail,
+      String? status,
+      VoidCallback? open,
+      bool divider = false,
+    }) => FxListTile(
+      key: ValueKey('settings.privacy.$keyName'),
+      density: FxListTileDensity.detailed,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      minTileHeight: 58,
+      title: title,
+      subtitle: detail,
+      leading: Icon(icon, size: 19),
+      trailing: open != null
+          ? const Icon(LucideIcons.chevronRight, size: 18)
+          : status != null
+              ? _statusChip(status, accent: keyName == 'storage')
+              : null,
+      onTap: open,
+      showDivider: divider,
+    );
+
+    final modeDetail = local
+        ? '记录写入本机数据库；不会因使用本地模式自动上传。'
+        : '记录以服务端为准，本机保留离线缓存。';
+    final aiDetail = _loadingAi
+        ? '正在读取当前模型设置…'
+        : _aiLoadError != null
+            ? '配置读取失败，无法确认请求目标。'
+            : '${_ai.enabled ? "已启用" : "未启用"} · ${_ai.provider.label}\n配置目标：${_privacyAiTarget()}';
+    final githubDetail = local
+        ? '本地模式不读取云端 GitHub 绑定。'
+        : _checkingGitHub
+            ? '正在核对云端绑定状态…'
+            : _githubLinked == null
+                ? '绑定状态未确认，不能推断已授权。'
+                : _githubLinked!
+                    ? '当前云端账号已绑定 GitHub。'
+                    : '当前云端账号未绑定 GitHub。';
+    final keyDetail = _loadingAi
+        ? '正在读取当前服务商密钥状态…'
+        : _aiLoadError != null
+            ? '密钥状态未确认。'
+            : _hasKey
+                ? '当前服务商密钥已保存在系统安全存储，不显示明文。'
+                : '当前服务商没有已保存的密钥。';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '展示已读取的配置和授权状态；配置目标不代表请求已经发送。',
+          style: SlowlightTypography.caption(context)
+              .copyWith(color: subtle),
+        ),
+        section('数据存储', [
+          fact(
+            keyName: 'storage',
+            icon: LucideIcons.database,
+            title: '当前记录来源',
+            detail: modeDetail,
+            status: local ? '本地' : '云端',
           ),
-        ),
-        _settingLine(
-          '第三方授权',
-          'GitHub 绑定信息以云端返回为准；飞书连接由集成页面管理。',
-        ),
-        _settingLine(
-          '错误日志',
-          '仅保存在本机，用户主动导出前应检查个人信息。',
-          trailing: FxButton(
-            label: '应用诊断',
-            size: FxButtonSize.sm,
-            variant: FxButtonVariant.outline,
-            onPressed: () => _openSection('diagnostics'),
+        ]),
+        section('对外连接', [
+          fact(
+            keyName: 'ai',
+            icon: LucideIcons.sparkles,
+            title: 'AI 模型请求',
+            detail: aiDetail,
+            open: _openAiSettings,
+            divider: true,
           ),
-        ),
+          fact(
+            keyName: 'github',
+            icon: LucideIcons.shieldCheck,
+            title: 'GitHub 授权',
+            detail: githubDetail,
+            open: () => _openSection('account'),
+            divider: true,
+          ),
+          fact(
+            keyName: 'feishu',
+            icon: LucideIcons.cloud,
+            title: '飞书集成',
+            detail: '授权和同步范围尚无统一核验结果；可在平台集成页查看配置。',
+            open: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const IntegrationScreen(),
+              ),
+            ),
+          ),
+        ]),
+        section('本机保护', [
+          fact(
+            keyName: 'key',
+            icon: LucideIcons.keyRound,
+            title: 'API 密钥',
+            detail: keyDetail,
+            divider: true,
+          ),
+          fact(
+            keyName: 'logs',
+            icon: LucideIcons.bug,
+            title: '错误日志',
+            detail: '应用私有目录保存，默认不上传。主动导出前请检查敏感信息。',
+            open: () => _openSection('diagnostics'),
+          ),
+        ]),
+        const SizedBox(height: 8),
       ],
     );
   }
