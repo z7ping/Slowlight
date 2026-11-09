@@ -1571,6 +1571,71 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       if (log.countValue != null) '${log.countValue} ${habit.recordUnit}',
       if (log.period.isNotEmpty) _periodText(log.period),
     ];
+    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+      final detail = parts.skip(1).join(' · ');
+      // One quiet, scannable line: date/time on the left, precise undo on
+      // the right. No fixed-height timeline stem or nested card surface.
+      return Padding(
+        key: ValueKey('habits.logs.row.${log.id}'),
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 3, right: 12),
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${log.date.substring(5)} · $time',
+                    style: SlowlightTypography.secondary(context).copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (detail.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      detail,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (log.note.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      log.note,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: SlowlightSpacing.xs),
+            FxButton(
+              key: ValueKey('habits.logs.cancel.${log.id}'),
+              label: '撤销',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.ghost,
+              onPressed: () => _removeLog(habit, log),
+            ),
+          ],
+        ),
+      );
+    }
     return Row(
       key: ValueKey('habits.logs.row.${log.id}'),
       crossAxisAlignment: CrossAxisAlignment.start,
