@@ -410,19 +410,21 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     ).toList(growable: false) ?? const <TodayTimelineItem>[];
     final visible = filtered.take(_showAllPeriodEvents ? 40 : mobile ? 8 : 20)
         .toList(growable: false);
-    return FxCard(
+    final evidenceCard = FxCard(
       expanded: true,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(
-            title: mobile ? '近期记录' : '发生过的事',
-            trailing: facts == null
-                ? '待读取'
-                : '观察记录 ${facts.observationCount} 条',
-          ),
-          const SizedBox(height: 10),
+          if (!mobile) ...[
+            FxSectionHeader(
+              title: '发生过的事',
+              trailing: facts == null
+                  ? '待读取'
+                  : '观察记录 ${facts.observationCount} 条',
+            ),
+            const SizedBox(height: 10),
+          ],
           if (mobile && _eventFilter != 'all') ...[
             FxButton(
               label: '清除筛选',
@@ -561,6 +563,19 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
           ],
         ],
       ),
+    );
+    if (!mobile) return evidenceCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FxSectionHeader(
+          title: '近期记录',
+          trailing: facts == null ? '待读取'
+              : '${page?.items.length ?? 0} 条已载入',
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        evidenceCard,
+      ],
     );
   }
 
@@ -888,14 +903,16 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     final focusMinutes = (_review['focus_minutes'] as num?)?.toInt();
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     final observationCount = _periodTimeline?.observationCount;
-    return FxCard(
+    final summaryCard = FxCard(
       padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(title: mobile ? '本期概况' : '本周记录'),
-          const SizedBox(height: 12),
+          if (!mobile) ...[
+            const FxSectionHeader(title: '本周记录'),
+            const SizedBox(height: 12),
+          ],
           if (mobile)
             FxResponsiveFormGrid(
               minColumnWidth: 96,
@@ -918,17 +935,32 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
               FxStatCell(value: '${taskCompleted ?? 0}', label: '完成任务', suffix: ' 个'),
               FxStatCell(value: '${focusMinutes ?? 0}', label: '专注', suffix: ' 分钟'),
             ]),
-          if (_hasBehaviorData && _dailyTrend.isNotEmpty) ...[
+          if (!mobile && _hasBehaviorData && _dailyTrend.isNotEmpty) ...[
             const SizedBox(height: 14),
-            if (mobile)
-              Text('记录节奏 · 已载入任务与习惯',
-                  style: SlowlightTypography.caption(context))
-            else
-              const SizedBox.shrink(),
             _weeklyBars(),
           ],
         ],
       ),
+    );
+    if (!mobile) return summaryCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '本期概况'),
+        const SizedBox(height: SlowlightSpacing.md),
+        summaryCard,
+        if (_hasBehaviorData && _dailyTrend.isNotEmpty) ...[
+          const SizedBox(height: SlowlightSpacing.xl),
+          const FxSectionHeader(
+            title: '记录节奏', trailing: '已载入任务与习惯'),
+          const SizedBox(height: SlowlightSpacing.md),
+          FxCard(
+            expanded: true,
+            padding: const EdgeInsets.all(SlowlightSpacing.xl),
+            child: _weeklyBars(),
+          ),
+        ],
+      ],
     );
   }
 
@@ -957,13 +989,14 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '每日记录',
-          style: SlowlightTypography.caption(
-            context,
-          ).copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 6),
+        if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
+          Text(
+            '每日记录',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 6),
+        ],
         SizedBox(
           height: 92,
           child: Row(
