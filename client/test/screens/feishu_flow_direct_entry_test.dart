@@ -31,6 +31,10 @@ class _UnmappedFeishuRepository implements FeishuIntegrationRepository {
       'bitable_url': 'https://feishu.cn/base/demo',
       'tables': {
         '任务表': 'task',
+        '子任务表': 'subtasks',
+        '清单表': 'lists',
+        '习惯表': 'habits',
+        '习惯记录表': 'habit_logs',
         '番茄钟表': 'focus',
         '休息提醒表': 'rest',
         '标签表': 'tags',
