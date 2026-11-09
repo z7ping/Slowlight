@@ -46,7 +46,11 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   @override
   void didUpdateWidget(covariant QuadrantScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.refreshTick != widget.refreshTick) _load();
+    if (oldWidget.refreshTick == widget.refreshTick) return;
+    final revision = widget.refreshTick;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.refreshTick == revision) _load();
+    });
   }
 
   Future<void> _load() async {
