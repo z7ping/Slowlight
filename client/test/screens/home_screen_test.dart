@@ -77,9 +77,9 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('Android 四图标底栏：等宽、无可见标签及选中态', (tester) async {
+    testWidgets('Android 五图标底栏：排序、等宽、无可见标签及选中态', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
-      final items = ['today', 'quadrant', 'calendar', 'review']
+      final items = ['today', 'quadrant', 'habits', 'calendar', 'review']
           .map((name) => find.byKey(ValueKey('home.bottom-nav.$name')))
           .toList();
       expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
@@ -93,6 +93,10 @@ void main() {
         expect(tester.widget<Icon>(find.descendant(
           of: item, matching: find.byType(Icon),
         )).size, 20);
+      }
+      for (var i = 1; i < items.length; i++) {
+        expect(tester.getTopLeft(items[i]).dx,
+            greaterThan(tester.getTopLeft(items[i - 1]).dx));
       }
       final selected = tester.widget<Icon>(find.descendant(
         of: items.first, matching: find.byType(Icon),
@@ -108,15 +112,22 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
-    testWidgets('Android 四个 Tab 保留四象限与月历 State', (tester) async {
+    testWidgets('Android 五个 Tab 保留四象限、习惯与日历 State', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
       final quadrantTab = find.byKey(const ValueKey('home.bottom-nav.quadrant'));
+      final habitTab = find.byKey(const ValueKey('home.bottom-nav.habits'));
       final calendarTab = find.byKey(const ValueKey('home.bottom-nav.calendar'));
       await tester.tap(quadrantTab);
       await tester.pumpAndSettle();
       final quadrant = find.byType(QuadrantScreen, skipOffstage: false);
       final quadrantState = tester.state(quadrant);
       expect(fxTooltipFinder('工具'), findsOneWidget);
+      await tester.tap(habitTab);
+      await tester.pumpAndSettle();
+      final habits = find.byType(HabitToolScreen, skipOffstage: false);
+      final habitState = tester.state(habits);
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      expect(fxTooltipFinder('筛选习惯'), findsOneWidget);
       await tester.tap(calendarTab);
       await tester.pumpAndSettle();
       final calendar = find.byType(CalendarScreen, skipOffstage: false);
@@ -127,9 +138,28 @@ void main() {
       await tester.tap(quadrantTab);
       await tester.pump();
       expect(identical(tester.state(quadrant), quadrantState), isTrue);
+      await tester.tap(habitTab);
+      await tester.pump();
+      expect(identical(tester.state(habits), habitState), isTrue);
       await tester.tap(calendarTab);
       await tester.pump();
       expect(identical(tester.state(calendar), calendarState), isTrue);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('Android 习惯是固定主 Tab，返回不误关闭页面', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.habits')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HabitToolScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      expect(fxTooltipFinder('工具'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(HabitToolScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

@@ -35,10 +35,12 @@ class HomeNavigationState {
   bool get isReview => primary == HomePrimarySection.review && tool == null;
   bool get isTool => tool != null;
 
-  /// Android keeps four pinned destinations visible without changing the
-  /// product's Today / Review primary narrative or Windows sidebar structure.
+  /// Android pins the frequent tools beside Today / Review without changing
+  /// Windows navigation or the product's two primary narratives.
   bool get isPinnedTabTool =>
-      tool == HomeToolSection.quadrant || tool == HomeToolSection.calendar;
+      tool == HomeToolSection.quadrant ||
+      tool == HomeToolSection.habits ||
+      tool == HomeToolSection.calendar;
   bool get showsMobileBottomBar => tool == null || isPinnedTabTool;
 
   HomeNavigationState openPrimary(HomePrimarySection value) =>

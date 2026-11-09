@@ -103,6 +103,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   bool _navigating = false;
   bool _reviewOpened = false;
   bool _quadrantOpened = false;
+  bool _habitsOpened = false;
   bool _calendarOpened = false;
   int _quadrantActivation = 0;
   int _calendarActivation = 0;
@@ -310,6 +311,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           _quadrantOpened = true;
           _quadrantActivation++;
         }
+        if (next.tool == HomeToolSection.habits) _habitsOpened = true;
         if (next.tool == HomeToolSection.calendar) {
           _calendarOpened = true;
           _calendarActivation++;
@@ -374,9 +376,19 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
 
   Future<void> _createHabitFromToday() async {
     if (_navigating) return;
-    setState(() => _openHabitEditorOnEnter = true);
+    // A pinned HabitToolScreen may already be mounted offstage. A createOnOpen
+    // flag is only consumed by initState; call the existing editor instead.
+    final alreadyMounted = _habitToolKey.currentState != null;
+    setState(() => _openHabitEditorOnEnter = !alreadyMounted);
     try {
       await _openTool(HomeToolSection.habits);
+      if (alreadyMounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _navigation.tool == HomeToolSection.habits) {
+            _habitToolKey.currentState?.createHabit();
+          }
+        });
+      }
     } finally {
       // Only the first build of the tool screen receives the create intent.
       // Returning to the same tool later must not reopen the editor.
@@ -772,9 +784,16 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
               onTap: () => _openTool(HomeToolSection.quadrant),
             ),
             _mobileBottomNavigationItem(
+              itemKey: const ValueKey('home.bottom-nav.habits'),
+              icon: LucideIcons.repeat2,
+              label: '习惯',
+              selected: _navigation.tool == HomeToolSection.habits,
+              onTap: () => _openTool(HomeToolSection.habits),
+            ),
+            _mobileBottomNavigationItem(
               itemKey: const ValueKey('home.bottom-nav.calendar'),
               icon: LucideIcons.calendarDays,
-              label: '月历',
+              label: '日历',
               selected: _navigation.tool == HomeToolSection.calendar,
               onTap: () => _openTool(HomeToolSection.calendar),
             ),
@@ -971,12 +990,13 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     final showingReview = tool == null &&
         _navigation.primary == HomePrimarySection.review;
     final quadrant = tool == HomeToolSection.quadrant;
+    final habits = tool == HomeToolSection.habits;
     final calendar = tool == HomeToolSection.calendar;
-    final otherTool = tool != null && !quadrant && !calendar;
-    // Keep the four pinned destinations mounted while moving between tabs.
+    final otherTool = tool != null && !quadrant && !habits && !calendar;
+    // Keep the five pinned destinations mounted while moving between tabs.
     return IndexedStack(
       key: _workspaceKey,
-      index: quadrant ? 2 : calendar ? 3 : otherTool ? 4 : showingReview ? 1 : 0,
+      index: quadrant ? 2 : habits ? 3 : calendar ? 4 : otherTool ? 5 : showingReview ? 1 : 0,
       children: [
         _buildTodayDashboard(),
         _reviewOpened
@@ -989,6 +1009,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             : const SizedBox.shrink(),
         _quadrantOpened
             ? QuadrantScreen(refreshTick: _quadrantActivation)
+            : const SizedBox.shrink(),
+        _habitsOpened
+            ? _buildToolContent(HomeToolSection.habits)
             : const SizedBox.shrink(),
         _calendarOpened ? _calendarContent() : const SizedBox.shrink(),
         otherTool ? _buildToolContent(tool!) : const SizedBox.shrink(),
@@ -1065,6 +1088,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       _taskToolKey = GlobalKey<TaskToolScreenState>();
       _reviewOpened = _navigation.isReview;
       _quadrantOpened = _navigation.tool == HomeToolSection.quadrant;
+      _habitsOpened = _navigation.tool == HomeToolSection.habits;
       _calendarOpened = _navigation.tool == HomeToolSection.calendar;
       _quadrantActivation = 0;
       _calendarActivation = 0;
