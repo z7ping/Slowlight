@@ -482,7 +482,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     bool compactMobileGrid = false,
   }) {
     final theme = Theme.of(context);
-    final items = _tasks.where((task) => task.priority == priority).toList();
+    final items = _tasks.where((task) =>
+        (task.priority == 'high' ? 'urgent_important' : task.priority) ==
+        priority).toList();
     if (!desktop) {
       return _mobileQuadrant(
         title, priority, color, items,
