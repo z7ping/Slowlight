@@ -1210,6 +1210,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           ],
         ),
         const SizedBox(height: SlowlightSpacing.md),
+        if (_nativePageFailed) ...[
+          Text(
+            '完整轨迹暂不可用，以下仅为已载入记录。',
+            style: SlowlightTypography.caption(context),
+          ),
+          const SizedBox(height: SlowlightSpacing.xs),
+        ],
         card,
       ],
     );
