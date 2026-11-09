@@ -36,6 +36,40 @@ Future<QuadrantData> _loadTasks(List<Task> tasks) async => (
     );
 
 void main() {
+  testWidgets('四象限 Tab 重入通过 refreshTick 静默刷新并保留现有网格', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final pending = Completer<QuadrantData>();
+    var reads = 0;
+    Future<QuadrantData> load() => ++reads == 1
+        ? _loadTasks([_task(71, '之前的任务', 'important')])
+        : pending.future;
+    Widget app(int tick) => buildFxTestHost(
+      home: Scaffold(
+        body: QuadrantScreen(dataLoader: load, refreshTick: tick),
+      ),
+    );
+
+    await tester.pumpWidget(app(0));
+    await tester.pumpAndSettle();
+    expect(find.text('之前的任务'), findsOneWidget);
+    await tester.pumpWidget(app(1));
+    await tester.pump();
+    expect(reads, 2);
+    expect(find.text('之前的任务'), findsOneWidget);
+    expect(find.byType(FxCircularProgress), findsNothing);
+
+    pending.complete(await _loadTasks([_task(72, '刷新后的任务', 'important')]));
+    await tester.pumpAndSettle();
+    expect(find.text('刷新后的任务'), findsOneWidget);
+    expect(find.text('之前的任务'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
   testWidgets('P06 四象限刷新挂起时保留现有网格与任务', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
