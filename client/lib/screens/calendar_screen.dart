@@ -620,26 +620,54 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       action: FxButton(label: '重新加载', onPressed: _load),
                     )
                   else ...[
-                  GestureDetector(
-                    onHorizontalDragEnd: (details) {
-                      final velocity = details.primaryVelocity ?? 0;
-                      if (velocity.abs() > 250) _moveMonth(velocity < 0 ? 1 : -1);
-                    },
-                    child: CalendarMonthGrid(
-                    focusedMonth: _focused,
-                    selectedDate: _selected,
-                    records: _records,
-                    displayMode: _displayMode,
-                    // A same-month refresh must not blank confirmed cells.
-                    loading: _loading && !_hasCurrentMonth,
-                    onSelectDate: _selectDate,
-                    onAddTask: _addTask,
-                    onOpenRecord: _openRecord,
-                    onShowMore: _showMore,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _dayPanel(),
+                    if (_viewMode == CalendarViewMode.month) ...[
+                      GestureDetector(
+                        onHorizontalDragEnd: (details) {
+                          final velocity = details.primaryVelocity ?? 0;
+                          if (velocity.abs() > 250) {
+                            _moveMonth(velocity < 0 ? 1 : -1);
+                          }
+                        },
+                        child: CalendarMonthGrid(
+                          focusedMonth: _focused,
+                          selectedDate: _selected,
+                          records: _records,
+                          displayMode: _displayMode,
+                          loading: _loading && !_hasCurrentMonth,
+                          onSelectDate: _selectDate,
+                          onAddTask: _addTask,
+                          onOpenRecord: _openRecord,
+                          onShowMore: _showMore,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _dayPanel(),
+                    ] else ...[
+                      _periodNavigation(),
+                      const SizedBox(height: 10),
+                      if (_rangeLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 36),
+                          child: Center(child: FxCircularProgress()),
+                        )
+                      else if (_rangeFailed)
+                        FxEmptyState(
+                          icon: LucideIcons.triangleAlert,
+                          title: '部分日期读取失败',
+                          subtitle: '跨月记录尚未核实，不能按无记录展示。',
+                          action: FxButton(
+                            label: '重新加载',
+                            onPressed: _retryRange,
+                          ),
+                        )
+                      else
+                        _timelineBoard(),
+                      if (_viewMode != CalendarViewMode.day &&
+                          !_rangeLoading && !_rangeFailed) ...[
+                        const SizedBox(height: 14),
+                        _dayPanel(),
+                      ],
+                    ],
                   ],
                 ],
               ),
@@ -657,6 +685,224 @@ class _CalendarScreenState extends State<CalendarScreen> {
       CalendarHeaderActions(controller: _headerController),
     ],
   );
+
+  Widget _periodNavigation() {
+    final days = _visibleDays();
+    if (days.isEmpty) return const SizedBox.shrink();
+    final start = days.first, end = days.last;
+    final period = days.length == 1
+        ? '${start.month} 月 ${start.day} 日'
+        : '${start.month}/${start.day} – ${end.month}/${end.day}';
+    return Row(
+      children: [
+        FxIconButton(
+          key: const ValueKey('calendar-period-prev'),
+          icon: LucideIcons.chevronLeft,
+          tooltip: '上一时段',
+          onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(-1),
+        ),
+        Expanded(
+          child: Text(period,
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.secondary(context)
+                  .copyWith(fontWeight: FontWeight.w700)),
+        ),
+        FxIconButton(
+          key: const ValueKey('calendar-period-next'),
+          icon: LucideIcons.chevronRight,
+          tooltip: '下一时段',
+          onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(1),
+        ),
+        FxIconButton(
+          key: const ValueKey('calendar-period-add-task'),
+          icon: LucideIcons.plus,
+          tooltip: '在选中日期新建任务',
+          onPressed: () => _addTask(_selected),
+        ),
+      ],
+    );
+  }
+
+  List<CalendarRecord> _timelineRecords(DateTime day) {
+    final source = _rangeCache[_monthKey(day)];
+    if (source == null) return const [];
+    final result = source.records.where((record) {
+      if (!_sameDay(record.date, day)) return false;
+      return switch (_displayMode) {
+        CalendarDisplayMode.all => true,
+        CalendarDisplayMode.plan => record.kind == CalendarRecordKind.plan,
+        CalendarDisplayMode.actual => record.kind == CalendarRecordKind.actual,
+      };
+    }).toList(growable: false);
+    // Only native HH:mm values are clock times. Aggregate or periodic
+    // labels are not fabricated into a scheduled hour.
+    int minutes(CalendarRecord record) {
+      final match = RegExp(r'^([01]?\d|2[0-3]):([0-5]\d)$')
+          .firstMatch(record.timeLabel);
+      return match == null
+          ? 1440
+          : int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
+    }
+    result.sort((a, b) {
+      final clock = minutes(a).compareTo(minutes(b));
+      if (clock != 0) return clock;
+      return a.kind.index.compareTo(b.kind.index);
+    });
+    return result;
+  }
+
+  Widget _timelineBoard() {
+    final days = _visibleDays();
+    final isLargeText = MediaQuery.textScalerOf(context)
+            .scale(SlowlightTypography.secondarySize) >=
+        SlowlightTypography.secondarySize * 1.3;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minimum = days.length == 1
+            ? constraints.maxWidth
+            : days.length * (isLargeText ? 250.0 : 216.0);
+        final boardWidth = constraints.maxWidth > minimum
+            ? constraints.maxWidth
+            : minimum;
+        return SingleChildScrollView(
+          key: const ValueKey('calendar-period-horizontal-scroll'),
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: boardWidth,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final day in days)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _timelineDay(day),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _timelineDay(DateTime day) {
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final rows = _timelineRecords(day);
+    final partial = _rangeCache[_monthKey(day)]!.unavailableTypes.isNotEmpty;
+    final selected = _sameDay(day, _selected);
+    final palette = Theme.of(context).colorScheme;
+    return FxCard(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FxInkWell(
+            key: ValueKey('calendar-period-day-${day.year}-${day.month}-${day.day}'),
+            onTap: () => _selectDate(day),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: selected
+                        ? activePalette.accent
+                        : palette.outlineVariant,
+                    width: selected ? 2 : 1,
+                  ),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text('${day.month} 月 ${day.day} 日 · 周${weekdays[day.weekday-1]}',
+                    style: SlowlightTypography.secondary(context)
+                        .copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 3),
+                  Text(partial ? '部分记录待核对' : '${rows.length} 条',
+                    style: SlowlightTypography.caption(context)
+                        .copyWith(color: palette.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          ),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                partial ? '部分来源未读取，请重试核对。' : '这天没有记录',
+                textAlign: TextAlign.center,
+                style: SlowlightTypography.caption(context)
+                    .copyWith(color: palette.onSurfaceVariant),
+              ),
+            )
+          else
+            for (final record in rows) _timelineRecord(record),
+        ],
+      ),
+    );
+  }
+
+  Widget _timelineRecord(CalendarRecord record) {
+    final palette = Theme.of(context).colorScheme;
+    final time = RegExp(r'^([01]?\d|2[0-3]):[0-5]\d$')
+            .hasMatch(record.timeLabel)
+        ? record.timeLabel
+        : '—';
+    return FxInkWell(
+      key: ValueKey('calendar-timeline-record-${record.id}'),
+      onTap: () => _openRecord(record),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 43,
+              child: Text(time,
+                  maxLines: 1,
+                  style: SlowlightTypography.caption(context)
+                      .copyWith(color: palette.onSurfaceVariant)),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.only(left: 9),
+                decoration: BoxDecoration(
+                  border: Border(left: BorderSide(
+                    color: calendarRecordColor(record, context),
+                    width: 2,
+                  )),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(record.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: SlowlightTypography.secondary(context)
+                          .copyWith(fontWeight: FontWeight.w600)),
+                    Text([
+                      record.kindLabel,
+                      if (time == '—' && record.timeLabel.isNotEmpty)
+                        record.timeLabel,
+                      if (record.durationMin > 0)
+                        '${record.durationMin}min',
+                      if (record.amountLabel.isNotEmpty) record.amountLabel,
+                    ].join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SlowlightTypography.caption(context)
+                          .copyWith(color: palette.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _monthRefreshFailedNotice() => Padding(
     padding: const EdgeInsets.only(bottom: 10),
