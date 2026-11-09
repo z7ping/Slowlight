@@ -547,91 +547,73 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
   }
 
   Widget _buildStatusCard() {
+    final theme = Theme.of(context);
+    final states = _status?['states'];
+    final projects = states is List ? states.length : null;
+    final known = _status != null && _statusError == null;
     return FxCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(LucideIcons.circleCheck, color: AppTheme.success, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  '同步状态',
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.buttonSize,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildStatusItem('服务器', _baseUrlController.text),
-            _buildStatusItem('用户', _usernameController.text),
-            _buildStatusItem(
-              '已同步任务',
-              calDavSyncedTaskLabel(
-                _status,
-                loading: _statusLoading,
-                stale: _statusError != null,
-              ),
-            ),
-            if (_statusError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(children: [
-                  Expanded(child: Text(
-                    '状态读取失败，请检查连接后重试',
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  )),
-                  FxButton(
-                    label: '重试读取',
-                    size: FxButtonSize.sm,
-                    variant: FxButtonVariant.outline,
-                    onPressed: _statusLoading ? null : _loadStatus,
-                  ),
-                ]),
-              ),
-            if (_status?['states'] != null) ...[
-              const SizedBox(height: 8),
-              const Text(
-                '同步历史：',
-                style: TextStyle(
-                  fontSize: SlowlightTypography.buttonSize,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              ...(_status!['states'] as List).map((state) {
-                final path = state['project_path'] ?? '未知';
-                final lastSync = state['last_synced_at'] ?? '从未同步';
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    '• $path - 最后同步：$lastSync',
-                    style: const TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      height: 1.4,
-                    ),
-                  ),
-                );
-              }),
-            ],
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FxButton(
-                label: _syncing ? '同步中…' : '立即同步',
-                onPressed: _syncing ? null : _syncNow,
-              ),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Icon(LucideIcons.calendarDays,
+              size: SlowlightIconSize.lg,
+              color: theme.colorScheme.primary),
+            const SizedBox(width: SlowlightSpacing.md),
+            Expanded(child: Text('同步概况',
+              style: SlowlightTypography.cardTitle(context))),
+            Text(known ? '状态已读取' : '状态待核对',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant)),
+          ]),
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          Row(children: [
+            Expanded(child: Column(children: [
+              Text(calDavSyncedTaskLabel(_status,
+                  loading: _statusLoading, stale: _statusError != null),
+                style: SlowlightTypography.sectionTitle(context)),
+              Text('已同步任务',
+                style: SlowlightTypography.caption(context)),
+            ])),
+            Expanded(child: Column(children: [
+              Text(projects == null ? '—' : '$projects',
+                style: SlowlightTypography.sectionTitle(context)),
+              Text('项目状态记录',
+                style: SlowlightTypography.caption(context)),
+            ])),
+          ]),
+          if (_statusError != null) ...[
+            const SizedBox(height: SlowlightSpacing.xl),
+            Text('状态读取失败，以上数字仅为上次已载入数据。',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.error)),
+            FxButton(
+              label: '重试读取',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: _statusLoading ? null : _loadStatus),
+          ],
+          if (states is List && states.isNotEmpty) ...[
+            const SizedBox(height: SlowlightSpacing.xl),
+            FxExpansionTile(
+              title: Text('各项目上次同步时间',
+                style: SlowlightTypography.secondary(context)),
+              children: states.map<Widget>((state) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
+                child: Text(
+                  '${state['project_path'] ?? '未知'} · ${state['last_synced_at'] ?? '从未同步'}',
+                  style: SlowlightTypography.caption(context)),
+              )).toList(),
             ),
           ],
-        ),
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          FxButton(
+            label: _syncing ? '同步中…' : '立即同步',
+            icon: LucideIcons.refreshCw,
+            expanded: true,
+            onPressed: _syncing || _saving || _testing ? null : _syncNow),
+        ],
       ),
     );
   }
