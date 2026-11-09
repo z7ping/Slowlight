@@ -278,6 +278,202 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
+  Widget _mobileBoard(Widget scrollable) {
+    final colors = Theme.of(context).colorScheme;
+    final label = switch (_selectedPriority) {
+      'urgent_important' => '重要 · 紧急',
+      'important' => '重要 · 不紧急',
+      'urgent' => '不重要 · 紧急',
+      _ => '不重要 · 不紧急',
+    };
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        scrollable,
+        Positioned(
+          left: 14,
+          right: 76,
+          bottom: 9,
+          child: Text(
+            '点击象限选中 · 长按任务移动',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: SlowlightTypography.caption(context).copyWith(
+              color: colors.onSurfaceVariant,
+              fontSize: SlowlightTypography.resolvedCaptionSize * .88,
+            ),
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: Semantics(
+            label: '在$label添加任务',
+            button: true,
+            child: Material(
+              color: colors.primary,
+              borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+              elevation: 4,
+              child: FxInkWell(
+                key: const ValueKey('quadrant-add'),
+                borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+                onTap: () => _addTask(_selectedPriority),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(LucideIcons.plus,
+                      size: 22, color: colors.onPrimary),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _mobileQuadrant(
+    String title,
+    String priority,
+    Color color,
+    List<Task> items, {
+    required bool compact,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final selected = _selectedPriority == priority;
+    final preview = items.length > 3 ? 2 : 3;
+    final titleStyle = SlowlightTypography.caption(context).copyWith(
+      fontWeight: FontWeight.w700,
+      color: colors.onSurface,
+    );
+
+    return FxCard(
+      key: ValueKey('quadrant-card-$priority'),
+      onTap: () {
+        if (_selectedPriority != priority) {
+          setState(() => _selectedPriority = priority);
+        }
+      },
+      padding: EdgeInsets.zero,
+      color: selected
+          ? Color.alphaBlend(
+              colors.primary.withValues(alpha: .035),
+              fxSurface(context),
+            )
+          : fxSurface(context),
+      borderRadius: SlowlightRadius.lg,
+      border: Border.all(
+        color: selected
+            ? colors.primary.withValues(alpha: .52)
+            : colors.outlineVariant,
+      ),
+      expanded: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // A slim semantic edge, rather than four heavy colored borders.
+          Container(width: 3, color: color),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Semantics(
+                    selected: selected,
+                    label: '选择$title象限，共${items.length}项任务',
+                    button: true,
+                    child: FxInkWell(
+                      onTap: () {
+                        if (_selectedPriority != priority) {
+                          setState(() => _selectedPriority = priority);
+                        }
+                      },
+                      child: SizedBox(
+                        height: 38,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: titleStyle,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${items.length} 项',
+                              style: SlowlightTypography.caption(context)
+                                  .copyWith(
+                                color: colors.onSurfaceVariant,
+                                fontSize:
+                                    SlowlightTypography.resolvedCaptionSize * .92,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  FxSeparator.horizontal(
+                    height: 1,
+                    thickness: 1,
+                    color: colors.outlineVariant,
+                  ),
+                  Expanded(
+                    child: items.isEmpty
+                        ? Center(
+                            child: Text(
+                              '暂无任务',
+                              style: SlowlightTypography.caption(context)
+                                  .copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final task in items.take(preview))
+                                _taskLine(
+                                  task,
+                                  color,
+                                  desktop: false,
+                                  compact: compact,
+                                  quadrantPreview: true,
+                                ),
+                              if (items.length > preview)
+                                FxInkWell(
+                                  key: ValueKey('quadrant-more-$priority'),
+                                  onTap: () => _showAllTasks(title, items),
+                                  child: SizedBox(
+                                    height: 36,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '还有 ${items.length - preview} 项 · 查看全部',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style:
+                                            SlowlightTypography.caption(context)
+                                                .copyWith(
+                                          color: colors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _quadrant(
     String title,
     String priority,
@@ -287,103 +483,70 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   }) {
     final theme = Theme.of(context);
     final items = _tasks.where((task) => task.priority == priority).toList();
+    if (!desktop) {
+      return _mobileQuadrant(
+        title, priority, color, items,
+        compact: compactMobileGrid,
+      );
+    }
     final hovering = _dragTarget == priority;
-    final previewCount = desktop ? 4 : 2;
-    final emptyState = Center(
-      child: desktop
-          ? Text(
-              '这里暂时没有任务',
-              textAlign: TextAlign.center,
-              style: SlowlightTypography.caption(context)
-                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
-            )
-          : FxButton(
-              key: ValueKey('quadrant-add-$priority'),
-              label: '添加任务',
-              icon: LucideIcons.plus,
-              variant: FxButtonVariant.ghost,
-              onPressed: () => _addTask(priority),
-            ),
-    );
-
     Widget card = FxCard(
-      padding: EdgeInsets.all(compactMobileGrid ? 12 : 16),
+      padding: const EdgeInsets.all(16),
       color: fxSurface(context),
       borderRadius: SlowlightRadius.lg,
       border: Border.all(
-        color: hovering
-            ? Colors.transparent
-            : color.withValues(alpha: priority == 'none' ? 1 : .36),
+        color: hovering ? Colors.transparent : color.withValues(alpha: .36),
       ),
-      boxShadow:
-          theme.brightness == Brightness.light ? AppTheme.cardShadow : null,
+      boxShadow: theme.brightness == Brightness.light
+          ? AppTheme.cardShadow
+          : null,
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: desktop
-                    ? Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              title,
-                              style: SlowlightTypography.cardTitle(context)
-                                  .copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _quadrantCount(items.length),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            softWrap: true,
-                            style: SlowlightTypography.cardTitle(context)
-                                .copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 4),
-                          _quadrantCount(items.length),
-                        ],
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: SlowlightTypography.cardTitle(context)
+                            .copyWith(fontWeight: FontWeight.w700),
                       ),
-              ),
-              if (desktop || items.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                FxIconButton(
-                  tooltip: '在$title添加任务',
-                  onPressed: () => _addTask(priority),
-                  icon: LucideIcons.plus,
+                    ),
+                    const SizedBox(width: 8),
+                    _quadrantCount(items.length),
+                  ],
                 ),
-              ],
+              ),
+              FxIconButton(
+                tooltip: '在$title添加任务',
+                onPressed: () => _addTask(priority),
+                icon: LucideIcons.plus,
+              ),
             ],
           ),
           const SizedBox(height: 12),
           if (items.isEmpty)
-            desktop || compactMobileGrid
-                ? Expanded(child: emptyState)
-                : SizedBox(height: 96, child: emptyState)
-          else
-            ...items.take(previewCount).map(
-                  (task) => desktop
-                      ? _draggableTask(task, color)
-                      : _taskLine(
-                          task,
-                          color,
-                          desktop: false,
-                          compact: compactMobileGrid,
-                        ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '这里暂时没有任务',
+                  textAlign: TextAlign.center,
+                  style: SlowlightTypography.caption(context)
+                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
-          if (items.length > previewCount)
+              ),
+            )
+          else
+            ...items.take(4).map((task) => _draggableTask(task, color)),
+          if (items.length > 4)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: FxButton(
-                label: compactMobileGrid ? '查看全部' : '查看全部（${items.length}）',
+                label: '查看全部（${items.length}）',
                 size: FxButtonSize.sm,
                 variant: FxButtonVariant.ghost,
                 onPressed: () => _showAllTasks(title, items),
@@ -392,7 +555,6 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         ],
       ),
     );
-
     if (hovering) {
       card = CustomPaint(
         painter: _QuadrantDashedPainter(
@@ -402,8 +564,6 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
         child: card,
       );
     }
-
-    if (!desktop) return card;
     return DragTarget<Task>(
       onWillAcceptWithDetails: (details) {
         if (details.data.priority == priority) return false;
