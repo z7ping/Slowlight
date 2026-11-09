@@ -354,6 +354,9 @@ void main() {
     expect(requestedMonths, containsAll([8, 9]));
     await tester.tap(find.byKey(const ValueKey('calendar-period-day-2026-9-1')));
     await tester.pumpAndSettle();
+    // Selecting the second day must not move the three-day window.
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-8-31')), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-9-2')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-timeline-record-sep-plan')), findsOneWidget);
     expect(find.text('跨月计划'), findsOneWidget);
     expect(tester.takeException(), isNull);
