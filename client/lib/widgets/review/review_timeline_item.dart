@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../ui/typography_tokens.dart';
 import '../../ui/fx.dart';
+import '../timeline_type_label.dart';
 
 /// 回顾页专属时间线项。
 ///
@@ -36,15 +37,6 @@ class ReviewTimelineItem extends StatefulWidget {
 
 class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
   bool _expanded = false;
-
-  String get _category => switch (widget.kind) {
-    'task_completed' => '任务',
-    'habit_checked' => '习惯',
-    'observation' => '观察',
-    'session_ended' => '专注',
-    'reflection' => '反思',
-    _ => '记录',
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +156,7 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
             child: Semantics(
               button: true,
               expanded: _expanded,
-              label: '${displayTitle}，${_category}，${_expanded ? '收起' : '展开'}详情',
+              label: '${displayTitle}，${TimelineTypeLabel.labelFor(widget.kind)}，${_expanded ? '收起' : '展开'}详情',
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
@@ -181,15 +173,10 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        Container(
-                          width: 6, height: 6,
-                          decoration: BoxDecoration(
-                            color: identityColor, shape: BoxShape.circle),
+                        TimelineTypeLabel(
+                          kind: widget.kind,
+                          baseColor: widget.color,
                         ),
-                        const SizedBox(width: 5),
-                        Text(_category,
-                            style: SlowlightTypography.caption(context).copyWith(
-                              color: identityColor, fontWeight: FontWeight.w600)),
                         if (datePart != null) ...[
                           const SizedBox(width: 4),
                           Flexible(

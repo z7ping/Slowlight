@@ -9,6 +9,7 @@ import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/dashboard/dashboard_body.dart';
+import 'package:slowlight/widgets/timeline_type_label.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -374,6 +375,86 @@ void main() {
         greaterThan(tester.getTopLeft(time).dx + 42));
     expect(tester.getTopLeft(category).dy,
         greaterThan(tester.getTopLeft(event).dy));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 今天轨迹收紧行高，并与回顾共用彩色类型标识', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final timeline = [
+      TodayTimelineItem(
+        id: 'task:1', kind: 'task_completed', title: '整理书桌',
+        durationMinutes: 0, occurredAt: now,
+      ),
+      TodayTimelineItem(
+        id: 'habit:1', kind: 'habit_checked', title: '早起',
+        durationMinutes: 0, occurredAt: now,
+      ),
+      TodayTimelineItem(
+        id: 'observation:1', kind: 'observation', title: '今天的观察',
+        durationMinutes: 0, occurredAt: now,
+      ),
+    ];
+    await tester.pumpWidget(host(width: 390, timeline: () async => timeline));
+    await tester.pumpAndSettle();
+
+    final section = find.byKey(const ValueKey('today.section.timeline'));
+    expect(find.descendant(
+      of: section, matching: find.byType(FxSeparator),
+    ), findsNothing);
+    for (final item in timeline) {
+      final row = find.byKey(ValueKey('today.timeline.row.${item.id}'));
+      await tester.ensureVisible(row);
+      await tester.pump();
+      expect(tester.getSize(row).height, lessThan(56));
+      final marker = find.descendant(
+        of: row, matching: find.byType(TimelineTypeLabel),
+      );
+      expect(marker, findsOneWidget);
+      expect(tester.widget<TimelineTypeLabel>(marker).kind, item.kind);
+      final dot = tester.widget<Container>(find.descendant(
+        of: marker, matching: find.byType(Container),
+      ).first);
+      expect(
+        (dot.decoration! as BoxDecoration).color,
+        TimelineTypeLabel.resolvedColor(tester.element(marker), item.kind),
+      );
+      expect(find.descendant(
+        of: row, matching: find.text(TimelineTypeLabel.labelFor(item.kind)),
+      ), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 今天轨迹 200% 大字号自然换行不溢出', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host(
+      width: 360,
+      textScale: 2,
+      timeline: () async => [
+        TodayTimelineItem(
+          id: 'habit:long', kind: 'habit_checked',
+          title: '很长的一段习惯名称用于验证字体放大后轨迹可以自然换行',
+          durationMinutes: 0, occurredAt: now,
+        ),
+      ],
+    ));
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('today.timeline.row.habit:long'));
+    await tester.ensureVisible(row);
+    expect(find.descendant(
+      of: row, matching: find.byType(TimelineTypeLabel),
+    ), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });

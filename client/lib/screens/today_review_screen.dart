@@ -16,6 +16,7 @@ import '../utils/color_utils.dart';
 import '../utils/local_time_boundary.dart';
 import '../widgets/reminder_review_body.dart';
 import '../widgets/review/review_timeline_item.dart';
+import '../widgets/timeline_type_label.dart';
 import '../widgets/review/task_30day_tab.dart';
 import 'stats_screen.dart';
 import 'time_distribution_screen.dart';
@@ -933,12 +934,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
                 key: ValueKey('review.native.${event.kind}:${event.id}:${event.occurredAt.microsecondsSinceEpoch}'),
                 kind: event.kind,
                 compact: true,
-                color: switch (event.kind) {
-                  'task_completed' => AppTheme.chartGreen,
-                  'habit_checked' => AppTheme.chartYellow,
-                  'observation' => AppTheme.chartPurple,
-                  _ => AppTheme.info,
-                },
+                color: TimelineTypeLabel.baseColorFor(event.kind),
                 time: event.timeLabel,
                 title: event.kind == 'observation'
                     ? '记录观察' : event.description,
