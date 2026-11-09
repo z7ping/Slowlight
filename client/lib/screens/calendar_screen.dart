@@ -740,6 +740,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  // With no confirmed month the only progress indicator is the content
+  // loader; do not allow pull-to-refresh to show a second indicator on top.
+  Widget _withPullRefresh(Widget scrollView) {
+    if (!_hasCurrentMonth) return scrollView;
+    return FxRefresh(
+      onRefresh: () => _refresh(keepCurrent: true),
+      child: scrollView,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.headerInAppBar &&
@@ -747,9 +757,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _viewMode != CalendarViewMode.month && _hasCurrentMonth) {
       return _pinnedClockView();
     }
-    return FxRefresh(
-      onRefresh: () => _refresh(keepCurrent: true),
-      child: ListView(
+    return _withPullRefresh(ListView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
@@ -846,9 +854,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // Pin the same date rail used by the time-axis columns on Android.
   Widget _pinnedClockView() {
-    return FxRefresh(
-      onRefresh: () => _refresh(keepCurrent: true),
-      child: CustomScrollView(
+    return _withPullRefresh(CustomScrollView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
