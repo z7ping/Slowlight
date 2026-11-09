@@ -820,7 +820,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       children: [
                         Text(
                           week
-                              ? '周${weekdays[day.weekday - 1]}'
+                              ? weekdays[day.weekday - 1]
                               : '${day.month}/${day.day} · 周${weekdays[day.weekday - 1]}',
                           textAlign: TextAlign.center,
                           maxLines: 1,
