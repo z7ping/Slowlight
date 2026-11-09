@@ -670,12 +670,56 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final mobileSheet =
         platform == TargetPlatform.android || platform == TargetPlatform.iOS;
     BuildContext? editorContext;
+    StateSetter? editorSetState;
+    var allowSheetPop = false;
+    var closePending = false;
+
+    void finishSettings(bool save) {
+      final active = editorContext;
+      if (active == null || !active.mounted) return;
+      if (!mobileSheet) {
+        Navigator.of(active).pop(save);
+        return;
+      }
+      editorSetState?.call(() => allowSheetPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (active.mounted) Navigator.of(active).pop(save);
+      });
+    }
+
+    Future<void> requestSettingsClose() async {
+      final active = editorContext;
+      if (closePending || active == null || !active.mounted) return;
+      closePending = true;
+      try {
+        final dirty = work != _workMinutes ||
+            autoStart != _autoStartNext ||
+            soundEnabled != _soundEnabled ||
+            linkedTaskId != _linkedTaskId;
+        if (dirty) {
+          final discard = await FxDialog.confirm(
+            context: active,
+            title: '放弃未保存的专注设置？',
+            content: '本次调整尚未保存，离开后会丢失这些修改。',
+            confirmText: '放弃修改',
+            cancelText: '继续编辑',
+            draftDiscard: true,
+            barrierDismissible: false,
+          );
+          if (discard != true || !active.mounted) return;
+        }
+        finishSettings(false);
+      } finally {
+        closePending = false;
+      }
+    }
 
     // Both platforms share the same settings fields and temporary draft.
     // Android uses the approved FxSheet surface; Windows keeps FxDialog.
     final editor = StatefulBuilder(
       builder: (dialogContext, setDialogState) {
         editorContext = dialogContext;
+        editorSetState = setDialogState;
         final theme = Theme.of(dialogContext);
         final controls = Column(
           mainAxisSize: MainAxisSize.min,
@@ -767,13 +811,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           variant: FxButtonVariant.outline,
           size: mobileSheet ? FxButtonSize.md : FxButtonSize.sm,
           expanded: mobileSheet,
-          onPressed: () => Navigator.of(dialogContext).pop(false),
+          onPressed: mobileSheet
+              ? requestSettingsClose
+              : () => Navigator.of(dialogContext).pop(false),
         );
         final save = FxButton(
           label: '保存设置',
           size: mobileSheet ? FxButtonSize.md : FxButtonSize.sm,
           expanded: mobileSheet,
-          onPressed: () => Navigator.of(dialogContext).pop(true),
+          onPressed: () => finishSettings(true),
         );
 
         if (!mobileSheet) {
@@ -798,10 +844,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           );
         }
 
-        return SafeArea(
-          top: false,
-          child: ConstrainedBox(
-            key: const ValueKey('pomodoro.settings.mobile'),
+        return PopScope(
+          canPop: allowSheetPop,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) unawaited(requestSettingsClose());
+          },
+          child: SafeArea(
+            top: false,
+            child: ConstrainedBox(
+              key: const ValueKey('pomodoro.settings.mobile'),
             constraints: BoxConstraints(
               maxHeight: MediaQuery.sizeOf(dialogContext).height * .84,
             ),
@@ -839,18 +890,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               ],
             ),
           ),
+          ),
         );
       },
     );
-
-    // Dismissing has the same meaning as Cancel: unsaved local choices
-    // are discarded and no preference is written.
-    Future<void> dismissSettings() async {
-      final active = editorContext;
-      if (active != null && active.mounted) {
-        Navigator.of(active).pop(false);
-      }
-    }
 
     final saved = mobileSheet
         ? await FxSheet.show<bool>(
@@ -858,7 +901,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             isDismissible: false,
             draggable: false,
             showDragHandle: true,
-            onDismissRequested: dismissSettings,
+            onDismissRequested: requestSettingsClose,
             showCloseButton: false,
             padding: EdgeInsets.zero,
             backgroundColor: fxSurface(context),
