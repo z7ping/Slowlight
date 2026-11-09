@@ -460,8 +460,8 @@ class TaskApi {
     return allTasks.where((t) {
       final d = t.dueDate;
       if (d == null) return false;
-      final local = d.toLocal();
-      return local.year == year && local.month == month;
+      // due_date is already normalized to a civil date by Task.fromJson.
+      return d.year == year && d.month == month;
     }).toList();
   }
 
