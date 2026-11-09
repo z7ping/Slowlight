@@ -510,7 +510,8 @@ class _WebhookScreenState extends State<WebhookScreen> {
 }
 
 class _AddWebhookDialogBody extends StatefulWidget {
-  const _AddWebhookDialogBody();
+  const _AddWebhookDialogBody({this.mobile = false});
+  final bool mobile;
 
   @override
   State<_AddWebhookDialogBody> createState() => _AddWebhookDialogBodyState();
@@ -520,6 +521,7 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
   final _urlCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final Set<String> _selectedEvents = {'task.completed'};
+  String? _validationError;
 
   @override
   void dispose() {
@@ -537,9 +539,21 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FxInput(controller: _nameCtrl, placeholder: '名称（可选）'),
+            if (widget.mobile) ...[
+              Text('添加事件回调',
+                style: SlowlightTypography.cardTitle(context)),
+              const SizedBox(height: SlowlightSpacing.xxxl),
+            ],
+            FxInput(controller: _nameCtrl, label: '名称（可选）',
+              placeholder: '例如：任务完成通知'),
             const SizedBox(height: 12),
-            FxInput(controller: _urlCtrl, placeholder: '回调地址'),
+            FxInput(controller: _urlCtrl, label: '回调地址',
+              placeholder: 'https://hooks.example.com/slowlight'),
+            if (_validationError != null) ...[
+              const SizedBox(height: SlowlightSpacing.xs),
+              Text(_validationError!, style: SlowlightTypography.caption(context)
+                .copyWith(color: Theme.of(context).colorScheme.error)),
+            ],
             const SizedBox(height: 16),
             Text('选择触发事件（可多选）', style: SlowlightTypography.cardTitle(context)),
             const SizedBox(height: 8),
@@ -558,7 +572,7 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
                 ),
                 FxButton(
                   label: '添加 (${_selectedEvents.length})',
-                  onPressed: _submit,
+                  onPressed: _selectedEvents.isEmpty ? null : _submit,
                 ),
               ],
             ),
@@ -615,7 +629,12 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
 
   void _submit() {
     final url = _urlCtrl.text.trim();
-    if (url.isEmpty || _selectedEvents.isEmpty) return;
+    final parsed = Uri.tryParse(url);
+    if (_selectedEvents.isEmpty || parsed == null || !parsed.hasAuthority ||
+        (parsed.scheme != 'https' && parsed.scheme != 'http')) {
+      setState(() => _validationError = '请输入有效的 HTTP(S) 回调地址并选择事件');
+      return;
+    }
     Navigator.of(context, rootNavigator: true).pop({
       'url': url,
       'events': _selectedEvents.toList(),
