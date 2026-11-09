@@ -513,7 +513,8 @@ void main() {
     expect(decoration.border, isNull);
     expect(decoration.color,
         Theme.of(tester.element(dayStat)).colorScheme.surfaceContainerLow);
-    expect(tester.getSize(grid).width, lessThanOrEqualTo(186));
+    expect(tester.getSize(grid).width,
+        lessThanOrEqualTo(HabitHeatmap.compactMaxWidth));
     expect(tester.getSize(grid).width, greaterThan(160));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
