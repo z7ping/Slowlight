@@ -711,18 +711,26 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
     );
   }
 
-  Widget _taskCompleteControl(Task task) => Semantics(
-        label: '完成${task.title}',
-        button: true,
-        child: FxInkWell(
-          key: ValueKey('quadrant-complete-${task.id}'),
-          onTap: _completingTaskIds.contains(task.id)
-              ? null
-              : () => _completeTask(task),
-          child: SizedBox(
-            width: 40,
-            height: 44,
-            child: Center(
+  Widget _taskCompleteControl(Task task) {
+    final pending = _completingTaskIds.contains(task.id);
+    return Semantics(
+      label: '完成${task.title}',
+      button: true,
+      enabled: !pending,
+      child: FxInkWell(
+        key: ValueKey('quadrant-complete-${task.id}'),
+        // Keep the gesture recognizer while pending; otherwise the tap would
+        // fall through to the parent task row and unexpectedly open its editor.
+        onTap: () {
+          if (!pending) _completeTask(task);
+        },
+        enableFeedback: !pending,
+        child: SizedBox(
+          width: 40,
+          height: 44,
+          child: Center(
+            child: Opacity(
+              opacity: pending ? .45 : 1,
               child: ExcludeSemantics(
                 child: IgnorePointer(
                   child: FxCheckbox(
@@ -734,7 +742,9 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 
   Widget _taskLine(
     Task task,
