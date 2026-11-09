@@ -502,7 +502,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
             label: '刷新',
             variant: FxButtonVariant.ghost,
             size: FxButtonSize.sm,
-            onPressed: _isLoadingCalendars ? null : _loadCalendars,
+            onPressed: !_isConfigured || _isLoadingCalendars ? null : _loadCalendars,
           ),
         ),
         const SizedBox(height: SlowlightSpacing.xs),
@@ -515,8 +515,14 @@ extension _FeishuScreenSections on _FeishuScreenState {
                       child: FxCircularProgress(),
                     ),
                   )
+                  : !_isConfigured
+                  ? _calendarEmpty('请先保存飞书应用配置，再读取日历。')
+                  : _calendarReadError != null
+                  ? _calendarEmpty('读取日历失败：$_calendarReadError。请检查权限后刷新。')
+                  : !_calendarLoaded
+                  ? _calendarEmpty('尚未读取日历列表，请点击刷新。')
                   : _calendars.isEmpty
-                  ? _calendarEmpty()
+                  ? _calendarEmpty('当前没有可用日历，请检查应用权限后刷新。')
                   : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -554,7 +560,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
     );
   }
 
-  Widget _calendarEmpty() {
+  Widget _calendarEmpty(String message) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
@@ -568,7 +574,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           const SizedBox(width: SlowlightSpacing.xs),
           Expanded(
             child: Text(
-              '没有读取到可用日历，请检查应用权限后刷新。',
+              message,
               style: SlowlightTypography.caption(
                 context,
               ).copyWith(color: theme.colorScheme.onSurfaceVariant),
