@@ -293,4 +293,29 @@ void main() {
           '禁止再引入 300/360/520dp 等固定阈值。',
     );
   });
+
+  test('高频底部操作不按字号和整屏宽度强制换行', () async {
+    const guards = <String, List<String>>{
+      'lib/widgets/dashboard/dashboard_body.dart': [
+        'constraints.maxWidth < 300 * scale',
+      ],
+      'lib/widgets/sync_status_badge.dart': [
+        'constraints.maxWidth < 360',
+      ],
+      'lib/widgets/habit_checkin_dialog.dart': [
+        'stackMobileActions',
+      ],
+      'lib/widgets/habit_editor_dialog.dart': [
+        'stackMobileActions',
+      ],
+    };
+    final offenders = <String>[];
+    for (final entry in guards.entries) {
+      final source = await File(entry.key).readAsString();
+      for (final pattern in entry.value) {
+        if (source.contains(pattern)) offenders.add('${entry.key}: $pattern');
+      }
+    }
+    expect(offenders, isEmpty, reason: '高频操作按内容适配并保留 5:7 比例，不能仅凭字号强制竖排');
+  });
 }
