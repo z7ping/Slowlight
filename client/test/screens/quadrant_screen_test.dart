@@ -159,7 +159,8 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    final button = find.byKey(const ValueKey('quadrant-add-urgent_important'));
+    final button = find.byKey(const ValueKey('quadrant-add'));
+    expect(button, findsOneWidget);
     expect(button, findsOneWidget);
     await tester.tap(button);
     await tester.pumpAndSettle();
@@ -234,7 +235,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 四象限填满可用高度且空格只有一个添加入口', (tester) async {
+  testWidgets('Android 360dp 四格等高撑满正文，唯一新建入口且没有顶部摘要', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -246,47 +247,70 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final grid = tester.widget<GridView>(find.byType(GridView).first);
+    final grid = tester.widget<GridView>(
+      find.byKey(const ValueKey('quadrant-mobile-grid')),
+    );
     final delegate =
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-    const cellWidth = (360.0 - 12 * 2 - 12) / 2;
-    expect(cellWidth / delegate.childAspectRatio, greaterThan(400));
-    expect(find.byKey(const ValueKey('quadrant-add-urgent_important')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('quadrant-add-important')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('quadrant-add-urgent')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('quadrant-add-none')),
-        findsOneWidget);
-    expect(fxTooltipFinder('在重要 · 紧急添加任务'), findsNothing);
+    expect(delegate.crossAxisCount, 2);
+    const cellWidth = (360.0 - 12 * 2 - 9) / 2;
+    expect(cellWidth / delegate.childAspectRatio, greaterThan(350));
+    final first = tester.getSize(
+      find.byKey(const ValueKey('quadrant-card-urgent_important')),
+    );
+    for (final priority in ['important', 'urgent', 'none']) {
+      final card = tester.getSize(find.byKey(ValueKey('quadrant-card-$priority')));
+      expect(card.height, closeTo(first.height, 1));
+    }
+    expect(find.byKey(const ValueKey('quadrant-add')), findsOneWidget);
+    expect(find.byKey(const ValueKey('quadrant-add-urgent_important')), findsNothing);
+    expect(find.byKey(const ValueKey('quadrant-add-important')), findsNothing);
+    expect(find.text('暂无任务'), findsNWidgets(4));
+    expect(find.text('任务分布'), findsNothing);
+    expect(find.text('按优先级安排'), findsNothing);
+    expect(find.text('点击象限选中 · 长按任务移动'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 多于两条可查看全部，第三条没有丢失', (tester) async {
+
+  testWidgets('Android 同格3条全部显示，4条起显示2条并可查看全部', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
+    final rows = [
+      _task(1, '第一条', 'urgent_important'),
+      _task(2, '第二条', 'urgent_important'),
+      _task(3, '第三条', 'urgent_important'),
+      _task(4, '第四条', 'urgent_important'),
+    ];
     await tester.pumpWidget(buildFxTestHost(
-      home: Scaffold(
-        body: QuadrantScreen(
-          dataLoader: () => _loadTasks([
-            _task(1, '第一条', 'urgent_important'),
-            _task(2, '第二条', 'urgent_important'),
-            _task(3, '第三条', 'urgent_important'),
-          ]),
-        ),
-      ),
+      home: Scaffold(body: QuadrantScreen(
+        dataLoader: () => _loadTasks(rows.take(3).toList()),
+      )),
     ));
     await tester.pumpAndSettle();
-
-    expect(find.text('查看全部'), findsOneWidget);
-    expect(find.text('第三条'), findsNothing);
-    await tester.tap(find.text('查看全部'));
-    await tester.pumpAndSettle();
     expect(find.text('第三条'), findsOneWidget);
+    expect(find.byKey(const ValueKey('quadrant-more-urgent_important')),
+        findsNothing);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(
+        key: const ValueKey('four-preview-cards'),
+        dataLoader: () => _loadTasks(rows),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('第一条'), findsOneWidget);
+    expect(find.text('第二条'), findsOneWidget);
+    expect(find.text('第三条'), findsNothing);
+    expect(find.text('第四条'), findsNothing);
+    final more = find.byKey(const ValueKey('quadrant-more-urgent_important'));
+    expect(more, findsOneWidget);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(find.text('第四条'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
