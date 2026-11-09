@@ -72,7 +72,7 @@ class CalendarMonthGrid extends StatelessWidget {
   Widget _monthContent(BuildContext context, bool compact, bool largeText) {
     return Column(
       children: [
-        _weekdayHeader(context),
+        _weekdayHeader(context, compact),
         if (loading)
           const SizedBox(
             height: _dates.length / 7 * (compact ? 64 : 136),
@@ -112,7 +112,7 @@ class CalendarMonthGrid extends StatelessWidget {
     ));
   }
 
-  Widget _weekdayHeader(BuildContext context) {
+  Widget _weekdayHeader(BuildContext context, bool compact) {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
@@ -121,16 +121,16 @@ class CalendarMonthGrid extends StatelessWidget {
           bottom: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WeekdayLabel('周一'),
-          _WeekdayLabel('周二'),
-          _WeekdayLabel('周三'),
-          _WeekdayLabel('周四'),
-          _WeekdayLabel('周五'),
-          _WeekdayLabel('周六'),
-          _WeekdayLabel('周日'),
+          _WeekdayLabel(compact ? '一' : '周一'),
+          _WeekdayLabel(compact ? '二' : '周二'),
+          _WeekdayLabel(compact ? '三' : '周三'),
+          _WeekdayLabel(compact ? '四' : '周四'),
+          _WeekdayLabel(compact ? '五' : '周五'),
+          _WeekdayLabel(compact ? '六' : '周六'),
+          _WeekdayLabel(compact ? '日' : '周日'),
         ],
       ),
     );
