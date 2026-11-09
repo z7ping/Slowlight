@@ -585,7 +585,8 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
                   ],
                   _summaryCard(summary),
                   if (SlowlightPlatformDensity.usesMobileTouchTargets &&
-                      hasTaskData && !_trendLoadFailed) ...[
+                      _trendDays.isNotEmpty && !_trendRefreshing &&
+                      !_trendLoadFailed) ...[
                     const SizedBox(height: 12),
                     _trendCard(),
                   ],
@@ -800,7 +801,12 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FxSectionHeader(title: '每日任务完成趋势', trailing: '近 30 天'),
+          FxSectionHeader(
+            title: SlowlightPlatformDensity.usesMobileTouchTargets
+                ? '记录节奏' : '每日任务完成趋势',
+            trailing: SlowlightPlatformDensity.usesMobileTouchTargets
+                ? '已载入任务与习惯' : '近 30 天',
+          ),
           const SizedBox(height: 14),
           if (_trendDays.isEmpty)
             Text(
@@ -818,8 +824,11 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
 
   Widget _bars() {
     final theme = Theme.of(context);
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     final values = _trendDays
-        .map((day) => (day['task_completed'] as num?)?.toInt() ?? 0)
+        .map((day) =>
+            ((day['task_completed'] as num?)?.toInt() ?? 0) +
+            (mobile ? ((day['habit_checked'] as num?)?.toInt() ?? 0) : 0))
         .toList(growable: false);
     final max = values.fold<int>(1, (a, b) => b > a ? b : a);
     return SizedBox(
