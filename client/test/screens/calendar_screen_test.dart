@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
+import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 import 'package:flutter/foundation.dart';
@@ -285,7 +286,10 @@ void main() {
   Future<void> selectCalendarView(WidgetTester tester, String name) async {
     await tester.tap(find.byKey(const ValueKey('calendar-view-toggle')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(name).last);
+    await tester.tap(find.descendant(
+      of: find.byType(FxMenuItem<CalendarViewMode>),
+      matching: find.text(name),
+    ));
     await tester.pumpAndSettle();
   }
 
@@ -380,10 +384,18 @@ void main() {
     await pumpCalendar(tester);
     await tester.tap(find.byKey(const ValueKey('calendar-view-toggle')));
     await tester.pumpAndSettle();
+    final menuItems = find.byType(FxMenuItem<CalendarViewMode>);
+    expect(menuItems, findsNWidgets(4));
     for (final text in ['月', '日', '三日', '七日']) {
-      expect(find.text(text), findsOneWidget);
+      expect(
+        find.descendant(of: menuItems, matching: find.text(text)),
+        findsOneWidget,
+      );
     }
-    await tester.tap(find.text('日'));
+    await tester.tap(find.descendant(
+      of: menuItems,
+      matching: find.text('日'),
+    ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('calendar-date-strip')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-selected-timeline')), findsOneWidget);
