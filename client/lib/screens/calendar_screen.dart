@@ -183,29 +183,28 @@ class CalendarHeaderActions extends StatelessWidget {
     builder: (context, _) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (SlowlightPlatformDensity.usesMobileTouchTargets) ...[
-          FxIconButton(
-            key: const ValueKey('calendar-period-prev'),
-            icon: LucideIcons.chevronLeft,
-            iconSize: 16,
-            tooltip: '上一周期',
-            onPressed: controller.loading ? null : () => controller.movePeriod(-1),
+        FxIconButton(
+          key: const ValueKey('calendar-period-prev'),
+          icon: LucideIcons.chevronLeft,
+          iconSize: 16,
+          tooltip: '上一周期',
+          onPressed: controller.loading ? null : () => controller.movePeriod(-1),
+        ),
+        FxIconButton(
+          key: const ValueKey('calendar-period-next'),
+          icon: LucideIcons.chevronRight,
+          iconSize: 16,
+          tooltip: '下一周期',
+          onPressed: controller.loading ? null : () => controller.movePeriod(1),
+        ),
+        if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+            MediaQuery.sizeOf(context).width >= 412)
+          FxButton(
+            label: '今天',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.ghost,
+            onPressed: controller.loading ? null : controller.goToday,
           ),
-          FxIconButton(
-            key: const ValueKey('calendar-period-next'),
-            icon: LucideIcons.chevronRight,
-            iconSize: 16,
-            tooltip: '下一周期',
-            onPressed: controller.loading ? null : () => controller.movePeriod(1),
-          ),
-          if (MediaQuery.sizeOf(context).width >= 412)
-            FxButton(
-              label: '今天',
-              size: FxButtonSize.sm,
-              variant: FxButtonVariant.ghost,
-              onPressed: controller.loading ? null : controller.goToday,
-            ),
-        ],
         FxMenu<CalendarViewMode>(
           key: const ValueKey('calendar-view-toggle'),
           tooltip: '切换日历视图',
