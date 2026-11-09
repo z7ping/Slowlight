@@ -289,6 +289,93 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('Android 月历格始终展示任务名称，切到三日再回月历不退化成圆点',
+      (tester) async {
+    await pumpCalendar(tester, width: 360);
+    final preview = find.byKey(
+      const ValueKey('calendar-grid-record-task-plan'),
+    );
+    expect(preview, findsOneWidget);
+    expect(
+      find.descendant(
+        of: preview,
+        matching: find.textContaining('提交季度报告'),
+      ),
+      findsOneWidget,
+    );
+    await selectCalendarView(tester, '三日视图');
+    expect(preview, findsNothing);
+    await selectCalendarView(tester, '月历');
+    expect(preview, findsOneWidget);
+    expect(
+      find.descendant(
+        of: preview,
+        matching: find.textContaining('提交季度报告'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('窄屏月历同日多条实际记录时仍优先预览任务名称',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final day = DateTime(2026, 8, 21);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: CalendarScreen(
+          initialMonth: DateTime(2026, 8),
+          initialSelectedDate: day,
+          monthLoader: (requested) async => CalendarMonthData(
+            month: requested,
+            records: [
+              CalendarRecord(
+                id: 'habit-a',
+                type: CalendarRecordType.habit,
+                kind: CalendarRecordKind.actual,
+                date: day,
+                title: '阅读',
+              ),
+              CalendarRecord(
+                id: 'habit-b',
+                type: CalendarRecordType.habit,
+                kind: CalendarRecordKind.actual,
+                date: day,
+                title: '运动',
+              ),
+              CalendarRecord(
+                id: 'actual-task',
+                type: CalendarRecordType.task,
+                kind: CalendarRecordKind.actual,
+                date: day,
+                title: '补齐单测',
+              ),
+            ],
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final taskPreview = find.byKey(
+      const ValueKey('calendar-grid-record-actual-task'),
+    );
+    expect(taskPreview, findsOneWidget);
+    expect(
+      find.descendant(
+        of: taskPreview,
+        matching: find.textContaining('补齐单测'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('calendar-grid-record-habit-b')),
+        findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('日历菜单提供月历、单日、三日、七日四个视图', (tester) async {
     await pumpCalendar(tester);
     await tester.tap(find.byKey(const ValueKey('calendar-view-toggle')));
