@@ -101,3 +101,108 @@ class AiConfig {
     );
   }
 }
+
+
+/// One saved endpoint/model pair. Credentials are never serialized here.
+class AiProfile {
+  final String id;
+  final String name;
+  final AiConfig config;
+
+  const AiProfile({
+    required this.id,
+    required this.name,
+    required this.config,
+  });
+
+  AiProfile copyWith({String? name, AiConfig? config}) => AiProfile(
+        id: id,
+        name: name ?? this.name,
+        config: config ?? this.config,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'config': config.toJson(),
+      };
+
+  factory AiProfile.fromJson(Map<String, dynamic> value) {
+    final id = value['id'];
+    final rawConfig = value['config'];
+    if (id is! String || id.isEmpty || rawConfig is! Map) {
+      throw const FormatException('Invalid AI profile');
+    }
+    final config = AiConfig.fromJson(Map<String, dynamic>.from(rawConfig));
+    return AiProfile(
+      id: id,
+      name: value['name'] is String && (value['name'] as String).trim().isNotEmpty
+          ? value['name'] as String
+          : config.provider.label,
+      config: config.copyWith(enabled: false),
+    );
+  }
+}
+
+/// Global AI enablement and one optional selected profile.
+class AiProfileCatalog {
+  final List<AiProfile> profiles;
+  final String? activeId;
+  final bool enabled;
+
+  const AiProfileCatalog({
+    required this.profiles,
+    required this.activeId,
+    required this.enabled,
+  });
+
+  AiProfile? get active {
+    for (final profile in profiles) {
+      if (profile.id == activeId) return profile;
+    }
+    return null;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'profiles': profiles.map((item) => item.toJson()).toList(),
+        'active_id': activeId,
+        'enabled': enabled,
+      };
+
+  factory AiProfileCatalog.fromJson(Map<String, dynamic> value) {
+    final raw = value['profiles'];
+    if (raw is! List) throw const FormatException('Invalid AI profiles');
+    final profiles = raw.map((item) {
+      if (item is! Map) throw const FormatException('Invalid AI profile');
+      return AiProfile.fromJson(Map<String, dynamic>.from(item));
+    }).toList(growable: false);
+    final ids = profiles.map((item) => item.id).toSet();
+    if (ids.length != profiles.length) {
+      throw const FormatException('Duplicate AI profile ids');
+    }
+    final active = value['active_id'];
+    final activeId = active is String && ids.contains(active) ? active : null;
+    return AiProfileCatalog(
+      profiles: profiles,
+      activeId: activeId,
+      enabled: value['enabled'] == true && activeId != null,
+    );
+  }
+
+  AiProfileCatalog copyWith({
+    List<AiProfile>? profiles,
+    String? activeId,
+    bool clearActive = false,
+    bool? enabled,
+  }) {
+    final nextProfiles = profiles ?? this.profiles;
+    final nextActive = clearActive ? null : (activeId ?? this.activeId);
+    final valid = nextActive != null &&
+        nextProfiles.any((item) => item.id == nextActive);
+    return AiProfileCatalog(
+      profiles: nextProfiles,
+      activeId: valid ? nextActive : null,
+      enabled: valid && (enabled ?? this.enabled),
+    );
+  }
+}
