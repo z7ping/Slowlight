@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/screens/settings_screen.dart';
+import 'package:slowlight/ai/ai_models.dart';
 import 'package:slowlight/screens/ai_settings_screen.dart';
 import 'package:slowlight/screens/diagnostics_screen.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
@@ -216,20 +217,80 @@ void main() {
       home: const SettingsScreen(initialSection: 'privacy'),
     ));
     await tester.pump();
-    expect(find.textContaining('本地数据模式：读写本设备数据库'), findsOneWidget);
-    expect(find.textContaining('是否离开本设备取决于实际接口地址'), findsOneWidget);
-    expect(find.textContaining('仅保存在本机，用户主动导出前'), findsOneWidget);
+    expect(find.textContaining('记录写入本机数据库'), findsOneWidget);
+    expect(find.textContaining('配置目标不代表请求已经发送'), findsOneWidget);
+    expect(find.textContaining('应用私有目录保存，默认不上传'), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.privacy.storage')), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings.privacy.github')), findsOneWidget);
+    expect(find.textContaining('本地模式不读取云端 GitHub'), findsOneWidget);
 
-    await tester.tap(find.text('查看配置'));
+    await tester.tap(find.byKey(const ValueKey('settings.privacy.ai')));
     await tester.pump();
     expect(find.byType(AiSettingsScreen), findsOneWidget);
     Navigator.of(tester.element(find.byType(AiSettingsScreen))).pop();
     await tester.pump();
 
-    await tester.tap(find.text('应用诊断'));
+    await tester.tap(find.byKey(const ValueKey('settings.privacy.logs')));
     await tester.pump();
     expect(find.byType(DiagnosticsScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+  testWidgets('隐私中心仅展示 AI 配置目标主机，不回显 URL 凭据与查询参数',
+      (tester) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    await tester.runAsync(() => DataModeManager().setLocal());
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: SettingsScreen(
+        initialSection: 'privacy',
+        aiConfigLoader: () async => const AiConfig(
+          enabled: true,
+          provider: AiProviderType.compatible,
+          endpoint: 'https://alice:password@api.example.com:8443/v1?api_key=very-secret#auth',
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.textContaining('https://api.example.com:8443'), findsOneWidget);
+    expect(find.textContaining('alice:password'), findsNothing);
+    expect(find.textContaining('very-secret'), findsNothing);
+    expect(find.textContaining('api_key='), findsNothing);
+    expect(find.textContaining('已启用 · OpenAI 兼容接口'), findsOneWidget);
+    expect(find.textContaining('当前服务商没有已保存的密钥'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('AI 配置读取失败时，隐私中心不把默认目标冒充真实设置',
+      (tester) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    await tester.runAsync(() => DataModeManager().setLocal());
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: SettingsScreen(
+        initialSection: 'privacy',
+        aiConfigLoader: () async => throw StateError('unavailable'),
+      ),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.textContaining('配置读取失败，无法确认请求目标'), findsOneWidget);
+    expect(find.textContaining('密钥状态未确认'), findsOneWidget);
+    expect(find.textContaining('localhost:11434'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
 }
