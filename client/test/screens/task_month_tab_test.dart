@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/today_timeline_item.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/widgets/review/task_30day_tab.dart';
+import 'package:slowlight/widgets/review/review_timeline_item.dart';
 
 import '../support/fx_test_host.dart';
 
@@ -164,6 +165,60 @@ void main() {
     expect(back, findsOneWidget);
     tester.widget<FxButton>(back).onPressed?.call();
     expect(navigateCount, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 近30天按已载入原生记录筛选，不用假日期', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(390, 1350);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.reset();
+    });
+    final now = DateTime.now();
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskMonthTab(
+        tasksReviewLoader: () async => _month(completed: 1, created: 1),
+        dailyTrendLoader: () async => [
+          {
+            'date': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+            'task_completed': 1, 'habit_checked': 2,
+          },
+        ],
+        periodTimelineLoader: () async => ReviewPeriodTimeline(
+          observationCount: 1,
+          items: [
+            TodayTimelineItem(
+              id: 'task:70', kind: 'task_completed',
+              title: '完成计划', durationMinutes: 0, occurredAt: now,
+            ),
+            TodayTimelineItem(
+              id: 'reflection:71', kind: 'observation',
+              title: '原始观察文本', durationMinutes: 0, occurredAt: now,
+            ),
+          ],
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    final observation = find.byKey(
+        const ValueKey('review.month.metric.observation'));
+    expect(observation, findsOneWidget);
+    await tester.ensureVisible(observation);
+    await tester.tap(observation);
+    await tester.pumpAndSettle();
+    final rows = tester.widgetList<ReviewTimelineItem>(
+        find.byType(ReviewTimelineItem));
+    expect(rows.length, 1);
+    expect(rows.single.kind, 'observation');
+    expect(rows.single.compact, isTrue);
+
+    await tester.tap(observation);
+    await tester.pumpAndSettle();
+    expect(find.byType(ReviewTimelineItem), findsNWidgets(2));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
