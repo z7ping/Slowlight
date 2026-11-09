@@ -175,6 +175,96 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 选择空象限后唯一 FAB 预填该象限优先级', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(dataLoader: () => _loadTasks([]))),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quadrant-card-important')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('quadrant-add')));
+    await tester.pumpAndSettle();
+    final editor = tester.widget<TaskDetailSheet>(find.byType(TaskDetailSheet));
+    expect(editor.task.priority, 'important');
+    expect(editor.task.dueDate, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 任务勾选复用完成接口并在核验刷新后消失', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final tasks = [_task(96, '整理本周的阅读笔记', 'urgent_important')];
+    var writes = 0;
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(
+        dataLoader: () => _loadTasks(tasks),
+        taskCompleter: (task) async {
+          writes++;
+          tasks.clear();
+          return Task(
+            id: task.id, listId: task.listId, title: task.title,
+            priority: task.priority, isCompleted: true,
+            createdAt: task.createdAt,
+          );
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final check = find.byKey(const ValueKey('quadrant-complete-96'));
+    expect(check, findsOneWidget);
+    expect(find.text('整理本周的阅读笔记'), findsOneWidget);
+    await tester.tap(check);
+    await tester.pumpAndSettle();
+    expect(writes, 1);
+    expect(find.text('整理本周的阅读笔记'), findsNothing);
+    expect(find.text('暂无任务'), findsNWidgets(4));
+    expect(find.byKey(const ValueKey('quadrant-add')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 完成请求未返回时不可重复提交', (tester) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final pending = Completer<Task>();
+    final tasks = [_task(97, '处理临时事项', 'urgent')];
+    var writes = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: QuadrantScreen(
+        dataLoader: () => _loadTasks(tasks),
+        taskCompleter: (task) {
+          writes++;
+          return pending.future;
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final check = find.byKey(const ValueKey('quadrant-complete-97'));
+    await tester.tap(check);
+    await tester.pump();
+    await tester.tap(check);
+    await tester.pump();
+    expect(writes, 1);
+    tasks.clear();
+    pending.complete(Task(
+      id: 97, listId: 1, title: '处理临时事项',
+      priority: 'urgent', isCompleted: true,
+      createdAt: DateTime(2026, 10, 16),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('处理临时事项'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 360dp 沿用 2×2 四象限且 none 是不重要不紧急', (tester) async {
     tester.view.physicalSize = const Size(360, 900);
     tester.view.devicePixelRatio = 1;
