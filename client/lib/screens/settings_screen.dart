@@ -481,7 +481,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: stateTrailing(_linkingGitHub ? '授权中' : githubState),
                 onTap: _cancelingGitHub ? null : _showMobileGitHubSheet,
               ),
-              FxSeparator.horizontal(height: 1, color: fxDivider(context)),
+              FxSeparator.horizontal(
+                height: 1,
+                margin: EdgeInsets.zero,
+                color: fxDivider(context),
+              ),
               FxListTile(
                 key: const ValueKey('settings.account.password.mobile'),
                 density: FxListTileDensity.compact,
