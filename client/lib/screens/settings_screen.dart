@@ -123,6 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _restPanelVisible = false;
   AiConfig _ai = const AiConfig();
   bool _hasKey = false;
+  bool _aiKeyChecked = false;
   int _conflictCount = 0;
   // 首次查询完成前不能把未知冲突状态宣称为正常。
   bool _conflictCheckFailed = true;
@@ -206,6 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final version = ++_aiLoadVersion;
     setState(() {
       _loadingAi = true;
+      _aiKeyChecked = false;
       _aiLoadError = null;
     });
     try {
@@ -217,12 +219,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _ai = ai;
         _hasKey = key?.isNotEmpty == true;
+        _aiKeyChecked = widget.aiConfigLoader == null;
         _loadingAi = false;
       });
     } catch (_) {
       if (!mounted || version != _aiLoadVersion) return;
       setState(() {
         _loadingAi = false;
+        _aiKeyChecked = false;
         _aiLoadError = '读取 AI 配置失败';
       });
     }
@@ -2123,7 +2127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : '当前云端账号未绑定 GitHub。';
     final keyDetail = _loadingAi
         ? '正在读取当前服务商密钥状态…'
-        : _aiLoadError != null
+        : _aiLoadError != null || !_aiKeyChecked
             ? '密钥状态未确认。'
             : _hasKey
                 ? '当前服务商密钥已保存在系统安全存储，不显示明文。'
