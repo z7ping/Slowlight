@@ -16,11 +16,13 @@ class ListManageScreen extends StatefulWidget {
   // Source-level test seams; production still uses DataService.
   final Future<List<TodoList>> Function()? listsLoader;
   final Future<List<Task>> Function()? tasksLoader;
+  final ValueListenable<int>? createRequest;
 
   const ListManageScreen({
     super.key,
     this.listsLoader,
     this.tasksLoader,
+    this.createRequest,
   });
 
   @override
@@ -66,7 +68,27 @@ class _ListManageScreenState extends State<ListManageScreen> {
   @override
   void initState() {
     super.initState();
+    widget.createRequest?.addListener(_createFromHeader);
     _loadLists();
+  }
+
+  void _createFromHeader() {
+    if (mounted) unawaited(_showEditor());
+  }
+
+  @override
+  void didUpdateWidget(covariant ListManageScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.createRequest != widget.createRequest) {
+      oldWidget.createRequest?.removeListener(_createFromHeader);
+      widget.createRequest?.addListener(_createFromHeader);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.createRequest?.removeListener(_createFromHeader);
+    super.dispose();
   }
 
   Future<void> _loadLists() async {
@@ -637,11 +659,14 @@ class _ListManageScreenState extends State<ListManageScreen> {
       );
     }
     final theme = Theme.of(context);
+    final compact = !ResponsiveLayout.isDesktopOrWider(context);
     return FxRefresh(
       onRefresh: _loadLists,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 72),
+        padding: compact
+            ? const EdgeInsets.fromLTRB(16, 12, 16, 48)
+            : const EdgeInsets.fromLTRB(20, 18, 20, 72),
         children: [
           Center(
             child: ConstrainedBox(
@@ -649,7 +674,20 @@ class _ListManageScreenState extends State<ListManageScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  FxActionBar(
+                  if (compact && widget.createRequest != null)
+                     Padding(
+                       padding: const EdgeInsets.only(bottom: 12),
+                       child: Row(children: [
+                         Expanded(child: Text(
+                           '${_lists.length} 个清单',
+                           style: SlowlightTypography.secondary(context),
+                         )),
+                         Text('按用途整理任务',
+                           style: SlowlightTypography.caption(context)),
+                       ]),
+                     )
+                   else
+                     FxActionBar(
                     leading: Wrap(
                       spacing: 8,
                       runSpacing: 6,
@@ -674,7 +712,7 @@ class _ListManageScreenState extends State<ListManageScreen> {
                       ),
                     ],
                   ),
-                  if (_loadFailed || _taskCountFailed) ...[
+                   if (_loadFailed || _taskCountFailed) ...[
                     FxCard(
                       padding: const EdgeInsets.all(12),
                       expanded: true,
