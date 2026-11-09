@@ -62,10 +62,10 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: color,
+                    color: widget.color,
                   ),
                 ),
-                if (!last)
+                if (!widget.last)
                   Expanded(
                     child: Container(
                       width: 1,
@@ -78,27 +78,27 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
           const SizedBox(width: 8),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: last ? 0 : 14),
+              padding: EdgeInsets.only(bottom: widget.last ? 0 : 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    time,
+                    widget.time,
                     style: SlowlightTypography.caption(context).copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    title,
+                    widget.title,
                     style: SlowlightTypography.body(context).copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (note != null && note!.isNotEmpty) ...[
+                  if (widget.note != null && widget.note!.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(
-                      note!,
+                      widget.note!,
                       style: SlowlightTypography.caption(context).copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
