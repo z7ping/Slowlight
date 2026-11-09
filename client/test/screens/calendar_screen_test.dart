@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:slowlight/models/calendar_record.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
 import 'package:slowlight/models/todo_list.dart';
@@ -232,10 +233,11 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('calendar-month-label')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('下个月'));
+    await tester.tap(find.byIcon(LucideIcons.chevronRight));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('calendar-day-2026-09-21')), findsOneWidget);
-    expect(find.text('2026 年 9 月'), findsWidgets);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('calendar-month-label'))).data,
+        '2026 年 9 月');
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
