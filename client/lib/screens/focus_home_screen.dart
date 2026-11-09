@@ -102,6 +102,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   bool _reviewOpened = false;
   bool _quadrantOpened = false;
   bool _calendarOpened = false;
+  int _quadrantActivation = 0;
+  int _calendarActivation = 0;
   HomeNavigationState _mobileReturnTab = const HomeNavigationState.today();
   bool _organizeToolsExpanded = false;
   bool _openHabitEditorOnEnter = false;
@@ -302,8 +304,14 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         _navigation = next;
         if (next.showsMobileBottomBar) _mobileReturnTab = next;
         if (next.isReview) _reviewOpened = true;
-        if (next.tool == HomeToolSection.quadrant) _quadrantOpened = true;
-        if (next.tool == HomeToolSection.calendar) _calendarOpened = true;
+        if (next.tool == HomeToolSection.quadrant) {
+          _quadrantOpened = true;
+          _quadrantActivation++;
+        }
+        if (next.tool == HomeToolSection.calendar) {
+          _calendarOpened = true;
+          _calendarActivation++;
+        }
         if (next.isToday) _fabAutoHidden = false;
         _organizeToolsExpanded =
             next.tool != null && _isOrganizeTool(next.tool!);
@@ -944,7 +952,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                 onTimeDistributionNavigate: _navigateFromTimeDistribution,
               )
             : const SizedBox.shrink(),
-        _quadrantOpened ? const QuadrantScreen() : const SizedBox.shrink(),
+        _quadrantOpened
+            ? QuadrantScreen(refreshTick: _quadrantActivation)
+            : const SizedBox.shrink(),
         _calendarOpened ? _calendarContent() : const SizedBox.shrink(),
         otherTool ? _buildToolContent(tool!) : const SizedBox.shrink(),
       ],
@@ -980,6 +990,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   Widget _calendarContent() => CalendarScreen(
         headerController: _calendarHeaderController,
         headerInAppBar: !ResponsiveLayout.isDesktopOrWider(context),
+        refreshTick: _calendarActivation,
       );
 
   Widget _buildToolContent(HomeToolSection tool) => switch (tool) {
@@ -1018,6 +1029,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       _reviewOpened = _navigation.isReview;
       _quadrantOpened = _navigation.tool == HomeToolSection.quadrant;
       _calendarOpened = _navigation.tool == HomeToolSection.calendar;
+      _quadrantActivation = 0;
+      _calendarActivation = 0;
       _mobileReturnTab = _navigation.showsMobileBottomBar
           ? _navigation
           : HomeNavigationState(primary: _navigation.primary);
