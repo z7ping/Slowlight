@@ -478,6 +478,22 @@ void main() {
       find.byKey(const ValueKey('habit-heatmap-day-2026-11-09')),
     );
     expect(marked.properties.label, '11月9日2 条记录');
+    final emptyDay = find.byKey(
+        const ValueKey('habit-heatmap-day-2026-11-08'));
+    final emptyTile = tester.widget<DecoratedBox>(
+      find.descendant(of: emptyDay, matching: find.byType(DecoratedBox)),
+    );
+    final emptyDecoration = emptyTile.decoration as BoxDecoration;
+    expect(emptyDecoration.color,
+        Theme.of(tester.element(emptyDay)).colorScheme.surfaceContainerLow);
+    final recordedTile = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: find.byKey(const ValueKey('habit-heatmap-day-2026-11-09')),
+        matching: find.byType(DecoratedBox),
+      ),
+    );
+    expect((recordedTile.decoration as BoxDecoration).color,
+        Colors.blue.withValues(alpha: .95));
     expect(find.text('30'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
