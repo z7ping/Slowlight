@@ -782,7 +782,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       color: _sameDay(day, _selected)
                           ? activePalette.accent.withValues(alpha: .08)
                           : theme.colorScheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(SlowlightRadius.sm),
                       border: Border(
                         bottom: BorderSide(
                           color: _sameDay(day, _selected)
