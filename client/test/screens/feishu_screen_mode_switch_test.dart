@@ -127,6 +127,8 @@ void main() {
       'tables': {'任务': 'old-table'},
     });
     await tester.pump();
+    await tester.tap(find.text('修改配置'));
+    await tester.pump();
     final appId = tester.widget<FxInput>(find.byType(FxInput).first);
     expect(appId.controller!.text, 'cloud_app');
     expect(tester.takeException(), isNull);
@@ -206,6 +208,8 @@ void main() {
       'bitable_url': 'https://current.example/base',
       'tables': {'任务': 'current-table'},
     });
+    await tester.pump();
+    await tester.tap(find.text('修改配置'));
     await tester.pump();
     final fields = tester.widgetList<FxInput>(find.byType(FxInput)).toList();
     expect(fields.first.controller!.text, 'cloud_app');
