@@ -104,6 +104,8 @@ class _WebhookScreenState extends State<WebhookScreen> {
   bool _hasLoaded = false;
   bool _loadFailed = false;
   bool _creating = false;
+  final Set<int> _testingIds = <int>{};
+  final Map<int, String> _testResults = <int, String>{};
 
   @override
   void initState() {
@@ -139,12 +141,24 @@ class _WebhookScreenState extends State<WebhookScreen> {
 
   Future<void> _addWebhook() async {
     if (_creating) return;
-    final result = await FxDialog.show<Map<String, dynamic>>(
-      context: context,
-      title: '添加事件回调',
-      width: 560,
-      child: const _AddWebhookDialogBody(),
-    );
+    final mobile = Theme.of(context).platform == TargetPlatform.android ||
+        Theme.of(context).platform == TargetPlatform.iOS;
+    final result = mobile
+        ? await FxSheet.show<Map<String, dynamic>>(
+            context: context,
+            useRootNavigator: true,
+            showDragHandle: true,
+            onDismissRequested: () async =>
+                Navigator.of(context, rootNavigator: true).pop(),
+            showCloseButton: false,
+            builder: (_) => const _AddWebhookDialogBody(mobile: true),
+          )
+        : await FxDialog.show<Map<String, dynamic>>(
+            context: context,
+            title: '添加事件回调',
+            width: 560,
+            child: const _AddWebhookDialogBody(),
+          );
     if (result == null || !mounted || _creating) return;
     setState(() => _creating = true);
     final url = (result['url'] as String).trim();
@@ -189,11 +203,26 @@ class _WebhookScreenState extends State<WebhookScreen> {
   }
 
   Future<void> _testWebhook(int id) async {
+    if (_testingIds.contains(id)) return;
+    setState(() {
+      _testingIds.add(id);
+      _testResults.remove(id);
+    });
     try {
       final result = await ApiService.testWebhook(id);
-      _showMsg(result['success'] == true ? '测试成功' : '测试失败: ${result['error']}');
-    } catch (e) {
-      _showMsg('测试失败: $e');
+      final message = result['success'] == true
+          ? '测试成功 · 服务端已确认'
+          : '测试失败：${result['error'] ?? '原因未知'}';
+      if (!mounted) return;
+      setState(() => _testResults[id] = message);
+      _showMsg(message);
+    } catch (error) {
+      if (!mounted) return;
+      final message = '测试结果未确认：$error';
+      setState(() => _testResults[id] = message);
+      _showMsg(message);
+    } finally {
+      if (mounted) setState(() => _testingIds.remove(id));
     }
   }
 
@@ -208,6 +237,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
     if (ok != true) return;
     try {
       await ApiService.deleteWebhook(id);
+      _testResults.remove(id);
       await _loadWebhooks();
     } catch (e) {
       _showMsg('删除失败：$e');
