@@ -2171,11 +2171,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             keyName: 'feishu',
             icon: LucideIcons.cloud,
             title: '飞书集成',
-            detail: '授权和同步范围尚无统一核验结果；可在平台集成页查看配置。',
+            detail: '授权和同步范围尚无统一核验结果；可在飞书页面查看配置。',
             open: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const IntegrationScreen(),
+                builder: (_) => const FeishuScreen(),
               ),
             ),
           ),
