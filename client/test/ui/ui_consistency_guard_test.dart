@@ -9,8 +9,6 @@ void main() {
       'lib/screens/feishu_screen_sections.dart',
       'lib/screens/caldav_screen.dart',
       'lib/screens/webhook_screen.dart',
-      'lib/screens/inbox_screen.dart',
-      'lib/screens/integration_screen.dart',
       'lib/widgets/task_tile.dart',
       'lib/widgets/task_filter_sort_sheet.dart',
     ];

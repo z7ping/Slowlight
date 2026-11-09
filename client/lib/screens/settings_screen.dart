@@ -27,6 +27,8 @@ import 'about_screen.dart';
 import 'diagnostics_screen.dart';
 import 'conflict_screen.dart';
 import 'feishu_screen.dart';
+import 'caldav_screen.dart';
+import 'webhook_screen.dart';
 import 'login_screen.dart';
 import 'migration_history_dialog.dart';
 import 'migration_preview_dialog.dart';
@@ -2049,12 +2051,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             FxListTile(
               key: const ValueKey('settings.sync.feishu'),
               density: FxListTileDensity.detailed,
+              leading: const Icon(LucideIcons.cloud, size: 20),
               title: '飞书多维表格',
               subtitle: '连接配置、数据表与分类同步',
               trailing: const Icon(LucideIcons.chevronRight, size: 18),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const FeishuScreen()),
+              ),
+            ),
+            FxListTile(
+              key: const ValueKey('settings.sync.caldav'),
+              density: FxListTileDensity.detailed,
+              leading: const Icon(LucideIcons.calendarDays, size: 20),
+              title: 'CalDAV 同步',
+              subtitle: '服务器配置、连接测试与任务同步',
+              trailing: const Icon(LucideIcons.chevronRight, size: 18),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CalDAVScreen()),
+              ),
+            ),
+            FxListTile(
+              key: const ValueKey('settings.sync.webhook'),
+              density: FxListTileDensity.detailed,
+              leading: const Icon(LucideIcons.link2, size: 20),
+              title: '事件回调 Webhook',
+              subtitle: '管理事件通知地址与回调',
+              trailing: const Icon(LucideIcons.chevronRight, size: 18),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WebhookScreen()),
               ),
             ),
           ],

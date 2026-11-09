@@ -8,6 +8,31 @@ import 'package:slowlight/widgets/habit_checkin_dialog.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
+  testWidgets('Android 习惯打卡主按钮填满现行表单宽度', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final habit = Habit(
+      id: 11,
+      userId: 1,
+      name: '读书',
+      recordType: 'check',
+      createdAt: DateTime(2026),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitCheckinDialog(habit: habit)),
+    ));
+    await tester.pump();
+    final action = find.byKey(const ValueKey('habit-checkin-primary-action'));
+    expect(action, findsOneWidget);
+    expect(tester.getSize(action).width, greaterThan(290));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X06 Windows 取消和 Escape 均保护打卡草稿', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

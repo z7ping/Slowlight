@@ -7,6 +7,8 @@ import 'package:slowlight/screens/settings_screen.dart';
 import 'package:slowlight/ai/ai_models.dart';
 import 'package:slowlight/screens/ai_settings_screen.dart';
 import 'package:slowlight/screens/diagnostics_screen.dart';
+import 'package:slowlight/screens/caldav_screen.dart';
+import 'package:slowlight/screens/webhook_screen.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/services/reminder_service.dart';
 
@@ -107,6 +109,43 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets('${platform.name} 设置的 CalDAV / Webhook 直接入口可用', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = platform == TargetPlatform.android
+          ? const Size(390, 844)
+          : const Size(1200, 850);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(buildFxTestHost(
+        home: const SettingsScreen(initialSection: 'sync'),
+      ));
+      await tester.pump();
+      final caldav = find.byKey(const ValueKey('settings.sync.caldav'));
+      final webhook = find.byKey(const ValueKey('settings.sync.webhook'));
+      expect(caldav, findsOneWidget);
+      expect(webhook, findsOneWidget);
+
+      await tester.ensureVisible(caldav);
+      await tester.tap(caldav);
+      await tester.pump();
+      expect(find.byType(CalDAVScreen), findsOneWidget);
+      Navigator.of(tester.element(find.byType(CalDAVScreen))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(webhook);
+      await tester.tap(webhook);
+      await tester.pump();
+      expect(find.byType(WebhookScreen), findsOneWidget);
+      Navigator.of(tester.element(find.byType(WebhookScreen))).pop();
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
 
   testWidgets('Android 设置为分类首页，隐藏桌面休息入口', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
