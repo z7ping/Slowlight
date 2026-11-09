@@ -365,6 +365,7 @@ class _WebhookScreenState extends State<WebhookScreen> {
         description: '', exampleUse: '', examplePayload: '',
       ),
     );
+    final theme = Theme.of(context);
     final id = webhook['id'] as int;
     final url = webhook['url']?.toString() ?? '';
     final enabled = webhook['is_active'] == true;
@@ -381,11 +382,11 @@ class _WebhookScreenState extends State<WebhookScreen> {
         width: 40, height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: themeColor(context).withValues(alpha: .10),
+          color: theme.colorScheme.primary.withValues(alpha: .10),
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
         ),
         child: Icon(def.icon, size: SlowlightIconSize.lg,
-          color: themeColor(context)),
+          color: theme.colorScheme.primary),
       ),
       title: Text(
         webhook['name']?.toString().isNotEmpty == true
@@ -427,7 +428,8 @@ class _WebhookScreenState extends State<WebhookScreen> {
         },
         itemBuilder: (_) => const [
           FxMenuItem<int>(value: 0, child: Text('发送测试')),
-          FxMenuItem<int>(value: 1, child: Text('删除回调')),
+          FxMenuItem<int>(value: 1,
+            child: Text('删除回调', style: TextStyle(color: AppTheme.error))),
         ],
         child: const SizedBox(
           width: 44, height: 44,
@@ -436,8 +438,6 @@ class _WebhookScreenState extends State<WebhookScreen> {
       ),
     );
   }
-
-  Color themeColor(BuildContext context) => Theme.of(context).colorScheme.primary;
 
   Widget _buildEventGuide() {
     return FxCard(
