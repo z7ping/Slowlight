@@ -273,26 +273,13 @@ class _DashboardBodyState extends State<DashboardBody> {
               onPressed: widget.onStartFocus,
             );
       if (focus == null) return date;
-      return LayoutBuilder(builder: (context, constraints) {
-        final scale = MediaQuery.textScalerOf(context).scale(1);
-        if (constraints.maxWidth < 300 * scale) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              date,
-              const SizedBox(height: SlowlightSpacing.xs),
-              Align(alignment: Alignment.centerRight, child: focus),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: date),
-            const SizedBox(width: SlowlightSpacing.md),
-            focus,
-          ],
-        );
-      });
+      return OverflowBar(
+        alignment: MainAxisAlignment.spaceBetween,
+        overflowAlignment: OverflowBarAlignment.end,
+        spacing: SlowlightSpacing.md,
+        overflowSpacing: SlowlightSpacing.xs,
+        children: [date, focus],
+      );
     }
 
     final subtitle =

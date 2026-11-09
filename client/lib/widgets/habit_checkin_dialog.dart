@@ -192,10 +192,6 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     final theme = Theme.of(context);
     final mobile = theme.platform == TargetPlatform.android ||
         theme.platform == TargetPlatform.iOS;
-    final fontScale = MediaQuery.textScalerOf(context).scale(1);
-    final stackMobileActions = mobile &&
-        (fontScale >= 1.6 ||
-         (MediaQuery.sizeOf(context).width <= 340 && fontScale >= 1.3));
     final mobileCancelAction = FxButton(
       label: '取消',
       expanded: true,
@@ -352,24 +348,14 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                 padding: EdgeInsets.fromLTRB(
                   mobile ? 16 : 20, 12, mobile ? 16 : 20, 16),
                 child: mobile
-                    ? stackMobileActions
-                        ? Column(
-                            key: const ValueKey('habit-checkin-mobile-footer'),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              mobileCancelAction,
-                              const SizedBox(height: SlowlightSpacing.md),
-                              mobileSubmitAction,
-                            ],
-                          )
-                        : Row(
-                            key: const ValueKey('habit-checkin-mobile-footer'),
-                            children: [
-                              Expanded(flex: 5, child: mobileCancelAction),
-                              const SizedBox(width: SlowlightSpacing.md),
-                              Expanded(flex: 7, child: mobileSubmitAction),
-                            ],
-                          )
+                    ? Row(
+                        key: const ValueKey('habit-checkin-mobile-footer'),
+                        children: [
+                          Expanded(flex: 5, child: mobileCancelAction),
+                          const SizedBox(width: SlowlightSpacing.md),
+                          Expanded(flex: 7, child: mobileSubmitAction),
+                        ],
+                      )
                     : Wrap(
                         alignment: WrapAlignment.end,
                         spacing: SlowlightSpacing.md,

@@ -56,7 +56,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 200% 字号下习惯操作区改双行且主操作避让键盘',
+  testWidgets('Android 200% 字号下习惯操作保持 5:7 同排且主操作避让键盘',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -87,9 +87,10 @@ void main() {
     expect(footer, findsOneWidget);
     expect(cancel, findsOneWidget);
     expect(save, findsOneWidget);
-    expect(tester.getSize(cancel).width, closeTo(tester.getSize(save).width, 1));
-    expect(tester.getTopLeft(save).dy,
-        greaterThan(tester.getBottomLeft(cancel).dy));
+    expect(tester.getSize(save).width / tester.getSize(cancel).width,
+        closeTo(1.4, 0.08));
+    expect((tester.getRect(save).center.dy - tester.getRect(cancel).center.dy).abs(),
+        lessThan(28));
     expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
     expect(tester.getSize(save).height, greaterThanOrEqualTo(44));
 

@@ -733,8 +733,8 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           standalonePendingKnown: !pendingUnknown,
                           verifiedAfterFailure: _verifiedRetrySafe,
                         );
-                        return LayoutBuilder(
-                          builder: (context, constraints) {
+                        return Builder(
+                          builder: (context) {
                             final dismiss = FxButton(
                               label: '稍后处理',
                               expanded: true,
@@ -750,18 +750,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                               onPressed: busy ? null
                                   : canSync ? _retry : _verifyOnly,
                             );
-                            if (constraints.maxWidth < 360 ||
-                                MediaQuery.textScalerOf(context).scale(1) >= 1.6) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  retry,
-                                  const SizedBox(height: SlowlightSpacing.md),
-                                  dismiss,
-                                ],
-                              );
-                            }
-                            return Row(
+                        return Row(
                               children: [
                                 Expanded(child: dismiss),
                                 const SizedBox(width: SlowlightSpacing.md),
