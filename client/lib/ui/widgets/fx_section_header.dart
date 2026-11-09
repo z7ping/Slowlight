@@ -58,52 +58,27 @@ class FxSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scale = MediaQuery.textScalerOf(context).scale(1);
-        // 优先单行呈现：普通 Android 窄屏容得下标题和短操作，不应按全局宽度强制换行。
-        // 仅在真正紧窄或超大字体时退化为右对齐的第二行。
-        final narrow = constraints.maxWidth < 300 ||
-            (scale >= 1.6 && constraints.maxWidth < 440);
-        final action = trailingWidget;
-        if (action == null) {
-          return ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: SlowlightControlSize.buttonSm,
-            ),
-            child: Align(alignment: Alignment.centerLeft, child: _copy(context)),
-          );
-        }
-
-        if (narrow) {
-          return ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: SlowlightControlSize.buttonSm,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _copy(context),
-                const SizedBox(height: SlowlightSpacing.xs),
-                Align(alignment: Alignment.centerRight, child: action),
-              ],
-            ),
-          );
-        }
-
-        return ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: SlowlightControlSize.buttonSm,
-          ),
-          child: Row(
-            children: [
-              Expanded(child: _copy(context)),
-              const SizedBox(width: SlowlightSpacing.xl),
-              action,
-            ],
-          ),
-        );
-      },
+    final action = trailingWidget;
+    if (action == null) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: SlowlightControlSize.buttonSm,
+        ),
+        child: Align(alignment: Alignment.centerLeft, child: _copy(context)),
+      );
+    }
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: SlowlightControlSize.buttonSm,
+      ),
+      // Measure actual title/action sizes instead of a 300/440dp threshold.
+      child: OverflowBar(
+        alignment: MainAxisAlignment.spaceBetween,
+        overflowAlignment: OverflowBarAlignment.end,
+        spacing: SlowlightSpacing.xl,
+        overflowSpacing: SlowlightSpacing.xs,
+        children: [_copy(context), action],
+      ),
     );
   }
 }
