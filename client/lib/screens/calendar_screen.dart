@@ -20,6 +20,7 @@ class CalendarHeaderController extends ChangeNotifier {
   CalendarViewMode _viewMode = CalendarViewMode.month;
   bool _loading = false;
   Future<void> Function(int)? _onMoveMonth;
+  Future<void> Function(int)? _onMovePeriod;
   Future<void> Function()? _onToday;
   void Function(CalendarDisplayMode)? _onFilter;
   void Function(CalendarViewMode)? _onViewMode;
@@ -31,11 +32,13 @@ class CalendarHeaderController extends ChangeNotifier {
 
   void attach({
     required Future<void> Function(int) onMoveMonth,
+    required Future<void> Function(int) onMovePeriod,
     required Future<void> Function() onToday,
     required void Function(CalendarDisplayMode) onFilter,
     required void Function(CalendarViewMode) onViewMode,
   }) {
     _onMoveMonth = onMoveMonth;
+    _onMovePeriod = onMovePeriod;
     _onToday = onToday;
     _onFilter = onFilter;
     _onViewMode = onViewMode;
@@ -43,6 +46,7 @@ class CalendarHeaderController extends ChangeNotifier {
 
   void detach() {
     _onMoveMonth = null;
+    _onMovePeriod = null;
     _onToday = null;
     _onFilter = null;
     _onViewMode = null;
@@ -63,6 +67,10 @@ class CalendarHeaderController extends ChangeNotifier {
     if (!_loading) await _onMoveMonth?.call(delta);
   }
 
+  Future<void> movePeriod(int delta) async {
+    if (!_loading) await _onMovePeriod?.call(delta);
+  }
+
   Future<void> goToday() async {
     if (!_loading) await _onToday?.call();
   }
@@ -80,6 +88,7 @@ class CalendarMonthTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) => FxMenu<int>(
@@ -129,8 +138,8 @@ class CalendarMonthTitle extends StatelessWidget {
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minHeight: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 30,
-            maxWidth: SlowlightPlatformDensity.usesMobileTouchTargets ? 190 : 260,
+            minHeight: mobile ? 44 : 30,
+            maxWidth: mobile ? 112 : 260,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
@@ -139,11 +148,16 @@ class CalendarMonthTitle extends StatelessWidget {
             children: [
               Flexible(
                 child: Text(
-                '${controller.month.year} 年 ${controller.month.month} 月',
+                mobile
+                    ? '${controller.month.year}年${controller.month.month}月'
+                    : '${controller.month.year} 年 ${controller.month.month} 月',
                 key: const ValueKey('calendar-month-label'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: SlowlightTypography.componentPageTitle(context),
+                style: mobile
+                    ? SlowlightTypography.secondary(context)
+                        .copyWith(fontWeight: FontWeight.w700)
+                    : SlowlightTypography.componentPageTitle(context),
                 ),
               ),
               const SizedBox(width: 4),
@@ -169,6 +183,28 @@ class CalendarHeaderActions extends StatelessWidget {
     builder: (context, _) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        FxIconButton(
+          key: const ValueKey('calendar-period-prev'),
+          icon: LucideIcons.chevronLeft,
+          iconSize: 16,
+          tooltip: '上一周期',
+          onPressed: controller.loading ? null : () => controller.movePeriod(-1),
+        ),
+        FxIconButton(
+          key: const ValueKey('calendar-period-next'),
+          icon: LucideIcons.chevronRight,
+          iconSize: 16,
+          tooltip: '下一周期',
+          onPressed: controller.loading ? null : () => controller.movePeriod(1),
+        ),
+        if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+            MediaQuery.sizeOf(context).width >= 412)
+          FxButton(
+            label: '今天',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.ghost,
+            onPressed: controller.loading ? null : controller.goToday,
+          ),
         FxMenu<CalendarViewMode>(
           key: const ValueKey('calendar-view-toggle'),
           tooltip: '切换日历视图',
@@ -250,7 +286,9 @@ class CalendarHeaderActions extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(LucideIcons.listFilter, size: 19),
-                  if (controller.mode != CalendarDisplayMode.all) ...[
+                  if (controller.mode != CalendarDisplayMode.all &&
+                       (!SlowlightPlatformDensity.usesMobileTouchTargets ||
+                        MediaQuery.sizeOf(context).width >= 480)) ...[
                     const SizedBox(width: 4),
                     Text(
                       controller.mode == CalendarDisplayMode.plan ? '计划' : '实际',
@@ -299,6 +337,10 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   final _dayPanelKey = GlobalKey();
+  static const _calendarAxisWidth = 36.0;
+  static const _calendarHourHeight = 54.0;
+  static const _calendarStartMinute = 8 * 60;
+  static const _calendarEndMinute = 22 * 60;
   late final CalendarHeaderController _headerController;
   late final bool _ownsHeaderController;
   late DateTime _focused;
@@ -312,6 +354,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   int _loadVersion = 0;
   CalendarViewMode _viewMode = CalendarViewMode.month;
   bool _modeTouched = false;
+  bool _untimedExpanded = false;
+  String? _draggingRecordId;
+  Offset _dragOrigin = Offset.zero;
+  Offset _dragOffset = Offset.zero;
   final Map<int, CalendarMonthData> _rangeCache = {};
   bool _rangeLoading = false;
   bool _rangeFailed = false;
@@ -336,7 +382,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _ownsHeaderController = widget.headerController == null;
     _headerController = widget.headerController ?? CalendarHeaderController();
     _viewMode = _headerController.viewMode;
-    _headerController.attach(onMoveMonth: _moveMonth, onToday: _goToday,
+    _headerController.attach(onMoveMonth: _moveMonth,
+        onMovePeriod: _shiftPeriod, onToday: _goToday,
         onFilter: _setFilter, onViewMode: _setViewMode);
     _restoreViewMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -395,6 +442,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (_viewMode == view) return;
     setState(() {
       if (view == CalendarViewMode.threeDays) _threeDayStart = _selected;
+      _untimedExpanded = false;
       _viewMode = view;
     });
     _notifyHeader();
@@ -486,6 +534,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _shiftPeriod(int direction) async {
     if (_loading || _rangeLoading) return;
+    if (_viewMode == CalendarViewMode.month) {
+      await _moveMonth(direction);
+      return;
+    }
     final step = switch (_viewMode) {
       CalendarViewMode.day => 1,
       CalendarViewMode.threeDays => 3,
@@ -497,6 +549,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final next = DateTime(anchor.year, anchor.month,
         anchor.day + step * direction);
     if (_viewMode == CalendarViewMode.threeDays) _threeDayStart = next;
+    if (mounted) setState(() => _untimedExpanded = false);
     await _selectDate(next);
   }
 
@@ -575,6 +628,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final cached = changeMonth ? _rangeCache[_monthKey(date)] : null;
     setState(() {
       _selected = DateTime(date.year, date.month, date.day);
+      if (changeMonth) _untimedExpanded = false;
       if (changeMonth) {
         _focused = DateTime(date.year, date.month, 1);
         // Neighboring dates are already loaded by the current date strip.
@@ -598,7 +652,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  Future<void> _addTask(DateTime date) async {
+  Future<void> _addTask(DateTime date, {TimeOfDay? time}) async {
     await _selectDate(date);
     if (!mounted) return;
     if (widget.createTaskOverride != null) {
@@ -611,6 +665,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         context,
         lists: widget.createListsOverride,
         initialDueDate: date,
+        initialDueTime: time,
         defaultDueToday: false,
         onChanged: _refresh,
       );
@@ -646,7 +701,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: ListView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(20, widget.headerInAppBar ? 4 : 18, 20, 32),
+        padding: EdgeInsets.fromLTRB(
+          widget.headerInAppBar && SlowlightPlatformDensity.usesMobileTouchTargets ? 12 : 20,
+          widget.headerInAppBar ? 4 : 18,
+          widget.headerInAppBar && SlowlightPlatformDensity.usesMobileTouchTargets ? 12 : 20,
+          32,
+        ),
         children: [
           Center(
             child: ConstrainedBox(
@@ -698,8 +758,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       const SizedBox(height: 14),
                       _dayPanel(),
                     ] else ...[
-                      _dateStrip(),
-                      const SizedBox(height: 8),
+                      // The shared date header is part of the time grid.
                       if (_rangeLoading)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 36),
@@ -716,7 +775,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         )
                       else
-                        _selectedTimeline(),
+                        _timeGrid(),
                     ],
                   ],
                 ],
@@ -736,48 +795,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ],
   );
 
-  // One compact date strip; never render complete day columns side by side.
-  // Three-/seven-day modes share the selected day's single full-width timeline.
+
+  // Clock modes share the same axis width and column count as the date rail.
   Widget _dateStrip() {
     final days = _visibleDays();
-    if (days.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    final theme = Theme.of(context);
-    if (_viewMode == CalendarViewMode.day) {
-      final day = days.single;
-      return Row(
-        key: const ValueKey('calendar-date-strip'),
-        children: [
-          FxIconButton(
-            key: const ValueKey('calendar-period-prev'),
-            icon: LucideIcons.chevronLeft,
-            tooltip: '前一天',
-            onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(-1),
-          ),
-          Expanded(
-            child: Text(
-              '${day.month}月${day.day}日 · 周${weekdays[day.weekday - 1]}',
-              textAlign: TextAlign.center,
-              style: SlowlightTypography.secondary(context)
-                  .copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          FxIconButton(
-            key: const ValueKey('calendar-period-next'),
-            icon: LucideIcons.chevronRight,
-            tooltip: '后一天',
-            onPressed: _loading || _rangeLoading ? null : () => _shiftPeriod(1),
-          ),
-          FxIconButton(
-            key: const ValueKey('calendar-period-add-task'),
-            icon: LucideIcons.plus,
-            tooltip: '在当前日期新建任务',
-            onPressed: () => _addTask(_selected),
-          ),
-        ],
-      );
-    }
-    final week = _viewMode == CalendarViewMode.week;
     return GestureDetector(
       key: const ValueKey('calendar-date-strip'),
       behavior: HitTestBehavior.opaque,
@@ -785,228 +808,332 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity.abs() > 180) _shiftPeriod(velocity < 0 ? 1 : -1);
       },
-      child: Row(
-        children: [
+      child: DecoratedBox(
+        decoration: BoxDecoration(border: Border(
+          bottom: BorderSide(color: colors.outlineVariant),
+        )),
+        child: Row(children: [
+          const SizedBox(width: _calendarAxisWidth),
           for (final day in days)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: FxInkWell(
-                  key: ValueKey(
-                    'calendar-period-day-${day.year}-${day.month}-${day.day}',
-                  ),
-                  onTap: () => _selectDate(day),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 56),
-                    padding: EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: week ? 1 : 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _sameDay(day, _selected)
-                          ? activePalette.accent.withValues(alpha: .08)
-                          : theme.colorScheme.surfaceContainerLowest,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: _sameDay(day, _selected)
-                              ? activePalette.accent
-                              : theme.colorScheme.outlineVariant,
-                          width: _sameDay(day, _selected) ? 2 : 1,
-                        ),
+            Expanded(child: FxInkWell(
+              key: ValueKey('calendar-period-day-' + day.year.toString() +
+                  '-' + day.month.toString() + '-' + day.day.toString()),
+              onTap: () => _selectDate(day),
+              child: Semantics(
+                selected: _sameDay(day, _selected),
+                label: day.month.toString() + '月' + day.day.toString() +
+                    '日，周' + weekdays[day.weekday - 1] + '，' + _dateCount(day),
+                child: SizedBox(height: 56, child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('周' + weekdays[day.weekday - 1],
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: SlowlightTypography.caption(context)),
+                    const SizedBox(height: 2),
+                    Container(
+                      width: 27, height: 27,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _sameDay(day, _selected)
+                            ? activePalette.accent : Colors.transparent,
+                        border: _sameDay(day, DateTime.now()) &&
+                                !_sameDay(day, _selected)
+                            ? Border.all(color: activePalette.accent) : null,
                       ),
+                      child: Text(day.day.toString(),
+                        style: SlowlightTypography.caption(context).copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: _sameDay(day, _selected)
+                              ? colors.onPrimary
+                              : _sameDay(day, DateTime.now())
+                                  ? activePalette.accent : colors.onSurface,
+                        )),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          week
-                              ? weekdays[day.weekday - 1]
-                              : '${day.month}/${day.day} · 周${weekdays[day.weekday - 1]}',
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: SlowlightTypography.caption(context),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          week ? '${day.day}' : _dateCount(day),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: SlowlightTypography.secondary(context)
-                              .copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        if (week)
-                          Text(
-                            _dateCount(day, compact: true),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            style: SlowlightTypography.caption(context)
-                                .copyWith(color: theme.colorScheme.onSurfaceVariant),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
+                    const SizedBox(height: 2),
+                    SizedBox(height: 3, child:
+                      _rangeCache.containsKey(_monthKey(day)) &&
+                      _timelineRecords(day).isNotEmpty
+                        ? Container(width: 3, height: 3,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: activePalette.accent.withValues(alpha: .7)))
+                        : const SizedBox.shrink()),
+                  ],
+                )),
               ),
-            ),
-        ],
+            )),
+        ]),
       ),
     );
   }
 
-  String _dateCount(DateTime day, {bool compact = false}) {
-    if (!_rangeCache.containsKey(_monthKey(day))) return '—';
-    final partial = _rangeCache[_monthKey(day)]!.unavailableTypes.isNotEmpty;
-    if (partial) return '·';
-    final count = _timelineRecords(day).length;
-    return compact ? '$count' : '$count 条';
+  String _dateCount(DateTime day) {
+    final data = _rangeCache[_monthKey(day)];
+    if (data == null) return '未读取';
+    if (data.unavailableTypes.isNotEmpty) return '部分来源未核实';
+    return _timelineRecords(day).length.toString() + ' 条';
+  }
+
+  // Native HH:mm only. Completion facts carry the trailing " 完成".
+  int? _clockMinute(CalendarRecord record) {
+    final match = RegExp(r'^([01]?\d|2[0-3]):([0-5]\d)(?: 完成)?$')
+        .firstMatch(record.timeLabel);
+    if (match == null) return null;
+    return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
   }
 
   List<CalendarRecord> _timelineRecords(DateTime day) {
     final source = _rangeCache[_monthKey(day)];
     if (source == null) return const [];
-    final result = source.records.where((record) {
+    final records = source.records.where((record) {
       if (!_sameDay(record.date, day)) return false;
       return switch (_displayMode) {
         CalendarDisplayMode.all => true,
         CalendarDisplayMode.plan => record.kind == CalendarRecordKind.plan,
         CalendarDisplayMode.actual => record.kind == CalendarRecordKind.actual,
       };
-    }).toList(growable: false);
-    // Only native HH:mm values are clock times. Aggregate or periodic
-    // labels are not fabricated into a scheduled hour.
-    int minutes(CalendarRecord record) {
-      final match = RegExp(r'^([01]?\d|2[0-3]):([0-5]\d)$')
-          .firstMatch(record.timeLabel);
-      return match == null
-          ? 1440
-          : int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
-    }
-    result.sort((a, b) {
-      final clock = minutes(a).compareTo(minutes(b));
-      if (clock != 0) return clock;
-      return a.kind.index.compareTo(b.kind.index);
-    });
-    return result;
+    }).toList();
+    records.sort((a, b) =>
+        (_clockMinute(a) ?? 1440).compareTo(_clockMinute(b) ?? 1440));
+    return records;
   }
 
-  Widget _selectedTimeline() {
-    final day = _selected;
-    final rows = _timelineRecords(day);
-    final partial =
-        _rangeCache[_monthKey(day)]?.unavailableTypes.isNotEmpty ?? false;
-    final colors = Theme.of(context).colorScheme;
-    return GestureDetector(
-      key: const ValueKey('calendar-selected-timeline'),
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity.abs() > 180) _shiftPeriod(velocity < 0 ? 1 : -1);
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (partial)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Text(
-                '部分记录未读取成功，当前仅显示已确认的内容。',
-                style: SlowlightTypography.caption(context)
-                    .copyWith(color: colors.onSurfaceVariant),
-              ),
-            ),
-          if (rows.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Text(
-                partial ? '请重试核对其他记录。' : '当天没有记录',
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.secondary(context)
-                    .copyWith(color: colors.onSurfaceVariant),
-              ),
-            )
-          else
-            for (final record in rows) _timelineRecord(record),
-          if (_viewMode != CalendarViewMode.day)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: FxButton(
-                  key: const ValueKey('calendar-period-add-task'),
-                  label: '安排任务',
-                  icon: LucideIcons.plus,
-                  size: FxButtonSize.sm,
-                  variant: FxButtonVariant.outline,
-                  onPressed: () => _addTask(_selected),
-                ),
-              ),
-            ),
-        ],
-      ),
+  String _timeText(int value) =>
+      (value ~/ 60).toString().padLeft(2, '0') + ':' +
+      (value % 60).toString().padLeft(2, '0');
+
+  bool _isTimed(CalendarRecord record) {
+    final minute = _clockMinute(record);
+    return minute != null &&
+        minute >= _calendarStartMinute && minute < _calendarEndMinute;
+  }
+
+  Future<void> _addAt(DateTime day, double y) async {
+    final halves = (y / (_calendarHourHeight / 2)).floor();
+    final minute = (_calendarStartMinute + halves * 30)
+        .clamp(_calendarStartMinute, _calendarEndMinute - 30).toInt();
+    await _addTask(day, time: TimeOfDay(
+      hour: minute ~/ 60, minute: minute % 60,
+    ));
+  }
+
+  Future<void> _proposeMove(
+      CalendarRecord record, DateTime day, int minute) async {
+    if (record.kind != CalendarRecordKind.plan || record.task == null) return;
+    if (_sameDay(day, record.date) && minute == _clockMinute(record)) return;
+    // Reuse the canonical editor: moving is an unsaved draft until confirmed.
+    await TaskDetailSheet.show(context,
+      task: record.task!,
+      lists: widget.createListsOverride ?? const <TodoList>[],
+      initialDueDate: day,
+      initialDueTime: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
+      onChanged: _refresh,
     );
   }
 
-  Widget _timelineRecord(CalendarRecord record) {
-    final palette = Theme.of(context).colorScheme;
-    final time = RegExp(r'^([01]?\d|2[0-3]):[0-5]\d$')
-            .hasMatch(record.timeLabel)
-        ? record.timeLabel
-        : '—';
-    return FxInkWell(
-      key: ValueKey('calendar-timeline-record-${record.id}'),
-      onTap: () => _openRecord(record),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 43,
-              child: Text(time,
-                  maxLines: 1,
-                  style: SlowlightTypography.caption(context)
-                      .copyWith(color: palette.onSurfaceVariant)),
+  Widget _timeGrid() {
+    final days = _visibleDays();
+    if (days.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
+    final leftover = <CalendarRecord>[];
+    for (final day in days) {
+      leftover.addAll(_timelineRecords(day).where((r) => !_isTimed(r)));
+    }
+    final partial = days.any((d) =>
+        _rangeCache[_monthKey(d)]?.unavailableTypes.isNotEmpty ?? false);
+    return Column(
+      key: const ValueKey('calendar-selected-timeline'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _dateStrip(),
+        if (partial) Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text('部分来源未核实，仍保留已确认的记录。',
+            style: SlowlightTypography.caption(context)),
+        ),
+        LayoutBuilder(builder: (context, constraints) {
+          final colWidth =
+              (constraints.maxWidth - _calendarAxisWidth) / days.length;
+          return SizedBox(
+            height: 14 * _calendarHourHeight,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: _calendarAxisWidth, child: Stack(children: [
+                  for (var hour = 8; hour < 22; hour++)
+                    Positioned(top: (hour - 8) * _calendarHourHeight,
+                      right: 4, child: Transform.translate(
+                        offset: const Offset(0, -6),
+                        child: Text(hour.toString().padLeft(2, '0') + ':00',
+                          style: SlowlightTypography.caption(context).copyWith(
+                            fontSize: 9, color: colors.onSurfaceVariant)))),
+                ])),
+                for (var i = 0; i < days.length; i++)
+                  Expanded(child: _timeColumn(days, i, colWidth)),
+              ],
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.only(left: 9),
+          );
+        }),
+        if (leftover.isNotEmpty) _remainingRecords(leftover),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: FxButton(
+              key: const ValueKey('calendar-period-add-task'),
+              label: '安排任务',
+              icon: LucideIcons.plus,
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.outline,
+              onPressed: () => _addTask(_selected),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _timeColumn(List<DateTime> days, int index, double width) {
+    final day = days[index];
+    final colors = Theme.of(context).colorScheme;
+    final records = _timelineRecords(day).where(_isTimed).toList();
+    return Stack(clipBehavior: Clip.hardEdge, children: [
+      for (var hour = 0; hour < 14; hour++)
+        Positioned(top: hour * _calendarHourHeight, left: 0, right: 0,
+          child: Container(height: 1,
+            color: colors.outlineVariant.withValues(alpha: .4))),
+      Positioned.fill(child: GestureDetector(
+        key: ValueKey('calendar-hour-slot-' + day.year.toString() +
+            '-' + day.month.toString() + '-' + day.day.toString()),
+        behavior: HitTestBehavior.opaque,
+        onTapUp: (details) => _addAt(day, details.localPosition.dy),
+        child: const SizedBox.expand(),
+      )),
+      for (final record in records) _timeBlock(record, days, index, width),
+    ]);
+  }
+
+  Widget _timeBlock(
+      CalendarRecord record, List<DateTime> days, int index, double width) {
+    final minute = _clockMinute(record)!;
+    final top = ((minute - _calendarStartMinute) *
+        _calendarHourHeight / 60).clamp(0.0, 732.0).toDouble();
+    // Start-only tasks are short markers, not invented one-hour meetings.
+    final rawHeight = record.durationMin > 0
+        ? (record.durationMin * _calendarHourHeight / 60)
+            .clamp(25.0, 180.0).toDouble()
+        : 33.0;
+    final height = rawHeight.clamp(24.0, 756.0 - top).toDouble();
+    final color = calendarRecordColor(record, context);
+    final canMove = record.kind == CalendarRecordKind.plan &&
+        record.task != null;
+    return Positioned(left: 2, right: 2, top: top, height: height,
+      child: Transform.translate(
+        offset: _draggingRecordId == record.id ? _dragOffset : Offset.zero,
+        child: GestureDetector(
+          onLongPressStart: canMove ? (details) => setState(() {
+            _draggingRecordId = record.id;
+            _dragOrigin = details.globalPosition;
+            _dragOffset = Offset.zero;
+          }) : null,
+          onLongPressMoveUpdate: canMove ? (details) => setState(() {
+            _dragOffset = details.globalPosition - _dragOrigin;
+          }) : null,
+          onLongPressEnd: canMove ? (details) {
+            final delta = details.globalPosition - _dragOrigin;
+            setState(() {
+              _draggingRecordId = null;
+              _dragOffset = Offset.zero;
+            });
+            if (delta.distance < 8 || width <= 0) return;
+            final nextIndex = (index + (delta.dx / width).round())
+                .clamp(0, days.length - 1).toInt();
+            final nextMinute = (minute +
+                (delta.dy / _calendarHourHeight * 2).round() * 30)
+                .clamp(_calendarStartMinute, _calendarEndMinute - 30).toInt();
+            _proposeMove(record, days[nextIndex], nextMinute);
+          } : null,
+          child: FxInkWell(
+            key: ValueKey('calendar-timeline-record-' + record.id),
+            onTap: () => _openRecord(record),
+            child: Semantics(
+              label: record.title + '，' + _timeText(minute) +
+                  (record.durationMin > 0
+                      ? '，' + record.durationMin.toString() + '分钟'
+                      : '，未指定结束时间'),
+              child: DecoratedBox(
                 decoration: BoxDecoration(
+                  color: color.withValues(alpha: .13),
                   border: Border(left: BorderSide(
-                    color: calendarRecordColor(record, context),
-                    width: 2,
-                  )),
+                    color: color, width: days.length == 7 ? 2 : 3)),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.sm),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(record.title,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: SlowlightTypography.secondary(context)
-                          .copyWith(fontWeight: FontWeight.w600)),
-                    Text([
-                      record.kindLabel,
-                      if (time == '—' && record.timeLabel.isNotEmpty)
-                        record.timeLabel,
-                      if (record.durationMin > 0)
-                        '${record.durationMin}min',
-                      if (record.amountLabel.isNotEmpty) record.amountLabel,
-                    ].join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: SlowlightTypography.caption(context)
-                          .copyWith(color: palette.onSurfaceVariant)),
-                  ],
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    days.length == 7 ? 2 : 5, 3, 2, 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(record.title,
+                        maxLines: height > 75 ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SlowlightTypography.caption(context).copyWith(
+                          fontWeight: FontWeight.w600)),
+                      if (height > 90 && days.length <= 3 &&
+                          MediaQuery.textScalerOf(context).scale(12) < 18)
+                        Text(_timeText(minute),
+                          style: SlowlightTypography.caption(context)
+                              .copyWith(color: color)),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _remainingRecords(List<CalendarRecord> rows) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      FxInkWell(
+        key: const ValueKey('calendar-untimed-toggle'),
+        onTap: () => setState(() => _untimedExpanded = !_untimedExpanded),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Row(children: [
+            Text('未定／其他时间',
+              style: SlowlightTypography.secondary(context)
+                  .copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(width: 8),
+            Text(rows.length.toString() + ' 项',
+              style: SlowlightTypography.caption(context)),
+            const Spacer(),
+            Icon(_untimedExpanded
+                ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                size: 16, color: colors.onSurfaceVariant),
+          ]),
+        ),
+      ),
+      if (_untimedExpanded)
+        for (final record in rows)
+          FxInkWell(
+            key: ValueKey('calendar-untimed-record-' + record.id),
+            onTap: () => _openRecord(record),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Row(children: [
+                Expanded(child: Text(record.title,
+                  style: SlowlightTypography.secondary(context))),
+                Text(record.timeLabel.isEmpty
+                    ? '未指定' : record.timeLabel,
+                  style: SlowlightTypography.caption(context)),
+              ]),
+            ),
+          ),
+    ]);
   }
 
   Widget _monthRefreshFailedNotice() => Padding(

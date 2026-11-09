@@ -87,7 +87,7 @@ class CalendarMonthGrid extends StatelessWidget {
               crossAxisCount: 7,
               mainAxisExtent: switch ((compact, largeText)) {
                 (true, true) => 160.0,
-                (true, false) => 112.0,
+                (true, false) => 88.0,
                 (false, true) => 172.0,
                 (false, false) => 136.0,
               },
@@ -238,9 +238,9 @@ class CalendarMonthGrid extends StatelessWidget {
                 FxInkWell(
                   onTap: () => onShowMore(date),
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 3, top: 3),
+                    padding: EdgeInsets.only(left: 3, top: compact ? 1 : 3),
                     child: Text(
-                      '还有 $remaining 条记录',
+                      compact ? '+$remaining' : '还有 $remaining 条记录',
                       maxLines: largeText ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                       style: SlowlightTypography.caption(
@@ -269,7 +269,7 @@ class CalendarMonthGrid extends StatelessWidget {
         : record.amountLabel.isNotEmpty ? ' · ${record.amountLabel}' : '';
     final radius = BorderRadius.circular(SlowlightRadius.sm);
     return Padding(
-      padding: const EdgeInsets.only(top: 3),
+      padding: EdgeInsets.only(top: compact && !largeText ? 2 : 3),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color.withValues(alpha: .12),
@@ -281,7 +281,7 @@ class CalendarMonthGrid extends StatelessWidget {
           child: Container(
             key: ValueKey('calendar-grid-record-${record.id}'),
             width: double.infinity,
-            constraints: BoxConstraints(minHeight: largeText ? 36 : 24),
+            constraints: BoxConstraints(minHeight: largeText ? 36 : compact ? 18 : 24),
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 6),
             child: Text(

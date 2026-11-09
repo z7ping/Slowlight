@@ -274,7 +274,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('calendar-month-label')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(LucideIcons.chevronRight));
+    await tester.tap(find.byIcon(LucideIcons.chevronRight).last);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('calendar-day-2026-09-21')), findsOneWidget);
     expect(tester.widget<Text>(find.byKey(const ValueKey('calendar-month-label'))).data,
@@ -421,6 +421,94 @@ void main() {
     expect(find.descendant(of: strip, matching: find.byType(SingleChildScrollView)), findsNothing);
     await tester.drag(strip, const Offset(-260, 0));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
+  testWidgets('三日时间轴使用三列，同一日期栏与小时列严格对齐', (tester) async {
+    await pumpCalendar(tester, width: 360);
+    await selectCalendarView(tester, '三日');
+    final day = find.byKey(const ValueKey('calendar-period-day-2026-8-21'));
+    final hour = find.byKey(const ValueKey('calendar-hour-slot-2026-8-21'));
+    expect(day, findsOneWidget);
+    expect(hour, findsOneWidget);
+    expect((tester.getSize(day).width - tester.getSize(hour).width).abs(),
+        lessThan(1));
+    expect(find.byKey(const ValueKey('calendar-timeline-record-task-plan')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-untimed-toggle')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('七日 360dp 七列与小时轴等宽，只有日期圆点选中', (tester) async {
+    await pumpCalendar(tester, width: 360);
+    await selectCalendarView(tester, '七日');
+    final first = find.byKey(const ValueKey('calendar-period-day-2026-8-17'));
+    final slot = find.byKey(const ValueKey('calendar-hour-slot-2026-8-17'));
+    expect(first, findsOneWidget);
+    expect(slot, findsOneWidget);
+    expect((tester.getSize(first).width - tester.getSize(slot).width).abs(),
+        lessThan(1));
+    expect(find.byKey(const ValueKey('calendar-period-day-2026-8-23')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('没有原生时刻的专注和习惯保留在折叠记录，不伪造时间块',
+      (tester) async {
+    await pumpCalendar(tester);
+    await selectCalendarView(tester, '日');
+    expect(find.byKey(const ValueKey('calendar-timeline-record-task-plan')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-timeline-record-focus-day')),
+        findsNothing);
+    final toggle = find.byKey(const ValueKey('calendar-untimed-toggle'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-untimed-record-focus-day')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 点击时间轴空白位置使用统一编辑器预填日期时间',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(
+      body: CalendarScreen(
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: DateTime(2026, 8, 21),
+        monthLoader: (requested) async =>
+            CalendarMonthData(month: requested, records: const []),
+        createListsOverride: [
+          TodoList(
+            id: 1, name: '收集箱', isInbox: true,
+            color: '#8db5a0', createdAt: DateTime(2026),
+          ),
+        ],
+      ),
+    )));
+    await tester.pumpAndSettle();
+    await selectCalendarView(tester, '日');
+    final slot = find.byKey(const ValueKey('calendar-hour-slot-2026-8-21'));
+    expect(slot, findsOneWidget);
+    final start = tester.getTopLeft(slot);
+    await tester.tapAt(Offset(start.dx + 8, start.dy + 12));
+    await tester.pumpAndSettle();
+    final editor = find.byType(TaskDetailSheet);
+    expect(editor, findsOneWidget);
+    final task = tester.widget<TaskDetailSheet>(editor).task;
+    expect(task.dueDate, DateTime(2026, 8, 21));
+    expect(task.dueTime, '08:00');
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -655,7 +743,7 @@ void main() {
       textScaler: const TextScaler.linear(2),
     );
 
-    expect(find.text('2026 年 8 月'), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-month-label')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-filter')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-scroll-view')), findsOneWidget);
 
