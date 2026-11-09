@@ -147,6 +147,35 @@ void main() {
     });
   }
 
+  for (final width in [320.0, 360.0, 393.0]) {
+    testWidgets('Android ${width}dp 同步状态与短操作同排', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      DataModeManager().resetForTesting();
+      await tester.runAsync(() => DataModeManager().setCloud());
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      tester.view.physicalSize = Size(width, 850);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(buildFxTestHost(
+        home: const SettingsScreen(initialSection: 'sync'),
+      ));
+      await tester.pump();
+      final heading = tester.getRect(find.text('同步状态'));
+      final syncButton = tester.getRect(find.text('立即同步'));
+      final conflicts = tester.getRect(find.text('同步冲突'));
+      final conflictButton = tester.getRect(find.text('查看冲突'));
+      // A second action-only row used to add ~50px of dead space.
+      expect(syncButton.top, lessThan(heading.top + 44));
+      expect(conflictButton.top, lessThan(conflicts.top + 44));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('Android 设置为分类首页，隐藏桌面休息入口', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     await tester.pumpWidget(buildFxTestHost(
