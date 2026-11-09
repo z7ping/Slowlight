@@ -14,6 +14,7 @@ import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
 import '../reflection_composer.dart';
 import '../task_swipe_row.dart';
+import '../timeline_type_label.dart';
 import 'insight_card.dart';
 
 class DashboardBody extends StatefulWidget {
@@ -548,7 +549,8 @@ class _DashboardBodyState extends State<DashboardBody> {
           ),
         if (_timeline.isNotEmpty) ...[
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) FxSeparator.horizontal(color: fxDivider(context)),
+            if (i > 0 && !mobile)
+              FxSeparator.horizontal(color: fxDivider(context)), 
             _timelineRow(items[i], mobile: mobile),
           ],
           if (_timeline.length > previewLimit)
@@ -602,7 +604,7 @@ class _DashboardBodyState extends State<DashboardBody> {
       // Desktop intentionally keeps the existing icon-led timeline.
       return Padding(
         key: ValueKey('today.timeline.row.${item.id}'),
-        padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.md),
+        padding: const EdgeInsets.symmetric(vertical: SlowlightSpacing.xs),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -623,10 +625,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                   Text(item.description,
                       style: SlowlightTypography.body(context)),
                   const SizedBox(height: 3),
-                  Text(item.category,
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      )),
+                  TimelineTypeLabel(kind: item.kind),
                 ],
               ),
             ),
