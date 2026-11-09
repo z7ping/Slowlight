@@ -303,9 +303,9 @@ void main() {
       ),
       findsOneWidget,
     );
-    await selectCalendarView(tester, '三日视图');
+    await selectCalendarView(tester, '三日');
     expect(preview, findsNothing);
-    await selectCalendarView(tester, '月历');
+    await selectCalendarView(tester, '月');
     expect(preview, findsOneWidget);
     expect(
       find.descendant(
@@ -376,14 +376,14 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('日历菜单提供月历、单日、三日、七日四个视图', (tester) async {
+  testWidgets('日历菜单仅展示月、日、三日、七日四个视图', (tester) async {
     await pumpCalendar(tester);
     await tester.tap(find.byKey(const ValueKey('calendar-view-toggle')));
     await tester.pumpAndSettle();
-    for (final text in ['月历', '单日 Timeline', '三日视图', '七日视图']) {
+    for (final text in ['月', '日', '三日', '七日']) {
       expect(find.text(text), findsOneWidget);
     }
-    await tester.tap(find.text('单日 Timeline'));
+    await tester.tap(find.text('日'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('calendar-date-strip')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-selected-timeline')), findsOneWidget);
@@ -399,7 +399,7 @@ void main() {
 
   testWidgets('七日视图 360dp 一屏显示七个日期并可滑动换周', (tester) async {
     await pumpCalendar(tester, width: 360);
-    await selectCalendarView(tester, '七日视图');
+    await selectCalendarView(tester, '七日');
     expect(find.byKey(const ValueKey('calendar-date-strip')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-selected-timeline')), findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-period-day-2026-8-17')), findsOneWidget);
@@ -438,7 +438,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    await selectCalendarView(tester, '三日视图');
+    await selectCalendarView(tester, '三日');
     expect(requestedMonths, containsAll([8, 9]));
     await tester.tap(find.byKey(const ValueKey('calendar-period-day-2026-9-1')));
     await tester.pumpAndSettle();
@@ -466,7 +466,7 @@ void main() {
       )),
     ));
     await tester.pumpAndSettle();
-    await selectCalendarView(tester, '七日视图');
+    await selectCalendarView(tester, '七日');
     expect(find.text('部分日期读取失败'), findsOneWidget);
     expect(find.text('这天没有记录'), findsNothing);
     failSeptember = false;
