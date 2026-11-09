@@ -465,13 +465,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 density: FxListTileDensity.compact,
                 leading: Icon(LucideIcons.keyRound, size: 22, color: subtle),
                 title: '账号密码',
-                subtitle: (_passwordLoginReady == true
-                    ? '登录账号：' +
-                        (_loginUsername.isEmpty
-                            ? user?.username ?? ''
-                            : _loginUsername) +
-                        (largeText ? ' · ' + passwordState : '')
-                    : largeText ? passwordState : null),
+                // Standard density: title and status share the same
+                // baseline as GitHub; the username belongs in the editor.
+                // Large text: move status below the title before hiding it
+                // from the trailing area to avoid overflow.
+                subtitle: largeText ? passwordState : null,
                 trailing: stateTrailing(passwordState),
                 onTap: _linkingGitHub ? null : _openMobilePasswordEditor,
               ),
