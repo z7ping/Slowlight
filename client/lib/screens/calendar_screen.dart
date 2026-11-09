@@ -10,10 +10,206 @@ import '../widgets/calendar_month_grid.dart';
 import '../widgets/task_detail_sheet.dart';
 import 'task_create_sheet.dart';
 
+/// Calendar toolbar state shared by Android AppBar and desktop content.
+class CalendarHeaderController extends ChangeNotifier {
+  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  CalendarDisplayMode _mode = CalendarDisplayMode.all;
+  bool _loading = false;
+  Future<void> Function(int)? _onMoveMonth;
+  Future<void> Function()? _onToday;
+  void Function(CalendarDisplayMode)? _onFilter;
+
+  DateTime get month => _month;
+  CalendarDisplayMode get mode => _mode;
+  bool get loading => _loading;
+
+  void attach({
+    required Future<void> Function(int) onMoveMonth,
+    required Future<void> Function() onToday,
+    required void Function(CalendarDisplayMode) onFilter,
+  }) {
+    _onMoveMonth = onMoveMonth;
+    _onToday = onToday;
+    _onFilter = onFilter;
+  }
+
+  void detach() {
+    _onMoveMonth = null;
+    _onToday = null;
+    _onFilter = null;
+  }
+
+  void update(DateTime month, CalendarDisplayMode mode, bool loading) {
+    if (_month.year == month.year && _month.month == month.month &&
+        _mode == mode && _loading == loading) return;
+    _month = month;
+    _mode = mode;
+    _loading = loading;
+    notifyListeners();
+  }
+
+  Future<void> moveMonth(int delta) async {
+    if (!_loading) await _onMoveMonth?.call(delta);
+  }
+
+  Future<void> goToday() async {
+    if (!_loading) await _onToday?.call();
+  }
+
+  void setFilter(CalendarDisplayMode mode) => _onFilter?.call(mode);
+}
+
+/// FxMenu owns the anchored ShadPopover; the month picker does not open a
+/// second dialog or duplicate the calendar's data-loading state.
+class CalendarMonthTitle extends StatelessWidget {
+  const CalendarMonthTitle({super.key, required this.controller});
+
+  final CalendarHeaderController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => FxMenu<int>(
+        tooltip: '切换年月',
+        enabled: !controller.loading,
+        constraints: const BoxConstraints(minWidth: 218, maxWidth: 240),
+        contentBuilder: (context, dismiss) => Padding(
+          padding: const EdgeInsets.all(10),
+          child: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    FxIconButton(
+                      icon: LucideIcons.chevronLeft,
+                      tooltip: '上个月',
+                      onPressed: () => controller.moveMonth(-1),
+                    ),
+                    Text(
+                      '${controller.month.year} 年 ${controller.month.month} 月',
+                      style: SlowlightTypography.secondary(context)
+                          .copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    FxIconButton(
+                      icon: LucideIcons.chevronRight,
+                      tooltip: '下个月',
+                      onPressed: () => controller.moveMonth(1),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                FxButton(
+                  label: '回到今天',
+                  variant: FxButtonVariant.outline,
+                  size: FxButtonSize.sm,
+                  onPressed: () async {
+                    dismiss();
+                    await controller.goToday();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${controller.month.year} 年 ${controller.month.month} 月',
+                key: const ValueKey('calendar-month-label'),
+                style: SlowlightTypography.componentPageTitle(context),
+              ),
+              const SizedBox(width: 4),
+              const Icon(LucideIcons.chevronDown, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Filtering changes month cells only; the selected day shows all records.
+class CalendarHeaderActions extends StatelessWidget {
+  const CalendarHeaderActions({super.key, required this.controller});
+
+  final CalendarHeaderController controller;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FxIconButton(
+          key: const ValueKey('calendar-today'),
+          icon: LucideIcons.calendarDays,
+          tooltip: '回到今天',
+          onPressed: controller.loading ? null : controller.goToday,
+        ),
+        FxMenu<CalendarDisplayMode>(
+          key: const ValueKey('calendar-filter'),
+          tooltip: '月格筛选',
+          initialValue: controller.mode,
+          onSelected: controller.setFilter,
+          constraints: const BoxConstraints(minWidth: 140, maxWidth: 180),
+          itemBuilder: (context) => [
+            for (final mode in CalendarDisplayMode.values)
+              FxMenuItem<CalendarDisplayMode>(
+                value: mode,
+                height: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 36,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(switch (mode) {
+                      CalendarDisplayMode.all => '全部',
+                      CalendarDisplayMode.plan => '计划',
+                      CalendarDisplayMode.actual => '实际',
+                    }),
+                    if (controller.mode == mode)
+                      const Icon(LucideIcons.check, size: 16),
+                  ],
+                ),
+              ),
+          ],
+          child: SizedBox(
+            height: SlowlightPlatformDensity.iconButtonVisualSize,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(LucideIcons.listFilter, size: 19),
+                  if (controller.mode != CalendarDisplayMode.all) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      controller.mode == CalendarDisplayMode.plan ? '计划' : '实际',
+                      style: SlowlightTypography.caption(context),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class CalendarScreen extends StatefulWidget {
   final CalendarMonthLoader? monthLoader;
   final DateTime? initialMonth;
   final DateTime? initialSelectedDate;
+  final CalendarHeaderController? headerController;
+  /// True when the surrounding Android AppBar owns the header actions.
+  final bool headerInAppBar;
   /// Allows deterministic editor-entry widget tests without remote list reads.
   final List<TodoList>? createListsOverride;
   final Future<void> Function(BuildContext context, DateTime date)?
@@ -24,6 +220,8 @@ class CalendarScreen extends StatefulWidget {
     this.monthLoader,
     this.initialMonth,
     this.initialSelectedDate,
+    this.headerController,
+    this.headerInAppBar = false,
     this.createListsOverride,
     this.createTaskOverride,
   });
@@ -34,6 +232,8 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   final _dayPanelKey = GlobalKey();
+  late final CalendarHeaderController _headerController;
+  late final bool _ownsHeaderController;
   late DateTime _focused;
   late DateTime _selected;
   late final CalendarMonthLoader _monthLoader;
@@ -58,7 +258,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final selected = widget.initialSelectedDate ?? now;
     _selected = DateTime(selected.year, selected.month, selected.day);
     _monthLoader = widget.monthLoader ?? CalendarRepository().loadMonth;
+    _ownsHeaderController = widget.headerController == null;
+    _headerController = widget.headerController ?? CalendarHeaderController();
+    _headerController.attach(onMoveMonth: _moveMonth, onToday: _goToday,
+        onFilter: _setFilter);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notifyHeader();
+    });
     _load();
+  }
+
+  void _notifyHeader() => _headerController.update(
+    _focused, _displayMode, _loading,
+  );
+
+  void _setFilter(CalendarDisplayMode mode) {
+    setState(() => _displayMode = mode);
+    _notifyHeader();
+  }
+
+  @override
+  void dispose() {
+    _headerController.detach();
+    if (_ownsHeaderController) _headerController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -68,6 +291,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _loading = true;
       _loadFailed = false;
     });
+    _notifyHeader();
     try {
       final data = await _monthLoader(requested);
       if (!mounted || version != _loadVersion) return;
@@ -76,6 +300,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _loadFailed = false;
         _loading = false;
       });
+      _notifyHeader();
     } catch (_) {
       if (!mounted || version != _loadVersion) return;
       setState(() {
@@ -84,6 +309,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _loadFailed = true;
         _loading = false;
       });
+      _notifyHeader();
     }
   }
 
@@ -94,6 +320,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _focused = next;
       _selected = next;
     });
+    _notifyHeader();
     await _load();
   }
 
@@ -103,6 +330,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _focused = DateTime(today.year, today.month, 1);
       _selected = DateTime(today.year, today.month, today.day);
     });
+    _notifyHeader();
     await _load();
   }
 
@@ -113,7 +341,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _selected = DateTime(date.year, date.month, date.day);
       if (changeMonth) _focused = DateTime(date.year, date.month, 1);
     });
-    if (changeMonth) await _load();
+    if (changeMonth) {
+      _notifyHeader();
+      await _load();
+    }
   }
 
   Future<void> _addTask(DateTime date) async {
@@ -164,7 +395,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: ListView(
         key: const ValueKey('calendar-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        padding: EdgeInsets.fromLTRB(20, widget.headerInAppBar ? 4 : 18, 20, 32),
         children: [
           Center(
             child: ConstrainedBox(
@@ -172,8 +403,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _toolbar(),
-                  const SizedBox(height: 12),
+                  if (!widget.headerInAppBar) ...[
+                    _toolbar(),
+                    const SizedBox(height: 12),
+                  ],
                   if (_hasCurrentMonth && _data!.unavailableTypes.isNotEmpty)
                     _partialDataNotice(),
                   if (_loadFailed && _hasCurrentMonth)
@@ -191,7 +424,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       action: FxButton(label: '重新加载', onPressed: _load),
                     )
                   else ...[
-                  CalendarMonthGrid(
+                  GestureDetector(
+                    onHorizontalDragEnd: (details) {
+                      final velocity = details.primaryVelocity ?? 0;
+                      if (velocity.abs() > 250) _moveMonth(velocity < 0 ? 1 : -1);
+                    },
+                    child: CalendarMonthGrid(
                     focusedMonth: _focused,
                     selectedDate: _selected,
                     records: _records,
@@ -202,6 +440,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     onAddTask: _addTask,
                     onOpenRecord: _openRecord,
                     onShowMore: _showMore,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   _dayPanel(),
@@ -215,69 +454,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _toolbar() {
-    final navigation = Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 6,
-      runSpacing: 8,
-      children: [
-        FxButton(
-          key: const ValueKey('calendar-today'),
-          label: '今天',
-          size: FxButtonSize.sm,
-          variant: FxButtonVariant.outline,
-          onPressed: _loading ? null : _goToday,
-        ),
-        _monthButton(LucideIcons.chevronLeft, '上个月', () => _moveMonth(-1)),
-        _monthButton(LucideIcons.chevronRight, '下个月', () => _moveMonth(1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5),
-          child: Text(
-            '${_focused.year} 年 ${_focused.month} 月',
-            key: const ValueKey('calendar-month-label'),
-            style: SlowlightTypography.cardTitle(
-              context,
-            ).copyWith(fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
-    );
-    return FxActionBar(
-      leading: navigation,
-      // 月格筛选始终可见；当日明细保留全量事实（既有产品约定）。
-      actions: [
-        Text(
-          '月格筛选',
-          style: SlowlightTypography.caption(context).copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        _filter(),
-      ],
-      stackBelow: 760,
-      gap: 12,
-    );
-  }
-
-  Widget _monthButton(IconData icon, String tooltip, VoidCallback onPressed) {
-    return FxIconButton(
-      icon: icon,
-      iconSize: 17,
-      tooltip: tooltip,
-      variant: FxIconButtonVariant.outline,
-      onPressed: _loading ? null : onPressed,
-    );
-  }
-
-  Widget _filter() {
-    return FxSegmented(
-      labels: const ['全部', '计划', '实际'],
-      selectedIndex: _displayMode.index,
-      onChanged:
-          (index) =>
-              setState(() => _displayMode = CalendarDisplayMode.values[index]),
-    );
-  }
+  Widget _toolbar() => Row(
+    children: [
+      CalendarMonthTitle(controller: _headerController),
+      const Spacer(),
+      CalendarHeaderActions(controller: _headerController),
+    ],
+  );
 
   Widget _monthRefreshFailedNotice() => Padding(
     padding: const EdgeInsets.only(bottom: 10),
