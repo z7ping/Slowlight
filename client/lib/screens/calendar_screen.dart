@@ -924,7 +924,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (_sameDay(day, record.date) && minute == _clockMinute(record)) return;
     // Reuse the canonical editor: moving is an unsaved draft until confirmed.
     await TaskDetailSheet.show(context,
-      task: record.task!, lists: const <TodoList>[],
+      task: record.task!,
+      lists: widget.createListsOverride ?? const <TodoList>[],
       initialDueDate: day,
       initialDueTime: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
       onChanged: _refresh,
@@ -1002,6 +1003,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Container(height: 1,
             color: colors.outlineVariant.withValues(alpha: .4))),
       Positioned.fill(child: GestureDetector(
+        key: ValueKey('calendar-hour-slot-' + day.year.toString() +
+            '-' + day.month.toString() + '-' + day.day.toString()),
         behavior: HitTestBehavior.opaque,
         onTapUp: (details) => _addAt(day, details.localPosition.dy),
         child: const SizedBox.expand(),
@@ -1072,11 +1075,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(record.title,
-                        maxLines: days.length == 7 ? 2 : 3,
+                        maxLines: height > 75 ? 2 : 1,
                         overflow: TextOverflow.ellipsis,
                         style: SlowlightTypography.caption(context).copyWith(
                           fontWeight: FontWeight.w600)),
-                      if (height > 45 && days.length <= 3)
+                      if (height > 90 && days.length <= 3 &&
+                          MediaQuery.textScalerOf(context).scale(12) < 18)
                         Text(_timeText(minute),
                           style: SlowlightTypography.caption(context)
                               .copyWith(color: color)),
