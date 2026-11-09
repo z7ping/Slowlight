@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/repositories/feishu_integration_repository.dart';
 import 'package:slowlight/screens/feishu_screen.dart';
-import 'package:slowlight/screens/integration_screen.dart';
 import 'package:slowlight/screens/settings_screen.dart';
 import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/ui/fx.dart';
@@ -81,7 +80,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.byType(FeishuScreen), findsOneWidget);
-    expect(find.byType(IntegrationScreen), findsNothing);
+    expect(find.text('平台集成'), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
