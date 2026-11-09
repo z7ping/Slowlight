@@ -183,37 +183,41 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Future<void> _changeProvider(AiProviderType provider) async {
-    if (_busy || _selected == null || _selected!.config.provider == provider) return;
-    // Changing provider also resets the endpoint/model/key. Confirm only if
-    // something in this editor has already been changed.
-    if ((_dirty && !await _confirmDiscardProvider()) || !mounted) return;
-    setState(() {
-      _selected = _selected!.copyWith(
-        config: AiConfig(
-          provider: provider,
-          endpoint: provider.defaultEndpoint,
-          model: provider.defaultModel,
-        ),
-      );
-      _endpointController.text = provider.defaultEndpoint;
-      _modelController.text = provider.defaultModel;
-      _keyController.clear();
-      _hasStoredKey = false;
-      _showOptionalKey = provider.apiKeyRequired;
-      _testResult = null;
-      _saveError = null;
-      _revision++;
-    });
-    // Existing credentials belong only to this profile and provider.
-    if (_savedSelected?.config.provider == provider) {
-      try {
-        final key = await _store.loadProfileKey(_savedSelected!);
-        if (mounted && _selected?.config.provider == provider) {
-          setState(() => _hasStoredKey = key?.isNotEmpty == true);
+    if (_busy || _selected == null ||
+        _selected!.config.provider == provider) return;
+    // Keep the edit and save/test actions locked through confirmation.
+    setState(() => _mutating = true);
+    try {
+      if (_dirty && !await _confirmDiscardProvider() || !mounted) return;
+      setState(() {
+        _selected = _selected!.copyWith(
+          config: AiConfig(
+            provider: provider,
+            endpoint: provider.defaultEndpoint,
+            model: provider.defaultModel,
+          ),
+        );
+        _endpointController.text = provider.defaultEndpoint;
+        _modelController.text = provider.defaultModel;
+        _keyController.clear();
+        _hasStoredKey = false;
+        _showOptionalKey = provider.apiKeyRequired;
+        _testResult = null;
+        _saveError = null;
+        _revision++;
+      });
+      if (_savedSelected?.config.provider == provider) {
+        try {
+          final key = await _store.loadProfileKey(_savedSelected!);
+          if (mounted && _selected?.config.provider == provider) {
+            setState(() => _hasStoredKey = key?.isNotEmpty == true);
+          }
+        } catch (_) {
+          _message('密钥读取失败，请重新核对');
         }
-      } catch (_) {
-        _message('密钥读取失败，请重新核对');
       }
+    } finally {
+      if (mounted) setState(() => _mutating = false);
     }
   }
 
