@@ -73,6 +73,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   String _reviewFilter = 'all';
   List<TodayTimelineItem>? _nativeToday;
   bool _nativeHasMore = false;
+  int _nativeNextOffset = 0;
   bool _nativeLoadingMore = false;
   bool _nativePageFailed = false;
   final Set<String> _answered = {};
@@ -143,6 +144,13 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
         // Main review facts are independent of recent responses and per-habit
         // log queries. Keep confirmed facts and draft visible while refreshing.
         _loading = !_hasConfirmedReview;
+        if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+          _nativeToday = null;
+          _nativeNextOffset = 0;
+          _nativeHasMore = false;
+          _nativeLoadingMore = false;
+          _nativePageFailed = false;
+        }
         _error = null;
         _refreshError = null;
         _reflectionsChecked = false;
@@ -199,6 +207,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       setState(() {
         _nativeToday = result.items;
         _nativeHasMore = result.hasMore;
+        _nativeNextOffset = result.items.length;
         _nativeLoadingMore = false;
         _nativePageFailed = false;
       });
@@ -218,13 +227,14 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
       _nativePageFailed = false;
     });
     try {
-      final next = await _readNativeToday(old.length);
+      final next = await _readNativeToday(_nativeNextOffset);
       if (!mounted || version != _loadVersion) return;
       final ids = old.map((event) => event.id).toSet();
       final newItems = next.items.where((event) => ids.add(event.id));
       setState(() {
         _nativeToday = TodayTimelineItem.sorted([...old, ...newItems]);
         _nativeHasMore = next.hasMore && next.items.isNotEmpty;
+        _nativeNextOffset += next.items.length;
         _nativeLoadingMore = false;
       });
     } catch (_) {
@@ -897,7 +907,99 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     }
   }
 
+
+  Widget _nativeFactsCard() {
+    final source = _nativeToday ?? const <TodayTimelineItem>[];
+    final visible = _reviewFilter == 'all'
+        ? source
+        : source.where((event) => event.kind == _reviewFilter).toList();
+    final card = FxCard(
+      padding: const EdgeInsets.all(SlowlightSpacing.xl),
+      expanded: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (visible.isEmpty)
+            Text(
+              _reviewFilter != 'all'
+                  ? '当前类型暂无已载入记录'
+                  : '今天尚未载入可追溯的明细',
+              style: SlowlightTypography.secondary(context),
+            )
+          else
+            ...List.generate(visible.length, (index) {
+              final event = visible[index];
+              return ReviewTimelineItem(
+                key: ValueKey('review.native.${event.kind}:${event.id}:${event.occurredAt.microsecondsSinceEpoch}'),
+                kind: event.kind,
+                compact: true,
+                color: switch (event.kind) {
+                  'task_completed' => AppTheme.chartGreen,
+                  'habit_checked' => AppTheme.chartYellow,
+                  'observation' => AppTheme.chartPurple,
+                  _ => AppTheme.info,
+                },
+                time: event.timeLabel,
+                title: event.kind == 'observation'
+                    ? '记录观察' : event.description,
+                note: event.kind == 'observation' ? event.title : null,
+                last: index == visible.length - 1 && !_nativeHasMore,
+              );
+            }),
+          if (_nativeHasMore) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            FxButton(
+              label: _nativeLoadingMore ? '正在读取更多记录…' : '加载更多记录',
+              variant: FxButtonVariant.link,
+              size: FxButtonSize.sm,
+              onPressed: _nativeLoadingMore ? null : _loadMoreNativeToday,
+            ),
+          ],
+          if (_nativePageFailed) ...[
+            const SizedBox(height: SlowlightSpacing.md),
+            Text('后续轨迹尚未读取成功，已载入记录仍可查看。',
+                style: SlowlightTypography.caption(context)),
+            FxButton(
+              label: '重试读取',
+              variant: FxButtonVariant.outline,
+              size: FxButtonSize.sm,
+              onPressed: _nativeHasMore ? _loadMoreNativeToday : _load,
+            ),
+          ],
+        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: FxSectionHeader(
+                title: '发生过的事',
+                trailing: '${visible.length} 条已载入',
+              ),
+            ),
+            if (_reviewFilter != 'all')
+              FxButton(
+                label: '清除筛选',
+                variant: FxButtonVariant.ghost,
+                size: FxButtonSize.sm,
+                onPressed: () => setState(() => _reviewFilter = 'all'),
+              ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        card,
+      ],
+    );
+  }
+
   Widget _factsCard(Map<String, dynamic> facts) {
+    if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+        widget.focusObservation == null && _nativeToday != null) {
+      return _nativeFactsCard();
+    }
     final items = <ReviewTimelineItem>[];
     final tasks = (facts['today_completed_tasks'] as List? ?? const [])
         .whereType<Map>()
