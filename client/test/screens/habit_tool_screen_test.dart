@@ -289,6 +289,53 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  for (final textScale in [1.0, 2.0]) {
+    testWidgets('Android 习惯日志时间与撤销同行对齐（文字缩放 $textScale）',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(360, 840);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildFxTestHost(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(textScale),
+          ),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: HabitToolScreen(repository: _P05SingleLogRepo()),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('habits.details.79')));
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('habits.logs.row.501'));
+      final action = find.byKey(const ValueKey('habits.logs.cancel.501'));
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      final metadata = find.descendant(
+        of: row, matching: find.byType(Text),
+      ).first;
+      expect(row, findsOneWidget);
+      expect(action, findsOneWidget);
+      expect(
+        (tester.getCenter(metadata).dy - tester.getCenter(action).dy).abs(),
+        lessThan(16),
+      );
+      expect(
+        (tester.getTopRight(row).dx - tester.getTopRight(action).dx).abs(),
+        lessThan(2),
+      );
+      expect(tester.getSize(action).height, greaterThanOrEqualTo(44));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('P05 历史刷新保留已读记录与核对状态', (tester) async {
     tester.view.physicalSize = const Size(1100, 960);
     tester.view.devicePixelRatio = 1;
