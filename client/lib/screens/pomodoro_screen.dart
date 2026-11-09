@@ -666,13 +666,163 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     var soundEnabled = _soundEnabled;
     var linkedTaskId = _linkedTaskId;
 
-    final saved = await FxDialog.show<bool>(
-      context: context,
-      title: '🍅 专注设置',
-      showCloseButton: false,
-      child: StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final theme = Theme.of(dialogContext);
+    final platform = Theme.of(context).platform;
+    final mobileSheet =
+        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    BuildContext? editorContext;
+    StateSetter? editorSetState;
+    var allowSheetPop = false;
+    var closePending = false;
+
+    void finishSettings(bool save) {
+      final active = editorContext;
+      if (active == null || !active.mounted) return;
+      if (!mobileSheet) {
+        Navigator.of(active, rootNavigator: true).pop(save);
+        return;
+      }
+      editorSetState?.call(() => allowSheetPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (active.mounted) Navigator.of(active).pop(save);
+      });
+    }
+
+    Future<void> requestSettingsClose() async {
+      final active = editorContext;
+      if (closePending || active == null || !active.mounted) return;
+      closePending = true;
+      try {
+        final dirty = work != _workMinutes ||
+            autoStart != _autoStartNext ||
+            soundEnabled != _soundEnabled ||
+            linkedTaskId != _linkedTaskId;
+        if (dirty) {
+          final discard = await FxDialog.confirm(
+            context: active,
+            title: '放弃未保存的专注设置？',
+            content: '本次调整尚未保存，离开后会丢失这些修改。',
+            confirmText: '放弃修改',
+            cancelText: '继续编辑',
+            draftDiscard: true,
+            barrierDismissible: false,
+          );
+          if (discard != true || !active.mounted) return;
+        }
+        finishSettings(false);
+      } finally {
+        closePending = false;
+      }
+    }
+
+    // Both platforms share the same settings fields and temporary draft.
+    // Android uses the approved FxSheet surface; Windows keeps FxDialog.
+    final editor = StatefulBuilder(
+      builder: (dialogContext, setDialogState) {
+        editorContext = dialogContext;
+        editorSetState = setDialogState;
+        final theme = Theme.of(dialogContext);
+        final controls = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _settingsLine(
+              dialogContext,
+              title: '专注时长',
+              subtitle: '每轮工作分钟数',
+              trailing: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [25, 45, 60]
+                    .map((minutes) {
+                      final selected = work == minutes;
+                      return FxChip(
+                        label: '$minutes',
+                        onTap: () => setDialogState(() => work = minutes),
+                        backgroundColor:
+                            selected
+                                ? activePalette.accent.withValues(
+                                  alpha: .12,
+                                )
+                                : fxSubtleSurface(dialogContext),
+                        foregroundColor:
+                            selected
+                                ? activePalette.accent
+                                : theme.colorScheme.onSurface,
+                        borderColor:
+                            selected
+                                ? activePalette.accent.withValues(
+                                  alpha: .35,
+                                )
+                                : theme.colorScheme.outlineVariant,
+                        borderRadius: 999,
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+            ),
+            _settingsLine(
+              dialogContext,
+              title: '自动开始下一轮',
+              subtitle: '完成后直接切换，不等待标签弹窗',
+              trailing: FxSwitch(
+                value: autoStart,
+                onChanged:
+                    (value) => setDialogState(() => autoStart = value),
+              ),
+            ),
+            _settingsLine(
+              dialogContext,
+              title: '结束音效',
+              subtitle: '铃声提醒本轮结束',
+              trailing: FxSwitch(
+                value: soundEnabled,
+                onChanged:
+                    (value) => setDialogState(() => soundEnabled = value),
+              ),
+            ),
+            _settingsLine(
+              dialogContext,
+              title: '关联任务',
+              subtitle: '产出计入该任务',
+              trailing: SizedBox(
+                width: 150,
+                child: FxSelect<int>(
+                  value: linkedTaskId ?? 0,
+                  options: [
+                    const FxSelectOption(value: 0, label: '不关联'),
+                    ..._todayTasks.map(
+                      (task) =>
+                          FxSelectOption(value: task.id, label: task.title),
+                    ),
+                  ],
+                  onChanged:
+                      (value) => setDialogState(
+                        () =>
+                            linkedTaskId =
+                                value == null || value == 0 ? null : value,
+                      ),
+                ),
+              ),
+            ),
+          ],
+        );
+        final cancel = FxButton(
+          label: '取消',
+          variant: FxButtonVariant.outline,
+          size: mobileSheet ? FxButtonSize.md : FxButtonSize.sm,
+          expanded: mobileSheet,
+          onPressed: mobileSheet
+              ? requestSettingsClose
+              : () => Navigator.of(dialogContext, rootNavigator: true).pop(false),
+        );
+        final save = FxButton(
+          label: '保存设置',
+          size: mobileSheet ? FxButtonSize.md : FxButtonSize.sm,
+          expanded: mobileSheet,
+          onPressed: () => finishSettings(true),
+        );
+
+        if (!mobileSheet) {
           return ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.sizeOf(dialogContext).height * .72,
@@ -682,121 +832,89 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 width: 360,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _settingsLine(
-                      dialogContext,
-                      title: '专注时长',
-                      subtitle: '每轮工作分钟数',
-                      trailing: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [25, 45, 60]
-                            .map((minutes) {
-                              final selected = work == minutes;
-                              return FxChip(
-                                label: '$minutes',
-                                onTap: () => setDialogState(() => work = minutes),
-                                backgroundColor:
-                                    selected
-                                        ? activePalette.accent.withValues(
-                                          alpha: .12,
-                                        )
-                                        : fxSubtleSurface(dialogContext),
-                                foregroundColor:
-                                    selected
-                                        ? activePalette.accent
-                                        : theme.colorScheme.onSurface,
-                                borderColor:
-                                    selected
-                                        ? activePalette.accent.withValues(
-                                          alpha: .35,
-                                        )
-                                        : theme.colorScheme.outlineVariant,
-                                borderRadius: 999,
-                              );
-                            })
-                            .toList(growable: false),
-                      ),
-                    ),
-                    _settingsLine(
-                      dialogContext,
-                      title: '自动开始下一轮',
-                      subtitle: '完成后直接切换，不等待标签弹窗',
-                      trailing: FxSwitch(
-                        value: autoStart,
-                        onChanged:
-                            (value) => setDialogState(() => autoStart = value),
-                      ),
-                    ),
-                    _settingsLine(
-                      dialogContext,
-                      title: '结束音效',
-                      subtitle: '铃声提醒本轮结束',
-                      trailing: FxSwitch(
-                        value: soundEnabled,
-                        onChanged:
-                            (value) => setDialogState(() => soundEnabled = value),
-                      ),
-                    ),
-                    _settingsLine(
-                      dialogContext,
-                      title: '关联任务',
-                      subtitle: '产出计入该任务',
-                      trailing: SizedBox(
-                        width: 150,
-                        child: FxSelect<int>(
-                          value: linkedTaskId ?? 0,
-                          options: [
-                            const FxSelectOption(value: 0, label: '不关联'),
-                            ..._todayTasks.map(
-                              (task) =>
-                                  FxSelectOption(value: task.id, label: task.title),
-                            ),
-                          ],
-                          onChanged:
-                              (value) => setDialogState(
-                                () =>
-                                    linkedTaskId =
-                                        value == null || value == 0 ? null : value,
-                              ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        FxButton(
-                          label: '取消',
-                          variant: FxButtonVariant.outline,
-                          size: FxButtonSize.sm,
-                          onPressed:
-                              () => Navigator.of(
-                                dialogContext,
-                                rootNavigator: true,
-                              ).pop(false),
-                        ),
-                        const SizedBox(width: 8),
-                        FxButton(
-                          label: '保存设置',
-                          size: FxButtonSize.sm,
-                          onPressed:
-                              () => Navigator.of(
-                                dialogContext,
-                                rootNavigator: true,
-                              ).pop(true),
-                        ),
-                      ],
-                    ),
+                    controls,
+                    const SizedBox(height: SlowlightSpacing.xl),
+                    FxDialogActions(actions: [cancel, save]),
                   ],
                 ),
               ),
             ),
           );
-        },
-      ),
+        }
+
+        return PopScope(
+          canPop: allowSheetPop,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) unawaited(requestSettingsClose());
+          },
+          child: SafeArea(
+            top: false,
+            child: ConstrainedBox(
+              key: const ValueKey('pomodoro.settings.mobile'),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(dialogContext).height * .84,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text(
+                      '专注设置',
+                      style: SlowlightTypography.componentDialogTitle(
+                        dialogContext,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: controls,
+                    ),
+                  ),
+                  FxSeparator.horizontal(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Row(
+                      children: [
+                        Expanded(flex: 10, child: cancel),
+                        const SizedBox(width: SlowlightSpacing.md),
+                        Expanded(flex: 18, child: save),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
+
+    final saved = mobileSheet
+        ? await FxSheet.show<bool>(
+            context: context,
+            isDismissible: false,
+            draggable: false,
+            showDragHandle: true,
+            onDismissRequested: requestSettingsClose,
+            showCloseButton: false,
+            padding: EdgeInsets.zero,
+            backgroundColor: fxSurface(context),
+            builder: (_) => editor,
+          )
+        : await FxDialog.show<bool>(
+            context: context,
+            title: '🍅 专注设置',
+            showCloseButton: false,
+            child: editor,
+          );
 
     if (saved != true || !mounted) return;
     try {

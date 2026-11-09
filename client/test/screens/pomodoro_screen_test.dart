@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -465,6 +466,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
+    if (find.text('放弃未保存的专注设置？').evaluate().isNotEmpty) {
+      await tester.tap(find.text('放弃修改'));
+      await tester.pumpAndSettle();
+    }
     expect((jsonDecode(
       prefs.getString('slowlight_pomodoro_settings_v1')!,
     ) as Map)['workMinutes'], 45);
@@ -500,6 +505,70 @@ void main() {
     expect(dial.width, lessThanOrEqualTo(312));
     expect(dial.width, greaterThan(220));
     expect(dial.width, dial.height);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 专注设置使用统一底部 Sheet、拖拽柄与宽主按钮', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: _InactiveSessionRepository()),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(fxTooltipFinder('专注设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('pomodoro.settings.mobile')), findsOneWidget);
+    expect(find.byKey(const ValueKey('fx.sheet.dragHandle')), findsOneWidget);
+    final cancel = find.widgetWithText(FxButton, '取消');
+    final save = find.widgetWithText(FxButton, '保存设置');
+    expect(cancel, findsOneWidget);
+    expect(save, findsOneWidget);
+    expect(tester.getSize(save).width, greaterThan(tester.getSize(cancel).width));
+    expect(tester.takeException(), isNull);
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pomodoro.settings.mobile')), findsNothing);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 专注设置未保存时取消与系统返回均需要确认', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: PomodoroScreen(sessionRepository: _InactiveSessionRepository()),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(fxTooltipFinder('专注设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('45'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的专注设置？'), findsOneWidget);
+
+    await tester.tap(find.text('继续编辑'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pomodoro.settings.mobile')), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的专注设置？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pomodoro.settings.mobile')), findsNothing);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('slowlight_pomodoro_settings_v1'), isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
