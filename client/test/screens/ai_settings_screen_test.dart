@@ -90,8 +90,8 @@ void main() {
     await tester.pumpWidget(buildFxTestHost(home: AiSettingsScreen(store: store)));
     await tester.pump();
 
-    await tester.ensureVisible(find.text('保存'));
-    await tester.tap(find.text('保存'));
+    await tester.ensureVisible(find.text('保存配置'));
+    await tester.tap(find.text('保存配置'));
     await tester.pump();
     expect(find.text('当前 AI 服务需要访问密钥'), findsOneWidget);
     expect((await store.load()).provider, AiProviderType.openai);
@@ -111,8 +111,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('保存'));
-    await tester.tap(find.text('保存'));
+    await tester.ensureVisible(find.text('保存配置'));
+    await tester.tap(find.text('保存配置'));
     await tester.pump();
     expect(find.text('当前 AI 服务需要访问密钥'), findsOneWidget);
 
@@ -137,8 +137,8 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.byType(FxInput).last, 'new-secret');
-    await tester.ensureVisible(find.text('保存'));
-    await tester.tap(find.text('保存'));
+    await tester.ensureVisible(find.text('保存配置'));
+    await tester.tap(find.text('保存配置'));
     await tester.pump();
     expect(find.textContaining('保存 AI 配置失败'), findsOneWidget);
     expect(find.textContaining('草稿已保留'), findsOneWidget);
@@ -173,6 +173,36 @@ void main() {
   });
 
 
+  testWidgets('多配置可保存同一服务商的两个端点且只激活一个', (tester) async {
+    final store = AiConfigStore(secrets: _Secrets());
+    await store.save(const AiConfig(
+      enabled: true,
+      provider: AiProviderType.ollama,
+      model: 'initial-model',
+    ));
+    await tester.pumpWidget(buildFxTestHost(
+      home: AiSettingsScreen(store: store),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ollama · 默认'), findsOneWidget);
+    await tester.tap(find.text('添加配置'));
+    await tester.pump();
+    expect(find.textContaining('编辑配置'), findsOneWidget);
+    await tester.enterText(find.byType(FxInput).at(2), 'second-model');
+    await tester.ensureVisible(find.text('保存配置'));
+    await tester.tap(find.text('保存配置'));
+    await tester.pumpAndSettle();
+
+    final catalog = await store.loadCatalog();
+    expect(catalog.profiles.length, 2);
+    expect(catalog.activeId, 'legacy');
+    expect((await store.load()).model, 'initial-model');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
   testWidgets('S04 清除密钥在确认至持久化期间锁住编辑与其他提交', (tester) async {
     final gate = Completer<void>();
     final secrets = _Secrets()
@@ -201,7 +231,7 @@ void main() {
     expect(secrets.deleteAttempts, 1);
     expect(tester.widget<FxButton>(clear).onPressed, isNull);
 
-    final save = find.widgetWithText(FxButton, '保存');
+    final save = find.widgetWithText(FxButton, '保存配置');
     final testConnection = find.widgetWithText(FxButton, '测试连接');
     expect(tester.widget<FxButton>(save).onPressed, isNull);
     expect(tester.widget<FxButton>(testConnection).onPressed, isNull);
