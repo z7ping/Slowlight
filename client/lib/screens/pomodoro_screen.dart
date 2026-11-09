@@ -967,24 +967,30 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            AnimatedOpacity(
-              opacity: quietOpacity,
-              duration: const Duration(milliseconds: 180),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  stateLabel,
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.captionSize,
-                    fontWeight: FontWeight.w600,
-                    color: color,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '一段时间，只做一件事',
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(SlowlightRadius.pill),
+                  ),
+                  child: Text(
+                    stateLabel,
+                    style: SlowlightTypography.caption(context).copyWith(
+                      color: color, fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             SizedBox(
