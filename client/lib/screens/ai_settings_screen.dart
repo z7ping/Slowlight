@@ -528,6 +528,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                                 : () => _activate(profiles[i]),
                           ),
                     onTap: _busy ? null : () => _select(profiles[i]),
+                    selected: _selected?.id == profiles[i].id,
+                    selectedTileColor: Theme.of(context)
+                        .colorScheme.primary.withValues(alpha: .06),
                     showDivider: i != profiles.length - 1,
                   ),
               ],
