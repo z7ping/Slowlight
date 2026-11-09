@@ -567,7 +567,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   @override
   Widget build(BuildContext context) {
     if (_controller.loading && _controller.habits.isEmpty) {
-      return const Center(child: FxCircularProgress());
+      return SlowlightPlatformDensity.usesMobileTouchTargets
+          ? const FxSkeletonPage(kind: FxSkeletonPageKind.habits)
+          : const Center(child: FxCircularProgress());
     }
     final all = _controller.habits;
     final visible = all
