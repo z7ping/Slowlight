@@ -440,6 +440,49 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('2026 年 11 月显示完整六周方块，不显示日期数字',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 190,
+            child: HabitHeatmap(
+              checkInDates: [
+                DateTime(2026, 11, 9),
+                DateTime(2026, 11, 9),
+              ],
+              color: Colors.blue,
+              month: DateTime(2026, 11),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final grid = tester.widget<GridView>(
+      find.byKey(const ValueKey('habit-month-heatmap-grid')),
+    );
+    expect(grid.padding, EdgeInsets.zero);
+    expect(grid.childrenDelegate.estimatedChildCount, 42);
+    final date = find.byKey(const ValueKey('habit-heatmap-day-2026-11-30'));
+    expect(date, findsOneWidget);
+    final marked = tester.widget<Semantics>(
+      find.byKey(const ValueKey('habit-heatmap-day-2026-11-09')),
+    );
+    expect(marked.properties.label, '11月9日2 条记录');
+    expect(find.text('30'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 展开月记录使用七列方块并铺满右侧容器', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
