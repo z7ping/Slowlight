@@ -42,6 +42,7 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
     'habit_checked' => '习惯',
     'observation' => '观察',
     'session_ended' => '专注',
+    'reflection' => '反思',
     _ => '记录',
   };
 
