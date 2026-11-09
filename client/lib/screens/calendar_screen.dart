@@ -776,8 +776,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           onShowMore: _showMore,
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      _dayPanel(),
+                      const SizedBox(height: 12),
+                      if (widget.headerInAppBar &&
+                          SlowlightPlatformDensity.usesMobileTouchTargets)
+                        _compactMonthPanel()
+                      else
+                        _dayPanel(),
                     ] else ...[
                       // The shared date header is part of the time grid.
                       if (_rangeLoading)
@@ -1265,6 +1269,98 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ]),
       ),
+    );
+  }
+
+  // Android month overview reuses records and detail editor in a compact list.
+  Widget _compactMonthPanel() {
+    final rows = _recordsForDay(_selected);
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final theme = Theme.of(context);
+    final plans = rows.where((r) => r.kind == CalendarRecordKind.plan).length;
+    final actual = rows.where((r) => r.kind == CalendarRecordKind.actual).length;
+    return Column(
+      key: _dayPanelKey,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _selected.month.toString() + '月' + _selected.day.toString() +
+                    '日 · 周' + weekdays[_selected.weekday - 1],
+                key: const ValueKey('calendar-selected-title'),
+                style: SlowlightTypography.secondary(context)
+                    .copyWith(fontWeight: FontWeight.w700),
+              ),
+              Text(
+                _hasCurrentMonth && _data!.unavailableTypes.isNotEmpty
+                    ? '已载入 ' + rows.length.toString() + ' 条 · 部分待核对'
+                    : plans.toString() + ' 项计划 · ' +
+                        actual.toString() + ' 条记录',
+                style: SlowlightTypography.caption(context)
+                    .copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          )),
+          FxIconButton(
+            key: const ValueKey('calendar-add-task'),
+            icon: LucideIcons.plus,
+            tooltip: '安排任务',
+            onPressed: () => _addTask(_selected),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        if (rows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Text(
+              _hasCurrentMonth && _data!.unavailableTypes.isNotEmpty
+                  ? '部分记录待核对'
+                  : '当天还没有安排或记录',
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.caption(context)
+                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          )
+        else
+          for (final record in rows)
+            FxInkWell(
+              key: ValueKey('calendar-record-' + record.id),
+              onTap: () => _openRecord(record),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: .6),
+                  )),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(children: [
+                  SizedBox(width: 40,
+                    child: Text(
+                      _clockMinute(record) == null
+                          ? '未定' : _timeText(_clockMinute(record)!),
+                      style: SlowlightTypography.caption(context),
+                    )),
+                  const SizedBox(width: 7),
+                  Container(width: 3, height: 24,
+                    decoration: BoxDecoration(
+                      color: calendarRecordColor(record, context),
+                      borderRadius: BorderRadius.circular(SlowlightRadius.sm),
+                    )),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    record.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: SlowlightTypography.secondary(context),
+                  )),
+                ]),
+              ),
+            ),
+      ],
     );
   }
 
