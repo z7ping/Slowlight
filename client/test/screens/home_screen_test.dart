@@ -57,6 +57,26 @@ void main() {
       });
     }
 
+    testWidgets('Android 底栏固定 56dp 贴底，页头和工作台仍有空间', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      final nav = find.byKey(const ValueKey('home.bottom-nav'));
+      expect(nav, findsOneWidget);
+      expect(tester.getSize(nav).height, 56);
+      expect(tester.getBottomLeft(nav).dy, closeTo(800, 1));
+      expect(tester.getTopLeft(nav).dy, greaterThan(700));
+
+      // 回归 #365：不能让只有 minHeight 的 Center 撑满 Scaffold，
+      // 把 AppBar、DashboardBody 和可拖动 FAB 全部挤出可见区域。
+      final dashboard = find.byType(DashboardBody, skipOffstage: false);
+      expect(dashboard, findsOneWidget);
+      expect(tester.getSize(dashboard).height, greaterThan(300));
+      expect(fxTooltipFinder('工具'), findsOneWidget);
+      expect(fxTooltipFinder('记录观察'), findsOneWidget);
+      expect(fxTooltipFinder('快速添加任务（按住可拖动）'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('Android 四图标底栏：等宽、无可见标签及选中态', (tester) async {
       await pumpAt(tester, size: const Size(360, 800));
       final items = ['today', 'quadrant', 'calendar', 'review']

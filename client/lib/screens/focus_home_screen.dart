@@ -809,8 +809,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         child: FxInkWell(
           key: itemKey,
           onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
+          child: SizedBox(
+            height: 56,
             child: Center(
               child: Container(
                 width: 36,
