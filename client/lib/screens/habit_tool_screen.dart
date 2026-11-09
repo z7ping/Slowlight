@@ -1561,6 +1561,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       if (log.period.isNotEmpty) _periodText(log.period),
     ];
     return Row(
+      key: ValueKey('habits.logs.row.${log.id}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
@@ -1588,18 +1589,21 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      parts.join(' · '),
-                      style: SlowlightTypography.caption(
-                        context,
-                      ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    Expanded(
+                      child: Text(
+                        parts.join(' · '),
+                        style: SlowlightTypography.caption(
+                          context,
+                        ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
                     ),
-                    // An individual history row must cancel its own log ID,
-                    // never a day-level toggle that could add a new slot.
+                    const SizedBox(width: SlowlightSpacing.md),
+                    // Keep the action at the far right, even at 360dp or
+                    // larger text scales. Never let Wrap move it below the log.
+                    // Each undo still targets the exact individual log ID.
                     FxButton(
                       key: ValueKey('habits.logs.cancel.${log.id}'),
                       label: '撤销',
