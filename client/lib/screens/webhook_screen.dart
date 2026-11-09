@@ -280,6 +280,8 @@ class _WebhookScreenState extends State<WebhookScreen> {
                       icon: LucideIcons.link2,
                       title: '还没有事件回调',
                       subtitle: '连接 $kBrandDisplayName 到 n8n、Zapier 等外部服务',
+                      action: FxButton(label: '添加事件回调',
+                        onPressed: _creating ? null : _addWebhook),
                     )
                   : _buildContent(),
             ),
@@ -290,11 +292,36 @@ class _WebhookScreenState extends State<WebhookScreen> {
   }
 
   Widget _buildContent() {
+    final theme = Theme.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
       children: [
-        ..._webhooks.map(_buildWebhookCard),
-        const SizedBox(height: 24),
+        if (_loadFailed) ...[
+          FxCard(
+            padding: const EdgeInsets.all(SlowlightSpacing.xl),
+            child: Row(children: [
+              const Icon(LucideIcons.triangleAlert, size: SlowlightIconSize.md),
+              const SizedBox(width: SlowlightSpacing.md),
+              Expanded(child: Text('刷新失败 · 当前显示上次已载入的回调',
+                style: SlowlightTypography.caption(context))),
+              FxButton(label: '重试', size: FxButtonSize.sm,
+                onPressed: _loadWebhooks),
+            ]),
+          ),
+          const SizedBox(height: SlowlightSpacing.xl),
+        ],
+        Padding(
+          padding: const EdgeInsets.only(bottom: SlowlightSpacing.md),
+          child: Text('${_webhooks.length} 条事件回调',
+            style: SlowlightTypography.secondary(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant)),
+        ),
+        FxCard(
+          padding: EdgeInsets.zero,
+          child: Column(children: _webhooks
+              .map(_buildWebhookCard).toList(growable: false)),
+        ),
+        const SizedBox(height: SlowlightSpacing.xl),
         _buildEventGuide(),
       ],
     );
@@ -304,71 +331,85 @@ class _WebhookScreenState extends State<WebhookScreen> {
     final eventKey = webhook['event']?.toString() ?? '';
     final def = webhookEvents.firstWhere(
       (event) => event.key == eventKey,
-      orElse:
-          () => WebhookEventDef(
-            key: eventKey,
-            label: eventKey,
-            icon: LucideIcons.link2,
-            description: '',
-            exampleUse: '',
-            examplePayload: '',
-          ),
+      orElse: () => WebhookEventDef(
+        key: eventKey, label: eventKey,
+        icon: LucideIcons.link2,
+        description: '', exampleUse: '', examplePayload: '',
+      ),
     );
-
-    return FxCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      borderRadius: SlowlightRadius.lg,
-      padding: EdgeInsets.zero,
-      child: FxListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              webhook['is_active'] == true
-                  ? AppTheme.primaryLight
-                  : Theme.of(context).colorScheme.outlineVariant,
-          child: Icon(def.icon, size: SlowlightIconSize.md),
+    final id = webhook['id'] as int;
+    final url = webhook['url']?.toString() ?? '';
+    final enabled = webhook['is_active'] == true;
+    final result = _testResults[id];
+    return FxListTile(
+      key: ValueKey('webhook.row.$id'),
+      density: FxListTileDensity.detailed,
+      padding: const EdgeInsets.symmetric(
+        horizontal: SlowlightSpacing.xl,
+        vertical: SlowlightSpacing.md,
+      ),
+      showDivider: true,
+      leading: Container(
+        width: 40, height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: themeColor(context).withValues(alpha: .10),
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
         ),
-        title: Text(
-          webhook['name']?.toString().isNotEmpty == true
-              ? webhook['name'].toString()
-              : def.label,
-          style: SlowlightTypography.cardTitle(context),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${def.label}',
-              style: SlowlightTypography.caption(
-                context,
-              ).copyWith(color: AppTheme.primary),
+        child: Icon(def.icon, size: SlowlightIconSize.lg,
+          color: themeColor(context)),
+      ),
+      title: Text(
+        webhook['name']?.toString().isNotEmpty == true
+            ? webhook['name'].toString() : def.label,
+        maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: SlowlightTypography.secondary(context).copyWith(
+          fontWeight: FontWeight.w600),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${def.label} · ${enabled ? '已启用' : '未启用'}',
+            style: SlowlightTypography.caption(context)),
+          FxTooltip(
+            message: url,
+            child: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: SlowlightTypography.caption(context)),
+          ),
+          if (_testingIds.contains(id))
+            Text('测试中…', style: SlowlightTypography.caption(context)),
+          if (result != null)
+            Text(result,
+              key: ValueKey('webhook.test-result.$id'),
+              style: SlowlightTypography.caption(context).copyWith(
+                color: result.startsWith('测试成功')
+                    ? AppTheme.success : Theme.of(context).colorScheme.error),
             ),
-            Text(
-              webhook['url']?.toString() ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: SlowlightTypography.caption(context),
-            ),
-          ],
-        ),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
-            FxIconButton(
-              tooltip: '测试',
-              icon: LucideIcons.send,
-              onPressed: () => _testWebhook(webhook['id'] as int),
-            ),
-            FxIconButton(
-              tooltip: '删除',
-              icon: LucideIcons.trash2,
-              foregroundColor: AppTheme.error,
-              onPressed: () => _deleteWebhook(webhook['id'] as int),
-            ),
-          ],
+        ],
+      ),
+      trailing: FxMenu<int>(
+        tooltip: '管理事件回调',
+        enabled: !_creating && !_testingIds.contains(id),
+        onSelected: (action) {
+          if (action == 0) {
+            _testWebhook(id);
+          } else {
+            _deleteWebhook(id);
+          }
+        },
+        itemBuilder: (_) => const [
+          FxMenuItem<int>(value: 0, child: Text('发送测试')),
+          FxMenuItem<int>(value: 1, child: Text('删除回调')),
+        ],
+        child: const SizedBox(
+          width: 44, height: 44,
+          child: Center(child: Icon(LucideIcons.menu, size: 20)),
         ),
       ),
     );
   }
+
+  Color themeColor(BuildContext context) => Theme.of(context).colorScheme.primary;
 
   Widget _buildEventGuide() {
     return FxCard(
