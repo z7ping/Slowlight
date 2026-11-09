@@ -1069,11 +1069,17 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
           key: ValueKey('habits.today.${habit.id}'),
           width: SlowlightControlSize.minTouchTarget,
           height: SlowlightControlSize.minTouchTarget,
-          child: Center(
-            child: FxCheckbox(
-              value: habit.checkedToday,
-              enabled: !_pendingHabitActions.contains(habit.id),
-              onChanged: (_) => _toggleToday(habit),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _pendingHabitActions.contains(habit.id)
+                ? null
+                : () => _toggleToday(habit),
+            child: Center(
+              child: FxCheckbox(
+                value: habit.checkedToday,
+                enabled: !_pendingHabitActions.contains(habit.id),
+                onChanged: (_) => _toggleToday(habit),
+              ),
             ),
           ),
         ),
