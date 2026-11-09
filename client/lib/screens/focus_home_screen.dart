@@ -100,6 +100,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   GlobalKey<TaskToolScreenState> _taskToolKey = GlobalKey<TaskToolScreenState>();
   bool _navigating = false;
   bool _reviewOpened = false;
+  bool _quadrantOpened = false;
+  bool _calendarOpened = false;
+  HomeNavigationState _mobileReturnTab = const HomeNavigationState.today();
   bool _organizeToolsExpanded = false;
   bool _openHabitEditorOnEnter = false;
   int? _searchFocusHabitId;
@@ -297,7 +300,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       _dismissExitPrompt();
       setState(() {
         _navigation = next;
+        if (next.showsMobileBottomBar) _mobileReturnTab = next;
         if (next.isReview) _reviewOpened = true;
+        if (next.tool == HomeToolSection.quadrant) _quadrantOpened = true;
+        if (next.tool == HomeToolSection.calendar) _calendarOpened = true;
         if (next.isToday) _fabAutoHidden = false;
         _organizeToolsExpanded =
             next.tool != null && _isOrganizeTool(next.tool!);
@@ -370,7 +376,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     }
   }
 
-  Future<void> _closeTool() => _navigate(_navigation.closeTool());
+  Future<void> _closeTool() => _navigate(
+        !ResponsiveLayout.isDesktopOrWider(context) &&
+                !_navigation.showsMobileBottomBar
+            ? _mobileReturnTab
+            : _navigation.closeTool(),
+      );
 
   void _openMobileTools() {
     // 工具菜单改为左侧滑出抽屉（替代自下而上的全屏面板）
@@ -395,7 +406,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       scaffold?.closeDrawer();
       return;
     }
-    if (_navigation.isTool) {
+    if (_navigation.isTool && !_navigation.showsMobileBottomBar) {
       _closeTool();
       return;
     }
@@ -645,7 +656,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                     _navigation.title,
                     style: SlowlightTypography.componentPageTitle(context),
                   ),
-            leading: _navigation.isTool
+            leading: !_navigation.showsMobileBottomBar
                 ? FxIconButton(
                     icon: LucideIcons.chevronLeft,
                     iconSize: 20,
@@ -682,7 +693,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           ),
           body: _mobileTodayBody(content),
           bottomNavigationBar:
-              _navigation.isTool ? null : _mobileBottomNavigation(),
+              _navigation.showsMobileBottomBar ? _mobileBottomNavigation() : null,
         ),
       ),
     );
@@ -702,7 +713,6 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
 
   Widget _mobileBottomNavigation() {
     final theme = Theme.of(context);
-    final today = _navigation.primary == HomePrimarySection.today;
     return SafeArea(
       top: false,
       child: Container(
@@ -719,14 +729,28 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
               itemKey: const ValueKey('home.bottom-nav.today'),
               icon: LucideIcons.sun,
               label: '今天',
-              selected: today,
+              selected: _navigation.isToday,
               onTap: () => _openPrimary(HomePrimarySection.today),
+            ),
+            _mobileBottomNavigationItem(
+              itemKey: const ValueKey('home.bottom-nav.quadrant'),
+              icon: LucideIcons.layoutGrid,
+              label: '四象限',
+              selected: _navigation.tool == HomeToolSection.quadrant,
+              onTap: () => _openTool(HomeToolSection.quadrant),
+            ),
+            _mobileBottomNavigationItem(
+              itemKey: const ValueKey('home.bottom-nav.calendar'),
+              icon: LucideIcons.calendarDays,
+              label: '月历',
+              selected: _navigation.tool == HomeToolSection.calendar,
+              onTap: () => _openTool(HomeToolSection.calendar),
             ),
             _mobileBottomNavigationItem(
               itemKey: const ValueKey('home.bottom-nav.review'),
               icon: LucideIcons.bookOpen,
               label: '回顾',
-              selected: !today,
+              selected: _navigation.isReview,
               onTap: () => _openPrimary(HomePrimarySection.review),
             ),
           ],
@@ -747,28 +771,26 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         selected ? activePalette.accent : theme.colorScheme.onSurfaceVariant;
     return Expanded(
       child: Semantics(
+        label: label,
         button: true,
         selected: selected,
         child: FxInkWell(
           key: itemKey,
           onTap: onTap,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 58),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 17, color: color),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: SlowlightTypography.caption(context).copyWith(
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                      color: color,
-                    ),
-                  ),
-                ],
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? activePalette.accent.withValues(alpha: .12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 20, color: color),
               ),
             ),
           ),
@@ -905,11 +927,13 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     final tool = _navigation.tool;
     final showingReview = tool == null &&
         _navigation.primary == HomePrimarySection.review;
-    // Today stays mounted through both Review and tool navigation.
-    // Review still loads on demand; a data-mode change replaces _workspaceKey.
+    final quadrant = tool == HomeToolSection.quadrant;
+    final calendar = tool == HomeToolSection.calendar;
+    final otherTool = tool != null && !quadrant && !calendar;
+    // Keep the four pinned destinations mounted while moving between tabs.
     return IndexedStack(
       key: _workspaceKey,
-      index: tool != null ? 2 : showingReview ? 1 : 0,
+      index: quadrant ? 2 : calendar ? 3 : otherTool ? 4 : showingReview ? 1 : 0,
       children: [
         _buildTodayDashboard(),
         _reviewOpened
@@ -920,7 +944,9 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                 onTimeDistributionNavigate: _navigateFromTimeDistribution,
               )
             : const SizedBox.shrink(),
-        tool == null ? const SizedBox.shrink() : _buildToolContent(tool),
+        _quadrantOpened ? const QuadrantScreen() : const SizedBox.shrink(),
+        _calendarOpened ? _calendarContent() : const SizedBox.shrink(),
+        otherTool ? _buildToolContent(tool!) : const SizedBox.shrink(),
       ],
     );
   }
@@ -951,6 +977,11 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     onRefresh: _reload,
   );
 
+  Widget _calendarContent() => CalendarScreen(
+        headerController: _calendarHeaderController,
+        headerInAppBar: !ResponsiveLayout.isDesktopOrWider(context),
+      );
+
   Widget _buildToolContent(HomeToolSection tool) => switch (tool) {
     HomeToolSection.tasks => TaskToolScreen(key: _taskToolKey),
     HomeToolSection.habits =>
@@ -960,10 +991,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         focusHabitId: _searchFocusHabitId,
       ),
     HomeToolSection.quadrant => const QuadrantScreen(),
-    HomeToolSection.calendar => CalendarScreen(
-      headerController: _calendarHeaderController,
-      headerInAppBar: !ResponsiveLayout.isDesktopOrWider(context),
-    ),
+    HomeToolSection.calendar => _calendarContent(),
     HomeToolSection.lists => const ListManageScreen(),
     HomeToolSection.observationTags => const SystemTagScreen(),
     HomeToolSection.stats => StatsScreen(onNavigate: _navigateFromStats),
@@ -987,8 +1015,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       _accountFuture = _loadAccountDisplay();
       _workspaceKey = GlobalKey(debugLabel: '回顾工作区');
       _taskToolKey = GlobalKey<TaskToolScreenState>();
-      _reviewOpened = _navigation.tool == null &&
-          _navigation.primary == HomePrimarySection.review;
+      _reviewOpened = _navigation.isReview;
+      _quadrantOpened = _navigation.tool == HomeToolSection.quadrant;
+      _calendarOpened = _navigation.tool == HomeToolSection.calendar;
+      _mobileReturnTab = _navigation.showsMobileBottomBar
+          ? _navigation
+          : HomeNavigationState(primary: _navigation.primary);
       _searchFocusObservation = null;
       _searchFocusObservationRequest = 0;
       _lists = const [];
