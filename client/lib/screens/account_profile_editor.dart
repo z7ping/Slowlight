@@ -211,6 +211,7 @@ class _PasswordFormState extends State<_PasswordForm> {
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   bool _saving = false;
+  bool _showPassword = false;
   String? _usernameError;
   String? _oldError;
   String? _passwordError;
@@ -353,7 +354,7 @@ class _PasswordFormState extends State<_PasswordForm> {
               });
             }
           },
-          obscureText: true,
+          obscureText: !_showPassword,
           enabled: !_saving,
         ),
       ],
@@ -373,7 +374,7 @@ class _PasswordFormState extends State<_PasswordForm> {
             });
           }
         },
-        obscureText: true,
+        obscureText: !_showPassword,
         enabled: !_saving,
       ),
       const SizedBox(height: 12),
@@ -389,8 +390,19 @@ class _PasswordFormState extends State<_PasswordForm> {
             });
           }
         },
-        obscureText: true,
+        obscureText: !_showPassword,
         enabled: !_saving,
+      ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: FxButton(
+          label: _showPassword ? '隐藏密码' : '显示密码',
+          size: FxButtonSize.sm,
+          variant: FxButtonVariant.ghost,
+          onPressed: _saving ? null : () {
+            setState(() => _showPassword = !_showPassword);
+          },
+        ),
       ),
       if (_formError != null) ...[
         const SizedBox(height: SlowlightSpacing.md),
