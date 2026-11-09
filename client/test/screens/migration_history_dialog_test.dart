@@ -18,6 +18,8 @@ void main() {
   });
 
   testWidgets('迁移历史弹窗可以从根导航正常打开和关闭', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     await tester.pumpWidget(
       buildFxTestHost(
         home: Builder(
@@ -67,13 +69,16 @@ void main() {
     );
 
     await tester.tap(find.text('打开历史'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(MigrationHistoryDialog), findsOneWidget);
     expect(find.byType(ShadDialog), findsNothing);
     expect(find.byType(FxPageHeader), findsOneWidget);
     expect(find.text('历史来源'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('返回'));
+    await tester.tap(find.byWidgetPredicate(
+      (widget) => widget is FxIconButton && widget.tooltip == '返回',
+    ));
     await tester.pumpAndSettle();
     expect(find.byType(MigrationHistoryDialog), findsNothing);
     await disposeFxTestHost(tester);
