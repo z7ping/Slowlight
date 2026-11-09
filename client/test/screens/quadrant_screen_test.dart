@@ -161,7 +161,6 @@ void main() {
     await tester.pumpAndSettle();
     final button = find.byKey(const ValueKey('quadrant-add'));
     expect(button, findsOneWidget);
-    expect(button, findsOneWidget);
     await tester.tap(button);
     await tester.pumpAndSettle();
 
