@@ -1,7 +1,18 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/caldav_screen.dart';
 
 void main() {
+  test('CalDAV 配置保存和连接测试必须调用 Slowlight API 而非目标 CalDAV 主机', () {
+    final source = File('lib/services/api_service.dart').readAsStringSync();
+    final save = source.split('saveCalDAVConfig({').last.split('testCalDAVConnection({').first;
+    final connectionTest = source.split('testCalDAVConnection({').last.split('getCalDAVStatus()').first;
+    expect(save, contains(r"Uri.parse('${ApiService.baseUrl}/caldav/config')"));
+    expect(connectionTest, contains(r"Uri.parse('${ApiService.baseUrl}/caldav/test')"));
+    expect(save, contains("'base_url': baseUrl"));
+    expect(connectionTest, contains("'base_url': baseUrl"));
+  });
+
   group('12 CalDAV 原有表单校验语义', () {
     test('服务器地址必填且只能使用 HTTP 或 HTTPS', () {
       expect(CalDavFormValidation.serverUrl(''), '请输入服务器地址');
