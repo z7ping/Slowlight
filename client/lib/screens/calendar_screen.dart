@@ -223,6 +223,7 @@ class CalendarScreen extends StatefulWidget {
   final CalendarHeaderController? headerController;
   /// True when the surrounding Android AppBar owns the header actions.
   final bool headerInAppBar;
+  final int refreshTick;
   /// Allows deterministic editor-entry widget tests without remote list reads.
   final List<TodoList>? createListsOverride;
   final Future<void> Function(BuildContext context, DateTime date)?
@@ -235,6 +236,7 @@ class CalendarScreen extends StatefulWidget {
     this.initialSelectedDate,
     this.headerController,
     this.headerInAppBar = false,
+    this.refreshTick = 0,
     this.createListsOverride,
     this.createTaskOverride,
   });
@@ -281,6 +283,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant CalendarScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTick != widget.refreshTick) _load(keepCurrent: true);
+  }
+
   // An Android AppBar can already be listening while the CalendarScreen is
   // first mounted. Avoid notifying its AnimatedBuilder during build.
   void _notifyHeader() {
@@ -301,11 +309,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool keepCurrent = false}) async {
     final requested = DateTime(_focused.year, _focused.month, 1);
     final version = ++_loadVersion;
     if (mounted) setState(() {
-      _loading = true;
+      // Revisiting a Tab must not blank an already confirmed month.
+      _loading = !(keepCurrent && _hasCurrentMonth);
       _loadFailed = false;
     });
     _notifyHeader();
