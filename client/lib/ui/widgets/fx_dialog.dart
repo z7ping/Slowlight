@@ -5,6 +5,7 @@ import '../color_tokens.dart';
 import '../layout_tokens.dart';
 import '../typography_tokens.dart';
 import 'fx_button.dart';
+import 'fx_card.dart';
 
 /// FxDialog — 统一弹窗入口。
 class FxDialog {
@@ -94,6 +95,7 @@ class FxDialog {
     bool destructive = false,
     bool draftDiscard = false,
     bool mobilePairedActions = false,
+    String? supportingText,
     bool barrierDismissible = true,
   }) {
     // Keep a single mobile 40/60 action geometry for draft exits and
@@ -118,50 +120,80 @@ class FxDialog {
             : null,
         removeBorderRadiusWhenTiny: usePairedLayout ? false : null,
         title: Text(title, style: _titleStyle(ctx)),
-        description: Text(content, style: _descriptionStyle(ctx)),
+        description: Text(
+          supportingText != null && !usePairedLayout
+              ? content + '\n' + supportingText
+              : content,
+          style: _descriptionStyle(ctx),
+        ),
         child: usePairedLayout
             ? SizedBox(
                 // Preserve the already-approved mobile dialog geometry and
                 // minimum 44dp FxButton touch targets at larger text scales.
                 width: (MediaQuery.sizeOf(ctx).width - 80).clamp(0.0, 372.0),
-                child: Row(
-                  key: ValueKey(draftDiscard
-                      ? 'fx.dialog.draftActions'
-                      : 'fx.dialog.pairedActions'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: FxButton(
-                        key: ValueKey(draftDiscard
-                            ? 'fx.dialog.discardDraft'
-                            : 'fx.dialog.cancel'),
-                        label: draftDiscard ? confirmText : cancelText,
+                    if (supportingText != null &&
+                        supportingText.isNotEmpty) ...[
+                      FxCard(
                         expanded: true,
-                        variant: FxButtonVariant.outline,
-                        onPressed: () => Navigator.of(ctx, rootNavigator: true)
-                            .pop(draftDiscard),
-                      ),
-                    ),
-                    const SizedBox(width: SlowlightSpacing.md),
-                    Expanded(
-                      flex: 3,
-                      child: Focus(
-                        autofocus: true,
-                        child: FxButton(
-                          key: ValueKey(draftDiscard
-                              ? 'fx.dialog.keepEditing'
-                              : 'fx.dialog.confirm'),
-                          label: draftDiscard
-                              ? (cancelText == '取消' ? '继续编辑' : cancelText)
-                              : confirmText,
-                          expanded: true,
-                          variant: destructive && !draftDiscard
-                              ? FxButtonVariant.destructive
-                              : FxButtonVariant.primary,
-                          onPressed: () => Navigator.of(ctx, rootNavigator: true)
-                              .pop(!draftDiscard),
+                        padding: const EdgeInsets.all(SlowlightSpacing.xl),
+                        color: Theme.of(ctx).colorScheme.surfaceContainerLow,
+                        child: Text(
+                          supportingText,
+                          style: SlowlightTypography.caption(ctx).copyWith(
+                            color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
+                      const SizedBox(height: SlowlightSpacing.xl),
+                    ],
+                    Row(
+                      key: ValueKey(draftDiscard
+                          ? 'fx.dialog.draftActions'
+                          : 'fx.dialog.pairedActions'),
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: FxButton(
+                            key: ValueKey(draftDiscard
+                                ? 'fx.dialog.discardDraft'
+                                : 'fx.dialog.cancel'),
+                            label: draftDiscard ? confirmText : cancelText,
+                            expanded: true,
+                            variant: FxButtonVariant.outline,
+                            onPressed: () =>
+                                Navigator.of(ctx, rootNavigator: true)
+                                    .pop(draftDiscard),
+                          ),
+                        ),
+                        const SizedBox(width: SlowlightSpacing.md),
+                        Expanded(
+                          flex: 3,
+                          child: Focus(
+                            autofocus: true,
+                            child: FxButton(
+                              key: ValueKey(draftDiscard
+                                  ? 'fx.dialog.keepEditing'
+                                  : 'fx.dialog.confirm'),
+                              label: draftDiscard
+                                  ? (cancelText == '取消'
+                                      ? '继续编辑'
+                                      : cancelText)
+                                  : confirmText,
+                              expanded: true,
+                              variant: destructive && !draftDiscard
+                                  ? FxButtonVariant.destructive
+                                  : FxButtonVariant.primary,
+                              onPressed: () =>
+                                  Navigator.of(ctx, rootNavigator: true)
+                                      .pop(!draftDiscard),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
