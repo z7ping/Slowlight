@@ -217,6 +217,11 @@ void main() {
     expect(tester.getRect(find.text('账号')).center.dx, closeTo(180, 2));
     expect(find.byKey(const ValueKey('settings.account.login_cloud')), findsOneWidget);
     expect(find.byKey(const ValueKey('settings.account.open_data')), findsOneWidget);
+    final dataTile = tester.widget<FxListTile>(
+      find.byKey(const ValueKey('settings.account.open_data')),
+    );
+    expect(dataTile.leading, isA<CircleAvatar>());
+    expect((dataTile.leading! as CircleAvatar).radius, 18);
     expect(find.byKey(const ValueKey('settings.account.github.mobile')), findsNothing);
     expect(find.byKey(const ValueKey('settings.account.logout.mobile')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('settings.account.open_data')));
