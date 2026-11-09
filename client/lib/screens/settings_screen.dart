@@ -1417,7 +1417,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'account' => _accountSummary(),
     'data' => DataModeManager().isLocal ? '本地数据模式' : '云端数据模式',
     'sync' => _dataSummary(),
-    'privacy' => '数据位置与第三方连接',
+    'privacy' => '存储、外部连接与本机保护',
     'diagnostics' => '查看与导出本机错误记录',
     'rest' => _restSummary(),
     'about' => '版本与应用信息',
