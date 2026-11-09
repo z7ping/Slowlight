@@ -252,6 +252,7 @@ void main() {
     await tester.tap(check);
     await tester.pump();
     expect(writes, 1);
+    expect(find.byType(TaskDetailSheet), findsNothing);
     tasks.clear();
     pending.complete(Task(
       id: 97, listId: 1, title: '处理临时事项',
