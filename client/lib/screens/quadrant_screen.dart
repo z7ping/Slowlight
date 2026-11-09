@@ -19,8 +19,9 @@ typedef QuadrantData = ({
 
 class QuadrantScreen extends StatefulWidget {
   final Future<QuadrantData> Function()? dataLoader;
+  final int refreshTick;
 
-  const QuadrantScreen({super.key, this.dataLoader});
+  const QuadrantScreen({super.key, this.dataLoader, this.refreshTick = 0});
 
   @override
   State<QuadrantScreen> createState() => _QuadrantScreenState();
@@ -40,6 +41,16 @@ class _QuadrantScreenState extends State<QuadrantScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant QuadrantScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTick == widget.refreshTick) return;
+    final revision = widget.refreshTick;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.refreshTick == revision) _load();
+    });
   }
 
   Future<void> _load() async {
