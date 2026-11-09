@@ -371,6 +371,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   CalendarViewMode _viewMode = CalendarViewMode.month;
   bool _modeTouched = false;
   bool _untimedExpanded = false;
+  bool _otherTimeExpanded = false;
   String? _draggingRecordId;
   Offset _dragOrigin = Offset.zero;
   Offset _dragOffset = Offset.zero;
@@ -459,6 +460,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() {
       if (view == CalendarViewMode.threeDays) _threeDayStart = _selected;
       _untimedExpanded = false;
+      _otherTimeExpanded = false;
       _viewMode = view;
     });
     _notifyHeader();
@@ -565,7 +567,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final next = DateTime(anchor.year, anchor.month,
         anchor.day + step * direction);
     if (_viewMode == CalendarViewMode.threeDays) _threeDayStart = next;
-    if (mounted) setState(() => _untimedExpanded = false);
+    if (mounted) setState(() {
+      _untimedExpanded = false;
+      _otherTimeExpanded = false;
+    });
     await _selectDate(next);
   }
 
@@ -644,7 +649,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final cached = changeMonth ? _rangeCache[_monthKey(date)] : null;
     setState(() {
       _selected = DateTime(date.year, date.month, date.day);
-      if (changeMonth) _untimedExpanded = false;
+      if (changeMonth) {
+        _untimedExpanded = false;
+        _otherTimeExpanded = false;
+      }
       if (changeMonth) {
         _focused = DateTime(date.year, date.month, 1);
         // Neighboring dates are already loaded by the current date strip.
@@ -1016,9 +1024,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final days = _visibleDays();
     if (days.isEmpty) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
-    final leftover = <CalendarRecord>[];
+    final untimed = <CalendarRecord>[];
+    final outsideHours = <CalendarRecord>[];
     for (final day in days) {
-      leftover.addAll(_timelineRecords(day).where((r) => !_isTimed(r)));
+      for (final record in _timelineRecords(day)) {
+        if (_isTimed(record)) continue;
+        if (_clockMinute(record) == null) {
+          untimed.add(record);
+        } else {
+          outsideHours.add(record);
+        }
+      }
     }
     final partial = days.any((d) =>
         _rangeCache[_monthKey(d)]?.unavailableTypes.isNotEmpty ?? false);
@@ -1054,7 +1070,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           );
         }),
-        if (leftover.isNotEmpty) _remainingRecords(leftover),
+        if (untimed.isNotEmpty) _remainingRecords(untimed),
+        if (outsideHours.isNotEmpty) _remainingRecords(outsideHours, outside: true),
         Align(
           alignment: Alignment.centerRight,
           child: Padding(
@@ -1175,29 +1192,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _remainingRecords(List<CalendarRecord> rows) {
+  Widget _remainingRecords(List<CalendarRecord> rows, {bool outside = false}) {
     final colors = Theme.of(context).colorScheme;
+    final expanded = outside ? _otherTimeExpanded : _untimedExpanded;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       FxInkWell(
-        key: const ValueKey('calendar-untimed-toggle'),
-        onTap: () => setState(() => _untimedExpanded = !_untimedExpanded),
+        key: ValueKey(outside ? 'calendar-other-time-toggle' : 'calendar-untimed-toggle'),
+        onTap: () => setState(() {
+          if (outside) {
+            _otherTimeExpanded = !_otherTimeExpanded;
+          } else {
+            _untimedExpanded = !_untimedExpanded;
+          }
+        }),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
           child: Row(children: [
-            Text('未定／其他时间',
+            Text(outside ? '其他时间' : '未定时间',
               style: SlowlightTypography.secondary(context)
                   .copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
             Text(rows.length.toString() + ' 项',
               style: SlowlightTypography.caption(context)),
             const Spacer(),
-            Icon(_untimedExpanded
+            Icon(expanded
                 ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                 size: 16, color: colors.onSurfaceVariant),
           ]),
         ),
       ),
-      if (_untimedExpanded)
+      if (expanded)
         for (final record in rows)
           FxInkWell(
             key: ValueKey('calendar-untimed-record-' + record.id),
