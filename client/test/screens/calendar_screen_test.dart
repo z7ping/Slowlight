@@ -337,7 +337,7 @@ void main() {
                 type: CalendarRecordType.habit,
                 kind: CalendarRecordKind.actual,
                 date: day,
-                title: '阅读',
+                title: '晨读',
               ),
               CalendarRecord(
                 id: 'habit-b',
