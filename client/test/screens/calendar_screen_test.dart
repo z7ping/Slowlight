@@ -584,12 +584,39 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('有明确凌晨时刻和未知时刻分别进入其他时间、未定时间',
-      (tester) async {
-    await pumpCalendar(tester);
+  testWidgets('凌晨真实时刻和未知时刻独立保留，不误标未定', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(home: Scaffold(
+      body: CalendarScreen(
+        initialMonth: DateTime(2026, 8),
+        initialSelectedDate: DateTime(2026, 8, 21),
+        monthLoader: (requested) async =>
+            CalendarMonthData(month: requested, records: [
+              CalendarRecord(
+                id: 'early-native', type: CalendarRecordType.task,
+                kind: CalendarRecordKind.plan,
+                date: DateTime(2026, 8, 21), title: '晨间任务',
+                timeLabel: '06:30',
+              ),
+              CalendarRecord(
+                id: 'unknown-native', type: CalendarRecordType.habit,
+                kind: CalendarRecordKind.actual,
+                date: DateTime(2026, 8, 21), title: '习惯记录',
+                timeLabel: '上午',
+              ),
+            ]),
+      ),
+    )));
+    await tester.pumpAndSettle();
     await selectCalendarView(tester, '日');
-    expect(find.byKey(const ValueKey('calendar-untimed-toggle')), findsOneWidget);
-    expect(find.byKey(const ValueKey('calendar-other-time-toggle')), findsNothing);
+    final known = find.byKey(const ValueKey('calendar-other-time-toggle'));
+    final unknown = find.byKey(const ValueKey('calendar-untimed-toggle'));
+    expect(known, findsOneWidget);
+    expect(unknown, findsOneWidget);
+    await tester.ensureVisible(known);
+    await tester.tap(known);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-untimed-record-early-native')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
