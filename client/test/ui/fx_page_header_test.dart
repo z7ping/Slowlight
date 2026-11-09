@@ -170,6 +170,37 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  for (final width in [320.0, 360.0, 393.0]) {
+    testWidgets('Android ${width}dp 130% 短页头操作无需换行', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(body: SizedBox(
+          width: width,
+          child: MediaQuery(
+            data: MediaQueryData(
+              size: Size(width, 800),
+              textScaler: const TextScaler.linear(1.3),
+            ),
+            child: FxPageHeader(
+              title: '状态',
+              trailing: FxButton(
+                label: '刷新',
+                size: FxButtonSize.sm,
+                onPressed: () {},
+              ),
+            ),
+          ),
+        )),
+      ));
+      final title = tester.getRect(find.text('状态'));
+      final action = tester.getRect(find.text('刷新'));
+      expect((title.center.dy - action.center.dy).abs(), lessThan(24));
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('页头操作被禁用时仍保留图标和原有几何位置', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
