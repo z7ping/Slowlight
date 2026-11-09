@@ -11,6 +11,7 @@ import 'package:slowlight/repositories/habit_repository.dart';
 import 'package:slowlight/repositories/reflection_repository.dart';
 import 'package:slowlight/screens/today_review_screen.dart';
 import 'package:slowlight/screens/weekly_review_screen.dart';
+import 'package:slowlight/widgets/review/review_timeline_item.dart';
 import 'package:slowlight/widgets/review/task_30day_tab.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/utils/local_time_boundary.dart';
@@ -867,6 +868,73 @@ void main() {
     expect(find.widgetWithText(FxButton, '保存回应'), findsNothing);
     expect(repo.createCalls, 1);
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 回顾指标可筛选，轨迹可展开，草稿不丢失', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(390, 1150);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      tester.view.reset();
+    });
+    final responses = _ControlledReflections()
+      ..recentEntries = [
+        ReflectionEntry(
+          id: 991,
+          entryType: 'observation',
+          content: '读书前把手机放远，比较容易静下来。',
+          createdAt: DateTime.now(),
+        ),
+      ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TodayReviewScreen(
+        reflectionRepository: responses,
+        habitRepository: _NoHabits(),
+        reviewLoader: () async => {
+          'facts': <String, dynamic>{
+            'task_completed': 1,
+            'today_completed_tasks': [
+              {
+                'id': 711,
+                'title': '给朋友回一封邮件',
+                'completed_at': DateTime.now().toIso8601String(),
+              },
+            ],
+            'focus_minutes': 25,
+            'focus_count': 1,
+          },
+          'patterns': <String, dynamic>{},
+          'questions': <Map<String, dynamic>>[],
+        },
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    Iterable<ReviewTimelineItem> rows() =>
+        tester.widgetList<ReviewTimelineItem>(
+            find.byType(ReviewTimelineItem));
+    expect(rows().map((item) => item.kind),
+        containsAll(['task_completed', 'observation', 'session_ended']));
+    expect(rows().every((item) => item.compact), isTrue);
+
+    await tester.enterText(find.byType(FxInput).first, '这是一条未保存草稿');
+    await tester.tap(find.byKey(const ValueKey('review.metric.task_completed')));
+    await tester.pumpAndSettle();
+    expect(rows().length, 1);
+    expect(rows().single.kind, 'task_completed');
+    expect(find.text('这是一条未保存草稿'), findsOneWidget);
+
+    await tester.tap(find.text('完成「给朋友回一封邮件」'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReviewTimelineItem), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('review.metric.task_completed')));
+    await tester.pumpAndSettle();
+    expect(rows().length, 3);
+    expect(find.text('这是一条未保存草稿'), findsOneWidget);
     await disposeFxTestHost(tester);
   });
 
