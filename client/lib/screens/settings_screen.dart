@@ -354,6 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
     final subtle = theme.colorScheme.onSurfaceVariant;
     final local = DataModeManager().isLocal;
+    final largeText = MediaQuery.textScalerOf(context).scale(1) >= 1.3;
     final user = _accountUser;
     final name = local
         ? '本地使用'
@@ -388,7 +389,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     Widget arrow() => Icon(LucideIcons.chevronRight, size: 18, color: subtle);
-    Widget stateTrailing(String value) => Row(
+    Widget stateTrailing(String value) => largeText ? arrow() : Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(value, style: SlowlightTypography.caption(context)
@@ -432,6 +433,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Icon(local ? LucideIcons.hardDrive : LucideIcons.cloud,
           size: 22, color: subtle),
       title: '数据模式',
+      subtitle: largeText ? (local ? '本地' : '云端') : null,
       trailing: stateTrailing(local ? '本地' : '云端'),
       onTap: () => _openSection('data'),
     ));
@@ -453,6 +455,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 density: FxListTileDensity.compact,
                 leading: githubBrandMark(context, size: 36),
                 title: 'GitHub',
+                subtitle: largeText ? (_linkingGitHub ? '授权中' : githubState) : null,
                 trailing: stateTrailing(_linkingGitHub ? '授权中' : githubState),
                 onTap: _cancelingGitHub ? null : _showMobileGitHubSheet,
               ),
@@ -462,12 +465,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 density: FxListTileDensity.compact,
                 leading: Icon(LucideIcons.keyRound, size: 22, color: subtle),
                 title: '账号密码',
-                subtitle: _passwordLoginReady == true
+                subtitle: (_passwordLoginReady == true
                     ? '登录账号：' +
                         (_loginUsername.isEmpty
                             ? user?.username ?? ''
-                            : _loginUsername)
-                    : null,
+                            : _loginUsername) +
+                        (largeText ? ' · ' + passwordState : '')
+                    : largeText ? passwordState : null),
                 trailing: stateTrailing(passwordState),
                 onTap: _linkingGitHub ? null : _openMobilePasswordEditor,
               ),
