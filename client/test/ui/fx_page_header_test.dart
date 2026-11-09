@@ -108,6 +108,106 @@ void main() {
     });
   }
 
+  testWidgets('Android 360dp 完整诊断日志的短文本操作与页头同行', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildFxTestHost(
+      theme: AppTheme.lightTheme(),
+      home: Scaffold(
+        body: SizedBox(
+          width: 360,
+          child: FxPageHeader(
+            title: '完整诊断日志',
+            trailing: FxButton(
+              label: '复制全部',
+              size: FxButtonSize.sm,
+              variant: FxButtonVariant.outline,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    final title = tester.getRect(find.text('完整诊断日志'));
+    final action = tester.getRect(find.text('复制全部'));
+    final header = tester.getRect(find.byType(FxPageHeader));
+    expect((title.center.dy - action.center.dy).abs(), lessThan(20));
+    expect(action.center.dx, greaterThan(title.center.dx));
+    expect(header.height, lessThan(92));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 360dp 130% 字体的诊断页头操作不溢出', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(buildFxTestHost(
+      theme: AppTheme.lightTheme(),
+      home: Scaffold(body: SizedBox(
+        width: 360,
+        child: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(360, 800),
+            textScaler: TextScaler.linear(1.3),
+          ),
+          child: FxPageHeader(
+            title: '完整诊断日志',
+            trailing: FxButton(
+              label: '复制全部',
+              size: FxButtonSize.sm,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      )),
+    ));
+    await tester.pump();
+    expect(find.text('完整诊断日志'), findsOneWidget);
+    expect(find.text('复制全部'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('页头操作被禁用时仍保留图标和原有几何位置', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    Future<void> pumpHeader({required bool active}) async {
+      await tester.pumpWidget(buildFxTestHost(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            child: FxPageHeader(
+              title: '事件回调',
+              actionIcon: Icons.add,
+              actionTooltip: '添加事件回调',
+              onAction: active ? () {} : null,
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+    }
+
+    await pumpHeader(active: true);
+    final enabledHeaderHeight = tester.getSize(find.byType(FxPageHeader)).height;
+    final enabledIcon = tester.getRect(find.byIcon(Icons.add));
+
+    await pumpHeader(active: false);
+    final disabledHeaderHeight = tester.getSize(find.byType(FxPageHeader)).height;
+    final disabledIcon = tester.getRect(find.byIcon(Icons.add));
+    expect(disabledHeaderHeight, enabledHeaderHeight);
+    expect(disabledIcon.center, enabledIcon.center);
+    final disabledButton = tester.widget<FxIconButton>(
+      find.ancestor(of: find.byIcon(Icons.add), matching: find.byType(FxIconButton)),
+    );
+    expect(disabledButton.onPressed, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('FxPageHeader 大字体时右侧动作下移并保持右对齐', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

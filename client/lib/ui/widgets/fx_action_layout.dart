@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../layout_tokens.dart';
+import '../typography_tokens.dart';
+import 'fx_button.dart';
 
 /// Slowlight 操作区布局规则。
 ///
@@ -32,6 +34,50 @@ class FxActionBar extends StatelessWidget {
     this.runSpacing = SlowlightSpacing.md,
   });
 
+  // Short explanatory copy and a single button often fit at 360dp.
+  // Measure their actual text rather than automatically stacking below 520dp.
+  // Composite filters/menus keep the existing conservative behavior.
+  bool _simpleActionFits(BuildContext context, double width) {
+    final copy = leading;
+    if (copy is! Text || copy.data == null || actions.length != 1) return false;
+    final action = actions.single;
+    if (action is! FxButton) return false;
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final copyPainter = TextPainter(
+      text: TextSpan(
+        text: copy.data!,
+        style: copy.style ?? SlowlightTypography.componentSecondary(context),
+      ),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final buttonPainter = TextPainter(
+      text: TextSpan(
+        text: action.label,
+        style: SlowlightTypography.componentButton(
+          context,
+          compact: action.size == FxButtonSize.sm,
+        ),
+      ),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final buttonIconWidth = action.icon != null || action.leading != null
+        ? (action.size == FxButtonSize.sm
+            ? SlowlightIconSize.compactAction + 6
+            : SlowlightIconSize.sm + SlowlightSpacing.md)
+        : 0.0;
+    final buttonPadding = action.size == FxButtonSize.sm ? 28.0 : 36.0;
+    final requiredWidth = copyPainter.width + gap +
+        buttonPainter.width + buttonIconWidth + buttonPadding + 20;
+    copyPainter.dispose();
+    buttonPainter.dispose();
+    return requiredWidth <= width;
+  }
+
   Widget _actionGroup() {
     return Wrap(
       alignment: WrapAlignment.end,
@@ -55,7 +101,10 @@ class FxActionBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
-        final stacked = constraints.maxWidth < stackBelow || scale >= 1.6;
+        final compactFits = scale < 1.6 &&
+            _simpleActionFits(context, constraints.maxWidth);
+        final stacked = !compactFits &&
+            (constraints.maxWidth < stackBelow || scale >= 1.6);
 
         if (stacked) {
           return Column(
