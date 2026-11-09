@@ -303,6 +303,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late final bool _ownsHeaderController;
   late DateTime _focused;
   late DateTime _selected;
+  late DateTime _threeDayStart;
   late final CalendarMonthLoader _monthLoader;
   CalendarMonthData? _data;
   CalendarDisplayMode _displayMode = CalendarDisplayMode.all;
@@ -330,6 +331,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _focused = DateTime(month.year, month.month, 1);
     final selected = widget.initialSelectedDate ?? now;
     _selected = DateTime(selected.year, selected.month, selected.day);
+    _threeDayStart = _selected;
     _monthLoader = widget.monthLoader ?? CalendarRepository().loadMonth;
     _ownsHeaderController = widget.headerController == null;
     _headerController = widget.headerController ?? CalendarHeaderController();
@@ -391,7 +393,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
           .catchError((Object _) => false);
     }
     if (_viewMode == view) return;
-    setState(() => _viewMode = view);
+    setState(() {
+      if (view == CalendarViewMode.threeDays) _threeDayStart = _selected;
+      _viewMode = view;
+    });
     _notifyHeader();
     _rangeVersion++;
     if (_hasCurrentMonth && view != CalendarViewMode.month) {
@@ -420,9 +425,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       CalendarViewMode.week => 7,
       CalendarViewMode.month => 0,
     };
-    final start = _viewMode == CalendarViewMode.week
-        ? DateTime(anchor.year, anchor.month, anchor.day - anchor.weekday + 1)
-        : anchor;
+    final start = switch (_viewMode) {
+      CalendarViewMode.week => DateTime(
+          anchor.year, anchor.month, anchor.day - anchor.weekday + 1),
+      CalendarViewMode.threeDays => _threeDayStart,
+      _ => anchor,
+    };
     return List.generate(count,
         (index) => DateTime(start.year, start.month, start.day + index));
   }
@@ -484,8 +492,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       CalendarViewMode.week => 7,
       CalendarViewMode.month => 1,
     };
-    final next = DateTime(_selected.year, _selected.month,
-        _selected.day + step * direction);
+    final anchor = _viewMode == CalendarViewMode.threeDays
+        ? _threeDayStart : _selected;
+    final next = DateTime(anchor.year, anchor.month,
+        anchor.day + step * direction);
+    if (_viewMode == CalendarViewMode.threeDays) _threeDayStart = next;
     await _selectDate(next);
   }
 
@@ -541,6 +552,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() {
       _focused = next;
       _selected = next;
+      if (_viewMode == CalendarViewMode.threeDays) _threeDayStart = next;
     });
     _notifyHeader();
     await _load();
@@ -551,6 +563,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() {
       _focused = DateTime(today.year, today.month, 1);
       _selected = DateTime(today.year, today.month, today.day);
+      if (_viewMode == CalendarViewMode.threeDays) _threeDayStart = _selected;
     });
     _notifyHeader();
     await _load();
