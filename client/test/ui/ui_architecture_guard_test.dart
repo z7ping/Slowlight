@@ -270,7 +270,7 @@ void main() {
     ];
     final offenders = <String>[];
     final forcedWidth = RegExp(
-      r'constraints\\.maxWidth\\s*<\\s*(?:[0-9]+(?:\\.[0-9]+)?|stackBelow)\\b',
+      r'constraints\.maxWidth\s*<\s*(?:[0-9]+(?:\.[0-9]+)?|stackBelow)\b',
     );
     for (final path in shared) {
       final source = await File(path).readAsString();
@@ -282,7 +282,7 @@ void main() {
     expect(begin, greaterThanOrEqualTo(0));
     expect(end, greaterThan(begin));
     final settingLine = settings.substring(begin, end);
-    if (RegExp(r'constraints\\.maxWidth\\s*<\\s*(?:360|520)\\b')
+    if (RegExp(r'constraints\.maxWidth\s*<\s*(?:360|520)\b')
         .hasMatch(settingLine)) {
       offenders.add('lib/screens/settings_screen.dart:_settingLine');
     }
