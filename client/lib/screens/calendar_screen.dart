@@ -912,7 +912,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _addAt(DateTime day, double y) async {
     final halves = (y / (_calendarHourHeight / 2)).floor();
     final minute = (_calendarStartMinute + halves * 30)
-        .clamp(_calendarStartMinute, _calendarEndMinute - 30);
+        .clamp(_calendarStartMinute, _calendarEndMinute - 30).toInt();
     await _addTask(day, time: TimeOfDay(
       hour: minute ~/ 60, minute: minute % 60,
     ));
@@ -1047,10 +1047,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
             });
             if (delta.distance < 8 || width <= 0) return;
             final nextIndex = (index + (delta.dx / width).round())
-                .clamp(0, days.length - 1);
+                .clamp(0, days.length - 1).toInt();
             final nextMinute = (minute +
                 (delta.dy / _calendarHourHeight * 2).round() * 30)
-                .clamp(_calendarStartMinute, _calendarEndMinute - 30);
+                .clamp(_calendarStartMinute, _calendarEndMinute - 30).toInt();
             _proposeMove(record, days[nextIndex], nextMinute);
           } : null,
           child: FxInkWell(
