@@ -423,14 +423,26 @@ class _FeishuScreenState extends State<FeishuScreen> {
     failure: '标签同步失败',
   );
 
-  Future<void> _importFromFeishu() => _runAction(
-    start: () => _isImporting = true,
-    finish: () => _isImporting = false,
-    action: _integration.importData,
-    requiredTable: '任务表',
-    fallback: '飞书数据导入完成',
-    failure: '导入失败',
-  );
+  Future<void> _importFromFeishu() async {
+    if (_busyWithFeishu || !_cloud || !_hasTable('任务表')) return;
+    final source = _sourceVersion;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '确认从飞书导入？',
+      content: '导入可能新增或修改云端记录，请先核对目标表格内容。',
+      confirmText: '确认导入',
+    );
+    if (confirmed != true || !_sameSource(source, true) ||
+        _busyWithFeishu) return;
+    await _runAction(
+      start: () => _isImporting = true,
+      finish: () => _isImporting = false,
+      action: _integration.importData,
+      requiredTable: '任务表',
+      fallback: '飞书数据导入完成',
+      failure: '导入失败',
+    );
+  }
 
   Future<void> _runAction({
     required VoidCallback start,
@@ -464,6 +476,14 @@ class _FeishuScreenState extends State<FeishuScreen> {
     }
     final source = _sourceVersion;
     final wasCloud = _cloud;
+    final confirmed = await FxDialog.confirm(
+      context: context,
+      title: '同步任务到飞书日历？',
+      content: '将为带截止日期的任务创建日历事件，请先核对目标日历。',
+      confirmText: '确认同步',
+    );
+    if (confirmed != true || !_sameSource(source, wasCloud) ||
+        _busyWithFeishu) return;
     setState(() => _isSyncingCalendar = true);
     try {
       final result = await _integration.syncCalendar(_selectedCalendarId!);
