@@ -387,19 +387,21 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     ).toList(growable: false) ?? const <TodayTimelineItem>[];
     final visible = filtered.take(_showAllPeriodEvents ? 40 : mobile ? 8 : 20)
         .toList(growable: false);
-    return FxCard(
+    final evidenceCard = FxCard(
       expanded: true,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(
-            title: mobile ? '近期记录' : '发生过的事',
-            trailing: facts == null
-                ? '待读取'
-                : '观察记录 ${facts.observationCount} 条',
-          ),
-          const SizedBox(height: 10),
+          if (!mobile) ...[
+            FxSectionHeader(
+              title: '发生过的事',
+              trailing: facts == null
+                  ? '待读取'
+                  : '观察记录 ${facts.observationCount} 条',
+            ),
+            const SizedBox(height: 10),
+          ],
           if (mobile && _eventFilter != 'all') ...[
             FxButton(
               label: '清除筛选',
@@ -536,6 +538,19 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
           ],
         ],
       ),
+    );
+    if (!mobile) return evidenceCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FxSectionHeader(
+          title: '近期记录',
+          trailing: facts == null ? '待读取'
+              : '${page?.items.length ?? 0} 条已载入',
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        evidenceCard,
+      ],
     );
   }
 
@@ -741,14 +756,16 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     final observationCount = _periodTimeline?.observationCount;
 
-    return FxCard(
+    final summaryCard = FxCard(
       padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(title: mobile ? '本期概况' : '近 30 天已载入记录', trailing: '$days 天'),
-          const SizedBox(height: 12),
+          if (!mobile) ...[
+            FxSectionHeader(title: '近 30 天已载入记录', trailing: '$days 天'),
+            const SizedBox(height: 12),
+          ],
           if (mobile)
             FxResponsiveFormGrid(
               minColumnWidth: 96,
@@ -799,6 +816,15 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
         ],
       ),
     );
+    if (!mobile) return summaryCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(title: '本期概况'),
+        const SizedBox(height: SlowlightSpacing.md),
+        summaryCard,
+      ],
+    );
   }
 
   Widget _stats(List<Widget> cells) {
@@ -813,19 +839,17 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
 
   Widget _trendCard() {
     final theme = Theme.of(context);
-    return FxCard(
+    final trendCard = FxCard(
       padding: const EdgeInsets.all(16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FxSectionHeader(
-            title: SlowlightPlatformDensity.usesMobileTouchTargets
-                ? '记录节奏' : '每日任务完成趋势',
-            trailing: SlowlightPlatformDensity.usesMobileTouchTargets
-                ? '已载入任务与习惯' : '近 30 天',
-          ),
-          const SizedBox(height: 14),
+          if (!SlowlightPlatformDensity.usesMobileTouchTargets) ...[
+            const FxSectionHeader(
+              title: '每日任务完成趋势', trailing: '近 30 天'),
+            const SizedBox(height: 14),
+          ],
           if (_trendDays.isEmpty)
             Text(
               '暂无趋势数据',
@@ -837,6 +861,16 @@ class _TaskMonthTabState extends State<TaskMonthTab> {
             _bars(),
         ],
       ),
+    );
+    if (!SlowlightPlatformDensity.usesMobileTouchTargets) return trendCard;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FxSectionHeader(
+          title: '记录节奏', trailing: '已载入任务与习惯'),
+        const SizedBox(height: SlowlightSpacing.md),
+        trendCard,
+      ],
     );
   }
 
