@@ -180,7 +180,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     final topToast = find.ancestor(
       of: find.text('普通提示'),
-      matching: find.byType(ShadToast),
+      matching: fxToastFinder(),
     );
     expect(tester.getRect(topToast).top, lessThan(160));
 
@@ -189,7 +189,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     final undoToast = find.ancestor(
       of: find.text('任务已完成'),
-      matching: find.byType(ShadToast),
+      matching: fxToastFinder(),
     );
     expect(tester.getRect(undoToast).top, greaterThan(500));
     expect(tester.getRect(undoToast).bottom, lessThan(740));
@@ -224,7 +224,7 @@ void main() {
     expect(find.text('旧提示'), findsNothing);
     final currentToast = find.ancestor(
       of: find.text('新提示'),
-      matching: find.byType(ShadToast),
+      matching: fxToastFinder(),
     );
     expect(currentToast, findsOneWidget);
     expect(tester.getRect(currentToast).top, lessThan(120));
