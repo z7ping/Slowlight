@@ -272,14 +272,22 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "待撤销日期无效"})
 			return
 		}
-		if task.DueDate == nil || !task.DueDate.Valid ||
-			!task.DueDate.Time.Equal(expected.Time) {
+		// New clients send a civil YYYY-MM-DD; legacy clients send the
+		// original instant. Compare civil dates in the server's existing
+		// Beijing date encoding, then CAS on the exact stored timestamp.
+		expectedRaw := strings.Trim(string(expectedJSON), `"`)
+		isCivilDate := len(expectedRaw) == len("2006-01-02") && !strings.Contains(expectedRaw, "T")
+		matches := task.DueDate != nil && task.DueDate.Valid && task.DueDate.Time.Equal(expected.Time)
+		if isCivilDate && task.DueDate != nil && task.DueDate.Valid {
+			matches = task.DueDate.Time.In(model.BeijingLocation()).Format("2006-01-02") == expectedRaw
+		}
+		if !matches {
 			c.JSON(http.StatusConflict, gin.H{"error": "任务日期已变化，无法撤销顺延"})
 			return
 		}
 		result := h.DB.Model(&model.Task{}).
 			Where("id = ? AND user_id = ? AND due_date = ? AND is_completed = ?",
-				task.ID, userID, expected.Time, false).
+				task.ID, userID, task.DueDate.Time, false).
 			Update("due_date", updateData.DueDate)
 		if result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "任务日期恢复失败"})
