@@ -61,11 +61,12 @@ class _FeishuScreenState extends State<FeishuScreen> {
   bool get _cloud => DataModeManager().isCloud;
 
   bool get _tablesReady =>
-      _isConfigured && _tableUrlController.text.trim().isNotEmpty &&
+      _isConfigured && _savedTableUrl.isNotEmpty &&
       _tables.isNotEmpty;
 
   bool _hasTable(String name) =>
-      _tablesReady && (_tables[name]?.toString().isNotEmpty ?? false);
+      _tablesReady && !_hasConfigurationDraft &&
+      (_tables[name]?.toString().isNotEmpty ?? false);
 
   bool get _canSyncAll =>
       const ['任务表', '番茄钟表', '休息提醒表', '标签表'].every(_hasTable);
@@ -293,6 +294,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
 
   Future<void> _createTemplate() async {
     if (_busyWithFeishu || !_isConfigured) return;
+    if (_hasPendingCredentialChanges) {
+      _showError('应用凭据有未保存修改，请先保存或取消');
+      return;
+    }
     final confirmed = await FxDialog.confirm(
       context: context,
       title: '创建飞书数据模板',
@@ -483,6 +488,10 @@ class _FeishuScreenState extends State<FeishuScreen> {
 
   Future<void> _syncToCalendar() async {
     if (_busyWithFeishu || !_isConfigured || !_cloud) return;
+    if (_hasPendingCredentialChanges) {
+      _showError('应用凭据有未保存修改，请先保存或取消');
+      return;
+    }
     if (_selectedCalendarId == null) {
       _showError('请先选择一个飞书日历');
       return;
