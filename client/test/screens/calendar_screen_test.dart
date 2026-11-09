@@ -151,12 +151,14 @@ void main() {
       )),
     ));
     await tester.pump();
+    expect(find.byType(FxRefresh), findsNothing);
     expect(find.byType(FxCircularProgress), findsOneWidget);
     first.complete(CalendarMonthData(
       month: DateTime(2026, 8),
       records: const [],
     ));
     await tester.pumpAndSettle();
+    expect(find.byType(FxRefresh), findsOneWidget);
     expect(find.byType(FxCircularProgress), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
