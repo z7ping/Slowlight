@@ -82,7 +82,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     }
   }
 
-    Future<void> _clear() async {
+  Future<void> _clear() async {
     if (_busy) return;
     final confirmed = await FxDialog.confirm(
       context: context,
@@ -275,13 +275,15 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             ),
           ),
         ),
-        Row(
+        Wrap(
+          spacing: SlowlightSpacing.md,
+          runSpacing: SlowlightSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: Text('仅显示最近部分，导出包含完整日志',
-                style: SlowlightTypography.caption(context).copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+            Text('仅显示最近部分，导出包含完整日志',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             if (!_followLatest)
