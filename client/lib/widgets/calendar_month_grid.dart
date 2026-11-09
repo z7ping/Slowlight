@@ -158,8 +158,10 @@ class CalendarMonthGrid extends StatelessWidget {
             ? theme.colorScheme.surfaceContainerLow.withValues(alpha: .55)
             : theme.colorScheme.surfaceContainerLowest;
 
-    return ColoredBox(
-      color: surfaceColor,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SlowlightRadius.sm),
+      child: ColoredBox(
+        color: surfaceColor,
       child: FxInkWell(
         onTap: () => onSelectDate(date),
         child: Container(
@@ -259,6 +261,7 @@ class CalendarMonthGrid extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 
