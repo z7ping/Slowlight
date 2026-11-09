@@ -266,7 +266,7 @@ void main() {
     expect(find.textContaining('very-secret'), findsNothing);
     expect(find.textContaining('api_key='), findsNothing);
     expect(find.textContaining('已启用 · OpenAI 兼容接口'), findsOneWidget);
-    expect(find.textContaining('当前服务商没有已保存的密钥'), findsOneWidget);
+    expect(find.textContaining('密钥状态未确认'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
