@@ -320,202 +320,88 @@ class _CalDAVScreenState extends State<CalDAVScreen> {
             Expanded(
               child: _loading
                   ? const Center(child: FxCircularProgress())
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildInfoCard(),
-                          const SizedBox(height: 16),
-                          _buildConfigForm(),
-                          const SizedBox(height: 16),
-                          if (_configured) _buildStatusCard(),
-                          if (_lastError != null) ...[
-                            const SizedBox(height: 16),
-                            _buildErrorCard(),
-                          ],
-                        ],
-                      ),
-                    ),
+                  : _configReadFailed
+                      ? FxEmptyState(
+                          icon: LucideIcons.circleAlert,
+                          title: '配置状态未确认',
+                          subtitle: '无法读取 CalDAV 配置，请检查连接后重试。',
+                          action: FxButton(label: '重新读取', onPressed: _loadConfig),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _configured ? _buildStatusCard() : _buildInitialSummary(),
+                              const SizedBox(height: SlowlightSpacing.xl),
+                              _buildConfigForm(),
+                              const SizedBox(height: SlowlightSpacing.xl),
+                              _buildInfoCard(),
+                              if (_lastError != null) ...[
+                                const SizedBox(height: SlowlightSpacing.xl),
+                                _buildErrorCard(),
+                              ],
+                            ],
+                          ),
+                        ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInitialSummary() {
+    final theme = Theme.of(context);
+    return FxCard(
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.calendarDays, size: SlowlightIconSize.lg),
+          const SizedBox(width: SlowlightSpacing.xl),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('未配置', style: SlowlightTypography.cardTitle(context)),
+                const SizedBox(height: SlowlightSpacing.xs),
+                Text('填写服务器和访问凭据，测试连接后即可保存。',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildInfoCard() {
+    final theme = Theme.of(context);
     return FxCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  LucideIcons.info,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'CalDAV 同步',
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.buttonSize,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '配置后系统将：',
-              style: TextStyle(
-                fontSize: SlowlightTypography.buttonSize,
-                height: 1.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 6),
-            _buildInfoItem('📥', '自动同步远程任务到本地'),
-            _buildInfoItem('📤', '支持双向同步（创建/更新）'),
-            _buildInfoItem('⏰', '每5分钟自动检查更新'),
-            _buildInfoItem('🏷️', '保持任务优先级、截止日期等属性'),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.success.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppTheme.success.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '📝 快速上手：',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.buttonSize,
-                      height: 1.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.success,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '1. 填写服务器地址（如 https://vikunja.example.com）\n'
-                    '2. 输入用户名和密码 / 访问令牌\n'
-                    '3. 填写项目路径（格式 /dav/projects/ID）\n'
-                    '4. 点击「测试连接」验证\n'
-                    '5. 点击「保存配置」完成',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      color: AppTheme.success,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.info.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppTheme.info.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '💡 支持的服务：',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.buttonSize,
-                      height: 1.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.info,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '• Vikunja — 开源任务管理\n'
-                    '• Nextcloud Tasks — 自托管任务\n'
-                    '• Baïkal / Radicale — 轻量 CalDAV\n'
-                    '• 任何兼容 CalDAV 协议的服务',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      color: AppTheme.info,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.priorityLow.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppTheme.priorityLow.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '📍 项目路径获取：',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.buttonSize,
-                      height: 1.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.priorityLow,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '• Vikunja：项目设置 → 复制 CalDAV 路径\n'
-                    '• Nextcloud：任务设置 → 复制 CalDAV 地址\n'
-                    '• 一般格式：/dav/projects/{数字ID}',
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.captionSize,
-                      color: AppTheme.priorityLow,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(String emoji, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
+      padding: EdgeInsets.zero,
+      child: FxExpansionTile(
+        leading: const Icon(LucideIcons.info, size: SlowlightIconSize.md),
+        title: Text('如何配置 · 兼容服务与路径说明',
+          style: SlowlightTypography.secondary(context)),
         children: [
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: SlowlightTypography.buttonSize, height: 1.5),
-            ),
-          ),
+          Text('1. 获取服务器地址及 CalDAV 账号或访问令牌。\n'
+              '2. 填写任务项目路径，每行一个。\n'
+              '3. 测试连接并确认能查询任务后保存配置。',
+            style: SlowlightTypography.secondary(context)),
+          const SizedBox(height: SlowlightSpacing.md),
+          Text('Vikunja、Nextcloud Tasks、Baïkal、Radicale 等服务的实际兼容范围'
+              '以连接测试和任务查询结果为准。',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
+          const SizedBox(height: SlowlightSpacing.md),
+          Text('Vikunja 项目路径一般可从项目设置中复制；'
+              '不同服务路径格式可能不同，请使用服务端提供的地址。',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            )),
         ],
       ),
     );
