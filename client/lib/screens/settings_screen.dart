@@ -485,7 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               FxListTile(
                 key: const ValueKey('settings.account.password.mobile'),
                 density: FxListTileDensity.compact,
-                leading: rowIcon(LucideIcons.keyRound),
+                leading: rowIcon(LucideIcons.shieldCheck),
                 title: '账号密码',
                 // Standard density: title and status share the same
                 // baseline as GitHub; the username belongs in the editor.
