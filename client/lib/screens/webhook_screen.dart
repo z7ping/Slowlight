@@ -6,6 +6,15 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../ui/fx.dart';
 
+String? validateWebhookUrl(String input) {
+  final uri = Uri.tryParse(input.trim());
+  if (uri == null || !uri.hasAuthority ||
+      (uri.scheme != 'https' && uri.scheme != 'http')) {
+    return '请输入有效的 HTTP(S) 回调地址';
+  }
+  return null;
+}
+
 Set<String> existingWebhookEvents(List<dynamic> records, String target) {
   final events = <String>{};
   for (final item in records) {
@@ -653,10 +662,10 @@ class _AddWebhookDialogBodyState extends State<_AddWebhookDialogBody> {
 
   void _submit() {
     final url = _urlCtrl.text.trim();
-    final parsed = Uri.tryParse(url);
-    if (_selectedEvents.isEmpty || parsed == null || !parsed.hasAuthority ||
-        (parsed.scheme != 'https' && parsed.scheme != 'http')) {
-      setState(() => _validationError = '请输入有效的 HTTP(S) 回调地址并选择事件');
+    final invalid = validateWebhookUrl(url);
+    if (invalid != null || _selectedEvents.isEmpty) {
+      setState(() => _validationError =
+          invalid ?? '请至少选择一个触发事件');
       return;
     }
     Navigator.of(context, rootNavigator: true).pop({
