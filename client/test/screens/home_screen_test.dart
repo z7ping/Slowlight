@@ -567,6 +567,20 @@ void main() {
       await disposeFxTestHost(tester);
     });
 
+    testWidgets('Android 四象限与月历按主 Tab 返回，不误关闭页面', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800));
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.calendar')));
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.byType(CalendarScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('home.bottom-nav')), findsOneWidget);
+      expect(find.text('再按一次退出 Slowlight'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
     testWidgets('Android 首页需要两次返回才退出', (tester) async {
       var exitCalls = 0;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
