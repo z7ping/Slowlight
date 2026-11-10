@@ -199,7 +199,8 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   constraints: BoxConstraints(
-                    minHeight: mobile
+                    minHeight: mobile &&
+                            item.height < SlowlightControlSize.minTouchTarget
                         ? SlowlightControlSize.minTouchTarget
                         : item.height,
                   ),
