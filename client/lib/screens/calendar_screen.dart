@@ -171,7 +171,7 @@ class CalendarMonthTitle extends StatelessWidget {
   }
 }
 
-/// Filtering changes month cells only; the selected day shows all records.
+/// Shared filter applies to month cells and all time-range views.
 class CalendarHeaderActions extends StatelessWidget {
   const CalendarHeaderActions({super.key, required this.controller});
 
@@ -210,7 +210,7 @@ class CalendarHeaderActions extends StatelessWidget {
           tooltip: '切换日历视图',
           onSelected: controller.setViewMode,
           initialValue: controller.viewMode,
-          constraints: const BoxConstraints(minWidth: 174, maxWidth: 220),
+          constraints: const BoxConstraints(minWidth: 205, maxWidth: 205),
           itemBuilder: (context) => [
             for (final view in CalendarViewMode.values)
               FxMenuItem<CalendarViewMode>(
@@ -238,24 +238,39 @@ class CalendarHeaderActions extends StatelessWidget {
               ),
           ],
           child: SizedBox(
-            width: SlowlightPlatformDensity.usesMobileTouchTargets ? 44 : 34,
+            width: SlowlightPlatformDensity.usesMobileTouchTargets ? 54 : 34,
             height: SlowlightPlatformDensity.iconButtonVisualSize,
             child: Center(
-              child: Icon(switch (controller.viewMode) {
-                CalendarViewMode.month => LucideIcons.calendarDays,
-                CalendarViewMode.day => LucideIcons.list,
-                CalendarViewMode.threeDays => LucideIcons.columns3,
-                CalendarViewMode.week => LucideIcons.calendarRange,
-              }, size: 19),
+              child: SlowlightPlatformDensity.usesMobileTouchTargets
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(switch (controller.viewMode) {
+                          CalendarViewMode.month => '月',
+                          CalendarViewMode.day => '日',
+                          CalendarViewMode.threeDays => '三日',
+                          CalendarViewMode.week => '七日',
+                        }, style: SlowlightTypography.componentChip(context)
+                            .copyWith(fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 2),
+                        const Icon(LucideIcons.chevronDown, size: 13),
+                      ],
+                    )
+                  : Icon(switch (controller.viewMode) {
+                      CalendarViewMode.month => LucideIcons.calendarDays,
+                      CalendarViewMode.day => LucideIcons.list,
+                      CalendarViewMode.threeDays => LucideIcons.columns3,
+                      CalendarViewMode.week => LucideIcons.calendarRange,
+                    }, size: 19),
             ),
           ),
         ),
         FxMenu<CalendarDisplayMode>(
           key: const ValueKey('calendar-filter'),
-          tooltip: '月格筛选',
+          tooltip: '筛选计划与实际',
           initialValue: controller.mode,
           onSelected: controller.setFilter,
-          constraints: const BoxConstraints(minWidth: 140, maxWidth: 180),
+          constraints: const BoxConstraints(minWidth: 190, maxWidth: 190),
           itemBuilder: (context) => [
             for (final mode in CalendarDisplayMode.values)
               FxMenuItem<CalendarDisplayMode>(
@@ -1099,6 +1114,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (includeDateStrip) _dateStrip(),
+        if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+            days.every((day) => _rangeCache.containsKey(_monthKey(day))) &&
+            days.every((day) => _timelineRecords(day).isEmpty))
+          Padding(
+            key: const ValueKey('calendar-empty-time-hint'),
+            padding: const EdgeInsets.symmetric(
+              vertical: SlowlightSpacing.md,
+            ),
+            child: Text(
+              _displayMode == CalendarDisplayMode.plan
+                  ? '当前日期暂无已排期的计划 · 点击时间格安排任务'
+                  : _displayMode == CalendarDisplayMode.actual
+                      ? '当前日期暂无已记录的事项'
+                      : '当前日期暂无事项 · 点击时间格安排任务',
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.caption(context).copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
         if (partial) Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text('部分来源未核实，仍保留已确认的记录。',
