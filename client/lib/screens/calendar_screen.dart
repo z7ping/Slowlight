@@ -245,13 +245,20 @@ class CalendarHeaderActions extends StatelessWidget {
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(switch (controller.viewMode) {
-                          CalendarViewMode.month => '月',
-                          CalendarViewMode.day => '日',
-                          CalendarViewMode.threeDays => '三日',
-                          CalendarViewMode.week => '七日',
-                        }, style: SlowlightTypography.componentChip(context)
-                            .copyWith(fontWeight: FontWeight.w600)),
+                        Flexible(
+                          child: Text(
+                            switch (controller.viewMode) {
+                              CalendarViewMode.month => '月',
+                              CalendarViewMode.day => '日',
+                              CalendarViewMode.threeDays => '三日',
+                              CalendarViewMode.week => '七日',
+                            },
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: SlowlightTypography.componentChip(context)
+                                .copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
                         const SizedBox(width: 2),
                         const Icon(LucideIcons.chevronDown, size: 13),
                       ],
