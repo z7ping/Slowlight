@@ -15,6 +15,25 @@ void main() {
       'lib/screens/search_screen.dart',
       'lib/screens/pomodoro_screen.dart',
       'lib/ui/widgets/fx_menu.dart',
+      'lib/ui/widgets/fx_date_time_picker.dart',
+      'lib/ui/widgets/fx_expansion_tile.dart',
+      'lib/screens/migration_preview_dialog.dart',
+      'lib/widgets/app_error_view.dart',
+      'lib/widgets/habit_checkin_widget.dart',
+      'lib/widgets/habit_editor_dialog.dart',
+      'lib/widgets/reminder_review_body.dart',
+      'lib/widgets/sync_status_badge.dart',
+      'lib/widgets/dashboard/dashboard_body.dart',
+      'lib/widgets/dashboard/dimension_summary_card.dart',
+      'lib/widgets/dashboard/insight_card.dart',
+      'lib/widgets/dashboard/onboarding_guide.dart',
+      'lib/widgets/dashboard/rest_reminder_card.dart',
+      'lib/widgets/dashboard/today_focus_summary.dart',
+      'lib/widgets/dashboard/today_task_summary.dart',
+      'lib/widgets/review/ai_review_card.dart',
+      'lib/widgets/review/reflection_history_card.dart',
+      'lib/widgets/review/task_analysis_tab.dart',
+      'lib/widgets/review/task_today_tab.dart',
       'lib/screens/feishu_screen_sections.dart',
       'lib/screens/caldav_screen.dart',
       'lib/screens/webhook_screen.dart',
@@ -67,6 +86,23 @@ void main() {
     // 自定义习惯/清单 Emoji 是数据，不在此处禁用。
     expect(search.contains('🔥 \${habit.streakCount}'), isFalse);
     expect(focus.contains("title: '🍅 专注设置'"), isFalse);
+  });
+
+  test('现役 Dashboard、同步与回顾保留统一语义图标', () async {
+    final sync = await File('lib/widgets/sync_status_badge.dart').readAsString();
+    final dashboard = await File('lib/widgets/dashboard/dashboard_body.dart')
+        .readAsString();
+    final review = await File('lib/widgets/review/task_today_tab.dart')
+        .readAsString();
+    final picker = await File('lib/ui/widgets/fx_date_time_picker.dart')
+        .readAsString();
+    expect(sync.contains('LucideIcons.cloudOff'), isTrue);
+    expect(sync.contains('LucideIcons.refreshCw'), isTrue);
+    expect(sync.contains('LucideIcons.triangleAlert'), isTrue);
+    expect(dashboard.contains('LucideIcons.check'), isTrue);
+    expect(review.contains('LucideIcons.pencil'), isTrue);
+    expect(picker.contains('LucideIcons.chevronLeft'), isTrue);
+    expect(picker.contains('LucideIcons.chevronRight'), isTrue);
   });
 
   test('所有标签入口由 TagChoiceField 唯一承载 FxChoiceChip 选择视觉', () async {
