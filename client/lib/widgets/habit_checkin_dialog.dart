@@ -145,6 +145,10 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     '$_durationMin',
     _period,
     _occurredTime.toString(),
+    // Unapplied custom input is still a draft and must not vanish on Back.
+    if (_moreDurationsOpen &&
+        _customDuration.text.trim() != _durationMin.toString())
+      _customDuration.text.trim(),
   ].join('\\u0000');
 
   Future<void> _requestClose() async {
@@ -520,6 +524,12 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     if (_submitting) return;
     if (_pendingValue case final value?) {
       await _save(value);
+      return;
+    }
+    if (_usesDuration &&
+        _moreDurationsOpen &&
+        _customDuration.text.trim() != _durationMin.toString()) {
+      setState(() => _error = '请先点击「使用」应用自定义分钟数');
       return;
     }
     int? countValue;
