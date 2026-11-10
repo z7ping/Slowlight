@@ -158,7 +158,10 @@ class Habit {
 
   String get frequencyText {
     if (scheduleRule.isNotEmpty) {
-      return HabitScheduleRule.fromJson(scheduleRule, legacyFrequency: frequency).summary;
+      return HabitScheduleRule.fromJson(
+        scheduleRule,
+        legacyFrequency: frequency,
+      ).summary;
     }
     switch (frequency) {
       case 'daily':
@@ -170,7 +173,9 @@ class Habit {
       case 'yearly':
         return '每年';
       default:
-        return frequency;
+        // Legacy custom / unknown frequencies without a saved V3 rule
+        // cannot be explained truthfully: omit them rather than showing an enum.
+        return '';
     }
   }
 
