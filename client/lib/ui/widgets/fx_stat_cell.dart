@@ -12,6 +12,7 @@ class FxStatCell extends StatelessWidget {
   final String? suffix;
   final Color? backgroundColor;
   final Border? border;
+  final EdgeInsetsGeometry? padding;
   final double borderRadius;
 
   const FxStatCell({
@@ -21,6 +22,7 @@ class FxStatCell extends StatelessWidget {
     this.suffix,
     this.backgroundColor,
     this.border,
+    this.padding,
     this.borderRadius = SlowlightRadius.lg,
   });
 
@@ -28,7 +30,7 @@ class FxStatCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding: padding ?? const EdgeInsets.symmetric(
         horizontal: SlowlightSpacing.xl,
         vertical: SlowlightSpacing.xl,
       ),
