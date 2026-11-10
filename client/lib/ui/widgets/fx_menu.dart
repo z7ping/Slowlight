@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../layout_tokens.dart';
 import 'fx_cursor.dart';
@@ -155,7 +156,7 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final trigger =
-        widget.child ?? widget.icon ?? Icon(Icons.more_vert, size: widget.iconSize ?? 20);
+        widget.child ?? widget.icon ?? Icon(LucideIcons.ellipsis, size: widget.iconSize ?? 20);
 
     Widget clickable = Padding(
       padding: widget.child == null ? widget.padding : EdgeInsets.zero,
