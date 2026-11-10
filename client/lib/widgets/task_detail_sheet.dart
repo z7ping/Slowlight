@@ -865,18 +865,19 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  SlowlightSpacing.md, SlowlightSpacing.xs,
-                  SlowlightSpacing.md, SlowlightSpacing.xs,
-                ),
-                child: Text(
-                  label,
-                  style: SlowlightTypography.caption(popoverContext).copyWith(
-                    color: Theme.of(popoverContext).colorScheme.onSurfaceVariant,
+              if (field != 'tags')
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    SlowlightSpacing.md, SlowlightSpacing.xs,
+                    SlowlightSpacing.md, SlowlightSpacing.xs,
+                  ),
+                  child: Text(
+                    label,
+                    style: SlowlightTypography.caption(popoverContext).copyWith(
+                      color: Theme.of(popoverContext).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
               _mobilePropertyPage(
                 field,
                 dismiss,
