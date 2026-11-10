@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../layout_tokens.dart';
 import 'fx_cursor.dart';
 import 'fx_tooltip.dart';
 
@@ -184,6 +185,7 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
           );
         }
         final items = widget.itemBuilder?.call(popoverContext) ?? [];
+        final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
         final content = Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -194,25 +196,38 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
                 mouseCursor: item.mouseCursor,
                 hoverColor: theme.colorScheme.onSurface.withValues(alpha: .06),
                 focusColor: theme.colorScheme.onSurface.withValues(alpha: .06),
-                borderRadius: BorderRadius.circular(6),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: item.height),
-                  child: Padding(
-                    padding: item.padding ??
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Opacity(
-                      opacity: item.enabled ? 1 : .5,
-                      child: item,
-                    ),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  constraints: BoxConstraints(
+                    minHeight: mobile
+                        ? SlowlightControlSize.minTouchTarget
+                        : item.height,
+                  ),
+                  padding: item.padding ??
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: item.value != null && item.value == widget.initialValue
+                        ? theme.colorScheme.surfaceContainerHighest
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Opacity(
+                    opacity: item.enabled ? 1 : .5,
+                    child: item,
                   ),
                 ),
               ),
           ],
         );
+        // Simple selection menus share a compact, bounded popover.
+        // Rich custom popovers retain their own explicit size contract.
         return ConstrainedBox(
           constraints: widget.constraints ??
-              const BoxConstraints(minWidth: 160, maxWidth: 320),
-          child: content,
+              const BoxConstraints(minWidth: 168, maxWidth: 220),
+          child: Padding(
+            padding: widget.menuPadding ?? const EdgeInsets.all(5),
+            child: content,
+          ),
         );
       },
     );
