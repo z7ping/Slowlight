@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/habit.dart';
 import '../models/habit_schedule_rule.dart';
@@ -1273,7 +1274,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
               onChanged: (_) => setState(() {}))),
             FxIconButton(
               tooltip: '选择起算日期',
-              icon: Icons.calendar_today,
+              icon: LucideIcons.calendarDays,
               onPressed: () async {
                 final value = await showFxDatePicker(
                   context: context,
@@ -1399,7 +1400,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
               FxIconButton(
                 tooltip: '清除',
                 onPressed: () => onChanged(null),
-                icon: Icons.close,
+                icon: LucideIcons.x,
               ),
             FxIconButton(
               tooltip: '选择时间',
@@ -1410,7 +1411,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                 );
                 if (picked != null && mounted) onChanged(picked);
               },
-              icon: Icons.schedule,
+              icon: LucideIcons.clock3,
             ),
           ],
         ),
