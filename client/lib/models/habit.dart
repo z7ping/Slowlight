@@ -158,6 +158,20 @@ class Habit {
 
   String get frequencyText {
     if (scheduleRule.isNotEmpty) {
+      // Old custom rows sometimes contain an incomplete rule object.
+      // Do not turn parser defaults into an invented "每天" or time window.
+      if (frequency == 'custom') {
+        final kind = scheduleRule['kind'];
+        final unit = scheduleRule['unit'];
+        if (kind is! String || unit is! String ||
+            scheduleRule['every'] is! int ||
+            scheduleRule['anchor_date'] is! String ||
+            (kind == 'goal' && scheduleRule['target_count'] is! int) ||
+            (kind == 'interval' && unit == 'hour' &&
+                scheduleRule['hour_mode'] is! String)) {
+          return '';
+        }
+      }
       return HabitScheduleRule.fromJson(
         scheduleRule,
         legacyFrequency: frequency,
