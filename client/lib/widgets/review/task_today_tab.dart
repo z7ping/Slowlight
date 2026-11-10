@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
@@ -106,7 +107,7 @@ class TaskTodayTab extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.edit_note, color: theme.colorScheme.primary, size: 22),
+              Icon(LucideIcons.pencil, color: theme.colorScheme.primary, size: 22),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -133,7 +134,7 @@ class TaskTodayTab extends StatelessWidget {
           if (questions.isEmpty)
             FxButton(
               label: '写下今天的观察',
-              icon: Icons.edit_outlined,
+              icon: LucideIcons.pencil,
               variant: FxButtonVariant.secondary,
               onPressed:
                   () => ReflectionComposer.show(
@@ -332,7 +333,7 @@ class TaskTodayTab extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            Icons.check_circle_outline,
+            LucideIcons.circleCheck,
             size: 18,
             color: theme.colorScheme.primary,
           ),
