@@ -13,8 +13,49 @@ void main() {
       'created_at': '2026-01-31T00:00:00Z',
     });
     expect(model.scheduleRule['every'], 3);
-    expect(model.frequencyText, '每 3 天');
+    expect(model.frequencyText, '每3天');
   });
+  test('频率摘要展示具体日期、月末及间隔，不暴露指定日期占位文案', () {
+    const weekly = HabitScheduleRule(
+      anchorDate: anchor, kind: 'specific', unit: 'week',
+      weekdays: [1, 3, 5],
+    );
+    expect(weekly.summary, '每周一、三、五');
+
+    const biweekly = HabitScheduleRule(
+      anchorDate: anchor, kind: 'specific', unit: 'week',
+      every: 2, weekdays: [2, 6],
+    );
+    expect(biweekly.summary, '每2周的周二、六');
+
+    const month = HabitScheduleRule(
+      anchorDate: anchor, kind: 'specific', unit: 'month',
+      monthDays: [15], lastDay: true,
+    );
+    expect(month.summary, '每月15日、月末');
+
+    const twoMonths = HabitScheduleRule(
+      anchorDate: anchor, kind: 'specific', unit: 'month',
+      every: 2, monthDays: [1, 31],
+    );
+    expect(twoMonths.summary, '每2个月的1日、31日');
+
+    const window = HabitScheduleRule(
+      anchorDate: anchor, every: 2, unit: 'hour',
+      hourMode: 'window', windowStart: '22:00', windowEnd: '06:00',
+    );
+    expect(window.summary, '每2小时（22:00–06:00）');
+    const rolling = HabitScheduleRule(
+      anchorDate: anchor, every: 2, unit: 'hour',
+      hourMode: 'rolling',
+    );
+    expect(rolling.summary, '每2小时');
+    const invalid = HabitScheduleRule(
+      anchorDate: anchor, kind: 'specific', unit: 'week', weekdays: [],
+    );
+    expect(invalid.summary, isEmpty);
+  });
+
   test('每月从原始起算日计算，不随短月份漂移', () {
     const rule = HabitScheduleRule(anchorDate: anchor, every: 1, unit: 'month');
     expect(rule.preview(4).map(HabitScheduleRule.dayKey).toList(),
@@ -46,7 +87,7 @@ void main() {
     const goal = HabitScheduleRule(anchorDate: anchor, kind:'goal',
       unit:'week', every:2, targetCount:5);
     expect(goal.validationError, isNull);
-    expect(goal.summary, '每 2 周 完成 5 次');
+    expect(goal.summary, '每2周完成5次');
     expect(goal.preview(), isEmpty);
     const bad = HabitScheduleRule(anchorDate: anchor, kind:'specific',
       unit:'week', weekdays:[]);
