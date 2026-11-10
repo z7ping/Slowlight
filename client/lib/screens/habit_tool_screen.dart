@@ -1037,6 +1037,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   Widget _habitHeading(Habit habit, Color color) {
     final theme = Theme.of(context);
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final meta = _habitMeta(habit);
     return FxInkWell(
       key: ValueKey('habits.expand.${habit.id}'),
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -1069,15 +1070,17 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                     overflow: TextOverflow.ellipsis,
                     style: SlowlightTypography.cardTitle(context),
                   ),
-                  const SizedBox(height: SlowlightSpacing.xs),
-                  Text(
-                    _habitMeta(habit),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: SlowlightTypography.caption(context).copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: SlowlightSpacing.xs),
+                    Text(
+                      meta,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SlowlightTypography.caption(context).copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1716,11 +1719,10 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   }
 
   String _habitMeta(Habit habit) {
-    // Raw legacy enum names are not meaningful habit summaries.
+    // 无规则的旧 custom 不占用频率位置；仍保留有意义的目标和偏好信息。
+    final frequency = habit.frequencyText;
     final parts = <String>[
-      habit.frequency == 'custom' && habit.scheduleRule.isEmpty
-          ? '自定义频率'
-          : habit.frequencyText,
+      if (frequency.isNotEmpty) frequency,
     ];
     if (habit.goalValue > 0) {
       final unit = habit.goalMetric == 'duration'

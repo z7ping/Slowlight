@@ -63,6 +63,39 @@ class _SampleHabitRepo extends HabitRepository {
   Future<List<HabitLog>> logs(int habitId, {String? month}) async => [];
 }
 
+class _FrequencyLabelHabitRepo extends HabitRepository {
+  @override
+  Future<List<Habit>> getAll() async => [
+        Habit(
+          id: 901, userId: 1, name: '旧自定义习惯',
+          frequency: 'custom', createdAt: DateTime(2026),
+        ),
+        Habit(
+          id: 902, userId: 1, name: '指定星期',
+          frequency: 'custom',
+          scheduleRule: const {
+            'kind': 'specific', 'unit': 'week', 'every': 1,
+            'anchor_date': '2026-01-01',
+            'weekdays': [1, 3, 5],
+          },
+          createdAt: DateTime(2026),
+        ),
+        Habit(
+          id: 903, userId: 1, name: '指定月份',
+          frequency: 'custom',
+          scheduleRule: const {
+            'kind': 'specific', 'unit': 'month', 'every': 1,
+            'anchor_date': '2026-01-01',
+            'month_days': [15], 'last_day': true,
+          },
+          createdAt: DateTime(2026),
+        ),
+      ];
+
+  @override
+  Future<List<HabitLog>> logs(int habitId, {String? month}) async => [];
+}
+
 class _OverviewHabitRepo extends HabitRepository {
   @override
   Future<List<Habit>> getAll() async => [
@@ -842,6 +875,29 @@ void main() {
     // A read-only history marker cannot open a record/backfill sheet.
     expect(find.byType(ModalBarrier).evaluate().length, barriersBefore);
     expect(find.byKey(const ValueKey('habits.today.1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('习惯列表展示具体频率，旧 custom 无规则时不渲染空元信息', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: HabitToolScreen(repository: _FrequencyLabelHabitRepo())),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('每周一、三、五'), findsOneWidget);
+    expect(find.text('每月15日、月末'), findsOneWidget);
+    expect(find.text('custom'), findsNothing);
+    expect(find.text('自定义频率'), findsNothing);
+    final legacyHeading = find.byKey(const ValueKey('habits.expand.901'));
+    expect(legacyHeading, findsOneWidget);
+    expect(find.descendant(of: legacyHeading, matching: find.byType(Text)),
+        findsNWidgets(2)); // 仅图标与名称，没有空的频率 Text
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
