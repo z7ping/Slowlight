@@ -105,6 +105,9 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     ('night', '晚间'),
   ];
   static const _durations = [5, 10, 15, 20, 30, 45, 60, 90, 120];
+  static const _quickDurations = [15, 30, 45, 60];
+  bool _moreDurationsOpen = false;
+  final _customDuration = TextEditingController();
 
   bool get _usesDuration =>
       widget.habit.recordType == 'duration' ||
@@ -132,6 +135,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
         _occurredTime = TimeOfDay.fromDateTime(occurred.toLocal());
       }
     }
+    _customDuration.text = _durationMin.toString();
     _initialDraft = _draftFingerprint();
   }
 
@@ -184,6 +188,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
   void dispose() {
     _note.dispose();
     _count.dispose();
+    _customDuration.dispose();
     super.dispose();
   }
 
@@ -255,23 +260,46 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (_usesDuration) ...[
-                              _label('实际时长（分钟）'),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: _durations
-                                    .map((value) => FxChoiceChip(
-                                          label: '$value 分钟',
-                                          selected: _durationMin == value,
-                                          onTap: () => setState(() {
-                                            _durationMin = value;
-                                            _error = null;
-                                          }),
-                                        ))
-                                    .toList(),
+                            if (mobile) ...[
+                              _label('此刻的想法（选填）'),
+                              const SizedBox(height: SlowlightSpacing.md),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: 88,
+                                  maxHeight: 160,
+                                ),
+                                child: FxInput(
+                                  key: const ValueKey('habit-checkin-thoughts'),
+                                  controller: _note,
+                                  minLines: 3,
+                                  maxLines: 6,
+                                  autofocus: false,
+                                  placeholder: '记录此刻的感受、想法……',
+                                ),
                               ),
+                              const SizedBox(height: SlowlightSpacing.xxxl),
+                            ],
+                            if (_usesDuration) ...[
+                              if (mobile)
+                                _mobileDurationChoices()
+                              else ...[
+                                _label('实际时长（分钟）'),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _durations
+                                      .map((value) => FxChoiceChip(
+                                            label: '$value 分钟',
+                                            selected: _durationMin == value,
+                                            onTap: () => setState(() {
+                                              _durationMin = value;
+                                              _error = null;
+                                            }),
+                                          ))
+                                      .toList(),
+                                ),
+                              ],
                               const SizedBox(height: 14),
                             ],
                             if (widget.habit.recordType == 'count') ...[
@@ -324,14 +352,15 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                               ),
                               const SizedBox(height: 14),
                             ],
-                            FxInput(
-                              controller: _note,
-                              label: '备注（选填）',
-                              maxLines: 2,
-                              placeholder: widget.recordDate == null
-                                  ? '记录今天的感受……'
-                                  : '记录这一天的感受……',
-                            ),
+                            if (!mobile)
+                              FxInput(
+                                controller: _note,
+                                label: '备注（选填）',
+                                maxLines: 2,
+                                placeholder: widget.recordDate == null
+                                    ? '记录今天的感受……'
+                                    : '记录这一天的感受……',
+                              ),
                           ]))),
               if (_error != null &&
                   (widget.habit.recordType != 'count' ||
@@ -351,9 +380,9 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                     ? Row(
                         key: const ValueKey('habit-checkin-mobile-footer'),
                         children: [
-                          Expanded(flex: 5, child: mobileCancelAction),
+                          Expanded(flex: 4, child: mobileCancelAction),
                           const SizedBox(width: SlowlightSpacing.md),
-                          Expanded(flex: 7, child: mobileSubmitAction),
+                          Expanded(flex: 6, child: mobileSubmitAction),
                         ],
                       )
                     : Wrap(
@@ -378,6 +407,104 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _mobileDurationChoices() {
+    final isQuick = _quickDurations.contains(_durationMin);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: _label('实际时长')),
+            Text(
+              '$_durationMin 分钟',
+              style: SlowlightTypography.secondary(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: SlowlightSpacing.md),
+        Wrap(
+          key: const ValueKey('habit-checkin-quick-durations'),
+          spacing: SlowlightSpacing.xs,
+          runSpacing: SlowlightSpacing.xs,
+          children: [
+            for (final value in _quickDurations)
+              FxChoiceChip(
+                label: '$value',
+                selected: _durationMin == value,
+                onTap: () => setState(() {
+                  _durationMin = value;
+                  _moreDurationsOpen = false;
+                  _error = null;
+                }),
+              ),
+            FxChoiceChip(
+              label: '更多',
+              selected: _moreDurationsOpen || !isQuick,
+              onTap: () => setState(() {
+                _moreDurationsOpen = !_moreDurationsOpen;
+                if (_moreDurationsOpen) {
+                  _customDuration.text = _durationMin.toString();
+                }
+              }),
+            ),
+          ],
+        ),
+        if (_moreDurationsOpen) ...[
+          const SizedBox(height: SlowlightSpacing.md),
+          Wrap(
+            key: const ValueKey('habit-checkin-more-durations'),
+            spacing: SlowlightSpacing.xs,
+            runSpacing: SlowlightSpacing.xs,
+            children: [
+              for (final value in _durations)
+                if (!_quickDurations.contains(value))
+                  FxChoiceChip(
+                    label: '$value',
+                    selected: _durationMin == value,
+                    onTap: () => setState(() {
+                      _durationMin = value;
+                      _moreDurationsOpen = false;
+                      _error = null;
+                    }),
+                  ),
+            ],
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: FxInput(
+                  key: const ValueKey('habit-checkin-custom-duration'),
+                  controller: _customDuration,
+                  keyboardType: TextInputType.number,
+                  placeholder: '自定义分钟数（1～1440）',
+                  onChanged: (_) => setState(() => _error = null),
+                ),
+              ),
+              const SizedBox(width: SlowlightSpacing.md),
+              FxButton(
+                label: '使用',
+                size: FxButtonSize.sm,
+                onPressed: () {
+                  final duration = int.tryParse(_customDuration.text.trim());
+                  if (duration == null || duration < 1 || duration > 1440) {
+                    setState(() => _error = '请输入 1～1440 的整数分钟');
+                    return;
+                  }
+                  setState(() {
+                    _durationMin = duration;
+                    _moreDurationsOpen = false;
+                    _error = null;
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
