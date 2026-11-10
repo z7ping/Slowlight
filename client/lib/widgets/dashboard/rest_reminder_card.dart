@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
 
@@ -74,7 +75,7 @@ class RestReminderCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                isWarning ? Icons.warning_amber : Icons.self_improvement,
+                isWarning ? LucideIcons.triangleAlert : LucideIcons.coffee,
                 color: isWarning ? AppTheme.warning : AppTheme.success,
                 size: 20,
               ),
@@ -113,7 +114,7 @@ class RestReminderCard extends StatelessWidget {
               Expanded(
                 child: _buildStatItem(
                   context,
-                  icon: Icons.work_outline,
+                  icon: LucideIcons.timer,
                   label: '工作',
                   value: _formatMinutes(stats!.workMinutes),
                   color: AppTheme.info,
@@ -128,7 +129,7 @@ class RestReminderCard extends StatelessWidget {
               Expanded(
                 child: _buildStatItem(
                   context,
-                  icon: Icons.coffee_outlined,
+                  icon: LucideIcons.coffee,
                   label: '休息',
                   value: _formatMinutes(stats!.restMinutes),
                   color: AppTheme.success,
@@ -143,7 +144,7 @@ class RestReminderCard extends StatelessWidget {
               Expanded(
                 child: _buildStatItem(
                   context,
-                  icon: Icons.repeat,
+                  icon: LucideIcons.repeat,
                   label: '轮次',
                   value: '${stats!.workCount}',
                   color: AppTheme.warmGray500,
@@ -167,7 +168,7 @@ class RestReminderCard extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(
-                    Icons.warning_amber,
+                    LucideIcons.triangleAlert,
                     size: 16,
                     color: AppTheme.warning,
                   ),
@@ -189,7 +190,7 @@ class RestReminderCard extends StatelessWidget {
               width: double.infinity,
               child: FxButton(
                 label: '开始休息',
-                icon: Icons.coffee,
+                icon: LucideIcons.coffee,
                 variant: FxButtonVariant.secondary,
                 onPressed: onStartRest,
               ),
