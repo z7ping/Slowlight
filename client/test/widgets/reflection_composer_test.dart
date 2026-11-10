@@ -179,7 +179,8 @@ void main() {
     await tester.tap(find.text('打开观察键盘测试'));
     await tester.pumpAndSettle();
     final editable = find.byType(EditableText).first;
-    await tester.tap(editable);
+    // Opening the Sheet should already own input focus and request the IME.
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
     await tester.enterText(editable, '键盘弹出仍保留观察草稿');
     final input = tester.widget<EditableText>(editable);
     final controller = input.controller;
@@ -277,7 +278,7 @@ void main() {
     expect(find.text('标签（可选）'), findsNothing);
     expect(find.text('历史观察分类（兼容）'), findsNothing);
     expect(tester.widget<EditableText>(
-        find.byType(EditableText).first).focusNode.hasFocus, isFalse);
+        find.byType(EditableText).first).focusNode.hasFocus, isTrue);
     await tester.tap(find.byKey(
         const ValueKey('observation.mobile.dimensionTrigger')));
     await tester.pumpAndSettle();
