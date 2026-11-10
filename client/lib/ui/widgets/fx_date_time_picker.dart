@@ -1,5 +1,6 @@
 import 'fx_cursor.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -250,7 +251,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
                   size: ShadButtonSize.sm,
                   enabled: _canGoPrev,
                   onPressed: _goPrev,
-                  child: const Icon(Icons.chevron_left, size: 20),
+                  child: const Icon(LucideIcons.chevronLeft, size: 20),
                 ),
                 Text(
                   DateFormat('yyyy年M月').format(_focusedMonth),
@@ -264,7 +265,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
                   size: ShadButtonSize.sm,
                   enabled: _canGoNext,
                   onPressed: _goNext,
-                  child: const Icon(Icons.chevron_right, size: 20),
+                  child: const Icon(LucideIcons.chevronRight, size: 20),
                 ),
               ],
             ),
@@ -449,9 +450,9 @@ class FxCalendar<T> extends StatelessWidget {
           color: onSurface,
         ),
         leftChevronIcon:
-            Icon(Icons.chevron_left, color: AppTheme.warmGray500),
+            Icon(LucideIcons.chevronLeft, color: AppTheme.warmGray500),
         rightChevronIcon:
-            Icon(Icons.chevron_right, color: AppTheme.warmGray500),
+            Icon(LucideIcons.chevronRight, color: AppTheme.warmGray500),
       ),
       daysOfWeekStyle: DaysOfWeekStyle(
         weekdayStyle: TextStyle(
