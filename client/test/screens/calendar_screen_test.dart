@@ -431,6 +431,36 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('Android 日历视图显示当前模式并复用紧凑 FxMenu', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = CalendarHeaderController()
+      ..update(DateTime(2026, 11), CalendarDisplayMode.all,
+          CalendarViewMode.day, false);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topRight,
+          child: CalendarHeaderActions(controller: controller),
+        ),
+      ),
+    ));
+    final view = find.byKey(const ValueKey('calendar-view-toggle'));
+    expect(view, findsOneWidget);
+    expect(find.descendant(of: view, matching: find.text('日')),
+        findsOneWidget);
+    await tester.tap(view);
+    await tester.pumpAndSettle();
+    expect(find.text('三日'), findsOneWidget);
+    expect(find.text('七日'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   Future<void> selectCalendarView(WidgetTester tester, String name) async {
     await tester.tap(find.byKey(const ValueKey('calendar-view-toggle')));
     await tester.pumpAndSettle();
