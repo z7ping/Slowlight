@@ -911,7 +911,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           )
         : await FxDialog.show<bool>(
             context: context,
-            title: '🍅 专注设置',
+            title: '专注设置',
             showCloseButton: false,
             child: editor,
           );
