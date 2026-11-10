@@ -42,7 +42,7 @@ void main() {
     final pubspec = await File('pubspec.yaml').readAsString();
 
     // 底栏与工具抽屉使用同一个 Lucide Repeat，不画两套习惯图标。
-    expect(RegExp(r'LucideIcons\\.repeat\\b').allMatches(home).length, 2);
+    expect(RegExp(r'LucideIcons\.repeat\b').allMatches(home).length, 2);
     expect(home.contains('LucideIcons.repeat2'), isFalse);
     // GitHub 是品牌资产，不能拿 gitFork 伪装成 GitHub 猫头。
     expect(login.contains("key: const ValueKey('login.github_brand_hero')"), isTrue);
