@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -275,7 +276,7 @@ class _AboutScreenState extends State<AboutScreen> {
               ).copyWith(color: theme.colorScheme.primary),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.open_in_new, size: 15, color: theme.colorScheme.primary),
+            Icon(LucideIcons.externalLink, size: 15, color: theme.colorScheme.primary),
           ],
         ),
       ),

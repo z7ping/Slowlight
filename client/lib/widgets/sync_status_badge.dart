@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 
 import '../screens/conflict_screen.dart';
@@ -97,7 +98,7 @@ class SyncStatusBadge extends StatelessWidget {
           return showLocal
               ? _statusPill(
                 context,
-                icon: Icons.check_circle_outline,
+                icon: LucideIcons.circleCheck,
                 text: '本地数据',
                 color: Theme.of(context).colorScheme.primary,
               )
@@ -161,7 +162,7 @@ class SyncStatusBadge extends StatelessWidget {
                       child: _statusPill(
                         context,
                         icon: status == SyncStatusEnum.error
-                            ? Icons.cloud_off : Icons.cloud_queue,
+                            ? LucideIcons.cloudOff : LucideIcons.cloud,
                         text: label,
                         color: _getColor(status, context),
                         loading: phase == CloudSyncViewState.syncing,
@@ -482,8 +483,8 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                             borderRadius: BorderRadius.circular(SlowlightRadius.lg),
                           ),
                           child: Icon(
-                            failed ? Icons.error_outline
-                                : busy ? Icons.sync : Icons.cloud_outlined,
+                            failed ? LucideIcons.triangleAlert
+                                : busy ? LucideIcons.refreshCw : LucideIcons.cloud,
                             size: SlowlightIconSize.xl,
                             color: failed ? scheme.error : scheme.primary,
                           ),
@@ -510,7 +511,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           ),
                         ),
                         FxIconButton(
-                          icon: Icons.close,
+                          icon: LucideIcons.x,
                           tooltip: '关闭同步状态',
                           onPressed: () => Navigator.of(context).pop(),
                         ),
@@ -559,7 +560,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                       const SizedBox(height: SlowlightSpacing.xxxl),
                       Row(
                         children: [
-                          Icon(Icons.storage_outlined,
+                          Icon(LucideIcons.database,
                               size: SlowlightIconSize.sm,
                               color: scheme.onSurfaceVariant),
                           const SizedBox(width: SlowlightSpacing.md),
@@ -584,8 +585,8 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           leading: FxButton(
                             label: _expanded ? '收起技术详情' : '查看技术详情',
                             icon: _expanded
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
+                                ? LucideIcons.chevronUp
+                                : LucideIcons.chevronDown,
                             size: FxButtonSize.sm,
                             variant: FxButtonVariant.ghost,
                             onPressed: () =>
@@ -594,7 +595,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                           actions: [
                             FxButton(
                               label: '复制错误',
-                              icon: Icons.copy_outlined,
+                              icon: LucideIcons.copy,
                               size: FxButtonSize.sm,
                               variant: FxButtonVariant.ghost,
                               onPressed: () async {
@@ -706,7 +707,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                         alignment: Alignment.centerLeft,
                         child: FxButton(
                           label: '解决 $count 个冲突',
-                          icon: Icons.warning_amber_outlined,
+                          icon: LucideIcons.triangleAlert,
                           variant: FxButtonVariant.outline,
                           onPressed: () {
                             Navigator.of(context).pop();
@@ -745,8 +746,8 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                               label: busy ? '核对中…'
                                   : canSync ? '立即同步' : '核对状态',
                               expanded: true,
-                              icon: busy ? Icons.hourglass_top
-                                  : canSync ? Icons.sync : Icons.fact_check_outlined,
+                              icon: busy ? LucideIcons.timer
+                                  : canSync ? LucideIcons.refreshCw : LucideIcons.shieldCheck,
                               onPressed: busy ? null
                                   : canSync ? _retry : _verifyOnly,
                             );

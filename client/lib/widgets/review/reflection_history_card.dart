@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/dimension.dart';
 import '../../models/reflection_entry.dart';
@@ -49,7 +50,7 @@ class _ReflectionHistoryCardState extends State<ReflectionHistoryCard> {
           Row(
             children: [
               Icon(
-                Icons.edit_note_outlined,
+                LucideIcons.pencil,
                 size: 19,
                 color: Theme.of(context).colorScheme.primary,
               ),

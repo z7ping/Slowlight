@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../ai/ai_service.dart';
 import '../../theme/app_theme.dart';
@@ -74,7 +75,7 @@ class _AiReviewCardState extends State<AiReviewCard> {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_outlined,
+              Icon(LucideIcons.sparkles,
                   size: 18, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
               const Expanded(

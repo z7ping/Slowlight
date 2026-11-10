@@ -1238,10 +1238,10 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
   }
 
   String _periodLabel(String value) => switch (value) {
-        'morning' => '☀️ 早晨',
+        'morning' => '早晨',
         'afternoon' => '下午',
         'evening' => '傍晚',
-        'night' => '🌙 晚间',
+        'night' => '晚间',
         _ => '',
       };
 

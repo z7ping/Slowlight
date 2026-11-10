@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/reminder_local.dart';
 import '../theme/app_theme.dart';
@@ -162,7 +163,7 @@ class _LogTabState extends State<_LogTab> {
               FxIconButton(
                 tooltip: '前一天',
                 onPressed: () => _move(-1),
-                icon: Icons.chevron_left,
+                icon: LucideIcons.chevronLeft,
               ),
               Flexible(
                 child: Text(
@@ -175,7 +176,7 @@ class _LogTabState extends State<_LogTab> {
               FxIconButton(
                 tooltip: '后一天',
                 onPressed: _date == today ? null : () => _move(1),
-                icon: Icons.chevron_right,
+                icon: LucideIcons.chevronRight,
               ),
             ],
           ),
@@ -229,10 +230,10 @@ class _LogTabState extends State<_LogTab> {
                           children: [
                             Icon(
                               work
-                                  ? Icons.work_outline
+                                  ? LucideIcons.timer
                                   : skipped
-                                  ? Icons.skip_next_outlined
-                                  : Icons.coffee_outlined,
+                                  ? LucideIcons.skipForward
+                                  : LucideIcons.coffee,
                               color: color,
                             ),
                             const SizedBox(width: 12),

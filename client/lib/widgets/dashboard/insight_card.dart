@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
@@ -64,7 +65,7 @@ class InsightCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.lightbulb_outline,
+                LucideIcons.lightbulb,
                 color: Theme.of(context).colorScheme.primary,
                 size: 20,
               ),

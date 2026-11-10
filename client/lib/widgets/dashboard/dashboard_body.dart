@@ -991,7 +991,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                     ),
                     child: task.isCompleted
                         ? const Icon(
-                            Icons.check,
+                            LucideIcons.check,
                             size: 11,
                             color: Colors.white,
                           )
@@ -1396,7 +1396,7 @@ class _DashboardBodyState extends State<DashboardBody> {
                 ),
               ),
               child: Icon(
-                Icons.check,
+                LucideIcons.check,
                 size: 13,
                 color: habit.checkedToday
                     ? Colors.white

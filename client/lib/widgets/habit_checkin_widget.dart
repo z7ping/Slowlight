@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/habit.dart';
 import 'habit_checkin_dialog.dart';
@@ -38,14 +39,14 @@ class HabitCheckinWidget extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
         color: AppTheme.success,
-        child: const Icon(Icons.check, color: Colors.white),
+        child: const Icon(LucideIcons.check, color: Colors.white),
       ),
       child: FxListTile(
         leading: Text(habit.icon, style: const TextStyle(fontSize: SlowlightTypography.heroSize)),
         title: habit.name,
         subtitle: '连续 ${habit.streakCount} 天',
         trailing: FxIconButton(
-          icon: isCheckedToday ? Icons.check_circle : Icons.circle_outlined,
+          icon: isCheckedToday ? LucideIcons.circleCheck : LucideIcons.circle,
           tooltip: isCheckedToday ? '今天已打卡' : '打卡',
           onPressed: () => _checkIn(context),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
 
@@ -87,7 +88,7 @@ class TodayFocusSummary extends StatelessWidget {
               label: '开始专注',
               variant: FxButtonVariant.secondary,
               size: FxButtonSize.sm,
-              icon: Icons.play_arrow,
+              icon: LucideIcons.play,
               onPressed: onStartFocus,
             ),
         ],

@@ -1151,7 +1151,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                     child:
                         task.isCompleted
                             ? const Icon(
-                              Icons.check,
+                              LucideIcons.check,
                               size: 11,
                               color: Colors.white,
                             )

@@ -630,7 +630,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                   const SizedBox(height: SlowlightSpacing.xl),
                   if (all.isEmpty && _controller.error == null)
                     FxEmptyState(
-                      icon: LucideIcons.repeat2,
+                      icon: LucideIcons.repeat,
                       title: '还没有习惯记录',
                       subtitle: '从一件愿意重复的小事开始。',
                       action: FxButton(
@@ -1751,10 +1751,10 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   }
 
   String _periodText(String value) => switch (value) {
-        'morning' => '☀️ 早晨',
+        'morning' => '早晨',
         'afternoon' => '下午',
         'evening' => '傍晚',
-        'night' => '🌙 晚间',
+        'night' => '晚间',
         _ => value,
       };
 

@@ -6,6 +6,34 @@ void main() {
   test('已收口功能区域不得重新混入 Material 功能图标', () async {
     const files = [
       'lib/screens/settings_screen.dart',
+      'lib/screens/focus_home_screen.dart',
+      'lib/screens/login_screen.dart',
+      'lib/screens/about_screen.dart',
+      'lib/screens/task_tool_screen.dart',
+      'lib/screens/habit_tool_screen.dart',
+      'lib/screens/today_review_screen.dart',
+      'lib/screens/search_screen.dart',
+      'lib/screens/pomodoro_screen.dart',
+      'lib/ui/widgets/fx_menu.dart',
+      'lib/ui/widgets/fx_date_time_picker.dart',
+      'lib/ui/widgets/fx_expansion_tile.dart',
+      'lib/screens/migration_preview_dialog.dart',
+      'lib/widgets/app_error_view.dart',
+      'lib/widgets/habit_checkin_widget.dart',
+      'lib/widgets/habit_editor_dialog.dart',
+      'lib/widgets/reminder_review_body.dart',
+      'lib/widgets/sync_status_badge.dart',
+      'lib/widgets/dashboard/dashboard_body.dart',
+      'lib/widgets/dashboard/dimension_summary_card.dart',
+      'lib/widgets/dashboard/insight_card.dart',
+      'lib/widgets/dashboard/onboarding_guide.dart',
+      'lib/widgets/dashboard/rest_reminder_card.dart',
+      'lib/widgets/dashboard/today_focus_summary.dart',
+      'lib/widgets/dashboard/today_task_summary.dart',
+      'lib/widgets/review/ai_review_card.dart',
+      'lib/widgets/review/reflection_history_card.dart',
+      'lib/widgets/review/task_analysis_tab.dart',
+      'lib/widgets/review/task_today_tab.dart',
       'lib/screens/feishu_screen_sections.dart',
       'lib/screens/caldav_screen.dart',
       'lib/screens/webhook_screen.dart',
@@ -23,6 +51,58 @@ void main() {
       isEmpty,
       reason: '功能图标必须沿用现有 Lucide 语义体系，避免同模块并行：${mixed.join(', ')}',
     );
+  });
+
+  test('正式导航和登录图标与唯一高保真原型保持一致', () async {
+    final home = await File('lib/screens/focus_home_screen.dart').readAsString();
+    final login = await File('lib/screens/login_screen.dart').readAsString();
+    final tasks = await File('lib/screens/task_tool_screen.dart').readAsString();
+    final menu = await File('lib/ui/widgets/fx_menu.dart').readAsString();
+    final pubspec = await File('pubspec.yaml').readAsString();
+
+    // 底栏与工具抽屉使用同一个 Lucide Repeat，不画两套习惯图标。
+    expect(RegExp(r'LucideIcons\.repeat\b').allMatches(home).length, 2);
+    expect(home.contains('LucideIcons.repeat2'), isFalse);
+    // GitHub 是品牌资产，不能拿 gitFork 伪装成 GitHub 猫头。
+    expect(login.contains("key: const ValueKey('login.github_brand_hero')"), isTrue);
+    expect(login.contains('assets/github_mark.png'), isTrue);
+    expect(pubspec.contains('- assets/github_mark.png'), isTrue);
+    expect(login.contains('LucideIcons.gitFork'), isFalse);
+    expect(tasks.contains('LucideIcons.check,'), isTrue);
+    expect(menu.contains('Icon(LucideIcons.ellipsis'), isTrue);
+  });
+
+  test('正式界面不得用 Emoji 冒充周期、数据状态和弹窗功能图标', () async {
+    final habit = await File('lib/screens/habit_tool_screen.dart').readAsString();
+    final review = await File('lib/screens/today_review_screen.dart').readAsString();
+    final search = await File('lib/screens/search_screen.dart').readAsString();
+    final focus = await File('lib/screens/pomodoro_screen.dart').readAsString();
+    for (final source in [habit, review]) {
+      expect(source.contains("'morning' => '早晨'"), isTrue);
+      expect(source.contains("'night' => '晚间'"), isTrue);
+      expect(source.contains("'morning' => '☀️"), isFalse);
+      expect(source.contains("'night' => '🌙"), isFalse);
+    }
+    // 自定义习惯/清单 Emoji 是数据，不在此处禁用。
+    expect(search.contains('🔥 \${habit.streakCount}'), isFalse);
+    expect(focus.contains("title: '🍅 专注设置'"), isFalse);
+  });
+
+  test('现役 Dashboard、同步与回顾保留统一语义图标', () async {
+    final sync = await File('lib/widgets/sync_status_badge.dart').readAsString();
+    final dashboard = await File('lib/widgets/dashboard/dashboard_body.dart')
+        .readAsString();
+    final review = await File('lib/widgets/review/task_today_tab.dart')
+        .readAsString();
+    final picker = await File('lib/ui/widgets/fx_date_time_picker.dart')
+        .readAsString();
+    expect(sync.contains('LucideIcons.cloudOff'), isTrue);
+    expect(sync.contains('LucideIcons.refreshCw'), isTrue);
+    expect(sync.contains('LucideIcons.triangleAlert'), isTrue);
+    expect(dashboard.contains('LucideIcons.check'), isTrue);
+    expect(review.contains('LucideIcons.pencil'), isTrue);
+    expect(picker.contains('LucideIcons.chevronLeft'), isTrue);
+    expect(picker.contains('LucideIcons.chevronRight'), isTrue);
   });
 
   test('所有标签入口由 TagChoiceField 唯一承载 FxChoiceChip 选择视觉', () async {

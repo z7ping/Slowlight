@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
@@ -76,7 +77,7 @@ class DimensionSummaryCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.radar_outlined,
+                LucideIcons.radar,
                 color: theme.colorScheme.primary,
                 size: SlowlightIconSize.lg,
               ),
@@ -111,7 +112,7 @@ class DimensionSummaryCard extends StatelessWidget {
             const SizedBox(height: 8),
             FxButton(
               label: '写下一个观察',
-              icon: Icons.edit_outlined,
+              icon: LucideIcons.pencil,
               variant: FxButtonVariant.ghost,
               size: FxButtonSize.sm,
               onPressed:
@@ -178,7 +179,7 @@ class DimensionSummaryCard extends StatelessWidget {
             ),
             const SizedBox(width: 2),
             FxIconButton(
-              icon: Icons.edit_outlined,
+              icon: LucideIcons.pencil,
               iconSize: SlowlightIconSize.sm,
               tooltip: '记录关于${dim.name}的观察',
               onPressed:
@@ -196,9 +197,9 @@ class DimensionSummaryCard extends StatelessWidget {
   }
 
   IconData _trendIcon(String trend) {
-    if (trend == 'up') return Icons.arrow_upward;
-    if (trend == 'down') return Icons.arrow_downward;
-    return Icons.arrow_forward;
+    if (trend == 'up') return LucideIcons.arrowUp;
+    if (trend == 'down') return LucideIcons.arrowDown;
+    return LucideIcons.arrowRight;
   }
 
   Color _trendColor(BuildContext context, String trend) {
