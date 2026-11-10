@@ -507,7 +507,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: FxButton(
           key: const ValueKey('login.back'),
           label: '返回',
-          icon: Icons.arrow_back_rounded,
+          icon: LucideIcons.arrowLeft,
           variant: FxButtonVariant.ghost,
           size: FxButtonSize.sm,
           onPressed: _isLoading
@@ -684,7 +684,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: FxButton(
                       key: const ValueKey('login.more_providers'),
                       label: '更多',
-                      icon: Icons.more_horiz,
+                      icon: LucideIcons.ellipsis,
                       variant: FxButtonVariant.outline,
                       expanded: true,
                       onPressed: _isLoading || _credentialsSavedForCloud
@@ -740,7 +740,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: FxButton(
                     key: const ValueKey('login.back'),
                     label: '返回',
-                    icon: Icons.arrow_back_rounded,
+                    icon: LucideIcons.arrowLeft,
                     size: FxButtonSize.sm,
                     variant: FxButtonVariant.ghost,
                     onPressed: _stopGitHubWaiting,
@@ -749,9 +749,14 @@ class _LoginScreenState extends State<LoginScreen> {
               : _backButton(),
         const SizedBox(height: SlowlightSpacing.xxxl),
         Center(
-          child: Icon(LucideIcons.gitFork,
-              size: SlowlightIconSize.heroGlyph,
-              color: theme.colorScheme.onSurface),
+          child: Image.asset(
+            'assets/github_mark.png',
+            key: const ValueKey('login.github_brand_hero'),
+            width: SlowlightIconSize.heroGlyph,
+            height: SlowlightIconSize.heroGlyph,
+            color: theme.colorScheme.onSurface,
+            filterQuality: FilterQuality.high,
+          ),
         ),
         const SizedBox(height: SlowlightSpacing.xxxl),
         Text(
@@ -787,7 +792,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               _oauthStep(context,
                   label: '已发起授权',
-                  icon: Icons.check_circle_outline_rounded,
+                  icon: LucideIcons.circleCheck,
                   active: isWaiting || _githubCredentialsSaved),
               const SizedBox(height: SlowlightSpacing.xxxl),
               _oauthStep(context,
@@ -797,14 +802,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? _githubStatus
                           : '等待授权结果',
                   icon: _githubCredentialsSaved
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.sync_rounded,
+                      ? LucideIcons.circleCheck
+                      : LucideIcons.refreshCw,
                   active: isWaiting || _githubCredentialsSaved,
                   loading: isWaiting),
               const SizedBox(height: SlowlightSpacing.xxxl),
               _oauthStep(context,
                   label: _githubCredentialsSaved ? '进入云端数据（待重试）' : '完成登录',
-                  icon: Icons.circle_outlined,
+                  icon: LucideIcons.circle,
                   active: false),
             ],
           ),
@@ -861,7 +866,7 @@ class _LoginScreenState extends State<LoginScreen> {
             FxButton(
               key: const ValueKey('login.github_check'),
               label: '检查授权结果',
-              icon: Icons.refresh_rounded,
+              icon: LucideIcons.refreshCw,
               expanded: true,
               onPressed: () {
                 if (!GitHubSignIn.checkAuthorizationNow()) {
