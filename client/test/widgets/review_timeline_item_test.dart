@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:slowlight/widgets/review/review_timeline_item.dart';
 import 'package:slowlight/widgets/timeline_type_label.dart';
 import 'package:slowlight/ui/app_theme.dart';
@@ -16,7 +17,7 @@ void main() {
     expect(TimelineTypeLabel.labelFor('task_completed'), '任务');
   });
 
-  testWidgets('回顾紧凑轨迹仍使用共享类型标识和原有展开操作', (tester) async {
+  testWidgets('回顾无附加详情时不出现无效展开与重复时间', (tester) async {
     await tester.pumpWidget(buildFxTestHost(
       home: const Scaffold(
         body: ReviewTimelineItem(
@@ -32,9 +33,35 @@ void main() {
     expect(marker, findsOneWidget);
     expect(tester.widget<TimelineTypeLabel>(marker).baseColor, AppTheme.chartYellow);
     expect(find.text('习惯'), findsOneWidget);
+    expect(find.byIcon(LucideIcons.chevronDown), findsNothing);
+    expect(find.text('10:03'), findsOneWidget);
     await tester.tap(find.text('记录了早起'));
     await tester.pump();
-    expect(find.text('10:03'), findsWidgets);
+    expect(find.text('10:03'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('回顾有实际备注才提供展开，展开后不重复时间', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(
+        body: ReviewTimelineItem(
+          color: AppTheme.chartYellow,
+          kind: 'habit_checked',
+          compact: true,
+          time: '09:11',
+          title: '记录了早起',
+          note: '今天状态很好',
+        ),
+      ),
+    ));
+    expect(find.byIcon(LucideIcons.chevronDown), findsOneWidget);
+    expect(find.text('今天状态很好'), findsNothing);
+    await tester.tap(find.text('记录了早起'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(LucideIcons.chevronUp), findsOneWidget);
+    expect(find.text('今天状态很好'), findsOneWidget);
+    expect(find.text('09:11'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
