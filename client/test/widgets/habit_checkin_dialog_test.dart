@@ -8,7 +8,7 @@ import 'package:slowlight/widgets/habit_checkin_dialog.dart';
 import '../support/fx_test_host.dart';
 
 void main() {
-  testWidgets('Android 习惯打卡主按钮填满现行表单宽度', (tester) async {
+  testWidgets('Android 习惯打卡主按钮与取消按钮遵循 6:4 布局', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(360, 760);
@@ -28,7 +28,12 @@ void main() {
     await tester.pump();
     final action = find.byKey(const ValueKey('habit-checkin-primary-action'));
     expect(action, findsOneWidget);
-    expect(tester.getSize(action).width, greaterThan(290));
+    final cancel = find.widgetWithText(FxButton, '取消');
+    expect(cancel, findsOneWidget);
+    final primaryWidth = tester.getSize(action).width;
+    final cancelWidth = tester.getSize(cancel).width;
+    expect(primaryWidth, greaterThan(cancelWidth));
+    expect(primaryWidth / cancelWidth, closeTo(1.5, .08));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
