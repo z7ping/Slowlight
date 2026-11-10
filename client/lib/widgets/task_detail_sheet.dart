@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -703,24 +705,13 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
+  // FxMenu already owns the floating surface. Do not nest another FxCard:
+  // it creates a second border, shadow and 16dp of wasted padding.
   Widget _mobilePropertyGroup(List<Widget> rows) {
-    return FxCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: SlowlightSpacing.md,
-      ),
-      color: fxSurface(context),
-      borderRadius: SlowlightRadius.lg,
-      border: Border.all(color: fxBorder(context)),
-      expanded: true,
-      child: Column(
-        children: [
-          for (var index = 0; index < rows.length; index++) ...[
-            if (index > 0)
-              FxSeparator.horizontal(height: 1, color: fxDivider(context)),
-            rows[index],
-          ],
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
     );
   }
 
@@ -862,16 +853,36 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       onOpened: () => FocusScope.of(context).unfocus(),
       constraints: BoxConstraints(
         minWidth: 220,
-        maxWidth: MediaQuery.sizeOf(context).width - SlowlightSpacing.xl * 2,
-        maxHeight: MediaQuery.sizeOf(context).height * .54,
+        maxWidth: math.min(
+          320.0, MediaQuery.sizeOf(context).width - SlowlightSpacing.md * 2,
+        ),
+        maxHeight: math.min(320.0, MediaQuery.sizeOf(context).height * .45),
       ),
       contentBuilder: (popoverContext, dismiss) => StatefulBuilder(
         builder: (popoverContext, refreshPopover) => SingleChildScrollView(
-          padding: const EdgeInsets.all(SlowlightSpacing.md),
-          child: _mobilePropertyPage(
-            field,
-            dismiss,
-            () => refreshPopover(() {}),
+          padding: const EdgeInsets.all(SlowlightSpacing.xs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  SlowlightSpacing.md, SlowlightSpacing.xs,
+                  SlowlightSpacing.md, SlowlightSpacing.xs,
+                ),
+                child: Text(
+                  label,
+                  style: SlowlightTypography.caption(popoverContext).copyWith(
+                    color: Theme.of(popoverContext).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              _mobilePropertyPage(
+                field,
+                dismiss,
+                () => refreshPopover(() {}),
+              ),
+            ],
           ),
         ),
       ),
@@ -887,24 +898,37 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     final theme = Theme.of(context);
     return FxInkWell(
       onTap: _saving ? null : onTap,
-      child: ConstrainedBox(
+      borderRadius: BorderRadius.circular(SlowlightRadius.md),
+      child: Container(
+        key: ValueKey('task.detail.option.$label'),
         constraints: const BoxConstraints(
           minHeight: SlowlightControlSize.minTouchTarget,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: SlowlightSpacing.md,
+          vertical: SlowlightSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? fxSubtleSurface(context) : Colors.transparent,
+          borderRadius: BorderRadius.circular(SlowlightRadius.md),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(label,
-                  style: SlowlightTypography.componentControl(context).copyWith(
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                    color: selected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface,
-                  )),
+              child: Text(
+                label,
+                style: SlowlightTypography.componentControl(context).copyWith(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
             ),
             if (selected)
-              Icon(LucideIcons.check,
-                  size: SlowlightIconSize.sm, color: theme.colorScheme.primary),
+              Icon(
+                LucideIcons.check,
+                size: SlowlightIconSize.sm,
+                color: theme.colorScheme.onSurface,
+              ),
           ],
         ),
       ),
@@ -1171,6 +1195,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           children: [
             TagPicker(
               label: '标签',
+              inlineCreation: true,
               enabled: !_saving,
               selectedTags: _selectedTags,
               onChanged: (tags) => _mobileSelect(() {
