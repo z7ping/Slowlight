@@ -1411,7 +1411,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // Android month overview reuses records and detail editor in a compact list.
   Widget _compactMonthPanel() {
-    final rows = _recordsForDay(_selected).toList()
+    final rows = _recordsForDay(_selected).where((record) {
+      return switch (_displayMode) {
+        CalendarDisplayMode.all => true,
+        CalendarDisplayMode.plan => record.kind == CalendarRecordKind.plan,
+        CalendarDisplayMode.actual => record.kind == CalendarRecordKind.actual,
+      };
+    }).toList()
       ..sort((a, b) => (_clockMinute(a) ?? 1440)
           .compareTo(_clockMinute(b) ?? 1440));
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -1441,7 +1447,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: Text(
               _hasCurrentMonth && _data!.unavailableTypes.isNotEmpty
                   ? '部分记录待核对'
-                  : '当天还没有安排或记录',
+                  : _displayMode == CalendarDisplayMode.plan
+                      ? '当天没有已排期的计划'
+                      : _displayMode == CalendarDisplayMode.actual
+                          ? '当天没有已记录的事项'
+                          : '当天还没有安排或记录',
               textAlign: TextAlign.center,
               style: SlowlightTypography.caption(context)
                   .copyWith(color: theme.colorScheme.onSurfaceVariant),
