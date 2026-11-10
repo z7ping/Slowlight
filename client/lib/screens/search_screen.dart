@@ -602,7 +602,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                       if (habit.streakCount > 0)
                         FxChip(
-                          label: '🔥 ${habit.streakCount}',
+                          label: '连续 ${habit.streakCount} 天',
                           variant: FxChipVariant.secondary,
                         ),
                       if (widget.onOpenHabit != null)
