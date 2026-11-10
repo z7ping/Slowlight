@@ -51,6 +51,7 @@ void main() {
     expect(first, findsOneWidget);
     expect(second, findsOneWidget);
     expect(third, findsOneWidget);
+    // Each of the two consecutive gaps represents a >=44dp touch row.
     expect(tester.getTopLeft(third).dy - tester.getTopLeft(first).dy,
         greaterThanOrEqualTo(88));
     expect(tester.getTopLeft(first).dx,
