@@ -38,6 +38,7 @@ class _TagPickerState extends State<TagPicker> {
   bool _isLoading = true;
   bool _inlineCreating = false;
   bool _creatingTag = false;
+  String _inlineTagColor = presetColors.first;
   final TextEditingController _inlineTagName = TextEditingController();
 
   @override
@@ -87,7 +88,7 @@ class _TagPickerState extends State<TagPicker> {
     try {
       final tag = await ApiService.createTag(
         name: name,
-        color: presetColors.first,
+        color: _inlineTagColor,
       );
       if (!mounted) return;
       setState(() {
@@ -260,6 +261,40 @@ class _TagPickerState extends State<TagPicker> {
             enabled: !_creatingTag,
             autofocus: true,
             placeholder: '新标签名称',
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          Wrap(
+            spacing: SlowlightSpacing.xs,
+            runSpacing: SlowlightSpacing.xs,
+            children: [
+              for (final color in presetColors)
+                FxInkWell(
+                  onTap: _creatingTag
+                      ? null
+                      : () => setState(() => _inlineTagColor = color),
+                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
+                  child: SizedBox(
+                    width: 40,
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: ColorUtils.safeParse(color),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _inlineTagColor == color
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: SlowlightSpacing.md),
           Row(
