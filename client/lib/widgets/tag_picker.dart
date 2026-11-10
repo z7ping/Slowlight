@@ -228,30 +228,34 @@ class _TagPickerState extends State<TagPicker> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TagChoiceField(
-      tags: {for (final tag in [...widget.selectedTags, ..._allTags]) tag.id: tag}.values
-          .map((tag) => ObservationTag(
+          tags: {
+            for (final tag in [...widget.selectedTags, ..._allTags])
+              tag.id: tag,
+          }.values.map((tag) => ObservationTag(
                 id: tag.id,
                 name: tag.name,
                 icon: '🏷️',
                 color: tag.color,
-              ))
-          .toList(growable: false),
-      selectedTagIds: widget.selectedTags.map((tag) => tag.id).toSet(),
-      onMultipleChanged: (ids) {
-        final byId = {for (final tag in [...widget.selectedTags, ..._allTags]) tag.id: tag};
-        widget.onChanged([
-          for (final id in ids)
-            if (byId.containsKey(id)) byId[id]!,
-        ]);
-      },
-      enabled: widget.enabled,
-      onCreateTag: widget.enabled && widget.allowCreation
-          ? widget.inlineCreation
-              ? () => setState(() => _inlineCreating = true)
-              : _showCreateTagDialog
-          : null,
-      showEmptyOption: widget.showEmptyOption,
-      label: widget.label,
+              )).toList(growable: false),
+          selectedTagIds: widget.selectedTags.map((tag) => tag.id).toSet(),
+          onMultipleChanged: (ids) {
+            final byId = {
+              for (final tag in [...widget.selectedTags, ..._allTags])
+                tag.id: tag,
+            };
+            widget.onChanged([
+              for (final id in ids)
+                if (byId.containsKey(id)) byId[id]!,
+            ]);
+          },
+          enabled: widget.enabled,
+          onCreateTag: widget.enabled && widget.allowCreation
+              ? widget.inlineCreation
+                  ? () => setState(() => _inlineCreating = true)
+                  : _showCreateTagDialog
+              : null,
+          showEmptyOption: widget.showEmptyOption,
+          label: widget.label,
         ),
         if (_inlineCreating) ...[
           const SizedBox(height: SlowlightSpacing.md),
