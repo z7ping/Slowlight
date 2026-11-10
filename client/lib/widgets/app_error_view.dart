@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../brand.dart';
 
@@ -19,7 +20,7 @@ class AppErrorView extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline, size: 48, color: colors.error),
+                Icon(LucideIcons.triangleAlert, size: 48, color: colors.error),
                 const SizedBox(height: 16),
                 Text(
                   '界面加载失败',
