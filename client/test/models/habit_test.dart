@@ -75,6 +75,24 @@ void main() {
         });
         expect(habit.frequencyText, isEmpty);
       });
+
+      test('残缺 custom V3 规则不伪造成每天或默认时间窗口', () {
+        final partial = Habit.fromJson({
+          'id': 2, 'user_id': 1, 'name': 'x', 'frequency': 'custom',
+          'schedule_rule': {'version': 1},
+          'created_at': '2026-04-15T10:00:00Z',
+        });
+        expect(partial.frequencyText, isEmpty);
+        final missingHourMode = Habit.fromJson({
+          'id': 3, 'user_id': 1, 'name': 'x', 'frequency': 'custom',
+          'schedule_rule': {
+            'kind': 'interval', 'unit': 'hour', 'every': 2,
+            'anchor_date': '2026-01-01',
+          },
+          'created_at': '2026-04-15T10:00:00Z',
+        });
+        expect(missingHourMode.frequencyText, isEmpty);
+      });
     });
   });
 }
