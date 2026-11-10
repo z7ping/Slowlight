@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../layout_tokens.dart';
 import '../typography_tokens.dart';
@@ -147,7 +148,7 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
                       turns: _expanded ? .5 : 0,
                       duration: surfaceDuration,
                       child: Icon(
-                        Icons.keyboard_arrow_down,
+                        LucideIcons.chevronDown,
                         color: iconForeground,
                       ),
                     ),
