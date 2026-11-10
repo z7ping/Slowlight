@@ -818,7 +818,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             ),
             _mobileBottomNavigationItem(
               itemKey: const ValueKey('home.bottom-nav.habits'),
-              icon: LucideIcons.repeat2,
+              icon: LucideIcons.repeat,
               label: '习惯',
               selected: _navigation.tool == HomeToolSection.habits,
               onTap: () => _openTool(HomeToolSection.habits),
@@ -1294,7 +1294,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                   onTap: () => selectTool(HomeToolSection.quadrant),
                 ),
                 _navItem(
-                  icon: LucideIcons.repeat2,
+                  icon: LucideIcons.repeat,
                   label: '习惯',
                   selected: _navigation.tool == HomeToolSection.habits,
                   onTap: () => selectTool(HomeToolSection.habits),
