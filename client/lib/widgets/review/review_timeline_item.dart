@@ -225,7 +225,7 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      detail,
+                                      detail!,
                                       style: SlowlightTypography.caption(context)
                                           .copyWith(color: muted),
                                     ),
