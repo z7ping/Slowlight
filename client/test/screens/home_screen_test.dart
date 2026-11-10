@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -109,6 +110,11 @@ void main() {
           of: item, matching: find.byType(Icon),
         )).size, 20);
       }
+      // 唯一主原型底部「习惯」采用官方 repeat，不可偷换 repeat2。
+      final habitIcon = find.descendant(
+        of: items[2], matching: find.byType(Icon),
+      );
+      expect(tester.widget<Icon>(habitIcon).icon, LucideIcons.repeat);
       for (var i = 1; i < items.length; i++) {
         expect(tester.getTopLeft(items[i]).dx,
             greaterThan(tester.getTopLeft(items[i - 1]).dx));
