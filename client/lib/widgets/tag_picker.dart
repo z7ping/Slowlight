@@ -274,8 +274,8 @@ class _TagPickerState extends State<TagPicker> {
                       : () => setState(() => _inlineTagColor = color),
                   borderRadius: BorderRadius.circular(SlowlightRadius.md),
                   child: SizedBox(
-                    width: 40,
-                    height: 44,
+                    width: SlowlightControlSize.minTouchTarget,
+                    height: SlowlightControlSize.minTouchTarget,
                     child: Center(
                       child: Container(
                         width: 26,
