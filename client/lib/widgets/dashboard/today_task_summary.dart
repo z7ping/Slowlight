@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/task.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
@@ -39,7 +40,7 @@ class TodayTaskSummary extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.checklist_outlined,
+                LucideIcons.listTodo,
                 color: Theme.of(context).colorScheme.primary,
                 size: 20,
               ),
@@ -80,7 +81,7 @@ class TodayTaskSummary extends StatelessWidget {
                         ),
                       ),
                       Icon(
-                        Icons.chevron_right,
+                        LucideIcons.chevronRight,
                         size: 16,
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -105,7 +106,7 @@ class TodayTaskSummary extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.add,
+                      LucideIcons.plus,
                       size: 16,
                       color: AppTheme.warmGray500,
                     ),
@@ -149,7 +150,7 @@ class TodayTaskSummary extends StatelessWidget {
                 ),
                 child: task.isCompleted
                     ? Icon(
-                        Icons.check,
+                        LucideIcons.check,
                         size: 14,
                         color: _getPriorityColor(task.priority),
                       )
