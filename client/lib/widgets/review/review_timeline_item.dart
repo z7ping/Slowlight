@@ -206,34 +206,33 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
                     ),
                     if (canExpand)
                       AnimatedSize(
-                      duration: reducedMotion ? Duration.zero
-                          : const Duration(milliseconds: 180),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: !_expanded
-                          ? const SizedBox(width: double.infinity)
-                          : Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(SlowlightSpacing.xl),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerLowest,
-                                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      detail!,
-                                      style: SlowlightTypography.caption(context)
-                                          .copyWith(color: muted),
-                                    ),
-                                  ],
+                        duration: reducedMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: !_expanded
+                            ? const SizedBox(width: double.infinity)
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(
+                                    SlowlightSpacing.md,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceContainerLowest,
+                                    borderRadius:
+                                        BorderRadius.circular(SlowlightRadius.md),
+                                  ),
+                                  child: Text(
+                                    detail!,
+                                    style: SlowlightTypography.caption(context)
+                                        .copyWith(color: muted),
+                                  ),
                                 ),
                               ),
-                            ),
-                    ),
+                      ),
                   ],
                 ),
               ),
