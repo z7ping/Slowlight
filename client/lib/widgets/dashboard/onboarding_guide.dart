@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../brand.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/fx.dart';
@@ -217,7 +218,7 @@ class _OnboardingGuideState extends State<OnboardingGuide> {
                 ],
               ),
             ),
-            if (isSelected) Icon(Icons.check_circle, color: color, size: 24),
+            if (isSelected) Icon(LucideIcons.circleCheck, color: color, size: 24),
           ],
         ),
       ),
