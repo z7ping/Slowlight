@@ -91,11 +91,46 @@ class HabitScheduleRule {
     return null;
   }
 
-  String get summary{
-    final text=switch(unit){'hour'=>'小时','day'=>'天','week'=>'周','month'=>'个月',_=>'年'};
-    if(kind=='goal')return '每 $every $text 完成 $targetCount 次';
-    if(kind=='specific')return '每 $every $text 指定日期';
-    return '每 $every $text';
+  /// 用于习惯列表与编辑预览的简短、可阅读规则，不泄露 custom 枚举。
+  /// 无效导入规则不猜测缺失字段，交由编辑页提示修正。
+  String get summary {
+    if (validationError != null) return '';
+    final cycle = every == 1
+        ? switch (unit) {
+            'hour' => '每小时',
+            'day' => '每天',
+            'week' => '每周',
+            'month' => '每月',
+            'year' => '每年',
+            _ => '',
+          }
+        : '每$every${switch (unit) {
+            'hour' => '小时',
+            'day' => '天',
+            'week' => '周',
+            'month' => '个月',
+            'year' => '年',
+            _ => '',
+          }}';
+    if (kind == 'goal') return '$cycle完成$targetCount次';
+    if (kind == 'specific') {
+      if (unit == 'week') {
+        const names = ['一', '二', '三', '四', '五', '六', '日'];
+        final selected = weekdays.map((day) => names[day - 1]).join('、');
+        return every == 1
+            ? '每周$selected'
+            : '$cycle的周$selected';
+      }
+      final selected = <String>[
+        ...monthDays.map((day) => '$day日'),
+        if (lastDay) '月末',
+      ].join('、');
+      return every == 1 ? '每月$selected' : '$cycle的$selected';
+    }
+    if (unit == 'hour' && hourMode == 'window') {
+      return '$cycle（$windowStart–$windowEnd）';
+    }
+    return cycle;
   }
 
   // Day windows restart on each local civil day. Advance by elapsed
