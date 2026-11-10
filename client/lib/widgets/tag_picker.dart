@@ -253,7 +253,7 @@ class _TagPickerState extends State<TagPicker> {
       label: widget.label,
         ),
         if (_inlineCreating) ...[
-          const SizedBox(height: SlowlightSpacing.sm),
+          const SizedBox(height: SlowlightSpacing.md),
           FxInput(
             key: const ValueKey('task.detail.inlineTagName'),
             controller: _inlineTagName,
@@ -261,7 +261,7 @@ class _TagPickerState extends State<TagPicker> {
             autofocus: true,
             placeholder: '新标签名称',
           ),
-          const SizedBox(height: SlowlightSpacing.sm),
+          const SizedBox(height: SlowlightSpacing.md),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
