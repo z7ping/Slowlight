@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../db/local_db.dart';
 import '../main.dart' show authStateNotifier;
@@ -319,7 +320,7 @@ class _MigrationPreviewDialogState extends State<MigrationPreviewDialog> {
               child: Text(widget.fullScreen ? '数据迁移' : '迁移本地数据到云端',
                   style: SlowlightTypography.pageTitle(context))),
           if (!_executing && !_reconciling && !_switching)
-            FxIconButton(tooltip: '关闭迁移', icon: Icons.close, onPressed: _close),
+            FxIconButton(tooltip: '关闭迁移', icon: LucideIcons.x, onPressed: _close),
         ]),
         Text('本地数据始终保留；预览阶段不会写入或删除数据。',
             style: SlowlightTypography.caption(context)
