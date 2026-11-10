@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../services/api/analytics_api.dart';
 import '../../theme/app_theme.dart';
@@ -135,7 +136,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
           Row(
             children: [
               Icon(
-                Icons.analytics_outlined,
+                LucideIcons.barChart3,
                 color: theme.colorScheme.primary,
                 size: 20,
               ),
@@ -163,7 +164,7 @@ class _TaskAnalysisTabState extends State<TaskAnalysisTab> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.emoji_events, color: AppTheme.warning),
+                  Icon(LucideIcons.trophy, color: AppTheme.warning),
                   Text(
                     ' $ms 个里程碑',
                     style: SlowlightTypography.secondary(context).copyWith(
