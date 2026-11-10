@@ -115,7 +115,10 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
     final displayTitle = observation && (widget.note?.isNotEmpty ?? false)
         ? widget.note!
         : widget.title;
-    final detail = observation ? widget.title : widget.note;
+    final detail = observation ? null : widget.note;
+    // A panel containing only the timestamp/type is not useful.
+    final canExpand = detail != null &&
+        detail.trim().isNotEmpty && detail.trim() != displayTitle.trim();
     final separator = widget.time.lastIndexOf(' ');
     final shortTime = separator < 0
         ? widget.time
@@ -128,7 +131,7 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
         SizedBox(
           width: 46,
           child: Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.only(top: 9),
             child: Text(
               shortTime,
               style: SlowlightTypography.caption(context).copyWith(
@@ -141,7 +144,7 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 15),
+          padding: const EdgeInsets.only(top: 12),
           child: Container(
             width: 7,
             height: 7,
@@ -151,21 +154,26 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
         const SizedBox(width: 9),
         Expanded(
           child: FxInkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
+            onTap: canExpand
+                ? () => setState(() => _expanded = !_expanded)
+                : null,
             borderRadius: BorderRadius.circular(SlowlightRadius.md),
             child: Semantics(
-              button: true,
-              expanded: _expanded,
-              label: '${displayTitle}，${TimelineTypeLabel.labelFor(widget.kind)}，${_expanded ? '收起' : '展开'}详情',
+              button: canExpand,
+              expanded: canExpand ? _expanded : null,
+              label: canExpand
+                  ? '${displayTitle}，${TimelineTypeLabel.labelFor(widget.kind)}，${_expanded ? '收起' : '展开'}详情'
+                  : '${displayTitle}，${TimelineTypeLabel.labelFor(widget.kind)}',
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       displayTitle,
-                      maxLines: _expanded ? null : 2,
-                      overflow: _expanded ? null : TextOverflow.ellipsis,
+                      maxLines: canExpand && !_expanded ? 2 : null,
+                      overflow: canExpand && !_expanded
+                          ? TextOverflow.ellipsis : TextOverflow.visible,
                       style: SlowlightTypography.body(context).copyWith(
                         fontWeight: FontWeight.w500,
                       ),
@@ -187,44 +195,44 @@ class _ReviewTimelineItemState extends State<ReviewTimelineItem> {
                                     .copyWith(color: muted)),
                           ),
                         ],
-                        const Spacer(),
-                        Icon(_expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                            size: SlowlightIconSize.sm, color: muted),
+                        if (canExpand) ...[
+                          const Spacer(),
+                          Icon(
+                            _expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                            size: SlowlightIconSize.sm, color: muted,
+                          ),
+                        ],
                       ],
                     ),
-                    AnimatedSize(
-                      duration: reducedMotion ? Duration.zero
-                          : const Duration(milliseconds: 180),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: !_expanded
-                          ? const SizedBox(width: double.infinity)
-                          : Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(SlowlightSpacing.xl),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerLowest,
-                                  borderRadius: BorderRadius.circular(SlowlightRadius.md),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(widget.time,
-                                        style: SlowlightTypography.caption(context)
-                                            .copyWith(color: muted)),
-                                    if (detail != null && detail.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(detail,
-                                          style: SlowlightTypography.caption(context)
-                                              .copyWith(color: muted)),
-                                    ],
-                                  ],
+                    if (canExpand)
+                      AnimatedSize(
+                        duration: reducedMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: !_expanded
+                            ? const SizedBox(width: double.infinity)
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(
+                                    SlowlightSpacing.md,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceContainerLowest,
+                                    borderRadius:
+                                        BorderRadius.circular(SlowlightRadius.md),
+                                  ),
+                                  child: Text(
+                                    detail!,
+                                    style: SlowlightTypography.caption(context)
+                                        .copyWith(color: muted),
+                                  ),
                                 ),
                               ),
-                            ),
-                    ),
+                      ),
                   ],
                 ),
               ),

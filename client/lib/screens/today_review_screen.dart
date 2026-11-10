@@ -711,7 +711,7 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
     final focus = (facts['focus_minutes'] as num?)?.toInt() ?? 0;
     final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
     final card = FxCard(
-      padding: EdgeInsets.all(mobile ? SlowlightSpacing.xl : 16),
+      padding: EdgeInsets.all(mobile ? SlowlightSpacing.md : 16),
       expanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -723,8 +723,8 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
           FxResponsiveFormGrid(
             minColumnWidth: 96,
             maxColumns: 3,
-            horizontalGap: SlowlightSpacing.md,
-            verticalGap: SlowlightSpacing.md,
+            horizontalGap: mobile ? 0 : SlowlightSpacing.md,
+            verticalGap: mobile ? 0 : SlowlightSpacing.md,
             children: [
               _reviewMetric('$tasks', '完成任务', 'task_completed', mobile),
               _reviewMetric('$habits',
@@ -770,7 +770,17 @@ class _TodayReviewScreenState extends State<TodayReviewScreen> {
 
 
   Widget _reviewMetric(String value, String label, String kind, bool mobile) {
-    final cell = FxStatCell(value: value, label: label);
+    final cell = FxStatCell(
+      value: value,
+      label: label,
+      backgroundColor: mobile ? Colors.transparent : null,
+      padding: mobile
+          ? const EdgeInsets.symmetric(
+              horizontal: SlowlightSpacing.md,
+              vertical: SlowlightSpacing.xs,
+            )
+          : null,
+    );
     if (!mobile) return cell;
     final selected = _reviewFilter == kind;
     return Semantics(

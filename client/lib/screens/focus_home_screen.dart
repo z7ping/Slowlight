@@ -723,14 +723,30 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                 FxMenu<int>(
                   key: const ValueKey('habits.filter.menu'),
                   tooltip: '筛选习惯',
+                  initialValue: _habitToolFilter,
+                  constraints: const BoxConstraints(
+                    minWidth: 190, maxWidth: 190,
+                  ),
                   onSelected: (value) {
                     setState(() => _habitToolFilter = value);
                     _habitToolKey.currentState?.setFilter(value);
                   },
                   itemBuilder: (_) => [
-                    FxMenuItem(value: 0, child: Text(_habitToolFilter == 0 ? '✓ 全部' : '全部')),
-                    FxMenuItem(value: 1, child: Text(_habitToolFilter == 1 ? '✓ 今日未记录' : '今日未记录')),
-                    FxMenuItem(value: 2, child: Text(_habitToolFilter == 2 ? '✓ 今日有记录' : '今日有记录')),
+                    for (final option in const [
+                      (0, '全部'),
+                      (1, '今日未记录'),
+                      (2, '今日有记录'),
+                    ])
+                      FxMenuItem<int>(
+                        value: option.$1,
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(option.$2)),
+                            if (_habitToolFilter == option.$1)
+                              const Icon(LucideIcons.check, size: 17),
+                          ],
+                        ),
+                      ),
                   ],
                   child: Padding(
                     padding: const EdgeInsets.all(12),
