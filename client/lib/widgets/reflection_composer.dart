@@ -308,7 +308,9 @@ class ReflectionComposer {
                     FxInput(
                       controller: controller,
                       enabled: !saving,
-                      autofocus: false,
+                      // Focus the existing editor when opening the Android
+                      // observation sheet; do not change the Sheet styling.
+                      autofocus: true,
                       plain: true,
                       showPlainFocusUnderline: false,
                       contentPadding: const EdgeInsets.all(SlowlightSpacing.xl),
