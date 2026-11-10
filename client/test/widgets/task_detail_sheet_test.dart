@@ -115,8 +115,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<FxButton>(action).onPressed, isNotNull);
 
+    final cardCountBeforePopup = find.byType(FxCard).evaluate().length;
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
     await tester.pumpAndSettle();
+    // The Shad/Fx popover is the single floating surface: no nested FxCard.
+    expect(find.byType(FxCard).evaluate().length, cardCountBeforePopup);
+    final selected = find.byKey(
+      const ValueKey('task.detail.option.不重要 · 不紧急'),
+    );
+    expect(selected, findsOneWidget);
+    expect(tester.getSize(selected).height, inInclusiveRange(44, 64));
+    expect(
+      (tester.widget<Container>(selected).decoration as BoxDecoration).color,
+      isNot(Colors.transparent),
+    );
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
     await tester.tap(find.text('重要 · 紧急'));
     await tester.pumpAndSettle();
