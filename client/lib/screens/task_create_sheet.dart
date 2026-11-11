@@ -285,14 +285,16 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   }
 
   Widget _tagLoadNotice() => Column(
+    key: const ValueKey('task-tag-load-notice'),
     mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
         '标签加载失败，可重试；不选标签仍可创建任务。',
         style: SlowlightTypography.secondary(context).copyWith(
           color: Theme.of(context).colorScheme.error,
         ),
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.start,
       ),
       const SizedBox(height: SlowlightSpacing.md),
       FxButton(

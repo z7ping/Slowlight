@@ -105,6 +105,8 @@ abstract final class FxSheet {
           // gesture band may request dismissal, leaving the body scrollable.
           title: grip ?? title,
           description: description,
+          titleTextAlign: TextAlign.start,
+          descriptionTextAlign: TextAlign.start,
           actions: actions,
           // Grip already occupies the header slot; add no duplicate gap.
           gap: grip != null ? 0 : null,

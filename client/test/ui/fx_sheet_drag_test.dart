@@ -17,6 +17,36 @@ void main() {
   setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
+  testWidgets('Android FxSheet 标题与说明统一左对齐', (tester) async {
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '打开设置',
+            onPressed: () => FxSheet.show<void>(
+              context: context,
+              title: const Text('设置标题'),
+              description: const Text('这是一段说明文字'),
+              builder: (_) => const SizedBox(
+                height: 120,
+                child: Text('设置内容'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('打开设置'));
+    await tester.pumpAndSettle();
+
+    final sheet = tester.widget<ShadSheet>(find.byType(ShadSheet));
+    expect(sheet.titleTextAlign, TextAlign.start);
+    expect(sheet.descriptionTextAlign, TextAlign.start);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X15 Android 减少动态效果时 Sheet 回弹及键盘避让使用 0ms',
       (tester) async {
     await tester.pumpWidget(buildFxTestHost(

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/fx.dart';
 
@@ -35,6 +37,36 @@ void main() {
 
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Windows 时间选择弹窗标题与说明左对齐', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: FxButton(
+            label: '打开时间选择',
+            onPressed: () => showFxTimePicker(
+              context: context,
+              initialTime: const TimeOfDay(hour: 9, minute: 30),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('打开时间选择'));
+    await tester.pumpAndSettle();
+
+    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    expect(dialog.titleTextAlign, TextAlign.start);
+    expect(dialog.descriptionTextAlign, TextAlign.start);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 

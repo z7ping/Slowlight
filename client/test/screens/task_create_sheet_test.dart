@@ -29,6 +29,11 @@ class _CanonicalTagSource implements ApiDataSource {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _FailingTagSource extends _CanonicalTagSource {
+  @override
+  Future<List<Tag>> getTags() async => throw StateError('tag source unavailable');
+}
+
 class _PendingTaskData implements DataService {
   final result = Completer<Task>();
   int creates = 0;
@@ -1138,6 +1143,35 @@ void main() {
     expect(fields.repeatType, 'monthly');
     expect(fields.selectedWeekdays, isEmpty);
     expect(formatTaskRepeatDays(fields.repeatType, fields.selectedWeekdays), '');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
+  testWidgets('Windows 标签加载失败说明与重试入口左对齐', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskCreateSheet(
+          quickMode: true,
+          desktopDialog: true,
+          dataService: _TwoListData(),
+          tagRepository: TagRepository(dataSource: _FailingTagSource()),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final message = find.text('标签加载失败，可重试；不选标签仍可创建任务。');
+    expect(message, findsOneWidget);
+    expect(tester.widget<Text>(message).textAlign, TextAlign.start);
+    final notice = tester.widget<Column>(
+      find.byKey(const ValueKey('task-tag-load-notice')),
+    );
+    expect(notice.crossAxisAlignment, CrossAxisAlignment.start);
+    expect(find.byKey(const ValueKey('task-picker-retry-tags')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
