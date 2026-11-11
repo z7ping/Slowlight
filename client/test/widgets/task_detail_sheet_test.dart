@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
@@ -135,6 +136,61 @@ void main() {
     expect(find.text('添加任务'), findsNWidgets(2));
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
+  testWidgets('Android 任务清单日期优先级菜单都左对齐且选中勾选靠右',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: task,
+          lists: lists,
+          onChanged: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final cases = [
+      ('list', '${lists.first.icon} ${lists.first.name}'),
+      ('due', '不设置'),
+      ('priority', '不重要 · 不紧急'),
+    ];
+    for (final (field, label) in cases) {
+      await tester.tap(find.byKey(ValueKey('task.detail.property.$field')));
+      await tester.pumpAndSettle();
+      final item = find.byKey(ValueKey('task.detail.option.$label'));
+      expect(item, findsOneWidget);
+      final text = find.descendant(of: item, matching: find.text(label));
+      expect(text, findsOneWidget);
+      expect(
+        DefaultTextStyle.of(tester.element(text)).textAlign,
+        TextAlign.start,
+        reason: '$field must not inherit centered ShadPopover text',
+      );
+      final itemRect = tester.getRect(item);
+      final labelRect = tester.getRect(text);
+      expect(labelRect.left, closeTo(itemRect.left + 12, 2),
+          reason: '$field option text must start at the shared left inset');
+      expect(labelRect.center.dx, lessThan(itemRect.center.dx));
+      final checks = find.descendant(
+        of: item,
+        matching: find.byIcon(LucideIcons.check),
+      );
+      expect(checks, findsOneWidget);
+      expect(tester.getTopLeft(checks).dx, greaterThan(labelRect.right));
+      await tester.tapAt(const Offset(2, 2));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
     await disposeFxTestHost(tester);
   });
 
