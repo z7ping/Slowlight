@@ -165,6 +165,112 @@ void main() {
   });
 
 
+  testWidgets('Android 新建任务快捷属性操作保留标题焦点和键盘', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final draft = Task(
+      id: 0,
+      listId: lists.first.id,
+      title: '',
+      priority: 'none',
+      isCompleted: false,
+      createdAt: DateTime(2026, 11, 12),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskDetailSheet(
+        task: draft,
+        isCreating: true,
+        lists: lists,
+        onChanged: () {},
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.title')),
+      matching: find.byType(EditableText),
+    );
+    await tester.showKeyboard(title);
+    await tester.enterText(title, '今晚整理记录');
+    await tester.pumpAndSettle();
+
+    void expectKeyboardAndDraft() {
+      expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.widget<EditableText>(title).controller.text, '今晚整理记录');
+    }
+
+    expectKeyboardAndDraft();
+    // Checking the open state catches an IME dismissal before selection.
+    for (final field in ['list', 'due', 'priority', 'tags']) {
+      await tester.tap(find.byKey(ValueKey('task.detail.property.$field')));
+      await tester.pumpAndSettle();
+      expectKeyboardAndDraft();
+      if (field == 'tags') {
+        await tester.tap(find.text('完成').last);
+      } else {
+        final label = switch (field) {
+          'list' => '${lists.first.icon} ${lists.first.name}',
+          'due' => '明天',
+          'priority' => '重要 · 紧急',
+          _ => throw StateError('unexpected field'),
+        };
+        await tester.tap(find.byKey(ValueKey('task.detail.option.$label')));
+      }
+      await tester.pumpAndSettle();
+      expectKeyboardAndDraft();
+    }
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 新建任务标题仅在可保存性变化时刷新提交态', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 880);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final draft = Task(
+      id: 0,
+      listId: lists.first.id,
+      title: '',
+      priority: 'none',
+      isCompleted: false,
+      createdAt: DateTime(2026, 11, 12),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskDetailSheet(
+        task: draft,
+        isCreating: true,
+        lists: lists,
+        onChanged: () {},
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.title')),
+      matching: find.byType(EditableText),
+    );
+    final save = find.byKey(const ValueKey('task.detail.primaryAction'));
+    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    await tester.enterText(title, '   ');
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    await tester.enterText(title, '  一项任务');
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxButton>(save).onPressed, isNotNull);
+    await tester.enterText(title, '    ');
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   for (final width in [320.0, 390.0]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('Android 属性栏 ${width}dp / ${scale}x 始终单行',
