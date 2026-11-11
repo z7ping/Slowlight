@@ -285,6 +285,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   }
 
   Widget _tagLoadNotice() => Column(
+    key: const ValueKey('task-tag-load-notice'),
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
