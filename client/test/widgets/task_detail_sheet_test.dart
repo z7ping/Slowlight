@@ -267,7 +267,7 @@ void main() {
       expect(tester.widget<FxMenu<String>>(menu).preferAbove, isTrue);
       final shadPopover = find.descendant(of: menu,
           matching: find.byType(ShadPopover));
-      expect(tester.widget<ShadPopover>(shadPopover).anchor, isA<ShadAnchor>());
+      expect(tester.widget<ShadPopover>(shadPopover).anchor, isA<ShadAnchorAuto>());
 
       await tester.tap(trigger);
       await tester.pumpAndSettle();
@@ -280,6 +280,10 @@ void main() {
           reason: 'The popover must be above its trigger, not under the IME');
       expect(optionRect.top, greaterThanOrEqualTo(-1),
           reason: 'A short viewport must constrain the menu to visible headroom');
+      expect(optionRect.left, greaterThanOrEqualTo(-1),
+          reason: 'A menu at the leftmost property must not be cut off');
+      expect(optionRect.right, lessThanOrEqualTo(size.width + 1),
+          reason: 'A menu at the rightmost property must not run offscreen');
       expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
       expect(tester.testTextInput.isVisible, isTrue);
       expect(tester.widget<EditableText>(title).controller.text, '继续记录');
@@ -287,6 +291,46 @@ void main() {
       await disposeFxTestHost(tester);
     });
   }
+
+  testWidgets('Android 任务编辑固定提交区与表单同表面且没有额外隔断',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 340);
+    addTearDown(tester.view.reset);
+    final draft = Task(
+      id: 0,
+      listId: lists.first.id,
+      title: '',
+      priority: 'none',
+      isCompleted: false,
+      createdAt: DateTime(2026, 11, 12),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskDetailSheet(
+        task: draft, isCreating: true, lists: lists, onChanged: () {},
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final footer = find.byKey(const ValueKey('task.detail.fixedFooter'));
+    final action = find.byKey(const ValueKey('task.detail.primaryAction'));
+    final footerBox = tester.widget<Container>(footer);
+    final color = footerBox.color;
+    expect(color, isNotNull);
+    expect(footerBox.decoration, isNull,
+        reason: 'No second tinted background or divider around the action');
+    expect(tester.getRect(action).right,
+        lessThanOrEqualTo(tester.getRect(footer).right));
+    expect(tester.getRect(action).height, greaterThanOrEqualTo(44));
+    // IME is already protected by FxSheet; do not add system navigation inset.
+    final footerSafeArea = find.ancestor(of: footer,
+        matching: find.byType(SafeArea)).first;
+    expect(tester.widget<SafeArea>(footerSafeArea).bottom, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('Android 新建任务标题仅在可保存性变化时刷新提交态', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
