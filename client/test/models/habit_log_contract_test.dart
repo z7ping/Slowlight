@@ -51,4 +51,21 @@ void main() {
       expect(() => HabitLog.validateMonth(month), throwsFormatException);
     }
   });
+
+  test('保存时间可用性不能由缺失 created_at 猜测', () {
+    const base = {
+      'id': 1, 'habit_id': 2, 'date': '2026-11-10',
+      'duration_min': 0,
+    };
+    final legacy = HabitLog.fromJson(base);
+    expect(legacy.hasCreatedAt, isFalse);
+    expect(legacy.occurredAt, isNull);
+
+    final saved = HabitLog.fromJson({
+      ...base,
+      'created_at': '2026-11-11T02:56:00Z',
+    });
+    expect(saved.hasCreatedAt, isTrue);
+    expect(saved.occurredAt, isNull);
+  });
 }
