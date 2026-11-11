@@ -43,6 +43,8 @@ class FxDialog {
         description: description != null
             ? Text(description, style: _descriptionStyle(ctx))
             : null,
+        titleTextAlign: TextAlign.start,
+        descriptionTextAlign: TextAlign.start,
         constraints: width != null ? BoxConstraints(maxWidth: width) : null,
         child: Material(
           type: MaterialType.transparency,
@@ -126,6 +128,8 @@ class FxDialog {
               : content,
           style: _descriptionStyle(ctx),
         ),
+        titleTextAlign: TextAlign.start,
+        descriptionTextAlign: TextAlign.start,
         child: usePairedLayout
             ? SizedBox(
                 // Preserve the already-approved mobile dialog geometry and
@@ -315,6 +319,7 @@ class FxAlertDialog extends StatelessWidget {
       label: semanticLabel,
       child: ShadDialog.alert(
         title: effectiveTitle,
+        titleTextAlign: TextAlign.start,
         child: effectiveContent,
         actions: actions ?? const [],
         actionsMainAxisAlignment: actionsAlignment,
