@@ -10,6 +10,8 @@ class HabitLog {
   final DateTime? occurredAt;
   final String note;
   final DateTime createdAt;
+  /// False when legacy/corrupt data supplied no persisted created_at.
+  final bool hasCreatedAt;
 
   const HabitLog({
     required this.id,
@@ -22,6 +24,7 @@ class HabitLog {
     this.occurredAt,
     required this.note,
     required this.createdAt,
+    this.hasCreatedAt = true,
   });
 
   /// Missing or damaged items must never become a confirmed empty history.
@@ -84,7 +87,8 @@ class HabitLog {
       occurredAt: json['occurred_at'] == null || json['occurred_at'] == ''
           ? null : DateTime.parse(json['occurred_at'].toString()).toLocal(),
       note: json['note'] as String? ?? '',
-      createdAt: json['created_at'] == null
+      hasCreatedAt: json['created_at'] != null && json['created_at'] != '',
+      createdAt: json['created_at'] == null || json['created_at'] == ''
           ? DateTime.now()
           : DateTime.parse(json['created_at'].toString()).toLocal(),
     );

@@ -355,6 +355,8 @@ void main() {
       ).first;
       expect(row, findsOneWidget);
       expect(action, findsOneWidget);
+      expect(find.textContaining('记录于'), findsOneWidget);
+      expect(find.textContaining('时间未记录'), findsNothing);
       expect(
         (tester.getCenter(metadata).dy - tester.getCenter(action).dy).abs(),
         lessThan(16),

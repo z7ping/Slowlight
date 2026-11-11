@@ -1,4 +1,8 @@
 import 'fx_cursor.dart';
+import 'fx_button.dart';
+import 'fx_icon_button.dart';
+import 'fx_dialog.dart';
+import 'fx_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -9,42 +13,60 @@ import '../typography_tokens.dart';
 import '../layout_tokens.dart';
 
 // ═══════════════════════════════════════════
-// FxDatePicker — ShadCN 风格日期选择器
+// FxDatePicker — 统一的日期选择器（Android Sheet / Windows Dialog）
 // ═══════════════════════════════════════════
 
-/// 显示日期选择弹窗
+/// 日历日选择：范围、初始选中和“今天/昨天”均按本地自然日判断。
 Future<DateTime?> showFxDatePicker({
   required BuildContext context,
   required DateTime initialDate,
   DateTime? firstDate,
   DateTime? lastDate,
   String title = '选择日期',
-}) async {
-  final result = await showShadDialog<DateTime>(
-    context: context,
-    builder: (ctx) {
-      return _FxDatePickerDialog(
-        initialDate: initialDate,
-        firstDate: firstDate ?? DateTime(2020),
-        lastDate: lastDate ?? DateTime(2030),
-        title: title,
+}) {
+  final first = DateUtils.dateOnly(firstDate ?? DateTime(2020));
+  final last = DateUtils.dateOnly(lastDate ?? DateTime(2030));
+  if (first.isAfter(last)) return Future<DateTime?>.value(null);
+  final initial = DateUtils.dateOnly(initialDate);
+  final safeInitial = initial.isBefore(first)
+      ? first
+      : initial.isAfter(last)
+          ? last
+          : initial;
+
+  Widget picker(BuildContext ctx) => _FxDatePickerDialog(
+        initialDate: safeInitial,
+        firstDate: first,
+        lastDate: last,
       );
-    },
+
+  if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+    return FxSheet.show<DateTime>(
+      context: context,
+      title: Text(title),
+      showCloseButton: true,
+      padding: const EdgeInsets.all(SlowlightSpacing.xxxl),
+      builder: picker,
+    );
+  }
+  return FxDialog.raw<DateTime>(
+    context: context,
+    builder: (ctx) => ShadDialog(
+      title: Text(title),
+      child: picker(ctx),
+    ),
   );
-  return result;
 }
 
 class _FxDatePickerDialog extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
   final DateTime lastDate;
-  final String title;
 
   const _FxDatePickerDialog({
     required this.initialDate,
     required this.firstDate,
     required this.lastDate,
-    required this.title,
   });
 
   @override
@@ -53,7 +75,7 @@ class _FxDatePickerDialog extends StatefulWidget {
 
 class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
   late DateTime _focusedMonth;
-  DateTime? _selectedDate;
+  late DateTime _selectedDate;
 
   static const _weekdayHeaders = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -64,17 +86,19 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
     _focusedMonth = DateTime(widget.initialDate.year, widget.initialDate.month);
   }
 
+  bool _inRange(DateTime day) =>
+      !day.isBefore(widget.firstDate) && !day.isAfter(widget.lastDate);
+
   List<DateTime> _daysInMonth(DateTime month) {
     final firstDay = DateTime(month.year, month.month, 1);
     final lastDay = DateTime(month.year, month.month + 1, 0);
-    final startOffset = (firstDay.weekday - 1) % 7;
-    final days = <DateTime>[];
-    for (int i = 0; i < startOffset; i++) {
-      days.add(firstDay.subtract(Duration(days: startOffset - i)));
-    }
-    for (int d = 1; d <= lastDay.day; d++) {
-      days.add(DateTime(month.year, month.month, d));
-    }
+    final offset = firstDay.weekday - 1;
+    final days = <DateTime>[
+      for (int i = offset; i > 0; i--)
+        firstDay.subtract(Duration(days: i)),
+      for (int d = 1; d <= lastDay.day; d++)
+        DateTime(month.year, month.month, d),
+    ];
     while (days.length % 7 != 0) {
       days.add(days.last.add(const Duration(days: 1)));
     }
@@ -82,100 +106,96 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
   }
 
   Widget _buildMonthView(DateTime month) {
+    final colors = Theme.of(context).colorScheme;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final cellHeight = SlowlightPlatformDensity.usesMobileTouchTargets
+        ? SlowlightControlSize.minTouchTarget
+        : 36.0;
+    final dayFont = SlowlightTypography.buttonSize;
     final days = _daysInMonth(month);
-    final today = DateTime.now();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppTheme.primaryLight : AppTheme.warmGray500;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            children: _weekdayHeaders.map((d) {
-              final isWeekend = d == '六' || d == '日';
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    d,
-                    style: TextStyle(
-                      fontSize: SlowlightTypography.secondarySize,
-                      fontWeight: FontWeight.w500,
-                      color: isWeekend
-                          ? AppTheme.priorityHigh.withValues(alpha: 0.7)
-                          : textColor.withValues(alpha: 0.7),
-                      height: 1.4,
-                    ),
-                  ),
+        Row(
+          children: _weekdayHeaders.map((label) => Expanded(
+            child: SizedBox(
+              height: cellHeight,
+              child: Center(child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: SlowlightTypography.secondarySize,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurfaceVariant,
                 ),
-              );
-            }).toList(),
-          ),
+              )),
+            ),
+          )).toList(),
         ),
         ...List.generate(days.length ~/ 7, (week) {
-          final weekDays = days.skip(week * 7).take(7).toList();
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Row(
-              children: weekDays.map((day) {
-                final isCurrentMonth = day.month == month.month;
-                final isSelected =
-                    _selectedDate != null && isSameDay(day, _selectedDate!);
-                final isToday = isSameDay(day, today);
-                final isWeekend = day.weekday == DateTime.saturday ||
-                    day.weekday == DateTime.sunday;
-                final isDisabled = day.isBefore(widget.firstDate) ||
-                    day.isAfter(widget.lastDate);
-
-                Color? bgColor;
-                Color fgColor;
-
-                if (isSelected) {
-                  bgColor = AppTheme.primary;
-                  fgColor = AppTheme.white;
-                } else if (isToday) {
-                  bgColor = AppTheme.primaryLight;
-                  fgColor = AppTheme.primary;
-                } else if (!isCurrentMonth) {
-                  fgColor = textColor.withValues(alpha: 0.25);
-                } else if (isDisabled) {
-                  fgColor = textColor.withValues(alpha: 0.3);
-                } else if (isWeekend) {
-                  fgColor = AppTheme.priorityHigh.withValues(alpha: .82);
-                } else {
-                  fgColor = textColor;
-                }
-
-                return Expanded(
-                  child: FxGestureDetector(
-                    onTap: (!isDisabled && isCurrentMonth)
+          return Row(
+            children: days.skip(week * 7).take(7).map((day) {
+              final current = day.year == month.year && day.month == month.month;
+              final enabled = current && _inRange(day);
+              final selected = enabled && isSameDay(day, _selectedDate);
+              final isToday = enabled && isSameDay(day, today);
+              if (!current) {
+                return Expanded(child: SizedBox(height: cellHeight));
+              }
+              final textColor = selected
+                  ? colors.surface
+                  : enabled
+                      ? colors.onSurface
+                      : colors.onSurfaceVariant.withValues(alpha: 0.36);
+              final visualSize = cellHeight - SlowlightSpacing.xs * 2;
+              final dayKey = 'fx.date.day.${day.year}-${day.month}-${day.day}';
+              return Expanded(
+                child: Semantics(
+                  label: '${day.year}年${day.month}月${day.day}日' +
+                      (enabled ? '' : '，不可选择'),
+                  enabled: enabled,
+                  selected: selected,
+                  button: true,
+                  child: FxInkWell(
+                    key: ValueKey(dayKey),
+                    onTap: enabled
                         ? () => setState(() => _selectedDate = day)
                         : null,
-                    child: Container(
-                      margin: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        shape: BoxShape.circle,
-                      ),
+                    child: SizedBox(
+                      height: cellHeight,
                       child: Center(
-                        child: Text(
-                          '${day.day}',
-                          style: TextStyle(
-                            fontSize: SlowlightTypography.buttonSize,
-                            fontWeight: isSelected || isToday
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: fgColor,
-                            height: 1.3,
+                        child: Container(
+                          width: visualSize,
+                          height: visualSize,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: selected
+                                ? colors.onSurface
+                                : isToday
+                                    ? colors.surfaceContainerHighest
+                                    : null,
+                            border: isToday && !selected
+                                ? Border.all(color: colors.outlineVariant)
+                                : null,
+                          ),
+                          child: Text(
+                            '${day.day}',
+                            style: TextStyle(
+                              fontSize: dayFont,
+                              fontWeight: selected || isToday
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: textColor,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            }).toList(),
           );
         }),
       ],
@@ -192,107 +212,98 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
     return !next.isAfter(DateTime(widget.lastDate.year, widget.lastDate.month));
   }
 
-  bool get _canPickToday {
-    final today = DateTime.now();
-    final date = DateTime(today.year, today.month, today.day);
-    final first = DateTime(
-      widget.firstDate.year,
-      widget.firstDate.month,
-      widget.firstDate.day,
-    );
-    final last = DateTime(
-      widget.lastDate.year,
-      widget.lastDate.month,
-      widget.lastDate.day,
-    );
-    return !date.isBefore(first) && !date.isAfter(last);
+  DateTime? get _quickDate {
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (_inRange(today)) return today;
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
+    return _inRange(yesterday) ? yesterday : null;
   }
 
-  void _goPrev() {
-    if (!_canGoPrev) return;
+  void _selectQuickDate() {
+    final date = _quickDate;
+    if (date == null) return;
     setState(() {
-      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1);
-    });
-  }
-
-  void _goNext() {
-    if (!_canGoNext) return;
-    setState(() {
-      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
-    });
-  }
-
-  void _pickToday() {
-    if (!_canPickToday) return;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    setState(() {
-      _selectedDate = today;
-      _focusedMonth = DateTime(today.year, today.month);
+      _selectedDate = date;
+      _focusedMonth = DateTime(date.year, date.month);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppTheme.primaryLight : AppTheme.warmGray500;
-
-    return ShadDialog(
-      title: Text(widget.title),
-      child: SizedBox(
-        width: 300,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ShadButton.ghost(
-                  size: ShadButtonSize.sm,
-                  enabled: _canGoPrev,
-                  onPressed: _goPrev,
-                  child: const Icon(LucideIcons.chevronLeft, size: 20),
-                ),
-                Text(
-                  DateFormat('yyyy年M月').format(_focusedMonth),
-                  style: TextStyle(
-                    fontSize: SlowlightTypography.buttonSize,
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-                ShadButton.ghost(
-                  size: ShadButtonSize.sm,
-                  enabled: _canGoNext,
-                  onPressed: _goNext,
-                  child: const Icon(LucideIcons.chevronRight, size: 20),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) {
-                return FadeTransition(opacity: animation, child: child);
-              },
+    final colors = Theme.of(context).colorScheme;
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final quick = _quickDate;
+    return SizedBox(
+      width: mobile ? double.infinity : 328,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              FxIconButton(
+                icon: LucideIcons.chevronLeft,
+                tooltip: '上个月',
+                onPressed: _canGoPrev
+                    ? () => setState(() => _focusedMonth =
+                        DateTime(_focusedMonth.year, _focusedMonth.month - 1))
+                    : null,
+              ),
+              Text(
+                DateFormat('yyyy年M月').format(_focusedMonth),
+                style: SlowlightTypography.cardTitle(context),
+              ),
+              FxIconButton(
+                icon: LucideIcons.chevronRight,
+                tooltip: '下个月',
+                onPressed: _canGoNext
+                    ? () => setState(() => _focusedMonth =
+                        DateTime(_focusedMonth.year, _focusedMonth.month + 1))
+                    : null,
+              ),
+            ],
+          ),
+          AnimatedSwitcher(
+            duration: MediaQuery.of(context).disableAnimations
+                ? Duration.zero
+                : const Duration(milliseconds: 170),
+            child: KeyedSubtree(
+              key: ValueKey('fx.date.month.${_focusedMonth.year}-${_focusedMonth.month}'),
               child: _buildMonthView(_focusedMonth),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: SlowlightSpacing.md),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '可选日期：${DateFormat('M月d日').format(widget.firstDate)} — ${DateFormat('M月d日').format(widget.lastDate)}',
+              style: SlowlightTypography.caption(context).copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(height: SlowlightSpacing.xxxl),
+          Row(
+            children: [
+              if (quick != null)
+                FxButton(
+                  label: isSameDay(quick, DateTime.now()) ? '今天' : '昨天',
+                  variant: FxButtonVariant.ghost,
+                  onPressed: _selectQuickDate,
+                ),
+              const SizedBox(width: SlowlightSpacing.md),
+              Expanded(
+                child: FxButton(
+                  label: '确定',
+                  size: FxButtonSize.lg,
+                  expanded: true,
+                  onPressed: () => Navigator.of(context).pop(_selectedDate),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        ShadButton.ghost(
-          enabled: _canPickToday,
-          onPressed: _pickToday,
-          child: const Text('今天'),
-        ),
-        const SizedBox(width: 8),
-        ShadButton(
-          onPressed: () =>
-              Navigator.of(context).pop(_selectedDate ?? widget.initialDate),
-          child: const Text('确定'),
-        ),
-      ],
     );
   }
 }

@@ -521,13 +521,17 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       _message('尚未到达习惯起算日期');
       return;
     }
-    final yesterday = today.subtract(const Duration(days: 1));
-    final initial = yesterday.isBefore(earliest) ? earliest : yesterday;
+    // 今天使用正常打卡；补记只允许已过去、且不早于起算日的日期。
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
+    if (earliest.isAfter(yesterday)) {
+      _message('还没有可补记的历史日期；今天可直接打卡');
+      return;
+    }
     final date = await showFxDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: yesterday,
       firstDate: earliest,
-      lastDate: today,
+      lastDate: yesterday,
       title: '选择补卡日期',
     );
     if (date == null) return;
@@ -1567,9 +1571,16 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   Widget _logRow(Habit habit, HabitLog log, Color color, bool last) {
     final theme = Theme.of(context);
     final occurred = log.occurredAt;
-    final time = occurred == null
-        ? '时间未记录'
-        : '${_two(occurred.hour)}:${_two(occurred.minute)}';
+    final savedAt = log.createdAt;
+    final savedDay = '${savedAt.year}-${_two(savedAt.month)}-${_two(savedAt.day)}';
+    // 未填发生时间时，展示真实保存时点，不能把补记时间当成发生时间。
+    final time = occurred != null
+        ? '发生于 ${_two(occurred.hour)}:${_two(occurred.minute)}'
+        : !log.hasCreatedAt
+            ? '发生时间未填写'
+            : savedDay == log.date
+                ? '记录于 ${_two(savedAt.hour)}:${_two(savedAt.minute)}'
+                : '补记于 ${_two(savedAt.month)}-${_two(savedAt.day)} ${_two(savedAt.hour)}:${_two(savedAt.minute)}';
     final parts = <String>[
       '${log.date.substring(5)} $time',
       if (log.durationMin > 0) '${log.durationMin} 分钟',
