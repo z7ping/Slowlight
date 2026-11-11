@@ -1168,7 +1168,7 @@ void main() {
     expect(message, findsOneWidget);
     expect(tester.widget<Text>(message).textAlign, TextAlign.start);
     final notice = tester.widget<Column>(
-      find.ancestor(of: message, matching: find.byType(Column)).first,
+      find.byKey(const ValueKey('task-tag-load-notice')),
     );
     expect(notice.crossAxisAlignment, CrossAxisAlignment.start);
     expect(find.byKey(const ValueKey('task-picker-retry-tags')), findsOneWidget);
