@@ -586,20 +586,28 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                 ],
               ),
               const SizedBox(height: SlowlightSpacing.xs),
-              Wrap(
+              // Keep four quick actions on one row at mobile widths.
+              // The first two columns truncate; selected tags show a count.
+              // Full text remains available in each control's tooltip.
+              Row(
                 key: const ValueKey('task.detail.quickbar'),
-                spacing: SlowlightSpacing.xs,
-                runSpacing: SlowlightSpacing.xs,
                 children: [
-                  _mobilePropertyRow(
-                    'list', LucideIcons.folder, '清单', listLabel,
-                    quick: true,
+                  Expanded(
+                    flex: 3,
+                    child: _mobilePropertyRow(
+                      'list', LucideIcons.folder, '清单', listLabel,
+                      quick: true,
+                    ),
                   ),
-                  _mobilePropertyRow(
-                    'due', LucideIcons.calendarDays, '日期',
-                    dueLabel,
-                    quick: true,
+                  const SizedBox(width: SlowlightSpacing.xs),
+                  Expanded(
+                    flex: 2,
+                    child: _mobilePropertyRow(
+                      'due', LucideIcons.calendarDays, '日期', dueLabel,
+                      quick: true,
+                    ),
                   ),
+                  const SizedBox(width: SlowlightSpacing.xs),
                   _mobilePropertyRow(
                     'priority', LucideIcons.flag, '优先级',
                     switch (_priority) {
@@ -611,6 +619,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                     },
                     quick: true,
                   ),
+                  const SizedBox(width: SlowlightSpacing.xs),
                   _mobilePropertyRow(
                     'tags', LucideIcons.tag, '标签',
                     _selectedTags.isEmpty
@@ -655,7 +664,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             key: const ValueKey('task.detail.description'),
             controller: _description,
             enabled: !_saving,
-            minLines: 2,
+            minLines: 1,
             maxLines: 4,
             style: SlowlightTypography.componentSecondary(context),
             placeholder: '描述（可选）',
@@ -665,8 +674,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           FxResponsiveFormGrid(
             minColumnWidth: 136,
             maxColumns: 2,
-            horizontalGap: SlowlightSpacing.md,
-            verticalGap: SlowlightSpacing.md,
+            horizontalGap: SlowlightSpacing.xs,
+            verticalGap: SlowlightSpacing.xs,
             children: [
               _mobilePropertyRow(
                 'time', LucideIcons.clock3, '时间',
@@ -692,13 +701,14 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             ],
           ),
         ],
-        if (!widget.isCreating || _writeResultUnknown)
+        // Saved is the resting state; don't reserve a status row for it.
+        if (_writeResultUnknown || (!widget.isCreating && _mobileDirty))
           Padding(
             padding: const EdgeInsets.only(top: SlowlightSpacing.xs),
             child: Text(
               _writeResultUnknown
                   ? '任务变更结果未确认，请先核对'
-                  : _mobileDirty ? '有未保存的修改' : '已保存',
+                  : '有未保存的修改',
               key: const ValueKey('task.detail.status'),
               style: SlowlightTypography.caption(context).copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -723,7 +733,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         'urgent_important' => AppTheme.priorityHigh,
         'important' => AppTheme.priorityMedium,
         'urgent' => AppTheme.priorityLow,
-        _ => activePalette.accent,
+        _ => Theme.of(context).colorScheme.onSurfaceVariant,
       };
 
   /// Single-select popovers should fit their options, not fill the task sheet.
@@ -755,13 +765,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     final isUnset = value == '未设置';
     // Priority is conveyed by the semantic-coloured flag; the full quadrant
     // label remains available through the menu and tooltip.
-    final showQuickValue = field != 'priority' &&
-        (!isUnset || field == 'due' || field == 'list');
-    final triggerKey = ValueKey('task.detail.property.$field');
-    final hasQuickValue = field == 'list' ||
-        field == 'due' ||
-        (field == 'priority' && _priority != 'none') ||
+    final showQuickValue = field == 'list' || field == 'due' ||
         (field == 'tags' && _selectedTags.isNotEmpty);
+    final triggerKey = ValueKey('task.detail.property.$field');
     final isConfigured = switch (field) {
       'list' => _listId != null && _listId! > 0,
       'due' => _dueDate != null,
@@ -786,9 +792,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             decoration: BoxDecoration(
               color: isConfigured
                   ? selectedColor.withValues(alpha: .09)
-                  : hasQuickValue
-                      ? fxSubtleSurface(context)
-                      : Colors.transparent,
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
             child: Padding(
@@ -809,8 +813,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                     const SizedBox(width: SlowlightSpacing.xs),
                     Flexible(
                       child: Text(
-                        value,
+                        field == 'tags' ? '${_selectedTags.length}' : value,
                         maxLines: 1,
+                        softWrap: false,
                         overflow: TextOverflow.ellipsis,
                         style: SlowlightTypography.componentSecondary(context)
                             .copyWith(color: theme.colorScheme.onSurface),
@@ -824,8 +829,13 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         : compactSetting
             ? Container(
                 key: triggerKey,
-                constraints: const BoxConstraints(minHeight: 60),
-                padding: const EdgeInsets.all(SlowlightSpacing.md),
+                constraints: const BoxConstraints(
+                  minHeight: 56,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: SlowlightSpacing.md,
+                  vertical: SlowlightSpacing.xs,
+                ),
                 decoration: BoxDecoration(
                   color: fxSurface(context),
                   borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -912,7 +922,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (field != 'tags')
+              if (field != 'tags' &&
+                  field != 'list' &&
+                  field != 'due' &&
+                  field != 'priority')
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     SlowlightSpacing.md, SlowlightSpacing.xs,
@@ -941,7 +954,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   Widget _mobileChoice(
     String label, {
     required bool selected,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     Color? selectionColor,
   }) {
     final theme = Theme.of(context);
@@ -949,7 +962,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     return FxInkWell(
       onTap: _saving ? null : onTap,
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      child: Container(
+      child: Opacity(
+        opacity: onTap == null ? .42 : 1,
+        child: Container(
         key: ValueKey('task.detail.option.$label'),
         constraints: const BoxConstraints(
           minHeight: SlowlightControlSize.minTouchTarget,
@@ -983,6 +998,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1193,7 +1209,24 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           ),
         ]);
       case 'reminder':
-        return group([
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_dueDate == null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: SlowlightSpacing.md,
+                  vertical: SlowlightSpacing.xs,
+                ),
+                child: Text(
+                  '提前提醒需先安排日期；也可指定独立提醒时间',
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            group([
           _mobileChoice(
             '不提醒',
             selected: _reminderAt == null,
@@ -1216,14 +1249,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               selected: _reminderAt != null &&
                   !_mobileReminderCustom &&
                   _reminderAdvanceMinutes == option.$1,
-              onTap: () {
-                if (_dueDate == null) {
-                  FxNotice.showContent(
-                    context,
-                    const Text('请先安排日期，再设置相对提醒'),
-                  );
-                  return;
-                }
+              onTap: _dueDate == null ? null : () {
                 _mobileSelect(() {
                   _mobileReminderCustom = false;
                   _reminderAdvanceMinutes = option.$1;
@@ -1240,7 +1266,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             selected: _reminderAt != null && _mobileReminderCustom,
             onTap: () => _mobilePickReminder(dismiss),
           ),
-        ]);
+            ]),
+          ],
+        );
       case 'tags':
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -1322,9 +1350,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(
           SlowlightSpacing.xxxl,
-          SlowlightSpacing.md,
+          SlowlightSpacing.xs,
           SlowlightSpacing.xxxl,
-          SlowlightSpacing.xl,
+          SlowlightSpacing.md,
         ),
         decoration: BoxDecoration(
           color: fxSubtleSurface(context),
