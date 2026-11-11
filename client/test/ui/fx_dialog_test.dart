@@ -245,4 +245,36 @@ void main() {
     await tester.pumpAndSettle();
     await disposeFxTestHost(tester);
   });
+
+  testWidgets('Android FxDialog.show 标题与说明左对齐', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => FxButton(
+            label: '打开带说明弹窗',
+            onPressed: () => FxDialog.show<void>(
+              context: context,
+              title: '弹窗标题',
+              description: '这是一段辅助说明',
+              child: const SizedBox(height: 80, child: Text('弹窗内容')),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('打开带说明弹窗'));
+    await tester.pumpAndSettle();
+    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    expect(dialog.titleTextAlign, TextAlign.start);
+    expect(dialog.descriptionTextAlign, TextAlign.start);
+    expect(tester.takeException(), isNull);
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+    await disposeFxTestHost(tester);
+  });
+
 }
