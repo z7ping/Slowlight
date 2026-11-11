@@ -6,6 +6,7 @@ import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
+import 'package:slowlight/theme/app_theme.dart';
 import 'package:slowlight/widgets/tag_picker.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 
@@ -169,6 +170,25 @@ void main() {
       await tester.pumpAndSettle();
       final item = find.byKey(ValueKey('task.detail.option.$label'));
       expect(item, findsOneWidget);
+      final trigger = find.byKey(ValueKey('task.detail.property.$field'));
+      final menu = tester.widget<FxMenu<String>>(
+        find.ancestor(
+          of: trigger,
+          matching: find.byType(FxMenu<String>),
+        ).first,
+      );
+      final expectedWidth = switch (field) {
+        'due' => 196.0,
+        'priority' => 220.0,
+        'list' => 236.0,
+        _ => throw StateError('unexpected field'),
+      };
+      expect(menu.constraints!.minWidth, expectedWidth);
+      expect(menu.constraints!.maxWidth, expectedWidth);
+      expect(tester.getRect(item).width, lessThanOrEqualTo(expectedWidth));
+      final selectedBackground =
+          (tester.widget<Container>(item).decoration as BoxDecoration).color;
+      expect(selectedBackground, activePalette.accent.withValues(alpha: .09));
       final text = find.descendant(of: item, matching: find.text(label));
       expect(text, findsOneWidget);
       expect(
@@ -196,6 +216,84 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
+
+    // A changed priority is immediately visible on its closed trigger:
+    // meaningful priority colour, not just a generic selected tick.
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('task.detail.option.重要 · 紧急')),
+    );
+    await tester.pumpAndSettle();
+    final flag = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.property.priority')),
+      matching: find.byIcon(LucideIcons.flag),
+    );
+    expect(tester.widget<Icon>(flag).color, AppTheme.priorityHigh);
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    final selectedPriority = find.byKey(
+      const ValueKey('task.detail.option.重要 · 紧急'),
+    );
+    expect(
+      (tester.widget<Container>(selectedPriority).decoration as BoxDecoration).color,
+      AppTheme.priorityHigh.withValues(alpha: .09),
+    );
+    expect(
+      tester.widget<Icon>(find.descendant(
+        of: selectedPriority,
+        matching: find.byIcon(LucideIcons.check),
+      )).color,
+      AppTheme.priorityHigh,
+    );
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+
+  testWidgets('320dp 及 200% 字号下清单浮窗不超出可用宽度', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final longLists = [
+      TodoList(
+        id: 1,
+        name: '一个名字很长但不应该被选项弹窗直接裁掉的清单',
+        color: '#1890ff',
+        createdAt: DateTime(2026, 11, 11),
+      ),
+    ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: task,
+          lists: longLists,
+          onChanged: () {},
+        ),
+      ),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(2),
+        ),
+        child: child!,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final trigger = find.byKey(const ValueKey('task.detail.property.list'));
+    final menu = tester.widget<FxMenu<String>>(
+      find.ancestor(of: trigger, matching: find.byType(FxMenu<String>)).first,
+    );
+    expect(menu.constraints!.minWidth, lessThanOrEqualTo(288));
+    expect(menu.constraints!.minWidth, menu.constraints!.maxWidth);
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+    // The label is allowed to wrap instead of increasing menu width.
+    // The actual icon prefix is data-driven; test the visible selection.
+    expect(find.textContaining('一个名字很长但不应该被选项弹窗直接裁掉的清单'), findsWidgets);
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 

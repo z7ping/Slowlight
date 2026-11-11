@@ -715,6 +715,30 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     );
   }
 
+  Color _mobilePriorityColor(String priority) => switch (priority) {
+        'urgent_important' => AppTheme.priorityHigh,
+        'important' => AppTheme.priorityMedium,
+        'urgent' => AppTheme.priorityLow,
+        _ => activePalette.accent,
+      };
+
+  /// Single-select popovers should fit their options, not fill the task sheet.
+  /// Allow a wider surface only when the system text scale needs it.
+  double _mobilePropertyMenuWidth(String field) {
+    final baseWidth = switch (field) {
+      'due' => 196.0,
+      'priority' => 220.0,
+      'list' => 236.0,
+      'tags' => 276.0,
+      'reminder' => 244.0,
+      _ => 224.0,
+    };
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5).toDouble();
+    final available = MediaQuery.sizeOf(context).width -
+        SlowlightSpacing.xxxl * 2;
+    return math.min(available, baseWidth * scale);
+  }
+
   Widget _mobilePropertyRow(
     String field,
     IconData icon,
@@ -731,6 +755,19 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         field == 'due' ||
         (field == 'priority' && _priority != 'none') ||
         (field == 'tags' && _selectedTags.isNotEmpty);
+    final isConfigured = switch (field) {
+      'list' => _listId != null && _listId! > 0,
+      'due' => _dueDate != null,
+      'priority' => _priority != 'none',
+      'tags' => _selectedTags.isNotEmpty,
+      'time' => _dueTime != null,
+      'repeat' => _repeatType != 'none',
+      'reminder' => _reminderAt != null,
+      _ => false,
+    };
+    final selectedColor = field == 'priority'
+        ? _mobilePriorityColor(_priority)
+        : activePalette.accent;
     final content = quick
         ? Container(
             key: triggerKey,
@@ -740,7 +777,11 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               maxWidth: MediaQuery.sizeOf(context).width * .5,
             ),
             decoration: BoxDecoration(
-              color: hasQuickValue ? fxSubtleSurface(context) : Colors.transparent,
+              color: isConfigured
+                  ? selectedColor.withValues(alpha: .09)
+                  : hasQuickValue
+                      ? fxSubtleSurface(context)
+                      : Colors.transparent,
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
             child: Padding(
@@ -753,8 +794,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   Icon(
                     icon,
                     size: SlowlightIconSize.md,
-                    color: field == 'due'
-                        ? theme.colorScheme.primary
+                    color: isConfigured
+                        ? selectedColor
                         : theme.colorScheme.onSurfaceVariant,
                   ),
                   if (showQuickValue) ...[
@@ -847,15 +888,14 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   ],
                 ),
               );
+    final menuWidth = _mobilePropertyMenuWidth(field);
     return FxMenu<String>(
       enabled: !_saving,
       tooltip: quick ? label : null,
       onOpened: () => FocusScope.of(context).unfocus(),
       constraints: BoxConstraints(
-        minWidth: 220,
-        maxWidth: math.min(
-          320.0, MediaQuery.sizeOf(context).width - SlowlightSpacing.md * 2,
-        ),
+        minWidth: menuWidth,
+        maxWidth: menuWidth,
         maxHeight: math.min(320.0, MediaQuery.sizeOf(context).height * .45),
       ),
       contentBuilder: (popoverContext, dismiss) => StatefulBuilder(
@@ -895,8 +935,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     String label, {
     required bool selected,
     required VoidCallback onTap,
+    Color? selectionColor,
   }) {
     final theme = Theme.of(context);
+    final highlightColor = selectionColor ?? activePalette.accent;
     return FxInkWell(
       onTap: _saving ? null : onTap,
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
@@ -910,7 +952,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           vertical: SlowlightSpacing.xs,
         ),
         decoration: BoxDecoration(
-          color: selected ? fxSubtleSurface(context) : Colors.transparent,
+          color: selected
+              ? highlightColor.withValues(alpha: .09)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(SlowlightRadius.md),
         ),
         child: Row(
@@ -928,7 +972,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               Icon(
                 LucideIcons.check,
                 size: SlowlightIconSize.sm,
-                color: theme.colorScheme.onSurface,
+                color: highlightColor,
               ),
           ],
         ),
@@ -1045,6 +1089,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             _mobileChoice(
               option.$2,
               selected: _priority == option.$1,
+              selectionColor: _mobilePriorityColor(option.$1),
               onTap: () => _mobileSelect(() => _priority = option.$1, dismiss: dismiss, refreshPopover: refreshPopover),
             ),
         ]);
@@ -1608,12 +1653,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   Widget _priorityChip(String value, String label) => FxChoiceChip(
     label: label,
     selected: _priority == value,
-    selectionColor: switch (value) {
-      'urgent_important' => AppTheme.priorityHigh,
-      'important' => AppTheme.priorityMedium,
-      'urgent' => AppTheme.priorityLow,
-      _ => Theme.of(context).colorScheme.onSurface,
-    },
+    selectionColor: value == 'none'
+        ? Theme.of(context).colorScheme.onSurface
+        : _mobilePriorityColor(value),
     onTap: _saving ? null : () => setState(() => _priority = value),
   );
 
