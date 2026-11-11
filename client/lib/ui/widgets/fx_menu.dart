@@ -202,10 +202,14 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
     return ShadPopover(
       controller: _controller,
       padding: EdgeInsets.zero,
+      // ShadAnchorAuto uses Flutter's positionDependentBox, so the whole
+      // popup (including list/tags) stays inside the screen horizontally.
+      // Align the measured popup above the trigger without a hand-rolled
+      // left/right offset. The height constraint still leaves room for IME.
       anchor: widget.preferAbove
-          ? const ShadAnchor(
-              childAlignment: Alignment.bottomCenter,
-              overlayAlignment: Alignment.topCenter,
+          ? const ShadAnchorAuto(
+              targetAnchor: Alignment.topCenter,
+              followerAnchor: Alignment.topCenter,
               offset: Offset(0, -8),
             )
           : null,
