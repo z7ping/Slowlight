@@ -630,7 +630,7 @@ void main() {
 
     await tester.enterText(title, task.title);
     await tester.pumpAndSettle();
-    expect(find.text('已保存'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(
       tester.widget<FxButton>(
         find.byKey(const ValueKey('task.detail.primaryAction')),
@@ -663,7 +663,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('不重要 · 不紧急'));
     await tester.pumpAndSettle();
-    expect(find.text('已保存'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(find.text('有未保存的修改'), findsNothing);
     expect(
       tester.widget<FxButton>(
@@ -708,7 +708,7 @@ void main() {
     expect(find.byType(TagPicker), findsNothing);
     expect(find.text('历史分类（兼容）'), findsNothing);
     expect(find.text('保存修改'), findsOneWidget);
-    expect(find.text('已保存'), findsOneWidget);
+    expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
     await tester.pumpAndSettle();
