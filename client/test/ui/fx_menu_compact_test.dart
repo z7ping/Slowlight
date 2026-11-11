@@ -51,6 +51,18 @@ void main() {
     expect(first, findsOneWidget);
     expect(second, findsOneWidget);
     expect(third, findsOneWidget);
+    // ShadPopover defaults inherited text alignment to center. FxMenu
+    // must restore start alignment for both selected and ordinary rows.
+    for (final option in [first, second, third]) {
+      expect(
+        DefaultTextStyle.of(tester.element(option)).textAlign,
+        TextAlign.start,
+      );
+    }
+    expect(
+      (tester.getTopLeft(second).dx - tester.getTopLeft(third).dx).abs(),
+      lessThan(2),
+    );
     // Each of the two consecutive gaps represents a >=44dp touch row.
     expect(tester.getTopLeft(third).dy - tester.getTopLeft(first).dy,
         greaterThanOrEqualTo(88));
