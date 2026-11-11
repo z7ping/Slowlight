@@ -290,6 +290,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   late List<Tag> _selectedTags;
   bool _saving = false;
   bool _mobileDirty = false;
+  // Rebuild mobile chrome only when the draft/save eligibility changes.
+  // Text editing itself is handled by ShadInput's controller.
+  bool _mobileTitleNonEmpty = false;
   late final String _initialMobileSnapshot;
   bool _writeResultUnknown = false;
   bool _mobileExpanded = false;
@@ -301,6 +304,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     super.initState();
     final task = widget.task;
     _title = TextEditingController(text: task.title);
+    _mobileTitleNonEmpty = _title.text.trim().isNotEmpty;
     _description = TextEditingController(text: task.description ?? '');
     _listId = task.listId;
     _priority = task.priority;
@@ -419,7 +423,15 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   void _mobileChanged([String? _]) {
-    setState(() => _mobileDirty = _mobileFormSnapshot() != _initialMobileSnapshot);
+    final dirty = _mobileFormSnapshot() != _initialMobileSnapshot;
+    final titleNonEmpty = _title.text.trim().isNotEmpty;
+    if (dirty == _mobileDirty && titleNonEmpty == _mobileTitleNonEmpty) {
+      return; // Avoid rebuilding the entire sheet on every keystroke.
+    }
+    setState(() {
+      _mobileDirty = dirty;
+      _mobileTitleNonEmpty = titleNonEmpty;
+    });
   }
 
   Future<void> _mobileToggleCompleted() async {
@@ -567,6 +579,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                       controller: _title,
                       enabled: !_saving,
                       autofocus: widget.isCreating,
+                      // Quick attribute popovers are part of this text editor.
+                      // Tapping them must not close Android's IME.
+                      onPressedOutside: (_) {},
                       plain: true,
                       showPlainFocusUnderline: false,
                       // Give the task itself room before secondary properties.
@@ -907,7 +922,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     return FxMenu<String>(
       enabled: !_saving,
       tooltip: quick ? '$label：$value' : null,
-      onOpened: () => FocusScope.of(context).unfocus(),
+      // Keep text focus and the keyboard while picking an inline property.
       constraints: BoxConstraints(
         minWidth: menuWidth,
         maxWidth: menuWidth,
