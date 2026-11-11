@@ -180,13 +180,18 @@ void main() {
       final labelRect = tester.getRect(text);
       expect(labelRect.left, closeTo(itemRect.left + 12, 2),
           reason: '$field option text must start at the shared left inset');
-      expect(labelRect.center.dx, lessThan(itemRect.center.dx));
       final checks = find.descendant(
         of: item,
         matching: find.byIcon(LucideIcons.check),
       );
       expect(checks, findsOneWidget);
-      expect(tester.getTopLeft(checks).dx, greaterThan(labelRect.right));
+      // Expanded Text fills its row even when glyphs are start-aligned.
+      // Assert the check stays at the trailing inset, not beside the text.
+      expect(tester.getRect(checks).right, closeTo(itemRect.right - 12, 2));
+      expect(
+        tester.getTopLeft(checks).dx,
+        greaterThanOrEqualTo(labelRect.right - 1),
+      );
       await tester.tapAt(const Offset(2, 2));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
