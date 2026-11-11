@@ -569,9 +569,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                       autofocus: widget.isCreating,
                       plain: true,
                       showPlainFocusUnderline: false,
-                      // Start with one line; preserve natural multiline growth.
-                      minLines: 1,
-                      maxLines: 4,
+                      // Give the task itself room before secondary properties.
+                      // Four visible lines remain editable when the keyboard opens.
+                      minLines: 4,
+                      maxLines: 6,
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
                       contentPadding: const EdgeInsets.symmetric(
@@ -586,22 +587,21 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                 ],
               ),
               const SizedBox(height: SlowlightSpacing.xs),
-              // Keep four quick actions on one row at mobile widths.
-              // The first two columns truncate; selected tags show a count.
-              // Full text remains available in each control's tooltip.
+              // Fit controls to their content; only list/date may shrink on
+              // narrow screens. Touch targets stay >=44dp without wide pills.
               Row(
                 key: const ValueKey('task.detail.quickbar'),
                 children: [
-                  Expanded(
-                    flex: 3,
+                  Flexible(
+                    fit: FlexFit.loose,
                     child: _mobilePropertyRow(
                       'list', LucideIcons.folder, '清单', listLabel,
                       quick: true,
                     ),
                   ),
                   const SizedBox(width: SlowlightSpacing.xs),
-                  Expanded(
-                    flex: 2,
+                  Flexible(
+                    fit: FlexFit.loose,
                     child: _mobilePropertyRow(
                       'due', LucideIcons.calendarDays, '日期', dueLabel,
                       quick: true,
@@ -789,14 +789,13 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               maxWidth: MediaQuery.sizeOf(context).width * .5,
             ),
             decoration: BoxDecoration(
-              color: isConfigured
-                  ? selectedColor.withValues(alpha: .09)
-                  : Colors.transparent,
+              // Selected state is carried by the icon, not a wide tinted tile.
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: SlowlightSpacing.md,
+                horizontal: SlowlightSpacing.xs,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -955,6 +954,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     required bool selected,
     required VoidCallback? onTap,
     Color? selectionColor,
+    IconData? leadingIcon,
+    Color? leadingColor,
   }) {
     final theme = Theme.of(context);
     final highlightColor = selectionColor ?? activePalette.accent;
@@ -980,6 +981,14 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           ),
           child: Row(
             children: [
+              if (leadingIcon != null) ...[
+                Icon(
+                  leadingIcon,
+                  size: SlowlightIconSize.md,
+                  color: leadingColor ?? highlightColor,
+                ),
+                const SizedBox(width: SlowlightSpacing.xs),
+              ],
               Expanded(
                 child: Text(
                   label,
@@ -1112,6 +1121,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               option.$2,
               selected: _priority == option.$1,
               selectionColor: _mobilePriorityColor(option.$1),
+              leadingIcon: LucideIcons.flag,
+              leadingColor: _mobilePriorityColor(option.$1),
               onTap: () => _mobileSelect(() => _priority = option.$1, dismiss: dismiss, refreshPopover: refreshPopover),
             ),
         ]);
