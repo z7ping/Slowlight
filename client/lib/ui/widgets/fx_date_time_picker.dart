@@ -112,6 +112,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
         ? SlowlightControlSize.minTouchTarget
         : 36.0;
     final dayFont = SlowlightTypography.buttonSize;
+    final days = _daysInMonth(month);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -131,8 +132,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
             ),
           )).toList(),
         ),
-        ...List.generate(_daysInMonth(month).length ~/ 7, (week) {
-          final days = _daysInMonth(month);
+        ...List.generate(days.length ~/ 7, (week) {
           return Row(
             children: days.skip(week * 7).take(7).map((day) {
               final current = day.year == month.year && day.month == month.month;
