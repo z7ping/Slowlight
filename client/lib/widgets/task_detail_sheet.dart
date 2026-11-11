@@ -1369,23 +1369,23 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   Widget _mobileFooter() {
     final canSave = !_writeResultUnknown &&
         (widget.isCreating ? _title.text.trim().isNotEmpty : _mobileDirty);
-    // The latest Android prototype places Save outside the scrolling task
-    // workbench. Reuse the existing FxButton and keep one stable action.
+    // Keep Save outside the scrolling workbench, but not on a second tinted
+    // panel. FxSheet already lifts the sheet for the IME: don't add the
+    // gesture-navigation safe inset again while the keyboard is visible.
+    final keyboardVisible = View.of(context).viewInsets.bottom > 0;
     return SafeArea(
       top: false,
+      bottom: !keyboardVisible,
       child: Container(
         key: const ValueKey('task.detail.fixedFooter'),
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(
-          SlowlightSpacing.xxxl,
+          SlowlightSpacing.md,
           SlowlightSpacing.xs,
-          SlowlightSpacing.xxxl,
+          SlowlightSpacing.md,
           SlowlightSpacing.md,
         ),
-        decoration: BoxDecoration(
-          color: fxSubtleSurface(context),
-          border: Border(top: BorderSide(color: fxDivider(context))),
-        ),
+        color: fxSurface(context),
         child: Align(
           alignment: Alignment.centerRight,
           child: ConstrainedBox(
