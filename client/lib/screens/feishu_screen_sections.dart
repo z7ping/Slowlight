@@ -2,12 +2,14 @@ part of 'feishu_screen.dart';
 
 extension _FeishuScreenSections on _FeishuScreenState {
   Widget _card({
+    Key? key,
     required Widget child,
     EdgeInsetsGeometry padding = const EdgeInsets.all(16),
     Color? color,
     Border? border,
   }) {
     return FxCard(
+      key: key,
       padding: padding,
       color: color ?? fxSurface(context),
       borderRadius: SlowlightRadius.lg,
@@ -100,12 +102,33 @@ extension _FeishuScreenSections on _FeishuScreenState {
                   _buildOverview(),
                   const SizedBox(height: SlowlightSpacing.xl),
                   if (wide)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // One shared header row: text wrapping and right actions
+                    // cannot push just one column's first card down.
+                    Column(
                       children: [
-                        Expanded(flex: 5, child: _buildConfigurationColumn()),
-                        const SizedBox(width: SlowlightSpacing.xxxl),
-                        Expanded(flex: 6, child: _buildOperationsColumn()),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 5, child: _configurationHeader()),
+                            const SizedBox(width: SlowlightSpacing.xxxl),
+                            Expanded(flex: 6, child: _operationsHeader()),
+                          ],
+                        ),
+                        const SizedBox(height: SlowlightSpacing.xs),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: _buildConfigurationColumn(showHeader: false),
+                            ),
+                            const SizedBox(width: SlowlightSpacing.xxxl),
+                            Expanded(
+                              flex: 6,
+                              child: _buildOperationsColumn(showHeader: false),
+                            ),
+                          ],
+                        ),
                       ],
                     )
                   else if (_tablesReady) ...[
@@ -196,14 +219,22 @@ extension _FeishuScreenSections on _FeishuScreenState {
     );
   }
 
-  Widget _buildConfigurationColumn() {
+  Widget _configurationHeader() => const FxSectionHeader(
+    title: '连接配置',
+    trailing: '密钥保存在当前数据模式对应的安全存储中',
+  );
+
+  Widget _buildConfigurationColumn({bool showHeader = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FxSectionHeader(title: '连接配置', trailing: '密钥保存在当前数据模式对应的安全存储中'),
-        const SizedBox(height: SlowlightSpacing.xs),
+        if (showHeader) ...[
+          _configurationHeader(),
+          const SizedBox(height: SlowlightSpacing.xs),
+        ],
         if (_isConfigured && !_editingConfiguration)
           _card(
+            key: const ValueKey('feishu.config.primaryCard'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -236,6 +267,7 @@ extension _FeishuScreenSections on _FeishuScreenState {
           )
         else
           _card(
+          key: const ValueKey('feishu.config.primaryCard'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -390,23 +422,28 @@ extension _FeishuScreenSections on _FeishuScreenState {
     );
   }
 
-  Widget _buildOperationsColumn() {
+  Widget _operationsHeader() => FxSectionHeader(
+    title: '数据同步',
+    trailing: _cloud ? '通过 Slowlight Server' : '从本机 SQLite 单向导出',
+    trailingWidget: FxButton(
+      label: _isSyncingAll ? '同步中…' : '同步全部',
+      icon: LucideIcons.refreshCw,
+      size: FxButtonSize.sm,
+      onPressed: !_canSyncAll || _busyWithFeishu ? null : _syncAll,
+    ),
+  );
+
+  Widget _buildOperationsColumn({bool showHeader = true}) {
     final disabled = !_tablesReady;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        FxSectionHeader(
-          title: '数据同步',
-          trailing: _cloud ? '通过 Slowlight Server' : '从本机 SQLite 单向导出',
-          trailingWidget: FxButton(
-            label: _isSyncingAll ? '同步中…' : '同步全部',
-            icon: LucideIcons.refreshCw,
-            size: FxButtonSize.sm,
-            onPressed: !_canSyncAll || _busyWithFeishu ? null : _syncAll,
-          ),
-        ),
-        const SizedBox(height: SlowlightSpacing.xs),
+        if (showHeader) ...[
+          _operationsHeader(),
+          const SizedBox(height: SlowlightSpacing.xs),
+        ],
         _card(
+          key: const ValueKey('feishu.sync.primaryCard'),
           padding: EdgeInsets.zero,
           child: Column(
             children: [
