@@ -53,6 +53,7 @@ Future<DateTime?> showFxDatePicker({
     context: context,
     builder: (ctx) => ShadDialog(
       title: Text(title),
+      titleTextAlign: TextAlign.start,
       child: picker(ctx),
     ),
   );
@@ -332,6 +333,8 @@ Future<TimeOfDay?> showFxTimePicker({
       return ShadDialog(
         title: Text(title),
         description: const Text('点击数字可直接输入'),
+        titleTextAlign: TextAlign.start,
+        descriptionTextAlign: TextAlign.start,
         child: SizedBox(
           width: 320,
           child: ShadTimePicker(
