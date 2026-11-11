@@ -220,6 +220,10 @@ void main() {
     await tester.tap(find.text('打开弹窗'));
     await tester.pumpAndSettle();
 
+    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    expect(dialog.titleTextAlign, TextAlign.start);
+    expect(dialog.descriptionTextAlign, TextAlign.start);
+
     expect(
       tester.widget<Text>(find.text('删除任务')).style?.fontSize,
       SlowlightTypography.cardTitleSize,
