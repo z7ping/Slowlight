@@ -970,7 +970,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             minHeight: SlowlightControlSize.minTouchTarget,
           ),
           padding: const EdgeInsets.symmetric(
-            horizontal: SlowlightSpacing.md,
+            horizontal: SlowlightSpacing.xl,
             vertical: SlowlightSpacing.xs,
           ),
           decoration: BoxDecoration(
