@@ -250,6 +250,53 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+
+  testWidgets('320dp 及 200% 字号下清单浮窗不超出可用宽度', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final longLists = [
+      TodoList(
+        id: 1,
+        name: '一个名字很长但不应该被选项弹窗直接裁掉的清单',
+        color: '#1890ff',
+        createdAt: DateTime(2026, 11, 11),
+      ),
+    ];
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(
+          task: task,
+          lists: longLists,
+          onChanged: () {},
+        ),
+      ),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(2),
+        ),
+        child: child!,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final trigger = find.byKey(const ValueKey('task.detail.property.list'));
+    final menu = tester.widget<FxMenu<String>>(
+      find.ancestor(of: trigger, matching: find.byType(FxMenu<String>)).first,
+    );
+    expect(menu.constraints!.minWidth, lessThanOrEqualTo(288));
+    expect(menu.constraints!.minWidth, menu.constraints!.maxWidth);
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+    // The label is allowed to wrap instead of increasing menu width.
+    // The actual icon prefix is data-driven; test the visible selection.
+    expect(find.textContaining('一个名字很长但不应该被选项弹窗直接裁掉的清单'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X01 外部入口预填清单和标题时取消必须保护原始草稿',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
