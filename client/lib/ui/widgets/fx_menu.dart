@@ -182,7 +182,14 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
           return ConstrainedBox(
             constraints: widget.constraints ??
                 const BoxConstraints(minWidth: 160, maxWidth: 320),
-            child: custom(popoverContext, _controller.hide),
+            // ShadPopover (0.26.5) centers its inherited DefaultTextStyle.
+            // Menus are selection lists: override the inherited alignment
+            // here once, preserving Shad's foreground style and the caller's
+            // explicitly aligned content (buttons, icons, etc).
+            child: DefaultTextStyle.merge(
+              textAlign: TextAlign.start,
+              child: custom(popoverContext, _controller.hide),
+            ),
           );
         }
         final items = widget.itemBuilder?.call(popoverContext) ?? [];
@@ -228,7 +235,10 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
               const BoxConstraints(minWidth: 168, maxWidth: 220),
           child: Padding(
             padding: widget.menuPadding ?? const EdgeInsets.all(5),
-            child: content,
+            child: DefaultTextStyle.merge(
+              textAlign: TextAlign.start,
+              child: content,
+            ),
           ),
         );
       },
