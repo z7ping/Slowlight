@@ -527,7 +527,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       children: [
         FxCard(
           key: const ValueKey('task.detail.workspace'),
-          padding: const EdgeInsets.all(SlowlightSpacing.md),
+          padding: const EdgeInsets.symmetric(
+            horizontal: SlowlightSpacing.md,
+            vertical: SlowlightSpacing.xs,
+          ),
           expanded: true,
           borderRadius: SlowlightRadius.lg,
           color: fxSurface(context),
@@ -566,7 +569,8 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                       autofocus: widget.isCreating,
                       plain: true,
                       showPlainFocusUnderline: false,
-                      minLines: 2,
+                      // Start with one line; preserve natural multiline growth.
+                      minLines: 1,
                       maxLines: 4,
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
@@ -581,7 +585,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: SlowlightSpacing.md),
+              const SizedBox(height: SlowlightSpacing.xs),
               Wrap(
                 key: const ValueKey('task.detail.quickbar'),
                 spacing: SlowlightSpacing.xs,
@@ -749,7 +753,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }) {
     final theme = Theme.of(context);
     final isUnset = value == '未设置';
-    final showQuickValue = !isUnset || field == 'due' || field == 'list';
+    // Priority is conveyed by the semantic-coloured flag; the full quadrant
+    // label remains available through the menu and tooltip.
+    final showQuickValue = field != 'priority' &&
+        (!isUnset || field == 'due' || field == 'list');
     final triggerKey = ValueKey('task.detail.property.$field');
     final hasQuickValue = field == 'list' ||
         field == 'due' ||
@@ -891,7 +898,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     final menuWidth = _mobilePropertyMenuWidth(field);
     return FxMenu<String>(
       enabled: !_saving,
-      tooltip: quick ? label : null,
+      tooltip: quick ? '$label：$value' : null,
       onOpened: () => FocusScope.of(context).unfocus(),
       constraints: BoxConstraints(
         minWidth: menuWidth,
