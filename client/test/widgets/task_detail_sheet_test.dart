@@ -292,6 +292,58 @@ void main() {
     });
   }
 
+  for (final width in [320.0, 390.0]) {
+    testWidgets('Android ${width.toInt()}dp 清单与标签菜单不能横向越界',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = Size(width, 850);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 340);
+      addTearDown(tester.view.reset);
+      final draft = Task(
+        id: 0, listId: lists.first.id, title: '',
+        priority: 'none', isCompleted: false,
+        createdAt: DateTime(2026, 11, 12),
+      );
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(body: TaskDetailSheet(
+          task: draft, isCreating: true,
+          lists: lists, onChanged: () {},
+        )),
+      ));
+      await tester.pumpAndSettle();
+      final title = find.descendant(
+        of: find.byKey(const ValueKey('task.detail.title')),
+        matching: find.byType(EditableText),
+      );
+      await tester.showKeyboard(title);
+      await tester.enterText(title, '记录一件事');
+      await tester.pumpAndSettle();
+
+      final listTrigger = find.byKey(const ValueKey('task.detail.property.list'));
+      await tester.tap(listTrigger);
+      await tester.pumpAndSettle();
+      final listOption = find.byKey(
+          ValueKey('task.detail.option.${lists.first.icon} ${lists.first.name}'));
+      final listRect = tester.getRect(listOption);
+      expect(listRect.left, greaterThanOrEqualTo(0));
+      expect(listRect.right, lessThanOrEqualTo(width));
+      await tester.tap(listOption);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('task.detail.property.tags')));
+      await tester.pumpAndSettle();
+      final tagRect = tester.getRect(find.byType(TagPicker).last);
+      expect(tagRect.left, greaterThanOrEqualTo(0));
+      expect(tagRect.right, lessThanOrEqualTo(width));
+      expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
   testWidgets('Android 任务编辑固定提交区与表单同表面且没有额外隔断',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
