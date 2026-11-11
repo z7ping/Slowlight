@@ -55,12 +55,15 @@ extension _FeishuScreenSections on _FeishuScreenState {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
-              Text(
-                _loadError!,
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.caption(
-                  context,
-                ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+              SizedBox(
+                width: double.infinity,
+                child: Text(
+                  _loadError!,
+                  textAlign: TextAlign.start,
+                  style: SlowlightTypography.caption(
+                    context,
+                  ).copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
               ),
               const SizedBox(height: SlowlightSpacing.xl),
               FxButton(
