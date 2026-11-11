@@ -215,7 +215,7 @@ class _FxDatePickerDialogState extends State<_FxDatePickerDialog> {
   DateTime? get _quickDate {
     final today = DateUtils.dateOnly(DateTime.now());
     if (_inRange(today)) return today;
-    final yesterday = today.subtract(const Duration(days: 1));
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
     return _inRange(yesterday) ? yesterday : null;
   }
 
