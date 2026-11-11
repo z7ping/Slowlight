@@ -68,6 +68,9 @@ void main() {
     expect(tester.widget<FxInput>(
       find.byKey(const ValueKey('task.detail.title')),
     ).showPlainFocusUnderline, isFalse);
+    expect(tester.widget<FxInput>(
+      find.byKey(const ValueKey('task.detail.title')),
+    ).minLines, 1);
     for (final field in ['list', 'due', 'priority', 'tags']) {
       expect(find.byKey(ValueKey('task.detail.property.$field')),
           findsOneWidget);
@@ -76,6 +79,16 @@ void main() {
     expect(find.byType(FxMenu<String>), findsNWidgets(4));
     final quickbar = find.byKey(const ValueKey('task.detail.quickbar'));
     expect(quickbar, findsOneWidget);
+    // The quadrant is colour-coded via its flag; never repeat its long
+    // description in the compact one-row property bar.
+    expect(find.descendant(
+      of: find.byKey(const ValueKey('task.detail.property.priority')),
+      matching: find.byIcon(LucideIcons.flag),
+    ), findsOneWidget);
+    expect(find.descendant(
+      of: quickbar,
+      matching: find.text('不重要 · 不紧急'),
+    ), findsNothing);
     // Unset priority/tags stay icon-only in the compact quickbar.
     expect(
       find.descendant(of: quickbar, matching: find.text('未设置')),
@@ -230,6 +243,10 @@ void main() {
       matching: find.byIcon(LucideIcons.flag),
     );
     expect(tester.widget<Icon>(flag).color, AppTheme.priorityHigh);
+    expect(find.descendant(
+      of: find.byKey(const ValueKey('task.detail.quickbar')),
+      matching: find.text('重要 · 紧急'),
+    ), findsNothing);
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
     await tester.pumpAndSettle();
     final selectedPriority = find.byKey(
