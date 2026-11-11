@@ -154,6 +154,104 @@ void main() {
   });
 
 
+  for (final width in [320.0, 390.0]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('Android 属性栏 ${width}dp / ${scale}x 始终单行',
+          (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        tester.view.physicalSize = Size(width, 850);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(buildFxTestHost(
+          home: Scaffold(
+            body: TaskDetailSheet(
+              task: task,
+              lists: [
+                TodoList(
+                  id: 1,
+                  name: '一个很长很长的工作项目清单',
+                  color: '#1890ff',
+                  createdAt: DateTime(2026, 10, 16),
+                ),
+              ],
+              onChanged: () {},
+            ),
+          ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: child!,
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final quickbar = find.byKey(
+          const ValueKey('task.detail.quickbar'),
+        );
+        expect(tester.widget<Row>(quickbar).children.length, 7);
+        final triggerRects = [
+          for (final field in ['list', 'due', 'priority', 'tags'])
+            tester.getRect(find.byKey(ValueKey('task.detail.property.$field'))),
+        ];
+        expect(
+          triggerRects.map((rect) => rect.top).reduce((a, b) =>
+              a > b ? a : b) -
+              triggerRects.map((rect) => rect.top).reduce((a, b) =>
+                  a < b ? a : b),
+          lessThan(1),
+        );
+        for (final rect in triggerRects) {
+          expect(rect.height, greaterThanOrEqualTo(44));
+        }
+        expect(
+          tester.getRect(quickbar).right,
+          lessThanOrEqualTo(width),
+        );
+        expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
+        expect(tester.takeException(), isNull);
+        await disposeFxTestHost(tester);
+      });
+    }
+  }
+
+  testWidgets('更多设置保持紧凑，未安排日期时提醒先提示约束',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: TaskDetailSheet(task: task, lists: lists, onChanged: () {}),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('task.detail.moreSettings')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxInput>(
+      find.byKey(const ValueKey('task.detail.description')),
+    ).minLines, 1);
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.reminder')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('提前提醒需先安排日期；也可指定独立提醒时间'),
+      findsOneWidget,
+    );
+    final relativeReminder = find.text('提前 5 分钟');
+    expect(relativeReminder, findsOneWidget);
+    final row = find.ancestor(
+      of: relativeReminder,
+      matching: find.byType(FxInkWell),
+    ).first;
+    expect(tester.widget<FxInkWell>(row).onTap, isNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 任务清单日期优先级菜单都左对齐且选中勾选靠右',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
