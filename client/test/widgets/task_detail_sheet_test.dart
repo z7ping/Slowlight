@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
@@ -227,6 +228,65 @@ void main() {
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
+
+  for (final size in [const Size(320, 640), const Size(390, 850)]) {
+    testWidgets('Android ${size.width.toInt()}dp 键盘展开后快捷浮窗位于触发按钮上方',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = FakeViewPadding(bottom: size.height * .40);
+      addTearDown(tester.view.reset);
+
+      final draft = Task(
+        id: 0,
+        listId: lists.first.id,
+        title: '',
+        priority: 'none',
+        isCompleted: false,
+        createdAt: DateTime(2026, 11, 12),
+      );
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(body: TaskDetailSheet(
+          task: draft, isCreating: true, lists: lists, onChanged: () {},
+        )),
+      ));
+      await tester.pumpAndSettle();
+      final title = find.descendant(
+        of: find.byKey(const ValueKey('task.detail.title')),
+        matching: find.byType(EditableText),
+      );
+      await tester.showKeyboard(title);
+      await tester.enterText(title, '继续记录');
+      await tester.pumpAndSettle();
+
+      final trigger = find.byKey(const ValueKey('task.detail.property.priority'));
+      final menu = find.ancestor(of: trigger,
+          matching: find.byType(FxMenu<String>)).first;
+      expect(tester.widget<FxMenu<String>>(menu).preferAbove, isTrue);
+      final shadPopover = find.descendant(of: menu,
+          matching: find.byType(ShadPopover));
+      expect(tester.widget<ShadPopover>(shadPopover).anchor, isA<ShadAnchor>());
+
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      final firstOption = find.byKey(
+          const ValueKey('task.detail.option.不重要 · 不紧急'));
+      expect(firstOption, findsOneWidget);
+      final triggerTop = tester.getTopLeft(trigger).dy;
+      final optionRect = tester.getRect(firstOption);
+      expect(optionRect.bottom, lessThanOrEqualTo(triggerTop),
+          reason: 'The popover must be above its trigger, not under the IME');
+      expect(optionRect.top, greaterThanOrEqualTo(-1),
+          reason: 'A short viewport must constrain the menu to visible headroom');
+      expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.widget<EditableText>(title).controller.text, '继续记录');
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
 
   testWidgets('Android 新建任务标题仅在可保存性变化时刷新提交态', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
