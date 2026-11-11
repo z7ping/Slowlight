@@ -522,7 +522,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       return;
     }
     // 今天使用正常打卡；补记只允许已过去、且不早于起算日的日期。
-    final yesterday = today.subtract(const Duration(days: 1));
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
     if (earliest.isAfter(yesterday)) {
       _message('还没有可补记的历史日期；今天可直接打卡');
       return;
