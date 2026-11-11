@@ -299,7 +299,10 @@ void main() {
       expect(tester.getRect(item).width, lessThanOrEqualTo(expectedWidth));
       final selectedBackground =
           (tester.widget<Container>(item).decoration as BoxDecoration).color;
-      expect(selectedBackground, activePalette.accent.withValues(alpha: .09));
+      final selectedColor = field == 'priority'
+          ? Theme.of(tester.element(item)).colorScheme.onSurfaceVariant
+          : activePalette.accent;
+      expect(selectedBackground, selectedColor.withValues(alpha: .09));
       final text = find.descendant(of: item, matching: find.text(label));
       expect(text, findsOneWidget);
       expect(
