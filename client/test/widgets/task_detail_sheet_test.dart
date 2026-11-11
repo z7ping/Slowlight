@@ -6,6 +6,7 @@ import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
+import 'package:slowlight/theme/app_theme.dart';
 import 'package:slowlight/widgets/tag_picker.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 
@@ -169,6 +170,25 @@ void main() {
       await tester.pumpAndSettle();
       final item = find.byKey(ValueKey('task.detail.option.$label'));
       expect(item, findsOneWidget);
+      final trigger = find.byKey(ValueKey('task.detail.property.$field'));
+      final menu = tester.widget<FxMenu<String>>(
+        find.ancestor(
+          of: trigger,
+          matching: find.byType(FxMenu<String>),
+        ).first,
+      );
+      final expectedWidth = switch (field) {
+        'due' => 196.0,
+        'priority' => 220.0,
+        'list' => 236.0,
+        _ => throw StateError('unexpected field'),
+      };
+      expect(menu.constraints!.minWidth, expectedWidth);
+      expect(menu.constraints!.maxWidth, expectedWidth);
+      expect(tester.getRect(item).width, lessThanOrEqualTo(expectedWidth));
+      final selectedBackground =
+          (tester.widget<Container>(item).decoration as BoxDecoration).color;
+      expect(selectedBackground, activePalette.accent.withValues(alpha: .09));
       final text = find.descendant(of: item, matching: find.text(label));
       expect(text, findsOneWidget);
       expect(
@@ -196,6 +216,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
+
+    // A changed priority is immediately visible on its closed trigger:
+    // meaningful priority colour, not just a generic selected tick.
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('task.detail.option.重要 · 紧急')),
+    );
+    await tester.pumpAndSettle();
+    final flag = find.descendant(
+      of: find.byKey(const ValueKey('task.detail.property.priority')),
+      matching: find.byIcon(LucideIcons.flag),
+    );
+    expect(tester.widget<Icon>(flag).color, AppTheme.priorityHigh);
+    await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
+    await tester.pumpAndSettle();
+    final selectedPriority = find.byKey(
+      const ValueKey('task.detail.option.重要 · 紧急'),
+    );
+    expect(
+      (tester.widget<Container>(selectedPriority).decoration as BoxDecoration).color,
+      AppTheme.priorityHigh.withValues(alpha: .09),
+    );
+    expect(
+      tester.widget<Icon>(find.descendant(
+        of: selectedPriority,
+        matching: find.byIcon(LucideIcons.check),
+      )).color,
+      AppTheme.priorityHigh,
+    );
+    expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
