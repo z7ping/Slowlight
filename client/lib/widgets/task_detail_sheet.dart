@@ -762,7 +762,6 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     bool compactSetting = false,
   }) {
     final theme = Theme.of(context);
-    final isUnset = value == '未设置';
     // Priority is conveyed by the semantic-coloured flag; the full quadrant
     // label remains available through the menu and tooltip.
     final showQuickValue = field == 'list' || field == 'due' ||
@@ -965,40 +964,40 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       child: Opacity(
         opacity: onTap == null ? .42 : 1,
         child: Container(
-        key: ValueKey('task.detail.option.$label'),
-        constraints: const BoxConstraints(
-          minHeight: SlowlightControlSize.minTouchTarget,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: SlowlightSpacing.md,
-          vertical: SlowlightSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: selected
-              ? highlightColor.withValues(alpha: .09)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(SlowlightRadius.md),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: SlowlightTypography.componentControl(context).copyWith(
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: theme.colorScheme.onSurface,
+          key: ValueKey('task.detail.option.$label'),
+          constraints: const BoxConstraints(
+            minHeight: SlowlightControlSize.minTouchTarget,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: SlowlightSpacing.md,
+            vertical: SlowlightSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? highlightColor.withValues(alpha: .09)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(SlowlightRadius.md),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: SlowlightTypography.componentControl(context).copyWith(
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
-            ),
-            if (selected)
-              Icon(
-                LucideIcons.check,
-                size: SlowlightIconSize.sm,
-                color: highlightColor,
-              ),
-          ],
+              if (selected)
+                Icon(
+                  LucideIcons.check,
+                  size: SlowlightIconSize.sm,
+                  color: highlightColor,
+                ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
