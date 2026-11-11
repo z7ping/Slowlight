@@ -733,7 +733,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       'reminder' => 244.0,
       _ => 224.0,
     };
-    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5);
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5).toDouble();
     final available = MediaQuery.sizeOf(context).width -
         SlowlightSpacing.xxxl * 2;
     return math.min(available, baseWidth * scale);
@@ -756,7 +756,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         (field == 'priority' && _priority != 'none') ||
         (field == 'tags' && _selectedTags.isNotEmpty);
     final isConfigured = switch (field) {
-      'list' => _listId > 0,
+      'list' => _listId != null && _listId! > 0,
       'due' => _dueDate != null,
       'priority' => _priority != 'none',
       'tags' => _selectedTags.isNotEmpty,
