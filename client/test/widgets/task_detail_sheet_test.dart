@@ -70,7 +70,7 @@ void main() {
     ).showPlainFocusUnderline, isFalse);
     expect(tester.widget<FxInput>(
       find.byKey(const ValueKey('task.detail.title')),
-    ).minLines, 1);
+    ).minLines, 4);
     for (final field in ['list', 'due', 'priority', 'tags']) {
       expect(find.byKey(ValueKey('task.detail.property.$field')),
           findsOneWidget);
@@ -79,6 +79,17 @@ void main() {
     expect(find.byType(FxMenu<String>), findsNWidgets(4));
     final quickbar = find.byKey(const ValueKey('task.detail.quickbar'));
     expect(quickbar, findsOneWidget);
+    final titleRect = tester.getRect(
+      find.byKey(const ValueKey('task.detail.title')),
+    );
+    expect(titleRect.height, greaterThan(tester.getRect(quickbar).height),
+        reason: 'Four visible title lines must dominate the compact quickbar');
+    expect(tester.getSize(
+      find.byKey(const ValueKey('task.detail.property.list')),
+    ).width, lessThan(140), reason: 'List trigger must wrap its content');
+    expect(tester.getSize(
+      find.byKey(const ValueKey('task.detail.property.due')),
+    ).width, lessThan(120), reason: 'Date trigger must not consume flex space');
     // The quadrant is colour-coded via its flag; never repeat its long
     // description in the compact one-row property bar.
     expect(find.descendant(
@@ -312,8 +323,18 @@ void main() {
       );
       final itemRect = tester.getRect(item);
       final labelRect = tester.getRect(text);
-      expect(labelRect.left, closeTo(itemRect.left + 12, 2),
-          reason: '$field option text must start at the shared left inset');
+      expect(labelRect.left,
+          closeTo(itemRect.left + (field == 'priority' ? 34 : 12), 2),
+          reason: '$field option text must clear any semantic flag icon');
+      if (field == 'priority') {
+        final quadrantFlag = find.descendant(
+          of: item,
+          matching: find.byIcon(LucideIcons.flag),
+        );
+        expect(quadrantFlag, findsOneWidget);
+        expect(tester.widget<Icon>(quadrantFlag).color,
+            Theme.of(tester.element(item)).colorScheme.onSurfaceVariant);
+      }
       final checks = find.descendant(
         of: item,
         matching: find.byIcon(LucideIcons.check),
@@ -335,6 +356,17 @@ void main() {
     // meaningful priority colour, not just a generic selected tick.
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
     await tester.pumpAndSettle();
+    for (final (label, expectedColor) in [
+      ('重要 · 紧急', AppTheme.priorityHigh),
+      ('重要 · 不紧急', AppTheme.priorityMedium),
+      ('不重要 · 紧急', AppTheme.priorityLow),
+    ]) {
+      final option = find.byKey(ValueKey('task.detail.option.$label'));
+      final flag = find.descendant(of: option,
+          matching: find.byIcon(LucideIcons.flag));
+      expect(flag, findsOneWidget);
+      expect(tester.widget<Icon>(flag).color, expectedColor);
+    }
     await tester.tap(
       find.byKey(const ValueKey('task.detail.option.重要 · 紧急')),
     );
