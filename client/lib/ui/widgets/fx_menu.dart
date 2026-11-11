@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -75,6 +77,7 @@ class FxMenu<T> extends StatefulWidget {
     this.shape,
     this.color,
     this.menuPadding,
+    this.preferAbove = false,
     this.position,
     this.clipBehavior = Clip.none,
     this.useRootNavigator = false,
@@ -108,6 +111,9 @@ class FxMenu<T> extends StatefulWidget {
   final ShapeBorder? shape;
   final Color? color;
   final EdgeInsetsGeometry? menuPadding;
+  /// Open above the trigger (e.g. quick task properties above the Android IME).
+  /// When space is tight, cap the height so the existing scroll view remains usable.
+  final bool preferAbove;
   final Object? position;
   final Clip clipBehavior;
   final bool useRootNavigator;
@@ -144,6 +150,27 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
     super.dispose();
   }
 
+  BoxConstraints _effectiveConstraints(BoxConstraints base) {
+    if (!widget.preferAbove) return base;
+    final target = context.findRenderObject();
+    if (target is! RenderBox || !target.hasSize || !target.attached) {
+      return base;
+    }
+    // ShadAnchor places the bottom of the popup just above the trigger.
+    // Constrain the height to the actually visible region above it, including
+    // when FxSheet has removed the IME insets from its child MediaQuery.
+    final triggerTop = target.localToGlobal(Offset.zero).dy;
+    final available = math.max(
+      SlowlightControlSize.minTouchTarget,
+      triggerTop - MediaQuery.viewPaddingOf(context).top - 20,
+    );
+    final height = math.min(base.maxHeight, available);
+    return base.copyWith(
+      minHeight: math.min(base.minHeight, height),
+      maxHeight: height,
+    );
+  }
+
   void _select(FxMenuItem<T> item) {
     if (!item.enabled) return;
     item.onTap?.call();
@@ -175,13 +202,20 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
     return ShadPopover(
       controller: _controller,
       padding: EdgeInsets.zero,
+      anchor: widget.preferAbove
+          ? const ShadAnchor(
+              childAlignment: Alignment.bottomCenter,
+              overlayAlignment: Alignment.topCenter,
+              offset: Offset(0, -8),
+            )
+          : null,
       child: clickable,
       popover: (popoverContext) {
         final custom = widget.contentBuilder;
         if (custom != null) {
           return ConstrainedBox(
-            constraints: widget.constraints ??
-                const BoxConstraints(minWidth: 160, maxWidth: 320),
+            constraints: _effectiveConstraints(widget.constraints ??
+                const BoxConstraints(minWidth: 160, maxWidth: 320)),
             // ShadPopover (0.26.5) centers its inherited DefaultTextStyle.
             // Menus are selection lists: override the inherited alignment
             // here once, preserving Shad's foreground style and the caller's
@@ -231,8 +265,8 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
         // Simple selection menus share a compact, bounded popover.
         // Rich custom popovers retain their own explicit size contract.
         return ConstrainedBox(
-          constraints: widget.constraints ??
-              const BoxConstraints(minWidth: 168, maxWidth: 220),
+          constraints: _effectiveConstraints(widget.constraints ??
+              const BoxConstraints(minWidth: 168, maxWidth: 220)),
           child: Padding(
             padding: widget.menuPadding ?? const EdgeInsets.all(5),
             child: DefaultTextStyle.merge(

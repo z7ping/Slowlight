@@ -922,6 +922,9 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     return FxMenu<String>(
       enabled: !_saving,
       tooltip: quick ? '$label：$value' : null,
+      // Quick properties open above their icon so the keyboard cannot mask
+      // the anchored selection. FxMenu caps the list to available headroom.
+      preferAbove: quick,
       // Keep text focus and the keyboard while picking an inline property.
       constraints: BoxConstraints(
         minWidth: menuWidth,
