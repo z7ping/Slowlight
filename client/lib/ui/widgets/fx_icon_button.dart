@@ -94,6 +94,7 @@ class _FxIconButtonState extends State<FxIconButton> {
           onPressed: _effectiveAction,
           iconSize: widget.iconSize,
           icon: Container(
+            key: const ValueKey('fx.iconButton.compactPrimarySurface'),
             width: SlowlightControlSize.button,
             height: SlowlightControlSize.button,
             alignment: Alignment.center,
