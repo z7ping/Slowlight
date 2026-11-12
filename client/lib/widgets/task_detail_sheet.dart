@@ -160,6 +160,9 @@ class TaskDetailSheet extends StatefulWidget {
     return FxSheet.show<void>(
       context: context,
       isScrollControlled: true,
+      // OS IME already animates its insets. Don't animate the whole sheet a
+      // second time while the autofocus keyboard and sheet are entering.
+      animateKeyboardInsets: false,
       showDragHandle: true,
       showCloseButton: false,
       draggable: false,
@@ -509,9 +512,6 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
               child: _mobileMainForm(),
             ),
           ),
-          // The primary action stays reachable while the body scrolls or
-          // the keyboard reduces the available viewport.
-          _mobileFooter(),
         ],
       ),
     );
@@ -642,6 +642,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                         : _selectedTags.map((tag) => tag.name).join('、'),
                     quick: true,
                   ),
+                  const Spacer(),
+                  // The task's primary action belongs to the input workbench,
+                  // not a separate footer above the keyboard.
+                  _mobileInlineAction(),
                 ],
               ),
             ],
@@ -1366,45 +1370,20 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     }
   }
 
-  Widget _mobileFooter() {
-    final canSave = !_writeResultUnknown &&
-        (widget.isCreating ? _title.text.trim().isNotEmpty : _mobileDirty);
-    // Keep Save outside the scrolling workbench, but not on a second tinted
-    // panel. FxSheet already lifts the sheet for the IME: don't add the
-    // gesture-navigation safe inset again while the keyboard is visible.
-    final keyboardVisible = View.of(context).viewInsets.bottom > 0;
-    return SafeArea(
-      top: false,
-      bottom: !keyboardVisible,
-      child: Container(
-        key: const ValueKey('task.detail.fixedFooter'),
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(
-          SlowlightSpacing.md,
-          SlowlightSpacing.xs,
-          SlowlightSpacing.md,
-          SlowlightSpacing.md,
-        ),
-        color: fxSurface(context),
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 110),
-            child: FxButton(
-              key: const ValueKey('task.detail.primaryAction'),
-              label: _writeResultUnknown
-                  ? '结果待核对'
-                  : widget.isCreating
-                      ? (_saving ? '添加中…' : '添加任务')
-                      : (_saving ? '保存中…' : '保存修改'),
-              // Disabled is a Primary state, not a different action variant.
-              variant: FxButtonVariant.primary,
-              size: FxButtonSize.sm,
-              onPressed: _saving || !canSave ? null : _save,
-            ),
-          ),
-        ),
-      ),
+  Widget _mobileInlineAction() {
+    final canSave = !widget.writeBlocked && !_saving && !_writeResultUnknown &&
+        (widget.isCreating ? _mobileTitleNonEmpty : _mobileDirty);
+    return FxIconButton(
+      key: const ValueKey('task.detail.primaryAction'),
+      icon: widget.isCreating ? LucideIcons.arrowUp : LucideIcons.check,
+      iconSize: SlowlightIconSize.sm,
+      variant: FxIconButtonVariant.primary,
+      tooltip: _writeResultUnknown
+          ? '结果待核对'
+          : widget.isCreating
+              ? (_saving ? '添加中…' : '添加任务')
+              : (_saving ? '保存中…' : '保存修改'),
+      onPressed: canSave ? _save : null,
     );
   }
 

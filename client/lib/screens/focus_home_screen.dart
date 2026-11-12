@@ -942,13 +942,13 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
                     offset: _fabAutoHidden
                         ? const Offset(0, 0.25)
                         : Offset.zero,
-                    duration: MediaQuery.of(context).disableAnimations
+                    duration: MediaQuery.disableAnimationsOf(context)
                         ? Duration.zero
                         : const Duration(milliseconds: 160),
                     curve: Curves.easeOutCubic,
                     child: AnimatedOpacity(
                       opacity: _fabAutoHidden ? 0 : 1,
-                      duration: MediaQuery.of(context).disableAnimations
+                      duration: MediaQuery.disableAnimationsOf(context)
                           ? Duration.zero
                           : const Duration(milliseconds: 160),
                       child: _mobileQuickAddButton(
