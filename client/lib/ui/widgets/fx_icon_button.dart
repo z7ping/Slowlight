@@ -6,7 +6,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../layout_tokens.dart';
 import 'fx_tooltip.dart';
 
-enum FxIconButtonVariant { ghost, outline }
+enum FxIconButtonVariant { primary, ghost, outline }
 
 /// FxIconButton — 统一图标按钮。
 ///
@@ -81,6 +81,15 @@ class _FxIconButtonState extends State<FxIconButton> {
     );
     final iconWidget = Icon(widget.icon, size: widget.iconSize, color: widget.foregroundColor);
     final Widget button = switch (widget.variant) {
+      FxIconButtonVariant.primary => ShadIconButton(
+          decoration: decoration,
+          width: contentSize,
+          height: contentSize,
+          padding: EdgeInsets.zero,
+          onPressed: _effectiveAction,
+          iconSize: widget.iconSize,
+          icon: iconWidget,
+        ),
       FxIconButtonVariant.ghost => ShadIconButton.ghost(
           decoration: decoration,
           width: contentSize,
