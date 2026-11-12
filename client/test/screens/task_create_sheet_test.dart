@@ -29,6 +29,19 @@ class _CanonicalTagSource implements ApiDataSource {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _ManyTagSource extends _CanonicalTagSource {
+  @override
+  Future<List<Tag>> getTags() async => [
+    for (var i = 0; i < 18; i++)
+      Tag(
+        id: 200 + i,
+        name: '标签$i',
+        color: '#1890ff',
+        createdAt: DateTime(2026),
+      ),
+  ];
+}
+
 class _FailingTagSource extends _CanonicalTagSource {
   @override
   Future<List<Tag>> getTags() async => throw StateError('tag source unavailable');
@@ -224,7 +237,7 @@ void main() {
     expect(relative.value, -2);
     expect(relative.enabled, isFalse);
 
-    await tester.tap(find.widgetWithText(FxButton, '添加任务'));
+    await tester.tap(find.byKey(const ValueKey('task-submit-mobile')));
     await tester.pumpAndSettle();
     expect(data.creates, 1);
     expect(data.savedDueDate, isNull);
@@ -359,7 +372,7 @@ void main() {
     await tester.tap(find.text('打开表单'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(EditableText).first, '待确认的任务');
-    await tester.tap(find.widgetWithText(FxButton, '添加任务'));
+    await tester.tap(find.byKey(const ValueKey('task-submit-mobile')));
     await tester.pump();
     expect(data.creates, 1);
     final close = tester.widget<FxIconButton>(find.ancestor(
@@ -582,15 +595,36 @@ void main() {
     expect(priority.dy, closeTo(date.dy, 1));
 
     final inputRect = tester.getRect(find.byType(FxInput).first);
-    final actionRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
+    final actionRect = tester.getRect(find.byKey(const ValueKey('task-submit-mobile')));
     expect(actionRect.right, lessThan(inputRect.right));
     expect(actionRect.bottom, lessThan(inputRect.bottom));
     expect(actionRect.top, greaterThan(inputRect.top));
+    expect(actionRect.center.dy, closeTo(tag.dy + 22, 2));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 320dp 窄屏图标及按钮自动错行且仍在输入框内', (tester) async {
+  testWidgets('Android 空标题禁用发送，输入后启用', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: const Scaffold(body: TaskCreateSheet(quickMode: true)),
+    ));
+    await tester.pump();
+    final submit = find.byKey(const ValueKey('task-submit-mobile'));
+    expect(tester.widget<FxIconButton>(submit).onPressed, isNull);
+    await tester.enterText(find.byType(EditableText).first, '填写任务');
+    await tester.pump();
+    expect(tester.widget<FxIconButton>(submit).onPressed, isNotNull);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 320dp 窄屏操作与发送按钮保持同排对齐', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(320, 640);
@@ -602,9 +636,9 @@ void main() {
     ));
     await tester.pump();
     final iconRect = tester.getRect(find.byKey(const ValueKey('task-property-tag')));
-    final actionRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
+    final actionRect = tester.getRect(find.byKey(const ValueKey('task-submit-mobile')));
     final inputRect = tester.getRect(find.byType(FxInput).first);
-    expect(actionRect.top, greaterThan(iconRect.top));
+    expect(actionRect.center.dy, closeTo(iconRect.center.dy, 1));
     expect(actionRect.bottom, lessThan(inputRect.bottom));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -649,6 +683,83 @@ void main() {
     expect(schedule.compact, isTrue);
     expect(schedule.dueDate, isNull);
     expect(find.text('更多设置'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 标签优先双列、多选回填并保留任务草稿', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskCreateSheet(
+        quickMode: true,
+        tagRepository: TagRepository(dataSource: _CanonicalTagSource()),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, '网格标签测试');
+    final submit = find.byKey(const ValueKey('task-submit-mobile'));
+    expect(tester.widget<FxIconButton>(submit).onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const ValueKey('task-property-tag')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('task-picker-grid')), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-picker-list')), findsNothing);
+
+    const first = ValueKey('task-picker-option-tag-101');
+    const second = ValueKey('task-picker-option-tag-102');
+    final firstPos = tester.getTopLeft(find.byKey(first));
+    final secondPos = tester.getTopLeft(find.byKey(second));
+    expect(firstPos.dy, closeTo(secondPos.dy, 1));
+    expect(firstPos.dx, lessThan(secondPos.dx));
+
+    await tester.tap(find.byKey(first));
+    await tester.pump();
+    await tester.tap(find.byKey(second));
+    await tester.pump();
+    expect(tester.widget<FxListTile>(find.byKey(first)).selected, isTrue);
+    expect(tester.widget<FxListTile>(find.byKey(second)).selected, isTrue);
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FxChip>(
+      find.byKey(const ValueKey('task-property-tag')),
+    ).label, '2 个标签');
+    expect(tester.widget<EditableText>(find.byType(EditableText).first)
+        .controller.text, '网格标签测试');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 标签超过八项仍使用双列滚动，不撑大弹层', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(393, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskCreateSheet(
+        quickMode: true,
+        tagRepository: TagRepository(dataSource: _ManyTagSource()),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task-property-tag')));
+    await tester.pumpAndSettle();
+    const gridKey = ValueKey('task-picker-grid');
+    expect(find.byKey(gridKey), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-picker-list')), findsNothing);
+    final scroll = find.descendant(
+      of: find.byKey(gridKey),
+      matching: find.byType(Scrollable),
+    ).first;
+    await tester.drag(find.byKey(gridKey), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.state<ScrollableState>(scroll).position.pixels, greaterThan(0));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -975,7 +1086,7 @@ void main() {
     final listRect = tester.getRect(
       find.byKey(const ValueKey('task-property-list')),
     );
-    final actionsRect = tester.getRect(find.widgetWithText(FxButton, '添加任务'));
+    final actionsRect = tester.getRect(find.byKey(const ValueKey('task-submit-mobile')));
     expect(titleRect.left - sheetRect.left, closeTo(20, 1));
     final closeRect = tester.getRect(fxTooltipFinder('取消添加任务'));
     expect(titleRect.top - sheetRect.top, greaterThanOrEqualTo(20));

@@ -408,36 +408,33 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       LayoutBuilder(builder: (context, constraints) {
-        final compact = constraints.maxWidth < 340 ||
-            MediaQuery.textScalerOf(context).scale(1) >= 1.4;
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final compact = constraints.maxWidth < 340 || textScale >= 1.4;
         return Stack(
           fit: StackFit.passthrough,
           children: [
             _titleInput(
               context,
               multiline: true,
+              // 留出底部工具栏空间，窄屏/大字号允许工具自然换行。
               contentPadding: EdgeInsets.fromLTRB(
-                14, 12, 14, compact ? 148 : 110,
+                14, 12, 14, textScale >= 1.4 ? 148 : compact ? 104 : 76,
               ),
             ),
             Positioned(
               left: 12, right: 12, bottom: 10,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
+                  Expanded(
                     child: Wrap(
                       spacing: SlowlightSpacing.xs,
                       runSpacing: 0,
                       children: _mobilePropertyButtons(),
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _submitButton(),
-                  ),
+                  const SizedBox(width: SlowlightSpacing.xs),
+                  _submitButton(),
                 ],
               ),
             ),
@@ -734,10 +731,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
         // 双列必须实际放得下；短屏、键盘及大字体回退到可滚动单列。
         // Full four-quadrant names must remain readable, not ellipsized in
         // the two-column 48dp quick-option grid.
+        // 标签始终优先双列、超出内容区域滚动；不因标签增多退回松散排列。
+        // 大字号或窄屏退回单列，避免文字与勾选挤压。
         final twoColumns = !isCalendar && !isPriority &&
-            constraints.maxWidth >= 300 &&
-            textScale < 1.4 && visible.length <= 8 &&
-            commonHeight + gridRows * 56.0 <= availableHeight;
+            constraints.maxWidth >= 300 && textScale < 1.4 &&
+            (_mobilePage == _MobileTaskPage.tag ||
+                (visible.length <= 8 &&
+                    commonHeight + gridRows * 56.0 <= availableHeight));
         final rows = twoColumns ? gridRows : visible.length;
         final height = math.min(
           availableHeight,
@@ -838,7 +838,9 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
                             ? GridView.builder(
                                         key: const ValueKey('task-picker-grid'),
                                         padding: EdgeInsets.zero,
-                                        physics: const NeverScrollableScrollPhysics(),
+                                        physics: const ClampingScrollPhysics(),
+                                        keyboardDismissBehavior:
+                                            ScrollViewKeyboardDismissBehavior.manual,
                                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                           crossAxisCount: 2,
                                           crossAxisSpacing: SlowlightSpacing.md,
@@ -1049,11 +1051,31 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     ),
   );
 
-  Widget _submitButton() => FxButton(
-    label: _saving ? '保存中…' : _pendingCreatedTask != null ? '重试保存其余设置' : '添加任务',
-    size: widget.desktopDialog ? FxButtonSize.sm : FxButtonSize.md,
-    onPressed: _saving || _creationResultUnknown ? null : _createTask,
-  );
+  Widget _submitButton() {
+    if (!widget.desktopDialog) {
+      // 仅监听标题字段更新启用态，不在每次输入时重建整个 Sheet。
+      return ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _titleController,
+        builder: (context, value, _) => FxIconButton(
+          key: const ValueKey('task-submit-mobile'),
+          icon: LucideIcons.arrowUp,
+          iconSize: SlowlightIconSize.lg,
+          tooltip: _saving ? '保存中…' : _pendingCreatedTask != null
+              ? '重试保存其余设置' : '添加任务',
+          variant: FxIconButtonVariant.primary,
+          onPressed: _saving || _creationResultUnknown ||
+                  value.text.trim().isEmpty
+              ? null
+              : _createTask,
+        ),
+      );
+    }
+    return FxButton(
+      label: _saving ? '保存中…' : _pendingCreatedTask != null ? '重试保存其余设置' : '添加任务',
+      size: FxButtonSize.sm,
+      onPressed: _saving || _creationResultUnknown ? null : _createTask,
+    );
+  }
 
   bool get _hasUnsavedDraft {
     final dueChanged = _dueDate == null
