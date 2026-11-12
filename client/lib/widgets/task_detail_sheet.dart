@@ -923,6 +923,16 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
                 ),
               );
     final menuWidth = _mobilePropertyMenuWidth(field);
+    // Give the framework's keyboard-safe route a predictable menu extent.
+    // Long lists/tags scroll INSIDE this bound; short menus never reserve
+    // an unnecessary 320dp or depend on first-frame content measurement.
+    final estimatedHeight = switch (field) {
+      'list' => widget.lists.length * SlowlightControlSize.minTouchTarget +
+          SlowlightSpacing.md,
+      'priority' || 'due' => 4 * SlowlightControlSize.minTouchTarget +
+          SlowlightSpacing.md,
+      _ => 320.0,
+    };
     return FxMenu<String>(
       enabled: !_saving,
       tooltip: quick ? '$label：$value' : null,
@@ -933,7 +943,10 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       constraints: BoxConstraints(
         minWidth: menuWidth,
         maxWidth: menuWidth,
-        maxHeight: math.min(320.0, MediaQuery.sizeOf(context).height * .45),
+        maxHeight: math.min(
+          320.0,
+          math.min(estimatedHeight, MediaQuery.sizeOf(context).height * .45),
+        ),
       ),
       contentBuilder: (popoverContext, dismiss) => StatefulBuilder(
         builder: (popoverContext, refreshPopover) => SingleChildScrollView(

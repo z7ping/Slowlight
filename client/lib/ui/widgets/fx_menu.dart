@@ -111,8 +111,9 @@ class FxMenu<T> extends StatefulWidget {
   final ShapeBorder? shape;
   final Color? color;
   final EdgeInsetsGeometry? menuPadding;
-  /// Open above the trigger (e.g. quick task properties above the Android IME).
-  /// When space is tight, cap the height so the existing scroll view remains usable.
+  /// Open above the trigger. Rich quick menus use Flutter's native popup
+  /// route with keyboard-safe height and scrolling; ordinary Shad popovers
+  /// keep their previous behavior.
   final bool preferAbove;
   final Object? position;
   final Clip clipBehavior;
@@ -127,6 +128,8 @@ class FxMenu<T> extends StatefulWidget {
 class _FxMenuState<T> extends State<FxMenu<T>> {
   late final ShadPopoverController _controller;
   bool _wasOpen = false;
+  bool _routeMenuOpen = false;
+  final GlobalKey _quickAnchorKey = GlobalKey();
 
   @override
   void initState() {
@@ -156,9 +159,8 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
     if (target is! RenderBox || !target.hasSize || !target.attached) {
       return base;
     }
-    // ShadAnchor places the bottom of the popup just above the trigger.
-    // Constrain the height to the actually visible region above it, including
-    // when FxSheet has removed the IME insets from its child MediaQuery.
+    // Legacy simple-menu path: constrain by the visible space above the
+    // trigger. Rich task menus use _openKeyboardSafeMenu instead.
     final triggerTop = target.localToGlobal(Offset.zero).dy;
     final available = math.max(
       SlowlightControlSize.minTouchTarget,
@@ -169,6 +171,88 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
       minHeight: math.min(base.minHeight, height),
       maxHeight: height,
     );
+  }
+
+  /// The locked shadcn_ui 0.26.5 auto anchor measures against the entire
+  /// overlay, not the unobscured area above Android's IME. Use Flutter's
+  /// built-in popup route for keyboard-preserving task quick menus: its
+  /// positioning delegate clamps horizontal bounds, while the explicit
+  /// above-trigger position and bounded scroll content avoid the IME.
+  Future<void> _openKeyboardSafeMenu() async {
+    if (_routeMenuOpen || !mounted || !widget.enabled) return;
+    final navigator = Navigator.of(context, rootNavigator: widget.useRootNavigator);
+    final overlay = navigator.overlay?.context.findRenderObject();
+    final target = _quickAnchorKey.currentContext?.findRenderObject();
+    if (overlay is! RenderBox || target is! RenderBox ||
+        !target.attached || !target.hasSize) return;
+
+    final targetTopLeft =
+        target.localToGlobal(Offset.zero, ancestor: overlay);
+    final width = math.min(
+      widget.constraints?.maxWidth ?? 220.0,
+      math.max(SlowlightControlSize.minTouchTarget, overlay.size.width - 24),
+    );
+    final topSafe = MediaQuery.paddingOf(context).top + 8;
+    final availableAbove = math.max(
+      SlowlightControlSize.minTouchTarget,
+      targetTopLeft.dy - topSafe - 8,
+    );
+    final height = math.min(
+      widget.constraints?.maxHeight ?? 320.0,
+      availableAbove,
+    );
+    final x = (targetTopLeft.dx + (target.size.width - width) / 2)
+        .clamp(12.0, math.max(12.0, overlay.size.width - width - 12))
+        .toDouble();
+    final y = math.max(topSafe, targetTopLeft.dy - height - 8);
+    final position = RelativeRect.fromLTRB(
+      x, y, overlay.size.width - x - width, overlay.size.height - y - height,
+    );
+
+    _routeMenuOpen = true;
+    widget.onOpened?.call();
+    try {
+      await showMenu<Object?>(
+        context: context,
+        useRootNavigator: widget.useRootNavigator,
+        requestFocus: false,
+        position: position,
+        constraints: BoxConstraints.tightFor(width: width, height: height),
+        menuPadding: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        color: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: .16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SlowlightRadius.lg),
+          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+        items: [
+          PopupMenuItem<Object?>(
+            enabled: false,
+            padding: EdgeInsets.zero,
+            height: 0,
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: Builder(
+                builder: (routeContext) => DefaultTextStyle.merge(
+                  textAlign: TextAlign.start,
+                  child: widget.contentBuilder!(
+                    routeContext,
+                    () => Navigator.of(routeContext).pop(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } finally {
+      _routeMenuOpen = false;
+      if (mounted) widget.onCanceled?.call();
+    }
   }
 
   void _select(FxMenuItem<T> item) {
@@ -185,18 +269,25 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
     final trigger =
         widget.child ?? widget.icon ?? Icon(LucideIcons.ellipsis, size: widget.iconSize ?? 20);
 
+    final keyboardSafe = widget.preferAbove && widget.contentBuilder != null;
     Widget clickable = Padding(
       padding: widget.child == null ? widget.padding : EdgeInsets.zero,
       child: trigger,
     );
     clickable = FxInkWell(
-      onTap: widget.enabled ? _controller.toggle : null,
+      onTap: widget.enabled
+          ? (keyboardSafe ? _openKeyboardSafeMenu : _controller.toggle)
+          : null,
       enableFeedback: widget.enableFeedback ?? true,
       borderRadius: BorderRadius.circular(8),
       child: clickable,
     );
     if (widget.tooltip case final message? when message.isNotEmpty) {
       clickable = FxTooltip(message: message, child: clickable);
+    }
+
+    if (keyboardSafe) {
+      return KeyedSubtree(key: _quickAnchorKey, child: clickable);
     }
 
     return ShadPopover(
