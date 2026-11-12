@@ -61,7 +61,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('添加任务'), findsNWidgets(2));
+    expect(find.text('添加任务'), findsOneWidget);
     expect(find.text('任务详情'), findsNothing);
     expect(tester.widget<FxInput>(
       find.byKey(const ValueKey('task.detail.title')),
@@ -107,31 +107,24 @@ void main() {
       findsNothing,
     );
     final action = find.byKey(const ValueKey('task.detail.primaryAction'));
-    // The prototype keeps Save in a fixed footer, not inside the input
-    // workbench or its scrollable body.
-    expect(find.byKey(const ValueKey('task.detail.fixedFooter')),
-        findsOneWidget);
-    expect(
-      find.ancestor(
-        of: action,
-        matching: find.byKey(const ValueKey('task.detail.fixedFooter')),
-      ),
-      findsOneWidget,
-    );
+    // The primary icon is inside the entry border, right-aligned with props.
+    expect(find.byKey(const ValueKey('task.detail.fixedFooter')), findsNothing);
     expect(
       find.ancestor(
         of: action,
         matching: find.byKey(const ValueKey('task.detail.workspace')),
       ),
-      findsNothing,
+      findsOneWidget,
     );
-    expect(
-      find.ancestor(of: action, matching: find.byType(SingleChildScrollView)),
-      findsNothing,
-    );
-    expect(find.text('添加任务'), findsNWidgets(2));
-    expect(tester.widget<FxButton>(action).onPressed, isNull);
-    expect(tester.widget<FxButton>(action).variant, FxButtonVariant.primary);
+    expect(find.descendant(of: quickbar, matching: action), findsOneWidget);
+    expect(tester.getRect(action).right,
+        lessThanOrEqualTo(tester.getRect(quickbar).right));
+    expect(tester.getSize(action).height, greaterThanOrEqualTo(44));
+    expect(find.text('添加任务'), findsOneWidget);
+    expect(tester.widget<FxIconButton>(action).onPressed, isNull);
+    expect(tester.widget<FxIconButton>(action).variant,
+        FxIconButtonVariant.primary);
+    expect(tester.widget<FxIconButton>(action).icon, LucideIcons.arrowUp);
     await tester.enterText(
       find.descendant(
         of: find.byKey(const ValueKey('task.detail.title')),
@@ -140,7 +133,7 @@ void main() {
       '写下明天的计划',
     );
     await tester.pumpAndSettle();
-    expect(tester.widget<FxButton>(action).onPressed, isNotNull);
+    expect(tester.widget<FxIconButton>(action).onPressed, isNotNull);
 
     final cardCountBeforePopup = find.byType(FxCard).evaluate().length;
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
@@ -159,7 +152,7 @@ void main() {
     expect(find.text('不重要 · 不紧急'), findsOneWidget);
     await tester.tap(find.text('重要 · 紧急'));
     await tester.pumpAndSettle();
-    expect(find.text('添加任务'), findsNWidgets(2));
+    expect(find.text('添加任务'), findsOneWidget);
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -344,7 +337,7 @@ void main() {
     });
   }
 
-  testWidgets('Android 任务编辑固定提交区与表单同表面且没有额外隔断',
+  testWidgets('Android 新建任务操作贴在输入框右下角，无独立底栏',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -353,11 +346,8 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 340);
     addTearDown(tester.view.reset);
     final draft = Task(
-      id: 0,
-      listId: lists.first.id,
-      title: '',
-      priority: 'none',
-      isCompleted: false,
+      id: 0, listId: lists.first.id, title: '',
+      priority: 'none', isCompleted: false,
       createdAt: DateTime(2026, 11, 12),
     );
     await tester.pumpWidget(buildFxTestHost(
@@ -366,20 +356,17 @@ void main() {
       )),
     ));
     await tester.pumpAndSettle();
-    final footer = find.byKey(const ValueKey('task.detail.fixedFooter'));
     final action = find.byKey(const ValueKey('task.detail.primaryAction'));
-    final footerBox = tester.widget<Container>(footer);
-    final color = footerBox.color;
-    expect(color, isNotNull);
-    expect(footerBox.decoration, isNull,
-        reason: 'No second tinted background or divider around the action');
+    final quickbar = find.byKey(const ValueKey('task.detail.quickbar'));
+    final workspace = find.byKey(const ValueKey('task.detail.workspace'));
+    expect(find.byKey(const ValueKey('task.detail.fixedFooter')), findsNothing);
+    expect(find.descendant(of: workspace, matching: action), findsOneWidget);
+    expect(find.descendant(of: quickbar, matching: action), findsOneWidget);
     expect(tester.getRect(action).right,
-        lessThanOrEqualTo(tester.getRect(footer).right));
-    expect(tester.getRect(action).height, greaterThanOrEqualTo(44));
-    // IME is already protected by FxSheet; do not add system navigation inset.
-    final footerSafeArea = find.ancestor(of: footer,
-        matching: find.byType(SafeArea)).first;
-    expect(tester.widget<SafeArea>(footerSafeArea).bottom, isFalse);
+        lessThanOrEqualTo(tester.getRect(workspace).right));
+    expect(tester.getRect(action).bottom,
+        lessThanOrEqualTo(tester.getRect(workspace).bottom));
+    expect(tester.getSize(action).height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -413,16 +400,16 @@ void main() {
       matching: find.byType(EditableText),
     );
     final save = find.byKey(const ValueKey('task.detail.primaryAction'));
-    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    expect(tester.widget<FxIconButton>(save).onPressed, isNull);
     await tester.enterText(title, '   ');
     await tester.pumpAndSettle();
-    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    expect(tester.widget<FxIconButton>(save).onPressed, isNull);
     await tester.enterText(title, '  一项任务');
     await tester.pumpAndSettle();
-    expect(tester.widget<FxButton>(save).onPressed, isNotNull);
+    expect(tester.widget<FxIconButton>(save).onPressed, isNotNull);
     await tester.enterText(title, '    ');
     await tester.pumpAndSettle();
-    expect(tester.widget<FxButton>(save).onPressed, isNull);
+    expect(tester.widget<FxIconButton>(save).onPressed, isNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -463,7 +450,7 @@ void main() {
         final quickbar = find.byKey(
           const ValueKey('task.detail.quickbar'),
         );
-        expect(tester.widget<Row>(quickbar).children.length, 7);
+        expect(tester.widget<Row>(quickbar).children.length, 9);
         final triggerRects = [
           for (final field in ['list', 'due', 'priority', 'tags'])
             tester.getRect(find.byKey(ValueKey('task.detail.property.$field'))),
@@ -807,12 +794,12 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding();
     await tester.pumpAndSettle();
     expect(find.byType(TaskDetailSheet), findsOneWidget);
-    expect(tester.widget<FxButton>(save).onPressed, isNotNull);
+    expect(tester.widget<FxIconButton>(save).onPressed, isNotNull);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 长任务表单滚动时保存操作留在固定位置',
+  testWidgets('Android 长任务表单滚动后可重新找到输入框内保存入口',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -834,15 +821,17 @@ void main() {
     await tester.pumpAndSettle();
 
     final save = find.byKey(const ValueKey('task.detail.primaryAction'));
-    final before = tester.getTopLeft(save).dy;
     await tester.drag(find.byType(SingleChildScrollView).first,
         const Offset(0, -220));
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(save).dy, closeTo(before, 1.0));
+    await tester.ensureVisible(save);
+    await tester.pumpAndSettle();
     expect(
-      find.ancestor(of: save, matching: find.byType(SingleChildScrollView)),
-      findsNothing,
+      find.ancestor(of: save,
+          matching: find.byKey(const ValueKey('task.detail.workspace'))),
+      findsOneWidget,
     );
+    expect(tester.getSize(save).height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -881,7 +870,7 @@ void main() {
     expect(draft.dueDate, DateTime(2026, 11, 21));
     expect(draft.priority, 'urgent_important');
     expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
-    expect(find.text('添加任务'), findsNWidgets(2));
+    expect(find.text('添加任务'), findsOneWidget);
     expect(find.text('重要 · 紧急'), findsOneWidget);
     expect(find.text('2026-11-21'), findsOneWidget);
     final title = find.descendant(
@@ -1001,7 +990,9 @@ void main() {
     expect(find.text('时间安排'), findsNothing);
     expect(find.byType(TagPicker), findsNothing);
     expect(find.text('历史分类（兼容）'), findsNothing);
-    expect(find.text('保存修改'), findsOneWidget);
+    expect(tester.widget<FxIconButton>(
+      find.byKey(const ValueKey('task.detail.primaryAction')),
+    ).tooltip, '保存修改');
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('task.detail.property.priority')));
@@ -1015,8 +1006,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('任务详情'), findsOneWidget);
     expect(find.text('有未保存的修改'), findsOneWidget);
-    final save = tester.widget<FxButton>(
-        find.byKey(const ValueKey('task.detail.primaryAction')));
+    final save = tester.widget<FxIconButton>(find.byKey(const ValueKey('task.detail.primaryAction')));
     expect(save.onPressed, isNotNull);
 
     await tester.ensureVisible(find.byKey(const ValueKey('task.detail.property.tags')));
