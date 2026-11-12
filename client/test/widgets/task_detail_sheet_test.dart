@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:slowlight/models/tag.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
@@ -296,15 +297,17 @@ void main() {
       final menu = find.ancestor(of: trigger,
           matching: find.byType(FxMenu<String>)).first;
       expect(tester.widget<FxMenu<String>>(menu).preferAbove, isTrue);
-      final shadPopover = find.descendant(of: menu,
-          matching: find.byType(ShadPopover));
-      expect(tester.widget<ShadPopover>(shadPopover).anchor, isA<ShadAnchorAuto>());
+      // The keyboard-safe task path uses the native menu route; old
+      // ShadAnchorAuto aligned against the full screen, ignoring the IME.
+      expect(find.descendant(
+        of: menu, matching: find.byType(ShadPopover)), findsNothing);
 
       await tester.tap(trigger);
       await tester.pumpAndSettle();
       final firstOption = find.byKey(
           const ValueKey('task.detail.option.不重要 · 不紧急'));
       expect(firstOption, findsOneWidget);
+      expect(find.byType(PopupMenuItem<Object?>), findsOneWidget);
       final triggerTop = tester.getTopLeft(trigger).dy;
       final optionRect = tester.getRect(firstOption);
       expect(optionRect.bottom, lessThanOrEqualTo(triggerTop),
@@ -370,6 +373,71 @@ void main() {
       expect(tagRect.right, lessThanOrEqualTo(width));
       expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
       expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+  }
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('Android ${width.toInt()}dp 多标签浮窗完整避让键盘且完成可操作',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = Size(width, 850);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 340);
+      addTearDown(tester.view.reset);
+      final now = DateTime(2026, 11, 12);
+      final draft = Task(
+        id: 0, listId: lists.first.id, title: '',
+        priority: 'none', isCompleted: false,
+        tags: [
+          for (var i = 0; i < 18; i++)
+            Tag(id: i + 1, name: '标签${i + 1}',
+                color: '#0075de', createdAt: now),
+        ],
+        createdAt: now,
+      );
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(body: TaskDetailSheet(
+          task: draft, isCreating: true,
+          lists: lists, onChanged: () {},
+        )),
+      ));
+      await tester.pumpAndSettle();
+      final title = find.descendant(
+        of: find.byKey(const ValueKey('task.detail.title')),
+        matching: find.byType(EditableText),
+      );
+      await tester.showKeyboard(title);
+      await tester.enterText(title, '保留输入法');
+      await tester.pumpAndSettle();
+      final trigger = find.byKey(const ValueKey('task.detail.property.tags'));
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+
+      final nativePopup = find.byType(PopupMenuItem<Object?>);
+      expect(nativePopup, findsOneWidget);
+      expect(find.byType(TagPicker), findsOneWidget);
+      final popupRect = tester.getRect(nativePopup);
+      final triggerTop = tester.getTopLeft(trigger).dy;
+      expect(popupRect.top, greaterThanOrEqualTo(0));
+      expect(popupRect.bottom, lessThanOrEqualTo(triggerTop));
+      expect(popupRect.bottom, lessThanOrEqualTo(510),
+          reason: '340dp keyboard obscures everything below y=510');
+      expect(popupRect.left, greaterThanOrEqualTo(0));
+      expect(popupRect.right, lessThanOrEqualTo(width));
+
+      final done = find.text('完成');
+      await tester.ensureVisible(done);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(done).bottom, lessThanOrEqualTo(510));
+      await tester.tap(done);
+      await tester.pumpAndSettle();
+      expect(find.byType(PopupMenuItem<Object?>), findsNothing);
+      expect(tester.widget<EditableText>(title).focusNode.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.widget<EditableText>(title).controller.text, '保留输入法');
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
