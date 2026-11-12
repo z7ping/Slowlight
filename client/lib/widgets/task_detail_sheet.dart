@@ -160,6 +160,9 @@ class TaskDetailSheet extends StatefulWidget {
     return FxSheet.show<void>(
       context: context,
       isScrollControlled: true,
+      // OS IME already animates its insets. Don't animate the whole sheet a
+      // second time while the autofocus keyboard and sheet are entering.
+      animateKeyboardInsets: false,
       showDragHandle: true,
       showCloseButton: false,
       draggable: false,
