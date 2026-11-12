@@ -19,6 +19,8 @@ class FxIconButton extends StatefulWidget {
   final double iconSize;
   final Color? foregroundColor;
   final FxIconButtonVariant variant;
+  /// Smaller painted primary surface within the normal 44dp Android hit target.
+  final bool compactPrimaryVisual;
 
   const FxIconButton({
     super.key,
@@ -28,6 +30,7 @@ class FxIconButton extends StatefulWidget {
     this.iconSize = SlowlightIconSize.md,
     this.foregroundColor,
     this.variant = FxIconButtonVariant.ghost,
+    this.compactPrimaryVisual = false,
   });
 
   @override
@@ -81,6 +84,26 @@ class _FxIconButtonState extends State<FxIconButton> {
     );
     final iconWidget = Icon(widget.icon, size: widget.iconSize, color: widget.foregroundColor);
     final Widget button = switch (widget.variant) {
+      FxIconButtonVariant.primary when widget.compactPrimaryVisual &&
+          SlowlightPlatformDensity.usesMobileTouchTargets => ShadIconButton.ghost(
+          decoration: decoration,
+          // Gesture, keyboard focus and accessibility retain the full 44dp.
+          width: contentSize,
+          height: contentSize,
+          padding: EdgeInsets.zero,
+          onPressed: _effectiveAction,
+          iconSize: widget.iconSize,
+          icon: Container(
+            width: SlowlightControlSize.button,
+            height: SlowlightControlSize.button,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.primary,
+              borderRadius: BorderRadius.circular(SlowlightRadius.md),
+            ),
+            child: Icon(widget.icon, size: widget.iconSize, color: colors.onPrimary),
+          ),
+        ),
       FxIconButtonVariant.primary => ShadIconButton(
           decoration: decoration,
           width: contentSize,
