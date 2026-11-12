@@ -30,6 +30,9 @@ abstract final class FxSheet {
     Future<void> Function()? onDismissRequested,
     bool showCloseButton = true,
     bool isScrollControlled = true,
+    /// Follow the platform IME insets without an additional tween.
+    /// Useful for an autofocus editor while its bottom sheet is entering.
+    bool animateKeyboardInsets = true,
     bool scrollable = false,
     bool useSafeArea = false,
     BoxConstraints? constraints,
@@ -87,7 +90,7 @@ abstract final class FxSheet {
         int? activePointer;
         double startY = 0;
         VelocityTracker? tracker;
-        final reduceMotion = MediaQuery.of(sheetContext).disableAnimations;
+        final reduceMotion = MediaQuery.disableAnimationsOf(sheetContext);
         final viewInsets = MediaQuery.viewInsetsOf(sheetContext);
         final insetPadding = switch (side) {
           ShadSheetSide.bottom => EdgeInsets.only(bottom: viewInsets.bottom),
@@ -237,21 +240,26 @@ abstract final class FxSheet {
           );
         }
 
-        // 键盘开合时保持相同的组件树，避免重新挂载输入框、丢失焦点。
+        // Keep the sheet/input tree mounted as the Android IME changes.
+        // For autofocus editors the platform already animates viewInsets on
+        // each frame. An extra 200ms tween causes a second layout animation
+        // to lag behind the keyboard and competes with sheet entry.
+        final keyboardAwareSheet = MediaQuery.removeViewInsets(
+          context: sheetContext,
+          removeBottom: side == ShadSheetSide.bottom,
+          removeTop: side == ShadSheetSide.top,
+          removeLeft: side == ShadSheetSide.left,
+          removeRight: side == ShadSheetSide.right,
+          child: sheet,
+        );
+        if (!animateKeyboardInsets || reduceMotion) {
+          return Padding(padding: insetPadding, child: keyboardAwareSheet);
+        }
         return AnimatedPadding(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.linearToEaseOut,
           padding: insetPadding,
-          child: MediaQuery.removeViewInsets(
-            context: sheetContext,
-            removeBottom: side == ShadSheetSide.bottom,
-            removeTop: side == ShadSheetSide.top,
-            removeLeft: side == ShadSheetSide.left,
-            removeRight: side == ShadSheetSide.right,
-            child: sheet,
-          ),
+          child: keyboardAwareSheet,
         );
       },
     );
