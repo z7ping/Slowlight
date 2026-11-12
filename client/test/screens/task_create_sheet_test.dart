@@ -624,7 +624,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 320dp 窄屏图标及按钮自动错行且仍在输入框内', (tester) async {
+  testWidgets('Android 320dp 窄屏操作与发送按钮保持同排对齐', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(320, 640);
