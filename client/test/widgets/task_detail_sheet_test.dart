@@ -789,7 +789,8 @@ void main() {
     await tester.pumpAndSettle();
     final save = find.byKey(const ValueKey('task.detail.primaryAction'));
     expect(save, findsOneWidget);
-    expect(tester.getRect(save).bottom, lessThanOrEqualTo(850));
+    expect(tester.getRect(save).bottom, lessThanOrEqualTo(570),
+        reason: 'Inline submit must remain above the 280dp simulated IME');
     expect(find.text('输入法展开期间的任务'), findsOneWidget);
     tester.view.viewInsets = const FakeViewPadding();
     await tester.pumpAndSettle();
