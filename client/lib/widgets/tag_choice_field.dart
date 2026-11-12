@@ -17,6 +17,8 @@ class TagChoiceField extends StatelessWidget {
   final VoidCallback? onCreateTag;
   final String label;
   final bool showEmptyOption;
+  /// Use the same Fx list option style in a two-column anchored picker.
+  final bool compactGrid;
 
   const TagChoiceField({
     super.key,
@@ -29,6 +31,7 @@ class TagChoiceField extends StatelessWidget {
     this.onCreateTag,
     this.label = '标签（可选）',
     this.showEmptyOption = true,
+    this.compactGrid = false,
   });
 
   @override
@@ -37,7 +40,91 @@ class TagChoiceField extends StatelessWidget {
     final selectedIds = selectedTagIds ?? <int>{};
     return FxFormField(
       label: label,
-      child: Wrap(
+      child: compactGrid ? LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 240 &&
+                  MediaQuery.textScalerOf(context).scale(1) < 1.4
+              ? 2
+              : 1;
+          final cellWidth = (constraints.maxWidth -
+              (columns - 1) * SlowlightSpacing.xs) / columns;
+          final colors = Theme.of(context).colorScheme;
+          Widget option(
+            String text, {
+            required bool selected,
+            required Color color,
+            required VoidCallback? onTap,
+            bool create = false,
+          }) => SizedBox(
+            width: cellWidth,
+            child: FxListTile(
+              density: FxListTileDensity.compact,
+              minTileHeight: SlowlightControlSize.minTouchTarget,
+              padding: const EdgeInsets.symmetric(
+                horizontal: SlowlightSpacing.md,
+                vertical: SlowlightSpacing.xs,
+              ),
+              title: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: SlowlightTypography.componentSecondary(context),
+              ),
+              leading: create
+                  ? const Icon(LucideIcons.plus, size: SlowlightIconSize.sm)
+                  : null,
+              trailing: selected
+                  ? Icon(LucideIcons.check,
+                      size: SlowlightIconSize.sm, color: color)
+                  : null,
+              selected: selected,
+              selectedTileColor: color.withValues(alpha: .10),
+              enabled: enabled,
+              onTap: enabled ? onTap : null,
+            ),
+          );
+          return Wrap(
+            spacing: SlowlightSpacing.xs,
+            runSpacing: SlowlightSpacing.xs,
+            children: [
+              if (showEmptyOption)
+                option(
+                  '无标签',
+                  selected: multiple ? selectedIds.isEmpty : selectedTagId == null,
+                  color: colors.onSurfaceVariant,
+                  onTap: () => multiple
+                      ? onMultipleChanged!(<int>{})
+                      : onChanged?.call(null),
+                ),
+              for (final tag in tags)
+                option(
+                  '#${tag.name}',
+                  selected: multiple
+                      ? selectedIds.contains(tag.id)
+                      : selectedTagId == tag.id,
+                  color: ColorUtils.safeParse(tag.color),
+                  onTap: () {
+                    if (!multiple) {
+                      onChanged?.call(tag.id);
+                      return;
+                    }
+                    final updated = {...selectedIds};
+                    if (!updated.add(tag.id)) updated.remove(tag.id);
+                    onMultipleChanged!(updated);
+                  },
+                ),
+              if (onCreateTag != null)
+                option(
+                  '新建',
+                  selected: false,
+                  color: colors.onSurfaceVariant,
+                  onTap: onCreateTag,
+                  create: true,
+                ),
+            ],
+          );
+        },
+      ) : Wrap(
         spacing: SlowlightSpacing.md,
         runSpacing: SlowlightSpacing.md,
         children: [
