@@ -29,6 +29,19 @@ class _CanonicalTagSource implements ApiDataSource {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _ManyTagSource extends _CanonicalTagSource {
+  @override
+  Future<List<Tag>> getTags() async => [
+    for (var i = 0; i < 18; i++)
+      Tag(
+        id: 200 + i,
+        name: '标签$i',
+        color: '#1890ff',
+        createdAt: DateTime(2026),
+      ),
+  ];
+}
+
 class _FailingTagSource extends _CanonicalTagSource {
   @override
   Future<List<Tag>> getTags() async => throw StateError('tag source unavailable');
@@ -717,6 +730,36 @@ void main() {
     ).label, '2 个标签');
     expect(tester.widget<EditableText>(find.byType(EditableText).first)
         .controller.text, '网格标签测试');
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 标签超过八项仍使用双列滚动，不撑大弹层', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(393, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskCreateSheet(
+        quickMode: true,
+        tagRepository: TagRepository(dataSource: _ManyTagSource()),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task-property-tag')));
+    await tester.pumpAndSettle();
+    const gridKey = ValueKey('task-picker-grid');
+    expect(find.byKey(gridKey), findsOneWidget);
+    expect(find.byKey(const ValueKey('task-picker-list')), findsNothing);
+    final scroll = find.descendant(
+      of: find.byKey(gridKey),
+      matching: find.byType(Scrollable),
+    ).first;
+    await tester.drag(find.byKey(gridKey), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.state<ScrollableState>(scroll).position.pixels, greaterThan(0));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
