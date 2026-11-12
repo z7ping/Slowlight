@@ -408,8 +408,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       LayoutBuilder(builder: (context, constraints) {
-        final compact = constraints.maxWidth < 340 ||
-            MediaQuery.textScalerOf(context).scale(1) >= 1.4;
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final compact = constraints.maxWidth < 340 || textScale >= 1.4;
         return Stack(
           fit: StackFit.passthrough,
           children: [
@@ -418,7 +418,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
               multiline: true,
               // 留出底部工具栏空间，窄屏/大字号允许工具自然换行。
               contentPadding: EdgeInsets.fromLTRB(
-                14, 12, 14, compact ? 104 : 76,
+                14, 12, 14, textScale >= 1.4 ? 148 : compact ? 104 : 76,
               ),
             ),
             Positioned(
@@ -1060,7 +1060,8 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           key: const ValueKey('task-submit-mobile'),
           icon: LucideIcons.arrowUp,
           iconSize: SlowlightIconSize.lg,
-          tooltip: _pendingCreatedTask != null ? '重试保存其余设置' : '添加任务',
+          tooltip: _saving ? '保存中…' : _pendingCreatedTask != null
+              ? '重试保存其余设置' : '添加任务',
           variant: FxIconButtonVariant.primary,
           onPressed: _saving || _creationResultUnknown ||
                   value.text.trim().isEmpty
