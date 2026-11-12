@@ -111,8 +111,9 @@ class FxMenu<T> extends StatefulWidget {
   final ShapeBorder? shape;
   final Color? color;
   final EdgeInsetsGeometry? menuPadding;
-  /// Open above the trigger (e.g. quick task properties above the Android IME).
-  /// When space is tight, cap the height so the existing scroll view remains usable.
+  /// Open above the trigger. Rich quick menus use Flutter's native popup
+  /// route with keyboard-safe height and scrolling; ordinary Shad popovers
+  /// keep their previous behavior.
   final bool preferAbove;
   final Object? position;
   final Clip clipBehavior;
@@ -158,9 +159,8 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
     if (target is! RenderBox || !target.hasSize || !target.attached) {
       return base;
     }
-    // ShadAnchor places the bottom of the popup just above the trigger.
-    // Constrain the height to the actually visible region above it, including
-    // when FxSheet has removed the IME insets from its child MediaQuery.
+    // Legacy simple-menu path: constrain by the visible space above the
+    // trigger. Rich task menus use _openKeyboardSafeMenu instead.
     final triggerTop = target.localToGlobal(Offset.zero).dy;
     final available = math.max(
       SlowlightControlSize.minTouchTarget,
