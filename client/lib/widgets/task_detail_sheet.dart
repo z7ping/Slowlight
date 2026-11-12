@@ -1309,6 +1309,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
             TagPicker(
               label: '标签',
               inlineCreation: true,
+              compactGrid: true,
               enabled: !_saving,
               selectedTags: _selectedTags,
               onChanged: (tags) => _mobileSelect(() {
@@ -1378,6 +1379,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       icon: widget.isCreating ? LucideIcons.arrowUp : LucideIcons.check,
       iconSize: SlowlightIconSize.sm,
       variant: FxIconButtonVariant.primary,
+      compactPrimaryVisual: true,
       tooltip: _writeResultUnknown
           ? '结果待核对'
           : widget.isCreating
