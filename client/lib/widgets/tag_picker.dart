@@ -17,6 +17,7 @@ class TagPicker extends StatefulWidget {
   final bool showEmptyOption;
   /// In task popovers, create new tags in place instead of opening a dialog.
   final bool inlineCreation;
+  final bool compactGrid;
 
   const TagPicker({
     super.key,
@@ -27,6 +28,7 @@ class TagPicker extends StatefulWidget {
     this.allowCreation = true,
     this.showEmptyOption = true,
     this.inlineCreation = false,
+    this.compactGrid = false,
   });
 
   @override
@@ -238,6 +240,7 @@ class _TagPickerState extends State<TagPicker> {
                 color: tag.color,
               )).toList(growable: false),
           selectedTagIds: widget.selectedTags.map((tag) => tag.id).toSet(),
+          compactGrid: widget.compactGrid,
           onMultipleChanged: (ids) {
             final byId = {
               for (final tag in [...widget.selectedTags, ..._allTags])
