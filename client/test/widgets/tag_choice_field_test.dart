@@ -156,6 +156,89 @@ void main() {
   });
 
 
+  testWidgets('Android 紧凑标签固定双列、支持多选清空和新建', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Set<int> selected = {};
+    var creates = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 268,
+            child: StatefulBuilder(
+              builder: (context, setState) => TagChoiceField(
+                tags: tags,
+                compactGrid: true,
+                selectedTagIds: selected,
+                onMultipleChanged: (ids) => setState(() => selected = ids),
+                onCreateTag: () => creates++,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(find.byType(FxListTile), findsNWidgets(4));
+    expect(find.byType(FxChoiceChip), findsNothing);
+    final empty = tester.getTopLeft(find.text('无标签'));
+    final first = tester.getTopLeft(find.text('#学习'));
+    expect(empty.dy, closeTo(first.dy, 1));
+    expect(empty.dx, lessThan(first.dx));
+    await tester.tap(find.text('#学习'));
+    await tester.pump();
+    await tester.tap(find.text('#阅读'));
+    await tester.pump();
+    expect(selected, {1, 2});
+    await tester.tap(find.text('无标签'));
+    await tester.pump();
+    expect(selected, isEmpty);
+    await tester.tap(find.text('新建'));
+    await tester.pump();
+    expect(creates, 1);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('Android 200% 字体时紧凑标签退回单列', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(buildFxTestHost(
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(320, 640),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 268,
+              child: TagChoiceField(
+                tags: tags,
+                compactGrid: true,
+                selectedTagIds: const <int>{},
+                onMultipleChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    final empty = tester.getTopLeft(find.text('无标签'));
+    final first = tester.getTopLeft(find.text('#学习'));
+    expect(first.dy, greaterThan(empty.dy));
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('多选禁用状态不会改变既有关联', (tester) async {
     var updates = 0;
     await tester.pumpWidget(buildFxTestHost(

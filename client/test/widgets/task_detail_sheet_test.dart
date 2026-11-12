@@ -159,6 +159,44 @@ void main() {
   });
 
 
+  testWidgets('今天实际任务入口采用两列标签与紧凑发送按钮', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(360, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final draft = Task(
+      id: 0, listId: lists.first.id, title: '',
+      priority: 'none', isCompleted: false,
+      createdAt: DateTime(2026, 11, 12),
+    );
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TaskDetailSheet(
+        task: draft, isCreating: true, lists: lists, onChanged: () {},
+      )),
+    ));
+    await tester.pumpAndSettle();
+
+    final action = find.byKey(const ValueKey('task.detail.primaryAction'));
+    final painted = find.byKey(const ValueKey('fx.iconButton.compactPrimarySurface'));
+    expect(tester.widget<FxIconButton>(action).compactPrimaryVisual, isTrue);
+    expect(tester.getSize(action).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(painted), const Size(36, 36));
+    final tag = find.byKey(const ValueKey('task.detail.property.tags'));
+    expect(tester.getRect(action).center.dy,
+        closeTo(tester.getRect(tag).center.dy, 1));
+
+    await tester.tap(tag);
+    await tester.pumpAndSettle();
+    final tagPicker = find.byType(TagPicker).last;
+    expect(tester.widget<TagPicker>(tagPicker).compactGrid, isTrue);
+    expect(find.byType(FxChoiceChip), findsNothing);
+    expect(find.byType(FxListTile), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('Android 新建任务快捷属性操作保留标题焦点和键盘', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
