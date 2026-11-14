@@ -616,6 +616,7 @@ class CloudApiService implements ApiDataSource {
     String? period,
     String? clientKey,
     String? occurrenceKey,
+    String? confirmedOffScheduleDate,
   }) {
     Future<Map<String, dynamic>> cached() => _cache.checkInHabit(
           habitId,
@@ -625,8 +626,9 @@ class CloudApiService implements ApiDataSource {
           countValue: countValue,
           occurredAt: occurredAt,
           period: period,
-        clientKey: clientKey,
+          clientKey: clientKey,
           occurrenceKey: occurrenceKey,
+          confirmedOffScheduleDate: confirmedOffScheduleDate,
         );
     if (habitId < 0) return cached();
     return _writeThrough(
@@ -640,6 +642,7 @@ class CloudApiService implements ApiDataSource {
         period: period,
         clientKey: clientKey,
         occurrenceKey: occurrenceKey,
+        confirmedOffScheduleDate: confirmedOffScheduleDate,
       ),
       cached,
     );

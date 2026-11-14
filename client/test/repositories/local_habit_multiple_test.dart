@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:slowlight/db/local_db.dart';
+import 'package:slowlight/models/habit_checkin_error.dart';
+import 'package:slowlight/models/habit_schedule_rule.dart';
 import 'package:slowlight/repositories/local_habit_repository.dart';
 import '../helpers/isolated_test_db.dart';
 
@@ -149,6 +151,30 @@ void main() {
         throwsFormatException);
     await expectLater(repo.getLogs(id, month: ''),
         throwsFormatException);
+  });
+
+  test('本地计划外打卡需确认日期并按日去重', () async {
+    final repo = LocalHabitRepository();
+    final now = DateTime.now();
+    final today = HabitScheduleRule.dayKey(now);
+    final rule = HabitScheduleRule(
+      anchorDate: HabitScheduleRule.dayKey(DateTime(now.year, now.month, now.day - 1)),
+      every: 3,
+    );
+    final habit = await repo.create(
+      name: '计划外也可记录',
+      frequency: 'custom',
+      scheduleRule: rule.toJson(),
+    );
+    final id = habit['id'] as int;
+    expect((await repo.getAll()).single['off_schedule_date'], today);
+    await expectLater(repo.checkIn(id), throwsA(isA<HabitOffScheduleConfirmation>()));
+    expect((await repo.getLogs(id))['logs'], isEmpty);
+    final saved = await repo.checkIn(id, confirmedOffScheduleDate: today);
+    expect((saved['log'] as Map)['occurrence_key'], 'off-schedule:$today');
+    expect((await repo.checkIn(id, confirmedOffScheduleDate: today))['already_checked'], isTrue);
+    expect((await repo.getLogs(id))['logs'], hasLength(1));
+    expect((await repo.getAll()).single['off_schedule_date'], isNull);
   });
 
   test('P05 V3 达标后仍能继续记录，重试幂等且完整历史不截断', () async {

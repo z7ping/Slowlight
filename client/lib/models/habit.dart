@@ -33,6 +33,7 @@ class Habit {
   final Map<String, dynamic> reminderAt;
   final bool checkedToday;
   final bool? canCheckIn;
+  final String? offScheduleDate;
   final int periodCount;
   final int periodTarget;
   final List<String> checkedDays;
@@ -70,6 +71,7 @@ class Habit {
     this.reminderAt = const {},
     this.checkedToday = false,
     this.canCheckIn,
+    this.offScheduleDate,
     this.periodCount = 0,
     this.periodTarget = 0,
     this.checkedDays = const [],
@@ -77,6 +79,12 @@ class Habit {
     this.searchNote = '',
     this.searchNoteAt,
   });
+
+  bool get allowsMultipleRecordsToday {
+    if (scheduleRule.isEmpty) return allowMultiplePerDay;
+    final rule = HabitScheduleRule.fromJson(scheduleRule, legacyFrequency: frequency);
+    return rule.kind == 'goal' && rule.sameDayMultiple;
+  }
 
   factory Habit.fromJson(Map<String, dynamic> json) {
     return Habit(
@@ -108,6 +116,7 @@ class Habit {
       durationMin: json['duration_min'] ?? 0,
       specificTime: json['specific_time'] ?? '',
       reminderAt: _parseReminderAt(json['reminder_at']),
+      offScheduleDate: json['off_schedule_date'] as String?,
       canCheckIn: json['can_check_in'] is bool ? json['can_check_in'] as bool : null,
       periodCount: json['period_count'] as int? ?? 0,
       periodTarget: json['period_target'] as int? ?? 0,

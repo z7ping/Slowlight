@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit.dart';
+import '../models/habit_checkin_error.dart';
 import '../models/habit_timezone_policy.dart';
 import '../ui/fx.dart';
 import '../utils/habit_record_key.dart';
@@ -16,10 +17,44 @@ Future<bool> recordHabit(
   DateTime? recordDate,
 }) async {
   final clientKey = createHabitRecordKey();
-  Future<void> save(Map<String, dynamic> value) => submit({
+  String? confirmedDate;
+
+  Future<bool> confirm(String date, String message) async {
+    final accepted = await FxDialog.confirm(
+      context: context,
+      title: '计划外打卡',
+      content: message,
+      confirmText: '仍然打卡',
+    );
+    if (accepted != true || !context.mounted) return false;
+    confirmedDate = date;
+    return true;
+  }
+
+  Future<void> send(Map<String, dynamic> value) => submit({
         ...value,
         'client_key': clientKey,
+        if (confirmedDate != null) 'confirmed_off_schedule_date': confirmedDate,
       });
+
+  Future<void> save(Map<String, dynamic> value) async {
+    try {
+      await send(value);
+    } on HabitOffScheduleConfirmation catch (error) {
+      if (!context.mounted || confirmedDate == error.date) rethrow;
+      if (!await confirm(error.date, error.message)) {
+        throw const HabitCheckinCancelled();
+      }
+      await send(value);
+    }
+  }
+
+  if (habit.offScheduleDate case final date? when recordDate == null) {
+    if (!await confirm(date, '$date 没有安排打卡，仍然记录这次完成？')) {
+      return false;
+    }
+  }
+  if (!context.mounted) return false;
   final needsForm = detailed ||
       recordDate != null ||
       habit.showCheckinDialog ||
@@ -30,6 +65,8 @@ Future<bool> recordHabit(
     try {
       await save(value);
       return true;
+    } on HabitCheckinCancelled {
+      return false;
     } on HabitKnownWriteBlock catch (error) {
       if (context.mounted) {
         FxNotice.showContent(context, Text(error.message),
@@ -41,6 +78,7 @@ Future<bool> recordHabit(
       return await HabitCheckinDialog.show(
             context,
             habit: habit,
+            confirmedOffScheduleDay: DateTime.tryParse(confirmedDate ?? ''),
             onSubmit: save,
             pendingValue: value,
             initialError: '保存结果未确认。可重试保存；关闭后请先核对明细，避免重复记录。',
@@ -49,6 +87,9 @@ Future<bool> recordHabit(
     }
   }
   return await HabitCheckinDialog.show(context,
-          habit: habit, recordDate: recordDate, onSubmit: save) !=
+          habit: habit,
+          recordDate: recordDate,
+          confirmedOffScheduleDay: DateTime.tryParse(confirmedDate ?? ''),
+          onSubmit: save) !=
       null;
 }

@@ -521,8 +521,10 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
 
   Future<void> _runHabitAction(Habit habit, {required bool detailed}) async {
     if (!_pendingHabitActions.add(habit.id)) return;
+    setState(() {});
     try {
-      if (habit.checkedToday && !habit.allowMultiplePerDay) {
+      if (habit.checkedToday && !habit.allowsMultipleRecordsToday &&
+          habit.canCheckIn != true) {
         if (detailed) {
           _message('今天已记录；请在习惯详情中查看');
           return;
@@ -538,14 +540,21 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       } else {
         final saved = await recordHabit(context,
             habit: habit, detailed: detailed, submit: (value) async {
+          final clientKey = value['client_key'] as String;
+          final confirmedDate = value['confirmed_off_schedule_date'] as String?;
           await HabitRepository().checkIn(
             habit.id,
+            date: confirmedDate,
+            confirmedOffScheduleDate: confirmedDate,
+            occurrenceKey: habit.scheduleRule.isNotEmpty && habit.allowsMultipleRecordsToday
+                ? 'event:$clientKey'
+                : null,
             durationMin: value['duration_min'] as int?,
             countValue: value['count_value'] as int?,
             occurredAt: value['occurred_at'] as String?,
             period: value['period'] as String?,
             note: value['note'] as String? ?? '',
-            clientKey: value['client_key'] as String?,
+            clientKey: clientKey,
           );
         });
         if (!saved) return;
@@ -556,6 +565,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       _message('操作结果未确认，请重新加载核对：$error');
     } finally {
       _pendingHabitActions.remove(habit.id);
+      if (mounted) setState(() {});
     }
   }
 
@@ -1066,6 +1076,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     onTaskTap: _openTask,
     onTaskToggle: _toggleTask,
     onTaskSwipeComplete: _toggleTask,
+    pendingHabitIds: _pendingHabitActions,
     onHabitToggle: _toggleHabit,
     onHabitLongPress: _openDetailedHabitCheckin,
     onViewAllTasks: () => _openTool(HomeToolSection.tasks),

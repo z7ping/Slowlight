@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/habit.dart';
+import '../models/habit_checkin_error.dart';
 import '../models/habit_timezone_policy.dart';
 import '../ui/fx.dart';
 
@@ -10,6 +11,7 @@ import '../ui/fx.dart';
 class HabitCheckinDialog extends StatefulWidget {
   final Habit habit;
   final DateTime? recordDate;
+  final DateTime? confirmedOffScheduleDay;
   final Future<void> Function(Map<String, dynamic>)? onSubmit;
   final Map<String, dynamic>? pendingValue;
   final String? initialError;
@@ -18,6 +20,7 @@ class HabitCheckinDialog extends StatefulWidget {
       {super.key,
       required this.habit,
       this.recordDate,
+      this.confirmedOffScheduleDay,
       this.onSubmit,
       this.pendingValue,
       this.initialError});
@@ -26,6 +29,7 @@ class HabitCheckinDialog extends StatefulWidget {
     BuildContext context, {
     required Habit habit,
     DateTime? recordDate,
+    DateTime? confirmedOffScheduleDay,
     Future<void> Function(Map<String, dynamic>)? onSubmit,
     Map<String, dynamic>? pendingValue,
     String? initialError,
@@ -54,6 +58,7 @@ class HabitCheckinDialog extends StatefulWidget {
             key: editorKey,
             habit: habit,
             recordDate: recordDate,
+            confirmedOffScheduleDay: confirmedOffScheduleDay,
             onSubmit: onSubmit,
             pendingValue: pendingValue,
             initialError: initialError),
@@ -72,6 +77,7 @@ class HabitCheckinDialog extends StatefulWidget {
           child: HabitCheckinDialog(
               habit: habit,
               recordDate: recordDate,
+              confirmedOffScheduleDay: confirmedOffScheduleDay,
               onSubmit: onSubmit,
               pendingValue: pendingValue,
               initialError: initialError),
@@ -91,6 +97,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
   final _note = TextEditingController();
   final _count = TextEditingController(text: '1');
   String? _error;
+  String? _saveError;
   bool _submitting = false;
   bool _allowPop = false;
   bool _closePending = false;
@@ -251,7 +258,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                   ),
                 ],
               ),
-              if (widget.recordDate case final day?) ...[
+              if ((widget.recordDate ?? widget.confirmedOffScheduleDay) case final day?) ...[
                 const SizedBox(height: SlowlightSpacing.xs),
                 Text('记录日期：${day.year}年${day.month}月${day.day}日',
                     style: SlowlightTypography.secondary(context)),
@@ -366,6 +373,10 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                                     : '记录这一天的感受……',
                               ),
                           ]))),
+              if (_saveError case final message?) ...[
+                const SizedBox(height: 8),
+                Text(message, style: TextStyle(color: theme.colorScheme.error)),
+              ],
               if (_error != null &&
                   (widget.habit.recordType != 'count' ||
                       _pendingValue != null)) ...[
@@ -543,7 +554,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     String? occurredAt;
     if (widget.habit.recordTimeLabel.isNotEmpty) {
       final now = DateTime.now();
-      final day = widget.recordDate ?? now;
+      final day = widget.recordDate ?? widget.confirmedOffScheduleDay ?? now;
       final chosen = DateTime(
         day.year,
         day.month,
@@ -575,18 +586,25 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
     setState(() {
       _submitting = true;
       _error = null;
+      _saveError = null;
     });
     try {
       await widget.onSubmit!(value);
       if (!mounted) return;
       setState(() => _submitting = false);
       _complete(value);
+    } on HabitCheckinCancelled {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _pendingValue = null;
+      });
     } on HabitKnownWriteBlock catch (error) {
       if (!mounted) return;
       setState(() {
         _submitting = false;
-        _pendingValue = null; // no write was attempted
-        _error = error.message;
+        _pendingValue = null; // the write did not go through
+        _saveError = error.message;
       });
     } catch (_) {
       if (!mounted) return;

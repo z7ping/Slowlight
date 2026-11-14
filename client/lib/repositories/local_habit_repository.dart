@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import '../db/local_db.dart';
 import '../models/habit_log.dart';
 import '../models/habit_occurrence.dart';
+import '../models/habit_checkin_error.dart';
 import '../models/habit_schedule_rule.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
@@ -181,12 +182,17 @@ class LocalHabitRepository {
             // A reached period goal still accepts further real events.
             mutable['can_check_in'] = occurrence.sameDayMultiple ||
               todayRows.isEmpty;
+          } else if (occurrence.singleRecordDay) {
+            mutable['can_check_in'] = todayRows.isEmpty;
           } else {
             final prior = await db.query('habit_logs',
               where:'habit_id = ? AND occurrence_key = ?',
               whereArgs:[hid, occurrence.key],limit:1);
             mutable['can_check_in'] = prior.isEmpty;
           }
+        } on HabitOffScheduleConfirmation catch (error) {
+          mutable['can_check_in'] = false;
+          if (todayRows.isEmpty) mutable['off_schedule_date'] = error.date;
         } catch (_) { mutable['can_check_in'] = false; }
       }
       enriched.add(mutable);
@@ -381,6 +387,7 @@ class LocalHabitRepository {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    String? confirmedOffScheduleDate,
     int? countValue,
     String? occurredAt,
     String? clientKey,
@@ -404,7 +411,8 @@ class LocalHabitRepository {
       }
     }
     final event = rule == null ? null : HabitOccurrence.calculate(
-        rule, now, date: day, requestKey: occurrenceKey);
+        rule, now, date: day, requestKey: occurrenceKey,
+        confirmedOffScheduleDate: confirmedOffScheduleDate);
     final effectiveKey = clientKey ?? createHabitRecordKey();
     if (occurredAt != null && occurredAt.isNotEmpty) {
       final parsed = DateTime.tryParse(occurredAt);
@@ -416,22 +424,15 @@ class LocalHabitRepository {
       final replay = await tx.query('habit_logs',
           where: 'client_key = ?', whereArgs: [effectiveKey], limit: 1);
       if (replay.isNotEmpty) return {'log': replay.first, 'already_checked': true};
+      final byDay = event == null || event.singleRecordDay;
       final existing = await tx.query('habit_logs',
-        where: rule == null ? 'habit_id = ? AND date = ?' :
+        where: byDay ? 'habit_id = ? AND date = ?' :
             'habit_id = ? AND occurrence_key = ?',
-        whereArgs: [habitId, rule == null ? day : event!.key],
+        whereArgs: [habitId, byDay ? day : event!.key],
         limit: 1);
       if (existing.isNotEmpty) {
         return {'message': '该时段已记录', 'already_checked': true,
           'log': existing.first, 'streak_count': habit['streak_count'] ?? 0};
-      }
-      if (event != null && event.periodStart != null) {
-        if (!event.sameDayMultiple) {
-          final sameDay = await tx.query('habit_logs',
-            where: 'habit_id = ? AND date = ?',whereArgs:[habitId,day],limit:1);
-          if (sameDay.isNotEmpty) return {'message':'该日已记录',
-            'already_checked':true,'log':sameDay.first};
-        }
       }
       final at = date == null ? now :
           DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
@@ -475,6 +476,7 @@ class LocalHabitRepository {
     String? period,
     String? clientKey,
     String? occurrenceKey,
+    String? confirmedOffScheduleDate,
   }) async {
     HabitLog.validateDate(date);
     final scheduledHabit = await getById(habitId);
@@ -482,7 +484,8 @@ class LocalHabitRepository {
         legacyFrequency: scheduledHabit['frequency']?.toString() ?? 'daily') != null) {
       return _checkInScheduled(habitId, note: note, date: date, durationMin: durationMin,
         period: period, occurrenceKey: occurrenceKey, countValue: countValue,
-        occurredAt: occurredAt, clientKey: clientKey);
+        occurredAt: occurredAt, clientKey: clientKey,
+        confirmedOffScheduleDate: confirmedOffScheduleDate);
     }
     final db = await _db.database;
     final localNow = DateTime.now();
