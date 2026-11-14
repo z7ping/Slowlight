@@ -12,11 +12,10 @@ import 'package:slowlight/screens/list_manage_screen.dart';
 import 'package:slowlight/screens/about_screen.dart';
 import 'package:slowlight/screens/search_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/ui/fx.dart' show FxInkWell, FxGestureDetector, FxNotice;
+import 'package:slowlight/ui/fx.dart' show FxGestureDetector, FxNotice;
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
-import 'package:slowlight/screens/task_create_sheet.dart';
 import 'package:slowlight/widgets/dashboard/dashboard_body.dart';
 
 import '../support/fx_test_host.dart';
@@ -28,6 +27,9 @@ void main() {
     SharedPreferences.setMockInitialValues({'data_mode': 'local'});
     FlutterSecureStorage.setMockInitialValues({});
     await DataModeManager().setLocal();
+    if ((await DataService().getLists()).isEmpty) {
+      await DataService().createList(name: '收集箱', isInbox: true);
+    }
   });
   Future<void> pumpAt(
     WidgetTester tester, {
@@ -493,7 +495,98 @@ void main() {
       // 新坐标上的真实点击必须仍打开原有任务创建 Sheet。
       await tester.tap(fab);
       await tester.pump();
-      expect(find.byType(TaskCreateSheet), findsOneWidget);
+      expect(find.byType(TaskDetailSheet), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('Android 今天页真实入口保留输入并只创建一条任务', (tester) async {
+      final data = DataService();
+      final stamp = DateTime.now().microsecondsSinceEpoch;
+      final title = '今天入口回归 $stamp';
+      final tagName = '入口标签${stamp % 1000000}';
+      final inbox = (await tester.runAsync(data.getLists))!.first;
+      await tester.runAsync(() => data.createTag(name: tagName, color: '#0075de'));
+      await pumpAt(tester, size: const Size(360, 850), textScale: 1.3);
+      final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
+      await tester.tap(fab);
+      await tester.tap(fab, warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(find.byType(TaskDetailSheet), findsOneWidget);
+      final input = find.descendant(
+        of: find.byKey(const ValueKey('task.detail.title')),
+        matching: find.byType(EditableText),
+      );
+      await tester.showKeyboard(input);
+      await tester.enterText(input, title);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 340);
+      await tester.pump(const Duration(milliseconds: 350));
+
+      final submit = find.byKey(const ValueKey('task.detail.primaryAction'));
+      final tags = find.byKey(const ValueKey('task.detail.property.tags'));
+      expect(tester.getSize(submit).height, greaterThanOrEqualTo(44));
+      expect(tester.getCenter(submit).dy, closeTo(tester.getCenter(tags).dy, 1));
+
+      for (final property in ['list', 'due', 'priority', 'tags']) {
+        final trigger = find.byKey(ValueKey('task.detail.property.$property'));
+        await tester.tap(trigger);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        final popup = find.byType(PopupMenuItem<Object?>);
+        expect(popup, findsOneWidget);
+        expect(tester.getRect(popup).bottom, lessThanOrEqualTo(510));
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        expect(tester.widget<EditableText>(input).controller.text, title);
+        if (property == 'tags') {
+          expect(find.text('#$tagName'), findsOneWidget);
+          await tester.tap(find.text('#$tagName'));
+          await tester.pump();
+          await tester.tap(find.descendant(of: popup, matching: find.text('完成')));
+        } else {
+          final option = switch (property) {
+            'list' => find.byKey(ValueKey(
+                'task.detail.option.${inbox.icon} ${inbox.name}')),
+            'due' => find.byKey(const ValueKey('task.detail.option.明天')),
+            _ => find.byKey(const ValueKey('task.detail.option.重要 · 紧急')),
+          };
+          await tester.tap(option);
+        }
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(popup, findsNothing);
+        expect(tester.testTextInput.isVisible, isTrue);
+      }
+
+      await tester.binding.handlePopRoute();
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.byType(TaskDetailSheet), findsOneWidget);
+      expect(find.text('放弃新建任务？'), findsNothing);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('放弃新建任务？'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(tester.widget<EditableText>(input).controller.text, title);
+
+      await tester.tap(submit);
+      await tester.tap(submit, warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+      final tasks = await tester.runAsync(data.getAllTasks);
+      await tester.pumpAndSettle();
+      final saved = tasks!.where((task) => task.title == title).single;
+      final today = DateUtils.dateOnly(DateTime.now());
+      expect(saved.dueDate, today.add(const Duration(days: 1)));
+      expect(saved.priority, 'urgent_important');
+      expect(saved.listId, inbox.id);
+      expect(saved.tags.map((tag) => tag.name), contains(tagName));
+      expect(find.byType(TaskDetailSheet), findsNothing);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });
@@ -530,7 +623,7 @@ void main() {
       expect(rect.top, greaterThanOrEqualTo(48));
       await tester.tap(fab);
       await tester.pump();
-      expect(find.byType(TaskCreateSheet), findsOneWidget);
+      expect(find.byType(TaskDetailSheet), findsOneWidget);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

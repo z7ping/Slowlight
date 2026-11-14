@@ -5,6 +5,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../layout_tokens.dart';
 import 'fx_tooltip.dart';
+import 'fx_spinner.dart';
 
 enum FxIconButtonVariant { primary, ghost, outline }
 
@@ -21,6 +22,7 @@ class FxIconButton extends StatefulWidget {
   final FxIconButtonVariant variant;
   /// Smaller painted primary surface within the normal 44dp Android hit target.
   final bool compactPrimaryVisual;
+  final bool busy;
 
   const FxIconButton({
     super.key,
@@ -31,6 +33,7 @@ class FxIconButton extends StatefulWidget {
     this.foregroundColor,
     this.variant = FxIconButtonVariant.ghost,
     this.compactPrimaryVisual = false,
+    this.busy = false,
   });
 
   @override
@@ -42,7 +45,7 @@ class _FxIconButtonState extends State<FxIconButton> {
 
   Future<void> _invoke() async {
     final action = widget.onPressed;
-    if (_running || action == null) return;
+    if (_running || widget.busy || action == null) return;
     setState(() => _running = true);
     try {
       await action();
@@ -52,7 +55,7 @@ class _FxIconButtonState extends State<FxIconButton> {
   }
 
   VoidCallback? get _effectiveAction =>
-      widget.onPressed == null || _running ? null : _invoke;
+      widget.onPressed == null || _running || widget.busy ? null : _invoke;
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +85,10 @@ class _FxIconButtonState extends State<FxIconButton> {
         radius: BorderRadius.circular(SlowlightRadius.md),
       ),
     );
-    final iconWidget = Icon(widget.icon, size: widget.iconSize, color: widget.foregroundColor);
+    final iconWidget = widget.busy
+        ? FxSpinner(size: widget.iconSize, color: widget.foregroundColor,
+            semanticsLabel: null)
+        : Icon(widget.icon, size: widget.iconSize, color: widget.foregroundColor);
     final Widget button = switch (widget.variant) {
       FxIconButtonVariant.primary when widget.compactPrimaryVisual &&
           SlowlightPlatformDensity.usesMobileTouchTargets => ShadIconButton.ghost(
@@ -102,7 +108,10 @@ class _FxIconButtonState extends State<FxIconButton> {
               color: colors.primary,
               borderRadius: BorderRadius.circular(SlowlightRadius.md),
             ),
-            child: Icon(widget.icon, size: widget.iconSize, color: colors.onPrimary),
+            child: widget.busy
+                ? FxSpinner(size: widget.iconSize, color: colors.onPrimary,
+                    semanticsLabel: null)
+                : Icon(widget.icon, size: widget.iconSize, color: colors.onPrimary),
           ),
         ),
       FxIconButtonVariant.primary => ShadIconButton(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/tag.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
+import 'package:slowlight/repositories/tag_repository.dart';
 import 'package:slowlight/ui/fx.dart';
 import 'package:slowlight/ui/theme_manager.dart';
 import 'package:slowlight/theme/app_theme.dart';
@@ -13,6 +16,15 @@ import 'package:slowlight/widgets/tag_picker.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 
 import '../support/fx_test_host.dart';
+
+class _TaskTags extends TagRepository {
+  _TaskTags(this.load);
+
+  final Future<List<Tag>> Function() load;
+
+  @override
+  Future<List<Tag>> getTags() => load();
+}
 
 void main() {
   final task = Task(
@@ -175,6 +187,9 @@ void main() {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: TaskDetailSheet(
         task: draft, isCreating: true, lists: lists, onChanged: () {},
+        taskTagsRepository: _TaskTags(() async => [
+          Tag(id: 1, name: '测试标签', color: '#0075de', createdAt: DateTime(2026)),
+        ]),
       )),
     ));
     await tester.pumpAndSettle();
@@ -195,6 +210,30 @@ void main() {
     expect(find.byType(FxChoiceChip), findsNothing);
     expect(find.byType(FxListTile), findsWidgets);
     expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('标签读取失败可就地重试且不丢选择', (tester) async {
+    final tag = Tag(id: 1, name: '保留标签', color: '#0075de', createdAt: DateTime(2026));
+    final first = Completer<List<Tag>>();
+    var loads = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(body: TagPicker(
+        selectedTags: [tag],
+        onChanged: (_) => fail('读取和重试不得变更已选择标签'),
+        repository: _TaskTags(() => ++loads == 1 ? first.future : Future.value([tag])),
+      )),
+    ));
+    expect(find.byType(FxCircularProgress), findsOneWidget);
+    first.completeError(StateError('标签读取失败'));
+    await tester.pumpAndSettle();
+    expect(find.text('标签读取失败'), findsOneWidget);
+    expect(find.text('#保留标签'), findsNothing);
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(loads, 2);
+    expect(find.text('#保留标签'), findsOneWidget);
+    expect(find.text('标签读取失败'), findsNothing);
     await disposeFxTestHost(tester);
   });
 
@@ -219,6 +258,7 @@ void main() {
         isCreating: true,
         lists: lists,
         onChanged: () {},
+        taskTagsRepository: _TaskTags(() async => []),
       )),
     ));
     await tester.pumpAndSettle();
@@ -344,6 +384,7 @@ void main() {
         home: Scaffold(body: TaskDetailSheet(
           task: draft, isCreating: true,
           lists: lists, onChanged: () {},
+        taskTagsRepository: _TaskTags(() async => []),
         )),
       ));
       await tester.pumpAndSettle();
@@ -402,6 +443,7 @@ void main() {
         home: Scaffold(body: TaskDetailSheet(
           task: draft, isCreating: true,
           lists: lists, onChanged: () {},
+          taskTagsRepository: _TaskTags(() async => draft.tags),
         )),
       ));
       await tester.pumpAndSettle();
@@ -429,8 +471,13 @@ void main() {
       expect(popupRect.right, lessThanOrEqualTo(width));
 
       final done = find.text('完成');
-      await tester.ensureVisible(done);
+      final initialDone = tester.getRect(done);
+      final tagList = find.descendant(
+        of: nativePopup, matching: find.byType(SingleChildScrollView),
+      ).last;
+      await tester.drag(tagList, const Offset(0, -220));
       await tester.pumpAndSettle();
+      expect(tester.getRect(done), initialDone);
       expect(tester.getRect(done).bottom, lessThanOrEqualTo(510));
       await tester.tap(done);
       await tester.pumpAndSettle();
@@ -817,14 +864,16 @@ void main() {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: Builder(builder: (context) => FxButton(
         label: '带预填打开',
-        onPressed: () => TaskDetailSheet.showCreate(
-          context,
-          lists: options,
-          selectedListId: 2,
-          initialTitle: '来自外部入口的标题',
-          defaultDueToday: false,
-          onChanged: () {},
-        ),
+        onPressed: () {
+          unawaited(TaskDetailSheet.showCreate(
+            context,
+            lists: options,
+            selectedListId: 2,
+            initialTitle: '来自外部入口的标题',
+            defaultDueToday: false,
+            onChanged: () {},
+          ));
+        },
       ))),
     ));
     await tester.tap(find.text('带预填打开'));
@@ -838,7 +887,7 @@ void main() {
     await tester.tap(fxTooltipFinder('关闭'));
     await tester.pumpAndSettle();
     expect(find.text('放弃新建任务？'), findsOneWidget);
-    await tester.tap(find.text('取消').last);
+    await tester.tap(find.text('继续编辑'));
     await tester.pumpAndSettle();
     expect(find.text('来自外部入口的标题'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -878,9 +927,11 @@ void main() {
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: Builder(builder: (context) => FxButton(
         label: '打开带键盘任务',
-        onPressed: () => TaskDetailSheet.showCreate(
-          context, lists: lists, onChanged: () {},
-        ),
+        onPressed: () {
+          unawaited(TaskDetailSheet.showCreate(
+            context, lists: lists, onChanged: () {},
+          ));
+        },
       ))),
     ));
     await tester.tap(find.text('打开带键盘任务'));
@@ -956,14 +1007,16 @@ void main() {
         body: Builder(
           builder: (context) => FxButton(
             label: '打开创建',
-            onPressed: () => TaskDetailSheet.showCreate(
-              context,
-              lists: lists,
-              onChanged: () {},
-              initialDueDate: DateTime(2026, 11, 21),
-              initialPriority: 'urgent_important',
-              defaultDueToday: false,
-            ),
+            onPressed: () {
+              unawaited(TaskDetailSheet.showCreate(
+                context,
+                lists: lists,
+                onChanged: () {},
+                initialDueDate: DateTime(2026, 11, 21),
+                initialPriority: 'urgent_important',
+                defaultDueToday: false,
+              ));
+            },
           ),
         ),
       ),
@@ -978,7 +1031,7 @@ void main() {
     expect(draft.priority, 'urgent_important');
     expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
     expect(find.text('添加任务'), findsOneWidget);
-    expect(find.text('重要 · 紧急'), findsOneWidget);
+    expect(fxTooltipFinder('优先级：重要 · 紧急'), findsOneWidget);
     expect(find.text('2026-11-21'), findsOneWidget);
     final title = find.descendant(
       of: find.byKey(const ValueKey('task.detail.title')),
@@ -1022,7 +1075,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(
-      tester.widget<FxButton>(
+      tester.widget<FxIconButton>(
         find.byKey(const ValueKey('task.detail.primaryAction')),
       ).onPressed,
       isNull,
@@ -1056,7 +1109,7 @@ void main() {
     expect(find.byKey(const ValueKey('task.detail.status')), findsNothing);
     expect(find.text('有未保存的修改'), findsNothing);
     expect(
-      tester.widget<FxButton>(
+      tester.widget<FxIconButton>(
         find.byKey(const ValueKey('task.detail.primaryAction')),
       ).onPressed,
       isNull,
@@ -1079,6 +1132,7 @@ void main() {
           task: task,
           lists: lists,
           onChanged: () {},
+        taskTagsRepository: _TaskTags(() async => []),
         ),
       ),
     ));
@@ -1335,15 +1389,19 @@ void main() {
         body: Builder(
           builder: (context) => FxButton(
             label: '打开独立任务详情',
-            onPressed: () => TaskDetailSheet.show(
-              context, task: task, lists: lists, onChanged: () {},
-            ),
+            onPressed: () {
+              unawaited(TaskDetailSheet.show(
+                context, task: task, lists: lists, onChanged: () {},
+                taskTagsRepository: _TaskTags(() async => []),
+              ));
+            },
           ),
         ),
       ),
     ));
     await tester.tap(find.text('打开独立任务详情'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.enterText(find.byType(EditableText).first, '修改后的标题');
     await tester.pump();
 
@@ -1418,6 +1476,7 @@ void main() {
         width: 440, height: 850,
         child: TaskDetailSheet(
           task: scheduled, lists: lists, sidePanel: true, onChanged: () {},
+          taskTagsRepository: _TaskTags(() async => []),
         ),
       )),
     ));
