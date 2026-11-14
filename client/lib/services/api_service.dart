@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'http_util.dart';
 import '../models/subtask.dart';
+import '../models/habit_checkin_error.dart';
 import '../models/todo_list.dart';
 import '../models/task.dart';
 import '../models/tag.dart';
@@ -669,13 +670,15 @@ class ApiService {
       int? durationMin,
       String? period,
       String? occurrenceKey,
+      String? confirmedOffScheduleDate,
       int? countValue,
       String? occurredAt,
       String? clientKey}) async {
     final effectiveKey = clientKey ?? createHabitRecordKey();
     if (DataModeManager().isOffline)
       return _localApi.checkInHabit(habitId,
-          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: effectiveKey, occurrenceKey: occurrenceKey);
+          note: note, date: date, durationMin: durationMin, countValue: countValue, occurredAt: occurredAt, period: period, clientKey: effectiveKey, occurrenceKey: occurrenceKey,
+          confirmedOffScheduleDate: confirmedOffScheduleDate);
     final headers = await _authHeaders();
     final body = <String, dynamic>{
       'note': note,
@@ -687,6 +690,9 @@ class ApiService {
     };
     if (date != null) body['date'] = date; // YYYY-MM-DD
     if (occurrenceKey != null) body['occurrence_key'] = occurrenceKey;
+    if (confirmedOffScheduleDate != null) {
+      body['confirmed_off_schedule_date'] = confirmedOffScheduleDate;
+    }
     if (countValue != null) body['count_value'] = countValue;
     if (occurredAt != null) body['occurred_at'] = occurredAt;
     final response = await HttpUtil.post(
@@ -697,10 +703,23 @@ class ApiService {
     if (response.statusCode == 200) {
       return json.decode(response.body);
     }
-    // Keep server validation failures such as period completion actionable.
-    final error = json.decode(response.body);
-    throw StateError(error is Map && error['error'] != null
-        ? error['error'].toString() : '打卡失败(${response.statusCode})');
+    if (response.statusCode == 400 || response.statusCode == 404) {
+      Object? error;
+      try {
+        error = json.decode(utf8.decode(response.bodyBytes));
+      } on FormatException {
+        // Proxies may return a non-JSON rejection.
+      }
+      final message = error is Map && error['error'] is String
+          ? error['error'] as String
+          : '打卡请求未通过（HTTP ${response.statusCode}）';
+      if (error is Map && error['code'] == HabitOffScheduleConfirmation.code &&
+          error['date'] is String && DateTime.tryParse(error['date'] as String) != null) {
+        throw HabitOffScheduleConfirmation(error['date'] as String, message);
+      }
+      throw HabitCheckinRejected(message);
+    }
+    throw StateError('打卡失败（HTTP ${response.statusCode}）');
   }
 
   static Future<void> deleteHabitLog(int habitId, int logId) async {

@@ -23,6 +23,7 @@ class DashboardBody extends StatefulWidget {
   final ValueChanged<Task>? onTaskTap;
   final ValueChanged<Task>? onTaskToggle;
   final Future<void> Function(Task)? onTaskSwipeComplete;
+  final Set<int> pendingHabitIds;
   final ValueChanged<Habit>? onHabitToggle;
   final ValueChanged<Habit>? onHabitLongPress;
   final VoidCallback? onViewAllTasks;
@@ -51,6 +52,7 @@ class DashboardBody extends StatefulWidget {
     this.onTaskTap,
     this.onTaskToggle,
     this.onTaskSwipeComplete,
+    this.pendingHabitIds = const {},
     this.onHabitToggle,
     this.onHabitLongPress,
     this.onViewAllTasks,
@@ -1222,6 +1224,9 @@ class _DashboardBodyState extends State<DashboardBody> {
   Widget _habitRow(Habit habit, bool mobile, {bool last = false}) {
     final theme = Theme.of(context);
     final color = _parseColor(habit.color);
+    final pending = widget.pendingHabitIds.contains(habit.id);
+    final canAppend = habit.allowsMultipleRecordsToday ||
+        (habit.checkedToday && habit.canCheckIn == true);
     if (mobile) {
       return Container(
         key: ValueKey('today.habit.${habit.id}'),
@@ -1252,7 +1257,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             Expanded(
               child: FxInkWell(
                 onTap: widget.onViewAllHabits,
-                onLongPress: widget.onHabitLongPress == null
+                onLongPress: pending || widget.onHabitLongPress == null
                     ? null
                     : () => widget.onHabitLongPress?.call(habit),
                 child: ConstrainedBox(
@@ -1289,7 +1294,7 @@ class _DashboardBodyState extends State<DashboardBody> {
             Stack(
               alignment: Alignment.center,
               children: [
-                if (habit.checkedToday && !habit.allowMultiplePerDay)
+                if (habit.checkedToday && !canAppend && !pending)
                   IgnorePointer(
                     child: Container(
                       width: 30,
@@ -1302,27 +1307,33 @@ class _DashboardBodyState extends State<DashboardBody> {
                   ),
                 FxIconButton(
                   key: ValueKey('today.habit.record.${habit.id}'),
-                  icon: habit.allowMultiplePerDay
+                  icon: canAppend
                       ? LucideIcons.circlePlus
                       : habit.checkedToday
                           ? LucideIcons.circleCheck
                           : LucideIcons.circle,
                   iconSize: SlowlightIconSize.xl,
-                  foregroundColor: habit.checkedToday && !habit.allowMultiplePerDay
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
-                  tooltip: habit.allowMultiplePerDay
+                  foregroundColor: pending
+                      ? Colors.transparent
+                      : habit.checkedToday && !canAppend
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                  tooltip: pending
+                      ? '处理中'
+                      : canAppend
                       ? '为「${habit.name}」新增一次记录'
                       : habit.checkedToday
                           ? '已记录「${habit.name}」，点击可取消今天的打卡'
                           : '记录「${habit.name}」今天的打卡',
-                  onPressed: widget.onHabitToggle == null
+                  onPressed: pending || widget.onHabitToggle == null
                       ? null
                       : () {
                           HapticFeedback.lightImpact();
                           widget.onHabitToggle?.call(habit);
                         },
                 ),
+                if (pending)
+                  const IgnorePointer(child: FxSpinner(size: 14, semanticsLabel: '处理中')),
               ],
             ),
           ],
@@ -1331,7 +1342,7 @@ class _DashboardBodyState extends State<DashboardBody> {
     }
     return FxInkWell(
       borderRadius: BorderRadius.circular(SlowlightRadius.md),
-      onTap: widget.onHabitToggle == null
+      onTap: pending || widget.onHabitToggle == null
           ? null
           : () {
               if (mobile) HapticFeedback.lightImpact();
@@ -1395,13 +1406,15 @@ class _DashboardBodyState extends State<DashboardBody> {
                   width: 1.5,
                 ),
               ),
-              child: Icon(
-                LucideIcons.check,
-                size: 13,
-                color: habit.checkedToday
-                    ? Colors.white
-                    : theme.colorScheme.outline,
-              ),
+              child: pending
+                  ? const Center(child: FxSpinner(size: 14, semanticsLabel: '处理中'))
+                  : Icon(
+                      LucideIcons.check,
+                      size: 13,
+                      color: habit.checkedToday
+                          ? Colors.white
+                          : theme.colorScheme.outline,
+                    ),
             ),
             const SizedBox(width: 9),
           ],

@@ -402,28 +402,20 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     Future<void> Function() action,
   ) async {
     if (!_pendingHabitActions.add(habit.id)) return;
+    setState(() {});
     try {
       await action();
     } finally {
       _pendingHabitActions.remove(habit.id);
+      if (mounted) setState(() {});
     }
-  }
-
-  // The V3 schedule is authoritative for goal habits: the legacy flat
-  // allow_multiple_per_day field may differ after an older edit or sync.
-  bool _allowsMultipleToday(Habit habit) {
-    if (habit.scheduleRule.isEmpty) return habit.allowMultiplePerDay;
-    final rule = HabitScheduleRule.fromJson(
-      habit.scheduleRule, legacyFrequency: habit.frequency,
-    );
-    return rule.kind == 'goal' ? rule.sameDayMultiple : habit.allowMultiplePerDay;
   }
 
   Future<void> _toggleToday(Habit habit) =>
       _runHabitAction(habit, () => _toggleTodayInternal(habit));
 
   Future<void> _toggleTodayInternal(Habit habit) async {
-    if (habit.checkedToday && !_allowsMultipleToday(habit) && habit.canCheckIn != true) {
+    if (habit.checkedToday && !habit.allowsMultipleRecordsToday && habit.canCheckIn != true) {
       final confirmed = await FxDialog.confirm(
         context: context,
         title: '取消打卡',
@@ -442,22 +434,14 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       }
       return;
     }
-    if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
-      _message('当前没有可记录的计划时点，或今天已有记录');
-      return;
-    }
     await _record(habit);
   }
 
   Future<void> _openDetailedCheckin(Habit habit) =>
       _runHabitAction(habit, () async {
         HapticFeedback.mediumImpact();
-        if (habit.checkedToday && !_allowsMultipleToday(habit) && habit.canCheckIn != true) {
+        if (habit.checkedToday && !habit.allowsMultipleRecordsToday && habit.canCheckIn != true) {
           _message('今天已记录；请在历史明细中查看');
-          return;
-        }
-        if (habit.scheduleRule.isNotEmpty && habit.canCheckIn == false) {
-          _message('当前没有可记录的计划时点');
           return;
         }
         await _record(habit, detailed: true);
@@ -473,11 +457,11 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       recordDate: date,
       submit: (value) async {
         attempted = true;
+        final confirmedDate = value['confirmed_off_schedule_date'] as String?;
         await _controller.checkIn(
           habit,
-          date: date == null
-              ? null
-              : '${date.year}-${_two(date.month)}-${_two(date.day)}',
+          date: date == null ? confirmedDate : HabitScheduleRule.dayKey(date),
+          confirmedOffScheduleDate: confirmedDate,
           durationMin: value['duration_min'] as int?,
           countValue: value['count_value'] as int?,
           occurredAt: value['occurred_at'] as String?,
@@ -811,7 +795,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                 final largeText =
                     MediaQuery.textScalerOf(context).scale(1) >= 1.3;
                 final narrow = constraints.maxWidth < 270 || (largeText && MediaQuery.textScalerOf(context).scale(1) >= 1.8);
-                final actionWidth = (mobile && !_allowsMultipleToday(habit)
+                final actionWidth = (mobile && !habit.allowsMultipleRecordsToday
                         ? SlowlightControlSize.minTouchTarget
                         : (mobile ? _mobileTodayActionWidth : _todayActionWidth)) *
                     MediaQuery.textScalerOf(context).scale(1);
@@ -1095,7 +1079,8 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
   }
 
   Widget _todayButton(Habit habit, {bool expanded = false}) {
-    final canAppend = _allowsMultipleToday(habit);
+    final canAppend = habit.allowsMultipleRecordsToday;
+    final pending = _pendingHabitActions.contains(habit.id);
     if (SlowlightPlatformDensity.usesMobileTouchTargets &&
         !canAppend && !(habit.checkedToday && habit.canCheckIn == true)) {
       return Semantics(
@@ -1106,15 +1091,14 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
           height: SlowlightControlSize.minTouchTarget,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _pendingHabitActions.contains(habit.id)
-                ? null
-                : () => _toggleToday(habit),
+            onTap: pending ? null : () => _toggleToday(habit),
             child: Center(
-              child: FxCheckbox(
-                value: habit.checkedToday,
-                enabled: !_pendingHabitActions.contains(habit.id),
-                onChanged: (_) => _toggleToday(habit),
-              ),
+              child: pending
+                  ? const FxSpinner(size: 14, semanticsLabel: '处理中')
+                  : FxCheckbox(
+                      value: habit.checkedToday,
+                      onChanged: (_) => _toggleToday(habit),
+                    ),
             ),
           ),
         ),
@@ -1134,7 +1118,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     )!;
     return FxButton(
       key: ValueKey('habits.today.${habit.id}'),
-      label: canAppend || (habit.checkedToday && habit.canCheckIn == true)
+      label: pending
+          ? '处理中'
+          : canAppend || (habit.checkedToday && habit.canCheckIn == true)
           ? '新增记录'
           : habit.checkedToday
               ? '已记录'
@@ -1148,9 +1134,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
           : completed
               ? theme.colorScheme.onSurfaceVariant
               : actionColor,
-      onPressed: _pendingHabitActions.contains(habit.id)
-          ? null
-          : () => _toggleToday(habit),
+      onPressed: pending ? null : () => _toggleToday(habit),
     );
   }
 

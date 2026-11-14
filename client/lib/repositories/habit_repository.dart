@@ -168,6 +168,7 @@ class HabitRepository {
     String? period,
     String? clientKey,
     String? occurrenceKey,
+    String? confirmedOffScheduleDate,
   }) =>
       _dataSource.checkInHabit(
         habitId,
@@ -179,6 +180,7 @@ class HabitRepository {
         period: period,
         clientKey: clientKey ?? createHabitRecordKey(),
         occurrenceKey: occurrenceKey,
+        confirmedOffScheduleDate: confirmedOffScheduleDate,
       );
 
   Future<void> deleteLog(int habitId, int logId) =>

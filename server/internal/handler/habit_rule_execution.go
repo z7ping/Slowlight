@@ -64,7 +64,23 @@ func habitContains(values []int,n int)bool{
   for _,v:=range values{if v==n{return true}}
   return false
 }
-func habitRuleOccurrence(rule *habitRuleExecution, now time.Time, checkDate string, requestKey string)(habitOccurrence,error){
+const habitOffScheduleCode = "habit_off_schedule"
+const habitOffScheduleKeyPrefix = "off-schedule:"
+
+type habitOffScheduleError struct {
+	date string
+}
+
+func (err habitOffScheduleError) Error() string {
+	return err.date + " 没有安排打卡，确认后可以记录。"
+}
+
+func (occurrence habitOccurrence) singleRecordDay() bool {
+	return strings.HasPrefix(occurrence.Key, "day:") ||
+		strings.HasPrefix(occurrence.Key, habitOffScheduleKeyPrefix)
+}
+
+func habitRuleOccurrence(rule *habitRuleExecution, now time.Time, checkDate string, requestKey string, confirmedOffScheduleDate string)(habitOccurrence,error){
   var out habitOccurrence
   if rule==nil {
     out.Key="day:"+checkDate
@@ -106,25 +122,22 @@ func habitRuleOccurrence(rule *habitRuleExecution, now time.Time, checkDate stri
     out.At=now
     return out,nil
   }
+  scheduled:=false
   if rule.Kind=="specific"{
     if rule.Unit=="week"{
       startMonday:=start.AddDate(0,0,-((int(start.Weekday())+6)%7))
       weeks:=habitCivilDiff(day,startMonday)/7
-      if weeks%every!=0 || !habitContains(rule.Weekdays,(int(day.Weekday())+6)%7+1) {
-        return out,fmt.Errorf("该日期不在预定记录日内")
-      }
-    }else{
+      scheduled=weeks%every==0 && habitContains(rule.Weekdays,(int(day.Weekday())+6)%7+1)
+    }else if rule.Unit=="month"{
       months:=habitMonthDiff(day,start)
       last:=time.Date(day.Year(),day.Month()+1,0,0,0,0,0,day.Location()).Day()
-      if months%every!=0 || !(habitContains(rule.MonthDays,day.Day()) || rule.LastDay&&day.Day()==last){
-        return out,fmt.Errorf("该日期不在预定记录日内")
-      }
+      scheduled=months%every==0 && (habitContains(rule.MonthDays,day.Day()) || rule.LastDay&&day.Day()==last)
+    }else{
+      return out,fmt.Errorf("指定日期仅支持周或月")
     }
-    out.Key="day:"+checkDate
-    out.At=habitClockDay(day,rule.AnchorTime)
-    return out,nil
-  }
-  if rule.Unit=="hour"{
+  }else if rule.Kind!="interval"{
+    return out,fmt.Errorf("习惯的重复方式无效")
+  }else if rule.Unit=="hour"{
     // A date-only historic backfill cannot identify the intended hour slot.
     if checkDate!=now.Format("2006-01-02"){return out,fmt.Errorf("小时习惯不支持仅指定日期补卡")}
     var slot time.Time
@@ -153,8 +166,7 @@ func habitRuleOccurrence(rule *habitRuleExecution, now time.Time, checkDate stri
     out.Key="slot:"+slot.UTC().Format("20060102T150405Z")
     out.At=now
     return out,nil
-  }
-  scheduled:=false
+  }else{
   switch rule.Unit{
   case "day": scheduled=habitCivilDiff(day,start)%every==0
   case "week": scheduled=habitCivilDiff(day,start)%(7*every)==0
@@ -164,9 +176,18 @@ func habitRuleOccurrence(rule *habitRuleExecution, now time.Time, checkDate stri
   case "year":
     delta:=habitMonthDiff(day,start)
     scheduled=delta>=0&&delta%(12*every)==0&&day.Equal(habitMonthAnchor(start,delta))
+  default:
+    return out,fmt.Errorf("习惯的周期单位无效")
   }
-  if !scheduled {return out,fmt.Errorf("该日期不是计划记录日")}
-  out.Key="day:"+checkDate
+  }
+  if !scheduled {
+    if confirmedOffScheduleDate != checkDate {
+      return out,habitOffScheduleError{date:checkDate}
+    }
+    out.Key=habitOffScheduleKeyPrefix+checkDate
+  }else{
+    out.Key="day:"+checkDate
+  }
   out.At=habitClockDay(day,rule.AnchorTime)
   return out,nil
 }

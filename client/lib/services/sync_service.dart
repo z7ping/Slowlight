@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/cloud_cache_db.dart';
+import '../models/habit_occurrence.dart';
 import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
@@ -978,16 +979,21 @@ class SyncService extends ChangeNotifier {
     final habitServerId =
         await _serverId(db, 'habits', row['habit_id'] as int? ?? 0);
     if (habitServerId <= 0) throw StateError('Habit has not been synced');
+    final date = row['date'] as String?;
+    final occurrenceKey = row['occurrence_key'] as String?;
     final result = await ApiService.checkInHabit(
       habitServerId,
       note: row['note'] as String? ?? '',
-      date: row['date'] as String?,
+      date: date,
       durationMin: row['duration_min'] as int?,
       countValue: row['count_value'] as int?,
       occurredAt: row['occurred_at'] as String?,
       period: row['period'] as String?,
       clientKey: row['client_key'] as String?,
-      occurrenceKey: row['occurrence_key'] as String?,
+      occurrenceKey: occurrenceKey,
+      // A queued off-schedule fact already carries consent for its saved date.
+      confirmedOffScheduleDate:
+          occurrenceKey == '${HabitOccurrence.offScheduleKeyPrefix}$date' ? date : null,
     ).timeout(const Duration(seconds: 10));
     final log = result['log'];
     final remoteId = log is Map ? log['id'] as int? : result['id'] as int?;

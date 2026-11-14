@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/habit.dart';
-import 'dart:math';
-import '../models/habit_occurrence.dart';
 import '../models/habit_log.dart';
 import '../repositories/habit_repository.dart';
+import '../utils/habit_record_key.dart';
 
 /// Habit 工具页的状态与用例编排。
 ///
@@ -77,11 +76,11 @@ class HabitController extends ChangeNotifier {
     String? period,
     String? clientKey,
     String? occurrenceKey,
+    String? confirmedOffScheduleDate,
   }) async {
-    final eventKey = habit.scheduleRule.isNotEmpty &&
-        HabitOccurrence.rule(habit.scheduleRule)?.sameDayMultiple == true
-        ? 'event:' + DateTime.now().toUtc().microsecondsSinceEpoch.toString() +
-            '-' + Random.secure().nextInt(0x7fffffff).toRadixString(16)
+    final effectiveKey = clientKey ?? createHabitRecordKey();
+    final eventKey = habit.scheduleRule.isNotEmpty && habit.allowsMultipleRecordsToday
+        ? 'event:$effectiveKey'
         : null;
     final result = await _repository.checkIn(
       habit.id,
@@ -91,8 +90,9 @@ class HabitController extends ChangeNotifier {
       countValue: countValue,
       occurredAt: occurredAt,
       period: period,
-      clientKey: clientKey,
+      clientKey: effectiveKey,
       occurrenceKey: occurrenceKey ?? eventKey,
+      confirmedOffScheduleDate: confirmedOffScheduleDate,
     );
     await load();
     if (_logs.containsKey(habit.id)) await loadLogs(habit.id);

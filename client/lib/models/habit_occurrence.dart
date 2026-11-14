@@ -1,9 +1,14 @@
 import 'dart:convert';
 import 'dart:math';
+import 'habit_checkin_error.dart';
 import 'habit_schedule_rule.dart';
 
 /// V3 client occurrence policy; null rule means a legacy daily log.
 class HabitOccurrence {
+  static const offScheduleKeyPrefix = 'off-schedule:';
+
+  bool get singleRecordDay =>
+      key.startsWith('day:') || key.startsWith(offScheduleKeyPrefix);
   final String key;
   final DateTime at;
   final String? periodStart, periodEnd;
@@ -33,13 +38,13 @@ class HabitOccurrence {
       'T'+p(u.hour)+p(u.minute)+p(u.second)+'Z';
   }
 
-  static HabitOccurrence calculate(HabitScheduleRule r,DateTime now,{String? date,String? requestKey}){
-    if(r.validationError!=null)throw StateError(r.validationError!);
+  static HabitOccurrence calculate(HabitScheduleRule r,DateTime now,{String? date,String? requestKey,String? confirmedOffScheduleDate}){
+    if (r.validationError case final message?) throw HabitCheckinRejected(message);
     final anchor=r.anchor!;
     final today=date==null?DateTime(now.year,now.month,now.day):DateTime.tryParse(date);
     if(today==null || (date!=null&&HabitScheduleRule.dayKey(today)!=date))
-      throw StateError('打卡日期不正确');
-    if(civilDiff(today,anchor)<0)throw StateError('早于起算日期');
+      throw const HabitCheckinRejected('打卡日期不正确');
+    if(civilDiff(today,anchor)<0)throw const HabitCheckinRejected('早于起算日期');
     final dateText=HabitScheduleRule.dayKey(today);
     if(r.kind=='goal'){
       DateTime begin,end;
@@ -55,14 +60,14 @@ class HabitOccurrence {
       }
       if(r.sameDayMultiple&&(requestKey==null||!requestKey.startsWith('event:')||
           requestKey.length<14||requestKey.length>120))
-        throw StateError('同日多次需要独立请求标识');
+        throw const HabitCheckinRejected('同日多次需要独立请求标识');
       return HabitOccurrence(r.sameDayMultiple?requestKey!:'day:'+dateText,now,
         periodStart:HabitScheduleRule.dayKey(begin),
         periodEnd:HabitScheduleRule.dayKey(end),target:r.targetCount,
         sameDayMultiple:r.sameDayMultiple);
     }
+    var hit = false;
     if(r.kind=='specific'){
-      bool hit=false;
       if(r.unit=='week'){
         final monday=DateTime(anchor.year,anchor.month,anchor.day-anchor.weekday+1);
         hit=(civilDiff(today,monday)~/7)%r.every==0&&r.weekdays.contains(today.weekday);
@@ -71,15 +76,14 @@ class HabitOccurrence {
         hit=months%r.every==0&&(r.monthDays.contains(today.day)||
           (r.lastDay&&today.day==DateTime(today.year,today.month+1,0).day));
       }
-      if(!hit)throw StateError('该日期不在计划内');
     }else if(r.unit=='hour'){
       if(dateText!=HabitScheduleRule.dayKey(now))
-        throw StateError('小时规则需要具体时点，不能仅按日期补卡');
+        throw const HabitCheckinRejected('小时规则需要具体时点，不能仅按日期补卡');
       DateTime? slot;
       if(r.hourMode=='rolling'){
         final mins=HabitScheduleRule.minute(r.anchorTime);
         final first=DateTime(anchor.year,anchor.month,anchor.day,mins~/60,mins%60);
-        if(now.isBefore(first))throw StateError('未到首次计划时间');
+        if(now.isBefore(first))throw const HabitCheckinRejected('未到首次计划时间');
         final duration=Duration(hours:r.every);
         final n=now.difference(first).inMicroseconds~/duration.inMicroseconds;
         slot=first.add(Duration(microseconds:n*duration.inMicroseconds));
@@ -95,12 +99,11 @@ class HabitOccurrence {
           final choice=begin.add(Duration(hours:n*r.every));
           if(!choice.isAfter(end)&&(slot==null||choice.isAfter(slot)))slot=choice;
         }
-        if(slot==null)throw StateError('当前不在执行时段');
+        if(slot==null)throw const HabitCheckinRejected('当前不在执行时段');
       }
-      return HabitOccurrence(slotKey(slot!),now);
+      return HabitOccurrence(slotKey(slot),now);
     }else {
       final delta=civilDiff(today,anchor);
-      bool hit=false;
       if(r.unit=='day')hit=delta%r.every==0;
       else if(r.unit=='week')hit=delta%(7*r.every)==0;
       else {
@@ -109,7 +112,12 @@ class HabitOccurrence {
         hit=months>=0&&months%(r.every*(r.unit=='year'?12:1))==0&&
           today.day==min(anchor.day,last);
       }
-      if(!hit)throw StateError('该日期不在计划内');
+    }
+    if (!hit) {
+      if (confirmedOffScheduleDate != dateText) {
+        throw HabitOffScheduleConfirmation(dateText, '$dateText 没有安排打卡，确认后可以记录。');
+      }
+      return HabitOccurrence('$offScheduleKeyPrefix$dateText', now);
     }
     return HabitOccurrence('day:'+dateText,now);
   }

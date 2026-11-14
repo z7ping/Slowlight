@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit_occurrence.dart';
+import 'package:slowlight/models/habit_checkin_error.dart';
 import 'package:slowlight/models/habit_schedule_rule.dart';
 
 void main() {
@@ -18,7 +19,7 @@ void main() {
     final at=HabitOccurrence.calculate(rule,DateTime(2026,10,24,1,30));
     expect(at.key,HabitOccurrence.slotKey(DateTime(2026,10,24,0)));
     expect(() => HabitOccurrence.calculate(rule,DateTime(2026,10,24,12)),
-      throwsStateError);
+      throwsA(isA<HabitCheckinRejected>()));
   });
   test('每2周5次目标独立于同一天打卡上限', () {
     const rule=HabitScheduleRule(anchorDate:'2026-10-23',kind:'goal',
@@ -30,13 +31,25 @@ void main() {
     expect(occurrence.target,5);
     expect(occurrence.key,'event:unique-123456');
     expect(() => HabitOccurrence.calculate(rule,DateTime(2026,10,24)),
-      throwsStateError);
+      throwsA(isA<HabitCheckinRejected>()));
   });
   test('每月31日按原始日期而非累积漂移', () {
     const rule=HabitScheduleRule(anchorDate:'2026-01-31',unit:'month');
     expect(() => HabitOccurrence.calculate(rule,DateTime(2026,2,28)),returnsNormally);
-    expect(() => HabitOccurrence.calculate(rule,DateTime(2026,3,28)),throwsStateError);
+    expect(() => HabitOccurrence.calculate(rule,DateTime(2026,3,28)),throwsA(isA<HabitCheckinRejected>()));
     expect(() => HabitOccurrence.calculate(rule,DateTime(2026,3,31)),returnsNormally);
+  });
+  test('非计划日只接受该日确认，并保留独立记录标识', () {
+    const rule = HabitScheduleRule(anchorDate: '2026-11-10', every: 3);
+    final now = DateTime(2026, 11, 14, 9);
+    expect(() => HabitOccurrence.calculate(rule, now,
+        confirmedOffScheduleDate: '2026-11-13'),
+        throwsA(isA<HabitOffScheduleConfirmation>()
+            .having((error) => error.date, 'date', '2026-11-14')));
+    expect(HabitOccurrence.calculate(rule, now,
+        confirmedOffScheduleDate: '2026-11-14').key, 'off-schedule:2026-11-14');
+    expect(HabitOccurrence.calculate(rule, DateTime(2026, 11, 16)).key,
+        'day:2026-11-16');
   });
   test('下一次计划是未来时点，不返回多年前的第一次', () {
     const rule=HabitScheduleRule(anchorDate:'2026-01-31',unit:'month',every:1);

@@ -6,6 +6,7 @@ import '../db/cloud_cache_db.dart';
 import '../models/habit_log.dart';
 import '../models/habit_timezone_policy.dart';
 import '../models/habit_occurrence.dart';
+import '../models/habit_checkin_error.dart';
 import '../models/habit_goal_progress.dart';
 import '../utils/habit_record_key.dart';
 import '../utils/search_sql_like.dart';
@@ -439,6 +440,7 @@ class CloudCacheRepository {
       final rule = HabitOccurrence.rule(row['schedule_rule'],
         legacyFrequency:row['frequency']?.toString() ?? 'daily');
       bool? canCheckIn;
+      String? offScheduleDate;
       int count = 0, target = 0;
       if (rule != null) {
         try {
@@ -453,9 +455,14 @@ class CloudCacheRepository {
             target=occurrence.target;
             // Achieving a target must not block independent later facts.
             canCheckIn=occurrence.sameDayMultiple || !days.contains(today);
+          } else if (occurrence.singleRecordDay) {
+            canCheckIn = !days.contains(today);
           } else {
             canCheckIn = !logs.any((log)=>log['occurrence_key']==occurrence.key);
           }
+        } on HabitOffScheduleConfirmation catch (error) {
+          canCheckIn = false;
+          if (!days.contains(today)) offScheduleDate = error.date;
         } catch (_) { canCheckIn=false; }
       }
       result.add({
@@ -494,6 +501,7 @@ class CloudCacheRepository {
         'reminder_at': _jsonMap(row['reminder_at']),
         'checked_today': days.contains(today),
         if (canCheckIn != null) 'can_check_in': canCheckIn,
+        if (offScheduleDate != null) 'off_schedule_date': offScheduleDate,
         'period_count':count,
         'period_target':target,
         'checked_days': days.where((day) => day.compareTo(sevenStart) >= 0 &&
@@ -621,6 +629,7 @@ class CloudCacheRepository {
     int? durationMin,
     String? period,
     String? occurrenceKey,
+    String? confirmedOffScheduleDate,
     int? countValue,
     String? occurredAt,
     String? clientKey,
@@ -640,28 +649,30 @@ class CloudCacheRepository {
     final day = date ?? _dateKey(now)!;
     final rule = HabitOccurrence.rule(habit['schedule_rule'],
       legacyFrequency:habit['frequency']?.toString() ?? 'daily');
-    final event = rule == null ? null : HabitOccurrence.calculate(
-      rule,now,date:day,requestKey:occurrenceKey);
     if (date != null && DateTime.tryParse(date)?.isAfter(DateTime(now.year,now.month,now.day)) == true) {
-      throw StateError('不能记录未来日期');
+      throw const HabitCheckinRejected('不能记录未来日期');
     }
+    if (rule != null && date != null) {
+      final created = DateTime.tryParse(habit['created_at']?.toString() ?? '')?.toLocal();
+      if (created != null && day.compareTo(_dateKey(created)!) < 0) {
+        throw const HabitCheckinRejected('打卡日期早于习惯创建日期');
+      }
+    }
+    final event = rule == null ? null : HabitOccurrence.calculate(
+      rule, now, date: day, requestKey: occurrenceKey,
+      confirmedOffScheduleDate: confirmedOffScheduleDate);
     final effectiveKey = clientKey ?? createHabitRecordKey();
     final result=await db.transaction((tx) async {
       final replay = await tx.query('habit_logs', where: 'client_key = ?',
           whereArgs: [effectiveKey], limit: 1);
       if (replay.isNotEmpty) return <String,dynamic>{'log_id': null,
           'result': {'log': replay.first, 'already_checked': true}};
+      final byDay = event == null || event.singleRecordDay;
       final existing=await tx.query('habit_logs',
-        where: rule==null?'habit_id = ? AND date = ? AND ? = 0':'habit_id = ? AND occurrence_key = ?',
-        whereArgs: rule==null ? [hid,day,habit['allow_multiple_per_day'] ?? 0] : [hid,event!.key],limit:1);
+        where: byDay ? 'habit_id = ? AND date = ? AND ? = 0' : 'habit_id = ? AND occurrence_key = ?',
+        whereArgs: byDay ? [hid, day, event == null ? habit['allow_multiple_per_day'] ?? 0 : 0] : [hid, event!.key], limit: 1);
       if (existing.isNotEmpty) return <String,dynamic>{
         'log_id':null,'result':{'log':existing.first,'already_checked':true}};
-      if (event != null && event.periodStart != null) {
-        if(!event.sameDayMultiple){
-          final old=await tx.query('habit_logs',where:'habit_id = ? AND date = ?',whereArgs:[hid,day],limit:1);
-          if(old.isNotEmpty)return <String,dynamic>{'log_id':null,'result':{'log':old.first,'already_checked':true}};
-        }
-      }
       final stamp=_now();
       final at=date==null?now:DateTime(DateTime.parse(day).year,DateTime.parse(day).month,DateTime.parse(day).day,12);
       final id=await tx.insert('habit_logs',{

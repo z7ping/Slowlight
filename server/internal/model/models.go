@@ -126,6 +126,7 @@ type Habit struct {
 	DeletedAt       gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 	GoalProgress    int            `json:"goal_progress" gorm:"-"`
 	GoalMet         bool           `json:"goal_met" gorm:"-"`
+	OffScheduleDate string         `json:"off_schedule_date,omitempty" gorm:"-"`
 	CanCheckIn     *bool          `json:"can_check_in,omitempty" gorm:"-"`
 	PeriodCount    int            `json:"period_count,omitempty" gorm:"-"`
 	PeriodTarget   int            `json:"period_target,omitempty" gorm:"-"`

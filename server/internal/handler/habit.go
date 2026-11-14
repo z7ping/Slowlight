@@ -112,7 +112,7 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
         habit.GoalMet = habit.GoalValue > 0 && habit.GoalProgress >= habit.GoalValue
 		if rule, err := habitRuleFromJSON(habits[i].ScheduleRule); err == nil && rule != nil {
 			can := false
-			policy, ruleErr := habitRuleOccurrence(rule, now, today, "event:probe-availability")
+			policy, ruleErr := habitRuleOccurrence(rule, now, today, "event:probe-availability", "")
 			if ruleErr == nil {
 				if rule.Kind == "goal" {
 					var count int64
@@ -122,12 +122,17 @@ func (h *HabitHandler) GetHabits(c *gin.Context) {
 					habits[i].PeriodTarget = policy.Target
 					// Meeting a goal is a status, not a cap on truthful records.
 					can = policy.SameDayMultiple || !habits[i].CheckedToday
+				} else if policy.singleRecordDay() {
+					can = !habits[i].CheckedToday
 				} else {
 					var count int64
 					h.DB.Model(&model.HabitLog{}).Where("habit_id = ? AND occurrence_key = ?",
 						habits[i].ID, policy.Key).Count(&count)
 					can = count == 0
 				}
+			}
+			if _, offSchedule := ruleErr.(habitOffScheduleError); offSchedule && !habits[i].CheckedToday {
+				habits[i].OffScheduleDate = today
 			}
 			habits[i].CanCheckIn = &can
 		}
@@ -636,45 +641,43 @@ func (h *HabitHandler) CheckInHabit(c *gin.Context) {
 func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit model.Habit,payload map[string]interface{},now,checkDay time.Time,checkDate string,todayStart time.Time,loc *time.Location) {
 	rule, err := habitRuleFromJSON(habit.ScheduleRule)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "习惯的周期配置无效"})
-		return
-	}
-	policy, err := habitRuleOccurrence(rule, now, checkDate, habitString(payload, "occurrence_key", ""))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "习惯的周期配置无效，请在习惯设置中检查后再记录。" })
 		return
 	}
 	clientKey := habitString(payload,"client_key","")
 	if len(clientKey)>64 {c.JSON(http.StatusBadRequest,gin.H{"error":"记录标识过长"});return}
 	var clientKeyPtr *string
-	if clientKey!="" {clientKeyPtr=&clientKey}
 	if clientKey!="" {
+		clientKeyPtr=&clientKey
 		var replay model.HabitLog
 		if h.DB.Where("habit_id = ? AND client_key = ?",habit.ID,clientKey).First(&replay).Error==nil {
 			c.JSON(http.StatusOK,gin.H{"message":"记录已存在","already_checked":true,"log":replay,"streak_count":habit.StreakCount});return
 		}
 	}
-	var existingLog model.HabitLog
-	lookup := h.DB.Where("habit_id = ?", habit.ID)
-	if rule == nil {
-		lookup = lookup.Where("date = ?", checkDate)
-	} else {
-		lookup = lookup.Where("occurrence_key = ?", policy.Key)
+	policy, err := habitRuleOccurrence(rule, now, checkDate,
+		habitString(payload, "occurrence_key", ""), habitString(payload, "confirmed_off_schedule_date", ""))
+	if err != nil {
+		if offSchedule, ok := err.(habitOffScheduleError); ok {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": offSchedule.Error(), "code": habitOffScheduleCode, "date": offSchedule.date,
+			})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
 	}
-	if lookup.First(&existingLog).RowsAffected > 0 {
+	occurrenceLogs := func(db *gorm.DB) *gorm.DB {
+		query := db.Where("habit_id = ?", habit.ID)
+		if rule == nil || policy.singleRecordDay() {
+			return query.Where("date = ?", checkDate)
+		}
+		return query.Where("occurrence_key = ?", policy.Key)
+	}
+	var existingLog model.HabitLog
+	if occurrenceLogs(h.DB).First(&existingLog).RowsAffected > 0 {
 		c.JSON(http.StatusOK, gin.H{"message": "该时段已打卡", "already_checked": true,
 			"log": existingLog, "streak_count": habit.StreakCount})
 		return
-	}
-	if rule != nil && rule.Kind == "goal" {
-		if !policy.SameDayMultiple {
-			var dayLog model.HabitLog
-			if h.DB.Where("habit_id = ? AND date = ?", habit.ID, checkDate).First(&dayLog).RowsAffected > 0 {
-				c.JSON(http.StatusOK, gin.H{"message": "该日期已打卡", "already_checked": true,
-					"log": dayLog, "streak_count": habit.StreakCount})
-				return
-			}
-		}
 	}
 
 	durationMin := 0
@@ -746,25 +749,11 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
             lockedQuery = lockedQuery.Clauses(clause.Locking{Strength: "UPDATE"})
         }
         if err := lockedQuery.First(&locked).Error; err != nil { return err }
-		query := tx.Model(&model.HabitLog{}).Where("habit_id = ?", habit.ID)
-		if rule == nil {
-			query = query.Where("date = ?", checkDate)
-		} else {
-			query = query.Where("occurrence_key = ?", policy.Key)
-		}
 		var count int64
-		if err := query.Count(&count).Error; err != nil { return err }
+		if err := occurrenceLogs(tx).Model(&model.HabitLog{}).Count(&count).Error; err != nil { return err }
 		if count > 0 {
 			duplicate = true
 			return nil
-		}
-		if rule != nil && rule.Kind == "goal" {
-			if !policy.SameDayMultiple {
-				var dayCount int64
-				if err := tx.Model(&model.HabitLog{}).Where("habit_id = ? AND date = ?", habit.ID, checkDate).
-					Count(&dayCount).Error; err != nil { return err }
-				if dayCount > 0 { duplicate = true; return nil }
-			}
 		}
 		if err := tx.Create(&log).Error; err != nil { return err }
 		eventAt := now
@@ -783,11 +772,7 @@ func (h *HabitHandler) checkInHabitScheduled(c *gin.Context,userID uint,habit mo
 		return nil
 	})
 	if duplicate || writeErr != nil {
-		query := h.DB.Where("habit_id = ?", habit.ID)
-		if rule == nil { query = query.Where("date = ?", checkDate) } else {
-			query = query.Where("occurrence_key = ?", policy.Key)
-		}
-		if query.First(&existingLog).RowsAffected > 0 {
+		if occurrenceLogs(h.DB).First(&existingLog).RowsAffected > 0 {
 			c.JSON(http.StatusOK, gin.H{"message": "该时段已打卡", "already_checked": true,
 				"log": existingLog, "streak_count": habit.StreakCount})
 			return

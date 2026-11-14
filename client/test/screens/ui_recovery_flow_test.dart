@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/models/habit.dart';
+import 'package:slowlight/models/habit_checkin_error.dart';
 import 'package:slowlight/models/habit_log.dart';
 import 'package:slowlight/models/reflection_entry.dart';
 import 'package:slowlight/repositories/habit_repository.dart';
@@ -173,6 +174,91 @@ void main() {
       });
     }
   }
+
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    testWidgets('计划外提示可取消，确认后按同一日期提交：$platform',
+        (tester) async {
+      final calls = <Map<String, dynamic>>[];
+      final habit = Habit(
+        id: 1,
+        userId: 1,
+        name: '阅读',
+        recordType: 'check',
+        createdAt: DateTime(2020),
+        offScheduleDate: '2026-11-14',
+      );
+      await mount(
+        tester,
+        Builder(builder: (context) => FxButton(
+          label: '开始记录',
+          onPressed: () {
+            unawaited(recordHabit(
+              context,
+              habit: habit,
+              submit: (value) async => calls.add(value),
+            ));
+          },
+        )),
+        platform: platform,
+      );
+      await tester.tap(find.text('开始记录'));
+      await tester.pumpAndSettle();
+      expect(find.text('计划外打卡'), findsOneWidget);
+      expect(calls, isEmpty);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(calls, isEmpty);
+
+      await tester.tap(find.text('开始记录'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('仍然打卡'));
+      await tester.pumpAndSettle();
+      expect(calls.single['confirmed_off_schedule_date'], '2026-11-14');
+      expect(find.text('计划外打卡'), findsNothing);
+      await disposeFxTestHost(tester);
+    });
+  }
+
+  testWidgets('补卡收到服务端计划外提示，确认保留表单和请求标识', (tester) async {
+    final calls = <Map<String, dynamic>>[];
+    await mount(
+      tester,
+      Builder(builder: (context) => FxButton(
+        label: '开始记录',
+        onPressed: () {
+          unawaited(recordHabit(
+            context,
+            habit: sample(count: true),
+            recordDate: DateTime(2020, 11, 14),
+            submit: (value) async {
+              calls.add(value);
+              if (calls.length == 1) {
+                throw const HabitOffScheduleConfirmation(
+                  '2020-11-14', '该日期没有安排打卡，确认后可以记录。',
+                );
+              }
+            },
+          ));
+        },
+      )),
+    );
+    await tester.tap(find.text('开始记录'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(FxInput).first, '2');
+    await tester.ensureVisible(find.text('确认补卡'));
+    await tester.tap(find.text('确认补卡'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('该日期没有安排打卡，确认后可以记录。'), findsOneWidget);
+    await tester.tap(find.text('仍然打卡'));
+    await tester.pumpAndSettle();
+    expect(calls, hasLength(2));
+    expect(calls.last['confirmed_off_schedule_date'], '2020-11-14');
+    expect(calls.last['client_key'], calls.first['client_key']);
+    expect(calls.last['count_value'], 2);
+    expect(find.byType(HabitCheckinDialog), findsNothing);
+    await disposeFxTestHost(tester);
+  });
 
   testWidgets('习惯创建保存时阻止退出和重复提交，失败后保留表单', (tester) async {
     final pending = Completer<void>();
