@@ -36,10 +36,11 @@ String syncDetailResultLabel({
     CloudSyncViewState.conflict => '冲突待处理',
     CloudSyncViewState.partial =>
       '部分成功（已处理 ${lastQueueRun!.processed} 项，'
-          '未完成 ${lastQueueRun!.failed} 项）',
+          '未完成 ${lastQueueRun.failed} 项）',
     CloudSyncViewState.networkUnreachable => '网络不可达（可能离线）',
     CloudSyncViewState.failed => '同步未完成',
-    CloudSyncViewState.unknown => '状态待确认',
+    CloudSyncViewState.unknown => (lastQueueRun?.unknown ?? 0) > 0
+        ? '写入结果待确认' : '状态待确认',
     CloudSyncViewState.pending => '待同步',
     CloudSyncViewState.idle => '无待处理项',
   };
@@ -113,13 +114,15 @@ class SyncStatusBadge extends StatelessWidget {
               listenable: Listenable.merge([
                 CloudSyncCoordinator().standalonePendingCount,
                 CloudSyncCoordinator().standalonePendingUnknown,
+                CloudSyncCoordinator().isSyncing,
+                CloudSyncCoordinator().lastIntentRun,
               ]),
               builder: (context, _) {
                 final coordinator = CloudSyncCoordinator();
                 final pending = sync.pendingCount +
                     coordinator.standalonePendingCount.value;
                 final pendingUnknown = coordinator.standalonePendingUnknown.value;
-                final status = sync.status;
+                final status = coordinator.status;
                 return FutureBuilder<List<Map<String, dynamic>>>(
                   future: sync.getAllConflicts(),
                   builder: (context, snapshot) {
@@ -142,8 +145,8 @@ class SyncStatusBadge extends StatelessWidget {
                       conflictCheckFailed: snapshot.hasError,
                       conflictCount: conflicts.length,
                       pendingCount: pending,
-                      lastQueueRun: sync.lastQueueRun,
-                      networkUnreachable: sync.lastNetworkUnreachable,
+                      lastQueueRun: coordinator.lastRunEvidence,
+                      networkUnreachable: coordinator.networkUnreachable,
                       standalonePendingUnknown: pendingUnknown,
                     );
                     final label = switch (phase) {
@@ -153,7 +156,9 @@ class SyncStatusBadge extends StatelessWidget {
                       CloudSyncViewState.partial => '部分成功 · 待核对',
                       CloudSyncViewState.networkUnreachable => '网络不可达',
                       CloudSyncViewState.failed => '同步失败',
-                      CloudSyncViewState.unknown => '状态待核对',
+                      CloudSyncViewState.unknown =>
+                        (coordinator.lastRunEvidence?.unknown ?? 0) > 0
+                            ? '写入待核对' : '状态待核对',
                       CloudSyncViewState.pending => '$pending 待同步',
                       CloudSyncViewState.idle => _getStatusText(status),
                     };
@@ -319,6 +324,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       // Only remote GETs and local queue bookkeeping for provably applied
       // writes. Never reissue a failed or ambiguous remote mutation.
       final reconciliation = await widget.sync.reconcileFailedWrites();
+      final completions = await CloudSyncCoordinator().reconcileSentCompletions();
       final conflicts = await widget.sync.getAllConflicts();
       final failures = await widget.sync.getPendingFailures();
       await CloudSyncCoordinator().refreshStandalonePendingCount();
@@ -328,14 +334,14 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _failures = Future.value(failures);
         _conflictReadFailed = false;
         _requestError = null;
-        _verifiedRetrySafe = reconciliation.unknown == 0 &&
+        _verifiedRetrySafe = reconciliation.unknown + completions.unknown == 0 &&
             reconciliation.conflicts == 0 &&
             conflicts.isEmpty &&
             failures.isEmpty &&
             !CloudSyncCoordinator().standalonePendingUnknown.value;
-        _feedback = '远端核对：${reconciliation.verified} 项已验证写入，'
+        _feedback = '远端核对：${reconciliation.verified + completions.verified} 项已验证写入，'
             '${reconciliation.conflicts} 项状态不一致，'
-            '${reconciliation.unknown} 项仍未知。'
+            '${reconciliation.unknown + completions.unknown} 项仍未知。'
             '${conflicts.isNotEmpty ? '请先解决同步冲突。' : ''}'
             '本次没有重复提交写入。';
       });
@@ -354,10 +360,10 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
   }
 
   Future<void> _retry() async {
-    if (_retrying || widget.sync.status == SyncStatusEnum.syncing) return;
+    if (_retrying || CloudSyncCoordinator().status == SyncStatusEnum.syncing) return;
     final verified = _verifiedRetrySafe;
     if (!verified &&
-        (widget.sync.status != SyncStatusEnum.idle ||
+        (CloudSyncCoordinator().status != SyncStatusEnum.idle ||
             _requestError != null || widget.sync.lastError != null)) {
       await _verifyOnly();
       return;
@@ -375,9 +381,9 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
       final failedRows = await widget.sync.getPendingFailures();
       if (!mounted) return;
       if (before.isNotEmpty || failedRows.isNotEmpty ||
-          widget.sync.status == SyncStatusEnum.syncing ||
+          CloudSyncCoordinator().status == SyncStatusEnum.syncing ||
           (!verified &&
-              (widget.sync.status != SyncStatusEnum.idle ||
+              (CloudSyncCoordinator().status != SyncStatusEnum.idle ||
                   widget.sync.lastError != null))) {
         setState(() {
           _conflicts = Future.value(before);
@@ -402,7 +408,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
           CloudSyncCoordinator().standalonePendingCount.value;
       if (cloudSyncFullySettled(
         requestSucceeded: completed,
-        status: widget.sync.status,
+        status: CloudSyncCoordinator().status,
         conflictCheckFailed: false,
         conflictCount: conflicts.length,
         pendingCount: pending,
@@ -417,7 +423,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         _conflicts = Future.value(conflicts);
         _failures = Future.value(failures);
         _conflictReadFailed = false;
-        _feedback = widget.sync.status == SyncStatusEnum.error
+        _feedback = CloudSyncCoordinator().status == SyncStatusEnum.error
             ? '本次同步仍未完成，请查看错误或冲突。'
             : '同步请求已执行，仍有待处理项或结果尚未确认。';
       });
@@ -443,12 +449,14 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
         listenable: Listenable.merge([
           CloudSyncCoordinator().standalonePendingCount,
           CloudSyncCoordinator().standalonePendingUnknown,
+          CloudSyncCoordinator().isSyncing,
+          CloudSyncCoordinator().lastIntentRun,
         ]),
         builder: (context, _) => FutureBuilder<List<Map<String, dynamic>>>(
           future: _conflicts,
           builder: (context, snapshot) {
             final scheme = Theme.of(context).colorScheme;
-            final status = widget.sync.status;
+            final status = CloudSyncCoordinator().status;
             final pending = widget.sync.pendingCount +
                 CloudSyncCoordinator().standalonePendingCount.value;
             final pendingUnknown =
@@ -536,9 +544,9 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                               conflictCount: count,
                               pendingCount: pending,
                               lastQueueRun: _requestError == null
-                                  ? widget.sync.lastQueueRun : null,
+                                  ? CloudSyncCoordinator().lastRunEvidence : null,
                               networkUnreachable: _requestError == null &&
-                                  widget.sync.lastNetworkUnreachable,
+                                  CloudSyncCoordinator().networkUnreachable,
                               standalonePendingUnknown: pendingUnknown,
                             ),
                             color: failed ? scheme.error : null,
@@ -600,7 +608,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                               variant: FxButtonVariant.ghost,
                               onPressed: () async {
                                 await Clipboard.setData(
-                                  ClipboardData(text: raw!),
+                                  ClipboardData(text: raw),
                                 );
                                 widget.notice.show('错误详情已复制');
                               },
@@ -619,7 +627,7 @@ class _SyncStatusDetailsState extends State<_SyncStatusDetails> {
                             ),
                             child: SelectionArea(
                               child: Text(
-                                raw!,
+                                raw,
                                 softWrap: true,
                                 style: SlowlightTypography.caption(context),
                               ),

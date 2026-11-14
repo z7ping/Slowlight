@@ -34,6 +34,7 @@ CloudSyncViewState cloudSyncViewState({
       return CloudSyncViewState.partial;
     }
     if (networkUnreachable) return CloudSyncViewState.networkUnreachable;
+    if ((lastQueueRun?.unknown ?? 0) > 0) return CloudSyncViewState.unknown;
     return CloudSyncViewState.failed;
   }
   if (conflictCheckFailed || standalonePendingUnknown) {
@@ -43,7 +44,7 @@ CloudSyncViewState cloudSyncViewState({
   return CloudSyncViewState.idle;
 }
 
-/// 用于数据同步设置页的状态说明。只把普通队列本轮确证的回执称作部分成功。
+/// 用于数据同步设置页的状态说明。部分成功必须来自本轮确证的回执。
 String cloudSyncSummary({
   required SyncStatusEnum status,
   required bool isSyncing,
@@ -69,13 +70,15 @@ String cloudSyncSummary({
     CloudSyncViewState.conflict => '云同步 · $conflictCount 个冲突待处理',
     CloudSyncViewState.partial =>
       '云同步 · 部分成功（${lastQueueRun!.processed} 项已处理，'
-          '${lastQueueRun!.failed} 项未完成）',
+          '${lastQueueRun.failed} 项未完成）',
     CloudSyncViewState.networkUnreachable =>
       '云同步 · 网络不可达（可能离线）',
     CloudSyncViewState.failed => '云同步 · 同步失败',
     CloudSyncViewState.unknown => conflictCheckFailed
         ? '云同步 · 冲突状态待确认'
-        : '云同步 · 待同步数量待确认',
+        : (lastQueueRun?.unknown ?? 0) > 0
+            ? '云同步 · 写入结果待确认'
+            : '云同步 · 待同步数量待确认',
     CloudSyncViewState.pending => '云同步 · $pendingCount 项待同步',
     CloudSyncViewState.idle => '云同步 · 当前无待处理项',
   };

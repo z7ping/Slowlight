@@ -420,6 +420,14 @@ void main() {
       ));
       await tester.pump();
 
+      final transition = find.byKey(const ValueKey('home.workspace.transition'));
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.review')));
+      await tester.pump();
+      expect(tester.widget<FadeTransition>(transition).opacity.value, 1);
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.today')));
+      await tester.pump();
+      expect(tester.widget<FadeTransition>(transition).opacity.value, 1);
+
       final fab = find.byKey(const ValueKey('today.fab.pointer'));
       expect(fab, findsOneWidget);
       final slide = find.descendant(of: fab, matching: find.byType(AnimatedSlide));
@@ -435,16 +443,23 @@ void main() {
       final today = find.byType(DashboardBody, skipOffstage: false);
       expect(today, findsOneWidget);
       final dashboardState = tester.state(today);
+      final transition = find.byKey(const ValueKey('home.workspace.transition'));
+      double opacity() => tester.widget<FadeTransition>(transition).opacity.value;
 
       await tester.tap(find.byKey(const ValueKey('home.bottom-nav.review')));
       await tester.pump();
       expect(today, findsOneWidget);
       expect(identical(tester.state(today), dashboardState), isTrue);
+      expect(opacity(), lessThan(1));
+      await tester.pump(const Duration(milliseconds: 60));
 
       await tester.tap(find.byKey(const ValueKey('home.bottom-nav.today')));
       await tester.pump();
       expect(today, findsOneWidget);
       expect(identical(tester.state(today), dashboardState), isTrue);
+      expect(opacity(), lessThan(1));
+      await tester.pump(const Duration(milliseconds: 180));
+      expect(opacity(), 1);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

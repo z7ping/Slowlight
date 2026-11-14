@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -213,7 +215,7 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
       expanded: true,
       size: FxButtonSize.lg,
       variant: FxButtonVariant.outline,
-      onPressed: _submitting ? null : _requestClose,
+      onPressed: _submitting ? null : () => unawaited(_requestClose()),
     );
     final mobileSubmitAction = FxButton(
       key: const ValueKey('habit-checkin-primary-action'),
@@ -408,7 +410,9 @@ class _HabitCheckinDialogState extends State<HabitCheckinDialog> {
                           FxButton(
                             label: '取消',
                             variant: FxButtonVariant.outline,
-                            onPressed: _submitting ? null : _requestClose,
+                            onPressed: _submitting
+                                ? null
+                                : () => unawaited(_requestClose()),
                           ),
                           FxButton(
                             key: const ValueKey('habit-checkin-primary-action'),

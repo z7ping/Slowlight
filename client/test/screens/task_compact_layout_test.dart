@@ -2,15 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:slowlight/db/local_db.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/services/data_service.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/screens/task_tool_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 import 'package:slowlight/widgets/task_swipe_row.dart';
 import 'package:slowlight/ui/fx.dart';
 
+import '../helpers/isolated_test_db.dart';
 import '../support/fx_test_host.dart';
 
 /// Deterministic Cloud-like toggle source for X03 stale Undo verification.
@@ -123,6 +128,13 @@ class _X03ToggleTaskService implements DataService {
 }
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('task_compact_layout');
+    SharedPreferences.setMockInitialValues({'data_mode': 'local'});
+    FlutterSecureStorage.setMockInitialValues({});
+    await DataModeManager().setLocal();
+    await LocalDb().database;
+  });
   testWidgets('X03 左滑顺延后可撤销原始无日期任务', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -306,7 +318,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('X03 筛选切换回到顶部并关闭上一个已展开的滑动行',
+  testWidgets('X03 任务筛选记住各自滚动位置并关闭上一个滑动行',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -356,6 +368,18 @@ void main() {
       find.byKey(const ValueKey('tasks.swipe.1000')),
     ).open, isFalse);
     expect(find.text('所有任务'), findsOneWidget);
+    controller.jumpTo(170);
+    await tester.pump();
+    tester.widget<FxInkWell>(
+      find.byKey(const ValueKey('tasks.mobile.filter.0'), skipOffstage: false),
+    ).onTap!();
+    await tester.pump();
+    expect(controller.offset, 90);
+    tester.widget<FxInkWell>(
+      find.byKey(const ValueKey('tasks.mobile.filter.1')),
+    ).onTap!();
+    await tester.pump();
+    expect(controller.offset, 170);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -395,6 +419,7 @@ void main() {
         createdAt: now,
       ),
     ]);
+    await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     await tester.tap(find.text('新建'));
     await tester.pumpAndSettle();
@@ -443,6 +468,8 @@ void main() {
     expect(reads, 2);
     expect(find.text('已有任务保留'), findsOneWidget);
     expect(find.textContaining('清单读取失败，已有任务仍可浏览'), findsNothing);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('新建'));
     await tester.pumpAndSettle();
     expect(find.byType(TaskDetailSheet), findsOneWidget);

@@ -157,6 +157,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SyncService().addListener(_syncStatusChanged);
     CloudSyncCoordinator().standalonePendingCount.addListener(_standaloneSyncChanged);
     CloudSyncCoordinator().standalonePendingUnknown.addListener(_standaloneSyncChanged);
+    CloudSyncCoordinator().isSyncing.addListener(_syncStatusChanged);
+    CloudSyncCoordinator().lastIntentRun.addListener(_standaloneSyncChanged);
     if (_reminderSupported && !_reminder.isLoaded) _reminder.loadAll();
     _load();
     _loadAccount();
@@ -181,6 +183,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SyncService().removeListener(_syncStatusChanged);
     CloudSyncCoordinator().standalonePendingCount.removeListener(_standaloneSyncChanged);
     CloudSyncCoordinator().standalonePendingUnknown.removeListener(_standaloneSyncChanged);
+    CloudSyncCoordinator().isSyncing.removeListener(_syncStatusChanged);
+    CloudSyncCoordinator().lastIntentRun.removeListener(_standaloneSyncChanged);
     super.dispose();
   }
 
@@ -207,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _syncStatusChanged() {
-    final status = SyncService().status;
+    final status = CloudSyncCoordinator().status;
     if (status == _observedSyncStatus) return;
     _observedSyncStatus = status;
     if (status != SyncStatusEnum.syncing) _loadConflictCount();
@@ -1595,14 +1599,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (DataModeManager().isLocal) return '仅本地使用';
     final sync = SyncService();
     return cloudSyncSummary(
-      status: sync.status,
+      status: CloudSyncCoordinator().status,
       isSyncing: _syncing,
       conflictCheckFailed: _conflictCheckFailed || _checkingConflicts,
       conflictCount: _conflictCount,
       pendingCount: sync.pendingCount +
           CloudSyncCoordinator().standalonePendingCount.value,
-      lastQueueRun: sync.lastQueueRun,
-      networkUnreachable: sync.lastNetworkUnreachable,
+      lastQueueRun: CloudSyncCoordinator().lastRunEvidence,
+      networkUnreachable: CloudSyncCoordinator().networkUnreachable,
       standalonePendingUnknown: CloudSyncCoordinator().standalonePendingUnknown.value,
     );
   }
@@ -1997,10 +2001,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 '同步状态',
                 _dataSummary(),
                 trailing: FxButton(
-                  label: _syncing ? '同步中…' : '立即同步',
+                  label: _syncing || CloudSyncCoordinator().isSyncing.value
+                      ? '同步中…' : '立即同步',
                   size: FxButtonSize.sm,
                   variant: FxButtonVariant.outline,
-                  onPressed: _syncing ? null : _syncNow,
+                  onPressed: _syncing || CloudSyncCoordinator().isSyncing.value
+                      ? null : _syncNow,
                 ),
               ),
               _settingLine(
@@ -2648,7 +2654,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _syncNow() async {
-    if (_syncing || DataModeManager().isLocal) return;
+    if (_syncing || DataModeManager().isLocal ||
+        CloudSyncCoordinator().status == SyncStatusEnum.syncing) return;
     setState(() => _syncing = true);
     try {
       // The settings button must obey the same unknown-result gate as the
@@ -2665,7 +2672,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final sync = SyncService();
       final settled = cloudSyncFullySettled(
         requestSucceeded: requested,
-        status: sync.status,
+        status: CloudSyncCoordinator().status,
         conflictCheckFailed: _conflictCheckFailed || _checkingConflicts,
         conflictCount: _conflictCount,
         pendingCount: sync.pendingCount +

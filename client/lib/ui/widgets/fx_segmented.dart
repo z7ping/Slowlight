@@ -32,6 +32,13 @@ class FxSegmented extends StatelessWidget {
     this.expanded = false,
   });
 
+  Widget _layout(List<Widget> items) {
+    if (expanded) {
+      return Row(children: [for (final item in items) Expanded(child: item)]);
+    }
+    return Wrap(children: items);
+  }
+
   @override
   Widget build(BuildContext context) {
     assert(labels.isNotEmpty);
@@ -46,40 +53,41 @@ class FxSegmented extends StatelessWidget {
         color: backgroundColor ?? theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
-      child: Row(
-        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
-        children: List.generate(labels.length, (index) {
-          final selected = index == selectedIndex;
-          final item = FxInkWell(
-            key: itemKeys?[index],
-            borderRadius: BorderRadius.circular(borderRadius - 2),
-            onTap: () => onChanged(index),
-            child: Container(
-              constraints: BoxConstraints(minHeight: itemMinHeight, minWidth: 52),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
+      child: _layout(List.generate(labels.length, (index) {
+        final selected = index == selectedIndex;
+        final item = FxInkWell(
+          key: itemKeys?[index],
+          borderRadius: BorderRadius.circular(borderRadius - 2),
+          onTap: () => onChanged(index),
+          child: AnimatedContainer(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            constraints: BoxConstraints(minHeight: itemMinHeight, minWidth: 52),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: selected
+                  ? selectedColor ?? theme.colorScheme.surface
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(borderRadius - 2),
+              boxShadow: selected ? selectedShadow : null,
+            ),
+            child: Text(
+              labels[index],
+              textAlign: TextAlign.center,
+              style: SlowlightTypography.componentChip(context).copyWith(
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 color: selected
-                    ? selectedColor ?? theme.colorScheme.surface
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(borderRadius - 2),
-                boxShadow: selected ? selectedShadow : null,
-              ),
-              child: Text(
-                labels[index],
-                textAlign: TextAlign.center,
-                style: SlowlightTypography.componentChip(context).copyWith(
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          );
-          return expanded ? Expanded(child: item) : item;
-        }),
-      ),
+          ),
+        );
+        return item;
+      })),
     );
   }
 }

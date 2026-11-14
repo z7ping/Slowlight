@@ -216,6 +216,9 @@ class _FxMenuState<T> extends State<FxMenu<T>> {
         context: context,
         useRootNavigator: widget.useRootNavigator,
         requestFocus: false,
+        popUpAnimationStyle: MediaQuery.disableAnimationsOf(context)
+            ? AnimationStyle.noAnimation
+            : AnimationStyle(duration: const Duration(milliseconds: 180)),
         position: position,
         constraints: BoxConstraints.tightFor(width: width, height: height),
         menuPadding: EdgeInsets.zero,

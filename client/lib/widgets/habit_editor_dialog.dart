@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -630,7 +631,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       label: '取消',
       expanded: true,
       variant: FxButtonVariant.outline,
-      onPressed: _submitting ? null : _requestClose,
+      onPressed: _submitting ? null : () => unawaited(_requestClose()),
     );
     final mobileSubmitAction = FxButton(
       key: const ValueKey('habit-editor-primary-action'),
@@ -1017,7 +1018,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                           FxButton(
                             label: '取消',
                             variant: FxButtonVariant.outline,
-                            onPressed: _submitting ? null : _requestClose,
+                            onPressed: _submitting ? null : () => unawaited(_requestClose()),
                           ),
                           if (_resultUnknown)
                             FxButton(

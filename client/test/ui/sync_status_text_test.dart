@@ -112,6 +112,14 @@ void main() {
     ), '云同步 · 1 个冲突待处理');
   });
 
+  test('未确认的完成请求与普通同步失败或数量未知有独立文案', () {
+    expect(label(
+      status: SyncStatusEnum.error,
+      queueRun: const SyncQueueRunEvidence(attempted: 1, failed: 1, unknown: 1),
+      pending: 1,
+    ), '云同步 · 写入结果待确认');
+  });
+
   test('冲突优先于普通同步错误展示，避免用户找不到处置入口', () {
     expect(
       label(status: SyncStatusEnum.error, conflicts: 2),

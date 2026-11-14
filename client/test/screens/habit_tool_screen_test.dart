@@ -221,6 +221,7 @@ class _UnverifiedDeleteRepo extends _P05SingleLogRepo {
 
 void main() {
   testWidgets('X06 缓存已消失但云端无法核实时不得误报撤销成功', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1100, 950);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -233,6 +234,7 @@ void main() {
     await tester.pumpAndSettle();
     final action = find.byKey(const ValueKey('habits.logs.cancel.501'));
     await tester.ensureVisible(action);
+    await tester.pumpAndSettle();
     await tester.tap(action);
     await tester.pumpAndSettle();
     await tester.tap(find.text('撤销记录'));
@@ -246,6 +248,7 @@ void main() {
   });
 
   testWidgets('X06 撤销响应丢失时仅重读单条日志，不重复发送删除', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1100, 950);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -258,6 +261,7 @@ void main() {
     await tester.pumpAndSettle();
     final action = find.byKey(const ValueKey('habits.logs.cancel.501'));
     await tester.ensureVisible(action);
+    await tester.pumpAndSettle();
     await tester.tap(action);
     await tester.pumpAndSettle();
     await tester.tap(find.text('撤销记录'));
@@ -271,6 +275,7 @@ void main() {
   });
 
   testWidgets('P1-9 习惯卡片详情展开/收起复用可中断轻过渡', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1100, 950);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -298,6 +303,7 @@ void main() {
   });
 
   testWidgets('P05 单条撤销按日志身份删除，不误用仍可打卡的日级 toggle', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1100, 950);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -311,6 +317,7 @@ void main() {
     final action = find.byKey(const ValueKey('habits.logs.cancel.501'));
     expect(action, findsOneWidget);
     await tester.ensureVisible(action);
+    await tester.pumpAndSettle();
     await tester.tap(action);
     await tester.pumpAndSettle();
     expect(find.text('撤销这条记录'), findsOneWidget);
@@ -905,6 +912,7 @@ void main() {
   });
 
   testWidgets('折叠卡片可见习惯、频率、今日操作和近七日，展开显示详情', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1080, 850);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -916,7 +924,7 @@ void main() {
     expect(find.byKey(const ValueKey('habits.card.1')), findsOneWidget);
     expect(find.text('每日阅读'), findsOneWidget);
     expect(find.text('每天 · 傍晚 · 20 分钟'), findsOneWidget);
-    expect(find.text('今日已记录 1/2'), findsOneWidget);
+    expect(find.text('今日 1 个有记录'), findsOneWidget);
     expect(find.byKey(const ValueKey('habits.today.1')), findsOneWidget);
     expect(find.byKey(const ValueKey('habits.week.1.0')), findsOneWidget);
     expect(find.byKey(const ValueKey('habits.week.1.6')), findsOneWidget);

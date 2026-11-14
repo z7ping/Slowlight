@@ -85,8 +85,16 @@ class FocusHomeScreen extends StatefulWidget {
 }
 
 class _FocusHomeScreenState extends State<FocusHomeScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   HomeNavigationState _navigation = const HomeNavigationState.today();
+  late final _workspaceTransition = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 160),
+    value: 1,
+  );
+  late final _workspaceOpacity = Tween<double>(begin: .86, end: 1)
+      .chain(CurveTween(curve: Curves.easeOutCubic))
+      .animate(_workspaceTransition);
   List<TodoList> _lists = const [];
   List<Task> _tasks = const [];
   List<Habit> _habits = const [];
@@ -152,6 +160,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   @override
   void dispose() {
     _nextDayTimer?.cancel();
+    _workspaceTransition.dispose();
     WidgetsBinding.instance.removeObserver(this);
     authStateNotifier.removeListener(_resetWorkspace);
     DataModeManager().removeListener(_resetWorkspace);
@@ -326,6 +335,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         _organizeToolsExpanded =
             next.tool != null && _isOrganizeTool(next.tool!);
       });
+      if (SlowlightPlatformDensity.usesMobileTouchTargets &&
+          !MediaQuery.disableAnimationsOf(context)) {
+        _workspaceTransition.forward(from: 0);
+      } else {
+        _workspaceTransition.value = 1;
+      }
       if (next.isToday && !previous.isToday) _reload();
     } finally {
       _navigating = false;
@@ -1046,7 +1061,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     final calendar = tool == HomeToolSection.calendar;
     final otherTool = tool != null && !quadrant && !habits && !calendar;
     // Keep the five pinned destinations mounted while moving between tabs.
-    return IndexedStack(
+    final workspace = IndexedStack(
       key: _workspaceKey,
       index: quadrant ? 2 : habits ? 3 : calendar ? 4 : otherTool ? 5 : showingReview ? 1 : 0,
       children: [
@@ -1068,6 +1083,12 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
         _calendarOpened ? _calendarContent() : const SizedBox.shrink(),
         otherTool ? _buildToolContent(tool) : const SizedBox.shrink(),
       ],
+    );
+    return FadeTransition(
+      key: const ValueKey('home.workspace.transition'),
+      opacity: MediaQuery.disableAnimationsOf(context)
+          ? const AlwaysStoppedAnimation(1.0) : _workspaceOpacity,
+      child: workspace,
     );
   }
 

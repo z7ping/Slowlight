@@ -51,9 +51,11 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   bool _selectedTaskStale = false;
   GlobalKey<TaskDetailSheetState>? _selectedTaskEditorKey;
   bool _switchingDesktopTask = false;
+  bool _createOpen = false;
   int? _revealedTaskId;
   final Set<int> _pendingTaskIds = <int>{};
   final ScrollController _mobileScrollController = ScrollController();
+  final Map<int, double> _mobileFilterOffsets = {};
   DataService get _dataService => widget.dataService ?? DataService();
 
   @override
@@ -256,7 +258,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
         label: '新建任务',
         icon: LucideIcons.plus,
         size: FxButtonSize.sm,
-        onPressed: _create,
+        onPressed: () => unawaited(_create()),
       ),
     ],
   );
@@ -523,25 +525,27 @@ class TaskToolScreenState extends State<TaskToolScreen> {
   }
 
   Future<void> _create() async {
-    if (!_canEditTask()) return;
-    // Mobile creates and edits through one editor and the same property rows.
-    // Keep the existing desktop create dialog untouched.
-    if (SlowlightPlatformDensity.usesMobileTouchTargets) {
-      await TaskDetailSheet.showCreate(
+    if (_createOpen || !_canEditTask()) return;
+    _createOpen = true;
+    try {
+      if (SlowlightPlatformDensity.usesMobileTouchTargets) {
+        await TaskDetailSheet.showCreate(
+          context,
+          lists: _lists,
+          onChanged: _load,
+        );
+        return;
+      }
+      final created = await TaskCreateSheet.showFullCreate(
         context,
         lists: _lists,
-        onChanged: _load,
+        // showFullCreate selects the inbox by default.
+        defaultDueDate: DateTime.now(),
       );
-      return;
+      if (created == true && mounted) await _load();
+    } finally {
+      _createOpen = false;
     }
-    final created = await TaskCreateSheet.showFullCreate(
-      context,
-      lists: _lists,
-      // Use the existing inbox-first default in showFullCreate instead of
-      // accidentally selecting an arbitrary first collection.
-      defaultDueDate: DateTime.now(),
-    );
-    if (created == true && mounted) await _load();
   }
 
   void _message(String text) {
@@ -697,7 +701,7 @@ class TaskToolScreenState extends State<TaskToolScreen> {
                           icon: LucideIcons.plus,
                           size: FxButtonSize.sm,
                           variant: FxButtonVariant.outline,
-                          onPressed: _create,
+                          onPressed: () => unawaited(_create()),
                         ),
                       ],
                     ),
@@ -778,15 +782,25 @@ class TaskToolScreenState extends State<TaskToolScreen> {
       children: [
         for (var i = 0; i < items.length; i++)
           FxInkWell(
-            key: ValueKey('tasks.mobile.filter.${i}'),
+            key: ValueKey('tasks.mobile.filter.$i'),
             onTap: () {
               if (_segment == i) return;
               if (_mobileScrollController.hasClients) {
-                _mobileScrollController.jumpTo(0);
+                _mobileFilterOffsets[_segment] = _mobileScrollController.offset;
               }
               setState(() {
                 _segment = i;
                 _revealedTaskId = null;
+              });
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted || _segment != i ||
+                    !_mobileScrollController.hasClients) return;
+                final position = _mobileScrollController.position;
+                _mobileScrollController.jumpTo(
+                  (_mobileFilterOffsets[i] ?? 0.0)
+                      .clamp(position.minScrollExtent, position.maxScrollExtent)
+                      .toDouble(),
+                );
               });
             },
             child: AnimatedContainer(

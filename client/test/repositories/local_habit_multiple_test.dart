@@ -24,6 +24,14 @@ void main() {
         version: 20,
         onCreate: (db, _) async {
           await db.execute('CREATE TABLE habits (id INTEGER PRIMARY KEY, name TEXT)');
+          // Work sessions already existed in v20 and are migrated to v22.
+          await db.execute('''
+            CREATE TABLE work_sessions (
+              id INTEGER PRIMARY KEY, session_type TEXT NOT NULL,
+              target_minutes INTEGER NOT NULL DEFAULT 0,
+              started_at TEXT NOT NULL, created_at TEXT NOT NULL
+            )
+          ''');
           await db.insert('habits', {'id': 7, 'name': '旧记录'});
         },
       ));
