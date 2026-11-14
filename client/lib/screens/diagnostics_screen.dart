@@ -275,17 +275,15 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             ),
           ),
         ),
-        Wrap(
-          spacing: SlowlightSpacing.md,
+        FxActionBar(
+          gap: SlowlightSpacing.md,
           runSpacing: SlowlightSpacing.xs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          alignment: WrapAlignment.spaceBetween,
-          children: [
-            Text('仅显示最近部分，导出包含完整日志',
-              style: SlowlightTypography.caption(context).copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          leading: Text('仅显示最近部分，导出包含完整日志',
+            style: SlowlightTypography.caption(context).copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
+          actions: [
             if (!_followLatest)
               FxButton(
                 key: const ValueKey('diagnostics.scroll_latest'),

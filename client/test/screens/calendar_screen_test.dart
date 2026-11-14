@@ -238,7 +238,7 @@ void main() {
     expect(detail, findsOneWidget);
     expect(tester.widget<TaskDetailSheet>(detail).isCreating, isTrue);
     expect(tester.widget<TaskDetailSheet>(detail).task.dueDate, selectedDate);
-    expect(find.descendant(of: detail, matching: find.text('新建任务')),
+    expect(find.descendant(of: detail, matching: find.text('添加任务')),
         findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -399,7 +399,7 @@ void main() {
   testWidgets('还原高密度月历与当日完整记录', (tester) async {
     await pumpCalendar(tester);
 
-    expect(find.text('2026 年 8 月'), findsOneWidget);
+    expect(find.text('2026年8月'), findsOneWidget);
     expect(
         find.byKey(const ValueKey('calendar-day-2026-07-27')), findsOneWidget);
     expect(
@@ -426,7 +426,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('calendar-day-2026-09-21')), findsOneWidget);
     expect(tester.widget<Text>(find.byKey(const ValueKey('calendar-month-label'))).data,
-        '2026 年 9 月');
+        '2026年9月');
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -582,7 +582,13 @@ void main() {
     expect(find.byKey(const ValueKey('calendar-period-add-task')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('calendar-period-next')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('calendar-timeline-record-task-next-day')), findsOneWidget);
+    final untimed = find.byKey(const ValueKey('calendar-untimed-toggle'));
+    await tester.ensureVisible(untimed);
+    await tester.pumpAndSettle();
+    await tester.tap(untimed);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('calendar-untimed-record-task-next-day')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -825,6 +831,7 @@ void main() {
     expect(known, findsOneWidget);
     expect(unknown, findsOneWidget);
     await tester.ensureVisible(known);
+    await tester.pumpAndSettle();
     await tester.tap(known);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('calendar-untimed-record-early-native')),
@@ -932,8 +939,8 @@ void main() {
     expect(otherBorder.bottom.style, BorderStyle.solid);
     expect(selectedBorder.top.color, isNot(otherBorder.right.color));
 
-    // 修复选中态时，日期选择和日程预览仍然正常展示。
-    expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
+    // 日期选中态不能遮住月格的任务预览。
+    expect(find.byKey(const ValueKey('calendar-grid-record-task-plan')),
         findsOneWidget);
     await disposeFxTestHost(tester);
   });
@@ -950,18 +957,21 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('计划筛选只影响月格，不隐藏下方完整数据', (tester) async {
+  testWidgets('Windows 计划筛选保留独立的当日完整记录', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     await pumpCalendar(tester);
 
-    expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
+    expect(find.byKey(const ValueKey('calendar-grid-record-task-plan')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-record-habit-read')),
         findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('calendar-filter')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('计划').last);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
-        findsNothing);
+    expect(find.byKey(const ValueKey('calendar-grid-record-task-plan')),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-record-habit-read')),
         findsOneWidget);
     expect(find.text('计划与实际 · 共 4 条完整记录'), findsOneWidget);
@@ -1036,8 +1046,8 @@ void main() {
     await tester.tap(find.text('计划').last);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('calendar-grid-record-habit-read')),
-        findsNothing);
+    expect(find.byKey(const ValueKey('calendar-grid-record-task-plan')),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('calendar-record-habit-read')),
         findsOneWidget);
     expect(find.text('计划与实际 · 共 4 条完整记录'), findsOneWidget);

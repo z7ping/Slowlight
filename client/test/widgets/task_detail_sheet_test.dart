@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/models/tag.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/todo_list.dart';
@@ -340,7 +339,7 @@ void main() {
       // The keyboard-safe task path uses the native menu route; old
       // ShadAnchorAuto aligned against the full screen, ignoring the IME.
       expect(find.descendant(
-        of: menu, matching: find.byType(ShadPopover)), findsNothing);
+        of: menu, matching: fxPopoverSurfaceFinder()), findsNothing);
 
       await tester.tap(trigger);
       await tester.pumpAndSettle();

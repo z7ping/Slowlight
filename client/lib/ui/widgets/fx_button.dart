@@ -192,6 +192,18 @@ class _FxButtonState extends State<FxButton> {
     return math.max(minHeight, textHeight + verticalSpace);
   }
 
+  ShadDecoration _expandedOutline(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    return ShadDecoration(
+      border: ShadBorder.all(
+        color: theme.colorScheme.input,
+        width: 1,
+        radius: theme.radius,
+        strokeAlign: BorderSide.strokeAlignOutside,
+      ),
+    );
+  }
+
   Widget _buildButton(BuildContext context, {double? height}) {
     final effectiveHeight = height ??
         (SlowlightPlatformDensity.usesMobileTouchTargets
@@ -257,6 +269,9 @@ class _FxButtonState extends State<FxButton> {
           size: _shadSize,
           expands: widget.expanded,
           height: effectiveHeight,
+          // Expanded buttons paint the 1dp outline outside their layout
+          // bounds, preserving the same total height as the other variants.
+          decoration: widget.expanded ? _expandedOutline(context) : null,
           child: child,
         );
         break;

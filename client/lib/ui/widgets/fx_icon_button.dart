@@ -64,9 +64,13 @@ class _FxIconButtonState extends State<FxIconButton> {
     // ShadIconButton 的 width/height 是按钮自身的最小尺寸。
     // Android 直接为按钮设置 44dp，不能减去绘制边框后只给 42dp。
     // Windows 保留既有 28dp 内容尺寸与约 30dp 可见几何。
-    final contentSize = SlowlightPlatformDensity.usesMobileTouchTargets
-        ? visualSize
-        : visualSize - borderWidth * 2;
+    final mobile = SlowlightPlatformDensity.usesMobileTouchTargets;
+    final contentSize = mobile ? visualSize : visualSize - borderWidth * 2;
+    // Keep the full gesture surface on Android. The focus stroke paints
+    // outside its bounds without adding a layout inset to adjacent controls.
+    final strokeAlign = mobile
+        ? BorderSide.strokeAlignOutside
+        : BorderSide.strokeAlignInside;
     // Shad 默认次级焦点环会在按钮外再预留 8px，使页头及输入框尾部跳高。
     // 用同宽的单层边框表达焦点，保留键盘反馈与 Android 触控尺寸。
     final colors = Theme.of(context).colorScheme;
@@ -77,11 +81,13 @@ class _FxIconButtonState extends State<FxIconButton> {
             ? colors.outlineVariant
             : Colors.transparent,
         width: borderWidth,
+        strokeAlign: strokeAlign,
         radius: BorderRadius.circular(SlowlightRadius.md),
       ),
       focusedBorder: ShadBorder.all(
         color: colors.primary,
         width: borderWidth,
+        strokeAlign: strokeAlign,
         radius: BorderRadius.circular(SlowlightRadius.md),
       ),
     );

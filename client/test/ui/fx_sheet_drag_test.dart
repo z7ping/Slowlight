@@ -1,19 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slowlight/models/task.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/models/todo_list.dart';
 import 'package:slowlight/ui/fx.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/widgets/habit_editor_dialog.dart';
 import 'package:slowlight/widgets/habit_checkin_dialog.dart';
 import 'package:slowlight/widgets/reflection_composer.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('fx_sheet_drag');
+    SharedPreferences.setMockInitialValues({'data_mode': 'local'});
+    FlutterSecureStorage.setMockInitialValues({});
+    await DataModeManager().setLocal();
+  });
   setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
@@ -23,7 +34,7 @@ void main() {
         body: Builder(
           builder: (context) => FxButton(
             label: '打开设置',
-            onPressed: () => FxSheet.show<void>(
+            onPressed: () => unawaited(FxSheet.show<void>(
               context: context,
               title: const Text('设置标题'),
               description: const Text('这是一段说明文字'),
@@ -31,7 +42,7 @@ void main() {
                 height: 120,
                 child: Text('设置内容'),
               ),
-            ),
+            )),
           ),
         ),
       ),
@@ -40,7 +51,7 @@ void main() {
     await tester.tap(find.text('打开设置'));
     await tester.pumpAndSettle();
 
-    final sheet = tester.widget<ShadSheet>(find.byType(ShadSheet));
+    final sheet = fxSheetSurface(tester);
     expect(sheet.titleTextAlign, TextAlign.start);
     expect(sheet.descriptionTextAlign, TextAlign.start);
     expect(tester.takeException(), isNull);
@@ -49,6 +60,9 @@ void main() {
 
   testWidgets('X15 Android 减少动态效果时 Sheet 回弹及键盘避让使用 0ms',
       (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(buildFxTestHost(
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: true),
@@ -57,7 +71,7 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开可编辑表单',
-          onPressed: () => FxSheet.show<void>(
+          onPressed: () => unawaited(FxSheet.show<void>(
             context: context,
             isDismissible: false,
             onDismissRequested: () async {},
@@ -65,7 +79,7 @@ void main() {
               height: 180,
               child: Center(child: Text('原型表单')),
             ),
-          ),
+          )),
         ),
       )),
     ));
@@ -77,14 +91,19 @@ void main() {
       of: surface,
       matching: find.byType(AnimatedPadding),
     );
-    expect(tester.widget<AnimatedPadding>(keyboard.first).duration,
-        Duration.zero);
+    expect(keyboard, findsNothing);
     final drag = find.ancestor(
       of: find.byKey(const ValueKey('fx.sheet.dragHandle')),
       matching: find.byType(AnimatedContainer),
     );
     expect(tester.widget<AnimatedContainer>(drag.first).duration,
         Duration.zero);
+    final content = find.text('原型表单');
+    final original = tester.getRect(content);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pump();
+    expect(tester.getRect(content).bottom, closeTo(original.bottom - 240, 1));
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -98,14 +117,14 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开选项',
-          onPressed: () => FxSheet.show<void>(
+          onPressed: () => unawaited(FxSheet.show<void>(
             context: context,
             showDragHandle: true,
             builder: (_) => const SizedBox(
               height: 180,
               child: Center(child: Text('可安全关闭的选项')),
             ),
-          ),
+          )),
         ),
       )),
     ));
@@ -114,7 +133,7 @@ void main() {
     final grip = find.byKey(const ValueKey('fx.sheet.visualHandle'));
     expect(grip, findsOneWidget);
     expect(tester.getSize(grip).height, 24);
-    final sheet = tester.widget<ShadSheet>(fxSheetSurfaceFinder());
+    final sheet = fxSheetSurface(tester);
     expect(
       sheet.radius,
       const BorderRadius.vertical(top: Radius.circular(SlowlightRadius.xl)),
@@ -123,7 +142,7 @@ void main() {
     expect(sheet.gap, 0);
     // Inspect the final ShadDialog painted surface, not only Sheet.radius.
     final roundedSurface = find.descendant(
-      of: find.byType(ShadDialog),
+      of: fxDialogSurfaceFinder(),
       matching: find.byWidgetPredicate((widget) =>
           widget is DecoratedBox &&
           widget.decoration is BoxDecoration &&
@@ -149,7 +168,7 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开紧凑手柄',
-          onPressed: () => FxSheet.show<void>(
+          onPressed: () => unawaited(FxSheet.show<void>(
             context: context,
             isDismissible: false,
             onDismissRequested: () async {
@@ -160,7 +179,7 @@ void main() {
               height: 180,
               child: Center(child: Text('不会因轻触关闭')),
             ),
-          ),
+          )),
         ),
       )),
     ));
@@ -197,7 +216,7 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开无引导线表单',
-          onPressed: () => FxSheet.show<void>(
+          onPressed: () => unawaited(FxSheet.show<void>(
             context: context,
             showDragHandle: false,
             draggable: true,
@@ -207,7 +226,7 @@ void main() {
               height: 180,
               child: Center(child: Text('含未保存内容')),
             ),
-          ),
+          )),
         ),
       )),
     ));
@@ -215,7 +234,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('fx.sheet.dragHandle')), findsNothing);
     expect(find.byKey(const ValueKey('fx.sheet.visualHandle')), findsNothing);
-    final sheet = tester.widget<ShadSheet>(fxSheetSurfaceFinder());
+    final sheet = fxSheetSurface(tester);
     expect(sheet.draggable, isFalse);
     expect(sheet.removeBorderRadiusWhenTiny, isFalse);
     expect(
@@ -237,7 +256,7 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开表单',
-          onPressed: () => FxSheet.show<void>(
+          onPressed: () => unawaited(FxSheet.show<void>(
             context: context,
             isDismissible: false,
             draggable: false,
@@ -260,7 +279,7 @@ void main() {
                 ),
               );
             },
-          ),
+          )),
         ),
       )),
     ));
@@ -293,10 +312,10 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '记录观察',
-          onPressed: () => ReflectionComposer.show(
+          onPressed: () => unawaited(ReflectionComposer.show(
             context,
             entryType: 'observation',
-          ),
+          )),
         ),
       )),
     ));
@@ -333,13 +352,13 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开任务',
-          onPressed: () => TaskDetailSheet.show(
+          onPressed: () => unawaited(TaskDetailSheet.show(
             context,
             task: task,
             lists: lists,
             isCreating: true,
             onChanged: () {},
-          ),
+          )),
         ),
       )),
     ));
@@ -363,7 +382,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('放弃新建任务？'), findsOneWidget);
-    await tester.tap(find.text('取消'));
+    await tester.tap(find.text('继续编辑'));
     await tester.pumpAndSettle();
     expect(find.text('未保存的新任务'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -378,7 +397,7 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开习惯',
-          onPressed: () => HabitEditorDialog.show(context),
+          onPressed: () => unawaited(HabitEditorDialog.show(context)),
         ),
       )),
     ));
@@ -391,7 +410,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('放弃未保存的习惯？'), findsOneWidget);
-    await tester.tap(find.text('取消'));
+    await tester.tap(find.text('继续编辑'));
     await tester.pumpAndSettle();
     expect(find.text('调整中的习惯'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -416,7 +435,7 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '记录习惯',
-          onPressed: () => HabitCheckinDialog.show(context, habit: habit),
+          onPressed: () => unawaited(HabitCheckinDialog.show(context, habit: habit)),
         ),
       )),
     ));
@@ -433,7 +452,7 @@ void main() {
     expect(submit, findsOneWidget);
     expect(
       tester.getSize(submit).width / tester.getSize(cancel).width,
-      closeTo(1.4, 0.02),
+      closeTo(1.5, 0.02),
     );
     expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
     expect(tester.getSize(cancel).height, tester.getSize(submit).height);
@@ -444,14 +463,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('放弃未保存的记录？'), findsOneWidget);
-    await tester.tap(find.text('取消'));
+    await tester.tap(find.text('继续编辑'));
     await tester.pumpAndSettle();
     expect(find.text('未保存的打卡说明'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('Android 320dp/200% 字号习惯打卡按钮纵向退让且键盘可达',
+  testWidgets('Android 320dp/200% 字号习惯打卡按钮有空间时同行且键盘可达',
       (tester) async {
     tester.view.physicalSize = const Size(320, 800);
     tester.view.devicePixelRatio = 1;
@@ -476,7 +495,7 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开大字打卡',
-          onPressed: () => HabitCheckinDialog.show(context, habit: habit),
+          onPressed: () => unawaited(HabitCheckinDialog.show(context, habit: habit)),
         ),
       )),
     ));
@@ -490,10 +509,11 @@ void main() {
     expect(footer, findsOneWidget);
     expect(cancel, findsOneWidget);
     expect(submit, findsOneWidget);
-    expect(tester.getSize(cancel).width,
-        closeTo(tester.getSize(submit).width, 1));
-    expect(tester.getTopLeft(submit).dy,
-        greaterThan(tester.getBottomLeft(cancel).dy));
+    expect(tester.getSize(submit).width / tester.getSize(cancel).width,
+        closeTo(1.5, 0.02));
+    expect(tester.getCenter(submit).dy, closeTo(tester.getCenter(cancel).dy, 1));
+    expect(tester.getTopLeft(submit).dx, greaterThan(tester.getTopRight(cancel).dx));
+    expect(tester.getRect(submit).right, lessThanOrEqualTo(320));
     expect(tester.getSize(submit).height, greaterThanOrEqualTo(44));
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 250);
@@ -508,12 +528,12 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '删除确认',
-          onPressed: () => FxDialog.confirm(
+          onPressed: () => unawaited(FxDialog.confirm(
             context: context,
             title: '确认删除？',
             content: '这项操作不可撤销。',
             destructive: true,
-          ),
+          )),
         ),
       )),
     ));

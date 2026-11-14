@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/ui/fx.dart';
 
@@ -14,10 +15,10 @@ void main() {
           builder: (context) => Scaffold(
             body: FxButton(
               label: '选择时间',
-              onPressed: () => showFxTimePicker(
+              onPressed: () => unawaited(showFxTimePicker(
                 context: context,
                 initialTime: const TimeOfDay(hour: 9, minute: 30),
-              ),
+              )),
             ),
           ),
         ),
@@ -49,10 +50,10 @@ void main() {
         builder: (context) => Scaffold(
           body: FxButton(
             label: '打开时间选择',
-            onPressed: () => showFxTimePicker(
+            onPressed: () => unawaited(showFxTimePicker(
               context: context,
               initialTime: const TimeOfDay(hour: 9, minute: 30),
-            ),
+            )),
           ),
         ),
       ),
@@ -61,7 +62,7 @@ void main() {
     await tester.tap(find.text('打开时间选择'));
     await tester.pumpAndSettle();
 
-    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    final dialog = fxDialogSurface(tester);
     expect(dialog.titleTextAlign, TextAlign.start);
     expect(dialog.descriptionTextAlign, TextAlign.start);
     await tester.tap(find.text('取消'));
@@ -86,14 +87,14 @@ void main() {
         builder: (context) => Scaffold(
           body: FxButton(
             label: '打开补记日期',
-            onPressed: () async {
-              selected = await showFxDatePicker(
+            onPressed: () {
+              unawaited(showFxDatePicker(
                 context: context,
                 initialDate: last,
                 firstDate: first,
                 lastDate: last,
                 title: '选择补卡日期',
-              );
+              ).then((value) => selected = value));
             },
           ),
         ),

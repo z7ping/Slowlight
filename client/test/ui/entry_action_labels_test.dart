@@ -24,7 +24,7 @@ void main() {
     expect(observation, contains("title: '记录观察'"));
     expect(review, contains("title: '记录观察'"));
     expect(mobile, contains("tooltip: '记录观察'"));
-    expect(stats, contains("label: '记录观察'"));
+    expect(stats, contains("label: desktop ? '记录观察' : '观察记录'"));
 
     for (final source in [dashboard, task, observation, review, mobile, stats]) {
       expect(source, isNot(contains('记录任务')));

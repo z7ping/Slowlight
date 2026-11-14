@@ -17,21 +17,26 @@ Widget _host(Widget content, {required bool reduceMotion}) =>
       ),
     );
 
+Finder _spinnerRotation() => find.descendant(
+  of: find.byType(FxSpinner),
+  matching: find.byType(RotationTransition),
+);
+
 void main() {
   testWidgets('X15 减少动态效果时统一转圈 Loading 静止且仍有状态语义',
       (tester) async {
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
     await tester.pumpWidget(_host(
       const FxSpinner(semanticsLabel: '读取中'),
       reduceMotion: true,
     ));
     expect(find.byType(FxSpinner), findsOneWidget);
-    expect(find.byType(RotationTransition), findsNothing);
+    expect(_spinnerRotation(), findsNothing);
     expect(find.bySemanticsLabel('读取中'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 1000));
     expect(tester.hasRunningAnimations, isFalse);
     expect(tester.takeException(), isNull);
+    semantics.dispose();
     await disposeFxTestHost(tester);
   });
 
@@ -39,11 +44,11 @@ void main() {
     await tester.pumpWidget(_host(
       const FxSpinner(size: 24), reduceMotion: false,
     ));
-    expect(find.byType(RotationTransition), findsOneWidget);
+    expect(_spinnerRotation(), findsOneWidget);
     final spinner = find.byType(FxSpinner);
     expect(tester.getSize(spinner), const Size(24, 24));
     expect(tester.widget<RotationTransition>(
-      find.byType(RotationTransition),
+      _spinnerRotation(),
     ).turns.isAnimating, isTrue);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
@@ -72,9 +77,9 @@ void main() {
       reduceMotion: true,
     ));
     final tile = find.byType(FxExpansionTile);
-    expect(tester.widget<AnimatedSize>(find.descendant(
+    expect(find.descendant(
       of: tile, matching: find.byType(AnimatedSize),
-    )).duration, Duration.zero);
+    ), findsNothing);
     expect(tester.widget<AnimatedRotation>(find.descendant(
       of: tile, matching: find.byType(AnimatedRotation),
     )).duration, Duration.zero);
@@ -89,6 +94,34 @@ void main() {
     await tester.pump();
     expect(toggles, 2);
     expect(tester.hasRunningAnimations, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('切换减少动效时保留展开区里的输入状态', (tester) async {
+    final reduced = ValueNotifier<bool>(false);
+    addTearDown(reduced.dispose);
+    await tester.pumpWidget(buildFxTestHost(
+      builder: (context, child) => ValueListenableBuilder<bool>(
+        valueListenable: reduced,
+        builder: (context, disabled, _) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: disabled),
+          child: child!,
+        ),
+      ),
+      home: const Scaffold(
+        body: FxExpansionTile(
+          title: Text('更多设置'),
+          initiallyExpanded: true,
+          children: [FxInput(placeholder: '输入备注')],
+        ),
+      ),
+    ));
+    final input = find.byType(EditableText);
+    await tester.enterText(input, '未保存的备注');
+    reduced.value = true;
+    await tester.pump();
+    expect(tester.widget<EditableText>(input).controller.text, '未保存的备注');
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });
@@ -114,11 +147,11 @@ void main() {
         ]),
       ),
     ));
-    expect(find.byType(RotationTransition), findsOneWidget);
+    expect(_spinnerRotation(), findsOneWidget);
     reduced.value = true;
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1200));
-    expect(find.byType(RotationTransition), findsNothing);
+    expect(_spinnerRotation(), findsNothing);
     expect(tester.hasRunningAnimations, isFalse);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);

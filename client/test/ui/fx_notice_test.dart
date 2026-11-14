@@ -161,7 +161,9 @@ void main() {
 
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(
-        body: Builder(builder: (context) => Column(children: [
+        body: Builder(builder: (context) => Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
           FxButton(label: '顶部通知', onPressed: () =>
               FxNotice.show(context, '普通提示')),
           FxButton(label: '底部撤销', onPressed: () =>

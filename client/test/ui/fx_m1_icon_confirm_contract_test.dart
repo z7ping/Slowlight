@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -26,9 +25,9 @@ void main() {
         ));
         await tester.pump();
 
-        final surface = find.byType(ShadIconButton);
+        final surface = fxIconButtonSurfaceFinder();
         expect(surface, findsOneWidget);
-        final button = tester.widget<ShadIconButton>(surface);
+        final button = fxIconButtonSurface(tester);
         if (platform == TargetPlatform.android) {
           expect(button.width, 44);
           expect(button.height, 44);
@@ -59,7 +58,8 @@ void main() {
         await tester.pumpWidget(buildFxTestHost(
           home: Scaffold(
             body: Builder(
-              builder: (context) => TextButton(
+              builder: (context) => FxButton(
+                label: '打开确认',
                 onPressed: () {
                   result = FxDialog.confirm(
                     context: context,
@@ -70,7 +70,6 @@ void main() {
                     cancelText: '取消',
                   );
                 },
-                child: const Text('打开确认'),
               ),
             ),
           ),
@@ -79,7 +78,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final buttons = find.descendant(
-          of: find.byType(ShadDialog),
+          of: fxDialogSurfaceFinder(),
           matching: find.byType(FxButton),
         );
         expect(buttons, findsNWidgets(2));
@@ -94,8 +93,8 @@ void main() {
           );
         }
         final shadButtons = find.descendant(
-          of: find.byType(ShadDialog),
-          matching: find.byType(ShadButton),
+          of: fxDialogSurfaceFinder(),
+          matching: fxButtonSurfaceFinder(),
         );
         expect(shadButtons, findsNWidgets(2));
         for (final button in shadButtons.evaluate()) {

@@ -19,10 +19,7 @@ Future<String> useIsolatedTestDb(String suiteName) async {
   // 同线程 FFI 仍执行真实 SQLite，避免查询锁超时残留到宿主销毁之后。
   databaseFactory = databaseFactoryFfiNoIsolate;
 
-  final dir = Directory(
-    p.join(Directory.systemTemp.path, 'slowlight_test_db', suiteName),
-  );
-  await dir.create(recursive: true);
+  final dir = await Directory.systemTemp.createTemp('slowlight_${suiteName}_');
 
   LocalDb.debugDatabasePathOverride = p.join(dir.path, 'slowlight_offline.db');
   CloudCacheDb.debugDatabasesDirOverride = dir.path;

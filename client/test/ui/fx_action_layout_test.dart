@@ -92,7 +92,8 @@ void main() {
       final leading = tester.getRect(find.text('筛选条件'));
       final action = tester.getRect(find.text('新建任务'));
       expect((leading.center.dy - action.center.dy).abs(), lessThan(24));
-      expect(action.right, lessThanOrEqualTo(width + 1));
+      final bounds = tester.getRect(find.byType(FxActionBar));
+      expect(action.right, lessThanOrEqualTo(bounds.right + 1));
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -26,10 +25,7 @@ void main() {
           ),
         ));
         await tester.pump();
-        final surface = find.descendant(
-          of: find.byType(FxButton),
-          matching: find.byType(ShadButton),
-        );
+        final surface = fxButtonHitTargetFinder(find.byType(FxButton));
         expect(surface, findsOneWidget);
         final rect = tester.getRect(surface);
         expect(rect.height, greaterThanOrEqualTo(44));
@@ -56,7 +52,7 @@ void main() {
     await tester.pump();
     final surface = find.descendant(
       of: find.byType(FxButton),
-      matching: find.byType(ShadButton),
+      matching: fxButtonSurfaceFinder(),
     );
     expect(tester.getSize(surface).height, greaterThan(44));
     expect(tester.takeException(), isNull);
@@ -133,17 +129,13 @@ void main() {
     await tester.pump();
     final buttonSurface = find.descendant(
       of: find.byType(FxButton),
-      matching: find.byType(ShadButton),
+      matching: fxButtonSurfaceFinder(),
     );
-    expect(tester.widget<ShadButton>(buttonSurface).enabled, isFalse);
-    expect(tester.widget<ShadButton>(buttonSurface).variant,
-        ShadButtonVariant.primary);
+    expectFxPrimaryButtonEnabled(tester, buttonSurface, false);
 
     await tester.pumpWidget(host(canSave: true));
     await tester.pump();
-    expect(tester.widget<ShadButton>(buttonSurface).enabled, isTrue);
-    expect(tester.widget<ShadButton>(buttonSurface).variant,
-        ShadButtonVariant.primary);
+    expectFxPrimaryButtonEnabled(tester, buttonSurface, true);
     await tester.tap(find.text('保存修改'));
     await tester.pump();
     expect(taps, 1);

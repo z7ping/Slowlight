@@ -12,7 +12,7 @@ import 'package:slowlight/screens/list_manage_screen.dart';
 import 'package:slowlight/screens/about_screen.dart';
 import 'package:slowlight/screens/search_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/ui/fx.dart' show FxGestureDetector, FxNotice;
+import 'package:slowlight/ui/fx.dart' show FxGestureDetector, FxNotice, FxNoticePlacement;
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
@@ -294,7 +294,7 @@ void main() {
       await tester.tap(fxTooltipFinder('工具'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('搜索'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.byType(SearchScreen), findsOneWidget);
 
       await tester.binding.handlePopRoute();
@@ -354,6 +354,7 @@ void main() {
       FxNotice.show(
         tester.element(find.byType(HomeScreen)),
         '已有任务撤销提示',
+        placement: FxNoticePlacement.undo,
         duration: const Duration(seconds: 10),
       );
       await tester.pump();
@@ -596,7 +597,7 @@ void main() {
       final fab = fxTooltipFinder('快速添加任务（按住可拖动）');
 
       // Store a coordinate valid at 412dp but outside a 360dp body.
-      await tester.drag(fab, const Offset(1, 0));
+      await tester.drag(fab, const Offset(28, 0));
       await tester.pump();
       tester.view.physicalSize = const Size(360, 800);
       await tester.pump();
@@ -662,7 +663,7 @@ void main() {
       await tester.tap(find.text('习惯').first);
       await tester.pumpAndSettle();
       expect(find.text('放弃未保存的修改？'), findsOneWidget);
-      await tester.tap(find.text('取消'));
+      await tester.tap(find.text('继续编辑'));
       await tester.pumpAndSettle();
       expect(find.byType(TaskToolScreen), findsOneWidget);
       expect(tester.widget<EditableText>(title).controller.text,

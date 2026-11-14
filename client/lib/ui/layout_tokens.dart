@@ -32,6 +32,7 @@ abstract final class SlowlightRadius {
 abstract final class SlowlightControlSize {
   /// Android 的最低触控目标。桌面组件不能直接用它撑大可见尺寸或布局高度。
   static const double minTouchTarget = 44;
+  static const double mobileBottomNavigation = 56;
 
   static const double buttonSm = 32;
   static const double button = 36;

@@ -52,6 +52,31 @@ Finder fxTooltipFinder(String message) => find.byWidgetPredicate(
 Finder fxToastFinder() => find.byType(ShadToast);
 Finder fxDialogSurfaceFinder() => find.byType(ShadDialog);
 Finder fxSheetSurfaceFinder() => find.byType(ShadSheet);
+Finder fxPopoverSurfaceFinder() => find.byType(ShadPopover);
+Finder fxButtonSurfaceFinder() => find.byType(ShadButton);
+Finder fxIconButtonSurfaceFinder() => find.byType(ShadIconButton);
+
+Finder fxButtonHitTargetFinder(Finder button) => find.descendant(
+      of: button,
+      matching: find.byType(ShadGestureDetector),
+    );
+
+ShadDialog fxDialogSurface(WidgetTester tester) =>
+    tester.widget<ShadDialog>(fxDialogSurfaceFinder());
+ShadSheet fxSheetSurface(WidgetTester tester) =>
+    tester.widget<ShadSheet>(fxSheetSurfaceFinder());
+ShadIconButton fxIconButtonSurface(WidgetTester tester) =>
+    tester.widget<ShadIconButton>(fxIconButtonSurfaceFinder());
+ShadButton fxButtonSurface(WidgetTester tester, Finder surface) =>
+    tester.widget<ShadButton>(surface);
+
+void expectFxPrimaryButtonEnabled(
+    WidgetTester tester, Finder surface, bool enabled) {
+  final button = fxButtonSurface(tester, surface);
+  expect(button.variant, ShadButtonVariant.primary);
+  expect(button.enabled, enabled);
+}
+
 
 EdgeInsetsGeometry? fxCardSurfacePadding(WidgetTester tester, Finder card) =>
     tester.widget<ShadCard>(find.descendant(
