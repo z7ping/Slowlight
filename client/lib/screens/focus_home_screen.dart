@@ -128,6 +128,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
   // FAB 的实际布局坐标（相对于手机内容区域）；为空时停靠右下角。
   Offset? _fabPosition;
   bool _fabAutoHidden = false;
+  bool _quickAddOpen = false;
   DateTime? _lastAndroidBackAt;
   Object? _exitNoticeId;
   DateTime _knownToday = DateUtils.dateOnly(DateTime.now());
@@ -578,12 +579,18 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     );
   }
 
-  void _quickAdd() {
-    TaskDetailSheet.showCreate(
-      context,
-      lists: _lists.isEmpty ? null : _lists,
-      onChanged: _reload,
-    );
+  Future<void> _quickAdd() async {
+    if (_quickAddOpen) return;
+    _quickAddOpen = true;
+    try {
+      await TaskDetailSheet.showCreate(
+        context,
+        lists: _lists.isEmpty ? null : _lists,
+        onChanged: _reload,
+      );
+    } finally {
+      _quickAddOpen = false;
+    }
   }
 
   Future<void> _openSearchReflection(ReflectionEntry entry) async {

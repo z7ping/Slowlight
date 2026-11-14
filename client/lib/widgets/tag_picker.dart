@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/tag.dart';
 import '../models/observation_tag.dart';
 import 'tag_choice_field.dart';
-import '../services/api_service.dart';
-import '../theme/app_theme.dart';
+import '../repositories/tag_repository.dart';
 import '../ui/fx.dart';
 import '../utils/color_utils.dart';
 
@@ -18,6 +17,7 @@ class TagPicker extends StatefulWidget {
   /// In task popovers, create new tags in place instead of opening a dialog.
   final bool inlineCreation;
   final bool compactGrid;
+  final TagRepository? repository;
 
   const TagPicker({
     super.key,
@@ -29,6 +29,7 @@ class TagPicker extends StatefulWidget {
     this.showEmptyOption = true,
     this.inlineCreation = false,
     this.compactGrid = false,
+    this.repository,
   });
 
   @override
@@ -38,6 +39,8 @@ class TagPicker extends StatefulWidget {
 class _TagPickerState extends State<TagPicker> {
   List<Tag> _allTags = [];
   bool _isLoading = true;
+  bool _loadFailed = false;
+  late final TagRepository _repository = widget.repository ?? TagRepository();
   bool _inlineCreating = false;
   bool _creatingTag = false;
   String _inlineTagColor = presetColors.first;
@@ -68,7 +71,7 @@ class _TagPickerState extends State<TagPicker> {
 
   Future<void> _loadTags() async {
     try {
-      final tags = await ApiService.getTags();
+      final tags = await _repository.getTags();
       if (mounted) {
         setState(() {
           _allTags = tags;
@@ -77,8 +80,10 @@ class _TagPickerState extends State<TagPicker> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isLoading = false);
-        FxNotice.showContent(context, Text('加载标签失败'));
+        setState(() {
+          _isLoading = false;
+          _loadFailed = true;
+        });
       }
     }
   }
@@ -88,7 +93,7 @@ class _TagPickerState extends State<TagPicker> {
     if (name.isEmpty || _creatingTag) return;
     setState(() => _creatingTag = true);
     try {
-      final tag = await ApiService.createTag(
+      final tag = await _repository.createTag(
         name: name,
         color: _inlineTagColor,
       );
@@ -191,7 +196,7 @@ class _TagPickerState extends State<TagPicker> {
                         final name = nameController.text.trim();
                         if (name.isEmpty) return;
                         try {
-                          final tag = await ApiService.createTag(
+                          final tag = await _repository.createTag(
                             name: name,
                             color: selectedColor,
                           );
@@ -222,6 +227,29 @@ class _TagPickerState extends State<TagPicker> {
       return const SizedBox(
         height: 40,
         child: Center(child: FxCircularProgress()),
+      );
+    }
+
+    if (_loadFailed) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('标签读取失败', style: SlowlightTypography.secondary(context)),
+          const SizedBox(height: SlowlightSpacing.xs),
+          FxButton(
+            label: '重试',
+            size: FxButtonSize.sm,
+            variant: FxButtonVariant.outline,
+            onPressed: widget.enabled ? () async {
+              setState(() {
+                _isLoading = true;
+                _loadFailed = false;
+              });
+              await _loadTags();
+            } : null,
+          ),
+        ],
       );
     }
 

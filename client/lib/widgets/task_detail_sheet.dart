@@ -7,6 +7,7 @@ import '../models/tag.dart';
 import '../models/task.dart';
 import '../models/todo_list.dart';
 import '../repositories/observation_tag_repository.dart';
+import '../repositories/tag_repository.dart';
 import '../services/data_service.dart';
 import '../services/api/task_api.dart';
 import '../theme/app_theme.dart';
@@ -31,6 +32,7 @@ class TaskDetailSheet extends StatefulWidget {
   /// Keep the editor readable but block stale writes.
   final bool writeBlocked;
   final ObservationTagRepository? tagsRepository;
+  final TagRepository? taskTagsRepository;
 
   const TaskDetailSheet({
     super.key,
@@ -45,6 +47,7 @@ class TaskDetailSheet extends StatefulWidget {
     this.sidePanel = false,
     this.writeBlocked = false,
     this.tagsRepository,
+    this.taskTagsRepository,
   });
 
   static Future<void> show(
@@ -56,6 +59,7 @@ class TaskDetailSheet extends StatefulWidget {
     String? initialPriority,
     DateTime? initialDueDate,
     TimeOfDay? initialDueTime,
+    TagRepository? taskTagsRepository,
   }) async {
     // Different tool routes may not have loaded lists yet. Resolve their
     // canonical list options before opening an editor, never treat an empty
@@ -133,6 +137,7 @@ class TaskDetailSheet extends StatefulWidget {
                         initialDueTime: initialDueTime,
                         lists: availableLists,
                         onChanged: onChanged,
+                        taskTagsRepository: taskTagsRepository,
                         onClose: closeRoute,
                         sidePanel: true,
                       ),
@@ -200,6 +205,7 @@ class TaskDetailSheet extends StatefulWidget {
             initialDueTime: initialDueTime,
             lists: availableLists,
             onChanged: onChanged,
+            taskTagsRepository: taskTagsRepository,
           ),
         ),
       ),
@@ -301,6 +307,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   bool _mobileExpanded = false;
   bool _allowMobilePop = false;
   bool _desktopClosePending = false;
+  bool _mobileClosePending = false;
 
   @override
   void initState() {
@@ -466,26 +473,36 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
   }
 
   Future<void> _requestMobileClose({bool backFromSystem = false}) async {
-    if (_saving) return;
-    if (_mobileDirty || _writeResultUnknown ||
-        (widget.isCreating && _title.text.trim().isNotEmpty)) {
-      final discard = await FxDialog.confirm(
-        context: context,
-        title: _writeResultUnknown
-            ? '任务变更结果未确认'
-            : widget.isCreating ? '放弃新建任务？' : '放弃未保存的修改？',
-        content: _writeResultUnknown
-            ? '请求可能已完成。请关闭后核对任务列表或详情，避免重复操作。'
-            : widget.isCreating
-                ? '尚未创建任务，关闭后将丢弃填写的内容。'
-                : '本次编辑尚未保存，关闭后不会写入任务。',
-        confirmText: _writeResultUnknown ? '关闭并核对' : '放弃修改',
-        destructive: true,
-        draftDiscard: !_writeResultUnknown,
-      );
-      if (discard != true || !mounted) return;
+    if (_saving || _allowMobilePop || _mobileClosePending) return;
+    // FxSheet already consumed MediaQuery's insets in the form subtree.
+    if (backFromSystem && View.of(context).viewInsets.bottom > 0) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      return;
     }
-    _close();
+    _mobileClosePending = true;
+    try {
+      if (_mobileDirty || _writeResultUnknown ||
+          (widget.isCreating && _title.text.trim().isNotEmpty)) {
+        final discard = await FxDialog.confirm(
+          context: context,
+          title: _writeResultUnknown
+              ? '任务变更结果未确认'
+              : widget.isCreating ? '放弃新建任务？' : '放弃未保存的修改？',
+          content: _writeResultUnknown
+              ? '请求可能已完成。请关闭后核对任务列表或详情，避免重复操作。'
+              : widget.isCreating
+                  ? '尚未创建任务，关闭后将丢弃填写的内容。'
+                  : '本次编辑尚未保存，关闭后不会写入任务。',
+          confirmText: _writeResultUnknown ? '关闭并核对' : '放弃修改',
+          destructive: true,
+          draftDiscard: !_writeResultUnknown,
+        );
+        if (discard != true || !mounted) return;
+      }
+      _close();
+    } finally {
+      _mobileClosePending = false;
+    }
   }
 
   Widget _mobileEditor() {
@@ -949,36 +966,58 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         ),
       ),
       contentBuilder: (popoverContext, dismiss) => StatefulBuilder(
-        builder: (popoverContext, refreshPopover) => SingleChildScrollView(
-          padding: const EdgeInsets.all(SlowlightSpacing.xs),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (field != 'tags' &&
-                  field != 'list' &&
-                  field != 'due' &&
-                  field != 'priority')
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    SlowlightSpacing.md, SlowlightSpacing.xs,
-                    SlowlightSpacing.md, SlowlightSpacing.xs,
-                  ),
-                  child: Text(
-                    label,
-                    style: SlowlightTypography.caption(popoverContext).copyWith(
-                      color: Theme.of(popoverContext).colorScheme.onSurfaceVariant,
+        builder: (popoverContext, refreshPopover) {
+          final options = _mobilePropertyPage(
+            field, dismiss, () => refreshPopover(() {}),
+          );
+          const padding = EdgeInsets.all(SlowlightSpacing.xs);
+          if (field == 'tags') {
+            final done = FxDialogActions(
+              actions: [
+                FxButton(
+                  label: '完成',
+                  size: FxButtonSize.sm,
+                  onPressed: dismiss,
+                ),
+              ],
+            );
+            return Padding(
+              padding: padding,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Flexible(child: SingleChildScrollView(child: options)),
+                  const SizedBox(height: SlowlightSpacing.xs),
+                  done,
+                ],
+              ),
+            );
+          }
+          return SingleChildScrollView(
+            padding: padding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (field != 'list' && field != 'due' && field != 'priority')
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      SlowlightSpacing.md, SlowlightSpacing.xs,
+                      SlowlightSpacing.md, SlowlightSpacing.xs,
+                    ),
+                    child: Text(
+                      label,
+                      style: SlowlightTypography.caption(popoverContext).copyWith(
+                        color: Theme.of(popoverContext).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-              _mobilePropertyPage(
-                field,
-                dismiss,
-                () => refreshPopover(() {}),
-              ),
-            ],
-          ),
-        ),
+                options,
+              ],
+            ),
+          );
+        },
       ),
       child: content,
     );
@@ -1106,7 +1145,6 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
     required VoidCallback dismiss,
     required VoidCallback refreshPopover,
   }) {
-    final before = _mobileValueSnapshot();
     final oldDueDate = _dueDate;
     final oldDueTime = _dueTime;
     setState(() {
@@ -1315,30 +1353,16 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
           ],
         );
       case 'tags':
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TagPicker(
-              label: '标签',
-              inlineCreation: true,
-              compactGrid: true,
-              enabled: !_saving,
-              selectedTags: _selectedTags,
-              onChanged: (tags) => _mobileSelect(() {
-                _selectedTags = tags;
-              }, stay: true, dismiss: dismiss, refreshPopover: refreshPopover),
-            ),
-            const SizedBox(height: SlowlightSpacing.md),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FxButton(
-                label: '完成',
-                size: FxButtonSize.sm,
-                onPressed: dismiss,
-              ),
-            ),
-          ],
+        return TagPicker(
+          label: '标签',
+          inlineCreation: true,
+          compactGrid: true,
+          enabled: !_saving,
+          repository: widget.taskTagsRepository,
+          selectedTags: _selectedTags,
+          onChanged: (tags) => _mobileSelect(() {
+            _selectedTags = tags;
+          }, stay: true, dismiss: dismiss, refreshPopover: refreshPopover),
         );
       default:
         return const SizedBox.shrink();
@@ -1393,6 +1417,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
       iconSize: SlowlightIconSize.sm,
       variant: FxIconButtonVariant.primary,
       compactPrimaryVisual: true,
+      busy: _saving,
       tooltip: _writeResultUnknown
           ? '结果待核对'
           : widget.isCreating
@@ -1634,6 +1659,7 @@ class TaskDetailSheetState extends State<TaskDetailSheet> {
         TagPicker(
           label: '标签',
           enabled: !_saving,
+          repository: widget.taskTagsRepository,
           selectedTags: _selectedTags,
           onChanged: (tags) => setState(() => _selectedTags = tags),
         ),
