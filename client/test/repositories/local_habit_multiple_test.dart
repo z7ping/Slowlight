@@ -163,6 +163,7 @@ void main() {
     );
     final habit = await repo.create(
       name: '计划外也可记录',
+      allowMultiplePerDay: true, // legacy flag may differ from the V3 rule
       frequency: 'custom',
       scheduleRule: rule.toJson(),
     );
@@ -175,6 +176,8 @@ void main() {
     expect((await repo.checkIn(id, confirmedOffScheduleDate: today))['already_checked'], isTrue);
     expect((await repo.getLogs(id))['logs'], hasLength(1));
     expect((await repo.getAll()).single['off_schedule_date'], isNull);
+    await repo.uncheckIn(id);
+    expect((await repo.getLogs(id))['logs'], isEmpty);
   });
 
   test('P05 V3 达标后仍能继续记录，重试幂等且完整历史不截断', () async {
