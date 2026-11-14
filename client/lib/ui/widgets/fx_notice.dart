@@ -36,7 +36,7 @@ class _FxNoticeHostState extends State<FxNoticeHost> {
         : safePadding.bottom;
     // 移动端撤销浮层保留底栏空间；键盘出现时优先避让输入法。
     final bottomNavReserve = mobile && keyboardInset <= safePadding.bottom
-        ? SlowlightControlSize.minTouchTarget + edge
+        ? SlowlightControlSize.mobileBottomNavigation
         : 0.0;
 
     return ShadSonner(

@@ -10,6 +10,9 @@ import 'package:flutter/material.dart';
 abstract final class SlowlightTypography {
   // Android / 通用阅读语义基线。
   static const double captionSize = 12;
+
+  /// Compact time labels on the calendar grid axis.
+  static const double calendarTimeAxisSize = 9;
   static const double captionLineHeight = 16;
   static const double secondarySize = 14;
   static const double secondaryLineHeight = 20;

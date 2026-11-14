@@ -63,9 +63,12 @@ void main() {
       (tester.getTopLeft(second).dx - tester.getTopLeft(third).dx).abs(),
       lessThan(2),
     );
-    // Each of the two consecutive gaps represents a >=44dp touch row.
-    expect(tester.getTopLeft(third).dy - tester.getTopLeft(first).dy,
-        greaterThanOrEqualTo(88));
+    final rows = find.byType(FxMenuItem<int>);
+    expect(rows, findsNWidgets(3));
+    for (var index = 0; index < 3; index++) {
+      final row = find.ancestor(of: rows.at(index), matching: find.byType(FxInkWell)).first;
+      expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
+    }
     expect(tester.getTopLeft(first).dx,
         lessThan(tester.getTopLeft(find.byIcon(LucideIcons.check)).dx));
 

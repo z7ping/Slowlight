@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
@@ -811,8 +812,8 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
       top: false,
       child: Container(
         key: const ValueKey('home.bottom-nav'),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+        color: theme.colorScheme.surface,
+        foregroundDecoration: BoxDecoration(
           border: Border(
             top: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
@@ -879,7 +880,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
           key: itemKey,
           onTap: onTap,
           child: SizedBox(
-            height: 56,
+            height: SlowlightControlSize.mobileBottomNavigation,
             child: Center(
               child: Container(
                 width: 36,
@@ -1007,6 +1008,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
     String tooltip = '快速添加任务（按住可拖动）',
   }) {
     return GestureDetector(
+      dragStartBehavior: DragStartBehavior.down,
       onPanUpdate: onPanUpdate,
       child: FxTooltip(
         message: tooltip,
@@ -1064,7 +1066,7 @@ class _FocusHomeScreenState extends State<FocusHomeScreen>
             ? _buildToolContent(HomeToolSection.habits)
             : const SizedBox.shrink(),
         _calendarOpened ? _calendarContent() : const SizedBox.shrink(),
-        otherTool ? _buildToolContent(tool!) : const SizedBox.shrink(),
+        otherTool ? _buildToolContent(tool) : const SizedBox.shrink(),
       ],
     );
   }

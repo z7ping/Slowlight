@@ -63,7 +63,10 @@ void main() {
       home: DiagnosticsScreen(logger: logger),
     ));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('diagnostics.clear')));
+    final clear = find.byKey(const ValueKey('diagnostics.clear'));
+    await tester.ensureVisible(clear);
+    await tester.pumpAndSettle();
+    await tester.tap(clear);
     await tester.pump();
     expect(find.text('清空诊断日志'), findsOneWidget);
     expect(logger.text, '保留的本机日志');
@@ -80,7 +83,10 @@ void main() {
       home: DiagnosticsScreen(logger: logger),
     ));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('diagnostics.clear')));
+    final clear = find.byKey(const ValueKey('diagnostics.clear'));
+    await tester.ensureVisible(clear);
+    await tester.pumpAndSettle();
+    await tester.tap(clear);
     await tester.pump();
     await tester.tap(find.text('清空日志'));
     await tester.pumpAndSettle();

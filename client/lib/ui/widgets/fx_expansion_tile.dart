@@ -57,6 +57,7 @@ class FxExpansionTile extends StatefulWidget {
 
 class _FxExpansionTileState extends State<FxExpansionTile> {
   late bool _expanded;
+  final _contentKey = GlobalKey();
 
   @override
   void initState() {
@@ -76,14 +77,24 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final surfaceDuration = reduceMotion
         ? Duration.zero : const Duration(milliseconds: 160);
-    final contentDuration = reduceMotion
-        ? Duration.zero : const Duration(milliseconds: 180);
     final foreground = _expanded
         ? widget.textColor ?? theme.colorScheme.onSurface
         : widget.collapsedTextColor ?? theme.colorScheme.onSurface;
     final iconForeground = _expanded
         ? widget.iconColor ?? theme.colorScheme.onSurfaceVariant
         : widget.collapsedIconColor ?? theme.colorScheme.onSurfaceVariant;
+
+    final content = _expanded
+        ? Padding(
+            key: _contentKey,
+            padding: widget.childrenPadding ??
+                const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.children,
+            ),
+          )
+        : const SizedBox.shrink();
 
     return AnimatedContainer(
       duration: surfaceDuration,
@@ -156,19 +167,10 @@ class _FxExpansionTileState extends State<FxExpansionTile> {
               ),
             ),
           ),
-          AnimatedSize(
-            duration: contentDuration,
+          if (reduceMotion) content else AnimatedSize(
+            duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
-            child: _expanded
-                ? Padding(
-                    padding: widget.childrenPadding ??
-                        const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: widget.children,
-                    ),
-                  )
-                : const SizedBox.shrink(),
+            child: content,
           ),
         ],
       ),

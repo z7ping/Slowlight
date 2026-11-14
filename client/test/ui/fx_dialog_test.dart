@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
@@ -13,13 +14,13 @@ void main() {
         builder: (context) => Scaffold(
           body: FxButton(
             label: '打开弹窗',
-            onPressed: () => FxDialog.confirm(
+            onPressed: () => unawaited(FxDialog.confirm(
               context: context,
               title: '删除任务',
               content: '确定删除吗？',
               confirmText: '删除',
               destructive: true,
-            ),
+            )),
           ),
         ),
       ),
@@ -45,8 +46,10 @@ void main() {
 
     expect(tester.widget<Text>(find.text('删除任务')).style, isNull);
     expect(tester.widget<Text>(find.text('确定删除吗？')).style, isNull);
-    expect(tester.widget<Text>(find.text('取消')).style, isNull);
-    expect(tester.widget<Text>(find.text('删除')).style, isNull);
+    for (final label in ['取消', '删除']) {
+      expect(tester.widget<Text>(find.text(label)).style?.fontSize,
+          SlowlightTypography.desktopButtonSize);
+    }
 
     await tester.tapAt(const Offset(4, 4));
     await tester.pumpAndSettle();
@@ -69,15 +72,15 @@ void main() {
       home: Scaffold(
         body: Builder(builder: (context) => FxButton(
           label: '编辑草稿',
-          onPressed: () async {
-            discarded = await FxDialog.confirm(
+          onPressed: () {
+            unawaited(FxDialog.confirm(
               context: context,
               title: '放弃未保存的修改？',
               content: '退出后草稿不会保存。',
               confirmText: '放弃修改',
               destructive: true,
               draftDiscard: true,
-            );
+            ).then((value) => discarded = value));
           },
         )),
       ),
@@ -99,7 +102,7 @@ void main() {
     expect(left.width / right.width, closeTo(2 / 3, .02));
     expect(left.height, greaterThanOrEqualTo(44));
     expect(right.height, greaterThanOrEqualTo(44));
-    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    final dialog = fxDialogSurface(tester);
     expect(dialog.removeBorderRadiusWhenTiny, isFalse);
     expect(dialog.radius,
         const BorderRadius.all(Radius.circular(SlowlightRadius.xl)));
@@ -132,15 +135,15 @@ void main() {
         body: Builder(
           builder: (context) => FxButton(
             label: '切换数据模式',
-            onPressed: () async {
-              confirmed = await FxDialog.confirm(
+            onPressed: () {
+              unawaited(FxDialog.confirm(
                 context: context,
                 title: '切换为本地数据？',
                 content: '仅改变数据来源，不自动迁移或删除记录。',
                 confirmText: '确认切换',
                 mobilePairedActions: true,
                 supportingText: '不会自动迁移、合并或删除记录。',
-              );
+              ).then((value) => confirmed = value));
             },
           ),
         ),
@@ -166,7 +169,7 @@ void main() {
     expect(left.width / right.width, closeTo(2 / 3, .02));
     expect(left.height, greaterThanOrEqualTo(44));
     expect(right.height, greaterThanOrEqualTo(44));
-    expect(tester.widget<ShadDialog>(find.byType(ShadDialog)).closeIcon,
+    expect(fxDialogSurface(tester).closeIcon,
         isA<SizedBox>());
 
     await tester.tap(find.text('取消'));
@@ -188,14 +191,14 @@ void main() {
       home: Scaffold(
         body: Builder(builder: (context) => FxButton(
           label: '编辑草稿',
-          onPressed: () => FxDialog.confirm(
+          onPressed: () => unawaited(FxDialog.confirm(
             context: context,
             title: '放弃未保存的修改？',
             content: '未保存内容将丢失。',
             confirmText: '放弃修改',
             destructive: true,
             draftDiscard: true,
-          ),
+          )),
         )),
       ),
     ));
@@ -220,7 +223,7 @@ void main() {
     await tester.tap(find.text('打开弹窗'));
     await tester.pumpAndSettle();
 
-    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    final dialog = fxDialogSurface(tester);
     expect(dialog.titleTextAlign, TextAlign.start);
     expect(dialog.descriptionTextAlign, TextAlign.start);
 
@@ -238,7 +241,7 @@ void main() {
     );
 
     // A short confirmation uses its visible Cancel action, not a second X.
-    expect(tester.widget<ShadDialog>(find.byType(ShadDialog)).closeIcon,
+    expect(fxDialogSurface(tester).closeIcon,
         isA<SizedBox>());
 
     await tester.tapAt(const Offset(4, 4));
@@ -255,12 +258,12 @@ void main() {
         body: Builder(
           builder: (context) => FxButton(
             label: '打开带说明弹窗',
-            onPressed: () => FxDialog.show<void>(
+            onPressed: () => unawaited(FxDialog.show<void>(
               context: context,
               title: '弹窗标题',
               description: '这是一段辅助说明',
               child: const SizedBox(height: 80, child: Text('弹窗内容')),
-            ),
+            )),
           ),
         ),
       ),
@@ -268,7 +271,7 @@ void main() {
 
     await tester.tap(find.text('打开带说明弹窗'));
     await tester.pumpAndSettle();
-    final dialog = tester.widget<ShadDialog>(find.byType(ShadDialog));
+    final dialog = fxDialogSurface(tester);
     expect(dialog.titleTextAlign, TextAlign.start);
     expect(dialog.descriptionTextAlign, TextAlign.start);
     expect(tester.takeException(), isNull);

@@ -85,7 +85,7 @@ void main() {
     final pending = Completer<void>();
     var saves = 0;
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
+
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: Center(child: FxButton(
         label: '提交记录',
@@ -111,6 +111,7 @@ void main() {
     expect(find.byType(FxSpinner), findsNothing);
     expect(tester.getSize(action), before);
     expect(tester.takeException(), isNull);
+    semantics.dispose();
     await disposeFxTestHost(tester);
   });
 

@@ -187,9 +187,16 @@ void main() {
       id: 1, listId: 1, title: '待查看的任务', priority: 'none',
       isCompleted: false, createdAt: DateTime(2026, 10, 24),
     );
+    final list = TodoList(
+      id: task.listId,
+      name: '收集箱',
+      color: '#2196F3',
+      isInbox: true,
+      createdAt: task.createdAt,
+    );
     await tester.pumpWidget(buildFxTestHost(
       home: Scaffold(body: TaskToolScreen(dataLoader: () async => <dynamic>[
-        <Task>[task], <Task>[task], <Task>[], <TodoList>[],
+        <Task>[task], <Task>[task], <Task>[], <TodoList>[list],
       ])),
     ));
     await tester.pumpAndSettle();

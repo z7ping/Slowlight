@@ -33,7 +33,8 @@ void main() {
       final title = tester.getRect(find.text('同步状态'));
       final action = tester.getRect(find.text('立即同步'));
       expect((title.center.dy - action.center.dy).abs(), lessThan(24));
-      expect(action.right, lessThanOrEqualTo(width + 1));
+      final bounds = tester.getRect(find.byType(FxSectionHeader));
+      expect(action.right, lessThanOrEqualTo(bounds.right + 1));
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

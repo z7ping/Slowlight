@@ -785,15 +785,15 @@ class _DashboardBodyState extends State<DashboardBody> {
     VoidCallback onPressed,
   ) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: SlowlightSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           status,
           style: SlowlightTypography.caption(context)
               .copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
-        const SizedBox(width: SlowlightSpacing.xs),
         FxButton(
           label: label,
           variant: FxButtonVariant.ghost,

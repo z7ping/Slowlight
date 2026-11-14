@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -110,10 +112,13 @@ class CalendarMonthTitle extends StatelessWidget {
                       tooltip: '上个月',
                       onPressed: () => controller.moveMonth(-1),
                     ),
-                    Text(
-                      '${controller.month.year} 年 ${controller.month.month} 月',
-                      style: SlowlightTypography.secondary(context)
-                          .copyWith(fontWeight: FontWeight.w700),
+                    Flexible(
+                      child: Text(
+                        '${controller.month.year}年${controller.month.month}月',
+                        textAlign: TextAlign.center,
+                        style: SlowlightTypography.secondary(context)
+                            .copyWith(fontWeight: FontWeight.w700),
+                      ),
                     ),
                     FxIconButton(
                       icon: LucideIcons.chevronRight,
@@ -729,22 +734,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return;
     }
     if (SlowlightPlatformDensity.usesMobileTouchTargets) {
-      await TaskDetailSheet.showCreate(
+      unawaited(TaskDetailSheet.showCreate(
         context,
         lists: widget.createListsOverride,
         initialDueDate: date,
         initialDueTime: time,
         defaultDueToday: false,
         onChanged: _refresh,
-      );
+      ));
       return;
     }
-    final created = await TaskCreateSheet.showFullCreate(
+    unawaited(TaskCreateSheet.showFullCreate(
       context,
       defaultDueDate: date,
       defaultToToday: false,
-    );
-    if (created == true && mounted) await _refresh();
+    ).then((created) async {
+      if (created == true && mounted) await _refresh();
+    }));
   }
 
   void _showMore(DateTime date) {
@@ -1160,7 +1166,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         offset: const Offset(0, -6),
                         child: Text(hour.toString().padLeft(2, '0') + ':00',
                           style: SlowlightTypography.caption(context).copyWith(
-                            fontSize: 9, color: colors.onSurfaceVariant)))),
+                            fontSize: SlowlightTypography.calendarTimeAxisSize,
+                            color: colors.onSurfaceVariant)))),
                 ])),
                 for (var i = 0; i < days.length; i++)
                   Expanded(child: _timeColumn(days, i, colWidth)),
