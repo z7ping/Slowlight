@@ -152,7 +152,12 @@ class SyncReconciliationReport {
 class SyncQueueRunEvidence {
   final int attempted;
   final int failed;
-  const SyncQueueRunEvidence({required this.attempted, required this.failed});
+  final int unknown;
+  const SyncQueueRunEvidence({
+    required this.attempted,
+    required this.failed,
+    this.unknown = 0,
+  });
 
   int get processed => attempted - failed;
   bool get partiallyProcessed =>
@@ -1397,7 +1402,7 @@ class SyncService extends ChangeNotifier {
 
   Future<void> _pullTasks(Database db) async {
     final items =
-        await TaskApi.getAllTasks().timeout(const Duration(seconds: 15));
+        await TaskApi.getAllTasks(requireComplete: true).timeout(const Duration(seconds: 15));
     final localIds = <int, int>{};
 
     // 第一遍先建立所有 server_id → local id，避免 relatedQuest 前向引用丢失。
@@ -1540,9 +1545,21 @@ class SyncService extends ChangeNotifier {
     }
     if (rows.isNotEmpty) {
       final local = rows.first;
+      final taskIntentGuard = table == 'tasks'
+          ? " AND NOT EXISTS (SELECT 1 FROM sync_intents i "
+              "WHERE i.entity_type = 'tasks' AND i.entity_local_id = tasks.id "
+              "AND i.intent = 'completion')"
+          : '';
       final status = local['sync_status'] as String? ?? 'synced';
       if (status == 'pending' || status == 'conflict') {
-        await _markConflict(db, table, local['id'] as int);
+        if (await _hasColumn(db, table, 'sync_status')) {
+          await db.update(
+            table,
+            {'sync_status': 'conflict'},
+            where: 'id = ?$taskIntentGuard',
+            whereArgs: [local['id']],
+          );
+        }
         return local['id'] as int;
       }
       await db.update(
@@ -1555,7 +1572,7 @@ class SyncService extends ChangeNotifier {
           if (await _hasColumn(db, table, 'last_modified'))
             'last_modified': _now(),
         },
-        where: 'id = ?',
+        where: 'id = ?$taskIntentGuard',
         whereArgs: [local['id']],
       );
       return local['id'] as int;
@@ -1740,13 +1757,6 @@ class SyncService extends ChangeNotifier {
       'count_value',
     ],
   };
-
-  Future<void> _markConflict(Database db, String table, int id) async {
-    if (await _hasColumn(db, table, 'sync_status')) {
-      await db.update(table, {'sync_status': 'conflict'},
-          where: 'id = ?', whereArgs: [id]);
-    }
-  }
 
   Future<void> _removeQueue(Database db, String table, int id) => db.delete(
         'sync_queue',

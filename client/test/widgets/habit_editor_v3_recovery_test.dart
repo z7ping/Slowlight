@@ -1,13 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:slowlight/services/data_mode_manager.dart';
 import 'package:slowlight/models/habit.dart';
 import 'package:slowlight/widgets/habit_editor_dialog.dart';
 import 'package:slowlight/ui/fx.dart';
 
 import '../support/fx_test_host.dart';
+import '../helpers/isolated_test_db.dart';
 
 void main() {
+  setUpAll(() async {
+    await useIsolatedTestDb('habit_editor_v3_recovery');
+    SharedPreferences.setMockInitialValues({'data_mode': 'local'});
+    FlutterSecureStorage.setMockInitialValues({});
+    await DataModeManager().setLocal();
+  });
   testWidgets('X05 未确认草稿重新打开时完整回填 V3 频率规则', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -15,24 +27,40 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final draft = HabitEditorValue(
-      name: '间隔阅读', icon: '📚', color: '#1890ff',
-      frequency: 'custom', targetDays: 0, systemTagId: null,
-      preferredPeriod: 'evening', durationMin: 0,
-      generateTask: false, showCheckinDialog: true, specificTime: '',
+      name: '间隔阅读',
+      icon: '📚',
+      color: '#1890ff',
+      frequency: 'custom',
+      targetDays: 0,
+      systemTagId: null,
+      preferredPeriod: 'evening',
+      durationMin: 0,
+      generateTask: false,
+      showCheckinDialog: true,
+      specificTime: '',
       reminderAt: const {'enabled': false},
       scheduleRule: const {
-        'kind': 'specific', 'unit': 'month', 'every': 2,
-        'anchor_date': '2026-07-15', 'anchor_time': '17:30',
-        'month_days': [7, 21], 'weekdays': [1, 3],
-        'last_day': true, 'target_count': 3,
-        'reminder_mode': 'daily', 'reminder_time': '18:45',
+        'kind': 'specific',
+        'unit': 'month',
+        'every': 2,
+        'anchor_date': '2026-07-15',
+        'anchor_time': '17:30',
+        'month_days': [7, 21],
+        'weekdays': [1, 3],
+        'last_day': true,
+        'target_count': 3,
+        'reminder_mode': 'daily',
+        'reminder_time': '18:45',
       },
     );
     HabitEditorValue? saved;
     await tester.pumpWidget(buildFxTestHost(
-      home: Scaffold(body: HabitEditorDialog(
+      home: Scaffold(
+          body: HabitEditorDialog(
         initialValue: draft,
-        onSubmit: (value) async { saved = value; },
+        onSubmit: (value) async {
+          saved = value;
+        },
       )),
     ));
     await tester.pumpAndSettle();
@@ -57,27 +85,37 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('X05 旧习惯无计划时间时不覆盖原 V3 起算时刻和提醒时刻',
-      (tester) async {
+  testWidgets('X05 旧习惯无计划时间时不覆盖原 V3 起算时刻和提醒时刻', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(1100, 850);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final habit = Habit(
-      id: 505, userId: 1, name: '旧 V3 习惯',
-      specificTime: '', reminderAt: const {'enabled': false},
+      id: 505,
+      userId: 1,
+      name: '旧 V3 习惯',
+      specificTime: '',
+      reminderAt: const {'enabled': false},
       scheduleRule: const {
-        'kind': 'interval', 'unit': 'day', 'every': 3,
-        'anchor_date': '2026-06-01', 'anchor_time': '06:35',
-        'reminder_mode': 'off', 'reminder_time': '20:10',
-      }, createdAt: DateTime(2026, 1, 1),
+        'kind': 'interval',
+        'unit': 'day',
+        'every': 3,
+        'anchor_date': '2026-06-01',
+        'anchor_time': '06:35',
+        'reminder_mode': 'off',
+        'reminder_time': '20:10',
+      },
+      createdAt: DateTime(2026, 1, 1),
     );
     HabitEditorValue? saved;
     await tester.pumpWidget(buildFxTestHost(
-      home: Scaffold(body: HabitEditorDialog(
+      home: Scaffold(
+          body: HabitEditorDialog(
         habit: habit,
-        onSubmit: (value) async { saved = value; },
+        onSubmit: (value) async {
+          saved = value;
+        },
       )),
     ));
     await tester.pumpAndSettle();
@@ -97,10 +135,11 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(buildFxTestHost(
-      home: Scaffold(body: Builder(
+      home: Scaffold(
+          body: Builder(
         builder: (context) => FxButton(
           label: '打开编辑器',
-          onPressed: () => HabitEditorDialog.show(context),
+          onPressed: () => unawaited(HabitEditorDialog.show(context)),
         ),
       )),
     ));
@@ -119,8 +158,7 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('P1-8 切到周期目标再返回固定间隔保留原按计划提醒草稿',
-      (tester) async {
+  testWidgets('P1-8 切到周期目标再返回固定间隔保留原按计划提醒草稿', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(1100, 850);
@@ -132,9 +170,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    FxSegmented segment(String label) => tester.widgetList<FxSegmented>(
-      find.byType(FxSegmented),
-    ).firstWhere((item) => item.labels.contains(label));
+    FxSegmented segment(String label) => tester
+        .widgetList<FxSegmented>(
+          find.byType(FxSegmented),
+        )
+        .firstWhere((item) => item.labels.contains(label));
 
     segment('按计划').onChanged(1);
     await tester.pump();

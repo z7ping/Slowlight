@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -112,7 +114,9 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开习惯记录',
-          onPressed: () => HabitCheckinDialog.show(context, habit: habit),
+          onPressed: () => unawaited(
+            HabitCheckinDialog.show(context, habit: habit),
+          ),
         ),
       )),
     ));
@@ -157,12 +161,12 @@ void main() {
       home: Scaffold(body: Builder(
         builder: (context) => FxButton(
           label: '打开待核对记录',
-          onPressed: () => HabitCheckinDialog.show(
+          onPressed: () => unawaited(HabitCheckinDialog.show(
             context,
             habit: habit,
             pendingValue: const {'note': '网络中断前已提交'},
             initialError: '保存结果未确认',
-          ),
+          )),
         ),
       )),
     ));

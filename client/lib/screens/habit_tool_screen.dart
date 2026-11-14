@@ -625,7 +625,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                         label: '创建第一个习惯',
                         icon: LucideIcons.plus,
                         variant: FxButtonVariant.outline,
-                        onPressed: _createHabit,
+                        onPressed: createHabit,
                       ),
                     )
                   else if (all.isNotEmpty && visible.isEmpty)
@@ -739,7 +739,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
         variant: SlowlightPlatformDensity.usesMobileTouchTargets
             ? FxButtonVariant.outline
             : FxButtonVariant.primary,
-        onPressed: _createHabit,
+        onPressed: createHabit,
       );
 
   Widget _filters() {
@@ -795,10 +795,11 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                 final largeText =
                     MediaQuery.textScalerOf(context).scale(1) >= 1.3;
                 final narrow = constraints.maxWidth < 270 || (largeText && MediaQuery.textScalerOf(context).scale(1) >= 1.8);
-                final actionWidth = (mobile && !habit.allowsMultipleRecordsToday
-                        ? SlowlightControlSize.minTouchTarget
-                        : (mobile ? _mobileTodayActionWidth : _todayActionWidth)) *
-                    MediaQuery.textScalerOf(context).scale(1);
+                final usesCheckbox = _usesTodayCheckbox(habit);
+                final actionWidth = (usesCheckbox
+                    ? SlowlightControlSize.minTouchTarget
+                    : (mobile ? _mobileTodayActionWidth : _todayActionWidth) *
+                        MediaQuery.textScalerOf(context).scale(1));
                 if (narrow) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -873,14 +874,10 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                     _weekDots(habit, color),
                   ]);
             }),
-            AnimatedSize(
-              key: ValueKey('habits.motion.${habit.id}'),
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: expanded
+            _animateDetails(
+              context,
+              habit.id,
+              expanded
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -965,7 +962,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                               icon: LucideIcons.calendarPlus,
                               variant: FxButtonVariant.outline,
                               size: FxButtonSize.sm,
-                              onPressed: () => _backfill(habit),
+                              onPressed: () => unawaited(_backfill(habit)),
                             ),
                             FxButton(
                               label: '编辑',
@@ -974,7 +971,7 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                                   ? FxButtonVariant.ghost
                                   : FxButtonVariant.outline,
                               size: FxButtonSize.sm,
-                              onPressed: () => _editHabit(habit),
+                              onPressed: () => unawaited(_editHabit(habit)),
                             ),
                             FxMenu<String>(
                               tooltip: '更多操作',
@@ -1019,6 +1016,17 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
           ],
         ),
       ),
+    );
+  }
+
+  Widget _animateDetails(BuildContext context, int habitId, Widget child) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return AnimatedSize(
+      key: ValueKey('habits.motion.$habitId'),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: child,
     );
   }
 
@@ -1078,11 +1086,15 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
     );
   }
 
+  bool _usesTodayCheckbox(Habit habit) =>
+      SlowlightPlatformDensity.usesMobileTouchTargets &&
+      !habit.allowsMultipleRecordsToday &&
+      !(habit.checkedToday && habit.canCheckIn == true);
+
   Widget _todayButton(Habit habit, {bool expanded = false}) {
     final canAppend = habit.allowsMultipleRecordsToday;
     final pending = _pendingHabitActions.contains(habit.id);
-    if (SlowlightPlatformDensity.usesMobileTouchTargets &&
-        !canAppend && !(habit.checkedToday && habit.canCheckIn == true)) {
+    if (_usesTodayCheckbox(habit)) {
       return Semantics(
         label: '${habit.name} · ${habit.checkedToday ? '已记录，点击可撤销' : '记录今天'}',
         child: SizedBox(
@@ -1578,7 +1590,10 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
       return Padding(
         key: ValueKey('habits.logs.row.${log.id}'),
         padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Padding(
@@ -1612,15 +1627,6 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                       ),
                     ),
                   ],
-                  if (log.note.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      log.note,
-                      style: SlowlightTypography.caption(context).copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -1630,8 +1636,22 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
               label: '撤销',
               size: FxButtonSize.sm,
               variant: FxButtonVariant.ghost,
-              onPressed: () => _removeLog(habit, log),
+              onPressed: _pendingHabitActions.contains(habit.id)
+                  ? null
+                  : () => unawaited(_removeLog(habit, log)),
             ),
+          ],
+            ),
+            if (log.note.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 22),
+                child: Text(
+                  log.note,
+                  style: SlowlightTypography.caption(context).copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
           ],
         ),
       );
@@ -1685,7 +1705,9 @@ class HabitToolScreenState extends State<HabitToolScreen> with WidgetsBindingObs
                       label: '撤销',
                       size: FxButtonSize.sm,
                       variant: FxButtonVariant.ghost,
-                      onPressed: () => _removeLog(habit, log),
+                      onPressed: _pendingHabitActions.contains(habit.id)
+                  ? null
+                  : () => unawaited(_removeLog(habit, log)),
                     ),
                   ],
                 ),

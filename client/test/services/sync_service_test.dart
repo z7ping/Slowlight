@@ -1,7 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:slowlight/repositories/cloud_reflection_cache_repository.dart';
+import 'package:slowlight/services/cloud_task_completion_cache.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -16,6 +22,7 @@ import '../helpers/isolated_test_db.dart';
 void main() {
   late String dbPath;
   late String cloudDbPath;
+  String? persistedDeviceId;
 
   const cloudUserId = 42;
   final cloudUserJson = jsonEncode({
@@ -34,7 +41,11 @@ void main() {
   });
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      if (persistedDeviceId != null)
+        'slowlight_sync_device_id': persistedDeviceId!,
+    });
+    FlutterSecureStorage.setMockInitialValues({});
     await CloudCacheDb().close();
     await LocalDb().close();
     await databaseFactory.deleteDatabase(dbPath);
@@ -43,6 +54,7 @@ void main() {
   });
 
   tearDown(() async {
+    CloudSyncCoordinator().stop();
     SyncService().debugRemoteRead = null;
     SyncService().debugQueuePush = null;
     SyncService().dispose2();
@@ -56,6 +68,18 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_data', cloudUserJson);
   }
+
+  test('Cloud Sync deviceId 会持久化到本地设置', () async {
+    await signInCloudUser();
+    await DataModeManager().setCloud();
+    final sync = SyncService();
+    await sync.init(startPeriodic: false);
+
+    expect(sync.deviceId, isNotEmpty);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('slowlight_sync_device_id'), sync.deviceId);
+    persistedDeviceId = sync.deviceId;
+  });
 
   test('Local Data Mode 禁止把普通 CRUD 放入 sync_queue', () async {
     final sync = SyncService();
@@ -94,16 +118,179 @@ void main() {
     expect(coordinator.standalonePendingUnknown.value, isFalse);
   });
 
-  test('Cloud Sync deviceId 会持久化到本地设置', () async {
+  http.Response jsonResponse(Object value, [int code = 200]) =>
+      http.Response(jsonEncode(value), code,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+
+  const collections = [
+    'lists', 'tags', 'system_tags', 'habits', 'tasks', 'habit_logs',
+  ];
+  const remoteTime = '2026-08-21T00:00:00Z';
+  http.Response emptyCloudPull(http.Request request) {
+    expect(request.method, 'GET');
+    if (request.url.path.endsWith('/sync/changes')) {
+      return jsonResponse({
+        'server_time': remoteTime,
+        for (final name in collections) name: [],
+        'deleted': {for (final name in collections) name: []},
+      });
+    }
+    expect(request.url.path, isIn(const [
+      '/api/lists', '/api/system-tags', '/api/tags', '/api/habits',
+    ]));
+    return jsonResponse([]);
+  }
+
+  test('P1-11 独立观察部分成功，恢复后只补交保留的同一请求', () async {
     await signInCloudUser();
     await DataModeManager().setCloud();
-    final sync = SyncService();
-    await sync.init(startPeriodic: false);
+    final repo = CloudReflectionCacheRepository();
+    for (final key in ['acknowledged', 'pending']) {
+      await repo.createPending(
+        content: key, entryType: 'observation', context: const {},
+        clientRequestId: 'request-$key',
+      );
+    }
+    final coordinator = CloudSyncCoordinator();
+    var rejectPending = true;
+    final submitted = <String>[];
+    await http.runWithClient(() async {
+      expect(await coordinator.syncNow(), isFalse);
+      expect(coordinator.status, SyncStatusEnum.error);
+      expect(coordinator.lastRunEvidence?.partiallyProcessed, isTrue);
+      expect(coordinator.lastRunEvidence?.processed, 1);
+      expect(coordinator.lastRunEvidence?.failed, 1);
+      expect(coordinator.networkUnreachable, isTrue);
+      expect(coordinator.standalonePendingCount.value, 1);
 
-    expect(sync.deviceId, isNotEmpty);
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('slowlight_sync_device_id'), sync.deviceId);
+      rejectPending = false;
+      expect(await coordinator.syncNow(), isTrue, reason: SyncService().lastError);
+      expect(coordinator.status, SyncStatusEnum.idle);
+      expect(coordinator.standalonePendingCount.value, 0);
+      expect(coordinator.networkUnreachable, isFalse);
+      expect(submitted, ['request-acknowledged', 'request-pending', 'request-pending']);
+    }, () => MockClient((request) async {
+      if (!request.url.path.endsWith('/reflections')) return emptyCloudPull(request);
+      expect(request.method, 'POST');
+      expect(coordinator.status, SyncStatusEnum.syncing);
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      submitted.add(body['client_request_id'] as String);
+      final pending = body['content'] == 'pending';
+      if (pending && rejectPending) throw const SocketException('network is unreachable');
+      return jsonResponse({
+        'id': pending ? 802 : 801,
+        'content': body['content'],
+        'entry_type': 'observation',
+        'created_at': remoteTime,
+      }, 201);
+    }));
   });
+
+  test('P0-4 完成回执丢失后先读远端，且不补发普通任务更新', () async {
+    await signInCloudUser();
+    await DataModeManager().setCloud();
+    final db = await CloudCacheDb().database;
+    final list = await db.insert('lists', {
+      'server_id': 500, 'name': '清单',
+      'created_at': remoteTime, 'updated_at': remoteTime,
+    });
+    final task = await db.insert('tasks', {
+      'server_id': 901, 'list_id': list, 'title': '缓存标题',
+      'created_at': remoteTime, 'updated_at': remoteTime,
+    });
+    await CloudTaskCompletionCache().toggle(901);
+    expect(await db.query('sync_queue'), isEmpty);
+    final coordinator = CloudSyncCoordinator();
+    expect(coordinator.standalonePendingCount.value, 1);
+    var requestNotSent = true;
+    var completed = false;
+    final taskRequests = <String>[];
+    final taskJson = <String, dynamic>{
+      'id': 901, 'list_id': 500, 'title': '云端新标题', 'created_at': remoteTime,
+    };
+
+    await http.runWithClient(() async {
+      expect(await coordinator.syncNow(), isFalse);
+      expect((await db.query('sync_intents')).single['value'], '1');
+      expect(taskRequests, ['GET', 'PATCH']);
+      requestNotSent = false;
+      taskRequests.clear();
+      expect(await coordinator.syncNow(), isFalse);
+      expect(coordinator.status, SyncStatusEnum.error);
+      expect(coordinator.lastRunEvidence?.unknown, 1);
+      expect(await db.query('sync_intents'), hasLength(1));
+      expect(await db.query('sync_queue'), isEmpty);
+
+      // A different device may have reversed completion after the lost ACK.
+      // The second read does not authorize a second PATCH.
+      completed = false;
+      final readOnly = await coordinator.reconcileSentCompletions();
+      expect(readOnly.verified, 0);
+      expect(readOnly.unknown, 1);
+      expect(taskRequests, ['GET', 'PATCH', 'GET']);
+      expect(await db.query('sync_intents'), hasLength(1));
+
+      completed = true;
+      expect(await coordinator.syncNow(), isTrue, reason: SyncService().lastError);
+      expect(taskRequests, ['GET', 'PATCH', 'GET', 'GET']);
+      expect(await db.query('sync_intents'), isEmpty);
+      final row = (await db.query('tasks', where: 'id = ?', whereArgs: [task])).single;
+      expect(row['title'], '云端新标题');
+      expect(row['is_completed'], 1);
+      expect(row['sync_status'], 'synced');
+      expect(DateTime.parse(row['completed_at'] as String), DateTime.parse(remoteTime));
+    }, () => MockClient((request) async {
+      final path = request.url.path;
+      if (path.endsWith('/tasks/901') || path.endsWith('/tasks/901/complete')) {
+        taskRequests.add(request.method);
+        if (request.method == 'PATCH') {
+          expect(jsonDecode(request.body), {
+            'is_completed': true, 'expected_completed': false,
+          });
+          if (requestNotSent) {
+            throw const SocketException('Connection refused');
+          }
+          completed = true;
+          throw TimeoutException('receipt lost');
+        }
+        expect(request.method, 'GET');
+        return jsonResponse({
+          ...taskJson, 'is_completed': completed,
+          if (completed) 'completed_at': remoteTime,
+        });
+      }
+      if (path.endsWith('/lists')) {
+        return jsonResponse([{'id': 500, 'name': '清单', 'created_at': remoteTime}]);
+      }
+      if (path.endsWith('/lists/500/tasks')) {
+        return jsonResponse([{
+          ...taskJson, 'is_completed': true, 'completed_at': remoteTime,
+        }]);
+      }
+      return emptyCloudPull(request);
+    }));
+  });
+
+  test('P1-11 任一清单的任务读取失败不推进 Cloud Pull 游标', () async {
+    await signInCloudUser();
+    await DataModeManager().setCloud();
+    final calls = <String>[];
+    await http.runWithClient(() async {
+      expect(await CloudSyncCoordinator().syncNow(), isFalse);
+      expect(CloudSyncCoordinator().status, SyncStatusEnum.error);
+      expect(calls, contains('/api/lists/501/tasks'));
+      expect(calls, isNot(contains('/api/sync/changes')));
+    }, () => MockClient((request) async {
+      final path = request.url.path;
+      calls.add(path);
+      if (path == '/api/lists') {
+        return jsonResponse([{'id': 501, 'name': '清单', 'created_at': remoteTime}]);
+      }
+      if (path == '/api/lists/501/tasks') return jsonResponse({}, 503);
+      return emptyCloudPull(request);
+    }));
+  });
+
 
   test('Cloud Sync cache 与 Local Data 数据库物理隔离', () async {
     await signInCloudUser();

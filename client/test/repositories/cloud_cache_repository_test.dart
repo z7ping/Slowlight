@@ -240,7 +240,7 @@ void main() {
     expect(queue.single['operation'], 'create');
   });
 
-  test('server-backed Task 离线完成保存 completion intent 与 update 屏障', () async {
+  test('server-backed Task 离线完成只保存 completion intent', () async {
     final db = await CloudCacheDb().database;
     final now = DateTime.now().toUtc().toIso8601String();
     final listLocalId = await db.insert('lists', {
@@ -262,8 +262,7 @@ void main() {
     expect(completed.isCompleted, isTrue);
 
     final queue = await db.query('sync_queue');
-    expect(queue, hasLength(1));
-    expect(queue.single['operation'], 'update');
+    expect(queue, isEmpty);
 
     var intents = await db.query('sync_intents');
     expect(intents, hasLength(1));
@@ -275,7 +274,7 @@ void main() {
     intents = await db.query('sync_intents');
     expect(intents, hasLength(1));
     expect(intents.single['value'], '0');
-    expect(await db.query('sync_queue'), hasLength(1));
+    expect(await db.query('sync_queue'), isEmpty);
   });
 
   test('离线新建 Task 再完成仍保留 create queue，并单独记录完成意图', () async {

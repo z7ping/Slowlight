@@ -3,7 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../db/cloud_cache_db.dart';
 import '../models/task.dart';
 import '../repositories/cloud_cache_repository.dart';
-import 'sync_service.dart';
+import 'cloud_sync_coordinator.dart';
 
 /// 将 Cloud 模式下离线的 Task complete/uncomplete 保存为“目标状态”。
 ///
@@ -17,10 +17,11 @@ class CloudTaskCompletionCache {
     final row = await _findTask(db, publicTaskId);
     final current = (row['is_completed'] as int? ?? 0) == 1;
     return _writeTarget(db, row, publicTaskId,
-      completed: !current, expectedCompleted: current);
+        completed: !current, expectedCompleted: current);
   }
 
-  Future<Task> setTarget(int publicTaskId, {
+  Future<Task> setTarget(
+    int publicTaskId, {
     required bool completed,
     required bool expectedCompleted,
     DateTime? expectedCompletedAt,
@@ -41,9 +42,9 @@ class CloudTaskCompletionCache {
       }
     }
     return _writeTarget(db, row, publicTaskId,
-      completed: completed,
-      expectedCompleted: expectedCompleted,
-      expectedCompletedAt: expectedCompletedAt);
+        completed: completed,
+        expectedCompleted: expectedCompleted,
+        expectedCompletedAt: expectedCompletedAt);
   }
 
   Future<Task> _writeTarget(
@@ -55,7 +56,6 @@ class CloudTaskCompletionCache {
     DateTime? expectedCompletedAt,
   }) async {
     final localId = row['id'] as int;
-    final serverId = row['server_id'] as int?;
     final now = DateTime.now().toUtc().toIso8601String();
 
     await db.transaction((txn) async {
@@ -71,7 +71,8 @@ class CloudTaskCompletionCache {
         where: 'id = ? AND is_completed = ?'
             '${expectedCompletedAt == null ? '' : ' AND completed_at = ?'}',
         whereArgs: [
-          localId, expectedCompleted ? 1 : 0,
+          localId,
+          expectedCompleted ? 1 : 0,
           if (expectedCompletedAt != null)
             expectedCompletedAt.toUtc().toIso8601String(),
         ],
@@ -93,19 +94,10 @@ class CloudTaskCompletionCache {
       );
     });
 
-    final queued = await db.rawQuery(
-      'SELECT COUNT(*) AS cnt FROM sync_queue '
-      'WHERE entity_type = ? AND entity_local_id = ?',
-      ['tasks', localId],
-    );
-    if ((queued.first['cnt'] as int? ?? 0) == 0 && serverId != null) {
-      await SyncService().enqueue(
-        entityType: 'tasks',
-        entityLocalId: localId,
-        entityServerId: serverId,
-        operation: 'update',
-      );
-    }
+    // The completion intent is sufficient for an already mapped task.
+    // A genuine queued field update/create still runs first. Adding a dummy
+    // PUT would send unrelated cached fields and could overwrite remote edits.
+    await CloudSyncCoordinator().refreshStandalonePendingCount();
     final tasks = await CloudCacheRepository().getAllTasks();
     return tasks.firstWhere((task) => task.id == publicTaskId);
   }

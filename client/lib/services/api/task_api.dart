@@ -482,7 +482,7 @@ class TaskApi {
   }
 
   /// 获取所有任务
-  static Future<List<Task>> getAllTasks() async {
+  static Future<List<Task>> getAllTasks({bool requireComplete = false}) async {
     if (DataModeManager().isLocal) return _localApi.getAllTasks();
     final headers = await ApiService.authHeaders();
     final listsResponse = await HttpUtil.get(
@@ -501,9 +501,12 @@ class TaskApi {
         if (tasksResponse.statusCode == 200) {
           final List<dynamic> data = json.decode(tasksResponse.body);
           allTasks.addAll(data.map((j) => Task.fromJson(j)));
+        } else if (requireComplete) {
+          throw StateError('清单任务读取失败（HTTP ${tasksResponse.statusCode}）');
         }
       } catch (_) {
-        // 单个清单失败不阻塞其他清单。
+        if (requireComplete) rethrow;
+        // 普通浏览仍保留其他清单的结果。
       }
     }
     return allTasks;
