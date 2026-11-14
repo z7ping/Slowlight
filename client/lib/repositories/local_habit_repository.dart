@@ -585,25 +585,21 @@ class LocalHabitRepository {
       'habit_logs',
       where: 'habit_id = ? AND date = ?',
       whereArgs: [habitId, todayStr],
-      limit: 1,
+      limit: 2,
     );
     if (existing.isEmpty) throw Exception('今日未打卡，无法取消');
 
-    if ((await getById(habitId))?['allow_multiple_per_day'] == 1) {
-      throw StateError('此习惯允许多次记录，请从详情逐条撤销');
+    final habit = await getById(habitId);
+    final rule = HabitOccurrence.rule(habit?['schedule_rule'],
+        legacyFrequency: habit?['frequency']?.toString() ?? 'daily');
+    final allowsMultiple = rule == null
+        ? (habit?['allow_multiple_per_day'] == 1)
+        : rule.kind == 'goal' && rule.sameDayMultiple;
+    if (allowsMultiple || existing.length > 1) {
+      throw StateError('此习惯有多次记录，请从详情逐条撤销');
     }
-    await db.delete(
-      'habit_logs',
-      where: 'habit_id = ? AND date = ?',
-      whereArgs: [habitId, todayStr],
-    );
-    final streak = await _calculateCurrentStreak(db, habitId, localNow);
-    await db.update(
-      'habits',
-      {'streak_count': streak, 'updated_at': _nowUtc()},
-      where: 'id = ?',
-      whereArgs: [habitId],
-    );
+    await deleteLog(habitId, existing.single['id'] as int);
+    final streak = (await getById(habitId))?['streak_count'] ?? 0;
     return {'message': '取消打卡成功', 'streak_count': streak};
   }
 
