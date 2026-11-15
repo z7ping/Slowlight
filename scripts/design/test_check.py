@@ -16,8 +16,12 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "client/test/ui").mkdir(parents=True)
-            (root / "client/test/widgets").mkdir()
-            (root / "client/test/widgets/fx_form_size_contract_test.dart").touch()
+            for target in check.TARGETS:
+                if target == "test/ui":
+                    continue
+                test_file = root / "client" / target
+                test_file.parent.mkdir(parents=True, exist_ok=True)
+                test_file.touch()
             report = root / "report.json"
             process = SimpleNamespace(stdout=iter(json.dumps(e) + "\n" for e in events),
                                       wait=lambda: code, poll=lambda: code)
@@ -35,6 +39,9 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(report["统计"]["通过"], 1)
         self.assertEqual(report["真实设备验收"], "未执行")
+        self.assertIn("test/screens/home_screen_test.dart", report["检查目标"])
+        self.assertIn("test/screens/task_compact_layout_test.dart", report["检查目标"])
+        self.assertIn("test/screens/habit_tool_screen_test.dart", report["检查目标"])
 
     def test_failure_is_preserved_with_test_name(self):
         result, report = self.run_case([

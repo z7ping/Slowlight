@@ -243,6 +243,8 @@ class _StatsScreenState extends State<StatsScreen> {
                           label: '查看详细时间分配',
                           variant: FxButtonVariant.link,
                           size: FxButtonSize.sm,
+                          expanded:
+                              SlowlightPlatformDensity.usesMobileTouchTargets,
                           onPressed: () => widget.onNavigate!(
                             StatsDestination.timeDistribution,
                           ),

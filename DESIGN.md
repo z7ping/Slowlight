@@ -27,7 +27,7 @@ python scripts/design/check.py --report client/build/design-check/report.json
 
 上例相对路径以仓库根目录为工作目录。脚本本身依据所在仓库定位测试，不依赖个人机器目录。
 
-它复用现有 `client/test/ui` 和 `fx_form_size_contract_test.dart`，覆盖架构、Token、旧入口、主题、排版、控件几何、焦点/交互及表单字体缩放的既有契约。添加在 `test/ui` 下的新测试自动进入检查。
+它运行现有组件契约和生产入口的页面回归，包括主导航、任务、习惯、日历、统计、设置和迁移历史。组件测试放在 `client/test/ui`，页面清单见 [检查入口](scripts/design/check.py)。共享组件有行为或布局变化时，核对实际调用点，并在受影响的代表性页面断言用户能看到或操作的结果。
 
 [公共 UI Token 快照](client/test/fixtures/design/ui_tokens.json) 与 [UI-16/17 Sheet 快照](client/test/fixtures/design/android_bottom_sheet.json) 由内部 UI/UX 规范导出。更新与联验命令见内部设计入口的「结构化设计值」。Flutter 用现有设计检查核对主题、双平台字号、基础布局、Windows 按钮定义、Android 按钮命中区、紧凑月格及 Android 底栏。Sheet 从任务新建、习惯打卡和记录观察测双顶角与拖动起始区。
 
