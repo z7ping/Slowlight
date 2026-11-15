@@ -65,6 +65,7 @@ UI 规则：
 
 - 涉及 UI 时先读根目录 `DESIGN.md`；有内部设计库时再读 `product-internal/slowlight/DESIGN.md` 并定位本次页面对应专题。`DESIGN.md` 是显式读取入口，不假定由 Codex 自动载入。
 - 用户可见变更收口前运行 `python scripts/design/check.py`（复用现有 Fx/Token/几何契约）；无关后端或纯文案改动不机械运行 UI 测试。契约通过与整页视觉/设备验收必须分开记录。
+- 修改已机器化的 UI 设计值时，先核对权威条款并记录旧值和新值。改公共组件或 Token 时，沿调用链确认受影响的业务入口，从实际入口验证最终渲染与交互，并在验收模板记录通过条件、证据和待验项。Android 底部 Sheet 数值试点见 `DESIGN.md`。
 
 - 页面优先使用 `client/lib/ui/fx.dart` 暴露的 Fx 组件；Screen / Feature Widget 不应绕过已有 Fx 视觉能力直接建立另一套 Material / shadcn_ui 实现。
 - `shadcn_ui` 是主要视觉底座；Fx 负责统一接口、状态、响应式与必要的平台适配，不因迁移重新设计既有高保真。
