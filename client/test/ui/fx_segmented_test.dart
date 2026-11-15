@@ -92,6 +92,77 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    testWidgets('${platform.name} 常规宽度下分段选项按内容同排', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      var selected = 0;
+      await tester.pumpWidget(buildFxTestHost(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: StatefulBuilder(
+                builder: (context, setState) => FxSegmented(
+                  labels: const ['今天', '全部', '已完成'],
+                  selectedIndex: selected,
+                  onChanged: (index) => setState(() => selected = index),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+
+      final first = tester.getCenter(find.text('今天'));
+      final second = tester.getCenter(find.text('全部'));
+      final third = tester.getCenter(find.text('已完成'));
+      expect([second.dy, third.dy], [first.dy, first.dy]);
+      expect(second.dx, greaterThan(first.dx));
+      expect(third.dx, greaterThan(second.dx));
+      expect(tester.getSize(find.byType(FxSegmented)).width, lessThan(320));
+
+      await tester.tap(find.text('已完成'));
+      await tester.pump();
+      expect(selected, 2);
+      await disposeFxTestHost(tester);
+    });
+  }
+
+  testWidgets('Android 分段空间不足时仍按选项换行且可点击', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    var selected = 0;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 120,
+            child: StatefulBuilder(
+              builder: (context, setState) => FxSegmented(
+                labels: const ['全', '待', '已'],
+                selectedIndex: selected,
+                onChanged: (index) => setState(() => selected = index),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    expect(tester.getCenter(find.text('待')).dy,
+        tester.getCenter(find.text('全')).dy);
+    expect(tester.getCenter(find.text('已')).dy,
+        greaterThan(tester.getCenter(find.text('全')).dy));
+    await tester.tap(find.text('已'));
+    await tester.pump();
+    expect(selected, 2);
+    expect(tester.takeException(), isNull);
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('FxSegmented 展开时等分可用宽度', (tester) async {
     final keys = List.generate(3, (index) => ValueKey('segment-$index'));
 
@@ -157,13 +228,14 @@ void main() {
         await tester.pump();
 
         final itemSize = tester.getSize(find.byKey(itemKey));
-        expect(itemSize.height, greaterThanOrEqualTo(
-          platform == TargetPlatform.android ? 44.0 : 32.0,
-        ));
+        expect(
+            itemSize.height,
+            greaterThanOrEqualTo(
+              platform == TargetPlatform.android ? 44.0 : 32.0,
+            ));
         expect(tester.takeException(), isNull);
         await disposeFxTestHost(tester);
       });
     }
   }
-
 }
