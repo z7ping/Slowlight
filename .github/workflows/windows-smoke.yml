@@ -35,6 +35,89 @@ jobs:
       - name: Build Windows release
         working-directory: client
         run: flutter build windows --release
+      - name: Verify Windows single instance
+        shell: powershell
+        run: |
+          $exe = (Resolve-Path 'client\build\windows\x64\runner\Release\Slowlight.exe').Path
+          $options = @{ FilePath = $exe; WorkingDirectory = (Split-Path $exe); PassThru = $true }
+
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class SlowlightWindow {
+            [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hwnd, int command);
+            [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
+            [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
+          }
+          '@
+
+          function Wait-Until([scriptblock]$Condition, [string]$Failure) {
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            do {
+              if (& $Condition) { return }
+              Start-Sleep -Milliseconds 200
+            } while ([DateTime]::UtcNow -lt $deadline)
+            throw $Failure
+          }
+
+          function Assert-Relaunch([string]$Argument) {
+            $duplicate = if ($Argument) {
+              Start-Process @options -ArgumentList $Argument
+            } else {
+              Start-Process @options
+            }
+            if (-not $duplicate.WaitForExit(10000) -or $duplicate.ExitCode -ne 0) {
+              throw "Duplicate launch did not exit successfully: $Argument"
+            }
+            $primary.Refresh()
+            if ($primary.HasExited) { throw 'Relaunch closed the primary.' }
+          }
+
+          $launches = @()
+          $restart = $null
+          try {
+            $launches = @(1..3 | ForEach-Object { Start-Process @options })
+            Wait-Until {
+              $running = @($launches | Where-Object { $_.Refresh(); -not $_.HasExited })
+              $running.Count -eq 1 -and $running[0].MainWindowHandle -ne [IntPtr]::Zero
+            } 'Concurrent cold launches did not settle on one visible window.'
+            $primary = $launches | Where-Object { -not $_.HasExited }
+            foreach ($duplicate in ($launches | Where-Object { $_.Id -ne $primary.Id })) {
+              if ($duplicate.ExitCode -ne 0) { throw 'A cold duplicate returned an error.' }
+            }
+            $hwnd = $primary.MainWindowHandle
+
+            # SW_MINIMIZE then a regular double-click launches the same executable.
+            [void][SlowlightWindow]::ShowWindowAsync($hwnd, 6)
+            Wait-Until { [SlowlightWindow]::IsIconic($hwnd) } 'Main window did not minimize.'
+            Assert-Relaunch
+            Wait-Until { -not [SlowlightWindow]::IsIconic($hwnd) } 'Main window was not restored.'
+
+            # SW_HIDE simulates the window state after closing to tray.
+            foreach ($argument in @('', 'slowlight://oauth-complete')) {
+              [void][SlowlightWindow]::ShowWindowAsync($hwnd, 0)
+              Wait-Until { -not [SlowlightWindow]::IsWindowVisible($hwnd) } 'Main window did not hide.'
+              Assert-Relaunch $argument
+              Wait-Until { [SlowlightWindow]::IsWindowVisible($hwnd) } 'Relaunch did not show the original window.'
+            }
+
+            # Simulate a process exit and verify the reservation can be reacquired.
+            Stop-Process -Id $primary.Id
+            if (-not $primary.WaitForExit(10000)) { throw 'The primary did not exit.' }
+            $restart = Start-Process @options
+            Wait-Until {
+              $restart.Refresh()
+              -not $restart.HasExited -and $restart.MainWindowHandle -ne [IntPtr]::Zero
+            } 'Slowlight did not start again after the previous process exited.'
+          } finally {
+            foreach ($process in ($launches + @($restart) | Where-Object { $null -ne $_ })) {
+              $process.Refresh()
+              if (-not $process.HasExited) { Stop-Process -Id $process.Id -ErrorAction SilentlyContinue }
+            }
+            Get-Process -Name Slowlight -ErrorAction SilentlyContinue |
+              Where-Object { $_.Path -eq $exe } |
+              Stop-Process -ErrorAction SilentlyContinue
+          }
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --no-progress -y

@@ -6,23 +6,46 @@ void main() {
   test('Windows installer registers credential-free OAuth return protocol', () {
     final installer =
         File('windows/installer/slowlight.iss').readAsStringSync();
-    final runner = File('windows/runner/main.cpp').readAsStringSync();
 
     expect(installer, contains('[Registry]'));
     expect(installer, contains(r'Software\Classes\slowlight'));
     expect(installer, contains('ValueName: "URL Protocol"'));
     expect(installer, contains(r'shell\open\command'));
     expect(installer, contains(r'"""{app}\{#MyExeName}"" ""%1"""'));
-    expect(runner, contains('command_line_arguments.front() == "slowlight://oauth-complete"'));
-    expect(runner, contains('FindRunningSlowlightWindow()'));
-    expect(runner, contains('::EnumWindows(FindExistingAppWindow'));
+  });
+
+  test(
+      'Windows claims one instance before initializing Flutter for all launches',
+      () {
+    final runner = File('windows/runner/main.cpp').readAsStringSync();
+    final identity = File('windows/runner/app_identity.h').readAsStringSync();
+    final window = File('windows/runner/flutter_window.cpp').readAsStringSync();
+    final startup = runner.substring(runner.indexOf('int APIENTRY wWinMain'));
+    final mutex = startup.indexOf('::CreateMutexW(');
+    final duplicate =
+        startup.indexOf('if (mutex_error == ERROR_ALREADY_EXISTS)');
+    final flutter = startup.indexOf('flutter::DartProject project');
+
+    expect(mutex, greaterThanOrEqualTo(0));
+    expect(duplicate, greaterThan(mutex));
+    expect(flutter, greaterThan(duplicate));
+    expect(startup.substring(duplicate, flutter),
+        contains('instance_mutex.reset();'));
+    expect(startup.substring(duplicate, flutter),
+        contains('WaitForRunningSlowlightWindow();'));
+    expect(startup.substring(duplicate, flutter),
+        contains('return EXIT_SUCCESS;'));
+    expect(startup.indexOf('GetCommandLineArguments()'), greaterThan(flutter));
+    expect(identity, contains('z7ping.Slowlight.Debug.MainWindow'));
+    expect(identity, contains('z7ping.Slowlight.MainWindow'));
     expect(runner, contains('::QueryFullProcessImageNameW'));
-    expect(runner, contains('::ShowWindowAsync(existing_window'));
-    expect(runner, contains('::SetForegroundWindow(existing_window)'));
-    expect(
-      runner.indexOf('if (command_line_arguments.size() == 1'),
-      lessThan(runner.indexOf('flutter::DartProject project')),
-    );
+    expect(runner, contains('::PostMessageW(window, kActivateSlowlightWindow'));
+    expect(window,
+        contains('::SetPropW(GetHandle(), kSlowlightMainWindowProperty'));
+    expect(window, contains('::ShowWindow(hwnd, SW_RESTORE)'));
+    expect(window, contains('::ShowWindow(hwnd, SW_SHOW)'));
+    expect(window, contains('::SetForegroundWindow(hwnd)'));
+    expect(window, contains('::FlashWindowEx(&flash)'));
   });
 
   test('Windows runner delegates first visibility to Dart startup', () {
@@ -44,7 +67,8 @@ void main() {
         File('windows/installer/slowlight.iss').readAsStringSync();
 
     expect(main, contains('ConfigureWindowsAppIdentity();'));
-    expect(main, contains('ConfigureWindowsWindowIdentity(window.GetHandle())'));
+    expect(
+        main, contains('ConfigureWindowsWindowIdentity(window.GetHandle())'));
     expect(identity, contains('SetCurrentProcessExplicitAppUserModelID'));
     expect(identity, contains('kAppUserModelId[] = L"z7ping.Slowlight"'));
     expect(
@@ -120,7 +144,8 @@ void main() {
     expect(prepareScript, contains('git hash-object'));
   });
 
-  test('Windows installer can request a real app shutdown without breaking close-to-tray',
+  test(
+      'Windows installer can request a real app shutdown without breaking close-to-tray',
       () {
     final flutterWindow =
         File('windows/runner/flutter_window.cpp').readAsStringSync();
@@ -183,7 +208,8 @@ void main() {
     final native =
         File('lib/services/lock_screen_native.dart').readAsStringSync();
     final main = File('lib/main.dart').readAsStringSync();
-    final reminder = File('lib/services/reminder_service.dart').readAsStringSync();
+    final reminder =
+        File('lib/services/reminder_service.dart').readAsStringSync();
 
     expect(native, contains('if (overlayResult < 0) return;'));
     expect(
@@ -194,7 +220,8 @@ void main() {
     expect(main, contains('!service.shouldUseNativeFullscreen'));
   });
 
-  test('Windows runner defaults to software rendering with a Slowlight escape hatch',
+  test(
+      'Windows runner defaults to software rendering with a Slowlight escape hatch',
       () {
     final main = File('windows/runner/main.cpp').readAsStringSync();
 
