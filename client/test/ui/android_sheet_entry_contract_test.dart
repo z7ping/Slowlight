@@ -36,6 +36,11 @@ void main() {
   final radius = (tokens['UI-16']['topCornerRadiusDp'] as num).toDouble();
   final dragRegion = (tokens['UI-17']['dragStartRegionDp'] as num).toDouble();
 
+  final sharedTokens = jsonDecode(
+    File('test/fixtures/design/ui_tokens.json').readAsStringSync(),
+  ) as Map<String, dynamic>;
+  final navHeight = sharedTokens['controls']['androidBottomNavDp'] as num;
+
   Future<void> advanceSheetAnimation(WidgetTester tester) async {
     // The habit card keeps its progress spinner active until the sheet closes.
     await tester.pump();
@@ -84,6 +89,10 @@ void main() {
       try {
         await tester.pumpWidget(buildFxTestHost(home: entry.screen));
         await tester.pumpAndSettle();
+        if (entry.screen is HomeScreen) {
+          final nav = find.byKey(const ValueKey('home.bottom-nav'));
+          expect(tester.getSize(nav).height, navHeight, reason: 'UI-11');
+        }
         await tester.tap(entry.trigger);
         await advanceSheetAnimation(tester);
 

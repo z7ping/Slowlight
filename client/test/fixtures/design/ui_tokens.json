@@ -1,0 +1,116 @@
+{
+  "colors": {
+    "light": {
+      "page": "#FAFAFA",
+      "card": "#FFFFFF",
+      "text": "#18181B"
+    },
+    "dark": {
+      "page": "#09090B",
+      "card": "#111113",
+      "text": "#FAFAFA"
+    },
+    "defaultAccent": "#3B82F6"
+  },
+  "spacingDp": {
+    "tight": 4,
+    "group": 8,
+    "component": 12,
+    "surface": 16,
+    "section": 24
+  },
+  "radiusDp": {
+    "small": 4,
+    "control": 8,
+    "card": 12,
+    "large": 16
+  },
+  "breakpointsDp": {
+    "medium": 600,
+    "desktop": 1024
+  },
+  "typographyDp": {
+    "windows": {
+      "caption": 12,
+      "secondary": 13,
+      "fieldLabel": 12,
+      "control": 13,
+      "chip": 12,
+      "compactAction": 12,
+      "button": 13,
+      "body": 14,
+      "cardTitle": 15,
+      "sectionTitle": 16,
+      "dialogTitle": 15,
+      "pageTitle": 16,
+      "emphasizedInput": 14.5
+    },
+    "android": {
+      "caption": 12,
+      "secondary": 14,
+      "fieldLabel": 14,
+      "control": 14,
+      "chip": 14,
+      "compactAction": 14,
+      "button": 15,
+      "body": 16,
+      "cardTitle": 16,
+      "sectionTitle": 18,
+      "pageTitle": 20,
+      "hero": 24
+    }
+  },
+  "controls": {
+    "androidTouchMinDp": 44,
+    "androidBottomNavDp": 56,
+    "cardBorderDp": 1,
+    "windowsButton": {
+      "compactHeightDp": 32,
+      "defaultHeightDp": 36,
+      "largeHeightDp": 40,
+      "compactInsetDp": 10,
+      "defaultInsetDp": 14,
+      "largeInsetDp": 18,
+      "compactTextDp": 12,
+      "weight": 600
+    },
+    "windowsIconButtonDp": 30,
+    "visibleIconDp": {
+      "small": 16,
+      "medium": 18,
+      "large": 20
+    },
+    "windowsInput": {
+      "borderDp": 1,
+      "verticalInsetDp": 9,
+      "horizontalInsetDp": 12
+    },
+    "segmentedInsetDp": 3,
+    "windowsSidebar": {
+      "widthDp": 232,
+      "rowMinDp": 44,
+      "rowInsetDp": 10,
+      "rowTextDp": 12
+    },
+    "windowsDialog": {
+      "quickWidthDp": 520,
+      "fullTaskWidthDp": 680
+    }
+  },
+  "androidSheet": {
+    "scrimAlpha": 0.46,
+    "gripHeightDp": 24,
+    "gripLineWidthDp": 36,
+    "gripLineHeightDp": 4,
+    "dismissDistanceDp": 120,
+    "flingDistanceDp": 40,
+    "flingSpeedDpPerSec": 750
+  },
+  "calendar": {
+    "compactMonthCellHeightDp": 64,
+    "monthCellGapDp": 2,
+    "dateStripHeightDp": 56,
+    "timeAxisWidthDp": 36,
+    "hourHeightDp": 54
+  }
+}
