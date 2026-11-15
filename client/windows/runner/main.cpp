@@ -1,7 +1,9 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <cstdlib>
 #include <cwchar>
+#include <memory>
 #include <string>
 
 #include "app_identity.h"
@@ -10,7 +12,6 @@
 
 namespace {
 
-// URL return only wakes the app; credentials remain in the existing OAuth poll.
 struct ExistingWindowSearch {
   std::wstring executable_path;
   HWND window = nullptr;
@@ -27,6 +28,15 @@ BOOL CALLBACK FindExistingAppWindow(HWND hwnd, LPARAM context) {
   DWORD process_id = 0;
   ::GetWindowThreadProcessId(hwnd, &process_id);
   if (process_id == 0 || process_id == ::GetCurrentProcessId()) {
+    return TRUE;
+  }
+  if (::GetPropW(hwnd, kSlowlightMainWindowProperty) != nullptr) {
+    search->window = hwnd;
+    return FALSE;
+  }
+
+  // Releases already running during an upgrade have no window property.
+  if (search->executable_path.empty()) {
     return TRUE;
   }
   HANDLE process = ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
@@ -52,12 +62,42 @@ HWND FindRunningSlowlightWindow() {
   wchar_t self_path[MAX_PATH] = {};
   const DWORD length = ::GetModuleFileNameW(nullptr, self_path,
                                             _countof(self_path));
-  if (length == 0 || length >= _countof(self_path)) {
-    return nullptr;
-  }
-  ExistingWindowSearch search{self_path, nullptr};
+  ExistingWindowSearch search{
+      length > 0 && length < _countof(self_path)
+          ? std::wstring(self_path, length)
+          : std::wstring(),
+      nullptr};
   ::EnumWindows(FindExistingAppWindow, reinterpret_cast<LPARAM>(&search));
   return search.window;
+}
+
+void ActivateRunningSlowlight(HWND window) {
+  if (::GetPropW(window, kSlowlightMainWindowProperty) == nullptr) {
+    ::ShowWindowAsync(window, ::IsIconic(window) ? SW_RESTORE : SW_SHOW);
+    ::SetForegroundWindow(window);
+    return;
+  }
+
+  DWORD process_id = 0;
+  ::GetWindowThreadProcessId(window, &process_id);
+  if (process_id != 0) {
+    ::AllowSetForegroundWindow(process_id);
+  }
+  ::PostMessageW(window, kActivateSlowlightWindow, 0, 0);
+}
+
+void WaitForRunningSlowlightWindow() {
+  // Another launch may have reserved the instance before creating its HWND.
+  constexpr DWORD kWindowWaitMs = 5000;
+  constexpr DWORD kPollIntervalMs = 50;
+  const ULONGLONG deadline = ::GetTickCount64() + kWindowWaitMs;
+  do {
+    if (const HWND window = FindRunningSlowlightWindow()) {
+      ActivateRunningSlowlight(window);
+      return;
+    }
+    ::Sleep(kPollIntervalMs);
+  } while (::GetTickCount64() < deadline);
 }
 
 bool EnvironmentVariableEquals(const wchar_t* name, const wchar_t* expected) {
@@ -118,6 +158,28 @@ void ConfigureRenderingMode() {
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Reserve the Windows session before initializing Flutter or opening data.
+  const std::wstring mutex_name =
+      std::wstring(L"Local\\") + kSlowlightMainWindowProperty;
+  const HANDLE mutex = ::CreateMutexW(nullptr, FALSE, mutex_name.c_str());
+  const DWORD mutex_error = ::GetLastError();
+  std::unique_ptr<void, decltype(&::CloseHandle)> instance_mutex(
+      mutex, ::CloseHandle);
+  if (!instance_mutex) {
+    ::OutputDebugStringW(L"Slowlight: could not reserve the main instance.\n");
+    return EXIT_FAILURE;
+  }
+  if (mutex_error == ERROR_ALREADY_EXISTS) {
+    // Only the primary keeps the reservation alive.
+    instance_mutex.reset();
+    WaitForRunningSlowlightWindow();
+    return EXIT_SUCCESS;
+  }
+  if (const HWND window = FindRunningSlowlightWindow()) {
+    ActivateRunningSlowlight(window);
+    return EXIT_SUCCESS;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
@@ -126,36 +188,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
-  ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-
-  std::vector<std::string> command_line_arguments =
-      GetCommandLineArguments();
-  if (command_line_arguments.size() == 1 &&
-      command_line_arguments.front() == "slowlight://oauth-complete") {
-    // A second protocol invocation only brings the running tray/main window
-    // to the front instead of creating an independent Flutter instance.
-    const HWND existing_window = FindRunningSlowlightWindow();
-    if (existing_window != nullptr) {
-      ::ShowWindowAsync(existing_window,
-                        ::IsIconic(existing_window) ? SW_RESTORE : SW_SHOW);
-      ::SetForegroundWindow(existing_window);
-      ::CoUninitialize();
-      return EXIT_SUCCESS;
-    }
-    // If no instance is running, launch normally; return alone is not login.
-  }
+  const HRESULT com_result =
+      ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   ConfigureWindowsAppIdentity();
 
   ConfigureRenderingMode();
   flutter::DartProject project(L"data");
 
-  project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
+  // A cold OAuth return can start the app; the existing poll owns sign-in.
+  project.set_dart_entrypoint_arguments(GetCommandLineArguments());
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"\u6240\u884C\u6620\u6211 \u00B7 Slowlight", origin, size)) {
+    window.Destroy();
+    if (SUCCEEDED(com_result)) {
+      ::CoUninitialize();
+    }
     return EXIT_FAILURE;
   }
   if (!ConfigureWindowsWindowIdentity(window.GetHandle())) {
@@ -165,11 +216,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   window.SetQuitOnClose(true);
 
   ::MSG msg;
-  while (::GetMessage(&msg, nullptr, 0, 0)) {
+  while (::GetMessage(&msg, nullptr, 0, 0) > 0) {
     ::TranslateMessage(&msg);
     ::DispatchMessage(&msg);
   }
 
-  ::CoUninitialize();
+  window.Destroy();
+  if (SUCCEEDED(com_result)) {
+    ::CoUninitialize();
+  }
   return EXIT_SUCCESS;
 }

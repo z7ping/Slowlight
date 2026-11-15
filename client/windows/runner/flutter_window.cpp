@@ -5,6 +5,7 @@
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
 
+#include "app_identity.h"
 #include "flutter/generated_plugin_registrant.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
@@ -41,6 +42,9 @@ bool FlutterWindow::OnCreate() {
   flutter_controller_->engine()->SetNextFrameCallback([]() {});
   flutter_controller_->ForceRedraw();
 
+  if (!::SetPropW(GetHandle(), kSlowlightMainWindowProperty, GetHandle())) {
+    ::OutputDebugStringW(L"Slowlight: could not mark the main window.\n");
+  }
   return true;
 }
 
@@ -56,6 +60,19 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == kActivateSlowlightWindow) {
+    if (::IsIconic(hwnd)) {
+      ::ShowWindow(hwnd, SW_RESTORE);
+    } else if (!::IsWindowVisible(hwnd)) {
+      ::ShowWindow(hwnd, SW_SHOW);
+    }
+    if (!::SetForegroundWindow(hwnd)) {
+      FLASHWINFO flash{sizeof(FLASHWINFO), hwnd, FLASHW_TRAY, 3, 0};
+      ::FlashWindowEx(&flash);
+    }
+    return 0;
+  }
+
   // Windows Restart Manager uses the end-session messages when an installer
   // needs a running application to release files. Handle these before Flutter
   // plugins so window_manager's "close to tray" interception cannot turn an
@@ -68,6 +85,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       (lparam & ENDSESSION_CLOSEAPP) != 0) {
     ::DestroyWindow(hwnd);
     return 0;
+  }
+
+  if (message == WM_NCDESTROY) {
+    ::RemovePropW(hwnd, kSlowlightMainWindowProperty);
   }
 
   // Give Flutter, including plugins, an opportunity to handle window messages.

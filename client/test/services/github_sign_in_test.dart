@@ -268,6 +268,7 @@ void main() {
             http.Response(
               '{"code":"github_unavailable","error":"需要重新授权"}',
               503,
+              headers: {'content-type': 'application/json; charset=utf-8'},
             ),
           );
         },
@@ -296,7 +297,11 @@ void main() {
     }
     expect(
       () => GitHubSignIn.decodeReliablePollResponse(
-        http.Response('{"error":"授权已超时"}', 410),
+        http.Response(
+          '{"error":"授权已超时"}',
+          410,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
       ),
       throwsA(isA<StateError>()),
     );
