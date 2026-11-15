@@ -1017,6 +1017,17 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    final filters = find.byType(FxSegmented);
+    Finder filter(String label) =>
+        find.descendant(of: filters, matching: find.text(label));
+    final firstFilter = tester.getCenter(filter('今天'));
+    final lastFilter = tester.getCenter(filter('已完成'));
+    final addTask = tester.getCenter(find.widgetWithText(FxButton, '新建任务'));
+    expect(lastFilter.dy, firstFilter.dy);
+    expect(lastFilter.dx, greaterThan(firstFilter.dx));
+    expect(addTask.dx, greaterThan(lastFilter.dx));
+    expect(addTask.dy, closeTo(firstFilter.dy, 1));
+
     final row = find.byKey(const ValueKey('tasks.row.221'));
     final hint = find.text('选择一项任务查看详情');
     expect(row, findsOneWidget);

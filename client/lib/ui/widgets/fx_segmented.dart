@@ -65,7 +65,6 @@ class FxSegmented extends StatelessWidget {
                 : const Duration(milliseconds: 140),
             curve: Curves.easeOutCubic,
             constraints: BoxConstraints(minHeight: itemMinHeight, minWidth: 52),
-            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: selected
@@ -74,14 +73,20 @@ class FxSegmented extends StatelessWidget {
               borderRadius: BorderRadius.circular(borderRadius - 2),
               boxShadow: selected ? selectedShadow : null,
             ),
-            child: Text(
-              labels[index],
-              textAlign: TextAlign.center,
-              style: SlowlightTypography.componentChip(context).copyWith(
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected
-                    ? theme.colorScheme.onSurface
-                    : theme.colorScheme.onSurfaceVariant,
+            // Wrap passes each item the full available width. Size to the
+            // label unless the expanded row gives the item a tight width.
+            child: Align(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Text(
+                labels[index],
+                textAlign: TextAlign.center,
+                style: SlowlightTypography.componentChip(context).copyWith(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
