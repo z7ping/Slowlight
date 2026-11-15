@@ -12,10 +12,13 @@ import 'package:slowlight/screens/list_manage_screen.dart';
 import 'package:slowlight/screens/about_screen.dart';
 import 'package:slowlight/screens/search_screen.dart';
 import 'package:slowlight/widgets/task_detail_sheet.dart';
-import 'package:slowlight/ui/fx.dart' show FxGestureDetector, FxNotice, FxNoticePlacement;
+import 'package:slowlight/ui/fx.dart' show FxGestureDetector, FxNotice, FxNoticePlacement, FxSegmented;
 import 'package:slowlight/screens/home_screen.dart';
 import 'package:slowlight/screens/quadrant_screen.dart';
 import 'package:slowlight/screens/calendar_screen.dart';
+import 'package:slowlight/screens/today_review_screen.dart';
+import 'package:slowlight/screens/weekly_review_screen.dart';
+import 'package:slowlight/widgets/review/task_30day_tab.dart';
 import 'package:slowlight/widgets/dashboard/dashboard_body.dart';
 
 import '../support/fx_test_host.dart';
@@ -460,6 +463,34 @@ void main() {
       expect(opacity(), lessThan(1));
       await tester.pump(const Duration(milliseconds: 180));
       expect(opacity(), 1);
+      expect(tester.takeException(), isNull);
+      await disposeFxTestHost(tester);
+    });
+
+    testWidgets('Android 主导航进入回顾后能切换本周和近 30 天', (tester) async {
+      await pumpAt(tester, size: const Size(360, 800), textScale: 1.3);
+      await tester.tap(find.byKey(const ValueKey('home.bottom-nav.review')));
+      await tester.pumpAndSettle();
+
+      final review = find.byType(TodayReviewScreen);
+      final periods = find.descendant(
+        of: review,
+        matching: find.byType(FxSegmented),
+      );
+      Finder period(String label) =>
+          find.descendant(of: periods, matching: find.text(label));
+      final week = period('本周');
+      final month = period('近 30 天');
+      expect(tester.getCenter(week).dy, tester.getCenter(month).dy);
+      await tester.tap(week);
+      await tester.pumpAndSettle();
+      expect(find.byType(WeeklyReviewScreen), findsOneWidget);
+      expect(tester.widget<FxSegmented>(periods).selectedIndex, 1);
+
+      await tester.tap(month);
+      await tester.pumpAndSettle();
+      expect(find.byType(TaskMonthTab), findsOneWidget);
+      expect(tester.widget<FxSegmented>(periods).selectedIndex, 2);
       expect(tester.takeException(), isNull);
       await disposeFxTestHost(tester);
     });

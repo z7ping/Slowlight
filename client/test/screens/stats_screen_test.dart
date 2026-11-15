@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slowlight/screens/stats_screen.dart';
@@ -121,7 +122,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('stats.kpi.tasks')));
     expect(destinations, [StatsDestination.tasks]);
-    await tester.tap(find.text('今天').first);
+    final list = find.byType(Scrollable);
+    final today = find.text('今天');
+    await tester.scrollUntilVisible(today, -180, scrollable: list);
+    await tester.tap(today);
     await tester.pumpAndSettle();
     expect(find.text('99'), findsWidgets);
     expect(find.text('今日专注'), findsOneWidget);
@@ -132,7 +136,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('stats.kpi.review')));
     expect(destinations.last, StatsDestination.review);
 
-    await tester.ensureVisible(find.text('查看详细时间分配'));
+    await tester.scrollUntilVisible(
+      find.text('查看详细时间分配'),
+      240,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('查看详细时间分配'));
     expect(destinations.last, StatsDestination.timeDistribution);
@@ -141,9 +149,12 @@ void main() {
   });
 
   testWidgets('P10 320dp 大字保持统计操作与事实可滚动', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tester.view.physicalSize = const Size(320, 680);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final destinations = <StatsDestination>[];
     await tester.pumpWidget(buildFxTestHost(
       home: MediaQuery(
         data: const MediaQueryData(
@@ -153,15 +164,22 @@ void main() {
         child: Scaffold(
           body: StatsScreen(
             snapshotLoader: () async => _snapshot(fullTrend: true),
-            onNavigate: (_) {},
+            onNavigate: destinations.add,
           ),
         ),
       ),
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('stats.kpi.tasks')), findsOneWidget);
-    await tester.ensureVisible(find.text('查看详细时间分配'));
+    final details = find.text('查看详细时间分配');
+    await tester.scrollUntilVisible(
+      details,
+      240,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.pumpAndSettle();
+    await tester.tap(details);
+    expect(destinations, [StatsDestination.timeDistribution]);
     expect(tester.takeException(), isNull);
     await disposeFxTestHost(tester);
   });

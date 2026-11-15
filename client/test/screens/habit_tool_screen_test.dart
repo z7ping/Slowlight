@@ -1019,7 +1019,8 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
-  testWidgets('筛选全部、待记录、已记录来自仓库真实状态', (tester) async {
+  testWidgets('Windows 习惯筛选横排且使用仓库真实状态', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     tester.view.physicalSize = const Size(1080, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1030,12 +1031,20 @@ void main() {
     expect(find.text('每日阅读'), findsOneWidget);
     expect(find.text('户外散步'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('habits.filter_pending')));
+    final all = find.byKey(const ValueKey('habits.filter_all'));
+    final pending = find.byKey(const ValueKey('habits.filter_pending'));
+    final done = find.byKey(const ValueKey('habits.filter_done'));
+    final positions = [all, pending, done].map(tester.getCenter).toList();
+    expect(positions.map((position) => position.dy).toSet(), hasLength(1));
+    expect(positions[1].dx, greaterThan(positions[0].dx));
+    expect(positions[2].dx, greaterThan(positions[1].dx));
+
+    await tester.tap(pending);
     await tester.pumpAndSettle();
     expect(find.text('每日阅读'), findsOneWidget);
     expect(find.text('户外散步'), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('habits.filter_done')));
+    await tester.tap(done);
     await tester.pumpAndSettle();
     expect(find.text('户外散步'), findsOneWidget);
     expect(find.text('每日阅读'), findsNothing);

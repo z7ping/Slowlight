@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""复用现有 Fx 契约测试，输出可追溯的设计一致性检查结果。"""
+"""运行 Fx 契约和核心页面回归，输出可追溯的设计一致性检查结果。"""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +11,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGETS = ("test/ui", "test/widgets/fx_form_size_contract_test.dart")
+TARGETS = (
+    "test/ui",
+    "test/widgets/fx_form_size_contract_test.dart",
+    # Real consumers of the shared navigation, segmented controls and menus.
+    "test/screens/home_screen_test.dart",
+    "test/screens/task_compact_layout_test.dart",
+    "test/screens/habit_tool_screen_test.dart",
+    "test/screens/calendar_screen_test.dart",
+    "test/screens/stats_screen_test.dart",
+    "test/screens/settings_appearance_rest_test.dart",
+    "test/screens/migration_history_dialog_test.dart",
+    "test/widgets/habit_editor_sheet_test.dart",
+    "test/widgets/habit_editor_v3_recovery_test.dart",
+    "test/widgets/task_detail_sheet_test.dart",
+)
 
 
 def main() -> int:
@@ -26,7 +40,7 @@ def main() -> int:
     command = [flutter or "flutter", "test", "--no-pub", "--machine", *TARGETS]
     failures = []
     counts = {"通过": 0, "失败": 0, "跳过": 0}
-    print("[设计检查] 复用 test/ui 全目录及 Fx 表单尺寸契约，不创建第二套扫描规则。", flush=True)
+    print("[设计检查] 运行 Fx 契约及核心页面入口回归。", flush=True)
     if errors:
         for error in errors:
             print(f"[设计检查] {error}", file=sys.stderr)
@@ -101,7 +115,7 @@ def main() -> int:
             "统计": counts, "失败测试": failures, "启动错误": errors,
             "契约检查": "通过" if result == 0 else "失败或未能执行",
             "整页视觉验收": "未执行", "真实设备验收": "未执行",
-            "说明": "测试覆盖 Fx/Token/平台与几何契约，不证明整页外观或真实数据链路。",
+            "说明": "测试覆盖共享组件契约与列出的页面入口，整页视觉和真实设备另验。",
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"[设计检查] 通过{counts['通过']} / 失败{counts['失败']} / 跳过{counts['跳过']}。")
     print(f"[设计检查] {'通过' if result == 0 else '失败'}；整页视觉与真实设备验收仍须单独执行。")
