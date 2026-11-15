@@ -29,6 +29,8 @@ python scripts/design/check.py --report client/build/design-check/report.json
 
 它复用现有 `client/test/ui` 和 `fx_form_size_contract_test.dart`，覆盖架构、Token、旧入口、主题、排版、控件几何、焦点/交互及表单字体缩放的既有契约。添加在 `test/ui` 下的新测试自动进入检查。
 
+Android 底部 Sheet 的 UI-16/17 试点从任务新建、习惯打卡、记录观察入口读取绘制圆角并执行手势边界测试。[测试快照](client/test/fixtures/design/android_bottom_sheet.json) 由内部 UI/UX 规范导出，更新与联验方式见内部设计入口的「Android 底部 Sheet 数值试点」。
+
 检查失败需要修复根因；不得通过扩大例外、更新截图或删除测试把失败变成通过。现有规则无法表达的合理平台适配，先说明能力原因，再在最小范围调整规则及反例。
 
 ## 验收不能由测试代替
