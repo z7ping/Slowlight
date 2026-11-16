@@ -137,7 +137,7 @@ class _OverlayFFI {
 }
 
 /// Desktop lock screen using native overlay windows on ALL monitors.
-/// - Flutter window is hidden during lock.
+/// - Visible Flutter windows are temporarily hidden during lock.
 /// - Native overlay DLL covers every monitor with black bg + countdown.
 /// - Primary monitor also gets clickable skip/postpone buttons.
 /// - Keyboard is blocked via keyhook.dll.
@@ -148,6 +148,7 @@ class LockScreenManager {
 
   bool _isLocked = false;
   bool _isLocking = false;
+  bool _mainWindowHiddenForRest = false;
   bool get isLocked => _isLocked;
 
   Timer? _actionPollTimer;
@@ -187,7 +188,11 @@ class LockScreenManager {
         if (overlayResult < 0) return;
 
         _isLocked = true;
-        await windowManager.hide();
+        if (await windowManager.isVisible() &&
+            !await windowManager.isMinimized()) {
+          _mainWindowHiddenForRest = true;
+          await windowManager.hide();
+        }
 
         // 遮罩已成功启动后才允许启动键盘钩子。
         KeyboardHookFFI.start();
@@ -207,7 +212,7 @@ class LockScreenManager {
     }
   }
 
-  Future<void> unlock() async {
+  Future<void> unlock({bool showFallback = false}) async {
     if (!_isLocked && !_isLocking) return;
     _isLocked = false;
 
@@ -218,19 +223,23 @@ class LockScreenManager {
       }
     }
 
-    await _cleanup();
+    await _cleanup(showFallback: showFallback);
   }
 
-  Future<void> _cleanup() async {
+  Future<void> _cleanup({bool showFallback = false}) async {
     _stopActionPolling();
 
     if (Platform.isWindows) {
       try { KeyboardHookFFI.stop(); } catch (_) {}
       try { _OverlayFFI.stop(); } catch (_) {}
-      try {
-        await windowManager.show();
-        await windowManager.focus();
-      } catch (e) {}
+      final restoreMainWindow = _mainWindowHiddenForRest;
+      _mainWindowHiddenForRest = false;
+      if (restoreMainWindow || showFallback) {
+        try {
+          await windowManager.show();
+          await windowManager.focus();
+        } catch (e) {}
+      }
     } else {
       // Linux/macOS: 退出全屏
       try {
@@ -268,7 +277,7 @@ class LockScreenManager {
     if (!_isLocked) return;
     // Bring back the hidden Flutter window before asking ReminderService to
     // show the existing in-app rest fallback. Never end the rest implicitly.
-    await unlock();
+    await unlock(showFallback: true);
     ReminderService().reportNativeOverlayFailure();
   }
 
