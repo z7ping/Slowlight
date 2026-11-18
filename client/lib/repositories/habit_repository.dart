@@ -128,12 +128,16 @@ class HabitRepository {
     String? specificTime,
     Map<String, dynamic>? reminderAt,
   }) async {
+    final rule = scheduleRule ?? habit.scheduleRule;
+    final preserveLegacySchedule = habit.scheduleRule.isEmpty && rule.isEmpty;
     await _dataSource.updateHabit(habit.id, {
       'name': name ?? habit.name,
       'icon': icon ?? habit.icon,
       'color': color ?? habit.color,
-      'frequency': frequency ?? habit.frequency,
-      'schedule_rule': scheduleRule ?? habit.scheduleRule,
+      if (!preserveLegacySchedule ||
+          (frequency != null && frequency != habit.frequency))
+        'frequency': frequency ?? habit.frequency,
+      if (!preserveLegacySchedule) 'schedule_rule': rule,
       'record_type': recordType ?? habit.recordType,
       'record_unit': recordUnit ?? habit.recordUnit,
       'record_time_label': recordTimeLabel ?? habit.recordTimeLabel,

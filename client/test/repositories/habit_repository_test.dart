@@ -168,4 +168,31 @@ void main() {
     expect(updated.systemTagId, isNull);
     expect(updated.specificTime, '');
   });
+
+  test('update only sends changed legacy scheduling fields', () async {
+    final source = FakeHabitDataSource();
+    source.habits.single['schedule_rule'] = const <String, dynamic>{};
+    final repo = HabitRepository(dataSource: source);
+    final habit = (await repo.getAll()).single;
+
+    final renamed = await repo.update(
+      habit,
+      name: '晚间阅读',
+      frequency: habit.frequency,
+      scheduleRule: const {},
+    );
+    expect(source.lastUpdate, isNot(contains('schedule_rule')));
+    expect(source.lastUpdate, isNot(contains('frequency')));
+    expect(renamed.name, '晚间阅读');
+    expect(renamed.scheduleRule, isEmpty);
+    expect(renamed.frequency, habit.frequency);
+
+    final rescheduled = await repo.update(renamed, frequency: 'weekly');
+    expect(source.lastUpdate, isNot(contains('schedule_rule')));
+    expect(rescheduled.frequency, 'weekly');
+
+    const rule = {'version': 1, 'kind': 'interval', 'anchor_date': '2026-08-01'};
+    await repo.update(rescheduled, scheduleRule: rule);
+    expect(source.lastUpdate?['schedule_rule'], rule);
+  });
 }
