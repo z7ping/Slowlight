@@ -147,6 +147,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
   bool _allowMobilePop = false;
   bool _closePending = false;
   late String _initialDraftFingerprint;
+  String? _legacyScheduleFingerprint;
   List<Tag> _selectedTags = const [];
   late String _icon;
   late String _color;
@@ -329,6 +330,12 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
           : null;
       _resultUnknown = true;
       _validationError = '已恢复上次未确认的草稿。请核对列表；确认未保存后再允许重新保存。';
+    }
+    // An empty stored rule uses the legacy frequency. Defaults in the editor
+    // are a starting point for a new rule, rather than a pending migration.
+    if (habit?.scheduleRule.isEmpty == true &&
+        (draft == null || draft.scheduleRule.isEmpty)) {
+      _legacyScheduleFingerprint = jsonEncode(_currentRule().toJson());
     }
     _initialDraftFingerprint = _draftFingerprint();
   }
@@ -519,6 +526,9 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
     if (_submitting || _resultUnknown) return;
     final name = _name.text.trim();
     final rule = _currentRule();
+    final schedule = rule.toJson();
+    final preserveLegacySchedule = _legacyScheduleFingerprint != null &&
+        _legacyScheduleFingerprint == jsonEncode(schedule);
     final targetText = _targetDays.text.trim();
     final durationText = _duration.text.trim();
     final target = targetText.isEmpty ? 0 : int.tryParse(targetText);
@@ -548,7 +558,7 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
                 _recordType != 'legacy'))) {
       error = '累计方式与记录类型不匹配';
     }
-    if (error == null && rule.validationError != null) {
+    if (error == null && !preserveLegacySchedule) {
       error = rule.validationError;
     }
     if (error != null) {
@@ -560,10 +570,12 @@ class _HabitEditorDialogState extends State<HabitEditorDialog> {
       name: name,
       icon: _icon,
       color: _color,
-      frequency: _mode == 'interval' && rule.every == 1
-          ? const {'day': 'daily', 'week': 'weekly', 'month': 'monthly', 'year': 'yearly'}[_unit] ?? 'custom'
-          : 'custom',
-      scheduleRule: rule.toJson(),
+      frequency: preserveLegacySchedule
+          ? _frequency
+          : _mode == 'interval' && rule.every == 1
+              ? const {'day': 'daily', 'week': 'weekly', 'month': 'monthly', 'year': 'yearly'}[_unit] ?? 'custom'
+              : 'custom',
+      scheduleRule: preserveLegacySchedule ? const {} : schedule,
       recordType: _recordType,
       recordUnit: recordUnit,
       recordTimeLabel: recordTimeLabel,

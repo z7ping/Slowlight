@@ -128,6 +128,88 @@ void main() {
     await disposeFxTestHost(tester);
   });
 
+  testWidgets('X05 旧习惯改名时保留空排程与原频率', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1100, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final habit = Habit(
+      id: 506,
+      userId: 1,
+      name: '旧习惯',
+      frequency: 'custom',
+      specificTime: '19:30',
+      reminderAt: const {'enabled': true, 'hour': 19, 'minute': 20},
+      createdAt: DateTime(2026, 1, 1),
+    );
+    HabitEditorValue? saved;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: HabitEditorDialog(habit: habit, onSubmit: (value) async {
+          saved = value;
+        }),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(FxInput).first, '新名称');
+    await tester.ensureVisible(find.text('保存'));
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+
+    expect(saved?.name, '新名称');
+    expect(saved?.frequency, 'custom');
+    expect(saved?.scheduleRule, isEmpty);
+    expect(saved?.specificTime, '19:30');
+    expect(saved?.reminderAt, habit.reminderAt);
+    await disposeFxTestHost(tester);
+  });
+
+  testWidgets('X05 主动修改旧习惯的排程时提交 V3 规则', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tester.view.physicalSize = const Size(1100, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final habit = Habit(
+      id: 507,
+      userId: 1,
+      name: '旧周计划',
+      frequency: 'weekly',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    HabitEditorValue? saved;
+    await tester.pumpWidget(buildFxTestHost(
+      home: Scaffold(
+        body: HabitEditorDialog(habit: habit, onSubmit: (value) async {
+          saved = value;
+        }),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final every = find.byWidgetPredicate(
+      (widget) => widget is FxInput && widget.label == '每 N 小时/天/周/月',
+    );
+    await tester.ensureVisible(every);
+    await tester.enterText(every, '2');
+    final anchor = find.byWidgetPredicate(
+      (widget) => widget is FxInput && widget.placeholder == 'YYYY-MM-DD',
+    );
+    await tester.ensureVisible(anchor);
+    await tester.enterText(anchor, '2026-01-01');
+    await tester.ensureVisible(find.text('保存'));
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+
+    expect(saved?.frequency, 'custom');
+    expect(saved?.scheduleRule['unit'], 'week');
+    expect(saved?.scheduleRule['every'], 2);
+    expect(saved?.scheduleRule['anchor_date'], '2026-01-01');
+    await disposeFxTestHost(tester);
+  });
+
   testWidgets('X05 Windows 取消编辑必须先确认未保存的草稿', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
